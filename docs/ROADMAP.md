@@ -11,7 +11,7 @@
 
 1. **sly1-decomp builds `SCUS_971.98` byte for byte** from assembly. Everything after rests on it.
 2. **Matching.** The compiler qualified, the file split, the per-function checker, progress reporting.
-3. **Asset research.** How the retail disc stores its data, and the level, model, texture and sound formats, documented from retail's own code.
+3. **Asset research.** How the retail disc stores its data, and the level, model, texture and sound formats, documented from retail's own code. Measured so far ([sly1-decomp's DISC.md](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/DISC.md)): the file system lists only the executable and the IOP modules; everything else lies in unlisted sectors from 12345 on, found through an index the loader reads, and it is data only, with no code to port.
 4. **The port.** Its design: how decompiled PS2 code is hosted on PC, the renderer, audio, input, saves. A design note in `docs/port/` comes before code. OpenRAC's `port/` is the model, and its code may be used, credited.
 5. **A launcher**, once something runs.
 
