@@ -1,0 +1,28 @@
+# Your own discs, and everything extracted or built from them, never go into
+# git (docs/policy/SOURCING.md).
+/baserom/*
+!/baserom/README.md
+/build/
+/assets/
+*.iso
+*.img
+*.bin
+*.elf
+
+# The compilers you supply (toolchains/README.md).
+/toolchains/*
+!/toolchains/README.md
+
+# Python and editors
+__pycache__/
+*.pyc
+.venv/
+venv*/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Agent worktrees and local settings
+.claude/worktrees/
+.claude/settings.local.json
