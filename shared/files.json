@@ -1,0 +1,12 @@
+{
+  "comment": "Files a game project keeps an identical copy of. tools/openthievius.py check fails when a copy differs from the original here.",
+  "files": [
+    {
+      "path": "tools/disc.py",
+      "copies": [
+        "sly1:tools/disc.py"
+      ],
+      "what": "The ISO 9660 and raw CD image reader"
+    }
+  ]
+}
