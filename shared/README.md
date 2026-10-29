@@ -8,3 +8,4 @@ differs. Change the original and every copy in the same change.
 | Original | Copies |
 |---|---|
 | `tools/disc.py` | sly1-decomp `tools/disc.py` |
+| `tools/proprietary.py` | sly1-decomp `tools/proprietary.py` |

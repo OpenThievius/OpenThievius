@@ -3,10 +3,13 @@
   "files": [
     {
       "path": "tools/disc.py",
-      "copies": [
-        "sly1:tools/disc.py"
-      ],
+      "copies": ["sly1:tools/disc.py"],
       "what": "The ISO 9660 and raw CD image reader"
+    },
+    {
+      "path": "tools/proprietary.py",
+      "copies": ["sly1:tools/proprietary.py"],
+      "what": "The scan for game data and proprietary material that every repository check runs"
     }
   ]
 }
