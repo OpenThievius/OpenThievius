@@ -16,6 +16,11 @@ python3 port/tools/sly1.py status --version eu --json
 It is a planning/status tool, not a host build. The next step is the source
 bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
 
+Host generation can be tried with `python3 port/tools/sly1.py hostgen`; its
+generated files stay under `build/port/`. The current translation is
+experimental and does not produce a playable game. It needs full C++ source
+handling, a port runtime, and a host implementation of the boot/system calls.
+
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 
 1. Host-build scaffolding that reads `sly1-decomp` without modifying it and
