@@ -8,7 +8,8 @@ untracked ones that are not ignored), and needs no disc and no compiler.
 
 1. tools/proprietary.py: no binaries, disc images, game data, toolchains,
    Sony SDK headers or banners, or dumps of retail data.
-2. Every source file starts with the AGPL-3.0-or-later SPDX line.
+2. Project source uses AGPL; the credited OpenRAC hostgen component keeps
+   its upstream GPL-3.0-or-later notices.
 3. LICENSE is the GNU Affero General Public License.
 4. The README tables are current (tools/openthievius.py tables --check).
 """
@@ -22,6 +23,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import proprietary  # noqa: E402
 
 SPDX = "SPDX-License-Identifier: AGPL-3.0-or-later"
+OPENRAC_SPDX = "SPDX-License-Identifier: GPL-3.0-or-later"
 NEEDS_SPDX = {".py", ".sh", ".c", ".cpp", ".h", ".hpp", ".s", ".inc", ".ld"}
 
 
@@ -29,8 +31,11 @@ def main():
     errors = proprietary.scan(ROOT)
     for rel in proprietary.tracked(ROOT):
         path = ROOT / rel
-        if path.is_file() and path.suffix in NEEDS_SPDX and SPDX not in path.read_text(errors="replace")[:400]:
-            errors.append("%s: no '%s' line at the top" % (rel, SPDX))
+        if path.is_file() and path.suffix in NEEDS_SPDX:
+            header = path.read_text(errors="replace")[:400]
+            expected = OPENRAC_SPDX if rel.startswith(("port/tools/hostgen/", "tools/openrac_common/")) else SPDX
+            if expected not in header:
+                errors.append("%s: no '%s' line at the top" % (rel, expected))
     if "GNU AFFERO GENERAL PUBLIC LICENSE" not in (ROOT / "LICENSE").read_text()[:200]:
         errors.append("LICENSE: not the GNU Affero General Public License")
     tables = subprocess.run([sys.executable, str(ROOT / "tools" / "openthievius.py"), "tables", "--check"],

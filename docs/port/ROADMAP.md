@@ -18,12 +18,13 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 | 7 | PAL support, parity fixes, packaging and launcher | Both retail versions are supported |
 
 **Current implementation:** the hostgen tool and CMake entry point are in
-place. The current Sly profile stages C++ sources as C-compatible inputs and
-translates 454 functions in the local checkout; this loses constructs and is
-not suitable for a playable build yet. The first execution frontier is the
-retail entry function at `func_00100008`, which still needs startup and system
-call handling. The next milestone is a semantics-preserving C++ input path,
-then native implementations for the functions needed to get past startup.
+place. The Sly profile stages C++ sources as C-compatible inputs and, with
+local retail-backed assembly available, translates 1,532 functions from C and
+3,086 from assembly. Fifteen source files remain unreadable and the C++
+adapter can lose constructs, so this is not a playable build. The first
+execution frontier is the retail entry function at `func_00100008`, which
+stops at a system call. The next milestone is a semantics-preserving C++
+input path, then native implementations for startup and system calls.
 
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in

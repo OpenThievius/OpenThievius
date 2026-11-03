@@ -1,0 +1,35 @@
+{
+  "id": "sly1-us",
+  "title": "Sly Cooper and the Thievius Raccoonus (NTSC-U)",
+  "game": "sly1",
+  "serial": "SCUS_971.98",
+  "entry": "func_00100008",
+  "source": "src",
+  "sources": [
+    "src"
+  ],
+  "skip": [],
+  "includes": [
+    "include"
+  ],
+  "defines": [],
+  "names": {},
+  "symbols": [
+    "config/us/symbol_addrs.txt"
+  ],
+  "groups": [],
+  "catalogues": [
+    "config/us/functions.tsv"
+  ],
+  "roots": [
+    "func_00100008"
+  ],
+  "source_standard": "gnu99",
+  "asm": {
+    "enabled": true,
+    "dirs": [
+      "asm/us"
+    ],
+    "gp": "0x002832F0"
+  }
+}

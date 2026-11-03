@@ -11,6 +11,8 @@ import argparse
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -74,6 +76,53 @@ def status(source, version):
     }
 
 
+def prepare_c_view(source, version):
+    """Stage Sly's C-like C++ units as C for the current hostgen frontend."""
+    staged = ROOT / "build" / "port" / "source" / version
+    if staged.exists():
+        shutil.rmtree(staged)
+    (staged / "src").mkdir(parents=True)
+    (staged / "include").mkdir()
+    (staged / "config" / version).mkdir(parents=True)
+    for path in ("include/common.h", f"config/{version}/symbol_addrs.txt"):
+        shutil.copy2(source / path, staged / path)
+    function_table = (source / "config" / version / "functions.tsv").read_text(encoding="utf-8").splitlines()
+    catalogue_rows = []
+    for line in function_table[1:]:
+        if not line:
+            continue
+        columns = line.split("\t")
+        columns[1] = "0x" + columns[1]
+        catalogue_rows.append("\t".join(columns[:3]))
+    (staged / "config" / version / "functions.tsv").write_text("\n".join(catalogue_rows) + "\n", encoding="utf-8")
+    for directory in ("main", "lib"):
+        out_dir = staged / "src" / directory
+        out_dir.mkdir()
+        for cpp in sorted((source / "src" / directory).glob("*.cpp")):
+            text = cpp.read_text(encoding="utf-8")
+            tags = sorted(set(re.findall(r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*\)\)\s*)?([A-Za-z_]\w*)\s*\{", text)))
+            prelude = "#define bool _Bool\n" + "".join("typedef {0} {1} {1};\n".format(kind, tag) for kind, tag in tags)
+            (out_dir / (cpp.stem + ".c")).write_text(prelude + text, encoding="utf-8")
+    return staged
+
+
+def run_hostgen(source, version):
+    """Prepare and translate the available matched C into the ignored build tree."""
+    if version != "us":
+        raise ValueError("hostgen is configured for NTSC-U only")
+    staged = prepare_c_view(source, version)
+    config = ROOT / "port" / "game" / "sly1-us" / "hostgen.json"
+    out = ROOT / "build" / "port" / "hostgen" / version
+    cmd = [sys.executable, str(ROOT / "port/tools/hostgen/hostgen.py"),
+           "--game", str(config), "--source", str(staged), "--out", str(out), "--jobs", "1",
+           "--asm-source", str(source), "--allow-unreadable"]
+    retail = source / "baserom" / version / "SCUS_971.98"
+    if retail.is_file():
+        cmd += ["--retail-exe", str(retail)]
+    proc = subprocess.run(cmd, cwd=ROOT)
+    return proc.returncode
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -81,8 +130,15 @@ def main(argv=None):
     p.add_argument("--version", choices=("us", "eu"), default="us")
     p.add_argument("--source", help="sly1-decomp checkout (or OPENTHIEVIUS_SOURCE_SLY1)")
     p.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    hp = sub.add_parser("hostgen", help="generate host-side C for matched NTSC-U sources")
+    hp.add_argument("--source", help="sly1-decomp checkout (or OPENTHIEVIUS_SOURCE_SLY1)")
     args = parser.parse_args(argv)
     source = source_root(args.source)
+    if args.command == "hostgen":
+        if not (source / "config/us/functions.tsv").is_file():
+            print("error: no sly1-decomp checkout at %s" % source, file=sys.stderr)
+            return 1
+        return run_hostgen(source, "us")
     try:
         result = status(source, args.version)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:

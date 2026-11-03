@@ -12,3 +12,8 @@ add_custom_target(port_status
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py status
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
     COMMENT "Inspecting the configured Sly 1 decompilation")
+
+add_custom_target(port_hostgen
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py hostgen
+            --source ${OPENTHIEVIUS_SOURCE_SLY1}
+    COMMENT "Generating host-side C from matched Sly 1 sources")

@@ -52,4 +52,4 @@ Decompile functions, research the engine, or help design the port.
 
 **See:** [Credits](CREDITS.md) · [Licenses](LICENSE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-OpenThievius is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). It is an unofficial fan project, not affiliated with or endorsed by Sucker Punch Productions or Sony Interactive Entertainment. *Sly Cooper* is a trademark of Sony Interactive Entertainment ([LICENSE.md](LICENSE.md#trademarks)).
+OpenThievius-authored work is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). The imported OpenRAC host-generation tools retain their GPL-3.0-or-later notices ([LICENSE.md](LICENSE.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). This is an unofficial fan project, not affiliated with or endorsed by Sucker Punch Productions or Sony Interactive Entertainment. *Sly Cooper* is a trademark of Sony Interactive Entertainment ([LICENSE.md](LICENSE.md#trademarks)).

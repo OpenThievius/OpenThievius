@@ -1,18 +1,21 @@
 # Licensing
 
-Everything in OpenThievius, and in the projects it brings together, is
-licensed under the **GNU Affero General Public License, version 3 or (at your
-option) any later version** ([LICENSE](LICENSE)), Copyright (c) 2026 the
-OpenThievius contributors.
+OpenThievius's own work is licensed under the **GNU Affero General Public
+License, version 3 or (at your option) any later version** ([LICENSE](LICENSE)),
+Copyright (c) 2026 the OpenThievius contributors. The credited OpenRAC
+components below retain their upstream GPL-3.0-or-later notices and are
+combined with this project under GPL/AGPL version 3 compatibility.
 
 | Repository or directory | License |
 |---|---|
-| OpenThievius (this repository: `tools/`, `docs/`, `port/`, `games/`, the top-level files) | AGPL-3.0-or-later |
+| OpenThievius-authored files | AGPL-3.0-or-later |
+| `port/tools/hostgen/`, `tools/openrac_common/` | GPL-3.0-or-later; OpenRAC-authored, credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | [sly1-decomp](https://github.com/OpenThievius/sly1-decomp) | AGPL-3.0-or-later; its [LEGAL.md](https://github.com/OpenThievius/sly1-decomp/blob/master/LEGAL.md) says what that covers there |
 
-Source files start with `SPDX-License-Identifier: AGPL-3.0-or-later`. All of
-it is the contributors' own work or OpenRAC's, the sister project of the same
-maintainers, credited where it is used; no other third-party code is taken in
+OpenThievius-authored source files start with
+`SPDX-License-Identifier: AGPL-3.0-or-later`. Reused files keep their original
+SPDX license. All code is the contributors' own work or the specifically
+credited OpenRAC work; no other third-party code is taken in
 ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
 [docs/policy/SOURCING.md](docs/policy/SOURCING.md#openrac)).
 
