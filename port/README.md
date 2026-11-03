@@ -1,16 +1,30 @@
 # The native port
 
-Not started. The port will run the decompiled game natively on Windows, macOS
-and Linux, with the game's data read from your own disc.
+The port will run the decompiled game natively on Windows, macOS and Linux,
+with the game's data read from your own disc. The current architecture and
+staged plan are in [docs/port/DESIGN.md](../docs/port/DESIGN.md) and
+[docs/port/ROADMAP.md](../docs/port/ROADMAP.md).
 
-What it will need, in order ([docs/ROADMAP.md](../docs/ROADMAP.md)):
+The first port tool inspects the decompilation's committed sources and reports
+matching coverage:
 
-1. A design note (`docs/port/`): how decompiled PS2 code is hosted on PC, what
-   replaces the EE, VU, GS, IOP and SPU2, and how the port stays in step with
-   sly1-decomp as functions are matched. OpenRAC's `port/` is the model, and
-   its code may be used, credited ([SOURCING.md](../docs/policy/SOURCING.md#openrac));
-   nothing comes from other ports.
-2. An extractor for the disc's data.
-3. The runtime, the renderer, audio, input and saves.
+```sh
+python3 port/tools/sly1.py status --source /path/to/sly1-decomp
+python3 port/tools/sly1.py status --version eu --json
+```
+
+It is a planning/status tool, not a host build. The next step is the source
+bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
+
+What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
+
+1. Host-build scaffolding that reads `sly1-decomp` without modifying it and
+   reports the functions still blocking the execution path.
+2. An extractor and asset converters derived from Sly 1 retail discs.
+3. A native renderer and host services for audio, input, files and saves.
+
+OpenRAC's port design and its own authored code may be used with the credit
+required by [the sourcing policy](../docs/policy/SOURCING.md#openrac). Sly's
+code and behavior are researched independently from retail.
 
 Everything here is AGPL-3.0-or-later ([LICENSE.md](../LICENSE.md)).
