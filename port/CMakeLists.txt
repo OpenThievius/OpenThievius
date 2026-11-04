@@ -4,6 +4,7 @@ project(OpenThieviusPort VERSION 0.1.0 LANGUAGES C CXX)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(Threads REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
@@ -13,7 +14,8 @@ set(OPENTHIEVIUS_SOURCE_SLY1 "${CMAKE_CURRENT_SOURCE_DIR}/../../sly1-decomp" CAC
     "Path to the sibling sly1-decomp checkout")
 
 # Native runtime modules are added here as their interfaces are established.
-# Keep this configure target dependency-free so a clean checkout is inspectable.
+# SDL3 is required for the native window target; source inspection remains
+# independent of the retail executable and generated code.
 add_custom_target(port_status
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py status
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
@@ -42,6 +44,7 @@ add_custom_target(port_link_generated
             --out ${CMAKE_CURRENT_BINARY_DIR}/sly1_link_check
             --cxx ${CMAKE_CXX_COMPILER}
             --link-library=${CMAKE_DL_LIBS}
+            --link-library=SDL3
     DEPENDS port_compile_generated sly1_port_runtime
     COMMENT "Linking generated Sly 1 code without running it")
 
@@ -55,6 +58,7 @@ add_custom_target(port_native
             --out ${CMAKE_CURRENT_BINARY_DIR}/sly1_native
             --cxx ${CMAKE_CXX_COMPILER}
             --link-library=${CMAKE_DL_LIBS}
+            --link-library=SDL3
     DEPENDS port_compile_generated sly1_port_runtime
     COMMENT "Linking the native Sly 1 launcher")
 
@@ -89,8 +93,9 @@ add_library(sly1_port_runtime STATIC
     runtime/kernel.cpp
     runtime/sif.cpp
     runtime/sly1_timer.cpp
+    runtime/sdl_renderer.cpp
     runtime/memory.cpp
     runtime/ps2float.cpp
     sly1/build_info.cpp)
 target_include_directories(sly1_port_runtime PUBLIC . runtime/include)
-target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads SDL3::SDL3 ${CMAKE_DL_LIBS})

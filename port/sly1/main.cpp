@@ -5,6 +5,9 @@
 #include "openrac/game_host.h"
 #include "openrac/memory.h"
 #include "openrac/native_gs.h"
+#include "openrac/native_window.h"
+
+#include <SDL3/SDL.h>
 
 extern "C" {
 #include "game_protos.h"
@@ -164,7 +167,34 @@ int main(int argc, char** argv) {
             }
         });
     }
-    if (!openrac_game_run()) {
+    if (!openrac_native_window_create()) {
+        trace_stop.store(true, std::memory_order_relaxed);
+        if (trace_thread.joinable()) trace_thread.join();
+        std::cerr << "could not create the SDL3 native presentation window: "
+                  << SDL_GetError() << '\n';
+        return 1;
+    }
+
+    std::atomic<bool> game_started{false};
+    bool game_result = false;
+    std::thread game_thread([&] {
+        game_result = openrac_game_run();
+        game_started.store(true, std::memory_order_release);
+    });
+    while (!game_started.load(std::memory_order_acquire)) {
+        openrac_native_window_present();
+        if (openrac_native_window_poll_quit()) {
+            game_thread.detach();
+            openrac_native_window_destroy();
+            trace_stop.store(true, std::memory_order_relaxed);
+            if (trace_thread.joinable()) trace_thread.join();
+            return 0;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    game_thread.join();
+    openrac_native_window_destroy();
+    if (!game_result) {
         trace_stop.store(true, std::memory_order_relaxed);
         if (trace_thread.joinable()) trace_thread.join();
         std::cerr << "the Sly 1 entry point is not available in this build\n";

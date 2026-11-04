@@ -87,7 +87,11 @@ The packet reader now turns observed point, line, triangle, strip, fan and
 sprite vertex submissions into host screen-space triangle vertices. At the
 existing frame boundary the runtime publishes a snapshot; a bounded run
 reports 120 vertices. This first draw path carries vertex colors only. It
-does not yet draw textured geometry or present a window.
+does not yet draw textured geometry. An SDL3 window now consumes those
+snapshots on the main thread and presents the color geometry at the game's
+640x224 logical resolution. Guest execution runs on a separate host thread.
+This is an initial presentation prototype, not a playable renderer: it has no
+texture sampling, gamepad mapping or scene streaming yet.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler

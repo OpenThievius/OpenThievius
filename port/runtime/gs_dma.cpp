@@ -219,9 +219,6 @@ extern "C" int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value) {
         openrac::log::info("native GIF DMA transfer={} bytes={} FIFO_pending={}", transfer + 1,
                            transferred, openrac_guest_gif_fifo_pending());
     }
-    if (!g_headless_notice.test_and_set(std::memory_order_relaxed)) {
-        openrac::log::warn("native GIF FIFO has no GS renderer; queued commands are not displayed");
-    }
     return 1;
 }
 
