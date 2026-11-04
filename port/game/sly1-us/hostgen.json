@@ -23,12 +23,12 @@
   ],
   "libraries": "libraries.tsv",
   "library_api": "native_libraries.tsv",
+  "overrides": "hand/overrides.tsv",
   "roots": [
     "func_00100008",
     "func_001858F8",
     "func_001E2398"
   ],
-  "from_assembly": ["func_001B93D8"],
   "source_standard": "gnu99",
   "asm": {
     "enabled": true,
