@@ -44,8 +44,10 @@ add_custom_target(port_combine_decomp_host32
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/combine_decomp_host32.py
             --objects ${CMAKE_CURRENT_BINARY_DIR}/host32/objects
             --out ${CMAKE_CURRENT_BINARY_DIR}/host32/link
+            --functions ${OPENTHIEVIUS_SOURCE_SLY1}/config/us/functions.tsv
             --nm ${CMAKE_NM}
             --ld ${CMAKE_LINKER}
+            --cxx ${CMAKE_CXX_COMPILER}
     DEPENDS port_compile_decomp_host32
     COMMENT "Combining native C++ objects using retail function and data addresses")
 

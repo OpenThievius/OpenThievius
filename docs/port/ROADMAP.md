@@ -205,12 +205,21 @@ not a linked game or a playable build.
 The native combine step aliases differing C++ prototypes by their retail
 function address and maps `D_XXXXXXXX` globals to their encoded retail address.
 It combines the 68 objects into one relocatable i386 object, resolving all 373
-data references and 1,310 function references. The remaining link frontier is
-603 distinct function addresses (876 mangled symbol names); these functions do
-not have compiled definitions in the current source units. The next native
-work is to resolve the function closure needed for startup and level loading,
-then replace that path's platform calls with native services. Do not stub this
+data references and 1,310 function references. Its generated map has native
+addresses for 2,319 catalogued functions. The remaining link frontier is 603
+distinct function addresses (876 mangled symbol names); these functions do not
+have compiled definitions in the current source units. The next native work is
+to resolve the function closure needed for startup and level loading, then
+replace that path's platform calls with native services. Do not stub this
 entire unresolved set and call the result a game.
+
+`RetailDataMap` maps the ELF load segments into a 32-bit process as non-
+executable data and can patch static data words that match known function
+addresses. A local native process mapped the user's ELF and read the catalog
+key `0x2` at `0x00247AF0`; the pointer patcher also replaced the 145 repeated
+static entries for one known retail function. These are address-space
+primitives only; the native map has not yet been connected to a game entry
+point.
 
 The standalone C++ catalog reader reproduces all 46 NTSC-U decoded ranges
 byte-for-byte. Resource `0x0100` is “A Stealthy Approach,” but its scene records
