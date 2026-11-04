@@ -37,5 +37,8 @@ func_00137E90	native_c/stream_reader_scalar.c
 func_00137EB0	native_c/stream_reader_scalar.c
 func_001E4EA8	native_c/func_001E4EA8.c
 func_001DCEA0	native_c/func_001DCEA0.c
+func_001F6910	native_c/display_mode.c
+func_001F6C70	native_c/display_mode.c
+func_00201A18	native_c/display_mode.c
 func_001683B8	native_c/func_001683B8.c
 func_002018E8	native_c/func_002018E8.c
