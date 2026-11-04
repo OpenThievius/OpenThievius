@@ -99,6 +99,15 @@ is active. This connects the generic stream range to a higher-level resource
 loader, but the record's meaning and its relationship to an asset catalog are
 not yet established.
 
+`func_001E4EA8` reads eight words through the record pointer stored at
+`D_00275AF0 + 4`. It forms the range passed to the reader as
+`sector = word[0] ^ word[5]` and
+`byte_count = word[1] ^ word[7]`; it rejects a zero byte count. Thus the sector
+and size in the live stream descriptor are decoded from a record, not stored
+there as plain adjacent values. The remaining words participate in record
+validation, but the producer that supplies this block and its place in the
+disc catalog remain unidentified.
+
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
 each nonnegative ID through 32-byte entries at `D_002505D8`. A native trace of
