@@ -19,8 +19,10 @@ void func_001378A0(void* self) {
     u32 i;
 
     if (*(u32*)(reader + 0x38) != SLY_LZ_STATE_MAGIC) {
-        source = *(u32*)(reader + 0x18);
-        source_remaining = *(s32*)(reader + 0x1C);
+        /* The first refill reads compressed bytes from the source cursor;
+         * +0x18/+0x1C are the output window and are initially empty. */
+        source = *(u32*)(reader + 0x20);
+        source_remaining = *(s32*)(reader + 0x24);
         control = 0;
         write_position = 0;
         *(u32*)(reader + 0x10) = 0;
@@ -60,7 +62,9 @@ void func_001378A0(void* self) {
         if (source_remaining <= 0) break;
 
         if ((control & 0x100u) == 0) {
-            control = (u32)input[0] | 0x100u;
+            /* Retail keeps the control byte in the low bits with a 0xFF00
+             * sentinel; the sentinel shifts out after eight token bits. */
+            control = (u32)input[0] | 0xFF00u;
             ++source;
             --source_remaining;
             if (source_remaining <= 0) break;

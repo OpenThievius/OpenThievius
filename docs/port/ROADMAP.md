@@ -12,12 +12,13 @@ replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
 models as gameplay features.
 The [NTSC-U catalog extractor](ASSETS.md) now locates and extracts 46 named raw
 resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
-samples. The LZ decoder now receives the verified 150,849-byte Splash stream
-and the native loader advances through its resource callback (stages 1–5).
-This is evidence that the earlier empty-reader stall is fixed, but several
-parser callbacks still resolve to no-C stubs. The native window remains black:
-GS display setup and a Sly scene renderer still
-block the first playable scene.
+samples. The native LZ backfill now consumes the 150,849-byte Splash stream
+from the retail source fields, and its first 8 KiB begins with the same bytes
+as the independent offline decoder. The parser consumes its first byte and
+16-bit field, then stalls in the following resource-skip routine. The Splash
+container format and that reader path remain unresolved. The native window is
+still black; display setup, asset interpretation and a Sly scene renderer
+remain ahead of a playable scene.
 
 ## Current no-emulation build status
 
@@ -51,11 +52,11 @@ overrides for `func_0018D608`, `func_0018D658` and `func_0018D6F0` now provide a
 thread-local packet arena in reserved guest-port memory, preserving the game
 packet-building C while replacing its platform allocation boundary. The latest
 12-second run avoided the invalid allocation fault and recorded 984 accepted
-GIF-chain submits. A newer bounded run follows the first callback through
-stages 1–5 and back to its coordinator, after priming the compressed reader
-with the raw pointer and byte count filled by the synchronous CD read. The
-native run confirms it serves the cached sector file and consumes the
-compressed header. This only proves the partial backfill returns: calls such as
+GIF-chain submits. The newest run confirms the reader serves the cached sector
+file and produces the offline decoder's verified first 8 KiB. It reaches the
+first two scalar fields, then remains inside the next resource-skip routine
+until the diagnostic run is stopped. This does not establish successful
+resource parsing: calls such as
 `func_00151A88`, `func_001C1190`, and `func_001B3040` still resolve to no-C
 stubs, so successful resource parsing is not established. The host window
 remains black; there is no display framebuffer setup, blit, or verified active
@@ -75,10 +76,11 @@ launcher currently demonstrates native gameplay.
 The separate C-only hostgen launcher compiles Sly C without translating
 assembly, and links OpenRAC's renderer, but still uses the experimental
 guest-memory/runtime services rather than the target native-service
-architecture. Its latest bounded run reads the Splash sectors and returns
-from the partial resource callback, but no-C stubs prevent treating that as a
-loaded resource. It does not configure a display framebuffer; no scene
-reaches the renderer. Do not treat that run as evidence of native gameplay.
+architecture. Its latest bounded run reads the cached Splash sectors and
+matches the offline decoder's initial output bytes, but the native parser
+stalls in a resource-skip routine. It does not configure a display framebuffer;
+no scene reaches the renderer. Do not treat that run as evidence of native
+gameplay.
 Retail MIPS translation
 remains optional research output under `us-asm-research`. Build artifacts live
 under ignored `build/port/`; port-native host32 backfills stay outside the

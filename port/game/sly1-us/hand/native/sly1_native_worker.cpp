@@ -124,6 +124,15 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                  stage, object, reader,
                  GREF(uint32_t, reader + 0x18u),
                  static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
+    if (stage == 17u) {
+        uint8_t prefix[8]{};
+        std::memcpy(prefix, openrac_guest_base + 0x70000000u, sizeof(prefix));
+        std::fprintf(stderr,
+                     "[loader] decoded_prefix=%02x%02x%02x%02x%02x%02x%02x%02x splash_tag=%#010x\n",
+                     prefix[0], prefix[1], prefix[2], prefix[3],
+                     prefix[4], prefix[5], prefix[6], prefix[7],
+                     GREF(uint32_t, 0x00275714u));
+    }
 }
 
 extern "C" void sly1_native_start_loader(void) {

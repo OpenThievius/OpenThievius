@@ -66,9 +66,10 @@ void func_001E4EA8(void* state) {
     }
 
     /* The native synchronous read replaces retail's async refill worker.
-     * Prime the compressed reader with the exact source span it just filled. */
-    *(u32*)(reader + 0x18) = (u32)D_002C3B00;
-    *(s32*)(reader + 0x1C) = (s32)range[1];
+     * +0x20/+0x24 are the compressed source cursor and length; +0x18/+0x1C
+     * stay empty so the first byte request runs the LZ window refill. */
+    *(u32*)(reader + 0x20) = (u32)D_002C3B00;
+    *(s32*)(reader + 0x24) = (s32)range[1];
 
     sly1_native_loader_stage(10, 0, (u32)reader);
 
