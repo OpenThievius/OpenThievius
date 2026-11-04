@@ -36,6 +36,8 @@
 
 extern "C" {
 gaddr openrac_guest_sp = GUEST_STACK_TOP;
+gaddr openrac_guest_stack_bottom = GUEST_STACK_BOTTOM;
+gaddr openrac_guest_stack_top = GUEST_STACK_TOP;
 }
 
 namespace {
@@ -262,9 +264,21 @@ void json_string(std::FILE* f, const char* s) {
 
 extern "C" {
 
+int openrac_guest_set_stack(gaddr bottom, gaddr top) {
+    if (bottom >= top || top > openrac_guest_ram_size) {
+        error("guest stack range is outside main RAM");
+        return 0;
+    }
+    openrac_guest_stack_bottom = bottom;
+    openrac_guest_stack_top = top;
+    return 1;
+}
+
 gaddr openrac_guest_frame(uint32_t size) {
     const gaddr sp = (openrac_guest_sp - size) & ~0xFu;
-    if (sp < GUEST_STACK_BOTTOM || sp > openrac_guest_sp) {
+    if (openrac_guest_sp < openrac_guest_stack_bottom
+        || openrac_guest_sp > openrac_guest_stack_top || sp < openrac_guest_stack_bottom
+        || sp > openrac_guest_sp) {
         fatalf("the game stack is full ({} bytes asked)", size);
     }
     openrac_guest_sp = sp;

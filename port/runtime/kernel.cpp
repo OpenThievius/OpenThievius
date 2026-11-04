@@ -152,6 +152,7 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
                                    ? GUEST_RAM_SIZE - static_cast<uint32_t>(a2)
                                    : static_cast<uint32_t>(a1);
         g_stack_top = stack + static_cast<uint32_t>(a2);
+        if (!openrac_guest_set_stack(stack, g_stack_top)) return 0;
         return g_stack_top;
     }
     case 0x3D: // SetupHeap(start, size)

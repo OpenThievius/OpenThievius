@@ -122,10 +122,14 @@ static inline gaddr openrac_guest_ram_address(gaddr address) {
  *
  * On the console such a local lives on the stack in game memory, and the
  * game passes its address around like any other pointer. Translated code
- * gives the function a frame on the game stack (GUEST_STACK_*): GFRAME(n)
- * reserves n bytes, aligned to 16, and gives them back when the function
- * returns, by whatever path. */
+ * gives the function a frame on the active game stack (initially
+ * GUEST_STACK_*, then set by SetupThread): GFRAME(n) reserves n bytes,
+ * aligned to 16, and gives them back when the function returns, by whatever
+ * path. */
 extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_sp;
+extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_stack_bottom;
+extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_stack_top;
+int openrac_guest_set_stack(gaddr bottom, gaddr top);
 gaddr openrac_guest_frame(uint32_t size);
 
 static inline void openrac_guest_frame_end(gaddr* saved) {

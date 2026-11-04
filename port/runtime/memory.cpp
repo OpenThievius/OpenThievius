@@ -311,6 +311,8 @@ void Memory::clear() {
     for (const Region& r : kPlainRegions) {
         std::memset(base_ + r.address, 0, r.size);
     }
+    openrac_guest_stack_bottom = GUEST_STACK_BOTTOM;
+    openrac_guest_stack_top = GUEST_STACK_TOP;
     openrac_guest_sp = GUEST_STACK_TOP;
 }
 
