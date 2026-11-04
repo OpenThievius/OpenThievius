@@ -22,8 +22,12 @@ python3 port/tools/extract_sly1_catalog.py \
 ```
 
 The default output is `build/port/extracted/catalog/`. Each raw resource file
-uses its numeric key as its filename; the manifest carries the label, sector,
-byte count, rounded sector count, and flags. Add `--decode-lz` to also run each
+uses its numeric key as its filename; a matching `.sectors.bin` file includes
+the full sector-rounded range for native CD reads. The manifest carries the
+label, sector, byte count, rounded sector count, flags, and both filenames. The
+native launcher automatically reads matching catalog ranges from this folder
+(or from `OPENRAC_SLY1_CATALOG_DIR` if you store the files elsewhere), with ISO
+reads as a fallback for ranges that are not in the catalog. Add `--decode-lz` to also run each
 range through the retail 8 KiB LZ decoder; decoded files go under the
 `decoded/` subdirectory and the manifest gains their decoded sizes. This
 recovers the catalog and decoded resource streams, not yet their level/model

@@ -115,7 +115,7 @@ def extract(elf_path, disc_path, output_dir, decode_lz=False):
         with manifest_path.open("w", newline="", encoding="utf-8") as manifest_file:
             writer = csv.DictWriter(
                 manifest_file,
-                fieldnames=("key", "label", "sector", "byte_count", "sector_count", "flags", "file")
+                fieldnames=("key", "label", "sector", "byte_count", "sector_count", "flags", "file", "sector_file")
                 + (("decoded_bytes",) if decode_lz else ()),
                 delimiter="\t",
             )
@@ -124,7 +124,12 @@ def extract(elf_path, disc_path, output_dir, decode_lz=False):
                 filename = "resource_%04x.bin" % entry["key"]
                 payload = disc.read_logical(entry["sector"], 0, entry["byte_count"])
                 (output_dir / filename).write_bytes(payload)
-                row = {**entry, "file": filename}
+                sector_filename = "resource_%04x.sectors.bin" % entry["key"]
+                sector_payload = disc.read_logical(
+                    entry["sector"], 0, entry["sector_count"] * 2048
+                )
+                (output_dir / sector_filename).write_bytes(sector_payload)
+                row = {**entry, "file": filename, "sector_file": sector_filename}
                 if decode_lz:
                     decoded = decode(payload)
                     decoded_filename = "resource_%04x.decoded.bin" % entry["key"]

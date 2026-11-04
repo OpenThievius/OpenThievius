@@ -10,7 +10,9 @@ not the target gameplay architecture.
 
 The raw-disc tools recover standalone VAG audio samples and extract the
 NTSC-U executable's 46 catalogued resource ranges. The catalog tool can also
-decode all ranges with the retail LZ routine. Usage and limits are in
+decode all ranges with the retail LZ routine. The native launcher serves exact
+catalog sector ranges from the extracted files on later runs and reads other
+ranges from the ISO. Usage and limits are in
 [docs/port/ASSETS.md](../docs/port/ASSETS.md).
 
 The first port tool inspects the decompilation's committed sources and reports
