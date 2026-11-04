@@ -496,7 +496,11 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         # Its own site (guest.h, openrac_reach_site): the calls are counted in a word of its own,
         # and the first is logged, as openrac_guest_missing does.
         kind = "asm" if f.asm else "no-c"
-        body = (f"    static openrac_reach_site site_ = {{\"{f.symbol}\", \"{kind}\", 0, 0, 0}};\n"
+        places = program.code_places(f.symbol)
+        trace = (f"    openrac_guest_trace_function_entry(0x{places[0][1]:08X}u);\n"
+                 if places else "")
+        body = (trace +
+                f"    static openrac_reach_site site_ = {{\"{f.symbol}\", \"{kind}\", 0, 0, 0}};\n"
                 f"    openrac_guest_reach(&site_);")
         if ret != "void":
             body += "\n    return 0;"
@@ -655,6 +659,9 @@ def write_game_info(program: Program, out: Path, cfg: dict) -> None:
             lines.append("    return 0; /* the game's main is not known yet */")
     else:
         zeros = ", ".join("0" for _ in f.sig.params) if f.sig.prototyped else ""
+        places = program.code_places(entry)
+        if places:
+            lines.append(f"    openrac_guest_trace_function_entry(0x{places[0][1]:08X}u);")
         lines.append(f"    {cname(entry)}({zeros});")
         lines.append("    return 1;")
     lines.append("}")
