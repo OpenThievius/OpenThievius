@@ -4,6 +4,7 @@
 
 import argparse
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -60,6 +61,9 @@ def main(argv=None):
             if proc.stderr:
                 print(proc.stderr, file=sys.stderr, end="")
 
+    backfill_objects = objects_root / "port_native"
+    if backfill_objects.exists():
+        shutil.rmtree(backfill_objects)
     backfills = sorted(backfill_root.rglob("*.cpp")) if backfill_root.exists() else []
     backfill_failures = []
     for src in backfills:

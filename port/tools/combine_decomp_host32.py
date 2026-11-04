@@ -162,7 +162,15 @@ def main(argv=None):
         if len(fields) < 2 or not re.fullmatch(r"[0-9A-Fa-f]{8}", fields[1]):
             continue
         function_rows.append((int(fields[1], 16), defined_by_address.get(int(fields[1], 16), set())))
+    catalogued_addresses = {address for address, _ in function_rows}
+    extra_backfill_rows = [
+        (address, symbols)
+        for address, symbols in backfill_definitions.items()
+        if address not in catalogued_addresses
+    ]
+    function_rows.extend(extra_backfill_rows)
     function_rows.sort(key=lambda row: row[0])
+    catalogued_row_count = len(catalogued_addresses)
 
     map_source = args.out.resolve() / "native_function_map.cpp"
     map_object = args.out.resolve() / "native_function_map.o"
@@ -173,11 +181,15 @@ def main(argv=None):
     ]
     native_rows = []
     native_count = 0
+    extra_native_count = 0
     for i, (address, candidates) in enumerate(function_rows):
         if len(candidates) == 1:
             source_lines.append(f'extern "C" void sly1_native_ref_{i}() asm("{next(iter(candidates))}");')
             native_expr = f"reinterpret_cast<unsigned int>(&sly1_native_ref_{i})"
-            native_count += 1
+            if address in catalogued_addresses:
+                native_count += 1
+            else:
+                extra_native_count += 1
         else:
             native_expr = "0"
         native_rows.append(f"    {{0x{address:08x}u, {native_expr}}}")
@@ -222,8 +234,9 @@ def main(argv=None):
         "input_objects": len(objects),
         "port_native_backfill_objects": sum("port_native" in obj.parts for obj in objects),
         "port_native_backfill_functions": sum(len(v) for v in backfill_definitions.values()),
-        "catalogued_function_addresses": len(function_rows),
+        "catalogued_function_addresses": catalogued_row_count,
         "native_function_addresses": native_count,
+        "native_extra_backfill_addresses": extra_native_count,
         "function_reference_aliases": function_aliases,
         "retail_data_address_aliases": data_aliases,
         "ambiguous_function_addresses": ambiguous,
@@ -235,7 +248,8 @@ def main(argv=None):
     (args.out / "link-frontier.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"combined {len(objects)} decomp objects and the native function map")
     print(f"resolved {function_aliases} function references and {data_aliases} retail data symbols")
-    print(f"native function entries: {native_count}/{len(function_rows)}")
+    print(f"native function entries: {native_count}/{catalogued_row_count} catalogued"
+          f" (+ {extra_native_count} non-catalogued backfill addresses)")
     print(f"unresolved function addresses: {len(missing_addresses)} ({len(remaining)} symbol names)")
     print("reachable direct-call frontier: "
           f"{reachable['defined_reachable_function_addresses']}/"
