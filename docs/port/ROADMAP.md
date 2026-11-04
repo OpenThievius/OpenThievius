@@ -30,9 +30,11 @@ native CD-ready hook, and file open/poll/close use ISO lookup. The native DMA
 helper performs validated EE RAM copies synchronously; interrupt handlers,
 semaphores and CP0 timer reads have basic host implementations. SIF SetReg and
 GetReg (syscalls 0x79 and 0x7A) use a host-side register map. The SIF RPC bind
-loop is bypassed for native startup. In the latest bounded run, main startup
-polls SIF register 0x7A and worker thread 5 waits on a semaphore for SIF command
-traffic. SIF DMA (0x76–0x78), IOP RPC command dispatch, renderer, frame loop,
+loop is bypassed for native startup. Native startup publishes the SIF BOOTEND
+flag at register 4 (value 0x40000) when the disc-backed IOP replacement starts.
+In the latest bounded run, main startup still polls register 4 and worker
+thread 5 waits on a semaphore for SIF command traffic. SIF DMA (0x76–0x78), IOP
+RPC command dispatch, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 The source bridge also has unreadable source files and C++ constructs that need
 preserving; continue along the loader and boot call graph, grounding host

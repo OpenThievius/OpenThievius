@@ -283,6 +283,9 @@ extern "C" uint32_t openrac_guest_disc_sector_count(void) {
 
 extern "C" int openrac_lib_sly1_iop_boot(void) {
     if (g_disc.sectors() == 0) return 0;
+    // Sly waits on IOP's SIF system flag 4 after boot. The native file service
+    // replaces IOP boot, so publish the documented BOOTEND bit here.
+    openrac_guest_sif_set_register(4, 0x00040000u);
     constexpr uint32_t kCdState = 0x002613F0u;
     const uint32_t address = openrac_guest_ram_address(kCdState);
     if (openrac_guest_base == nullptr || address > openrac_guest_ram_size ||

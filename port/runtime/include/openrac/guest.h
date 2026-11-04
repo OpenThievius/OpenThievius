@@ -235,6 +235,7 @@ gaddr openrac_guest_last_called_address(void);
 uint32_t openrac_guest_last_kernel_service(void);
 uint32_t openrac_guest_last_kernel_thread(void);
 gaddr openrac_guest_thread_entry(uint32_t thread_id);
+void openrac_guest_sif_set_register(uint32_t reg, uint32_t value);
 void openrac_guest_trace_enable(int enabled);
 void openrac_guest_trace_function_entry(gaddr address);
 /* A registered function by its name (the executable's first, then each level program's), or null;
