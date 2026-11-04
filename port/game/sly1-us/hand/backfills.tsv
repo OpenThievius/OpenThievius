@@ -3,3 +3,5 @@ func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
 func_00152D70	native_c/display_packets.c
+func_001F5C0C	native_c/func_001F5C0C.c
+func_001F5C0C__openrac_decl_109	native_c/func_001F5C0C.c
