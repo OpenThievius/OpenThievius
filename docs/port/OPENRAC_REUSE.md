@@ -45,7 +45,7 @@ This repository already reuses OpenRAC's most important pieces:
 
 The port has also authored Sly-specific extensions around that base: Sly's
 raw-sector catalog and audio extractors, NTSC-U hostgen configuration,
-`libraries.tsv`, native launcher, service replacements and the two formatting
+`libraries.tsv`, native launcher, service replacements and functional C
 backfills. These are not OpenRAC code just because they use its architecture.
 
 ## Audit of the upstream port
@@ -95,6 +95,12 @@ calls as no-ops, and renders no geometry. Its experimental VIF/GS device code
 is not the target no-emulation renderer, so this is startup evidence only.
 Backfills remain separate from matching source under
 `port/game/sly1-us/hand/`.
+
+The Sly type-0x6C resource constructor at `func_001DB4C8` is now a port-only
+native C backfill, with its pool setup (`func_001DC740`) and vector store
+(`func_001DBA90`) kept alongside it. This closes one Sly-specific loader gap;
+it does not replace the need to reuse OpenRAC's generic host and renderer
+infrastructure or to implement Sly's parser and stream worker.
 
 The current kernel replacement is a mixed case. The generic syscall dispatch
 and thread/semaphore scaffolding were adapted from OpenRAC's documented

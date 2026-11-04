@@ -44,8 +44,11 @@ four initial display packets, but the Splash request remains pending because
 `func_001E4EA8` has no C implementation. Its retail path constructs a memory
 reader, starts Sly's chunked stream callback, updates loader/UI state, and
 later releases the reader. The factory's required class constructor
-`func_001DB4C8`, the resource parser callback `func_001DCEA0`, and the raw-disc
-read worker `func_00137490` still lack native implementations. The earlier
+`func_001DB4C8` now has a port-only native C backfill; its vector helper
+`func_001DBA90` and pool initializer `func_001DC740` are backfilled alongside
+it. They are registered through hostgen and link as native functions. The
+resource parser callback `func_001DCEA0` and raw-disc read worker
+`func_00137490` still lack native implementations. The earlier
 74-sector read was observed only in the separate assembly-research path and
 does not verify this C-only path. The direct host32 build also remains a
 diagnostic: its direct-call frontier and indirect graphics callbacks are
