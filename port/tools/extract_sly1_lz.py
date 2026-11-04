@@ -44,7 +44,7 @@ def decode(source, max_output=DEFAULT_MAX_OUTPUT):
 
             if position + 1 >= len(source):
                 raise ValueError("truncated dictionary reference")
-            token = (source[position] << 8) | source[position + 1]
+            token = source[position] | (source[position + 1] << 8)
             position += 2
             read_position = token & 0x1FFF
             # Retail initializes the run length to (token >> 13) + 2, then

@@ -75,10 +75,13 @@ parser's header. Retail's parser begins by consuming three one-byte fields;
 the third controls an array of `0x90`-byte records. The relationship between
 the stream's resource data and this parser's input still needs to be recovered.
 
-On the supplied NTSC-U disc the extractor currently produces 351,548 bytes
-from the 150,849-byte compressed span. A native capture of the parser's 2,680-
-byte reader window contains an exact 1,274-byte run from that output, but byte
-alignment drifts elsewhere in the window. The total decoded size and exact
-agreement with retail output therefore remain unverified. The resource format
-and index entry are also unknown, so the port cannot catalog or load a level
-from it yet.
+On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
+150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
+matches the corrected extractor byte-for-byte. The parser's captured 2,680-
+byte reader window also matches exactly at decoded offset 5,512. The parser's
+caller has advanced the stream before invoking `func_00162890`, which explains
+why its input begins at that offset rather than at the decoded stream start.
+This validates token byte order, dictionary behavior and the observed output
+window; it does not yet verify the entire decoded file against retail output.
+The resource format and index entry are still unknown, so the port cannot
+catalog or load a level from it yet.
