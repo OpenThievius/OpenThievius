@@ -208,3 +208,15 @@ decodes to 7,352,657 bytes, with identical SHA-256 in both implementations.
 This verifies catalog lookup, exact-length disc reads and decompression across
 the NTSC-U catalog; the decoded scene/container format and renderer inputs
 remain to be identified.
+
+## Container-format lead
+
+Each of the 46 decoded catalog resources begins with a 32-bit little-endian
+value that is 16-byte aligned and falls within that resource's decoded byte
+range. For key `0x0100` the value is `0x00240cd0`; bytes at that offset begin
+with small little-endian fields followed by IEEE-754 float-looking values.
+This strongly suggests an in-resource offset or pointer, but its target's
+meaning and the rest of the container layout are not established. Treat it as
+a format lead, not a verified scene root. The next step is to trace the retail
+loader's use of this header field and correlate it with the resource-reader
+calls before assigning names or parsing it as geometry.
