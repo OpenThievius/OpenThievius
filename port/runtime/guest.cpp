@@ -169,6 +169,7 @@ std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 int g_overlay = OPENRAC_OVERLAY_EXE;
 thread_local gaddr g_unknown_target = 0;
 std::atomic<gaddr> g_last_called_address{0};
+std::atomic<bool> g_guest_trace_enabled{false};
 
 bool strict() {
     return openrac::env::flag(openrac::env::Var::Strict);
@@ -267,6 +268,16 @@ extern "C" {
 
 gaddr openrac_guest_last_called_address(void) {
     return g_last_called_address.load(std::memory_order_relaxed);
+}
+
+void openrac_guest_trace_enable(int enabled) {
+    g_guest_trace_enabled.store(enabled != 0, std::memory_order_relaxed);
+}
+
+void openrac_guest_trace_function_entry(gaddr address) {
+    if (g_guest_trace_enabled.load(std::memory_order_relaxed)) {
+        g_last_called_address.store(address, std::memory_order_relaxed);
+    }
 }
 
 int openrac_guest_set_stack(gaddr bottom, gaddr top) {
@@ -617,7 +628,7 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         }
         openrac_guest_last_entry = address;
         openrac_guest_last_fn = e->fn;
-        g_last_called_address.store(address, std::memory_order_relaxed);
+        openrac_guest_trace_function_entry(address);
         return e->fn;
     }
     // A leaf that only returns (jr ra; and in its delay slot nothing, or v0 = 0): the tail of

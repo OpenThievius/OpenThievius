@@ -106,6 +106,7 @@ int main(int argc, char** argv) {
     std::thread trace_thread;
     const char* trace_setting = std::getenv("OPENRAC_STARTUP_TRACE");
     if (trace_setting != nullptr && std::string(trace_setting) != "0") {
+        openrac_guest_trace_enable(1);
         trace_thread = std::thread([&trace_stop] {
             while (!trace_stop.load(std::memory_order_relaxed)) {
                 const gaddr address = openrac_guest_last_called_address();

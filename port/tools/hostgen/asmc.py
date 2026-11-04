@@ -1605,6 +1605,8 @@ class Translator:
         frame = 64 + sum(-i.imm for i in map(self.at, self.reach) if i.op in ("addiu", "daddiu") and i.rs == 29
                          and i.rt == 29 and i.imm < 0)
         decl.append(f"    OPENRAC_ASM_FRAME({frame});")
+        if self.mode == "host":
+            decl.append(f"    openrac_guest_trace_function_entry(0x{self.entry_addr:08X}u);")
         decl.append("    openrac_u64 " + ", ".join(f"r{n} = 0" for n in gprs) + ";")
         if highs:
             decl.append("    openrac_u64 " + ", ".join(f"h{n} = 0" for n in highs) + ";")
