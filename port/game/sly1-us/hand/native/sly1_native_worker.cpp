@@ -12,8 +12,8 @@ extern "C" void sly1_native_start_worker(void) {
     GREF(uint32_t, params + 4u) = 1;
     const uint32_t semaphore = static_cast<uint32_t>(openrac_guest_kernel_syscall(
         0x40u, params, 0, 0, 0, 0, 0, 0, 0));
-    GREF(uint32_t, 0x00269B30u) = semaphore;
-    GREF(uint32_t, 0x00269A0Cu) = 0;
+    GREF(uint32_t, 0x00279B30u) = semaphore;
+    GREF(uint32_t, 0x00279A0Cu) = 0;
 
     const gaddr thread_params = params + 0x18u;
     GREF(uint32_t, thread_params + 0x04u) = 0x0018E558u;
@@ -23,7 +23,7 @@ extern "C" void sly1_native_start_worker(void) {
     GREF(uint32_t, thread_params + 0x14u) = 2u;
     const uint32_t thread = static_cast<uint32_t>(openrac_guest_kernel_syscall(
         0x20u, thread_params, 0, 0, 0, 0, 0, 0, 0));
-    GREF(uint32_t, 0x00275964u) = thread;
+    GREF(uint32_t, 0x00279A0Cu) = thread;
     (void)openrac_guest_kernel_syscall(0x22u, thread, 0, 0, 0, 0, 0, 0, 0);
     openrac_guest_sp = saved_sp;
 }
