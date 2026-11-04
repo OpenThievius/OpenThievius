@@ -5,6 +5,7 @@
 #define OPENRAC_HOSTGEN_GUEST_H
 
 typedef unsigned int gaddr;
+#define uint64_t unsigned long long
 #define openrac_guest_call_regs(...) (0ull)
 
 #endif

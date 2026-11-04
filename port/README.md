@@ -27,8 +27,8 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. This
 generates host C from matched Sly sources plus port-only backfills. It does not
-translate retail MIPS assembly. The current report translates 1,526 functions
-and lists 3,210 catalogued functions without C; 15 of 68 source units remain
+translate retail MIPS assembly. The current report translates 1,654 functions
+and lists 3,116 catalogued functions without C; 12 of 68 source units remain
 unreadable to its C frontend. The SDL native launcher
 builds and opens a window, reaches Sly's display loop, and submits GIF work,
 but the renderer sees no visible vertices and the window remains black. The

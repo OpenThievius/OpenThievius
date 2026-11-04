@@ -168,6 +168,13 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         msg = d["msg"]
         line = int(d["line"]) - 1
         col = int(d["col"]) - 1
+        tag = re.match(r"must use 'struct' tag to refer to type '([A-Za-z_]\w*)'", msg)
+        if tag:
+            name = tag.group(1)
+            if not re.match(rf"\s*struct\s+{re.escape(name)}\b", lines[line][col:]):
+                lines[line] = lines[line][:col] + "struct " + lines[line][col:]
+                fixes.append(f"line {line + 1}: added struct tag to {name}")
+            continue
         m = re.match(r"redeclaration of '(\w+)' with a different type", msg)
         # an extern of a variable: plain, of an anonymous struct ({...}), or with attributes
         if m and re.match(r"^\s*extern\b(?:[^;{}]|\{[^{}]*\})*;\s*$", lines[line]) \

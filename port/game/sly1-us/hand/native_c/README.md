@@ -19,3 +19,9 @@ behavior, but the renderer still receives no visible vertices. The generated
 host build still reaches functions with no matching C; it warns and leaves
 those calls as no-ops. This is port-only startup scaffolding, not a playable
 frame path.
+
+`func_00154EE0` is a separate port-only override for a cross-file type
+disagreement: its local source declares a one-word record return while the
+canonical host prototype is a 32-bit scalar. The backfill stores the returned
+word into the same four-byte item slots. Remove it when the matching sources
+agree on the callable type.
