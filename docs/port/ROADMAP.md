@@ -20,24 +20,22 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 **Current implementation:** the hostgen tool and CMake entry point are in
 place. The Sly profile stages C++ sources as C-compatible inputs and, with
 local retail-backed assembly available, translates 1,532 functions from C and
-3,136 from assembly. The guest runtime builds, all 81 generated C units compile,
+3,138 from assembly. The guest runtime builds, all 81 generated C units compile,
 and `port_link_generated` links them without running the entry point. The Sly
-`port_native` target now links a launcher that reads the user's extracted boot
-ELF, maps its segments into guest memory and calls the translated entry. It has
-been launched once with approval; startup reached translated code before the
-runtime rejected Sly's EE RAM stack bounds. The guest runtime now adopts the
-range from `SetupThread`. That run also exposed five constructor table entries
-pointing into function bodies; the launcher now registers host callbacks for
-those exact interior addresses. The entry translates its BSS setup, stack/heap
-initialization and observed boot
-syscalls, including memory copy, cache flush and kernel handler setup. The
-analyzed boot call graph still reaches 26 functions without hostable C. Its
-nearest missing functions include variadic formatting and SIF DMA operations.
-The engine timer reads a monotonic host clock at the EE Count frequency.
-Fifteen source files remain unreadable and the C++ adapter can lose constructs;
-disc services, most kernel calls, the renderer and frame loop still
-block gameplay. Continue with the loader and boot call graph, preserving C++
-semantics and grounding each host service in Sly retail evidence.
+`port_native` target links a launcher that reads the user's extracted boot ELF,
+maps its segments into guest memory and calls the translated entry. Two
+authorized startup runs reached translated code. The first exposed an
+incompatible stack range and five constructor-table interior entries; the
+runtime now adopts the range from `SetupThread`, and the launcher registers
+those five callbacks. The second run passed them, then remained in CD/IOP
+initialization until timeout. Two more interior entries from that path are now
+translated by hostgen. A native ISO 9660 sector reader accepts cooked images
+and raw 2352-byte BINs, but Sly's CD/IOP calls do not use it yet. The analyzed
+boot call graph still reaches 26 functions without hostable C. Fifteen source
+files remain unreadable and the C++ adapter can lose constructs; disc services,
+most kernel calls, the renderer and frame loop still block gameplay. Continue
+with the loader and boot call graph, preserving C++ semantics and grounding
+each host service in Sly retail evidence.
 
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in
