@@ -89,6 +89,16 @@ sector transfer itself is handled by `func_00137490`. This separates the
 compressed-source path from the nested object parser: the `0x90`-byte zero-count
 record array at offset 5,512 is not evidence about the disc index format.
 
+The range fields have a concrete setter: `func_00137328(reader, sector,
+byte_count)` stores the sector at `+0x48` and byte count at `+0x40`, while
+`func_001373B0` forwards a two-word pair to it. In the loader path,
+`func_001E4EA8` builds a memory reader over `D_002C3B00`, derives a range pair
+from its input record, and passes it to that setter before invoking the reader's
+data callback. `func_0018578C` calls this routine on `D_00275AF0` when its state
+is active. This connects the generic stream range to a higher-level resource
+loader, but the record's meaning and its relationship to an asset catalog are
+not yet established.
+
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
 each nonnegative ID through 32-byte entries at `D_002505D8`. A native trace of
