@@ -20,6 +20,7 @@ void func_001DCCC0(void* reader);
 void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
 void sly1_native_call_method(u32 address, u32 object);
+void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 void func_001C1190(void* object, void* reader);
 void func_0011EC40(void* object, void* reader);
 void func_00138550(void* reader, void* output);
@@ -62,10 +63,13 @@ void func_001DCEA0(void* self, void* reader) {
     u32 saved_context;
 
     func_00151A88(D_00261EF0);
+    sly1_native_loader_stage(15, (u32)object, (u32)reader);
     func_0011BF70();
+    sly1_native_loader_stage(16, (u32)object, (u32)reader);
     D_00275714 = func_00137B90(reader);
     *(s32*)(object + 0x1D70) = func_00137D10(reader);
     func_001DCCC0(reader);
+    sly1_native_loader_stage(1, (u32)object, (u32)reader);
 
     D_00261990 = func_0011E580(0x6D, self, 0, 4, -1);
     for (index = 0; index < 10; ++index) {
@@ -76,9 +80,11 @@ void func_001DCEA0(void* self, void* reader) {
         child = func_0011E580(0x4D, self, 0, 11, -1);
         call_descriptor_method(child, 0x1C);
     }
+    sly1_native_loader_stage(2, (u32)object, (u32)reader);
 
     func_001C1190(self, reader);
     func_0011EC40(self, reader);
+    sly1_native_loader_stage(3, (u32)object, (u32)reader);
     func_00138550(reader, object + 0x2310);
     func_001384A0(reader, object + 0x2314);
     func_00138550(reader, object + 0x1D74);
@@ -90,6 +96,7 @@ void func_001DCEA0(void* self, void* reader) {
     if (*(u32*)(object + 0x1D78) == 0) func_001BECF8();
     func_001BEB10(*(s32*)(object + 0x1D74));
     func_001B3450();
+    sly1_native_loader_stage(4, (u32)object, (u32)reader);
 
     if (func_00152720(object + 0x1BE8)) func_001DC9A0(self);
     *(u8*)(object + 0x1D67) = 0x80;
@@ -121,4 +128,5 @@ void func_001DCEA0(void* self, void* reader) {
     func_001BEC58(*(s32*)(object + 0x1D74));
     func_001C0B38(self);
     D_0027B314 = saved_context;
+    sly1_native_loader_stage(5, (u32)object, (u32)reader);
 }

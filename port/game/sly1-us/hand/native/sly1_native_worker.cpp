@@ -116,6 +116,16 @@ extern "C" void game_sly1_native_temp_end(void) {
     g_native_temp_arena.cursor = g_native_temp_arena.marks[--g_native_temp_arena.depth];
 }
 
+extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
+                                               uint32_t reader) {
+    if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
+    std::fprintf(stderr,
+                 "[loader] stage=%u object=%#010x reader=%#010x cursor=%#010x remaining=%d\n",
+                 stage, object, reader,
+                 GREF(uint32_t, reader + 0x18u),
+                 static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
+}
+
 extern "C" void sly1_native_start_loader(void) {
     const gaddr saved_sp = openrac_guest_sp;
     const gaddr params = openrac_guest_frame(0x30u);

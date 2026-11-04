@@ -16,11 +16,13 @@ void* func_00193210(void* self, const u32* a, const u32* b, const u32* c,
 void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
 void func_001DCEA0(void* self, void* reader);
+void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 
 void func_001E4EA8(void* state) {
     u8* request = (u8*)state;
     u32 record[8];
     u32 range[2];
+    u32 memory_range[2];
     u32 sector_count;
     u32 callback_data[9] = {0};
     u32 callback_word0 = 0x00003F00u;
@@ -49,11 +51,6 @@ void func_001E4EA8(void* state) {
 
     func_00137290(reader, (s32)(u32)D_002C3B00, 0x00340C00u, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;
-    if (func_001373B0(reader, (const s32*)range) == 0) {
-        func_001373D0(reader);
-        return;
-    }
-
     if (range[1] > 0x00340C00u) {
         func_001373D0(reader);
         return;
@@ -64,8 +61,17 @@ void func_001E4EA8(void* state) {
         func_001373D0(reader);
         return;
     }
-    *(u32*)(reader + 0x18) = (u32)D_002C3B00;
-    *(u32*)(reader + 0x1C) = range[1];
+
+    /* The read buffer is the memory source for the retail stream reader.
+     * func_001373B0 installs it at +0x48 and leaves +0x18/+0x1C empty so
+     * func_00137A60 enters the normal refill/decompression path. */
+    memory_range[0] = (u32)D_002C3B00;
+    memory_range[1] = range[1];
+    if (func_001373B0(reader, (const s32*)memory_range) == 0) {
+        func_001373D0(reader);
+        return;
+    }
+    sly1_native_loader_stage(10, 0, (u32)reader);
 
     for (index = 0; index < 8; ++index) {
         *(u32*)(request + 0x14 + index * 4) = record[index];
@@ -74,10 +80,14 @@ void func_001E4EA8(void* state) {
 
     object = func_0011E580(0x6C, 0, 0, 3, -1);
     D_00275710 = object;
+    sly1_native_loader_stage(11, (u32)object, (u32)reader);
     if (object != 0) {
+        sly1_native_loader_stage(12, (u32)object, (u32)reader);
         func_001DCEA0(object, reader);
+        sly1_native_loader_stage(13, (u32)object, (u32)reader);
     }
 
     func_001373D0(reader);
     *(u32*)request = 0;
+    sly1_native_loader_stage(14, (u32)object, (u32)reader);
 }
