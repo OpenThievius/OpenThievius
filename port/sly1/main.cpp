@@ -102,5 +102,11 @@ int main(int argc, char** argv) {
         std::cerr << "the Sly 1 entry point is not available in this build\n";
         return 1;
     }
+    openrac_guest_report_missing();
+    if (openrac_guest_exit_requested()) {
+        std::cerr << "Sly 1 requested guest Exit; the native frame loop is not active yet\n";
+    } else {
+        std::cerr << "Sly 1 entry returned without requesting guest Exit\n";
+    }
     return 0;
 }
