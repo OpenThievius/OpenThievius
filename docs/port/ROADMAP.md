@@ -70,6 +70,8 @@ The GIF source-chain reader now takes ADDR and SPR from bits 32-63 of the
 first DMAtag word. A bounded run accepts the observed 704-byte packed A+D
 stream and subsequent image-data chunks without rejecting channel 2 transfers.
 The FIFO still has no consumer, so these validated commands are not yet drawn.
+The host parser consumes the full GIF stream synchronously; its unused FIFO
+history is capped at a rolling 4 MiB so startup cannot grow it without bound.
 
 A stateful GIF decoder now tracks packed writes, register-list writes, image
 payload spans and EOP markers across DMA chunks. The bounded startup trace

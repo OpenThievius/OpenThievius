@@ -20,7 +20,7 @@ constexpr uint32_t kGifChcr = 0x1000A000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
 constexpr size_t kMaxTransferBytes = 64u * 1024u * 1024u;
-constexpr size_t kMaxFifoBytes = 128u * 1024u * 1024u;
+constexpr size_t kMaxFifoBytes = 4u * 1024u * 1024u;
 constexpr uint32_t kMaxTags = 1u << 16;
 
 struct DmaAddress {
@@ -68,16 +68,29 @@ bool fifo_append(const uint8_t* source, size_t size) {
     if (size == 0) return true;
     if (source == nullptr) return false;
     std::lock_guard lock(g_fifo_mutex);
-    const size_t pending = g_gif_fifo.size() - g_gif_fifo_head;
-    if (size > kMaxFifoBytes - pending) return false;
-    if (g_gif_fifo_head != 0 &&
-        (g_gif_fifo_head >= 1024u * 1024u || g_gif_fifo.size() + size > kMaxFifoBytes)) {
-        g_gif_fifo.erase(g_gif_fifo.begin(), g_gif_fifo.begin() +
-                         static_cast<std::ptrdiff_t>(g_gif_fifo_head));
+    openrac_guest_gif_stream_write(source, size);
+
+    if (size >= kMaxFifoBytes) {
+        source += size - kMaxFifoBytes;
+        size = kMaxFifoBytes;
+        g_gif_fifo.clear();
         g_gif_fifo_head = 0;
+    } else {
+        const size_t pending = g_gif_fifo.size() - g_gif_fifo_head;
+        const size_t discard = pending + size > kMaxFifoBytes
+                                   ? pending + size - kMaxFifoBytes
+                                   : 0;
+        g_gif_fifo_head += discard;
+        if (g_gif_fifo_head >= g_gif_fifo.size()) {
+            g_gif_fifo.clear();
+            g_gif_fifo_head = 0;
+        } else if (g_gif_fifo_head != 0) {
+            g_gif_fifo.erase(g_gif_fifo.begin(), g_gif_fifo.begin() +
+                             static_cast<std::ptrdiff_t>(g_gif_fifo_head));
+            g_gif_fifo_head = 0;
+        }
     }
     g_gif_fifo.insert(g_gif_fifo.end(), source, source + size);
-    openrac_guest_gif_stream_write(source, size);
     return true;
 }
 
