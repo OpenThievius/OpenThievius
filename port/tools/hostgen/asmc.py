@@ -146,6 +146,8 @@ class Translator:
     # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
     # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
     dma_stores = False
+    # asm.syscalls in hostgen.json: kernel calls with an evidenced host equivalent.
+    syscall_services: frozenset = frozenset()
     # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
     # its code agrees with, not the longest (fitting_declaration).
     fit_declarations = False
@@ -261,6 +263,7 @@ class Translator:
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
+        sub.syscall_services = self.syscall_services
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
@@ -500,6 +503,20 @@ class Translator:
                 break
         return targets
 
+    def _syscall_service(self, at: int) -> int | None:
+        """Read a nearby constant service number from $v1; dynamic calls stay unsupported."""
+        for addr in range(at - 4, at - 4 * 9, -4):
+            ins = self.at(addr)
+            if ins is None:
+                return None
+            if ins.op in ("addiu", "daddiu") and ins.rs == 0 and ins.rt == 3:
+                return ins.imm & 0xFFFFFFFF
+            if ins.op == "ori" and ins.rs == 0 and ins.rt == 3:
+                return ins.imm & 0xFFFF
+            if 3 in rw(ins)[1]:
+                return None
+        return None
+
     def _flow(self):
         """The instructions reachable from the entry; those reached only as a delay slot; and
         each jump through a register that is a jump table, with its targets."""
@@ -516,7 +533,11 @@ class Translator:
             heads.add(a)
             reach.add(a)
             done_wait = self.dma_done and ins.op in COP0_BRANCHES
-            if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait:
+            if ins.op == "syscall" and self._syscall_service(ins.addr) not in self.syscall_services:
+                service = self._syscall_service(ins.addr)
+                label = "unknown" if service is None else f"0x{service:02X}"
+                raise AsmUnsupported(f"unsupported system call {label} at {ins.addr:08X}")
+            if ins.op in UNSUPPORTED and ins.op != "syscall" and self.microprogram(ins) is None and not done_wait:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
                 todo.append(a + 4)
@@ -1043,6 +1064,12 @@ class Translator:
             return []
         if self.microprogram(ins) is not None:
             return [f"{{ extern void {self.microprogram(ins)}(void); {self.microprogram(ins)}(); }}"]
+        if op == "syscall":
+            service = self._syscall_service(ins.addr)
+            if service not in self.syscall_services:
+                raise AsmUnsupported(f"unsupported system call at {ins.addr:08X}")
+            args = ", ".join(self.R(reg) for reg in range(4, 12))
+            return self.W(2, f"openrac_guest_kernel_syscall(0x{service:02X}u, {args})")
         if op in UNSUPPORTED:
             raise AsmUnsupported(f"{UNSUPPORTED[op]} at {ins.addr:08X}")
         u32 = lambda x: f"(openrac_u32){x}"
@@ -1773,6 +1800,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
+    tr.syscall_services = frozenset(int(service) for service in a.get("syscalls", []))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
@@ -2004,6 +2032,7 @@ def write_console(stage: Stage, out: Path, names: list[str] | None = None) -> di
     console = Translator(tr.program, tr.index, tr.gp, "console", tr.source)
     console.gp_addresses = tr.gp_addresses
     console.forward_unprototyped = tr.forward_unprototyped
+    console.syscall_services = tr.syscall_services
     # Named functions are written whether or not they have C (the check of the translator on
     # more of the program than its stubs); otherwise every one translated for the port.
     todo = names or [r.name for r in stage.translated]

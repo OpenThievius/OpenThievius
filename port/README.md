@@ -32,8 +32,10 @@ cmake --build build/port --target port_link_generated
 
 The link check confirms that generated game code and the guest runtime link
 together. It registers the generated function table if launched, but never calls
-the game entry. This is not a playable build: the entry function is currently a
-stub because hostgen cannot translate its first PS2 system call.
+the game entry. Hostgen now translates the entry's BSS setup and observed boot
+syscalls (`SetupThread`, `SetupHeap`, `ExitThread`, `Exit`, and `SetGsCrt`). The
+renderer, frame loop, disc services, and the rest of the required platform
+services are not implemented, so the port still cannot launch into gameplay.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 

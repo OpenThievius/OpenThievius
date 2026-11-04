@@ -23,5 +23,6 @@ checkout commit `ae2fed40a9f4caa2e252db09b8507dc262689905`.
 | `tools/openthievius.py` | `tools/openrac.py` (`discs`, `setup`, `tables`) | written anew for game.json's shape here, with `check` |
 | `port/tools/hostgen/`, `tools/openrac_common/` | `port/tools/hostgen/`, `tools/openrac_common/` | imported for Sly host generation; upstream GPL notices retained |
 | `port/common/`, `port/runtime/` | `port/common/`, `port/runtime/` | imported as the generic native runtime foundation; RAC-specific expanded memory constants removed from the guest header |
+| `port/runtime/kernel.cpp` | `tools/interpreter/src/sys/machine.cpp` | boot subset of the documented EE syscall model (thread setup, heap setup, and single-thread exit) |
 | `baserom/README.md`, `toolchains/README.md`, `.gitignore` | the same files | this project's discs, compiler and paths |
 | `.github/workflows/checks.yml` | rac3-decomp's `checks.yml` | this repository's checks |

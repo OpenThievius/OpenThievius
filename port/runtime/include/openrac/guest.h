@@ -419,6 +419,11 @@ static inline uint32_t openrac_f2u(double x) {
  * port is being brought up the program stops at the first one instead
  * (openrac_guest_stop_on_missing), so the log ends with what to do next. */
 void openrac_guest_missing(const char* name);
+uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, uint64_t a1,
+                                     uint64_t a2, uint64_t a3, uint64_t a4,
+                                     uint64_t a5, uint64_t a6, uint64_t a7);
+int openrac_guest_exit_requested(void);
+void openrac_guest_clear_exit_requested(void);
 void openrac_guest_report_missing(void);
 void openrac_guest_stop_on_missing(int stop);
 
