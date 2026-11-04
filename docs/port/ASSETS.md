@@ -143,6 +143,12 @@ also submit text and screen-position messages, so those callers do not identify
 this record's role on their own. The catalog table separately confirms it as
 the entry with key `0x2`; resource labels are stored as pointers in the ELF.
 
+A static direct-call scan finds `func_001E4EA8` called from `func_00185758`;
+`func_00160918` is the separate startup submission of record `0x2` (Splash).
+Therefore the observed Splash read and nested-object parse do not establish how
+level resource `0x0100` uses its leading in-resource offset. That level header
+still needs to be connected to its own loader and reader calls.
+
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
 each nonnegative ID through 32-byte entries at `D_002505D8`. A native trace of
