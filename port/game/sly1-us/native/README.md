@@ -30,3 +30,10 @@ The native backfills for `func_0016E118`, `func_001DDA20` and
 `func_001DDA50` preserve the retail flag and reference-count transitions used
 by the frame-state path. Their retail instruction sequences and matching
 call-site layouts were inspected before writing the replacements.
+
+`func_001FAE18.cpp` runs the NTSC-U initializer table in reverse order through
+the generated native address map. The five interior callback wrappers preserve
+the retail `(1, -1)` arguments; `func_00211DE0.cpp` preserves its two global
+addresses. `func_001AEA70.cpp` and `func_001F2688.cpp` initialize the fixed Sly
+configuration records those callbacks target. All 18 initializer-table entries
+now resolve to native function definitions in the host32 combine output.

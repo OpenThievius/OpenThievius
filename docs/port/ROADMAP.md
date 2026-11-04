@@ -19,10 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-eleven separate port-native backfill translation units, then combines them by
+sixteen separate port-native backfill translation units, then combines them by
 retail address.
-The current combined object contains 2,341 native function entries out of
-4,766 catalogued addresses and still has 607 unresolved function addresses.
+The current combined object contains 2,340 native function entries out of
+4,766 catalogued addresses and still has 606 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -49,11 +49,20 @@ assembly translation, a link check, or a black window as playable progress.
 The host32 combine step now also writes a direct-relocation frontier rooted at
 the port's native frame-loop backfill, `func_00185758`. In the current build,
 46 of 75 functions reached through function-address relocations have compiled
-definitions; 29 are missing. This is narrower than the 607-address whole-game
+definitions; 28 are missing. This is narrower than the 606-address whole-game
 frontier and gives the next backfills a concrete starting list. It does not
 follow indirect calls through retail vtables or callback tables, so it is not
 the complete runtime closure. The machine-readable report is in
 `build/port/host32/link/link-frontier.json`.
+
+The no-emulation startup backfill now reads the NTSC-U initializer table and
+calls its 18 callbacks in reverse order through the native function map. Five
+callbacks are interior entries absent from the catalog; the combine step now
+includes separately backfilled addresses so those entries resolve as native
+code. All 18 table entries currently have native definitions, including
+port-only wrappers and two Sly configuration initializers. This establishes
+constructor coverage for that table; the host32 objects still do not link into
+a launcher.
 
 The native frame path supplies `func_001430F8`, the Sly Count read, with a
 Linux host monotonic clock scaled to 294.912 MHz, and `func_001FB6B0`, the
