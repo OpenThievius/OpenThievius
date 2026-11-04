@@ -152,6 +152,8 @@ class Translator:
     cop0_nop: frozenset = frozenset()
     # asm.cp0_count in hostgen.json: functions whose CP0 Count read has a host clock equivalent.
     cp0_count: frozenset = frozenset()
+    # asm.vu0_zero in hostgen.json: a hostless VU control read that means the unit is idle.
+    vu0_zero: frozenset = frozenset()
     # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
     # its code agrees with, not the longest (fitting_declaration).
     fit_declarations = False
@@ -270,6 +272,7 @@ class Translator:
         sub.syscall_services = self.syscall_services
         sub.cop0_nop = self.cop0_nop
         sub.cp0_count = self.cp0_count
+        sub.vu0_zero = self.vu0_zero
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
@@ -1410,6 +1413,8 @@ class Translator:
                     f"{vf(ins.rd, 2)} = openrac_ee_f({h});", f"{vf(ins.rd, 3)} = openrac_ee_f({h} >> 32);"]
         if op == "cfc2":
             n = ins.rd
+            if n == 29 and self.f.symbol in self.vu0_zero:
+                return self.W(ins.rt, "0")
             if n < 16:
                 return self.W(ins.rt, "0" if n == 0 else f"(openrac_u64){V}vi[{n}]")
             if n in (20, 21, 22):
@@ -1824,6 +1829,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.syscall_services = frozenset(int(service) for service in a.get("syscalls", []))
     tr.cop0_nop = frozenset(a.get("cop0_nop", []))
     tr.cp0_count = frozenset(a.get("cp0_count", []))
+    tr.vu0_zero = frozenset(a.get("vu0_zero", []))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
