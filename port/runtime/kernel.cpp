@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 
+#include "common/log.h"
 #include "openrac/ee.h"
 
 namespace {
@@ -163,15 +164,20 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
     case 0x20: { // CreateThread(ThreadParam*): retain the entry and its guest stack.
         const uint32_t param = openrac_guest_ram_address(static_cast<uint32_t>(a0));
         if (param > openrac_guest_ram_size || openrac_guest_ram_size - param < 24) {
-            openrac_guest_missing("CreateThread parameter is outside guest RAM");
+            openrac::log::warn("CreateThread parameter {:#010x} is outside guest RAM", param);
             return static_cast<uint64_t>(-1);
         }
         const gaddr entry = GREF(uint32_t, param + 4);
-        const gaddr stack = openrac_guest_ram_address(GREF(uint32_t, param + 8));
+        const gaddr raw_stack = GREF(uint32_t, param + 8);
+        const gaddr stack = openrac_guest_ram_address(raw_stack);
         const uint32_t stack_size = GREF(uint32_t, param + 12);
         if (entry == 0 || stack > openrac_guest_ram_size || stack_size == 0 ||
             stack_size > openrac_guest_ram_size - stack) {
-            openrac_guest_missing("CreateThread entry or stack is invalid");
+            openrac::log::warn(
+                "CreateThread rejected: param={:#010x} entry={:#010x} stack={:#010x} "
+                "normalized_stack={:#010x} stack_size={:#x} guest_ram={:#x}",
+                param, entry, raw_stack, stack, stack_size, openrac_guest_ram_size
+            );
             return static_cast<uint64_t>(-1);
         }
         const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);

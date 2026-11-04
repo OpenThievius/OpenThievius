@@ -41,6 +41,10 @@
     "cop0_nop": ["func_001FAA00"],
     "cp0_count": ["func_001430F8"],
     "cp0_status": ["func_001F6D40", "func_001F6DA8", "func_00204EC8"],
-    "vu0_zero": ["func_00201988"]
+    "vu0_zero": ["func_00201988"],
+    "signatures": {
+      "func_001F6A10": "int(void*)",
+      "func_001F6A20": "int(int, void*)"
+    }
   }
 }
