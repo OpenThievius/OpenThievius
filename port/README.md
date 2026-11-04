@@ -17,10 +17,11 @@ It is a planning/status tool, not a host build. The next step is the source
 bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
 
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
-generated files stay under `build/port/`. The current native launcher is
-experimental and does not produce a playable game. It enters the retail boot
-code and reads sectors from an ISO, but startup stalls in a DMA-related poll;
-there is no renderer or title screen yet.
+generated files stay under `build/port/`. The native launcher requires SDL3
+and remains experimental and unplayable. It enters the retail boot code,
+opens an SDL window and reaches the display loop. A first GIF parser extracts
+color-only geometry, but textured rendering, scene streaming, audio, input
+and saves remain unfinished.
 
 The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
 generated game units into a local link-check executable, run:
@@ -59,15 +60,17 @@ ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
 replacement starts. Native command handling completes the SIF command-init
 handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
-The latest bounded run no longer calls address zero and reads 74 ISO sectors.
+The latest bounded run reads the initial ISO sectors, passes the first sound
+service request using a silent fallback and reaches the display loop. It
+publishes 120 geometry vertices on some frames, which the SDL window consumes.
 The native memory-card boundary answers the observed extended-server probe
 (`0x80000400`, RPC `0xFE`) with a zero result structure; retail's
 `func_002093F0` rejects the missing version field and returns `-0x78`. This
-does not implement card detection or saves. Guest threads continue issuing GIF work,
-but the native FIFO has no renderer consumer, so the run still has no visible
-title screen. The native sound boundary completes RPC 77 as idle, so the game
-continues without audio playback. The frame loop, renderer, input, real audio,
-saves, SIF DMA and remaining device services are not implemented.
+does not implement card detection or saves. Guest threads continue issuing GIF
+work, but the color-only renderer does not yet draw the game's textures or
+produce a title screen. The native sound boundary completes RPC 77 as idle, so
+the game continues without audio playback. Textured rendering, input, real
+audio, saves, SIF DMA and remaining device services are not implemented.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
