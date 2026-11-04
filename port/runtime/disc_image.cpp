@@ -348,9 +348,14 @@ extern "C" int openrac_lib_sly1_cd_read_sectors(uint32_t sector, uint32_t count,
     }
     const int success = openrac_guest_disc_read(sector, count, destination);
     g_cd_read_error.store(success ? 0 : -1, std::memory_order_relaxed);
-    if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr)
-        std::fprintf(stderr, "[info] native disc read sector=%u count=%u destination=%#010x result=%d\n",
-                     sector, count, destination, success);
+    if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr) {
+        const uint32_t thread_id = openrac_guest_current_thread_id();
+        const gaddr caller = openrac_guest_last_called_address_for_thread(thread_id);
+        std::fprintf(stderr,
+                     "[info] native disc read thread=%u caller=%#010x sector=%u count=%u "
+                     "destination=%#010x result=%d\n",
+                     thread_id, caller, sector, count, destination, success);
+    }
     return success;
 }
 
