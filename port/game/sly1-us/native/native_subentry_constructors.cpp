@@ -13,8 +13,4 @@ void invoke_constructor_target(unsigned int address) {
 
 }  // namespace
 
-extern "C" void func_0016C450() { invoke_constructor_target(0x0016C360u); }
 extern "C" void func_001963B8() { invoke_constructor_target(0x00196330u); }
-extern "C" void func_001AEC90() { invoke_constructor_target(0x001AEA70u); }
-extern "C" void func_001E08D8() { invoke_constructor_target(0x001E0848u); }
-extern "C" void func_001F2738() { invoke_constructor_target(0x001F2688u); }

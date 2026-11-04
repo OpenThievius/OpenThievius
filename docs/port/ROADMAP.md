@@ -24,17 +24,52 @@ Sly scene renderer remain ahead of a playable scene.
 
 ## Current no-emulation build status
 
-The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-37 port-native backfill objects, combines them by retail address, and links a
-freestanding Linux/i386 diagnostic launcher. The latest generated report
-(`build/port/host32/link/link-frontier.json`) records 2,367 native definitions
-for 4,766 catalogued addresses, with 583 catalogued addresses unresolved. Its
-reachable direct-call frontier is 60/89 functions defined; the report does not
-follow indirect callbacks, function tables, constructors or vtables. The
-launcher maps the retail ELF, patches native function pointers and reaches the
-frame setup callbacks. Its latest bounded run exits at missing graphics setup
-function `0x00201D60`. It has no window or visible output; no title screen or
-playable scene is verified.
+### Decomp synchronization (2026-11-05)
+
+The decomp checkout used by this port was stale and pointed at a personal fork.
+The authoritative public upstream is
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp),
+currently at commit `f54bff58780abd430ab848028a2b8394486af4b6` (Nov 4).
+Its committed US report records 4,707/4,806 functions (97.94%) and 91.40% of
+code matched; 3,803 functions are exact C and 904 are original assembly. The
+largest immediate port benefit in this update is a broad set of class and
+record types in `include/` and the whole-file game sources. These make the
+compiled decomp more readable and help native layout work. The update also
+contains fully matched input-turning functions `func_0016EC98` and
+`func_0016EED0`, plus `func_001C2430`; however these are not on the current
+frame loop's direct-call frontier. The committed report is matching coverage,
+not runtime or playable-game coverage.
+
+The upstream snapshot currently staged outside the repository at
+`/home/reaper/.cache/sly1-decomp-upstream` is the source configured in this build tree. The
+decomp checkout at `/home/reaper/Code/sly1-decomp` was not modified. Building
+against the upstream snapshot exposed four host32 compiler blockers:
+PS2 exception runtime constructs in `lib/001FC000.cpp`, local 64-bit typedefs
+in `main/0015C000.cpp`, missing `fabsf` declaration in `main/0016C000.cpp`,
+and PS2 varargs arithmetic in `main/file_1C05D0.cpp`. Port-side staging
+adaptations now compile all 74 selected C++ units; none modifies decomp source.
+The refreshed combine step reports 3,401 native function entries and a direct
+call frontier of 610/750. The final freestanding link still fails on host ABI
+gaps, including cross-translation-unit generated C++ constructor/method names,
+`memcpy` and compiler runtime support. The old report (2,367 definitions and
+60/89 direct-call frontier) was from the stale source and is superseded.
+
+The refreshed decomp also defines 24 functions that previously had port-only
+shadow backfills. Those shadows were removed so matching C is now the source
+used by the native build. Port platform boundaries remain separate. The
+remaining host32 link failure means there is not yet a launcher run or updated
+startup result for this upstream snapshot.
+
+The no-emulation host32 path directly compiles the Sly C++ source units and
+remaining port-native backfills, then combines them by retail address. With
+upstream `f54bff5`, all 74 selected C++ units compile, but the freestanding
+Linux/i386 launcher does not yet link. The generated report in
+`build/port/host32/link/link-frontier.json` records 3,401 native function
+entries for 4,806 catalogued addresses, with 645 catalogued addresses
+unresolved. Its direct-call frontier is 610/750 functions defined; this does
+not follow indirect callbacks, function tables, constructors or vtables. The
+previous launcher result at missing graphics setup `0x00201D60` came from the
+stale decomp snapshot. There is no verified title screen or playable scene.
 The launcher now also opens a user-supplied cooked ISO or raw BIN and provides
 native synchronous sector-read, wait, and error services at Sly's CD library
 boundary. The current startup run validates the image and reaches the same

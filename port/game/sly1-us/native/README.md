@@ -6,8 +6,10 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-freestanding diagnostic launcher currently reaches frame setup and stops at
-the unresolved graphics setup function `func_00201D60`.
+current upstream snapshot compiles all 74 selected Sly C++ units, but the
+freestanding diagnostic launcher does not yet link: generated C++ method
+aliases and freestanding compiler/runtime symbols remain unresolved. Matching
+definitions discovered upstream replace the corresponding old port backfills.
 
 Run it with the extracted NTSC-U ELF and a cooked ISO or raw BIN:
 
@@ -27,8 +29,8 @@ The semaphore boundary can support native host threads, but the freestanding
 host32 diagnostic path still lacks a graphics setup service and a visible
 presentation path.
 
-`sly1_native_cd.cpp` replaces the retail sector-read, wait and error calls at
-the native boundary. The launcher opens the user's ISO/BIN with Linux large
+`sly1_native_cd.cpp` replaces the retail sector-read call at the native
+boundary. The launcher opens the user's ISO/BIN with Linux large
 file support, detects cooked 2048-byte or raw 2352-byte sectors, and reads
 logical sector payloads directly into the mapped Sly address space. Reads are
 synchronous, so the wait service reports no outstanding request. This makes
@@ -38,22 +40,6 @@ stream refill worker or prove that a level has loaded.
 `func_001430F8.cpp` replaces the reachable CP0 Count read with a monotonic host
 counter scaled to the NTSC-U 294.912 MHz tick rate used by Sly's timer code.
 It is a port-only platform service; the matching source remains unchanged.
-
-`func_001FB6B0.cpp` supplies the signed 64-bit tick-to-float conversion used
-by Sly's frame timers. It uses the host's IEEE-754 conversion and remains a
-port-only implementation until matching C is available.
-
-The native backfills for `func_0016E118`, `func_001DDA20` and
-`func_001DDA50` preserve the retail flag and reference-count transitions used
-by the frame-state path. Their retail instruction sequences and matching
-call-site layouts were inspected before writing the replacements.
-
-`func_001FAE18.cpp` runs the NTSC-U initializer table in reverse order through
-the generated native address map. The five interior callback wrappers preserve
-the retail `(1, -1)` arguments; `func_00211DE0.cpp` preserves its two global
-addresses. `func_001AEA70.cpp` and `func_001F2688.cpp` initialize the fixed Sly
-configuration records those callbacks target. All 18 initializer-table entries
-now resolve to native function definitions in the host32 combine output.
 
 `func_00128018.cpp` replaces the common affine coordinate helper with native
 float operations. It preserves the retail copy cases and computes the three
