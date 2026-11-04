@@ -13,6 +13,7 @@ from pathlib import Path
 
 FUNCTION_ADDRESS = re.compile(r"^(?:_Z13func_|func_)([0-9A-Fa-f]{8})")
 DATA_ADDRESS = re.compile(r"D_([0-9A-Fa-f]{8})")
+FUNCTION_ADDRESS_IN_NAME = re.compile(r"(?:_Z13func_|func_)([0-9A-Fa-f]{8})")
 
 
 def nm_symbols(nm, mode, path):
@@ -35,6 +36,65 @@ def nm_function_definitions(nm, path):
     return symbols
 
 
+def reachable_function_frontier(objdump, nm, path, roots):
+    """Follow function-address relocations from roots in the combined object.
+
+    This deliberately reports a direct relocation frontier, not full runtime
+    reachability: indirect calls through retail vtables and callback tables
+    need their own data-flow analysis.
+    """
+    result = subprocess.run([objdump, "-r", str(path)], check=True, text=True,
+                            capture_output=True)
+    graph = defaultdict(set)
+    section = None
+    source_address = None
+    section_header = re.compile(r"RELOCATION RECORDS FOR \[(\.text[^]]*)\]:")
+    relocation = re.compile(r"^\s*[0-9A-Fa-f]+\s+R_\S+\s+(.+?)\s*$")
+    for line in result.stdout.splitlines():
+        match = section_header.match(line)
+        if match:
+            section = match.group(1)
+            source = FUNCTION_ADDRESS_IN_NAME.search(section)
+            source_address = int(source.group(1), 16) if source else None
+            if source_address is not None:
+                graph[source_address]
+            continue
+        if section is None:
+            continue
+        if not line.strip():
+            section = None
+            source_address = None
+            continue
+        match = relocation.match(line)
+        if match and source_address is not None:
+            target = FUNCTION_ADDRESS_IN_NAME.search(match.group(1))
+            if target:
+                graph[source_address].add(int(target.group(1), 16))
+
+    defined = set()
+    for symbol in nm_function_definitions(nm, path):
+        match = FUNCTION_ADDRESS.search(symbol)
+        if match:
+            defined.add(int(match.group(1), 16))
+
+    reachable = set()
+    pending = list(roots)
+    while pending:
+        address = pending.pop()
+        if address in reachable:
+            continue
+        reachable.add(address)
+        pending.extend(graph[address] - reachable)
+    missing = sorted(reachable - defined)
+    return {
+        "roots": [f"0x{x:08x}" for x in roots],
+        "reachable_function_addresses": len(reachable),
+        "defined_reachable_function_addresses": len(reachable) - len(missing),
+        "missing_reachable_function_addresses": [f"0x{x:08x}" for x in missing],
+        "scope": "Direct function-address relocations only; indirect calls through retail vtables and callback tables are not followed.",
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--objects", required=True, type=Path)
@@ -43,7 +103,10 @@ def main(argv=None):
                         help="US function catalog from sly1-decomp/config/us/functions.tsv")
     parser.add_argument("--nm", default="nm")
     parser.add_argument("--ld", default="ld")
+    parser.add_argument("--objdump", default="objdump")
     parser.add_argument("--cxx", default="c++")
+    parser.add_argument("--root", action="append",
+                        help="retail function address for direct-call frontier analysis (default: 00185758)")
     args = parser.parse_args(argv)
 
     objects = sorted(args.objects.resolve().rglob("*.o"))
@@ -149,6 +212,12 @@ def main(argv=None):
     remaining = nm_symbols(args.nm, "--undefined-only", combined)
     missing_addresses = sorted({int(m.group(1), 16) for name in remaining
                                 if (m := FUNCTION_ADDRESS.search(name))})
+    try:
+        roots = [int(root.removeprefix("0x"), 16)
+                 for root in (args.root or ["00185758"])]
+    except ValueError:
+        parser.error("--root must be a hexadecimal retail function address")
+    reachable = reachable_function_frontier(args.objdump, args.nm, combined, roots)
     report = {
         "input_objects": len(objects),
         "port_native_backfill_objects": sum("port_native" in obj.parts for obj in objects),
@@ -160,6 +229,7 @@ def main(argv=None):
         "ambiguous_function_addresses": ambiguous,
         "unresolved_symbols": len(remaining),
         "unresolved_function_addresses": [f"0x{x:08x}" for x in missing_addresses],
+        "reachable_direct_call_frontier": reachable,
         "combined_object": str(combined),
     }
     (args.out / "link-frontier.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -167,6 +237,10 @@ def main(argv=None):
     print(f"resolved {function_aliases} function references and {data_aliases} retail data symbols")
     print(f"native function entries: {native_count}/{len(function_rows)}")
     print(f"unresolved function addresses: {len(missing_addresses)} ({len(remaining)} symbol names)")
+    print("reachable direct-call frontier: "
+          f"{reachable['defined_reachable_function_addresses']}/"
+          f"{reachable['reachable_function_addresses']} functions defined; "
+          f"{len(reachable['missing_reachable_function_addresses'])} missing")
     print(f"combined object: {combined}")
     print(f"frontier report: {args.out / 'link-frontier.json'}")
     return 0

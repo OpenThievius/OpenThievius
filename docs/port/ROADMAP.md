@@ -19,9 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-five separate port-native backfills, then combines them by retail address.
-The current combined object contains 2,324 native function entries out of
-4,766 catalogued addresses and still has 615 unresolved function addresses.
+six separate port-native backfill translation units, then combines them by
+retail address.
+The current combined object contains 2,336 native function entries out of
+4,766 catalogued addresses and still has 612 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -44,6 +45,15 @@ the boot and frame paths with accurate matching source or isolated port
 backfills, then connect the frame's game-produced drawing packets to a native
 renderer. Continue through scene loading, input, audio and saves. Do not count
 assembly translation, a link check, or a black window as playable progress.
+
+The host32 combine step now also writes a direct-relocation frontier rooted at
+the port's native frame-loop backfill, `func_00185758`. In the current build,
+39 of 73 functions reached through function-address relocations have compiled
+definitions; 34 are missing. This is narrower than the 612-address whole-game
+frontier and gives the next backfills a concrete starting list. It does not
+follow indirect calls through retail vtables or callback tables, so it is not
+the complete runtime closure. The machine-readable report is in
+`build/port/host32/link/link-frontier.json`.
 
 | Phase | Work | Milestone |
 |---|---|---|
