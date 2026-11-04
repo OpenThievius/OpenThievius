@@ -21,9 +21,12 @@ constexpr uint32_t kVif1Chcr = 0x10009000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
 constexpr uint32_t kVif1Cycle = 0x10003C40u;
+constexpr uint32_t kVif1Itops = 0x10003C90u;
+constexpr uint32_t kVif1Itop = 0x10003CD0u;
 constexpr uint32_t kVif1Base = 0x10003CA0u;
 constexpr uint32_t kVif1Offset = 0x10003CB0u;
 constexpr uint32_t kVif1Tops = 0x10003CC0u;
+constexpr uint32_t kVif1Top = 0x10003CE0u;
 constexpr uint32_t kVif1Status = 0x10003C00u;
 constexpr uint32_t kVu1Data = 0x1100C000u;
 constexpr uint32_t kVu1Micro = 0x11008000u;
@@ -323,23 +326,17 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             store_mmio(kVif1Cycle, immediate);
             break;
         case 0x02: { // OFFSET (VIF1)
-            const uint32_t tops = load_mmio(kVif1Tops) & 0x3FFu;
             store_mmio(kVif1Offset, immediate & 0x3FFu);
-            store_mmio(kVif1Base, tops);
             store_mmio(kVif1Status, load_mmio(kVif1Status) & ~(1u << 7));
-            store_mmio(kVif1Tops, tops);
+            store_mmio(kVif1Tops, load_mmio(kVif1Base) & 0x3FFu);
             break;
         }
         case 0x03: { // BASE (VIF1)
             store_mmio(kVif1Base, immediate & 0x3FFu);
-            const bool double_buffer = (load_mmio(kVif1Status) & (1u << 7)) != 0;
-            const uint32_t tops = (immediate +
-                                   (double_buffer ? load_mmio(kVif1Offset) : 0u)) & 0x3FFu;
-            store_mmio(kVif1Tops, tops);
             break;
         }
         case 0x04: // ITOP
-            openrac_guest_vu1_set_itop(immediate & 0x3FFu);
+            store_mmio(kVif1Itops, immediate & 0x3FFu);
             break;
         case 0x20: // STMASK
             immediate_bytes = 4;
@@ -364,6 +361,19 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                         stream.data() + cursor, immediate_bytes);
             break;
         case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
+            {
+                const uint32_t status = load_mmio(kVif1Status);
+                const uint32_t base = load_mmio(kVif1Base) & 0x3FFu;
+                const uint32_t offset = load_mmio(kVif1Offset) & 0x3FFu;
+                const uint32_t tops = load_mmio(kVif1Tops) & 0x3FFu;
+                const bool double_buffer = (status & (1u << 7u)) != 0;
+                const uint32_t itop = load_mmio(kVif1Itops) & 0x3FFu;
+                store_mmio(kVif1Top, tops);
+                store_mmio(kVif1Itop, itop);
+                store_mmio(kVif1Tops, double_buffer ? base : (base + offset) & 0x3FFu);
+                store_mmio(kVif1Status, status ^ (1u << 7u));
+                openrac_guest_vu1_set_itop(itop);
+            }
             ++trace->mscal_total;
             if (trace->mscal_count < trace->mscal.size())
                 trace->mscal[trace->mscal_count++] = {command, immediate & 0xFFFFu};

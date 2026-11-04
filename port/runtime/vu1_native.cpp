@@ -22,7 +22,7 @@
 namespace {
 constexpr uint32_t kVu1Data = 0x1100C000u;
 constexpr uint32_t kVu1Micro = 0x11008000u;
-constexpr uint32_t kVif1Tops = 0x10003CC0u;
+constexpr uint32_t kVif1Top = 0x10003CE0u;
 constexpr size_t kVu1Doublewords = 2048;
 constexpr size_t kVu1Quadwords = 1024;
 constexpr uint32_t kMaxInstructions = 4096;
@@ -45,7 +45,7 @@ struct State {
 std::mutex g_vu_mutex;
 State g_state;
 std::atomic_flag g_vu_context_notice = ATOMIC_FLAG_INIT;
-std::atomic_flag g_vu_kick_notice = ATOMIC_FLAG_INIT;
+std::atomic<uint32_t> g_vu_kick_notice_count{0};
 
 Vector vf_read(const State& state, uint32_t index) {
     if (index == 0) return {0.0f, 0.0f, 0.0f, 1.0f};
@@ -104,12 +104,15 @@ void vi_write(State* state, uint32_t index, uint16_t value) {
     if (index != 0) state->vi[index & 15u] = value;
 }
 
-bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag) {
+bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
+              uint32_t* failed_address, uint64_t* failed_tag) {
     std::vector<uint8_t> packet;
     size_t cursor = static_cast<size_t>(address & 0x3FFu) * 16u;
     const size_t memory_end = kVu1Quadwords * 16u;
     if (failure != nullptr) *failure = 0;
     if (first_tag != nullptr) *first_tag = 0;
+    if (failed_address != nullptr) *failed_address = 0;
+    if (failed_tag != nullptr) *failed_tag = 0;
     while (cursor + 16u <= memory_end) {
         const uint8_t* tag = openrac_guest_base + kVu1Data + cursor;
         uint64_t low = 0;
@@ -128,6 +131,8 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag) {
         if (payload_qwords > kVu1Quadwords ||
             cursor + (payload_qwords + 1u) * 16u > memory_end) {
             if (failure != nullptr) *failure = 1;
+            if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor / 16u);
+            if (failed_tag != nullptr) *failed_tag = low;
             return false;
         }
         const size_t bytes = (payload_qwords + 1u) * 16u;
@@ -323,20 +328,24 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         return true;
     }
 
-    if (primary == 0x04u || primary == 0x05u) { // ILW / ISW
+    if (primary >= 0x04u && primary <= 0x07u) { // ILW / ISW / ILWR / ISWR
         const uint32_t base = source & 15u;
-        const int32_t offset = sign_extend(word & 0x7FFu, 11);
+        const int32_t offset = primary < 0x06u ? sign_extend(word & 0x7FFu, 11) : 0;
         const uint32_t address = (vi_read(*state, base) + offset) & 0x3FFu;
-        Vector value = data_read(address);
         const uint32_t mask = (word >> 21u) & 15u;
-        if (primary == 0x04u) {
-            vf_write(state, target, value, mask);
-        } else {
-            value = vf_read(*state, target);
-            for (uint32_t lane = 0; lane < 4; ++lane) {
-                if ((mask & (8u >> lane)) == 0) continue;
-                std::memcpy(openrac_guest_base + kVu1Data + address * 16u + lane * 4u,
-                            &value[lane], sizeof(float));
+        uint8_t* data = openrac_guest_base + kVu1Data + address * 16u;
+        const bool load = primary == 0x04u || primary == 0x06u;
+        for (uint32_t lane = 0; lane < 4; ++lane) {
+            if ((mask & (8u >> lane)) == 0) continue;
+            uint16_t value = 0;
+            if (load) {
+                std::memcpy(&value, data + lane * 4u, sizeof(value));
+                vi_write(state, target, value);
+            } else {
+                value = vi_read(*state, target);
+                std::memcpy(data + lane * 4u, &value, sizeof(value));
+                const uint16_t zero = 0;
+                std::memcpy(data + lane * 4u + 2u, &zero, sizeof(zero));
             }
         }
         return true;
@@ -379,23 +388,35 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             }
             if (function == 0x3Cu && field == 0x1Bu) { // XGKICK
                 uint32_t failure = 0;
+                uint32_t failed_address = 0;
                 uint64_t first_tag = 0;
+                uint64_t failed_tag = 0;
                 const uint32_t address = vi_read(*state, source);
-                if (!kick_gif(address, &failure, &first_tag)) {
-                    if (!g_vu_kick_notice.test_and_set(std::memory_order_relaxed))
+                if (!kick_gif(address, &failure, &first_tag, &failed_address,
+                              &failed_tag)) {
+                    const uint32_t notice = g_vu_kick_notice_count.fetch_add(
+                        1, std::memory_order_relaxed);
+                    if (notice < 4u)
                         openrac::log::warn(
-                            "native VU1 XGKICK failed: VI{}={} first_tag={:#018x} reason={}",
-                            source & 15u, address, first_tag,
+                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI{}={} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x} reason={}",
+                            state->pc, vi_read(*state, 4u), source & 15u, address,
+                            *reinterpret_cast<const uint32_t*>(openrac_guest_base + kVif1Top),
+                            *reinterpret_cast<const uint32_t*>(openrac_guest_base + 0x10003CC0u), first_tag,
+                            failed_address, failed_tag,
                             failure == 1 ? "tag payload exceeds VU1 data memory" : "missing EOP");
                     *unsupported = word;
                     return false;
                 }
+                if (g_vu_kick_notice_count.load(std::memory_order_relaxed) < 4u)
+                    openrac::log::info(
+                        "native VU1 XGKICK submitted at PC {:#x}: VI{}={} first_tag={:#018x}",
+                        state->pc, source & 15u, address, first_tag);
                 return true;
             }
             if ((function == 0x3Cu || function == 0x3Du) && field == 0x1Au) {
                 uint32_t value = state->itop;
                 if (function == 0x3Cu) {
-                    std::memcpy(&value, openrac_guest_base + kVif1Tops, sizeof(value));
+                    std::memcpy(&value, openrac_guest_base + kVif1Top, sizeof(value));
                     value &= 0x3FFu;
                 }
                 vi_write(state, target, static_cast<uint16_t>(value));
