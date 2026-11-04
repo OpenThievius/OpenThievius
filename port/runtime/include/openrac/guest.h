@@ -225,6 +225,8 @@ void openrac_guest_set_overlay(int overlay);
 int openrac_guest_overlay(void);
 openrac_host_fn openrac_guest_function(gaddr address);
 const char* openrac_guest_function_name(gaddr address);
+gaddr openrac_guest_last_called_address(void);
+uint32_t openrac_guest_last_kernel_service(void);
 /* A registered function by its name (the executable's first, then each level program's), or null;
  * a name with hostgen's "game_" prefix is found too. A linear search: for set-up (mods), not for
  * calls the game makes. */

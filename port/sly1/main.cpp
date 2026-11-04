@@ -9,8 +9,12 @@ extern "C" {
 #include "game_protos.h"
 }
 
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 extern "C" {
@@ -98,10 +102,33 @@ int main(int argc, char** argv) {
     openrac_game_register_functions();
     register_sly1_subentries();
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    std::atomic<bool> trace_stop{false};
+    std::thread trace_thread;
+    const char* trace_setting = std::getenv("OPENRAC_STARTUP_TRACE");
+    if (trace_setting != nullptr && std::string(trace_setting) != "0") {
+        trace_thread = std::thread([&trace_stop] {
+            while (!trace_stop.load(std::memory_order_relaxed)) {
+                const gaddr address = openrac_guest_last_called_address();
+                const char* name = openrac_guest_function_name(address);
+                const uint32_t service = openrac_guest_last_kernel_service();
+                std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
+                          << " address=0x" << std::hex << address << std::dec
+                          << " kernel_service=";
+                if (service == 0xFFFFFFFFu) std::cerr << "none";
+                else std::cerr << "0x" << std::hex << service << std::dec;
+                std::cerr << '\n';
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        });
+    }
     if (!openrac_game_run()) {
+        trace_stop.store(true, std::memory_order_relaxed);
+        if (trace_thread.joinable()) trace_thread.join();
         std::cerr << "the Sly 1 entry point is not available in this build\n";
         return 1;
     }
+    trace_stop.store(true, std::memory_order_relaxed);
+    if (trace_thread.joinable()) trace_thread.join();
     openrac_guest_report_missing();
     if (openrac_guest_exit_requested()) {
         std::cerr << "Sly 1 requested guest Exit; the native frame loop is not active yet\n";

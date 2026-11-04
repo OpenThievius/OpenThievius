@@ -20,6 +20,7 @@ std::atomic<bool> g_exit_requested{false};
 std::atomic<bool> g_cpu_interrupts_enabled{true};
 uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
+std::atomic<uint32_t> g_last_kernel_service{0xFFFFFFFFu};
 std::mutex g_kernel_mutex;
 std::map<uint32_t, int32_t> g_semaphores;
 std::map<uint32_t, uint32_t> g_interrupt_handlers;
@@ -43,6 +44,10 @@ extern "C" int openrac_guest_exit_requested(void) {
 
 extern "C" void openrac_guest_clear_exit_requested(void) {
     g_exit_requested.store(false, std::memory_order_relaxed);
+}
+
+extern "C" uint32_t openrac_guest_last_kernel_service(void) {
+    return g_last_kernel_service.load(std::memory_order_relaxed);
 }
 
 extern "C" uint32_t openrac_guest_cp0_count(void) {
@@ -88,6 +93,7 @@ extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
 extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, uint64_t a1,
                                                   uint64_t a2, uint64_t, uint64_t,
                                                   uint64_t, uint64_t, uint64_t) {
+    g_last_kernel_service.store(service, std::memory_order_relaxed);
     switch (service) {
     case 0x10: { // InstallIntcHandler; the host renderer raises registered causes when ready.
         const uint32_t cause = static_cast<uint32_t>(a0);

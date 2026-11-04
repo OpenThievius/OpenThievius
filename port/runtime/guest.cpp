@@ -168,6 +168,7 @@ std::unordered_map<openrac_host_fn, int> g_ambiguous;
 std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 int g_overlay = OPENRAC_OVERLAY_EXE;
 thread_local gaddr g_unknown_target = 0;
+std::atomic<gaddr> g_last_called_address{0};
 
 bool strict() {
     return openrac::env::flag(openrac::env::Var::Strict);
@@ -263,6 +264,10 @@ void json_string(std::FILE* f, const char* s) {
 }  // namespace
 
 extern "C" {
+
+gaddr openrac_guest_last_called_address(void) {
+    return g_last_called_address.load(std::memory_order_relaxed);
+}
 
 int openrac_guest_set_stack(gaddr bottom, gaddr top) {
     if (bottom >= top || top > openrac_guest_ram_size) {
@@ -612,6 +617,7 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         }
         openrac_guest_last_entry = address;
         openrac_guest_last_fn = e->fn;
+        g_last_called_address.store(address, std::memory_order_relaxed);
         return e->fn;
     }
     // A leaf that only returns (jr ra; and in its delay slot nothing, or v0 = 0): the tail of
