@@ -136,14 +136,23 @@ populated transfers.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
-accepts GIF channel 2 transfers and queues their source-chain payloads. These
-port-side services do not modify the vanilla functions in `sly1-decomp`.
-`func_001E1FD0` and
-`func_001E20B8` remain unsupported varargs stubs. Only the ordinary 2048-byte
-sector mode is supported.
-The source bridge also has unreadable source files and C++ constructs that need
-preserving; continue along the loader and boot call graph, grounding host
-behavior in retail code or public hardware documentation.
+accepts GIF channel 2 transfers and queues their source-chain payloads. The
+port now also supplies functional replacements for the matched but
+hostgen-incompatible varargs bridges `func_001E1FD0` and `func_001E20B8`.
+Their formatter writes into checked guest memory and handles the common integer,
+string, pointer and floating-point conversions. These replacements live only
+under `port/game/sly1-us/hand/`; they do not change matching code or counts in
+`sly1-decomp`.
+
+The refreshed hostgen report now has zero matched-C stubs and a 12-function
+reachable frontier. It still reports 16 source units that its C frontend
+cannot read directly; their retail assembly provides translated fallbacks for
+the current build. A bounded native run after the formatting backfills stayed
+at the semaphore wait (`func_001F6B60`) with zero rendered vertices, so the
+backfills have not yet produced a visible scene or playable state. Only the
+ordinary 2048-byte sector mode is supported. Continue along the loader and
+frame/render paths, using OpenRAC's host-native workflow and grounding Sly
+behavior in its retail code.
 
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in
