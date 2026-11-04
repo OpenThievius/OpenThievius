@@ -11,8 +11,9 @@ the [OpenRAC reuse plan](OPENRAC_REUSE.md): native game code, native service
 replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
 models as gameplay features.
 An initial [VAG audio extractor](ASSETS.md) now recovers standalone samples
-from raw sectors. The unknown disc index and level/model assets still block
-the first playable scene.
+from raw sectors. The LZ decoder matches the captured retail output window and
+reaches a structured Sly reader, but the unknown disc index and level/model
+formats still block the first playable scene.
 
 | Phase | Work | Milestone |
 |---|---|---|
@@ -27,8 +28,9 @@ the first playable scene.
 
 **Experimental implementation history (not a playable-port milestone):** the hostgen tool and CMake entry point are in
 place. With local retail-backed assembly available, the latest build translated
-1,531 functions from C and 3,146 from assembly; all 81 generated C units
-compile. `port_native` reads a user's extracted boot ELF and optional ISO,
+1,499 functions from C and 3,178 from assembly; all 81 generated C units
+compile. The fresh hostgen report also lists 84 functions without C or a usable
+assembly translation. `port_native` reads a user's extracted boot ELF and optional ISO,
 maps the ELF segments, and calls the translated entry. The launcher accepts
 Sly's `SetupThread` stack range, registers five constructor-table interior
 callbacks, and runs guest worker threads on host threads with separate guest
