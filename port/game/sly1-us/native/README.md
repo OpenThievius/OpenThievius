@@ -9,6 +9,12 @@ function names to retail addresses alongside compiled decomp functions. The
 freestanding diagnostic launcher currently reaches frame setup and stops at
 the unresolved graphics setup function `func_00201D60`.
 
+Run it with the extracted NTSC-U ELF and a cooked ISO or raw BIN:
+
+```sh
+build/port/host32/launcher/sly1_host32 <SCUS_971.98> <Sly 1 ISO or BIN>
+```
+
 Remove a backfill as soon as matching C/C++ for that address is available;
 the combine step rejects an address defined by both trees. Keep these
 replacements behavior-focused and derive their state changes from Sly 1's own
@@ -20,6 +26,14 @@ and `iPollSema` wrappers. It uses host futexes and does not run PS2 instructions
 The semaphore boundary can support native host threads, but the freestanding
 host32 diagnostic path still lacks a graphics setup service and a visible
 presentation path.
+
+`sly1_native_cd.cpp` replaces the retail sector-read, wait and error calls at
+the native boundary. The launcher opens the user's ISO/BIN with Linux large
+file support, detects cooked 2048-byte or raw 2352-byte sectors, and reads
+logical sector payloads directly into the mapped Sly address space. Reads are
+synchronous, so the wait service reports no outstanding request. This makes
+the CD boundary available to native loader code; it does not implement Sly's
+stream refill worker or prove that a level has loaded.
 
 `func_001430F8.cpp` replaces the reachable CP0 Count read with a monotonic host
 counter scaled to the NTSC-U 294.912 MHz tick rate used by Sly's timer code.

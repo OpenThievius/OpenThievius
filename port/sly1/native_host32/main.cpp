@@ -74,6 +74,59 @@ u32 align_down(u32 value) { return value & ~(kPage - 1); }
 u32 align_up(u32 value) { return (value + kPage - 1) & ~(kPage - 1); }
 bool syscall_failed(int result) { return (u32)result >= 0xfffff001u; }
 
+u64 divide_u64_u32(u64 numerator, u32 denominator) {
+    u64 quotient = 0;
+    u32 remainder = 0;
+    if (denominator == 0) return 0;
+    for (int bit = 63; bit >= 0; --bit) {
+        remainder = (remainder << 1) | (u32)((numerator >> bit) & 1);
+        if (remainder >= denominator) {
+            remainder -= denominator;
+            quotient |= (u64)1 << bit;
+        }
+    }
+    return quotient;
+}
+
+int g_disc_fd = -1;
+u32 g_disc_stride = 0;
+u32 g_disc_payload = 0;
+u32 g_disc_sector_count = 0;
+int g_disc_read_error = 0;
+
+bool probe_disc_signature(u32 offset) {
+    u8 signature[6]{};
+    const int bytes = sly1_i386_syscall6(180, g_disc_fd, (int)signature,
+                                         sizeof(signature), (int)offset, 0, 0);
+    return bytes == (int)sizeof(signature) && signature[0] == 1 &&
+           signature[1] == 'C' && signature[2] == 'D' &&
+           signature[3] == '0' && signature[4] == '0' && signature[5] == '1';
+}
+
+bool open_disc_image(const char* path) {
+    constexpr int kOpenLargeFile = 0x8000;
+    g_disc_fd = syscall3(5, (int)path, kOpenLargeFile, 0);
+    if (g_disc_fd < 0) { write_text("native host32: ISO open failed\n"); return false; }
+    u64 end = 0;
+    const int seek_result = sly1_i386_syscall6(140, g_disc_fd, 0, 0,
+                                               (int)&end, 2, 0);
+    if (seek_result != 0 || end == 0) { write_text("native host32: ISO size query failed\n"); return false; }
+
+    constexpr u32 kPvdSector = 16;
+    if (probe_disc_signature(kPvdSector * 2048)) {
+        g_disc_stride = 2048;
+        g_disc_payload = 0;
+    } else if (probe_disc_signature(kPvdSector * 2352 + 16)) {
+        g_disc_stride = 2352;
+        g_disc_payload = 16;
+    } else {
+        write_text("native host32: ISO PVD probe failed\n");
+        return false;
+    }
+    g_disc_sector_count = (u32)divide_u64_u32(end, g_disc_stride);
+    return g_disc_sector_count != 0;
+}
+
 bool load_retail_image(const char* path) {
     const int fd = syscall3(5, (int)path, 0, 0);
     if (fd < 0) { write_text("native host32: cannot open ELF\n"); return false; }
@@ -158,15 +211,41 @@ bool load_retail_image(const char* path) {
 } // namespace
 
 extern "C" int sly1_native_host32_main(int argc, char** argv) {
-    if (argc != 2) {
-        write_text("usage: sly1_host32 <Sly 1 NTSC-U ELF>\n");
+    if (argc != 3) {
+        write_text("usage: sly1_host32 <Sly 1 NTSC-U ELF> <ISO or BIN>\n");
         return 2;
     }
     if (!load_retail_image(argv[1])) return 1;
-    write_text("native host32: retail data mapped; starting compiled Sly frame path\n");
+    if (!open_disc_image(argv[2])) {
+        write_text("native host32: cannot open ISO 9660 disc image\n");
+        return 1;
+    }
+    write_text("native host32: retail data and ISO mapped; starting compiled Sly frame path\n");
     func_00185758((void*)*(volatile u32*)0x0027B380u, (void*)0x0027B384u);
     return 0;
 }
+
+extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
+    if (g_disc_fd < 0 || sector > g_disc_sector_count ||
+        count > g_disc_sector_count - sector) {
+        g_disc_read_error = -1;
+        return 0;
+    }
+    for (u32 i = 0; i < count; ++i) {
+        const u64 offset = (u64)(sector + i) * g_disc_stride + g_disc_payload;
+        const int bytes = sly1_i386_syscall6(180, g_disc_fd,
+                                             (int)(destination + i * 2048), 2048,
+                                             (int)offset, (int)(offset >> 32), 0);
+        if (bytes != 2048) {
+            g_disc_read_error = bytes < 0 ? bytes : -1;
+            return 0;
+        }
+    }
+    g_disc_read_error = 0;
+    return 1;
+}
+
+extern "C" int sly1_host_cd_read_error() { return g_disc_read_error; }
 
 extern "C" __attribute__((noreturn)) void sly1_missing_function(u32 address) {
     char line[] = "native host32: missing compiled function at 0x00000000\n";

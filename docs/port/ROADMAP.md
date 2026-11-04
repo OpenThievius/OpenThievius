@@ -21,14 +21,19 @@ block the first playable scene.
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
 36 port-native backfill objects, combines them by retail address, and links a
 freestanding Linux/i386 diagnostic launcher. The latest generated report
-(`build/port/host32/link/link-frontier.json`) records 2,364 native definitions
-for 4,766 catalogued addresses, with 586 catalogued addresses unresolved. Its
+(`build/port/host32/link/link-frontier.json`) records 2,367 native definitions
+for 4,766 catalogued addresses, with 583 catalogued addresses unresolved. Its
 reachable direct-call frontier is 60/89 functions defined; the report does not
 follow indirect callbacks, function tables, constructors or vtables. The
 launcher maps the retail ELF, patches native function pointers and reaches the
 frame setup callbacks. Its latest bounded run exits at missing graphics setup
 function `0x00201D60`. It has no window or visible output; no title screen or
 playable scene is verified.
+The launcher now also opens a user-supplied cooked ISO or raw BIN and provides
+native synchronous sector-read, wait, and error services at Sly's CD library
+boundary. The current startup run validates the image and reaches the same
+graphics setup stop; the stream worker has not yet issued a verified level
+read on this host32 path.
 
 The C-only hostgen path now has port-only startup loader initialization,
 message dispatch, and Sly stream range setup backfills in
