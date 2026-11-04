@@ -349,14 +349,16 @@ existing OpenRAC pressure-mode report serializer through a native pad-read
 entry point. This input API is not yet bound to Sly's pad library calls. A
 hostgen Clang include fix also makes the 001B8000 and 001E0000 decompilation
 units readable through an AST-only guest header; the generated host build now
-translates 1,654 functions (155 more than the prior baseline) and reports
-3,116 without C. Clang's C preparation now adds missing `struct` tags in
-units whose original C++ sources use those names directly. A port-only
-`func_00154EE0` override resolves a one-word struct/scalar return disagreement
-without changing matching code. All 84 generated translation units compile
-and link; 12 of the 68 source units remain unreadable. Correcting the native
-display worker's semaphore and thread-ID addresses made it submit hundreds of
-initialization GIF chains instead of four. The frame state is still 3, there
-is no active scene or level, and no visible scene is drawn. The port is not
-playable; continue through the loader thread and Sly's native service
-boundaries.
+translates 1,657 functions and reports 3,111 without C. Clang's C preparation
+also adds missing `struct` tags in units whose original C++ sources use those
+names directly. A port-only `func_00154EE0` override resolves a one-word
+struct/scalar return disagreement without changing matching code. The latest
+hostgen build compiles and links 87 C units, with 12 of the 68 source units
+still unreadable. The native display worker submits hundreds of initialization
+GIF chains. Port-only loader backfills now set up the NTSC-U request records,
+construct the retail CRC table, create the request/completion semaphores, and
+start the worker thread. A bounded native launch traces thread 4 executing
+`func_0015EE80`; the worker remains in the request loop while the display
+worker proceeds. The frame state remains 3, `active_level` is zero, and no
+scene geometry reaches the renderer. The port is not playable; level loading,
+scene decoding/rendering, input integration, audio and other services remain.

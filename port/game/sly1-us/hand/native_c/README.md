@@ -11,14 +11,15 @@ corresponding backfill and let the matching source take precedence. Keep any
 port-specific changes here so the decompilation can later replace them cleanly.
 
 These replacements cover the persistent frame loop, frame-state dispatcher,
-state-transition helper, frame callback setup, queued display worker, display
-packet primitives and initial display-environment packet. The worker waits
-through the native `WaitSema` service and then calls Sly's existing queue and
-graphics routines. The packet helpers follow the NTSC-U retail instruction
-behavior, but the renderer still receives no visible vertices. The generated
-host build still reaches functions with no matching C; it warns and leaves
-those calls as no-ops. This is port-only startup scaffolding, not a playable
-frame path.
+state-transition helper, frame callback setup, queued display worker, loader
+request setup and worker, executable checksum guard, display packet
+primitives, and initial display-environment packet. The loader backfills
+reproduce the retail request-list sizes, CRC table and semaphore ordering.
+Native services create the loader semaphores and start its guest thread. The
+loader thread now runs and blocks on its request semaphore, while the display
+worker submits initialization GIF chains. The renderer still receives no
+visible scene geometry, and several called engine functions remain unresolved
+no-ops; this is startup progress, not a playable game.
 
 `func_00154EE0` is a separate port-only override for a cross-file type
 disagreement: its local source declares a one-word record return while the

@@ -146,6 +146,16 @@ extern "C" int openrac_lib_sly1_wait_sema(uint32_t semaphore) {
                                                          0, 0, 0, 0));
 }
 
+extern "C" int openrac_lib_sly1_create_sema(uint32_t parameters) {
+    return static_cast<int>(openrac_guest_kernel_syscall(0x40u, parameters, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
+extern "C" int openrac_lib_sly1_start_thread(int thread, uint32_t argument) {
+    return static_cast<int>(openrac_guest_kernel_syscall(0x22u,
+        static_cast<uint32_t>(thread), argument, 0, 0, 0, 0, 0, 0));
+}
+
 extern "C" int openrac_lib_sly1_dmac_add_handler(uint32_t channel, uint32_t handler,
                                                     uint32_t next, uint32_t argument,
                                                     uint32_t flags) {

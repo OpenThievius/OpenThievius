@@ -28,6 +28,7 @@ extern "C" {
 extern "C" {
 const char* openrac_game_disc_image = nullptr;
 void sly1_native_start_worker(void);
+void sly1_native_start_loader(void);
 }
 
 namespace {
@@ -77,6 +78,10 @@ void register_sly1_subentries() {
 void register_sly1_native_backfills() {
     static const openrac_fn_entry functions[] = {
         {0x0018E5E8u, sly1_native_start_worker, "sly1_native_start_worker"},
+        {0x001E2398u, sly1_native_start_loader, "sly1_native_start_loader"},
+        {0x0015E810u, reinterpret_cast<openrac_host_fn>(func_0015E810), "func_0015E810"},
+        {0x0015EDB8u, reinterpret_cast<openrac_host_fn>(func_0015EDB8), "func_0015EDB8"},
+        {0x0015EE80u, reinterpret_cast<openrac_host_fn>(func_0015EE80), "func_0015EE80"},
     };
     openrac_guest_replace_functions(OPENRAC_OVERLAY_EXE, functions,
                                     sizeof(functions) / sizeof(functions[0]));

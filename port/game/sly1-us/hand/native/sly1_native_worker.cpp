@@ -27,3 +27,22 @@ extern "C" void sly1_native_start_worker(void) {
     (void)openrac_guest_kernel_syscall(0x22u, thread, 0, 0, 0, 0, 0, 0, 0);
     openrac_guest_sp = saved_sp;
 }
+extern "C" void sly1_native_start_loader(void) {
+    const gaddr saved_sp = openrac_guest_sp;
+    const gaddr params = openrac_guest_frame(0x30u);
+    std::memset(G(params), 0, 0x30u);
+
+    const uint32_t current = static_cast<uint32_t>(openrac_guest_kernel_syscall(
+        0x2Fu, 0, 0, 0, 0, 0, 0, 0, 0));
+    (void)openrac_guest_kernel_syscall(0x29u, current, 4, 0, 0, 0, 0, 0, 0);
+
+    GREF(uint32_t, params + 0x04u) = 0x0015EE80u;
+    GREF(uint32_t, params + 0x08u) = 0x006056D0u;
+    GREF(uint32_t, params + 0x0Cu) = 0x00020000u;
+    GREF(uint32_t, params + 0x10u) = 0x002832F0u;
+    GREF(uint32_t, params + 0x14u) = 2u;
+    const uint32_t thread = static_cast<uint32_t>(openrac_guest_kernel_syscall(
+        0x20u, params, 0, 0, 0, 0, 0, 0, 0));
+    GREF(uint32_t, 0x0027595Cu) = thread;
+    openrac_guest_sp = saved_sp;
+}

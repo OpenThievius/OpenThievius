@@ -7,6 +7,7 @@
   "host_functions": [
     "openrac_native_renderer_submit_dma_chain"
   ],
+  "hand": "hand/backfills.tsv",
   "source": "src",
   "sources": [
     "src"
