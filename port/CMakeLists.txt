@@ -129,7 +129,9 @@ add_library(sly1_port_runtime STATIC
     runtime/ps2float.cpp
     platform/audio.cpp
     platform/clock.cpp
+    platform/gpu_driver.cpp
     platform/pad.cpp
+    platform/window.cpp
     sly1/build_info.cpp)
 target_include_directories(sly1_port_runtime PUBLIC . runtime/include)
 target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads SDL3::SDL3 ${CMAKE_DL_LIBS})

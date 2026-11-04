@@ -27,6 +27,7 @@ Later imports list their specific OpenRAC revision in the corresponding row.
 | `port/platform/audio.cpp`, `port/platform/audio.h`, `port/platform/audio_ring.h` | same paths at `6786a882d6b385458e05dc732af3c1bcd51e7437` | imported as game-agnostic SDL3 PCM output and callback buffering; upstream GPL notices retained |
 | `port/platform/pad.cpp`, `port/platform/pad.h` | same paths at `6786a882d6b385458e05dc732af3c1bcd51e7437` | adapted from the generic DualShock 2 state and read-buffer serialization; RAC-specific stick shaping omitted; upstream GPL notices retained |
 | `port/platform/clock.cpp`, `port/platform/clock.h` | same paths at `eefdcd1243a1c9a9fe8ca1e58bf4a5c03dd0a204` | imported OpenRAC's generic monotonic clock and exact-rate frame pacer; upstream GPL notices retained |
+| `port/platform/window.cpp`, `port/platform/window.h`, `port/platform/gpu_driver.cpp`, `port/platform/gpu_driver.h`, `port/platform/display_hdr.h` | same paths at `eefdcd1243a1c9a9fe8ca1e58bf4a5c03dd0a204` | imported OpenRAC's SDL/OpenGL window lifecycle and desktop driver interface; Sly launcher adapts its own lifecycle and event handling; upstream GPL notices retained |
 | `port/runtime/kernel.cpp` | `tools/interpreter/src/sys/machine.cpp` | boot subset of the documented EE syscall model (thread setup, heap setup, and single-thread exit) |
 | `baserom/README.md`, `toolchains/README.md`, `.gitignore` | the same files | this project's discs, compiler and paths |
 | `.github/workflows/checks.yml` | rac3-decomp's `checks.yml` | this repository's checks |
