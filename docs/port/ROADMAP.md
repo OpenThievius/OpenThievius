@@ -202,10 +202,13 @@ lowering for game logic. The host ABI header restores 32-bit pointers and
 that would otherwise truncate on i386. This is an object-compile milestone,
 not a linked game or a playable build.
 
-All 68 objects combine into one relocatable i386 object without duplicate
-definitions. That object still has 2,559 unique unresolved names: 2,186
-function references and 373 data references. The next native work is to resolve
-the matched-function closure and retail data globals for an actual boot path,
+The native combine step aliases differing C++ prototypes by their retail
+function address and maps `D_XXXXXXXX` globals to their encoded retail address.
+It combines the 68 objects into one relocatable i386 object, resolving all 373
+data references and 1,310 function references. The remaining link frontier is
+603 distinct function addresses (876 mangled symbol names); these functions do
+not have compiled definitions in the current source units. The next native
+work is to resolve the function closure needed for startup and level loading,
 then replace that path's platform calls with native services. Do not stub this
 entire unresolved set and call the result a game.
 

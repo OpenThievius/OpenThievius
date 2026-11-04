@@ -37,11 +37,7 @@ def main(argv=None):
         "-include", str(port / "sly1" / "host_abi.h"),
         "-I", str(include),
     ]
-    stamp = out / "compile.command.txt"
-    stamp.parent.mkdir(parents=True, exist_ok=True)
-    command_description = "\n".join(compiler + flags) + "\n"
-    if not stamp.exists() or stamp.read_text(encoding="utf-8") != command_description:
-        stamp.write_text(command_description, encoding="utf-8")
+    out.mkdir(parents=True, exist_ok=True)
 
     for src in sources:
         rel = src.relative_to(source / "src")
@@ -54,9 +50,6 @@ def main(argv=None):
         adapted = re.sub(r"(?i)(0x[0-9a-f]+|[0-9]+)UL\b", r"\1ULL", original)
         if not staged.exists() or staged.read_text(encoding="utf-8") != adapted:
             staged.write_text(adapted, encoding="utf-8")
-        deps = [src, staged, port / "sly1" / "host_abi.h", stamp]
-        if obj.exists() and obj.stat().st_mtime >= max(p.stat().st_mtime for p in deps):
-            continue
         cmd = compiler + flags + ["-I", str(src.parent), "-c", str(staged), "-o", str(obj)]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode:

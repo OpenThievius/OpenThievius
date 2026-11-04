@@ -40,6 +40,15 @@ add_custom_target(port_compile_decomp_host32
             --cxx ${CMAKE_CXX_COMPILER}
     COMMENT "Compiling decompiled Sly C++ directly for the native 32-bit ABI")
 
+add_custom_target(port_combine_decomp_host32
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/combine_decomp_host32.py
+            --objects ${CMAKE_CURRENT_BINARY_DIR}/host32/objects
+            --out ${CMAKE_CURRENT_BINARY_DIR}/host32/link
+            --nm ${CMAKE_NM}
+            --ld ${CMAKE_LINKER}
+    DEPENDS port_compile_decomp_host32
+    COMMENT "Combining native C++ objects using retail function and data addresses")
+
 add_custom_target(port_compile_generated
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_hostgen.py
             --generated ${CMAKE_CURRENT_BINARY_DIR}/hostgen/us
