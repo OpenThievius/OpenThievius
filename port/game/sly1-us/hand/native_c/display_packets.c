@@ -75,3 +75,32 @@ void func_00161200(void* frame) {
     if (words[7] == 0) func_001613C0(frame, 0, 1, 0xE);
     func_00161278(frame, 1);
 }
+
+// Retail packet-list finalizer at 0x00152D70. The host packet submitter
+// consumes completed DMA tags synchronously, so console cache work is absent.
+void func_00152D70(void* self) {
+    u32* fields = (u32*)self;
+    u32 current = fields[3];
+
+    if (fields[4] != 0) {
+        if ((current & 0xFu) != 0) {
+            do {
+                *(u32*)current = 0;
+                current += 4u;
+            } while ((current & 0xFu) != 0);
+            fields[3] = current;
+        }
+    } else if (fields[5] != 0) {
+        u32 callback_data = fields[6];
+        s16 offset = *(s16*)(callback_data + 8u);
+        u32 callback = *(u32*)(callback_data + 12u);
+        ((void (*)(void*, s32))callback)((u8*)self + offset, 0);
+    }
+
+    if (fields[2] != 0) {
+        u32* tag = (u32*)fields[2];
+        const u32 units = ((fields[3] - fields[2]) >> 4) - 1u;
+        tag[0] |= units;
+        fields[2] = 0;
+    }
+}
