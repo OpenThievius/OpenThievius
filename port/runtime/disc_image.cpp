@@ -147,14 +147,22 @@ public:
         std::lock_guard guard(mutex_);
         const uint64_t byte_count = uint64_t{count} * kLogicalSectorSize;
         if (byte_count > static_cast<uint64_t>(std::numeric_limits<std::streamsize>::max())) return false;
-        const auto cached = catalog_sectors_.find(first);
-        if (cached != catalog_sectors_.end() && cached->second.byte_count == byte_count) {
+        const auto cached = std::find_if(catalog_sectors_.begin(), catalog_sectors_.end(),
+            [first, count](const auto& entry) {
+                const uint64_t cached_first = entry.first;
+                const uint64_t cached_sector_count = entry.second.byte_count / kLogicalSectorSize;
+                return first >= cached_first && uint64_t{first} + count <= cached_first + cached_sector_count;
+            });
+        if (cached != catalog_sectors_.end()) {
             std::ifstream resource(cached->second.path, std::ios::binary);
             if (resource) {
+                const uint64_t resource_offset = (uint64_t{first} - cached->first) * kLogicalSectorSize;
+                resource.seekg(static_cast<std::streamoff>(resource_offset), std::ios::beg);
                 resource.read(reinterpret_cast<char*>(output), static_cast<std::streamsize>(byte_count));
                 if (resource.gcount() == static_cast<std::streamsize>(byte_count)) {
                     if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr)
-                        std::fprintf(stderr, "[info] native Sly cached resource read sector=%u count=%u file=%s\n",
+                        std::fprintf(stderr,
+                                     "[info] native Sly extracted resource read sector=%u count=%u file=%s\n",
                                      first, count, cached->second.path.c_str());
                     return true;
                 }

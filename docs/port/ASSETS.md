@@ -21,13 +21,15 @@ python3 port/tools/extract_sly1_catalog.py \
   /path/to/SCUS_971.98 /path/to/Sly1.iso
 ```
 
-The default output is `build/port/extracted/catalog/`. Each raw resource file
+This is a one-time preparation command. The default output is
+`build/port/extracted/catalog/`; keep that directory for later launches. Each raw resource file
 uses its numeric key as its filename; a matching `.sectors.bin` file includes
 the full sector-rounded range for native CD reads. The manifest carries the
 label, sector, byte count, rounded sector count, flags, and both filenames. The
-native launcher automatically reads matching catalog ranges from this folder
-(or from `OPENRAC_SLY1_CATALOG_DIR` if you store the files elsewhere), with ISO
-reads as a fallback for ranges that are not in the catalog. Add `--decode-lz` to also run each
+native launcher reads requests covered by those extracted sector files,
+including subranges, from this folder (or from `OPENRAC_SLY1_CATALOG_DIR` if
+you store the files elsewhere), with ISO reads as a fallback for ranges that
+are not in the catalog. The launcher does not run either extractor. Add `--decode-lz` to also run each
 range through the retail 8 KiB LZ decoder; decoded files go under the
 `decoded/` subdirectory and the manifest gains their decoded sizes. This
 recovers the catalog and decoded resource streams, not yet their level/model
@@ -42,7 +44,9 @@ rate fields; its ADPCM payload follows the header. The extractor checks these
 fields and requires the payload length to be a multiple of 16 bytes, as
 expected for PS-ADPCM blocks. See the [VAG format reference](https://psx-spx.consoledev.net/cdromfileformats/).
 
-Run the scanner against a disc image you own:
+This optional research scan is also a one-time command; its output is not
+needed to launch the game. Keep the resulting VAG files if you want them for
+later audio work. Run the scanner against a disc image you own:
 
 ```sh
 python3 port/tools/extract_sly1_vag.py /path/to/Sly1.iso
