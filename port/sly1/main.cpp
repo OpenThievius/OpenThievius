@@ -115,6 +115,10 @@ int main(int argc, char** argv) {
     if (trace_setting != nullptr && std::string(trace_setting) != "0") {
         openrac_guest_trace_enable(1);
         trace_thread = std::thread([&trace_stop] {
+            std::uint32_t previous_range_state[8]{};
+            bool have_previous_range_state = false;
+            auto last_full_trace = std::chrono::steady_clock::now() -
+                std::chrono::seconds(1);
             while (!trace_stop.load(std::memory_order_relaxed)) {
                 const gaddr address = openrac_guest_last_called_address();
                 const char* name = openrac_guest_function_name(address);
@@ -164,6 +168,36 @@ int main(int argc, char** argv) {
                             sizeof(vif1_qwc));
                 std::memcpy(&vif1_tadr, openrac_guest_base + 0x10009030u,
                             sizeof(vif1_tadr));
+                std::uint32_t range_state[8]{};
+                std::memcpy(range_state, openrac_guest_base + 0x00275AF0u,
+                            sizeof(range_state));
+                std::uint32_t range_record[8]{};
+                const bool have_range_record = range_state[1] != 0 &&
+                    range_state[1] < 0x02000000u;
+                if (have_range_record) {
+                    std::memcpy(range_record, openrac_guest_base + range_state[1],
+                                sizeof(range_record));
+                }
+                if (!have_previous_range_state ||
+                    std::memcmp(previous_range_state, range_state, sizeof(range_state)) != 0) {
+                    std::cerr << "[range] state=";
+                    for (const std::uint32_t word : range_state)
+                        std::cerr << std::hex << word << ',';
+                    if (have_range_record) {
+                        std::cerr << " record=";
+                        for (const std::uint32_t word : range_record)
+                            std::cerr << std::hex << word << ',';
+                    }
+                    std::cerr << std::dec << '\n';
+                    std::memcpy(previous_range_state, range_state, sizeof(range_state));
+                    have_previous_range_state = true;
+                }
+                const auto now = std::chrono::steady_clock::now();
+                if (now - last_full_trace < std::chrono::seconds(1)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
+                }
+                last_full_trace = now;
                 std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
                           << " address=0x" << std::hex << address << std::dec
                           << " kernel_service=";
@@ -183,6 +217,15 @@ int main(int argc, char** argv) {
                           << " uv=0x" << uv << " vif1_chcr=0x" << vif1_chcr
                           << " vif1_madr=0x" << vif1_madr << " vif1_qwc=0x" << vif1_qwc
                           << " vif1_tadr=0x" << vif1_tadr
+                          << " range_state=";
+                for (const std::uint32_t word : range_state)
+                    std::cerr << std::hex << word << ',';
+                if (have_range_record) {
+                    std::cerr << " range_record=";
+                    for (const std::uint32_t word : range_record)
+                        std::cerr << std::hex << word << ',';
+                }
+                std::cerr << std::dec
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << " image_tags=" << openrac_guest_gif_image_tag_count()
@@ -234,7 +277,7 @@ int main(int argc, char** argv) {
                     }
                 }
                 std::cerr << '\n';
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         });
     }
