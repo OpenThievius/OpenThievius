@@ -127,6 +127,27 @@ behavioral port replacements before the Splash request can advance. The
 worker's retail assembly is available for analysis; no matching C definition
 exists in the decompilation for `func_00137490` or `func_001E4EA8`.
 
+The retail callback chain narrows the missing work further. After setting the
+range, `func_001E4EA8` requests engine object type `0x6C` from
+`func_0011E580`, then invokes the returned object's method at vtable offset
+`+0x38` with the stream reader. For the NTSC-U type table, that method is
+`func_001DCEA0`; its retail implementation parses the loaded resource and
+constructs additional objects, including types `0x6D`, `0x1E`, and `0x4D`.
+The coordinator then finalizes the stream reader and registers the job. The
+type `0x6C` constructor is `func_001DB4C8`; its base constructor is
+`func_001DB480`.
+
+This means a native loader backfill cannot safely replace `func_001E4EA8` with
+a raw sector read or mark the request complete after decompression. The
+immediate C gaps on the callback path are the coordinator, the engine object
+factory (`func_0011E580`), and the resource parser callback (`func_001DCEA0`);
+the stream worker (`func_00137490`) is another required piece for the disk
+reader. These are Sly-specific behavior and belong under
+`port/game/sly1-us/hand/native_c/`, separate from matching decompilation.
+The next useful implementation target is the resource parser callback and
+the minimal object-construction services it actually reaches, tracked from
+retail call sites rather than inferred from the decoded bytes alone.
+
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill
 path uses the stream's source callback (`func_001F8DB8`) and moves data through
