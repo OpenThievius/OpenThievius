@@ -11,6 +11,34 @@ static void write_privileged(u32 address, u64 value)
     (void)sly1_native_gs_privileged_store64(address, value);
 }
 
+static void build_display_packet(u8* context, s32 width, s32 height)
+{
+    static const u8 registers[8] = {0x4C, 0x4E, 0x18, 0x40, 0x1A, 0x46, 0x45, 0x47};
+    u64 values[8];
+    u64 tag;
+    u32 i;
+
+    if (context == 0 || width <= 0 || height <= 0) return;
+    values[0] = 0; /* BITBLTBUF: no image transfer during display setup. */
+    values[1] = (u64)(u32)width | ((u64)(u32)height << 32);
+    values[2] = ((u64)0x8000u << 32) | 0x8000u;
+    values[3] = ((u64)(u32)(height - 1) << 48) |
+                ((u64)(u32)(width - 1) << 16);
+    values[4] = 1;
+    values[5] = 0;
+    values[6] = 0;
+    values[7] = 1;
+
+    /* Eight packed A+D writes, one register per loop, followed by EOP. */
+    tag = 8u | (1ull << 15) | (1ull << 60);
+    *(u64*)(context + 0x00) = tag;
+    *(u64*)(context + 0x08) = 0xEu;
+    for (i = 0; i < 8; ++i) {
+        *(u64*)(context + 0x10u + i * 0x10u) = values[i];
+        *(u64*)(context + 0x18u + i * 0x10u) = registers[i];
+    }
+}
+
 void func_00201D60(void* context, s32 x, s32 width, s32 height,
                    s32 interlace, s32 mode, s32 extra_buffers)
 {
@@ -46,6 +74,11 @@ void func_00201D60(void* context, s32 x, s32 width, s32 height,
         *(u64*)(block + 0x18) = display;
         *(u64*)(block + 0x20) = 0;
     }
+
+    /* The retail helpers are still nonmatching. This port backfill emits the
+     * same eight-register setup as a valid packed A+D packet for the native GS. */
+    build_display_packet(bytes + 0x50, width, height);
+    build_display_packet(bytes + 0x140, width, height);
 
     /* Retail submits the selected 0x28-byte block from func_00201FF8. Keep
      * the block data source authoritative instead of writing registers here. */
