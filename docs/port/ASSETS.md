@@ -48,3 +48,23 @@ them, or the data encoding.
 To capture the read and its caller on a local build, set both variables when
 launching `sly1_native` with your own extracted ELF and disc image. This runs
 the native launcher; it does not use an emulator.
+
+## Decode a discovered LZ stream
+
+Retail function `func_001378A0` decodes this stream with an 8 KiB scratchpad
+dictionary. Each control byte supplies up to eight LSB-first tokens: a set bit
+is a literal; a clear bit is a two-byte dictionary reference with a 13-bit
+source position and a length stored in the top three bits plus two. The decoder
+in `port/tools/extract_sly1_lz.py` follows that layout and writes outputs under
+the ignored build directory.
+
+For the first native read above:
+
+```sh
+python3 port/tools/extract_sly1_lz.py /path/to/Sly1.iso \
+  --sector 820372 --bytes 150849
+```
+
+On the supplied NTSC-U disc this decodes 150,849 compressed bytes to 304,393
+bytes. The decompressed data format and the index entry that selected it remain
+unknown, so the port cannot catalog or load a level from it yet.
