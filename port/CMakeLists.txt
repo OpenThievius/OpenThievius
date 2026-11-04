@@ -89,6 +89,17 @@ add_custom_target(port_native
     COMMENT "Linking the native Sly 1 launcher")
 
 add_library(sly1_port_runtime STATIC
+    renderer/direct.cpp
+    renderer/framebuffer.cpp
+    renderer/gl.cpp
+    renderer/gl_warmup.cpp
+    renderer/program_cache.cpp
+    renderer/render_opt.cpp
+    renderer/shader.cpp
+    renderer/texture.cpp
+    renderer/texture_pack.cpp
+    renderer/texture_pool.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/renderer_shaders.cpp
     common/breadcrumbs.cpp
     common/cache_folder.cpp
     common/crash.cpp
@@ -133,5 +144,15 @@ add_library(sly1_port_runtime STATIC
     platform/pad.cpp
     platform/window.cpp
     sly1/build_info.cpp)
-target_include_directories(sly1_port_runtime PUBLIC . runtime/include)
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/renderer_shaders.h ${CMAKE_CURRENT_BINARY_DIR}/renderer_shaders.cpp
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_renderer_shaders.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert
+            ${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag
+            ${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl
+    DEPENDS tools/embed_renderer_shaders.py renderer/shaders/direct.vert renderer/shaders/direct.frag
+            renderer/shaders/upscaled_texture_colours.glsl
+    VERBATIM)
+target_include_directories(sly1_port_runtime PUBLIC . runtime/include ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads SDL3::SDL3 ${CMAKE_DL_LIBS})
