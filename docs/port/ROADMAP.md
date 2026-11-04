@@ -50,7 +50,11 @@ retail assembly fixed a zero-argument C placeholder that discarded callback
 registers; startup no longer reports a call to address zero. The main thread
 now remains in a DMA-related poll while two guest worker threads run. Sound
 RPC 77 and IOP memory-card RPC 254 still have no native responses. The run
-times out without reaching a title screen. `func_001E1FD0` and
+times out without reaching a title screen. A separate native MMIO handler now
+accepts GIF channel 2 transfers and queues their source-chain payloads; the
+latest trace queued eight transfers (about 3.5 KB) before timing out. The FIFO
+has no renderer consumer yet, so the display remains unavailable.
+`func_001E1FD0` and
 `func_001E20B8` remain unsupported varargs stubs. Only the ordinary 2048-byte
 sector mode is supported.
 The source bridge also has unreadable source files and C++ constructs that need

@@ -61,7 +61,8 @@ handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
 The latest bounded run no longer calls address zero, reads 74 ISO sectors, and
 remains in a DMA-related poll with two guest workers active. The latest
-15-second run reached
+run queued eight GIF DMA transfers (about 3.5 KB) into the native FIFO, but no
+renderer consumes or displays those commands yet. The 15-second run reached
 the first sound RPC request (service `0x00123456`, RPC 0) and passed it with
 an empty completion reply. Native disc readiness passes the following poll;
 fallback replies report sound initialization and bank loading as unavailable.

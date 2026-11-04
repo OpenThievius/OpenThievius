@@ -17,6 +17,7 @@ beside two C++ headers of the runtime's own (section 14.1 of
 |---|---|---|
 | [`guest.h`](include/openrac/guest.h) | C contract | game memory as translated C sees it (`gaddr`, `G()`, the game stack, string literals), the table of functions by code address, the overlays |
 | [`ee.h`](include/openrac/ee.h), [`ee_ops.h`](include/openrac/ee_ops.h) | C contract | the R5900's instructions, the FPU's divide and roots, the vector unit's registers, and what happens where the console would have trapped |
+| [`native_gs.h`](include/openrac/native_gs.h) | Sly native device boundary | GIF channel 2 DMA submission to the ordered host-side GIF FIFO and the read interface for a native renderer |
 | [`ps2float.h`](include/openrac/ps2float.h) | C contract | the EE FPU's single-precision arithmetic in software (`openrac_ps2float`) |
 | [`host_env.h`](include/openrac/host_env.h) | C contract | `openrac_env_string`: the value of an `OPENRAC_*` variable of `common/env.h`'s table, for C |
 | [`memory.h`](include/openrac/memory.h) | C++ | `openrac::runtime::Memory`: the reservation, its map of backed regions, and the crash handler's install |
@@ -25,6 +26,11 @@ beside two C++ headers of the runtime's own (section 14.1 of
 Each contract is implemented in the file named for it (section 14.3): `guest.cpp`, `ee.cpp`,
 `ps2float.cpp`, `host_env.cpp`. `memory.cpp`, `elf.cpp` and `crash.cpp` (the fault handler that
 `memory.h` installs) are the runtime's C++.
+
+`gs_dma.cpp` is a Sly-specific runtime service. It handles GIF channel 2 CHCR
+stores, validates source-chain spans, updates the DMAC completion registers,
+and queues the GIF payload stream for a native renderer. The FIFO is currently
+headless: queued packets are not rasterized or displayed.
 
 ### The C entry point to the environment variables
 

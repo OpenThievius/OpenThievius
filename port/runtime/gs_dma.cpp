@@ -37,6 +37,7 @@ std::vector<uint8_t> g_gif_fifo;
 size_t g_gif_fifo_head = 0;
 std::atomic_flag g_headless_notice = ATOMIC_FLAG_INIT;
 std::atomic_flag g_invalid_notice = ATOMIC_FLAG_INIT;
+std::atomic<uint32_t> g_gif_transfer_count{0};
 
 uint32_t load_mmio(uint32_t address) {
     uint32_t value = 0;
@@ -211,8 +212,13 @@ extern "C" int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value) {
     const uint32_t stat = load_mmio(kDmacStat);
     store_mmio(kDmacStat, stat | (1u << 2));
     store_mmio(kGifChcr, value & ~0x100u);
+    const uint32_t transfer = g_gif_transfer_count.fetch_add(1, std::memory_order_relaxed);
+    if (transfer < 8) {
+        openrac::log::info("native GIF DMA transfer={} bytes={} FIFO_pending={}", transfer + 1,
+                           transferred, openrac_guest_gif_fifo_pending());
+    }
     if (!g_headless_notice.test_and_set(std::memory_order_relaxed)) {
-        openrac::log::warn("native GIF DMA queued {} bytes; no GS renderer is connected yet", transferred);
+        openrac::log::warn("native GIF FIFO has no GS renderer; queued commands are not displayed");
     }
     return 1;
 }
