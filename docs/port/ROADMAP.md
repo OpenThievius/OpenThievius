@@ -28,7 +28,9 @@ stacks. A native ISO 9660 reader accepts cooked images and raw 2352-byte BINs,
 locates paths, and reads file ranges. The IOP bootstrap constructor has a
 native CD-ready hook, and file open/poll/close use ISO lookup. The native DMA
 helper performs validated EE RAM copies synchronously; interrupt handlers,
-semaphores and CP0 timer reads have basic host implementations. SIF SetReg and
+semaphores and CP0 timer reads have basic host implementations. The missing
+`func_001430C8` timer snapshot now has a native replacement that follows its
+retail sequence and stores Sly's extended timer state. SIF SetReg and
 GetReg (syscalls 0x79 and 0x7A) use a host-side register map. The SIF RPC bind
 loop is bypassed for native startup. Native startup publishes SIF BOOTEND and
 CMDINIT at register 4 (value 0x60000), with an opaque subaddress, when the
@@ -37,10 +39,12 @@ command-init and binds both guest RPC clients. In the latest bounded run,
 startup passed the first sound service request using an empty completion reply.
 The native disc readiness hook also passes the subsequent startup poll. The
 native fallback responses report sound initialization and bank loading as
-unavailable. A native memory-card RPC boundary now answers the observed
-extended-server probe (`0x80000400`, RPC `0xFE`) with the documented
-`sceMcResDeniedPermit` result so the game-side library can select its legacy
-protocol. The native sound boundary now completes RPC 77 as idle for bounded
+unavailable. A native memory-card RPC boundary answers the observed
+extended-server probe (`0x80000400`, RPC `0xFE`) with a zero result structure.
+Retail's `func_002093F0` rejects its version field at offset +4 and returns
+`-0x78`; this reports the unavailable service through the game's existing
+error path, without implementing card detection or saves. The native sound
+boundary now completes RPC 77 as idle for bounded
 queued audio submissions. A 12-second native run passed these requests, read
 74 ISO sectors and continued issuing GIF work across guest threads. This is a
 silent fallback, not audio playback. The run still times out without a visible

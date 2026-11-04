@@ -60,9 +60,10 @@ replacement starts. Native command handling completes the SIF command-init
 handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
 The latest bounded run no longer calls address zero and reads 74 ISO sectors.
-The native memory-card service answers the observed extended-server probe
-(`0x80000400`, RPC `0xFE`) with `sceMcResDeniedPermit`, allowing the guest
-library to select its legacy protocol. Guest threads continue issuing GIF work,
+The native memory-card boundary answers the observed extended-server probe
+(`0x80000400`, RPC `0xFE`) with a zero result structure; retail's
+`func_002093F0` rejects the missing version field and returns `-0x78`. This
+does not implement card detection or saves. Guest threads continue issuing GIF work,
 but the native FIFO has no renderer consumer, so the run still has no visible
 title screen. The native sound boundary completes RPC 77 as idle, so the game
 continues without audio playback. The frame loop, renderer, input, real audio,

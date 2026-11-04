@@ -144,23 +144,15 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
                              receive_size == 12;
     const bool memory_card_probe = service == kMemoryCardService && rpc_number == 0xFE &&
                                    send_size == 48 && receive_size == 12;
-    const bool memory_card_init = service == kMemoryCardService && rpc_number == 0x70 &&
-                                  send_size == 48 && receive_size == 4;
-    if (memory_card_probe || memory_card_init) {
-        // Sly's libmc probes the extended memory-card server first with RPC
-        // 0xFE. The legacy MCSERV protocol leaves that result at
-        // sceMcResDeniedPermit (-5), which tells libmc to retry RPC 0x70.
-        // This gets the library past server detection; native card queries,
-        // save storage and their result structures are separate work.
-        const uint32_t response[3] = {
-            memory_card_probe ? static_cast<uint32_t>(-5) : 0u, 0u, 0u};
-        if (receive_size != sizeof(response) &&
-            receive_size != sizeof(uint32_t)) return 0;
-        if (!complete_rpc_response(packet, receive_buffer, response,
-                                   receive_size / sizeof(uint32_t))) return 0;
+    if (memory_card_probe) {
+        // Retail func_002093F0 rejects a response whose word at +4 is below
+        // 0x20A and returns -0x78. A zero response takes that existing error
+        // path without claiming that a native memory-card service exists.
+        const uint32_t unavailable[3] = {};
+        if (!complete_rpc_response(packet, receive_buffer, unavailable, 3)) return 0;
         if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
-            std::fprintf(stderr, "[info] native memory-card RPC %u completed result=%d\n",
-                         rpc_number, static_cast<int32_t>(response[0]));
+            std::fprintf(stderr, "[info] native memory-card RPC %u completed as unavailable\n",
+                         rpc_number);
         return 1;
     }
     if (sound_queue) {
