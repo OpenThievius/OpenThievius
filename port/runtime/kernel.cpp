@@ -186,6 +186,9 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         openrac_guest_sif_set_register(static_cast<uint32_t>(a0), static_cast<uint32_t>(a1));
         return 0;
     }
+    case 0x78: // SifSetDChain; the native runtime has no EE DMA channel to configure.
+    case static_cast<uint32_t>(-0x78):
+        return 0;
     case 0x7A: { // SifGetReg
         std::lock_guard lock(g_kernel_mutex);
         const auto it = g_sif_registers.find(static_cast<uint32_t>(a0));
