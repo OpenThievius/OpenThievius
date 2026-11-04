@@ -22,6 +22,15 @@ function prepares the VIF1 channel state for a source buffer. The exact source
 span and its GIF payload have not yet been verified from a native C call path.
 Do not infer that a channel descriptor by itself is a complete GIF packet.
 
+The DMA wrappers clarify why the descriptor is insufficient: `func_00202A80`
+stores the source address at descriptor offset `0x30`, clears the transfer
+field at `0x20`, and sets the active bit in its control word. `func_00202C38`
+waits for that active bit to clear. Neither wrapper supplies a byte length or
+establishes that the source bytes are a VIF DIRECT stream. The renderer handoff
+must capture the completed transfer's actual source and span at the native
+completion boundary, then validate its contents before calling
+`DirectRenderer::submit`.
+
 ## OpenRAC integration point
 
 OpenRAC's `DirectRenderer` accepts GIF packets directly and also has a VIF
