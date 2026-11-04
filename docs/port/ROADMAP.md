@@ -19,10 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-twenty separate port-native backfill translation units, then combines them by
-retail address.
-The current combined object contains 2,344 native function entries out of
-4,766 catalogued addresses and still has 604 unresolved function addresses.
+twenty-two separate port-native backfill translation units, then combines them
+by retail address.
+The current combined object contains 2,346 native function entries out of
+4,766 catalogued addresses and still has 603 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -84,6 +84,11 @@ three-axis local-coordinate transform with host float operations. It resolves
 one additional catalogued address. Retail also leaves intermediate values in
 VU0 state, which this native backfill does not model; the reachable direct-call
 frontier remains 56 of 89 functions defined, with 33 missing.
+
+The native backfills for `func_001EACA0` and `func_001BC260` implement the
+quadratic-root and coordinate-normalization math used by Sly's movement path.
+The combined host32 object now resolves 1,338 function references, though it
+still is not a linked game executable.
 
 | Phase | Work | Milestone |
 |---|---|---|

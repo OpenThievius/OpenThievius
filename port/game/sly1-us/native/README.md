@@ -44,3 +44,7 @@ local-space coordinates from the transform basis and translation. The retail
 routine also leaves intermediate values in VU0 registers; the native backfill
 does not model those registers, and carries the input homogeneous lane through
 the output. This is port-only math for host-native callers, not matching source.
+
+`func_001EACA0.cpp` and `func_001BC260.cpp` implement the quadratic-root and
+coordinate-normalization steps used by Sly's movement update. They use native
+single-precision math and do not depend on the guest VU state.
