@@ -34,10 +34,13 @@ cmake --build build/port --target port_native
 The link check confirms that generated game code and the guest runtime link
 together. It registers the generated function table if launched, but never calls
 the game entry. `port_native` separately builds `build/port/sly1_native`, a
-launcher that accepts the extracted `SCUS_971.98` ELF, loads its segments into
-guest memory, registers translated functions, and calls the game entry. The
-launcher is experimental. The first authorized startup run stopped on the
-runtime's stack-bound check and five interior constructor table entries. The
+launcher that accepts the extracted `SCUS_971.98` ELF and an optional ISO or
+raw BIN disc image, loads the ELF segments into guest memory, registers
+translated functions, and calls the game entry. The native runtime validates
+ISO 9660 images and reads their logical sectors. The current CD/IOP game calls
+do not use that reader yet. The native launcher is experimental. The first
+authorized startup run stopped at the runtime's stack-bound check and five
+interior constructor table entries. The
 runtime now accepts Sly's `SetupThread` stack range, and the launcher registers
 those five callback addresses to call their translated registration routines.
 A second authorized startup run passed those points and stayed alive in the

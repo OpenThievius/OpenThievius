@@ -78,6 +78,7 @@ add_library(sly1_port_runtime STATIC
     common/system_info.cpp
     common/zip_writer.cpp
     runtime/crash.cpp
+    runtime/disc_image.cpp
     runtime/ee.cpp
     runtime/elf.cpp
     runtime/guest.cpp

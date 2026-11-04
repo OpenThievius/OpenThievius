@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Native launcher for the translated Sly 1 executable.
 #include "openrac/elf.h"
+#include "openrac/disc_image.h"
 #include "openrac/game_host.h"
 #include "openrac/memory.h"
 
@@ -11,6 +12,10 @@ extern "C" {
 #include <iostream>
 #include <string>
 #include <vector>
+
+extern "C" {
+const char* openrac_game_disc_image = nullptr;
+}
 
 namespace {
 
@@ -57,8 +62,8 @@ void register_sly1_subentries() {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "usage: sly1_native <extracted Sly 1 boot executable>\n";
+    if (argc != 2 && argc != 3) {
+        std::cerr << "usage: sly1_native <extracted Sly 1 boot executable> [disc ISO or BIN]\n";
         return 2;
     }
 
@@ -79,6 +84,14 @@ int main(int argc, char** argv) {
     if (!openrac::runtime::load_elf(executable, image, &reason)) {
         std::cerr << "could not load the Sly 1 boot executable: " << reason << '\n';
         return 1;
+    }
+
+    if (argc == 3) {
+        openrac_game_disc_image = argv[2];
+        if (!openrac_guest_disc_open(openrac_game_disc_image)) {
+            std::cerr << "could not open the Sly 1 disc image as ISO 9660: " << argv[2] << '\n';
+            return 1;
+        }
     }
 
     openrac::runtime::install_crash_handler();
