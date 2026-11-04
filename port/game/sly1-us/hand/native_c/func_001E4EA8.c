@@ -22,7 +22,6 @@ void func_001E4EA8(void* state) {
     u8* request = (u8*)state;
     u32 record[8];
     u32 range[2];
-    u32 memory_range[2];
     u32 sector_count;
     u32 callback_data[9] = {0};
     u32 callback_word0 = 0x00003F00u;
@@ -51,6 +50,10 @@ void func_001E4EA8(void* state) {
 
     func_00137290(reader, (s32)(u32)D_002C3B00, 0x00340C00u, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;
+    if (func_001373B0(reader, (const s32*)range) == 0) {
+        func_001373D0(reader);
+        return;
+    }
     if (range[1] > 0x00340C00u) {
         func_001373D0(reader);
         return;
@@ -62,15 +65,9 @@ void func_001E4EA8(void* state) {
         return;
     }
 
-    /* The read buffer is the memory source for the retail stream reader.
-     * func_001373B0 installs it at +0x48 and leaves +0x18/+0x1C empty so
-     * func_00137A60 enters the normal refill/decompression path. */
-    memory_range[0] = (u32)D_002C3B00;
-    memory_range[1] = range[1];
-    if (func_001373B0(reader, (const s32*)memory_range) == 0) {
-        func_001373D0(reader);
-        return;
-    }
+    /* The synchronous native CD read fills the backing ring that retail's
+     * stream worker would populate. Leave +0x18/+0x1C empty so the normal
+     * reader enters the refill/decompression path. */
     sly1_native_loader_stage(10, 0, (u32)reader);
 
     for (index = 0; index < 8; ++index) {
