@@ -107,18 +107,26 @@ void vi_write(State* state, uint32_t index, uint16_t value) {
 bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
               uint32_t* failed_address, uint64_t* failed_tag) {
     std::vector<uint8_t> packet;
-    size_t cursor = static_cast<size_t>(address & 0x3FFu) * 16u;
-    const size_t memory_end = kVu1Quadwords * 16u;
+    size_t cursor = address & 0x3FFu;
+    constexpr size_t kMaxKickQwords = 1u << 20;
+    size_t consumed_qwords = 0;
     if (failure != nullptr) *failure = 0;
     if (first_tag != nullptr) *first_tag = 0;
     if (failed_address != nullptr) *failed_address = 0;
     if (failed_tag != nullptr) *failed_tag = 0;
-    while (cursor + 16u <= memory_end) {
-        const uint8_t* tag = openrac_guest_base + kVu1Data + cursor;
+    while (consumed_qwords < kMaxKickQwords) {
+        const uint8_t* tag = openrac_guest_base + kVu1Data + cursor * 16u;
         uint64_t low = 0;
         std::memcpy(&low, tag, sizeof(low));
-        if (first_tag != nullptr && cursor == static_cast<size_t>(address & 0x3FFu) * 16u)
+        if (first_tag != nullptr && consumed_qwords == 0)
             *first_tag = low;
+        constexpr uint64_t kGifReservedMask = 0x00003FFFFFFF0000ull;
+        if ((low & kGifReservedMask) != 0) {
+            if (failure != nullptr) *failure = 3;
+            if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
+            if (failed_tag != nullptr) *failed_tag = low;
+            return false;
+        }
         const uint32_t loops = static_cast<uint32_t>(low & 0x7FFFu);
         const uint32_t format = static_cast<uint32_t>((low >> 58u) & 3u);
         uint32_t registers = static_cast<uint32_t>((low >> 60u) & 0xFu);
@@ -128,22 +136,26 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
         else if (format == 1)
             payload_qwords = (static_cast<size_t>(loops) * registers + 1u) / 2u;
         else payload_qwords = loops;
-        if (payload_qwords > kVu1Quadwords ||
-            cursor + (payload_qwords + 1u) * 16u > memory_end) {
+        if (payload_qwords + 1u > kMaxKickQwords - consumed_qwords) {
             if (failure != nullptr) *failure = 1;
-            if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor / 16u);
+            if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
             if (failed_tag != nullptr) *failed_tag = low;
             return false;
         }
-        const size_t bytes = (payload_qwords + 1u) * 16u;
-        packet.insert(packet.end(), tag, tag + bytes);
-        cursor += bytes;
+        for (size_t qword = 0; qword <= payload_qwords; ++qword) {
+            const size_t memory_qword = (cursor + qword) & (kVu1Quadwords - 1u);
+            const uint8_t* data = openrac_guest_base + kVu1Data + memory_qword * 16u;
+            packet.insert(packet.end(), data, data + 16u);
+        }
+        consumed_qwords += payload_qwords + 1u;
+        cursor = (cursor + payload_qwords + 1u) & (kVu1Quadwords - 1u);
         if (((low >> 15u) & 1u) != 0) {
             openrac_guest_gif_stream_write(packet.data(), packet.size());
             return true;
         }
     }
     if (failure != nullptr) *failure = 2;
+    if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
     return false;
 }
 
@@ -403,7 +415,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                             *reinterpret_cast<const uint32_t*>(openrac_guest_base + kVif1Top),
                             *reinterpret_cast<const uint32_t*>(openrac_guest_base + 0x10003CC0u), first_tag,
                             failed_address, failed_tag,
-                            failure == 1 ? "tag payload exceeds VU1 data memory" : "missing EOP");
+                            failure == 1 ? "packet exceeds native limit" :
+                            failure == 3 ? "GIFtag has reserved bits set" : "missing EOP");
                     *unsupported = word;
                     return false;
                 }
