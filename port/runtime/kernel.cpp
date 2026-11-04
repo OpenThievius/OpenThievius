@@ -107,6 +107,12 @@ extern "C" int openrac_lib_sly1_console_printf(uint32_t guest_format) {
     return 0;
 }
 
+extern "C" int openrac_lib_sly1_signal_sema(uint32_t semaphore) {
+    // Retail's 16-byte wrapper at func_001F6B50 issues iSignalSema.
+    return static_cast<int>(openrac_guest_kernel_syscall(0x43u, semaphore, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
 extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
     uint32_t handler = 0;
     {

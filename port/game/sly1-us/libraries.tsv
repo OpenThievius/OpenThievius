@@ -20,3 +20,4 @@ func_00201988	graphics	sly1_graphics_wait	host	Provisional native graphics and D
 func_00204E20	kernel	sly1_cache_sync	host	Keep the host memory fence where Sly flushes the EE data cache	void(unsigned int,unsigned int)
 func_001430C8	kernel	sly1_timer_snapshot	host	Sample the host EE count and update Sly's extended timer state	void(void)
 func_001E1F10	kernel	sly1_console_printf	host	Discard guest serial diagnostic output on the host	int(unsigned int)
+func_001F6B50	kernel	sly1_signal_sema	host	Signal the guest semaphore from the native display callback	int(unsigned int)

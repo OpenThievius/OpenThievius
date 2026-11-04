@@ -52,6 +52,14 @@ title screen: the host GIF FIFO has no renderer consumer, and the frame loop,
 input, audio, saves and other device services are incomplete. SIF DMA command
 handling and other IOP RPCs remain unfinished.
 
+The NTSC-U graphics wait now paces the two installed display interrupt
+callbacks, and the retail `func_001F6B50` iSignalSema wrapper is serviced by the
+host semaphore implementation. A bounded run confirmed the display worker
+wakes instead of remaining blocked on every frame. It still reads only the
+initial 74-sector range; DMA handler setup and the missing renderer consumer
+remain blockers, so this is synchronization progress rather than a visible
+scene.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These

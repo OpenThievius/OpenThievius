@@ -4,9 +4,16 @@
 
 #include "openrac/guest.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <mutex>
+#include <thread>
 
 namespace {
+std::mutex g_frame_mutex;
+std::chrono::steady_clock::time_point g_next_frame{};
+
 bool ram_range(uint32_t address, uint32_t size, uint32_t* offset) {
     const uint32_t normalized = openrac_guest_ram_address(address);
     if (normalized > openrac_guest_ram_size || size > openrac_guest_ram_size - normalized)
@@ -30,8 +37,21 @@ extern "C" int openrac_lib_sly1_dma_status(uint32_t handle) {
 extern "C" void openrac_lib_sly1_graphics_wait(int unused_a, int unused_b) {
     (void)unused_a;
     (void)unused_b;
-    // RAM DMA is synchronous; graphics work is not implemented yet.
-    openrac_guest_missing("native graphics synchronization is not implemented");
+
+    // Sly's display worker waits at this boundary between frame submissions.
+    // Until a renderer owns presentation timing, pace the registered display
+    // callbacks against the NTSC-U frame interval.
+    constexpr auto frame_period = std::chrono::nanoseconds(16'666'667);
+    const auto now = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point deadline;
+    {
+        std::lock_guard lock(g_frame_mutex);
+        deadline = std::max(now, g_next_frame);
+        g_next_frame = deadline + frame_period;
+    }
+    std::this_thread::sleep_until(deadline);
+    openrac_guest_raise_interrupt(0);
+    openrac_guest_raise_interrupt(2);
 }
 
 extern "C" uint32_t openrac_lib_sly1_dma_submit(uint32_t descriptors, int count) {
