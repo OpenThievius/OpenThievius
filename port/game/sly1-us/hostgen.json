@@ -4,6 +4,9 @@
   "game": "sly1",
   "serial": "SCUS_971.98",
   "entry": "func_00100008",
+  "host_functions": [
+    "openrac_native_renderer_submit_dma_chain"
+  ],
   "source": "src",
   "sources": [
     "src"

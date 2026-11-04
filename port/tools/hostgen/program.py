@@ -45,7 +45,7 @@ def cname(symbol: str) -> str:
     """The host C name of a game function. Names the game shares with the C
     library or the host's own program (memcpy, sprintf, main, _start) get a
     prefix; func_ names stay as they are."""
-    if symbol.startswith("func_"):
+    if symbol.startswith(("func_", "openrac_")):
         return symbol
     return f"game_{symbol}"
 

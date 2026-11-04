@@ -36,6 +36,10 @@ size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination, size_t cap
 size_t openrac_guest_gs_published_vertex_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);
 
+/* Synchronously collect a guest DMAtag chain and queue its VIF DIRECT data for
+ * the native 2D renderer. VU-producing commands are intentionally ignored. */
+void openrac_native_renderer_submit_dma_chain(uint32_t source_address);
+
 #ifdef __cplusplus
 }
 #endif
