@@ -1,11 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly graphics handoff for the native renderer
 
-The native launcher has OpenRAC's SDL/OpenGL context, but it still draws a
-black frame. The current trace reports no GIF end-of-packet markers, no image
-transfers and no submitted vertices. This means the next graphics task is to
-reach Sly's display submission path and capture what Sly produces; replacing
-the current vertex presenter alone cannot make a picture appear.
+The native launcher now owns an OpenRAC SDL/OpenGL context and runs OpenRAC's
+`DirectRenderer` for the Sly 2D VIF DIRECT/GIF path. Its port-only
+`func_00202A80` backfill parses bounded DMA chains, filters out VU-producing
+streams, and queues supported direct packets for the renderer. The launcher
+builds and links, but a real packet has not yet been confirmed in a native run;
+world geometry is still outside this renderer.
 
 ## Sly's observed display path
 
@@ -17,19 +18,18 @@ advance the display buffers. These routines are still missing matching C in
 the decompilation.
 
 `0x001686E8` waits for the VIF1 channel, resets its transfer state, starts the
-next transfer through `0x00202A80`, then waits on a semaphore. The latter
-function prepares the VIF1 channel state for a source buffer. The exact source
-span and its GIF payload have not yet been verified from a native C call path.
-Do not infer that a channel descriptor by itself is a complete GIF packet.
+next transfer through `0x00202A80`, then waits on a semaphore. The port-only
+backfill reads the DMA tag chain beginning at the supplied source address,
+walks inline and referenced spans, and passes the assembled VIF stream through
+a strict VIF DIRECT filter before queueing it. The collector is bounded by tag,
+stack and byte limits and safely drops invalid or VU-producing chains.
 
-The DMA wrappers clarify why the descriptor is insufficient: `func_00202A80`
-stores the source address at descriptor offset `0x30`, clears the transfer
-field at `0x20`, and sets the active bit in its control word. `func_00202C38`
-waits for that active bit to clear. Neither wrapper supplies a byte length or
-establishes that the source bytes are a VIF DIRECT stream. The renderer handoff
-must capture the completed transfer's actual source and span at the native
-completion boundary, then validate its contents before calling
-`DirectRenderer::submit`.
+Retail's `func_00202A80` stores the source address at descriptor offset `0x30`
+and sets the channel active. The port replacement performs that handoff
+synchronously, then clears the active bit so Sly's subsequent wait can return.
+The DMA chain's QWC and tag IDs determine the byte spans; the filter validates
+that the assembled bytes contain supported VIF commands and at least one
+DIRECT/DIRECTHL payload. The renderer receives only that filtered stream.
 
 ## OpenRAC integration point
 
@@ -42,12 +42,12 @@ draw-data path or title-specific renderer. The direct renderer itself depends
 on OpenRAC's GL loader, shader, framebuffer, renderer state and texture pool;
 integrating `direct.cpp` alone would not provide a functioning renderer.
 
-Before connecting the renderer, add one concrete packet observation at the
-host boundary that already knows the transfer source and length. Confirm that
-the bytes form a VIF stream carrying GIF packets, and keep the packet capture
-free of VU execution. Then feed that span to the reused `DirectRenderer` in
-VIF mode. Sly's world geometry may need a separate native renderer because it
-is produced by title-specific draw code and VU programs.
+Next, run the native launcher and record whether a supported stream reaches
+the renderer, then inspect the displayed result. The present adapter confirms
+packet shape syntactically but does not prove Sly's frame ordering, GS state,
+texture uploads, or display-buffer conventions match OpenRAC. The 3D scene
+still needs a Sly-specific native data path; VU-produced geometry is rejected
+at this 2D boundary.
 
 ## Current blocker
 

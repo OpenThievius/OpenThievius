@@ -53,28 +53,29 @@ backfills. These are not OpenRAC code just because they use its architecture.
 I compared this checkout with OpenRAC commit
 `eefdcd1243a1c9a9fe8ca1e58bf4a5c03dd0a204` (the current upstream snapshot at
 the time of this audit). We have reused its source bridge, common/runtime
-foundation, audio output and basic DualShock 2 state. The current native
-launcher now uses OpenRAC's SDL/OpenGL window lifecycle and exact-rate frame
-pacer. We have not imported its full keyboard/controller input system or
-renderer. Earlier work built a GS/VIF/VU research path; that remains separate
-from the native presentation path.
+foundation, audio output, basic DualShock 2 state, SDL/OpenGL window lifecycle
+and exact-rate frame pacer. The native launcher now also embeds OpenRAC's
+generic `DirectRenderer` and its texture/shader support. A port-only Sly DMA
+backfill walks VIF chains, accepts only streams containing supported VIF
+DIRECT commands, and queues them for native rendering. It does not use the
+experimental VIF/VU device path. The full keyboard/controller input system is
+not imported.
 
 | OpenRAC module | Reuse value for Sly | Work still needed here |
 |---|---|---|
-| `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Imported and wired to the native launcher; add Sly settings and connect rendering |
+| `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Imported and wired to the native launcher |
 | `platform/input.*`, `platform/bindings.*`, `platform/players.*` | High: keyboard/gamepad event handling and user bindings are generic | Connect its pad state to Sly's own pad-library calls and keep Sly's button semantics |
-| `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | Promising: consume GIF/GS packets emitted by the game and draw with native OpenGL, without emulating the EE, VIF or VU | Prove Sly emits compatible packets, adapt packet submission and validate Sly's texture/framebuffer conventions |
+| `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | High for 2D: consume VIF DIRECT/GIF packets emitted by the game and draw with native OpenGL | Imported and connected to the port-only DMA handoff; verify real packets and validate Sly-specific texture/framebuffer conventions |
 | `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
 
-The direct renderer deserves an actual integration spike before we write a
-replacement. Its `GifInterpreter` consumes packet bytes and prepares draw
-groups; its `DirectRenderer` submits those groups to OpenGL. This is closer to
-a native renderer than the existing experimental device model, but compatible
-GS packet syntax alone does not prove Sly's packet boundaries, texture uploads,
-or frame targets match. The Sly frame must first reach its drawing calls, and
-the renderer must be fed from those game-produced packets. OpenRAC's current
-level renderers are a separate matter: their CPU scene adapters encode R&C
-level formats and cannot draw Sly levels as-is.
+The DirectRenderer integration is now compiled and linked into the C-only
+launcher. The port-only replacement for `func_00202A80` walks Sly's DMA tags,
+collects inline and referenced VIF data, rejects chains containing VU commands,
+and queues VIF DIRECT streams for OpenRAC's parser and native OpenGL renderer.
+This is a graphics boundary adapter, not a VIF/VU emulator. A successful
+launcher build proves module wiring, but not yet that a real Sly frame reaches
+it or that Sly's packet conventions match every renderer assumption. OpenRAC's
+world renderers remain R&C-specific and cannot draw Sly levels as-is.
 
 The current host-native path does not yet produce that renderer input. Sly's
 matched code at `func_001B2640` appends DMA display-list entries, while the
