@@ -30,6 +30,7 @@ def main(argv=None):
     warnings = 0
     staged_root = out / "staged"
     objects_root = out / "objects"
+    backfill_root = port / "game" / "sly1-us" / "native"
     flags = [
         "-m32", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
@@ -59,9 +60,28 @@ def main(argv=None):
             if proc.stderr:
                 print(proc.stderr, file=sys.stderr, end="")
 
-    print(f"Sly host C++ units: {len(sources) - len(failures)}/{len(sources)} compiled; {warnings} compiler warnings")
-    if failures:
-        for name, error in failures:
+    backfills = sorted(backfill_root.rglob("*.cpp")) if backfill_root.exists() else []
+    backfill_failures = []
+    for src in backfills:
+        rel = src.relative_to(backfill_root)
+        obj = objects_root / "port_native" / rel.with_suffix(".o")
+        obj.parent.mkdir(parents=True, exist_ok=True)
+        cmd = compiler + flags + [
+            "-I", str(port), "-I", str(port / "runtime" / "include"),
+            "-c", str(src), "-o", str(obj),
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if proc.returncode:
+            backfill_failures.append((src.relative_to(port).as_posix(), proc.stderr))
+        else:
+            warnings += proc.stderr.count("warning:")
+            if proc.stderr:
+                print(proc.stderr, file=sys.stderr, end="")
+
+    print(f"Sly host C++ units: {len(sources) - len(failures)}/{len(sources)} compiled")
+    print(f"Port-native backfills: {len(backfills) - len(backfill_failures)}/{len(backfills)} compiled; {warnings} compiler warnings")
+    if failures or backfill_failures:
+        for name, error in failures + backfill_failures:
             print(f"\n{name}:\n{error}", file=sys.stderr)
         return 1
     print(f"staged sources: {staged_root}")

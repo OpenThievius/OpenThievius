@@ -228,15 +228,20 @@ loop; each iteration calls `func_001E9108` for the current state and
 `func_001607D0` for frame timing/update work. `func_001E9108` is also
 assembly-only and dispatches on a state field through a nine-entry table.
 Neither function has a compiled definition in the 68 current C++ units, so
-the native launcher cannot enter the game's frame path yet. Port-owned C/C++
-replacements belong in a distinct native-backfill directory, with the
-matching sources in `sly1-decomp` left untouched. Implement and resolve this
-pair first, then follow the calls they make into loading and rendering; do
-not generate generic no-op definitions for the full unresolved frontier.
+the native launcher could not enter the game's frame path. A port-only C++
+translation of `func_00185758` now preserves its initialization and frame
+call sequence under `port/game/sly1-us/native/`; the compilation step keeps
+these files separate from `sly1-decomp` and rejects duplicate retail
+addresses if matching C/C++ later becomes available. `func_001E9108` and the
+platform functions called by the loop still need native implementations, so
+this backfill does not yet make a runnable game. Continue with the state
+dispatcher and the specific native service boundaries it reaches; do not
+generate generic no-op definitions for the full unresolved frontier.
 
-The current host32 combine artifact records 1,310 function-reference aliases,
-373 retail data aliases, 2,319 native function addresses, and 603 unresolved
-function addresses across all compiled units. This is a whole-program static
+The current host32 combine artifact records 1,313 function-reference aliases,
+376 retail data aliases, 2,320 native function addresses, and 613 unresolved
+function addresses across the compiled decompilation plus this backfill. The
+backfill exposes additional unresolved calls; this is a whole-program static
 frontier, not a count of functions needed by the boot path. Rebuild it with
 `cmake --build build/port --target port_combine_decomp_host32`; its report is
 kept in the ignored `build/port/host32/link/link-frontier.json`.

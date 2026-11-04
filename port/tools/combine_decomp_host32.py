@@ -50,13 +50,25 @@ def main(argv=None):
     if not objects:
         parser.error("no host32 object files found")
     defined_by_address = defaultdict(set)
+    decomp_definitions = defaultdict(set)
+    backfill_definitions = defaultdict(set)
     undefined = set()
     for obj in objects:
+        is_backfill = "port_native" in obj.parts
         for symbol in nm_function_definitions(args.nm, obj):
             match = FUNCTION_ADDRESS.search(symbol)
             if match:
-                defined_by_address[int(match.group(1), 16)].add(symbol)
+                address = int(match.group(1), 16)
+                defined_by_address[address].add(symbol)
+                (backfill_definitions if is_backfill else decomp_definitions)[address].add(symbol)
         undefined.update(nm_symbols(args.nm, "--undefined-only", obj))
+
+    replaced_matching = sorted(set(decomp_definitions) & set(backfill_definitions))
+    if replaced_matching:
+        print("native backfill duplicates a compiled decomp function: " +
+              ", ".join(f"0x{x:08x}" for x in replaced_matching), file=sys.stderr)
+        print("remove the backfill once matching C/C++ is available", file=sys.stderr)
+        return 1
 
     aliases = []
     function_aliases = 0
@@ -139,6 +151,8 @@ def main(argv=None):
                                 if (m := FUNCTION_ADDRESS.search(name))})
     report = {
         "input_objects": len(objects),
+        "port_native_backfill_objects": sum("port_native" in obj.parts for obj in objects),
+        "port_native_backfill_functions": sum(len(v) for v in backfill_definitions.values()),
         "catalogued_function_addresses": len(function_rows),
         "native_function_addresses": native_count,
         "function_reference_aliases": function_aliases,
