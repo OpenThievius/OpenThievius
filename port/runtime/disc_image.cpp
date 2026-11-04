@@ -16,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "openrac/guest.h"
@@ -26,6 +27,11 @@ namespace {
 constexpr uint32_t kLogicalSectorSize = 2048;
 
 class DiscImage {
+    struct CachedResource {
+        std::filesystem::path path;
+        uint64_t byte_count = 0;
+    };
+
 public:
     bool open(const char* path, std::string* reason) {
         if (path == nullptr || *path == '\0') {
@@ -83,6 +89,7 @@ public:
             return false;
         }
         sectors_ = static_cast<uint32_t>((size - base) / stride);
+        load_catalog_cache();
         return true;
     }
 
@@ -140,6 +147,19 @@ public:
         std::lock_guard guard(mutex_);
         const uint64_t byte_count = uint64_t{count} * kLogicalSectorSize;
         if (byte_count > static_cast<uint64_t>(std::numeric_limits<std::streamsize>::max())) return false;
+        const auto cached = catalog_sectors_.find(first);
+        if (cached != catalog_sectors_.end() && cached->second.byte_count == byte_count) {
+            std::ifstream resource(cached->second.path, std::ios::binary);
+            if (resource) {
+                resource.read(reinterpret_cast<char*>(output), static_cast<std::streamsize>(byte_count));
+                if (resource.gcount() == static_cast<std::streamsize>(byte_count)) {
+                    if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr)
+                        std::fprintf(stderr, "[info] native Sly cached resource read sector=%u count=%u file=%s\n",
+                                     first, count, cached->second.path.c_str());
+                    return true;
+                }
+            }
+        }
         const uint64_t offset = base_ + uint64_t{first} * stride_ + payload_;
         if (stride_ == kLogicalSectorSize) {
             input_.clear();
@@ -162,6 +182,50 @@ public:
     uint32_t sectors() const { return sectors_; }
 
 private:
+    void load_catalog_cache() {
+        const char* configured = std::getenv("OPENRAC_SLY1_CATALOG_DIR");
+        std::filesystem::path directory;
+        if (configured != nullptr && *configured != '\0') {
+            directory = configured;
+        } else {
+            directory = std::filesystem::current_path() / "build/port/extracted/catalog";
+        }
+        std::ifstream manifest(directory / "catalog.tsv");
+        if (!manifest) return;
+        std::string line;
+        if (!std::getline(manifest, line)) return;
+        while (std::getline(manifest, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::array<std::string, 8> columns{};
+            size_t start = 0;
+            bool valid = true;
+            for (size_t i = 0; i < columns.size(); ++i) {
+                const size_t end = line.find('\t', start);
+                if (i + 1 < columns.size() && end == std::string::npos) { valid = false; break; }
+                columns[i] = line.substr(start, end == std::string::npos ? end : end - start);
+                start = end == std::string::npos ? line.size() : end + 1;
+            }
+            if (!valid) continue;
+            try {
+                const uint32_t sector = static_cast<uint32_t>(std::stoul(columns[2]));
+                const uint32_t sector_count = static_cast<uint32_t>(std::stoul(columns[4]));
+                const uint64_t expected_size = uint64_t{sector_count} * kLogicalSectorSize;
+                if (sector_count == 0 || expected_size > std::numeric_limits<size_t>::max()) continue;
+                const std::filesystem::path filename(columns[7]);
+                if (filename.has_parent_path() || filename.filename() != filename) continue;
+                const std::filesystem::path resource_path = directory / filename;
+                std::error_code error;
+                if (std::filesystem::file_size(resource_path, error) == expected_size && !error)
+                    catalog_sectors_.emplace(sector, CachedResource{resource_path, expected_size});
+            } catch (...) {
+                continue;
+            }
+        }
+        if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr)
+            std::fprintf(stderr, "[info] loaded %zu extracted Sly resource ranges from %s\n",
+                         catalog_sectors_.size(), directory.c_str());
+    }
+
     static uint32_t read_le32(const uint8_t* bytes) {
         return uint32_t{bytes[0]} | (uint32_t{bytes[1]} << 8) |
                (uint32_t{bytes[2]} << 16) | (uint32_t{bytes[3]} << 24);
@@ -248,6 +312,7 @@ private:
     uint32_t payload_ = 0;
     uint32_t sectors_ = 0;
     std::mutex mutex_;
+    std::unordered_map<uint32_t, CachedResource> catalog_sectors_;
 };
 
 DiscImage g_disc;
