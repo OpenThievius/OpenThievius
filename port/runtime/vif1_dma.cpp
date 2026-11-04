@@ -264,7 +264,7 @@ void trace_vu1_program(uint32_t address, VifTrace* trace) {
     for (uint32_t index = address; index < kVu1MemoryBytes / 8u; ++index) {
         uint32_t upper = 0;
         const uint8_t* instruction = openrac_guest_base + kVu1Micro + index * 8u;
-        std::memcpy(&upper, instruction, sizeof(upper));
+        std::memcpy(&upper, instruction + 4u, sizeof(upper));
         ++program.instruction_count;
         ++program.upper_opcodes[upper & 0x3Fu];
         if ((upper & (1u << 30u)) != 0) break; // E-bit ends the microprogram.

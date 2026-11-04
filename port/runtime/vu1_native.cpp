@@ -409,8 +409,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         }
         uint32_t lower = 0, upper = 0;
         const uint8_t* instruction = openrac_guest_base + kVu1Micro + pc * 8u;
-        std::memcpy(&upper, instruction, sizeof(upper));
-        std::memcpy(&lower, instruction + 4u, sizeof(lower));
+        std::memcpy(&lower, instruction, sizeof(lower));
+        std::memcpy(&upper, instruction + 4u, sizeof(upper));
         const uint32_t current_pc = pc;
         uint32_t next_pc = current_pc + 1u;
         State before = g_state;
