@@ -4,9 +4,57 @@
 #include "openrac/game_host.h"
 #include "openrac/memory.h"
 
+extern "C" {
+#include "game_protos.h"
+}
+
 #include <iostream>
 #include <string>
 #include <vector>
+
+namespace {
+
+#define SLY1_REGISTER_ENTRY(name, target)                                                        \
+    uint64_t name(                                                                               \
+        uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
+        float, float, float, float, float, float, float, float                                   \
+    ) {                                                                                          \
+        (void)target(1, -1);                                                                     \
+        return 0;                                                                                \
+    }                                                                                            \
+    uint64_t name##_thunk(const uint64_t*, const float*, float*) {                               \
+        (void)target(1, -1);                                                                     \
+        return 0;                                                                                \
+    }
+
+SLY1_REGISTER_ENTRY(register_0016c450, func_0016C360)
+SLY1_REGISTER_ENTRY(register_001963b8, func_00196330)
+SLY1_REGISTER_ENTRY(register_001aec90, func_001AEA70)
+SLY1_REGISTER_ENTRY(register_001e08d8, func_001E0848)
+SLY1_REGISTER_ENTRY(register_001f2738, func_001F2688)
+
+#undef SLY1_REGISTER_ENTRY
+
+void register_sly1_subentries() {
+    static const openrac_fn_entry functions[] = {
+        {0x0016C450u, reinterpret_cast<openrac_host_fn>(register_0016c450), "func_0016C450"},
+        {0x001963B8u, reinterpret_cast<openrac_host_fn>(register_001963b8), "func_001963B8"},
+        {0x001AEC90u, reinterpret_cast<openrac_host_fn>(register_001aec90), "func_001AEC90"},
+        {0x001E08D8u, reinterpret_cast<openrac_host_fn>(register_001e08d8), "func_001E08D8"},
+        {0x001F2738u, reinterpret_cast<openrac_host_fn>(register_001f2738), "func_001F2738"},
+    };
+    static const openrac_thunk_entry thunks[] = {
+        {reinterpret_cast<openrac_host_fn>(register_0016c450), register_0016c450_thunk},
+        {reinterpret_cast<openrac_host_fn>(register_001963b8), register_001963b8_thunk},
+        {reinterpret_cast<openrac_host_fn>(register_001aec90), register_001aec90_thunk},
+        {reinterpret_cast<openrac_host_fn>(register_001e08d8), register_001e08d8_thunk},
+        {reinterpret_cast<openrac_host_fn>(register_001f2738), register_001f2738_thunk},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, sizeof(functions) / sizeof(functions[0]));
+    openrac_guest_register_thunks(thunks, sizeof(thunks) / sizeof(thunks[0]));
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -35,6 +83,7 @@ int main(int argc, char** argv) {
 
     openrac::runtime::install_crash_handler();
     openrac_game_register_functions();
+    register_sly1_subentries();
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
     if (!openrac_game_run()) {
         std::cerr << "the Sly 1 entry point is not available in this build\n";

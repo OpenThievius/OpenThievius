@@ -24,7 +24,12 @@ local retail-backed assembly available, translates 1,532 functions from C and
 and `port_link_generated` links them without running the entry point. The Sly
 `port_native` target now links a launcher that reads the user's extracted boot
 ELF, maps its segments into guest memory and calls the translated entry. It has
-not been launched. The entry now translates its BSS setup, stack/heap initialization and observed boot
+been launched once with approval; startup reached translated code before the
+runtime rejected Sly's EE RAM stack bounds. The guest runtime now adopts the
+range from `SetupThread`. That run also exposed five constructor table entries
+pointing into function bodies; the launcher now registers host callbacks for
+those exact interior addresses. The entry translates its BSS setup, stack/heap
+initialization and observed boot
 syscalls, including memory copy, cache flush and kernel handler setup. The
 analyzed boot call graph still reaches 26 functions without hostable C. Its
 nearest missing functions include variadic formatting and SIF DMA operations.

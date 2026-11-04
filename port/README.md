@@ -36,8 +36,12 @@ together. It registers the generated function table if launched, but never calls
 the game entry. `port_native` separately builds `build/port/sly1_native`, a
 launcher that accepts the extracted `SCUS_971.98` ELF, loads its segments into
 guest memory, registers translated functions, and calls the game entry. The
-launcher has been built but not run. Hostgen now translates the entry's BSS
-setup and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
+launcher is experimental. One authorized startup run reached translated code
+but stopped on the runtime's stack-bound check and five interior constructor
+table entries. The runtime now accepts Sly's `SetupThread` stack range, and the
+launcher registers those five callback addresses to call their translated
+registration routines. Hostgen translates the entry's BSS setup and observed
+boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
 `GetEntryAddress`, `FlushCache`, and `SetSyscall`). The
 `GetMemorySize` and `_InitTLB` boot calls are also handled for the 32 MiB guest

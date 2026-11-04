@@ -30,7 +30,7 @@ def main(argv=None):
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     command = [args.cxx, "-std=c++20", "-pthread", "-I", str(args.runtime_includes),
-               str(args.stub), *map(str, objects), str(args.runtime),
+               "-I", str(args.generated), str(args.stub), *map(str, objects), str(args.runtime),
                *["-l" + library for library in args.link_library if library],
                "-o", str(args.out)]
     subprocess.run(command, check=True)
