@@ -105,6 +105,28 @@ nested object-data reader rather than the disc index or a uniquely identified
 level header. The concrete object type and its connection to the containing
 resource remain unknown.
 
+Retail `func_001E4EA8` confirms that the pending request is handled as a
+deferred engine job, not as a direct synchronous disc read. It first clears an
+8-byte temporary record, decodes the request's 32-byte record, and clears the
+request's active pointer. It then initializes a memory-backed reader over
+`D_002C3B00` (size `0x340C00`, alignment `0x40`, six units), attaches a
+`0x60`-byte stream descriptor, and passes the decoded sector/byte-count pair
+to `func_001373B0`. On success, retail starts the stream object's callback at
+vtable offset `0x38`, invokes the reader's finalize method, and registers the
+job with the engine. It also configures the active resource ID, progress UI,
+and loader state before returning. The native C backfills currently establish
+the request and range fields, but do not yet reproduce this coordinator or
+worker lifecycle. In particular, the host CD sector service does not replace
+the stream worker: `func_00137490` owns the refill/read-window behavior that
+feeds the decompression reader.
+
+This makes `func_001E4EA8` a useful implementation target, but not a safe
+place to report a resource as complete. Its callback, job registration, and
+reader-finalization effects must either run through native Sly code or have
+behavioral port replacements before the Splash request can advance. The
+worker's retail assembly is available for analysis; no matching C definition
+exists in the decompilation for `func_00137490` or `func_001E4EA8`.
+
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill
 path uses the stream's source callback (`func_001F8DB8`) and moves data through
