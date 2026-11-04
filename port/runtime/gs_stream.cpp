@@ -219,9 +219,18 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
         (g_parser.tag_registers >> ((sequence_index % g_parser.register_count) * 4u)) & 0xFu);
     if (descriptor == 0xEu) {
         write_gs_register(static_cast<uint32_t>(meta & 0xFFu), value);
+    } else if (g_parser.format == 0 && descriptor == 0x01u) {
+        const uint64_t native_value = (value & 0xFFu) |
+                                      (((value >> 32u) & 0xFFu) << 8u) |
+                                      ((meta & 0xFFu) << 16u) |
+                                      (((meta >> 32u) & 0xFFu) << 24u);
+        write_gs_register(descriptor, native_value);
+    } else if (g_parser.format == 0 && descriptor == 0x03u) {
+        const uint64_t native_value = (value & 0x3FFFu) |
+                                      (((value >> 32u) & 0x3FFFu) << 16u);
+        write_gs_register(descriptor, native_value);
     } else if (g_parser.format == 0 && (descriptor == 0x04u || descriptor == 0x05u)) {
-        // PACKED XYZ uses a 128-bit layout: Y starts at bit 32, while the
-        // register-list form uses the GS register's native 64-bit layout.
+        // PACKED XYZ uses a 128-bit layout; REGLIST uses native 64-bit fields.
         uint64_t native_value = value & 0xFFFFu;
         native_value |= ((value >> 32u) & 0xFFFFu) << 16u;
         const bool xyzf = descriptor == 0x04u;
