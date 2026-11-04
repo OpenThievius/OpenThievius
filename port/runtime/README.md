@@ -35,11 +35,13 @@ color-only primitive subset into host screen-space vertices. `sdl_renderer.cpp`
 opens the native window and presents that geometry; textured GS state and
 rasterization are not implemented yet. The native port requires SDL3.
 
-`vif1_dma.cpp` handles VIF1 source-chain transfers, VIF UNPACK data lengths,
-tag transfer data, and DIRECT packets routed to the GIF stream reader. It
-completes the observed DMA channel instead of leaving CHCR busy. It does not
-execute VU1 microprograms. The VIF command and DMA tag formats follow the
-public [PS2Tek documentation](https://israpps.github.io/ps2tek/).
+`vif1_dma.cpp` handles VIF1 source-chain transfers, uploads MPG payloads to
+mapped VU1 micro memory, unpacks the observed vector formats to VU1 data memory,
+and routes DIRECT packets to the GIF stream reader. It completes the observed
+DMA channel instead of leaving CHCR busy. UNPACK write masks and fill cycles are
+not implemented, and MSCAL does not execute the microprogram. The VIF command
+and DMA tag formats follow the public
+[PS2Tek documentation](https://israpps.github.io/ps2tek/).
 
 `sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
 It takes two host Count samples and updates the matching extended-counter

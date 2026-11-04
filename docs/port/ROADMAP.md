@@ -97,18 +97,20 @@ scene streaming and gamepad mapping are also missing.
 
 VIF1 channel 1 was holding its source-chain transfer active at CHCR `0x105`,
 which prevented later display-list work from completing. The native VIF1 path
-now walks source-chain tags, handles transfer-tag data and common VIF command
-payloads, and sends DIRECT packets to the GIF reader. It also completes the
-DMA status and interrupt boundary. The host does not run VU1 microprograms,
-so this advances display-list processing without completing the full native
-renderer.
+now walks source-chain tags, handles transfer-tag data, uploads MPG payloads
+to mapped VU1 micro memory, unpacks the observed vector formats to VU1 data
+memory, and sends DIRECT packets to the GIF reader. It also completes the DMA
+status and interrupt boundary. Masked UNPACKs, fill cycles and VU1 execution
+remain unsupported, so this advances display-list processing without
+completing the full native renderer.
 
 A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
 25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Current native
-handling skips the uploaded microcode and UNPACK data, so it cannot produce the
-geometry sent through VU1/XGKICK. The next renderer milestone is to execute
-Sly's VU1 display-list programs and feed their GIF output into the GS path.
-Set `OPENRAC_VIF_TRACE=1` to capture the first two populated transfers.
+handling stores the microcode and UNPACK data but does not execute MSCAL, so it
+cannot produce the geometry sent through VU1/XGKICK. The next renderer
+milestone is to execute Sly's VU1 display-list programs and feed their GIF
+output into the GS path. Set `OPENRAC_VIF_TRACE=1` to capture the first two
+populated transfers.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler

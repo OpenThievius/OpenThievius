@@ -19,6 +19,14 @@ namespace {
 constexpr uint32_t kVif1Chcr = 0x10009000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
+constexpr uint32_t kVif1Cycle = 0x10003C40u;
+constexpr uint32_t kVif1Base = 0x10003CA0u;
+constexpr uint32_t kVif1Offset = 0x10003CB0u;
+constexpr uint32_t kVif1Tops = 0x10003CC0u;
+constexpr uint32_t kVif1Status = 0x10003C00u;
+constexpr uint32_t kVu1Data = 0x11008000u;
+constexpr uint32_t kVu1Micro = 0x1100C000u;
+constexpr size_t kVu1MemoryBytes = 16u * 1024u;
 constexpr size_t kMaxTransferBytes = 64u * 1024u * 1024u;
 constexpr uint32_t kMaxTags = 1u << 16;
 
@@ -159,14 +167,79 @@ bool skip_bytes(size_t* cursor, size_t amount, size_t size) {
     return true;
 }
 
+uint32_t read_bits(const uint8_t* source, size_t bit_offset, uint32_t bit_count) {
+    uint32_t value = 0;
+    for (uint32_t bit = 0; bit < bit_count; ++bit) {
+        const size_t source_bit = bit_offset + bit;
+        value |= uint32_t((source[source_bit / 8u] >> (source_bit & 7u)) & 1u) << bit;
+    }
+    return value;
+}
+
+bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
+                const uint8_t* source, size_t source_size) {
+    if ((command & 0x10u) != 0) return false; // VIF write masking is not observed in Sly's stream.
+    const uint32_t vectors = count == 0 ? 256u : count;
+    const uint32_t format = command & 0xFu;
+    const uint32_t components = ((format >> 2u) & 3u) + 1u;
+    constexpr uint32_t bits_per_component[] = {32u, 16u, 8u, 5u};
+    const uint32_t component_bits = bits_per_component[format & 3u];
+    const uint32_t vector_bits = components * component_bits;
+    const size_t input_bytes_per_vector = ((vector_bits + 31u) / 32u) * 4u;
+    if (vectors > source_size / input_bytes_per_vector) return false;
+
+    const uint32_t cycle = load_mmio(kVif1Cycle);
+    const uint32_t cycle_length = (cycle & 0xFFu) == 0 ? 256u : cycle & 0xFFu;
+    const uint32_t write_length = ((cycle >> 8u) & 0xFFu) == 0
+                                      ? 256u
+                                      : (cycle >> 8u) & 0xFFu;
+    if (write_length > cycle_length ||
+        (write_length != cycle_length && write_length != 1u)) return false;
+    const uint32_t destination_stride = write_length == cycle_length ? 1u : cycle_length;
+
+    uint32_t destination = immediate & 0x3FFu;
+    if ((immediate & 0x8000u) != 0)
+        destination = (destination + (load_mmio(kVif1Tops) & 0x3FFu)) & 0x3FFu;
+    const bool zero_extend = (immediate & 0x4000u) != 0;
+    const uint8_t* input = source;
+
+    for (uint32_t vector_index = 0; vector_index < vectors; ++vector_index) {
+        const uint32_t destination_index =
+            (destination + vector_index * destination_stride) & 0x3FFu;
+        uint8_t* output = openrac_guest_base + kVu1Data + destination_index * 16u;
+        uint32_t lanes[4];
+        std::memcpy(lanes, output, sizeof(lanes));
+
+        for (uint32_t component = 0; component < components; ++component) {
+            uint32_t value = read_bits(input, component * component_bits, component_bits);
+            if (!zero_extend && component_bits < 32u &&
+                (value & (1u << (component_bits - 1u))) != 0) {
+                value |= ~((1u << component_bits) - 1u);
+            }
+            lanes[component] = value;
+        }
+        if (components == 1u) {
+            lanes[1] = lanes[0];
+            lanes[2] = lanes[0];
+            lanes[3] = lanes[0];
+        }
+        std::memcpy(output, lanes, sizeof(lanes));
+        input += input_bytes_per_vector;
+    }
+    return true;
+}
+
 struct VifTrace {
     std::array<uint32_t, 0x80> command_counts{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mpg{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mscal{};
+    struct Operand { uint32_t command; uint32_t count; uint32_t immediate; };
+    std::array<Operand, 48> operands{};
     uint32_t mpg_total = 0;
     uint32_t mscal_total = 0;
     size_t mpg_count = 0;
     size_t mscal_count = 0;
+    size_t operand_count = 0;
 };
 
 bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes,
@@ -180,6 +253,11 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         const uint32_t count = (code >> 16) & 0xFFu;
         const uint32_t immediate = code & 0xFFFFu;
         ++trace->command_counts[command];
+        if (((command >= 1u && command <= 3u) ||
+             (command >= 0x60u && command <= 0x7Fu)) &&
+            trace->operand_count < trace->operands.size()) {
+            trace->operands[trace->operand_count++] = {command, count, immediate};
+        }
 
         if (command == 0x50u || command == 0x51u) { // DIRECT / DIRECTHL
             const uint32_t qwc = immediate == 0 ? 0x10000u : immediate;
@@ -200,12 +278,36 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint64_t bytes_per_vector = ((bits + 31u) / 32u) * 4u;
             const uint64_t bytes = bytes_per_vector * loops;
             if (bytes > stream.size() - cursor) return false;
+            if (!unpack_vu1(command, count, immediate, stream.data() + cursor,
+                            static_cast<size_t>(bytes))) {
+                *unsupported_command = command;
+                return false;
+            }
             cursor += static_cast<size_t>(bytes);
             continue;
         }
 
         size_t immediate_bytes = 0;
         switch (command) {
+        case 0x01: // STCYCL
+            store_mmio(kVif1Cycle, immediate);
+            break;
+        case 0x02: { // OFFSET (VIF1)
+            const uint32_t tops = load_mmio(kVif1Tops) & 0x3FFu;
+            store_mmio(kVif1Offset, immediate & 0x3FFu);
+            store_mmio(kVif1Base, tops);
+            store_mmio(kVif1Status, load_mmio(kVif1Status) & ~(1u << 7));
+            store_mmio(kVif1Tops, tops);
+            break;
+        }
+        case 0x03: { // BASE (VIF1)
+            store_mmio(kVif1Base, immediate & 0x3FFu);
+            const bool double_buffer = (load_mmio(kVif1Status) & (1u << 7)) != 0;
+            const uint32_t tops = (immediate +
+                                   (double_buffer ? load_mmio(kVif1Offset) : 0u)) & 0x3FFu;
+            store_mmio(kVif1Tops, tops);
+            break;
+        }
         case 0x20: // STMASK
             immediate_bytes = 4;
             break;
@@ -219,14 +321,22 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 trace->mpg[trace->mpg_count++] = {immediate,
                                                    count == 0 ? 256u : count};
             immediate_bytes = static_cast<size_t>(count == 0 ? 256u : count) * 8u;
+            if (immediate_bytes > stream.size() - cursor) return false;
+            if (immediate > kVu1MemoryBytes / 8u ||
+                immediate_bytes > kVu1MemoryBytes - static_cast<size_t>(immediate) * 8u) {
+                *unsupported_command = command;
+                return false;
+            }
+            std::memcpy(openrac_guest_base + kVu1Micro + static_cast<size_t>(immediate) * 8u,
+                        stream.data() + cursor, immediate_bytes);
             break;
         case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
             ++trace->mscal_total;
             if (trace->mscal_count < trace->mscal.size())
                 trace->mscal[trace->mscal_count++] = {command, immediate & 0xFFFFu};
             break;
-        case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05:
-        case 0x06: case 0x07: case 0x10: case 0x11: case 0x13:
+        case 0x00: case 0x04: case 0x05: case 0x06: case 0x07:
+        case 0x10: case 0x11: case 0x13:
             break;
         default:
             *unsupported_command = command;
@@ -286,6 +396,10 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
             for (size_t i = 0; i < trace.mscal_count; ++i)
                 openrac::log::info("native VIF1 microcall transfer={} command={:#x} address={}",
                                    transfer + 1, trace.mscal[i].first, trace.mscal[i].second);
+            for (size_t i = 0; i < trace.operand_count; ++i)
+                openrac::log::info("native VIF1 operand transfer={} opcode={:#x} num={} immediate={:#x}",
+                                   transfer + 1, trace.operands[i].command,
+                                   trace.operands[i].count, trace.operands[i].immediate);
         }
     } else {
         store_mmio(kDmacStat, (status & ~(1u << 1)) | (1u << 15));
