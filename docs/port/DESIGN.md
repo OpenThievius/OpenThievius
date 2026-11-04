@@ -18,6 +18,14 @@ decompiled C++ is compiled for the host and runs as a normal program. Port
 code replaces platform services and draws the game through native rendering
 code. This design does not run the retail executable in an emulator.
 
+It also does not model EE/IOP processors, SIF, DMA, VIF, VU or GS as the
+gameplay architecture. Replace console library boundaries with native
+services and implement native rendering for Sly's drawing systems. The
+current device-model work is experimental research and must not be extended
+as the route to a playable port. See
+[`OPENRAC_REUSE.md`](OPENRAC_REUSE.md) for the architecture comparison and
+reuse plan.
+
 The decompilation reports matching C for both NTSC-U and PAL, while unfinished
 functions and data remain assembly-backed. The port should therefore accept a
 decompilation source directory and produce its host build in an ignored build
@@ -52,10 +60,10 @@ sly1-decomp C++ ----------------> host preparation -> native game program
   for files, timing, controllers, sound and saves. Derive the APIs from Sly's
   retail call sites and public hardware documentation. Do not include Sony
   SDK source, samples or headers.
-- **Graphics.** Research Sly's rendering code and assets from retail. Prefer
-  native renderers for the game's actual rendering subsystems over an
-  instruction-level model of the GS, VU or DMA. A temporary compatibility
-  layer is an open engineering decision, not the end goal.
+- **Graphics.** Research Sly's rendering code and assets from retail. Build
+  native renderers for the game's drawing subsystems and expose the data they
+  need from host-native game code. Do not build an instruction-level model of
+  the GS, VU, VIF or DMA as a compatibility path.
 - **Assets.** The retail executable's loader and index indicate that game
   data is stored outside the disc file system. Build an extractor and
   converters from the player's own disc and from formats understood through
@@ -71,9 +79,8 @@ sly1-decomp C++ ----------------> host preparation -> native game program
    small set of Sly C files in an ignored build directory.
 2. The guest memory and pointer model, based on Sly's actual address usage and
    portability constraints.
-3. The renderer hand-off: expose native draw data from rewritten game-side
-   routines, or consume a game-produced command stream at synchronization
-   points.
+3. For each Sly drawing subsystem, whether host code should expose native
+   draw data directly or provide a lightweight game-produced command stream.
 4. Graphics API, audio library, window/input layer, build system and asset
    interchange formats.
 5. Which subsystem provides the first useful milestone: a data-only level
@@ -91,7 +98,8 @@ toolchains in this repository.
 
 ## Reference
 
-- [OpenRAC port design](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/DESIGN.md)
-- [OpenRAC hostgen](https://github.com/OpenRAC/OpenRAC/tree/master/port/tools/hostgen)
+- [OpenRAC reuse plan](OPENRAC_REUSE.md)
+- [OpenRAC port design](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/port/DESIGN.md)
+- [OpenRAC hostgen](https://github.com/OpenRAC/OpenRAC/tree/develop/port/tools/hostgen)
 - [Sly 1 decompilation roadmap](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/ROADMAP.md)
 - [Sly 1 disc research](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/DISC.md)

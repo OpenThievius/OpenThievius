@@ -5,6 +5,11 @@ The port and the matching decompilation can progress together. A complete
 matching decompilation is not required to begin tooling, asset research or a
 viewer, but native gameplay needs hostable C along its boot and frame paths.
 See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
+The hardware-model launcher described in the implementation history below is
+an experimental branch of the work, not the target port architecture. Follow
+the [OpenRAC reuse plan](OPENRAC_REUSE.md): native game code, native service
+replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
+models as gameplay features.
 
 | Phase | Work | Milestone |
 |---|---|---|
@@ -17,7 +22,7 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 | 6 | Complete frame path, renderer integration, audio, input and saves | NTSC-U is playable on desktop platforms |
 | 7 | PAL support, parity fixes, packaging and launcher | Both retail versions are supported |
 
-**Current implementation:** the hostgen tool and CMake entry point are in
+**Experimental implementation history (not a playable-port milestone):** the hostgen tool and CMake entry point are in
 place. With local retail-backed assembly available, the latest build translated
 1,531 functions from C and 3,146 from assembly; all 81 generated C units
 compile. `port_native` reads a user's extracted boot ELF and optional ISO,

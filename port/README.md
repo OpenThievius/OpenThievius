@@ -4,6 +4,9 @@ The port will run the decompiled game natively on Windows, macOS and Linux,
 with the game's data read from your own disc. The current architecture and
 staged plan are in [docs/port/DESIGN.md](../docs/port/DESIGN.md) and
 [docs/port/ROADMAP.md](../docs/port/ROADMAP.md).
+The [OpenRAC reuse plan](../docs/port/OPENRAC_REUSE.md) explains the native
+port pattern and marks the current hardware-model launcher as experimental,
+not the target gameplay architecture.
 
 The first port tool inspects the decompilation's committed sources and reports
 matching coverage:
