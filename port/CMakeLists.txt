@@ -94,6 +94,7 @@ add_library(sly1_port_runtime STATIC
     runtime/sif.cpp
     runtime/sly1_timer.cpp
     runtime/vif1_dma.cpp
+    runtime/vu1_native.cpp
     runtime/sdl_renderer.cpp
     runtime/memory.cpp
     runtime/ps2float.cpp

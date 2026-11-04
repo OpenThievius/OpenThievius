@@ -2,6 +2,7 @@
 /* Native handling for the VIF1 DMA subset used by Sly's display lists. */
 #include "openrac/guest.h"
 #include "openrac/native_gs.h"
+#include "openrac/native_vu1.h"
 
 #include <algorithm>
 #include <array>
@@ -249,6 +250,8 @@ struct VifTrace {
     size_t program_count = 0;
 };
 
+std::atomic_flag g_vu_unsupported_notice = ATOMIC_FLAG_INIT;
+
 void trace_vu1_program(uint32_t address, VifTrace* trace) {
     address &= 0x7FFu;
     for (size_t i = 0; i < trace->program_count; ++i) {
@@ -261,7 +264,7 @@ void trace_vu1_program(uint32_t address, VifTrace* trace) {
     for (uint32_t index = address; index < kVu1MemoryBytes / 8u; ++index) {
         uint32_t upper = 0;
         const uint8_t* instruction = openrac_guest_base + kVu1Micro + index * 8u;
-        std::memcpy(&upper, instruction + 4u, sizeof(upper));
+        std::memcpy(&upper, instruction, sizeof(upper));
         ++program.instruction_count;
         ++program.upper_opcodes[upper & 0x3Fu];
         if ((upper & (1u << 30u)) != 0) break; // E-bit ends the microprogram.
@@ -335,6 +338,9 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             store_mmio(kVif1Tops, tops);
             break;
         }
+        case 0x04: // ITOP
+            openrac_guest_vu1_set_itop(immediate & 0x3FFu);
+            break;
         case 0x20: // STMASK
             immediate_bytes = 4;
             break;
@@ -362,8 +368,18 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             if (trace->mscal_count < trace->mscal.size())
                 trace->mscal[trace->mscal_count++] = {command, immediate & 0xFFFFu};
             if (command != 0x17u) trace_vu1_program(immediate, trace);
+            {
+                uint32_t vu_unsupported = 0;
+                const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
+                if (!openrac_guest_vu1_execute(entry, &vu_unsupported) &&
+                    !g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
+                    openrac::log::warn(
+                        "native VU1 translation stopped at instruction {:#010x} from entry {}",
+                        vu_unsupported, entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                }
+            }
             break;
-        case 0x00: case 0x04: case 0x05: case 0x06: case 0x07:
+        case 0x00: case 0x05: case 0x06: case 0x07:
         case 0x10: case 0x11: case 0x13:
             break;
         default:
