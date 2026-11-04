@@ -75,6 +75,7 @@ bool fifo_append(const uint8_t* source, size_t size) {
         g_gif_fifo_head = 0;
     }
     g_gif_fifo.insert(g_gif_fifo.end(), source, source + size);
+    openrac_guest_gif_stream_write(source, size);
     return true;
 }
 

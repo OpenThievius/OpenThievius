@@ -17,6 +17,11 @@ int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value);
 size_t openrac_guest_gif_fifo_read(void* destination, size_t capacity);
 size_t openrac_guest_gif_fifo_pending(void);
 
+/* GIF stream state decoded from the FIFO in submission order. */
+int openrac_guest_gs_read_register(uint32_t address, uint64_t* value);
+uint64_t openrac_guest_gif_eop_count(void);
+void openrac_guest_gif_stream_write(const void* source, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

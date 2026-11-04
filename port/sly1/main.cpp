@@ -4,6 +4,7 @@
 #include "openrac/disc_image.h"
 #include "openrac/game_host.h"
 #include "openrac/memory.h"
+#include "openrac/native_gs.h"
 
 extern "C" {
 #include "game_protos.h"
@@ -115,6 +116,10 @@ int main(int argc, char** argv) {
                 const uint32_t thread = openrac_guest_last_kernel_thread();
                 const gaddr thread_entry = openrac_guest_thread_entry(thread);
                 const char* thread_name = openrac_guest_function_name(thread_entry);
+                uint64_t framebuffer = 0;
+                uint64_t scissor = 0;
+                openrac_guest_gs_read_register(0x4Cu, &framebuffer);
+                openrac_guest_gs_read_register(0x40u, &scissor);
                 std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
                           << " address=0x" << std::hex << address << std::dec
                           << " kernel_service=";
@@ -122,7 +127,10 @@ int main(int argc, char** argv) {
                 else std::cerr << "0x" << std::hex << service << std::dec;
                 std::cerr << " kernel_thread=" << thread << " thread_entry="
                           << (thread_name == nullptr ? "main/unknown" : thread_name)
-                          << "(0x" << std::hex << thread_entry << std::dec << ')';
+                          << "(0x" << std::hex << thread_entry << std::dec << ')'
+                          << " gif_eop=" << openrac_guest_gif_eop_count()
+                          << " frame1=0x" << std::hex << framebuffer
+                          << " scissor=0x" << scissor << std::dec;
                 std::cerr << " active_threads=";
                 for (uint32_t id = 1; id < 16; ++id) {
                     const gaddr active = openrac_guest_last_called_address_for_thread(id);

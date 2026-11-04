@@ -71,6 +71,12 @@ first DMAtag word. A bounded run accepts the observed 704-byte packed A+D
 stream and subsequent image-data chunks without rejecting channel 2 transfers.
 The FIFO still has no consumer, so these validated commands are not yet drawn.
 
+A stateful GIF decoder now tracks packed writes, register-list writes, image
+payload spans and EOP markers across DMA chunks. The bounded startup trace
+reads FRAME_1 `0xa0046` and SCISSOR `0x027f0000`, identifying a 640x224 display
+target. This is renderer input state only; it does not rasterize or present
+pixels yet.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These
