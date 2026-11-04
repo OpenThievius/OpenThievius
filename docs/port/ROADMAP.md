@@ -47,6 +47,8 @@ later releases the reader. The factory's required class constructor
 `func_001DB4C8` now has a port-only native C backfill; its vector helper
 `func_001DBA90` and pool initializer `func_001DC740` are backfilled alongside
 it. They are registered through hostgen and link as native functions. The
+buffered byte reader `func_00137A60` is also backfilled and linked, though the
+current native run reaches the missing coordinator before exercising it. The
 resource parser callback `func_001DCEA0` and raw-disc read worker
 `func_00137490` still lack native implementations. The earlier
 74-sector read was observed only in the separate assembly-research path and

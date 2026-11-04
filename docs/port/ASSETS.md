@@ -135,23 +135,24 @@ range, `func_001E4EA8` requests engine object type `0x6C` from
 constructs additional objects, including types `0x6D`, `0x1E`, and `0x4D`.
 The coordinator then finalizes the stream reader and registers the job. The
 type `0x6C` constructor is `func_001DB4C8`; its base constructor is
-`func_001DB480`.
+`func_001DB480`. Port-only backfills for the constructor and its pool/vector
+helpers `func_001DC740` and `func_001DBA90` now compile in the native host
+build.
 
 This means a native loader backfill cannot safely replace `func_001E4EA8` with
 a raw sector read or mark the request complete after decompression. The
-immediate C gaps on the callback path are the coordinator, the type `0x6C`
-constructor (`func_001DB4C8`), and the resource parser callback
-(`func_001DCEA0`); the stream worker (`func_00137490`) is another required
-piece for the disk reader. A port-only `func_0011E580` backfill now implements
-retail descriptor lookup, allocation, owner-list registration, and constructor
-dispatch through the native function map. It compiles in the C-only hostgen
-build, but it cannot initialize the type `0x6C` object until that type's
-constructor is implemented. These Sly-specific behaviors belong under
-`port/game/sly1-us/hand/native_c/`, separate from matching decompilation.
-The next useful target is the type `0x6C` constructor, followed by the resource
-parser callback and the minimal object-construction services it reaches,
-tracked from retail call sites rather than inferred from the decoded bytes
-alone.
+remaining gaps on the callback path are the coordinator (`func_001E4EA8`),
+resource parser callback (`func_001DCEA0`), and stream worker
+(`func_00137490`). A port-only `func_0011E580` backfill implements retail
+descriptor lookup, allocation, owner-list registration, and constructor
+dispatch through the native function map. The port-only `func_00137A60`
+backfill reproduces the buffered byte-reader loop that requests data from the
+stream worker; `func_0018D800` supplies its retail byte-copy operation. These
+Sly-specific behaviors
+live under `port/game/sly1-us/hand/native_c/`, separate from matching
+decompilation. A bounded native run still stops at the missing coordinator
+before exercising the new reader backfill. The coordinator is the next target;
+the parser and sector worker are also required to complete real resource loads.
 
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill
