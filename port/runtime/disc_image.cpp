@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,7 @@
 #include <vector>
 
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 
 namespace {
 
@@ -329,6 +331,36 @@ extern "C" int openrac_lib_sly1_cd_disk_ready(int mode) {
     (void)mode;
     // The startup caller waits for 2; 6 is the retail poll's unavailable result.
     return g_disc.sectors() != 0 ? 2 : 6;
+}
+
+namespace {
+std::atomic<int> g_cd_read_error{0};
+}
+
+extern "C" int openrac_lib_sly1_cd_read_sectors(uint32_t sector, uint32_t count,
+                                                uint32_t destination, uint32_t mode) {
+    const uint32_t mode_address = openrac_guest_ram_address(mode);
+    if (mode_address > openrac_guest_ram_size || openrac_guest_ram_size - mode_address < 3 ||
+        openrac_guest_base[mode_address + 2] != 0) {
+        g_cd_read_error.store(-1, std::memory_order_relaxed);
+        openrac_guest_missing("native disc read mode is unsupported");
+        return 0;
+    }
+    const int success = openrac_guest_disc_read(sector, count, destination);
+    g_cd_read_error.store(success ? 0 : -1, std::memory_order_relaxed);
+    if (openrac_env_string("OPENRAC_TRACE_CD") != nullptr)
+        std::fprintf(stderr, "[info] native disc read sector=%u count=%u destination=%#010x result=%d\n",
+                     sector, count, destination, success);
+    return success;
+}
+
+extern "C" int openrac_lib_sly1_cd_read_wait(int mode) {
+    (void)mode;
+    return 0;
+}
+
+extern "C" int openrac_lib_sly1_cd_read_error(void) {
+    return g_cd_read_error.load(std::memory_order_relaxed);
 }
 
 extern "C" int openrac_lib_sly1_cd_file_open(uint32_t guest_path) {

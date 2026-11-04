@@ -44,6 +44,9 @@ waiting on hardware registers. Graphics synchronization and sound are not
 implemented. SIF DMA (0x76–0x78), IOP
 RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
+Native sector reads now connect the retail disc-read entry to the ISO reader;
+the latest run read 74 sectors before encountering an unregistered entry and
+a guest-memory fault. Only the ordinary 2048-byte sector mode is supported.
 The source bridge also has unreadable source files and C++ constructs that need
 preserving; continue along the loader and boot call graph, grounding host
 behavior in retail code or public hardware documentation.

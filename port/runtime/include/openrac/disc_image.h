@@ -21,6 +21,10 @@ int openrac_lib_sly1_iop_boot(void);
 int openrac_lib_sly1_iop_initialize(int mode);
 int openrac_lib_sly1_cd_status(void);
 int openrac_lib_sly1_cd_disk_ready(int mode);
+int openrac_lib_sly1_cd_read_sectors(uint32_t sector, uint32_t count, uint32_t destination,
+                                    uint32_t mode);
+int openrac_lib_sly1_cd_read_wait(int mode);
+int openrac_lib_sly1_cd_read_error(void);
 int openrac_lib_sly1_cd_file_open(uint32_t guest_path);
 int openrac_lib_sly1_cd_file_ready(void);
 int openrac_lib_sly1_cd_file_close(void);
