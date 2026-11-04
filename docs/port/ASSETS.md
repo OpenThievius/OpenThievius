@@ -31,3 +31,18 @@ On the locally supplied NTSC-U image, the scanner found 1,409 VAGp samples
 with 215,281,856 bytes of declared ADPCM payload. This is a signature-based
 audio recovery path; it does not locate or extract the level/model data needed
 to render and play a level.
+
+## First native raw-sector read
+
+With `OPENRAC_TRACE_CD=1`, a 15-second native startup run against the US ELF
+and disc read logical sectors 820372–820445 (74 sectors) into guest address
+`0x002c3b00`. The read is outside the ISO filesystem and contains no sector-
+aligned `VAGp` header or common zlib, gzip, bzip2 or xz stream at its start.
+This confirms that the retail startup path reaches raw media, but does not yet
+identify the resource, its index entry, or its encoding. The runtime could not
+report a guest caller address for this request, so the next useful step is to
+trace the resource descriptor that supplies its sector and byte range.
+
+To capture this read on a local build, set `OPENRAC_TRACE_CD=1` when launching
+`sly1_native` with your own extracted ELF and disc image. This runs the native
+launcher; it does not use an emulator.
