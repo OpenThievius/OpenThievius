@@ -15,3 +15,6 @@ func_00160918	native_c/startup_loader.c
 func_00160070	native_c/startup_loader.c
 func_001EFFA0	native_c/loader_messages.c
 func_001F0220	native_c/loader_messages.c
+func_00137290	native_c/stream_reader.c
+func_00137328	native_c/stream_reader.c
+func_001373B0	native_c/stream_reader.c
