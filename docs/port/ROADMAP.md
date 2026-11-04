@@ -118,11 +118,15 @@ submits valid XGKICK GIF packets; later calls still encounter a non-tag at the
 kick address, and the renderer has not produced visible vertices.
 
 A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
-25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Native execution
-now reaches XGKICK and submits some valid GIF packets. The next graphics blocker
-is accurate execution of the remaining VU microcode path and the GS rasterizer;
-no visible title scene or playable renderer has been verified. Set
-`OPENRAC_VIF_TRACE=1` to capture the first two populated transfers.
+25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. A 15-second
+native run confirms that the accepted XGKICKs so far carry primitive-state
+writes without any vertex coordinates. A later kick starts at zero-filled VU
+data and encounters a value rejected as a GIF tag. Meanwhile the game advances
+large IMAGE payloads, which the host currently counts and discards. The next
+graphics work is therefore to correct the VU data path and consume GS image
+transfers before a scene can appear; no visible title scene or playable
+renderer has been verified. Set `OPENRAC_VIF_TRACE=1` to capture the first two
+populated transfers.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
