@@ -21,18 +21,21 @@ python3 port/tools/sly1.py status --source /path/to/sly1-decomp
 python3 port/tools/sly1.py status --version eu --json
 ```
 
-It is a planning/status tool, not a host build. The next step is the source
-bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
+It is a planning/status tool, not a host build. The host build and its current
+limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. This
-generates host C only from matched Sly sources. It does not translate retail
-MIPS assembly. On the current source snapshot, 68 units produce 1,474 host
-functions; 3,286 catalogued functions still have no matching C. All 73
-generated C units compile and link into the local link-check program, but the
-retail entry `func_00100008` is still a generated stub, so this is not yet a
-runnable game. The direct 32-bit C++ object build is a separate experiment and
-also has no game executable yet.
+generates host C from matched Sly sources plus port-only backfills. It does not
+translate retail MIPS assembly. On the current source snapshot, 68
+decompilation units and three port-owned backfills produce 1,486 host
+functions; 3,282 catalogued
+functions still have no matching C. All 76 generated C units compile and link
+into the native launcher. Its port-owned boot backfill sets up host guest
+memory and calls the backfilled frame loop, but many functions on that loop
+still lack matching C and are no-ops. The launcher reaches that loop without
+displaying a title or gameplay. Backfills are kept under
+`game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 
 `python3 port/tools/sly1.py hostgen --asm on` writes a separate
 `build/port/hostgen/us-asm-research/` tree. That mode translates retail MIPS
@@ -53,8 +56,9 @@ cmake --build build/port --target port_native
 
 The link check confirms that the generated C and shared runtime link together;
 it does not call the game entry. `port_native` builds
-`build/port/sly1_native` from the same no-assembly host output. The current
-entry is a stub, so launching it cannot reach gameplay. The optional
+`build/port/sly1_native` from the same no-assembly host output. The port-only
+boot entry reaches a backfilled frame loop, but does not yet reach gameplay.
+The optional
 `--asm on` research output is separate and must not be used as a gameplay
 dependency.
 

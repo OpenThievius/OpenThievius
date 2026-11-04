@@ -48,6 +48,41 @@ raw-sector catalog and audio extractors, NTSC-U hostgen configuration,
 `libraries.tsv`, native launcher, service replacements and the two formatting
 backfills. These are not OpenRAC code just because they use its architecture.
 
+## Audit of the upstream port
+
+I compared this checkout with OpenRAC commit
+`eefdcd1243a1c9a9fe8ca1e58bf4a5c03dd0a204` (the current upstream snapshot at
+the time of this audit). We have reused its source bridge, common/runtime
+foundation, audio output and basic DualShock 2 state. We have not imported its
+current SDL window/context layer, full keyboard/controller input system, frame
+pacing, or OpenGL renderer. Earlier work did build a separate SDL color
+primitive presenter and a GS/VIF/VU research path; neither is a substitute for
+those native port modules.
+
+| OpenRAC module | Reuse value for Sly | Work still needed here |
+|---|---|---|
+| `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Port the needed settings/API surface and replace the current minimal SDL window owner |
+| `platform/input.*`, `platform/bindings.*`, `platform/players.*` | High: keyboard/gamepad event handling and user bindings are generic | Connect its pad state to Sly's own pad-library calls and keep Sly's button semantics |
+| `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | Promising: consume GIF/GS packets emitted by the game and draw with native OpenGL, without emulating the EE, VIF or VU | Prove Sly emits compatible packets, adapt packet submission and validate Sly's texture/framebuffer conventions |
+| `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
+
+The direct renderer deserves an actual integration spike before we write a
+replacement. Its `GifInterpreter` consumes packet bytes and prepares draw
+groups; its `DirectRenderer` submits those groups to OpenGL. This is closer to
+a native renderer than the existing experimental device model, but compatible
+GS packet syntax alone does not prove Sly's packet boundaries, texture uploads,
+or frame targets match. The Sly frame must first reach its drawing calls, and
+the renderer must be fed from those game-produced packets. OpenRAC's current
+level renderers are a separate matter: their CPU scene adapters encode R&C
+level formats and cannot draw Sly levels as-is.
+
+The current C-only native build confirms the boot override and three
+port-owned frame backfills compile and link. A bounded native run enters the
+frame loop, but warnings show missing Sly functions on that path and the
+renderer receives no geometry. This is not a playable milestone. The
+backfills remain separate from matching source under
+`port/game/sly1-us/hand/native_c/`.
+
 The current kernel replacement is a mixed case. The generic syscall dispatch
 and thread/semaphore scaffolding were adapted from OpenRAC's documented
 interpreter/runtime behavior, while the Sly service IDs, wrappers and required
@@ -88,11 +123,10 @@ texture/geometry conversion, scene traversal and shaders encode R&C formats
 and behavior. Sly still needs its own asset readers and draw-data adapter.
 Its audio output is now integrated as a generic foundation. The SDL input
 module combines device plumbing with RAC-specific pad shaping and binding
-behavior, so reuse should wait until Sly's pad library boundary is mapped.
-The OpenGL window/context layer is a plausible next reuse after choosing the
-Sly renderer API. The correct approach is selective reuse of generic modules
-and independent implementation of Sly boundaries, not cloning all of `port/`
-or rewriting generic infrastructure we already have.
+behavior, so adapt its plumbing after mapping Sly's pad library boundary. The
+OpenGL window/context layer is also a concrete reuse candidate. Reuse generic
+modules and implement Sly's boundaries independently; do not clone all of
+`port/` or rewrite generic infrastructure already available.
 
 The PS2 platform is shared, but library call sequences and graphics behavior
 are title-specific. A generic ISO 9660 reader can help read ordinary files;
@@ -105,34 +139,32 @@ still need independent research.
 
 ## Architecture correction for this port
 
-The current `port/runtime/` path started as an imported OpenRAC guest-memory
-and host-call foundation, but has since accumulated an Sly execution engine
-that translates retail MIPS assembly and models parts of EE, IOP, SIF, DMA,
-VIF1, VU1 and GS behavior. It has reached a black window and partial
-color-only geometry. The latest bounded run still waits in `func_001F6B60`
-with zero rendered vertices. This is a useful research harness, not a route
-to continue toward playable Sly 1. Do not extend the instruction/device models
-as gameplay features.
+The earlier `port/runtime/` path started as an imported OpenRAC guest-memory
+and host-call foundation, then accumulated an Sly execution engine that
+translates retail MIPS assembly and models parts of EE, IOP, SIF, DMA, VIF1,
+VU1 and GS behavior. It has reached a black window and partial color-only
+geometry. Keep it as a bounded research harness; do not extend its
+instruction/device models as gameplay features. The separate C-only host path
+now reaches a port-backfilled frame loop, but still has no visible scene.
 
 The target remains host-native game logic plus native services and
 Sly-specific renderers, following OpenRAC. A playable path must call compiled
 decompiled C++ and replace the title's platform/library boundaries with host
 services; it must not depend on an EE instruction interpreter, simulated
-console scheduler or emulated graphics devices. Retain ELF/disc inspection
-and the current launcher only as bounded research tools until an independent
-host-native boot path exists. The existing kernel, SIF, DMA, VIF/VU and GS
-implementations cannot be treated as that native service layer.
+console scheduler or emulated graphics devices. The C-only path is the start
+of that architecture, while the ELF/disc instruction-translation launcher
+remains a bounded research tool. The existing kernel, SIF, DMA, VIF/VU and GS
+implementations cannot be treated as the native service layer.
 
-The default hostgen command now disables assembly translation. In the current
-build, it compiles and links matched C lowered from the Sly sources, but its
-boot entry is still a generated stub, so the result cannot start the game.
-Passing `--asm on` writes a separate research output tree and retains the old
-instruction-translation experiment. That output is never a dependency of the
-playable target. Directly compiling Sly C++ as i386 preserves the retail data
+The default hostgen command now disables assembly translation. It compiles
+matched Sly C plus port-only backfills and links against the shared guest
+memory runtime. The native boot override reaches the C frame loop, but the
+bounded run warns on missing functions and renders nothing. Passing `--asm on`
+writes a separate research output tree; it is never a dependency of the
+playable target. Directly compiling Sly C++ as i386 preserves retail data
 layout, but the imported guest runtime is not an i386 native-service layer:
-its EE/VU support uses `__int128`, unavailable in this ABI. The port therefore
-needs a smaller native service boundary, while continuing to reuse generic
-OpenRAC utilities and platform modules where they fit.
+its EE/VU support uses `__int128`, unavailable in that ABI. The 64-bit
+host-generated C route is currently the viable native compilation experiment.
 
 Near-term sequence:
 
