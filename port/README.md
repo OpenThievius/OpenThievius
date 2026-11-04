@@ -39,15 +39,19 @@ raw BIN disc image, loads the ELF segments into guest memory, registers
 translated functions, and calls the game entry. The native runtime validates
 ISO 9660 images, reads logical sectors, locates paths and reads file ranges.
 The IOP bootstrap constructor now uses a native hook that sets CD-ready state
-when an ISO is loaded; the file-open poll uses ISO path lookup. These changes
-build but have not been startup-tested. The native launcher is experimental.
+when an ISO is loaded; the file-open poll uses ISO path lookup. The native
+launcher is experimental.
 The first authorized startup run stopped at the runtime's stack-bound check
 and five interior constructor table entries. The runtime now accepts Sly's
 `SetupThread` stack range, and the launcher registers
 those five callback addresses to call their translated registration routines.
 A second authorized startup run passed those points and stayed alive in the
-CD/IOP initialization path until its timeout. Hostgen now translates two more
-interior entries used by that path. Hostgen translates the entry's BSS setup
+CD/IOP initialization path until its timeout. A third authorized startup run,
+with native ISO file-open enabled, passed the previous CD wait and remained
+alive through further initialization until timeout. Hostgen now translates
+more interior entries used by that path. EE interrupt disable/enable helpers
+preserve nested critical-section state and return the prior enable bit.
+Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
 `GetEntryAddress`, `FlushCache`, and `SetSyscall`). The

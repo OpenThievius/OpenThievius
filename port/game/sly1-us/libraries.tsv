@@ -1,5 +1,7 @@
 # symbol	library	name	port	notes	signature
 func_001858F8	iop	sly1_iop_boot	host	Replace IOP module startup with native disc services	int(void)
+func_001F9D60	kernel	sly1_interrupt_disable	host	Preserve Sly critical-section state on the host	int()
+func_001F9DA8	kernel	sly1_interrupt_enable	host	Preserve Sly critical-section state on the host	int()
 func_00203548	iop	sly1_iop_initialize	host	Replace the IOP RPC startup loop with native services	int(int)
 func_00203CF8	iop	sly1_cd_status	host	Report native disc readiness to Sly startup	int(void)
 func_001F9C50	iop	sly1_cd_file_open	host	Open a path from the native ISO reader	int(int)

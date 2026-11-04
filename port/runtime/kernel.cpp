@@ -15,11 +15,22 @@
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
+std::atomic<bool> g_cpu_interrupts_enabled{true};
 uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::mutex g_kernel_mutex;
 std::map<uint32_t, int32_t> g_semaphores;
 uint64_t g_gs_imr = 0x7F00u;
+}
+
+/* The EE replacements for `di` and `ei` return the previous Status.IE bit,
+ * which callers use to restore nested critical sections correctly. */
+extern "C" int openrac_lib_sly1_interrupt_disable(void) {
+    return g_cpu_interrupts_enabled.exchange(false, std::memory_order_relaxed) ? 1 : 0;
+}
+
+extern "C" int openrac_lib_sly1_interrupt_enable(void) {
+    return g_cpu_interrupts_enabled.exchange(true, std::memory_order_relaxed) ? 1 : 0;
 }
 
 extern "C" int openrac_guest_exit_requested(void) {
