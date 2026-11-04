@@ -19,10 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-twenty-two separate port-native backfill translation units, then combines them
-by retail address.
-The current combined object contains 2,346 native function entries out of
-4,766 catalogued addresses and still has 603 unresolved function addresses.
+twenty-three separate port-native backfill translation units, then combines
+them by retail address.
+The current combined object contains 2,347 native function entries out of
+4,766 catalogued addresses and still has 602 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -48,8 +48,8 @@ assembly translation, a link check, or a black window as playable progress.
 
 The host32 combine step now also writes a direct-relocation frontier rooted at
 the port's native frame-loop backfill, `func_00185758`. In the current build,
-46 of 75 functions reached through function-address relocations have compiled
-definitions; 28 are missing. This is narrower than the 606-address whole-game
+57 of 89 functions reached through function-address relocations have compiled
+definitions; 32 are missing. This is narrower than the whole-game unresolved
 frontier and gives the next backfills a concrete starting list. It does not
 follow indirect calls through retail vtables or callback tables, so it is not
 the complete runtime closure. The machine-readable report is in
@@ -83,12 +83,17 @@ The host32 backfill for `func_00128018` performs the retail copy cases and
 three-axis local-coordinate transform with host float operations. It resolves
 one additional catalogued address. Retail also leaves intermediate values in
 VU0 state, which this native backfill does not model; the reachable direct-call
-frontier remains 56 of 89 functions defined, with 33 missing.
+frontier then stood at 56 of 89 functions defined, with 33 missing.
 
 The native backfills for `func_001EACA0` and `func_001BC260` implement the
 quadratic-root and coordinate-normalization math used by Sly's movement path.
-The combined host32 object now resolves 1,338 function references, though it
+The combined host32 object now resolves 1,339 function references, though it
 still is not a linked game executable.
+
+The port-only `func_001F6C20` DMA reset wrapper completes as a no-op on the
+host32 path because native submissions are synchronous. Its addition resolves
+one more function in the direct frame frontier, now 57/89 defined with 32
+missing.
 
 | Phase | Work | Milestone |
 |---|---|---|

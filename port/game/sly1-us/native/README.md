@@ -48,3 +48,8 @@ the output. This is port-only math for host-native callers, not matching source.
 `func_001EACA0.cpp` and `func_001BC260.cpp` implement the quadratic-root and
 coordinate-normalization steps used by Sly's movement update. They use native
 single-precision math and do not depend on the guest VU state.
+
+`func_001F6C20.cpp` preserves Sly's DMA reset call as a native no-op because
+the port completes DMA submissions synchronously and has no pending hardware
+queue to reset. The previous-frame frontier showed this wrapper as a missing
+direct call; the host32 map now resolves it.
