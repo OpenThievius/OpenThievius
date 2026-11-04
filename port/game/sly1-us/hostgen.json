@@ -32,6 +32,6 @@
     ],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
-    "syscalls": [2, 4, 35, 60, 61]
+    "syscalls": [2, 4, 35, 60, 61, 100]
   }
 }

@@ -31,6 +31,8 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
     case 0x04: // Exit(status); a host frame loop observes the request and closes the session.
         g_exit_requested.store(true, std::memory_order_relaxed);
         return 0;
+    case 0x64: // FlushCache: host code has no EE caches.
+        return 0;
     case 0x23: // ExitThread: the port runs a single host thread.
         return 0;
     case 0x3C: { // SetupThread(gp, stack, stack_size, args, root)
