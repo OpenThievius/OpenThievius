@@ -325,6 +325,12 @@ extern "C" int openrac_lib_sly1_cd_status(void) {
     return g_disc.sectors() != 0 ? 0x14 : 0;
 }
 
+extern "C" int openrac_lib_sly1_cd_disk_ready(int mode) {
+    (void)mode;
+    // The startup caller waits for 2; 6 is the retail poll's unavailable result.
+    return g_disc.sectors() != 0 ? 2 : 6;
+}
+
 extern "C" int openrac_lib_sly1_cd_file_open(uint32_t guest_path) {
     const uint32_t address = openrac_guest_ram_address(guest_path);
     if (openrac_guest_base == nullptr || address >= openrac_guest_ram_size) {
