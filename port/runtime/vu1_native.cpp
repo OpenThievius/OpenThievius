@@ -18,8 +18,8 @@
 #include "common/log.h"
 
 namespace {
-constexpr uint32_t kVu1Data = 0x11008000u;
-constexpr uint32_t kVu1Micro = 0x1100C000u;
+constexpr uint32_t kVu1Data = 0x1100C000u;
+constexpr uint32_t kVu1Micro = 0x11008000u;
 constexpr uint32_t kVif1Tops = 0x10003CC0u;
 constexpr size_t kVu1Doublewords = 2048;
 constexpr size_t kVu1Quadwords = 1024;
@@ -213,6 +213,21 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
     if (opcode >= 0x3Cu) {
         const uint32_t special = (((word >> 6u) & 31u) << 2u) | (opcode & 3u);
         switch (special) {
+        case 0x08: case 0x09: case 0x0A: case 0x0B: { // MADDAx/y/z/w
+            const uint32_t lane = special - 0x08u;
+            state->acc[lane] += source[lane] * target[lane];
+            return true;
+        }
+        case 0x0C: case 0x0D: case 0x0E: case 0x0F: { // MSUBAx/y/z/w
+            const uint32_t lane = special - 0x0Cu;
+            state->acc[lane] -= source[lane] * target[lane];
+            return true;
+        }
+        case 0x18: case 0x19: case 0x1A: case 0x1B: { // MULAx/y/z/w
+            const uint32_t lane = special - 0x18u;
+            state->acc[lane] = source[lane] * target[lane];
+            return true;
+        }
         case 0x10: case 0x11: case 0x12: case 0x13:
         case 0x14: case 0x15: case 0x16: case 0x17: {
             const bool to_int = special >= 0x14;
@@ -255,7 +270,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
 
 bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                      uint32_t* unsupported) {
-    if (word == 0) return true;
+    if (word == 0 || word == 0x8000033Cu) return true;
     const uint32_t primary = word >> 25u;
     const uint32_t target = (word >> 16u) & 31u;
     const uint32_t source = (word >> 11u) & 31u;
@@ -331,7 +346,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 }
                 return true;
             }
-            if ((function == 0x3Cu || function == 0x3Du) && field == 0x0Cu) {
+            if ((function == 0x3Cu || function == 0x3Du) && field == 0x1Au) {
                 uint32_t value = state->itop;
                 if (function == 0x3Cu) {
                     std::memcpy(&value, openrac_guest_base + kVif1Tops, sizeof(value));
@@ -395,8 +410,12 @@ extern "C" void openrac_guest_vu1_set_itop(uint32_t value) {
     g_state.itop = static_cast<uint16_t>(value & 0x3FFu);
 }
 
-extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word) {
-    if (openrac_guest_base == nullptr || unsupported_word == nullptr) return 0;
+extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
+                                           uint32_t* stopped_pc,
+                                           uint32_t* stopped_pipeline,
+                                           uint32_t* paired_word) {
+    if (openrac_guest_base == nullptr || unsupported_word == nullptr ||
+        stopped_pc == nullptr || stopped_pipeline == nullptr || paired_word == nullptr) return 0;
     std::lock_guard lock(g_vu_mutex);
     uint32_t pc = entry == 0xFFFFFFFFu ? g_state.pc : (entry & 0x7FFu);
     bool end_delay = false;
@@ -405,6 +424,9 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     for (uint32_t cycle = 0; cycle < kMaxInstructions; ++cycle) {
         if (pc >= kVu1Doublewords) {
             *unsupported_word = 0xFFFFFFFFu;
+            *paired_word = 0xFFFFFFFFu;
+            *stopped_pc = pc;
+            *stopped_pipeline = 0;
             return 0;
         }
         uint32_t lower = 0, upper = 0;
@@ -417,10 +439,18 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         before.pc = current_pc;
         State upper_result = before;
         State lower_result = before;
-        if (!translate_upper(&upper_result, upper, unsupported_word)) return 0;
+        if (!translate_upper(&upper_result, upper, unsupported_word)) {
+            *paired_word = lower;
+            *stopped_pc = current_pc;
+            *stopped_pipeline = 0;
+            return 0;
+        }
         if ((upper & (1u << 31u)) != 0) {
             upper_result.i = std::bit_cast<float>(lower);
         } else if (!translate_lower(&lower_result, lower, &next_pc, unsupported_word)) {
+            *paired_word = upper;
+            *stopped_pc = current_pc;
+            *stopped_pipeline = 1;
             return 0;
         }
         g_state = upper_result;
@@ -456,5 +486,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         }
     }
     *unsupported_word = 0xFFFFFFFFu;
+    *paired_word = 0xFFFFFFFFu;
+    *stopped_pc = pc;
+    *stopped_pipeline = 0;
     return 0;
 }

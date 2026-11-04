@@ -61,8 +61,10 @@ replacement starts. Native command handling completes the SIF command-init
 handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
 The latest bounded run reads the initial ISO sectors, passes the first sound
-service request using a silent fallback and reaches the display loop. It
-publishes 120 geometry vertices on some frames, which the SDL window consumes.
+service request using a silent fallback and reaches the display loop. A
+port-side VU1 translator handles part of the uploaded display microcode, but
+it currently stops on an unsupported instruction before producing vertices.
+The SDL window remains black.
 The native memory-card boundary answers the observed extended-server probe
 (`0x80000400`, RPC `0xFE`) with a zero result structure; retail's
 `func_002093F0` rejects the missing version field and returns `-0x78`. This
@@ -82,7 +84,9 @@ signal across them. OSD configuration currently defaults to English.
 Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 The missing retail timer snapshot at `func_001430C8` is replaced in the port
 runtime and updates Sly's extended timer globals using two host clock samples.
-One startup VU busy poll reports idle because the host has no VU execution unit.
+One startup VU busy poll reports idle. The port-side VU1 translator supports
+only a partial instruction set; the remaining microcode behavior is not yet
+implemented.
 The interrupt controller stores installed handlers and enable state; the
 renderer can raise those events through a host API, but no renderer events are
 wired yet. CP0 interrupt-status reads reflect the host interrupt-enable state.

@@ -226,6 +226,12 @@ int main(int argc, char** argv) {
                               << max_x << ',' << max_y
                               << " visible_vertices=" << visible_vertices
                               << " opaque_vertices=" << opaque_vertices;
+                    std::cerr << " vertex_samples=";
+                    for (size_t i = 0; i < std::min<size_t>(read_count, 3); ++i) {
+                        if (i != 0) std::cerr << ';';
+                        std::cerr << vertices[i].x << ',' << vertices[i].y << ":0x"
+                                  << std::hex << vertices[i].rgba << std::dec;
+                    }
                 }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::seconds(1));

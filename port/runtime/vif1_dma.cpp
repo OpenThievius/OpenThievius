@@ -25,8 +25,8 @@ constexpr uint32_t kVif1Base = 0x10003CA0u;
 constexpr uint32_t kVif1Offset = 0x10003CB0u;
 constexpr uint32_t kVif1Tops = 0x10003CC0u;
 constexpr uint32_t kVif1Status = 0x10003C00u;
-constexpr uint32_t kVu1Data = 0x11008000u;
-constexpr uint32_t kVu1Micro = 0x1100C000u;
+constexpr uint32_t kVu1Data = 0x1100C000u;
+constexpr uint32_t kVu1Micro = 0x11008000u;
 constexpr size_t kVu1MemoryBytes = 16u * 1024u;
 constexpr size_t kMaxTransferBytes = 64u * 1024u * 1024u;
 constexpr uint32_t kMaxTags = 1u << 16;
@@ -370,12 +370,17 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             if (command != 0x17u) trace_vu1_program(immediate, trace);
             {
                 uint32_t vu_unsupported = 0;
+                uint32_t vu_pc = 0;
+                uint32_t vu_pipeline = 0;
+                uint32_t vu_paired = 0;
                 const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
-                if (!openrac_guest_vu1_execute(entry, &vu_unsupported) &&
+                if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
+                                               &vu_pipeline, &vu_paired) &&
                     !g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
                     openrac::log::warn(
-                        "native VU1 translation stopped at instruction {:#010x} from entry {}",
-                        vu_unsupported, entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                        "native VU1 translation stopped at {} instruction {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
+                        vu_pipeline == 0 ? "upper" : "lower", vu_unsupported, vu_paired, vu_pc,
+                        entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
                 }
             }
             break;
