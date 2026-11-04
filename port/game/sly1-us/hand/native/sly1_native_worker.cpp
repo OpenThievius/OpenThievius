@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Port-only implementation of the worker-start callback at retail address 0x0018E5E8.
 #include "openrac/guest.h"
+#include "openrac/disc_image.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 extern "C" void sly1_native_start_worker(void) {
@@ -37,6 +40,25 @@ extern "C" void game_sly1_native_call_constructor(uint32_t address, uint32_t obj
     float float_result = 0.0f;
     (void)openrac_guest_call_regs(address, integer_registers, float_registers,
                                   &float_result, 0);
+}
+
+extern "C" void game_sly1_native_call_method(uint32_t address, uint32_t object) {
+    const uint64_t integer_registers[8] = {object};
+    const float float_registers[8]{};
+    float float_result = 0.0f;
+    (void)openrac_guest_call_regs(address, integer_registers, float_registers,
+                                  &float_result, 0);
+}
+
+extern "C" int game_sly1_native_read_sectors(uint32_t sector, uint32_t count,
+                                              uint32_t destination) {
+    const int success = openrac_guest_disc_read(sector, count, destination);
+    if (std::getenv("OPENRAC_TRACE_CD") != nullptr) {
+        std::fprintf(stderr,
+                     "[info] native Sly resource read sector=%u count=%u destination=%#010x result=%d\n",
+                     sector, count, destination, success);
+    }
+    return success;
 }
 
 extern "C" void sly1_native_start_loader(void) {

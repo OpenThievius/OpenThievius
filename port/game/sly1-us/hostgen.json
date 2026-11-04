@@ -6,7 +6,9 @@
   "entry": "func_00100008",
   "host_functions": [
     "openrac_native_renderer_submit_dma_chain",
-    "sly1_native_call_constructor"
+    "sly1_native_call_constructor",
+    "sly1_native_call_method",
+    "sly1_native_read_sectors"
   ],
   "hand": "hand/backfills.tsv",
   "source": "src",
