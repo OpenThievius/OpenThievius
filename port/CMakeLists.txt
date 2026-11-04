@@ -85,6 +85,7 @@ add_library(sly1_port_runtime STATIC
     runtime/guest.cpp
     runtime/host_env.cpp
     runtime/kernel.cpp
+    runtime/sif.cpp
     runtime/memory.cpp
     runtime/ps2float.cpp
     sly1/build_info.cpp)

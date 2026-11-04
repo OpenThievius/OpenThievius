@@ -32,10 +32,11 @@ semaphores and CP0 timer reads have basic host implementations. SIF SetReg and
 GetReg (syscalls 0x79 and 0x7A) use a host-side register map. The SIF RPC bind
 loop is bypassed for native startup. Native startup publishes SIF BOOTEND and
 CMDINIT at register 4 (value 0x60000), with an opaque subaddress, when the
-disc-backed IOP replacement starts. In the latest bounded run, startup passed
-register polling and worker thread 5 waits on a semaphore for SIF command
-traffic. SIF DMA (0x76–0x78), IOP
-RPC command dispatch, renderer, frame loop,
+disc-backed IOP replacement starts. Native SIF command handling completes
+command-init and binds both guest RPC clients. In the latest bounded run,
+startup reached its first service request (service `0x00123456`, RPC 0) and
+waited on worker thread 5 for the IOP reply. SIF DMA (0x76–0x78), IOP
+RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 The source bridge also has unreadable source files and C++ constructs that need
 preserving; continue along the loader and boot call graph, grounding host

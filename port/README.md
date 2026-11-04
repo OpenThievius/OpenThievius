@@ -49,9 +49,10 @@ run on host threads with their own guest stacks. SIF register reads and writes
 are stored in host memory, and the remote IOP RPC bind loop is bypassed when an
 ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
 (register 4, value 0x60000) and an opaque subaddress when the disc-backed IOP
-replacement starts. The latest 15-second run passed the register polling and
-remained alive with worker thread 5 waiting for SIF command traffic. The native
-runtime still has no IOP service or SIF DMA command
+replacement starts. Native command handling completes the SIF command-init
+handshake and binds the two guest RPC clients. The latest 15-second run reached
+the first RPC request (service `0x00123456`, RPC 0) and remained alive waiting
+for its reply. The native runtime still has no IOP service or SIF DMA command
 dispatcher, so startup has not reached a title screen or gameplay. The renderer,
 frame loop, input, audio, saves and remaining disc/device services are also
 unimplemented.
