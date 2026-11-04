@@ -140,6 +140,12 @@ extern "C" int openrac_lib_sly1_signal_sema(uint32_t semaphore) {
                                                          0, 0, 0, 0));
 }
 
+extern "C" int openrac_lib_sly1_wait_sema(uint32_t semaphore) {
+    // Retail's 16-byte wrapper at func_001F6B60 issues WaitSema.
+    return static_cast<int>(openrac_guest_kernel_syscall(0x44u, semaphore, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
 extern "C" int openrac_lib_sly1_dmac_add_handler(uint32_t channel, uint32_t handler,
                                                     uint32_t next, uint32_t argument,
                                                     uint32_t flags) {
