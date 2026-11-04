@@ -60,6 +60,12 @@ initial 74-sector range; DMA handler setup and the missing renderer consumer
 remain blockers, so this is synchronization progress rather than a visible
 scene.
 
+The observed SIF setup also registers and enables DMA channel 5. Its retail
+AddDmacHandler and EnableDmac boundaries are now separate host services, and
+completed native SIF commands dispatch that registered callback. The latest
+12-second run no longer reports those functions as missing, but still reads
+only the initial sectors and remains headless; renderer work is still required.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These

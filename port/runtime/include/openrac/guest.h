@@ -446,6 +446,7 @@ void openrac_guest_clear_exit_requested(void);
 uint32_t openrac_guest_cp0_count(void);
 uint32_t openrac_guest_cp0_status(void);
 int openrac_guest_raise_interrupt(uint32_t cause);
+int openrac_guest_raise_dmac(uint32_t channel);
 void openrac_guest_report_missing(void);
 void openrac_guest_stop_on_missing(int stop);
 

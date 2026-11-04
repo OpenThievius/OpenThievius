@@ -21,3 +21,5 @@ func_00204E20	kernel	sly1_cache_sync	host	Keep the host memory fence where Sly f
 func_001430C8	kernel	sly1_timer_snapshot	host	Sample the host EE count and update Sly's extended timer state	void(void)
 func_001E1F10	kernel	sly1_console_printf	host	Discard guest serial diagnostic output on the host	int(unsigned int)
 func_001F6B50	kernel	sly1_signal_sema	host	Signal the guest semaphore from the native display callback	int(unsigned int)
+func_001F6970	kernel	sly1_dmac_add_handler	host	Register a guest handler for native DMA completion	int(unsigned int,unsigned int,unsigned int,unsigned int,unsigned int)
+func_001F6E78	kernel	sly1_dmac_enable	host	Enable the guest DMA completion callback	int(unsigned int)

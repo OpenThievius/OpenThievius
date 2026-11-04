@@ -213,10 +213,16 @@ extern "C" int openrac_lib_sly1_sif_send_cmd(uint32_t command, uint32_t packet,
         openrac_guest_missing("SIF command packet is outside guest RAM");
         return 0;
     }
-    if (command == kSifRpcBind) return complete_rpc_bind(packet);
+    if (command == kSifRpcBind) {
+        const int result = complete_rpc_bind(packet);
+        if (result) openrac_guest_raise_dmac(5);
+        return result;
+    }
     if (command == kSifRpcCall) {
-        return complete_rpc_call(packet, static_cast<uint32_t>(packet_size), source,
-                                 destination, data_size);
+        const int result = complete_rpc_call(packet, static_cast<uint32_t>(packet_size),
+                                             source, destination, data_size);
+        if (result) openrac_guest_raise_dmac(5);
+        return result;
     }
     if (command == kSifCommandInit) {
         // The retail EE sends command 0x80000002 after SIFCMD initialization
@@ -228,6 +234,7 @@ extern "C" int openrac_lib_sly1_sif_send_cmd(uint32_t command, uint32_t packet,
         std::memcpy(openrac_guest_base + completion_address, &complete, sizeof(complete));
         if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
             std::fprintf(stderr, "[info] native SIF command %#010x completed\n", command);
+        openrac_guest_raise_dmac(5);
         return 1;
     }
 

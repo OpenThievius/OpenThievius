@@ -34,8 +34,11 @@ std::mutex g_kernel_mutex;
 std::condition_variable g_semaphore_changed;
 struct Semaphore { int32_t count; int32_t max_count; };
 struct GuestThread { gaddr entry; gaddr stack; uint32_t stack_size; bool started = false; };
+struct DmacHandler { gaddr entry; uint32_t id; };
 std::map<uint32_t, Semaphore> g_semaphores;
 std::map<uint32_t, GuestThread> g_threads;
+std::map<uint32_t, DmacHandler> g_dmac_handlers;
+std::set<uint32_t> g_enabled_dmac;
 std::map<uint32_t, uint32_t> g_sif_registers;
 std::map<uint32_t, uint32_t> g_interrupt_handlers;
 std::set<uint32_t> g_enabled_interrupts;
@@ -113,6 +116,19 @@ extern "C" int openrac_lib_sly1_signal_sema(uint32_t semaphore) {
                                                          0, 0, 0, 0));
 }
 
+extern "C" int openrac_lib_sly1_dmac_add_handler(uint32_t channel, uint32_t handler,
+                                                    uint32_t next, uint32_t argument,
+                                                    uint32_t flags) {
+    return static_cast<int>(openrac_guest_kernel_syscall(0x12u, channel, handler, next,
+                                                         argument, flags, 0, 0, 0));
+}
+
+extern "C" int openrac_lib_sly1_dmac_enable(uint32_t channel) {
+    // The retail wrapper preserves its interrupt state around EnableDmac.
+    return static_cast<int>(openrac_guest_kernel_syscall(0x16u, channel, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
 extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
     uint32_t handler = 0;
     {
@@ -130,12 +146,44 @@ extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
     return 1;
 }
 
+extern "C" int openrac_guest_raise_dmac(uint32_t channel) {
+    DmacHandler callback{};
+    {
+        std::lock_guard lock(g_kernel_mutex);
+        if (!g_enabled_dmac.contains(channel)) return 0;
+        const auto it = g_dmac_handlers.find(channel);
+        if (it == g_dmac_handlers.end()) return 0;
+        callback = it->second;
+    }
+    const uint64_t ints[8] = {channel};
+    const float floats[8] = {};
+    float result = 0.0f;
+    openrac_guest_call_regs(callback.entry, ints, floats, &result, 0);
+    return 1;
+}
+
 extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, uint64_t a1,
                                                   uint64_t a2, uint64_t, uint64_t,
                                                   uint64_t, uint64_t, uint64_t) {
     g_last_kernel_service.store(service, std::memory_order_relaxed);
     g_last_kernel_thread.store(g_current_thread_id, std::memory_order_relaxed);
     switch (service) {
+    case 0x12: { // AddDmacHandler
+        const uint32_t channel = static_cast<uint32_t>(a0);
+        const gaddr handler = static_cast<gaddr>(a1);
+        if (channel >= 10 || handler == 0) return static_cast<uint64_t>(-1);
+        const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);
+        std::lock_guard lock(g_kernel_mutex);
+        g_dmac_handlers[channel] = DmacHandler{handler, id};
+        return id;
+    }
+    case 0x16: { // EnableDmac
+        const uint32_t channel = static_cast<uint32_t>(a0);
+        std::lock_guard lock(g_kernel_mutex);
+        const bool was_enabled = g_enabled_dmac.contains(channel);
+        g_enabled_dmac.insert(channel);
+        return was_enabled ? 0u : 1u;
+    }
     case 0x10: { // InstallIntcHandler; the host renderer raises registered causes when ready.
         const uint32_t cause = static_cast<uint32_t>(a0);
         const uint32_t handler = static_cast<uint32_t>(a1);
