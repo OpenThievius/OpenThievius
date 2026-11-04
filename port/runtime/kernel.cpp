@@ -33,7 +33,31 @@ std::atomic<uint32_t> g_sif_trace_set_count{0};
 std::mutex g_kernel_mutex;
 std::condition_variable g_semaphore_changed;
 struct Semaphore { int32_t count; int32_t max_count; };
-struct GuestThread { gaddr entry; gaddr stack; uint32_t stack_size; bool started = false; };
+struct GuestThread {
+    gaddr entry;
+    gaddr stack;
+    uint32_t stack_size;
+    bool started = false;
+    uint32_t status = 0x10u; // THS_DORMANT
+    uint32_t wait_type = 0;
+    uint32_t wait_id = 0;
+    uint32_t wakeup_count = 0;
+};
+struct EeThreadStatus {
+    uint32_t status;
+    gaddr entry;
+    gaddr stack;
+    int32_t stack_size;
+    gaddr gp;
+    int32_t initial_priority;
+    int32_t current_priority;
+    uint32_t attr;
+    uint32_t option;
+    uint32_t wait_type;
+    uint32_t wait_id;
+    uint32_t wakeup_count;
+};
+static_assert(sizeof(EeThreadStatus) == 0x30);
 struct DmacHandler { gaddr entry; uint32_t id; };
 std::map<uint32_t, Semaphore> g_semaphores;
 std::map<uint32_t, GuestThread> g_threads;
@@ -260,6 +284,36 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
     }
     case 0x7F: // GetMemorySize; Sly's configured host RAM is 32 MiB.
         return GUEST_RAM_SIZE;
+    case 0x30: { // ReferThreadStatus: report native guest-thread state in EE layout.
+        const uint32_t requested = static_cast<uint32_t>(a0);
+        const uint32_t id = requested == 0 ? g_current_thread_id : requested;
+        const uint32_t output = openrac_guest_ram_address(static_cast<uint32_t>(a1));
+        if (output > openrac_guest_ram_size || openrac_guest_ram_size - output < sizeof(EeThreadStatus))
+            return static_cast<uint64_t>(-1);
+
+        EeThreadStatus status{};
+        if (id == g_current_thread_id) {
+            status.status = 0x01u; // THS_RUN
+            status.stack = openrac_guest_sp;
+            status.current_priority = 10;
+            status.initial_priority = 10;
+        } else {
+            std::lock_guard lock(g_kernel_mutex);
+            const auto it = g_threads.find(id);
+            if (it == g_threads.end()) return static_cast<uint64_t>(-1);
+            status.status = it->second.status;
+            status.entry = it->second.entry;
+            status.stack = it->second.stack;
+            status.stack_size = static_cast<int32_t>(it->second.stack_size);
+            status.initial_priority = 10;
+            status.current_priority = 10;
+            status.wait_type = it->second.wait_type;
+            status.wait_id = it->second.wait_id;
+            status.wakeup_count = it->second.wakeup_count;
+        }
+        std::memcpy(openrac_guest_base + output, &status, sizeof(status));
+        return 0;
+    }
     case 0x82: // _InitTLB; the host maps guest RAM directly and has no EE TLB.
         return 0;
     case 0x83: // FindAddress is used only by the bypassed guest exception setup.
@@ -296,19 +350,29 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
             const auto it = g_threads.find(id);
             if (it == g_threads.end() || it->second.started) return static_cast<uint64_t>(-1);
             it->second.started = true;
+            it->second.status = 0x02u; // THS_READY until the host thread begins.
             guest_thread = it->second;
         }
         try {
             std::thread([id, guest_thread, argument = a1] {
                 g_current_thread_id = id;
+                {
+                    std::lock_guard lock(g_kernel_mutex);
+                    if (auto it = g_threads.find(id); it != g_threads.end())
+                        it->second.status = 0x01u; // THS_RUN
+                }
                 const gaddr top = guest_thread.stack + guest_thread.stack_size;
-                if (!openrac_guest_set_stack(guest_thread.stack, top)) return;
-                openrac_guest_sp = top;
-                openrac_ee_float_mode(0, 0);
-                uint64_t ints[8] = {argument};
-                const float floats[8] = {};
-                float result = 0.0f;
-                openrac_guest_call_regs(guest_thread.entry, ints, floats, &result, 0);
+                if (openrac_guest_set_stack(guest_thread.stack, top)) {
+                    openrac_guest_sp = top;
+                    openrac_ee_float_mode(0, 0);
+                    uint64_t ints[8] = {argument};
+                    const float floats[8] = {};
+                    float result = 0.0f;
+                    openrac_guest_call_regs(guest_thread.entry, ints, floats, &result, 0);
+                }
+                std::lock_guard lock(g_kernel_mutex);
+                if (auto it = g_threads.find(id); it != g_threads.end())
+                    it->second.status = 0x10u; // THS_DORMANT after the guest entry returns.
             }).detach();
         } catch (const std::system_error&) {
             std::lock_guard lock(g_kernel_mutex);
@@ -365,6 +429,11 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         std::unique_lock lock(g_kernel_mutex);
         const uint32_t id = static_cast<uint32_t>(a0);
         if (!g_semaphores.contains(id)) return static_cast<uint64_t>(-1);
+        if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
+            thread->second.status = 0x04u; // THS_WAIT
+            thread->second.wait_type = 2u; // TSW_SEMA
+            thread->second.wait_id = id;
+        }
         g_semaphore_changed.wait(lock, [id] {
             const auto it = g_semaphores.find(id);
             return it == g_semaphores.end() || it->second.count > 0;
@@ -372,6 +441,11 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         const auto it = g_semaphores.find(id);
         if (it == g_semaphores.end()) return static_cast<uint64_t>(-1);
         --it->second.count;
+        if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
+            thread->second.status = 0x01u; // THS_RUN
+            thread->second.wait_type = 0;
+            thread->second.wait_id = 0;
+        }
         return a0;
     }
     case 0x45:
