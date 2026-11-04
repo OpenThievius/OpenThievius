@@ -38,6 +38,10 @@ This repository already reuses OpenRAC's most important pieces:
 - `port/platform/audio.cpp`, `audio.h` and `audio_ring.h` provide game-agnostic
   SDL3 PCM output and callback buffering. Sly's sound replacement can feed
   decoded samples to this layer without adopting RAC's sound protocol.
+- `port/platform/pad.*` provides the DualShock 2's active-low button state,
+  analog bytes, pressure bytes and 32-byte read-buffer serialization. The
+  imported RAC-specific stick shaping was left out so Sly's controls can use
+  behavior established from Sly itself.
 
 The port has also authored Sly-specific extensions around that base: Sly's
 raw-sector catalog and audio extractors, NTSC-U hostgen configuration,

@@ -13,6 +13,7 @@ helpers, common utilities and generic runtime below are GPL-3.0-or-later;
 section 13 permits combining them with
 this AGPL-3.0-or-later project. These files were imported from OpenRAC
 checkout commit `ae2fed40a9f4caa2e252db09b8507dc262689905`.
+Later imports list their specific OpenRAC revision in the corresponding row.
 
 | Here | Adapted from OpenRAC's | What changed |
 |---|---|---|
@@ -23,7 +24,8 @@ checkout commit `ae2fed40a9f4caa2e252db09b8507dc262689905`.
 | `tools/openthievius.py` | `tools/openrac.py` (`discs`, `setup`, `tables`) | written anew for game.json's shape here, with `check` |
 | `port/tools/hostgen/`, `tools/openrac_common/` | `port/tools/hostgen/`, `tools/openrac_common/` | imported for Sly host generation; upstream GPL notices retained |
 | `port/common/`, `port/runtime/` | `port/common/`, `port/runtime/` | imported as the generic native runtime foundation; RAC-specific expanded memory constants removed from the guest header |
-| `port/platform/audio.cpp`, `port/platform/audio.h`, `port/platform/audio_ring.h` | `port/platform/audio.cpp`, `port/platform/audio.h`, `port/platform/audio_ring.h` | imported as game-agnostic SDL3 PCM output and callback buffering; upstream GPL notices retained |
+| `port/platform/audio.cpp`, `port/platform/audio.h`, `port/platform/audio_ring.h` | same paths at `6786a882d6b385458e05dc732af3c1bcd51e7437` | imported as game-agnostic SDL3 PCM output and callback buffering; upstream GPL notices retained |
+| `port/platform/pad.cpp`, `port/platform/pad.h` | same paths at `6786a882d6b385458e05dc732af3c1bcd51e7437` | adapted from the generic DualShock 2 state and read-buffer serialization; RAC-specific stick shaping omitted; upstream GPL notices retained |
 | `port/runtime/kernel.cpp` | `tools/interpreter/src/sys/machine.cpp` | boot subset of the documented EE syscall model (thread setup, heap setup, and single-thread exit) |
 | `baserom/README.md`, `toolchains/README.md`, `.gitignore` | the same files | this project's discs, compiler and paths |
 | `.github/workflows/checks.yml` | rac3-decomp's `checks.yml` | this repository's checks |
