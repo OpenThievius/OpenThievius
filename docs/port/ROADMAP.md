@@ -19,18 +19,22 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-twenty-three separate port-native backfill translation units, then combines
-them by retail address.
-The current combined object contains 2,347 native function entries out of
-4,766 catalogued addresses and still has 602 unresolved function addresses.
-Recent catalog backfills implement the resource-key lookup used by compiled C
-and a catalog flag counter whose caller remains assembly-only. This is an
-object build only: there is no linked native game executable or native service
-entry yet. The older C-only hostgen launcher still depends on the experimental
-guest runtime and does not count as the no-emulation gameplay path. The retail
-MIPS output remains isolated in optional `us-asm-research` output. Build
-artifacts live under ignored `build/port/`; port-native backfills stay outside
-the matching decompilation in `port/game/sly1-us/native/`.
+27 port-native backfill objects, then combines them by retail address. The
+latest generated report (`build/port/host32/link/link-frontier.json`) records
+2,351 native definitions for 4,766 catalogued addresses, with 599 catalogued
+addresses unresolved. Its direct-call frame frontier has 57 definitions and
+32 missing functions among 89 addresses; it does not trace indirect callbacks
+or vtables. This remains an object build: there is no linked native game
+executable, startup/service layer, or verified frame renderer.
+
+The separate C-only hostgen launcher does link and open a window, but it uses
+the experimental guest-memory/runtime path and is not the no-emulation game
+build. Its latest bounded run reaches a black window; the trace reports no
+display lists or render state reaching the renderer. Do not treat that run as
+evidence of native gameplay. Retail MIPS translation remains optional research
+output under `us-asm-research`. Build artifacts live under ignored
+`build/port/`; port-native host32 backfills stay outside the matching
+decompilation in `port/game/sly1-us/native/`.
 
 The separate direct-C++ path compiles all 68 source units and three port-only
 frame backfills as i386 objects, then combines them with retail-address aliases.
@@ -40,11 +44,12 @@ process: it relies on `__int128`, which the i386 compiler does not provide.
 Keep the useful OpenRAC infrastructure, but build a native-only service layer
 instead of pulling the guest instruction/device runtime into gameplay.
 
-These are build milestones only. The next step is to replace missing calls on
-the boot and frame paths with accurate matching source or isolated port
-backfills, then connect the frame's game-produced drawing packets to a native
-renderer. Continue through scene loading, input, audio and saves. Do not count
-assembly translation, a link check, or a black window as playable progress.
+These are build milestones only. The next concrete milestone is a host-native
+executable entry and service layer for compiled Sly code, followed by loading
+a retail scene and feeding its draw data to a native renderer. Continue through
+the title, level loading, input, audio and saves. Do not count assembly
+translation, object combination, a link check, or a black window as playable
+progress.
 
 The host32 combine step now also writes a direct-relocation frontier rooted at
 the port's native frame-loop backfill, `func_00185758`. In the current build,
