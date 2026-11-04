@@ -20,14 +20,13 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 **Current implementation:** the hostgen tool and CMake entry point are in
 place. The Sly profile stages C++ sources as C-compatible inputs and, with
 local retail-backed assembly available, translates 1,532 functions from C and
-3,106 from assembly. The guest runtime builds, all 81 generated C units compile,
+3,123 from assembly. The guest runtime builds, all 81 generated C units compile,
 and `port_link_generated` links them without running the entry point. The Sly
 entry now translates its BSS setup, stack/heap initialization and observed boot
-syscalls, including memory copy, cache flush, and kernel handler setup. Fifty
-reachable functions still lack hostable C along the analyzed boot call graph.
-Fifteen
-source files remain unreadable and the C++ adapter can lose
-constructs; disc services, most kernel calls, the renderer and frame loop still
+syscalls, including memory copy, cache flush, and kernel handler setup. The
+analyzed boot call graph still reaches 37 functions without hostable C.
+Fifteen source files remain unreadable and the C++ adapter can lose constructs;
+disc services, most kernel calls, the renderer and frame loop still
 block gameplay. Continue with the loader and boot call graph, preserving C++
 semantics and grounding each host service in Sly retail evidence.
 

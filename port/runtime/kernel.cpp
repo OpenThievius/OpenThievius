@@ -9,10 +9,15 @@
 
 #include <atomic>
 #include <cstring>
+#include <map>
+#include <mutex>
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
 uint32_t g_stack_top = GUEST_RAM_SIZE;
+std::atomic<uint32_t> g_next_id{2};
+std::mutex g_kernel_mutex;
+std::map<uint32_t, int32_t> g_semaphores;
 }
 
 extern "C" int openrac_guest_exit_requested(void) {
@@ -46,12 +51,61 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
     }
     case 0x5B: // GetEntryAddress: the host dispatches calls without guest exception vectors.
         return 0;
+    case 0x56: // _SetTLBEntry: guest RAM has a direct host mapping.
+        return 0;
     case 0x64: // FlushCache: host code has no EE caches.
         return 0;
     case 0x74: // SetSyscall: guest exception vectors are not used by translated host code.
         return 0;
+    case 0x7F: // GetMemorySize; Sly's configured host RAM is 32 MiB.
+        return GUEST_RAM_SIZE;
+    case 0x82: // _InitTLB; the host maps guest RAM directly and has no EE TLB.
+        return 0;
     case 0x23: // ExitThread: the port runs a single host thread.
         return 0;
+    case 0x20: // CreateThread: worker threads are represented but not scheduled separately.
+        return g_next_id.fetch_add(1, std::memory_order_relaxed);
+    case 0x21: // DeleteThread
+    case 0x22: // StartThread
+    case 0x24: // ExitDeleteThread
+    case 0x25: // TerminateThread
+    case 0x26: // ExitThread
+    case 0x29: // ChangeThreadPriority
+    case 0x32: // SleepThread
+    case 0x33: // WakeupThread
+        return 0;
+    case 0x2F: // GetThreadId: the host runs the game on one thread.
+        return 1;
+    case 0x40: { // CreateSema; the initial count is the third word in SemaParam.
+        const uint32_t param = openrac_guest_ram_address(static_cast<uint32_t>(a0));
+        if (param > openrac_guest_ram_size || openrac_guest_ram_size - param < 12) {
+            openrac_guest_missing("CreateSema parameter is outside guest RAM");
+            return static_cast<uint64_t>(-1);
+        }
+        const int32_t initial = static_cast<int32_t>(GREF(uint32_t, param + 8));
+        const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);
+        std::lock_guard lock(g_kernel_mutex);
+        g_semaphores[id] = initial;
+        return id;
+    }
+    case 0x41: { // DeleteSema
+        std::lock_guard lock(g_kernel_mutex);
+        g_semaphores.erase(static_cast<uint32_t>(a0));
+        return 0;
+    }
+    case 0x42: { // SignalSema
+        std::lock_guard lock(g_kernel_mutex);
+        auto it = g_semaphores.find(static_cast<uint32_t>(a0));
+        if (it != g_semaphores.end()) ++it->second;
+        return 0;
+    }
+    case 0x44: { // WaitSema; the single-threaded host cannot block on a missing signal.
+        std::lock_guard lock(g_kernel_mutex);
+        auto it = g_semaphores.find(static_cast<uint32_t>(a0));
+        if (it == g_semaphores.end() || it->second <= 0) return static_cast<uint64_t>(-1);
+        --it->second;
+        return a0;
+    }
     case 0x3C: { // SetupThread(gp, stack, stack_size, args, root)
         const uint32_t stack = static_cast<uint32_t>(a1) == UINT32_MAX
                                    ? GUEST_RAM_SIZE - static_cast<uint32_t>(a2)

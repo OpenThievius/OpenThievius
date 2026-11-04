@@ -148,6 +148,8 @@ class Translator:
     dma_stores = False
     # asm.syscalls in hostgen.json: kernel calls with an evidenced host equivalent.
     syscall_services: frozenset = frozenset()
+    # asm.cop0_nop in hostgen.json: COP0 write-only setup functions with no host hardware effect.
+    cop0_nop: frozenset = frozenset()
     # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
     # its code agrees with, not the longest (fitting_declaration).
     fit_declarations = False
@@ -264,6 +266,7 @@ class Translator:
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
         sub.syscall_services = self.syscall_services
+        sub.cop0_nop = self.cop0_nop
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
@@ -517,6 +520,11 @@ class Translator:
                 return None
         return None
 
+    def _cop0_is_nop(self, ins: asm.Insn) -> bool:
+        return ins.op == "mtc0" and (
+            self.f.symbol in self.cop0_nop or self._name_at(ins.addr) in self.cop0_nop
+        )
+
     def _flow(self):
         """The instructions reachable from the entry; those reached only as a delay slot; and
         each jump through a register that is a jump table, with its targets."""
@@ -537,7 +545,9 @@ class Translator:
                 service = self._syscall_service(ins.addr)
                 label = "unknown" if service is None else f"0x{service:02X}"
                 raise AsmUnsupported(f"unsupported system call {label} at {ins.addr:08X}")
-            if ins.op in UNSUPPORTED and ins.op != "syscall" and self.microprogram(ins) is None and not done_wait:
+            cop0_is_hostless = self._cop0_is_nop(ins)
+            if (ins.op in UNSUPPORTED and ins.op != "syscall" and not cop0_is_hostless
+                    and self.microprogram(ins) is None and not done_wait):
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
                 todo.append(a + 4)
@@ -1061,6 +1071,8 @@ class Translator:
         R, W = self.R, self.W
         rs, rt, rd, sa, imm = ins.rs, ins.rt, ins.rd, ins.sa, ins.imm
         if op in SKIP:
+            return []
+        if self._cop0_is_nop(ins):
             return []
         if self.microprogram(ins) is not None:
             return [f"{{ extern void {self.microprogram(ins)}(void); {self.microprogram(ins)}(); }}"]
@@ -1801,6 +1813,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
     tr.syscall_services = frozenset(int(service) for service in a.get("syscalls", []))
+    tr.cop0_nop = frozenset(a.get("cop0_nop", []))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
@@ -2033,6 +2046,7 @@ def write_console(stage: Stage, out: Path, names: list[str] | None = None) -> di
     console.gp_addresses = tr.gp_addresses
     console.forward_unprototyped = tr.forward_unprototyped
     console.syscall_services = tr.syscall_services
+    console.cop0_nop = tr.cop0_nop
     # Named functions are written whether or not they have C (the check of the translator on
     # more of the program than its stubs); otherwise every one translated for the port.
     todo = names or [r.name for r in stage.translated]
