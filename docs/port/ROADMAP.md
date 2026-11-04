@@ -118,19 +118,21 @@ OFFSET must clear DBF and rebase BASE to the current TOPS; the prior port
 service reset TOPS to the old BASE. Correcting this produced 120 vertices. A
 second renderer fix decodes PACKED XYZ's Y field from its 128-bit position
 instead of the native 64-bit register layout; the latest trace places 58
-vertices inside the display viewport. A later XGKICK still encounters a
-non-tag, and no recognizable scene has been verified.
+vertices inside the display viewport. The parser also normalizes PACKED RGBA
+and UV fields. A later XGKICK still encounters a non-tag, and no recognizable
+scene has been verified. The latest trace has no BITBLTBUF or TRX register
+writes, so IMAGE payloads cannot yet be mapped to texture destinations.
 
 A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
 25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Before the
 OFFSET fix, a 15-second run showed accepted XGKICKs carrying primitive-state
 writes without coordinates; a later kick started at zero-filled VU data and
-encountered a value rejected as a GIF tag. After the fix, 120 vertices are
-published but remain offscreen, and a later kick still encounters an invalid
-tag. The game also advances large IMAGE payloads, which the host currently
-counts and discards. No visible title scene or playable renderer has been
-verified. Set `OPENRAC_VIF_TRACE=1` to capture the first two populated
-transfers.
+encountered a value rejected as a GIF tag. After the fixes, 120 vertices are
+published and 58 are within the viewport, but a later kick still encounters
+an invalid tag. The game also advances large IMAGE payloads, which the host
+currently counts and discards. No visible title scene or playable renderer
+has been verified. Set `OPENRAC_VIF_TRACE=1` to capture the first two
+populated transfers.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
