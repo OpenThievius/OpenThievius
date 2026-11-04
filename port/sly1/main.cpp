@@ -35,11 +35,13 @@ namespace {
         uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
         float, float, float, float, float, float, float, float                                   \
     ) {                                                                                          \
-        (void)target(1, -1);                                                                     \
+        using RegisterTarget = int (*)(int, int);                                                \
+        (void)reinterpret_cast<RegisterTarget>(target)(1, -1);                                   \
         return 0;                                                                                \
     }                                                                                            \
     uint64_t name##_thunk(const uint64_t*, const float*, float*) {                               \
-        (void)target(1, -1);                                                                     \
+        using RegisterTarget = int (*)(int, int);                                                \
+        (void)reinterpret_cast<RegisterTarget>(target)(1, -1);                                   \
         return 0;                                                                                \
     }
 
