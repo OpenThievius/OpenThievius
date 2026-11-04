@@ -145,15 +145,15 @@ build.
 
 This means a native loader backfill cannot safely replace `func_001E4EA8` with
 a raw sector read or mark the request complete after decompression. The
-The coordinator (`func_001E4EA8`) now has a port-only backfill that decodes
-the range, constructs a type `0x6C` object, invokes its parser callback, and
+The coordinator (`func_001E4EA8`) has a port-only backfill that reads the
+range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
-bookkeeping. The native CD read fills the reader's backing ring while the
-reader retains the retail sector/length pair and enters the normal refill and
-decompression path. A bounded run reaches parser stages 1–5 and returns to
-the coordinator, but this is not proof that the resource parsed: critical
-calls including `func_00151A88`, `func_001C1190`, and `func_001B3040` still
-resolve to no-C stubs. Port-only overrides for `func_0018D608`,
+bookkeeping. The native CD read fills the reader's backing ring; the compressed
+reader now uses the retail source cursor and control-byte sentinel. A bounded
+run matches the offline decoder's first 8 KiB, then stalls in
+`func_001DCCC0` while it skips resource entries. This is not proof that the
+resource parsed: critical calls including `func_00151A88`, `func_001C1190`, and
+`func_001B3040` still resolve to no-C stubs. Port-only overrides for `func_0018D608`,
 `func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
 reserved guest-port memory. A bounded native run read sector 820372 for 74
 sectors, avoided the previous invalid allocation fault, and submitted 984
