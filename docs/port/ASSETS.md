@@ -81,6 +81,14 @@ nested object-data reader rather than the disc index or a uniquely identified
 level header. The concrete object type and its connection to the containing
 resource remain unknown.
 
+The decoder is downstream of a separate buffered source reader. Retail
+`func_001378A0` requests compressed input through `func_00137820`; its refill
+path uses the stream's source callback (`func_001F8DB8`) and moves data through
+an 8 KiB window before exposing it to the object readers. The observed raw
+sector transfer itself is handled by `func_00137490`. This separates the
+compressed-source path from the nested object parser: the `0x90`-byte zero-count
+record array at offset 5,512 is not evidence about the disc index format.
+
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
 each nonnegative ID through 32-byte entries at `D_002505D8`. A native trace of
