@@ -16,6 +16,32 @@ samples. The LZ decoder matches the captured retail output window and reaches
 a structured Sly reader. Level/model formats and a native scene renderer still
 block the first playable scene.
 
+## Current no-emulation build status
+
+The normal `port/tools/sly1.py hostgen` path now defaults to `--asm off`.
+Translated retail MIPS output is isolated in the optional
+`us-asm-research` build tree and is not used by the native gameplay targets.
+The C-only host build reads 68 Sly source units, translates 1,474 functions,
+and reports 3,286 catalogued functions without matching C. Its 73 generated C
+units compile and link, but `func_00100008` is still a generated return stub;
+the executable has no native boot path and is not playable. Build output is
+under ignored `build/port/`.
+
+The separate direct-C++ path compiles all 68 source units and three port-only
+frame backfills as i386 objects, then combines them with retail-address aliases.
+It has no executable or native service entry. A Fedora 44 i386 build probe also
+showed that the reused shared guest runtime cannot simply be linked into that
+process: it relies on `__int128`, which the i386 compiler does not provide.
+Keep the useful OpenRAC infrastructure, but build a native-only service layer
+instead of pulling the guest instruction/device runtime into gameplay.
+
+These are build milestones only. The required next step is a native Sly boot
+and initialization path that calls host-compiled game code and stops at an
+explicitly implemented native service when a dependency is missing. Then
+continue through scene loading, a Sly-specific renderer, input, audio and
+saves. Do not count assembly translation, a link check, or a black window as
+playable progress.
+
 | Phase | Work | Milestone |
 |---|---|---|
 | 0 | Decide source-generation boundary and host memory model; inspect reusable OpenRAC tooling and license | A small Sly source subset can be prepared without modifying sly1-decomp |

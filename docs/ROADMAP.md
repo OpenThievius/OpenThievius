@@ -10,7 +10,7 @@
 ## In progress
 
 - **sly1-decomp:** matching the NTSC-U executable and improving the source coverage.
-- **Native port:** hostgen builds translated game code into a desktop launcher. It has reached startup code with a user's ELF and disc image without emulation, but it has not reached gameplay. The current gaps are listed in the [port roadmap](port/ROADMAP.md).
+- **Native port:** the default C-only host build compiles and links matched Sly code, but the boot entry is still a stub and it has not reached gameplay. A separate research build translates retail MIPS instructions and reached startup with a user's ELF and disc image; that path uses instruction execution and is not part of the no-emulation port. The current gaps are listed in the [port roadmap](port/ROADMAP.md).
 
 ## Next
 

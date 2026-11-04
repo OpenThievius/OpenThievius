@@ -123,6 +123,17 @@ and the current launcher only as bounded research tools until an independent
 host-native boot path exists. The existing kernel, SIF, DMA, VIF/VU and GS
 implementations cannot be treated as that native service layer.
 
+The default hostgen command now disables assembly translation. In the current
+build, it compiles and links matched C lowered from the Sly sources, but its
+boot entry is still a generated stub, so the result cannot start the game.
+Passing `--asm on` writes a separate research output tree and retains the old
+instruction-translation experiment. That output is never a dependency of the
+playable target. Directly compiling Sly C++ as i386 preserves the retail data
+layout, but the imported guest runtime is not an i386 native-service layer:
+its EE/VU support uses `__int128`, unavailable in this ABI. The port therefore
+needs a smaller native service boundary, while continuing to reuse generic
+OpenRAC utilities and platform modules where they fit.
+
 Near-term sequence:
 
 1. Audit OpenRAC's host build/runtime and identify the generic modules that

@@ -29,8 +29,9 @@ add_executable(sly1_resource_inspect
 
 add_custom_target(port_hostgen
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py hostgen
+            --asm off
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
-    COMMENT "Generating host-side C from matched Sly 1 sources")
+    COMMENT "Generating host-side C from matched Sly 1 sources without retail assembly")
 
 add_custom_target(port_compile_decomp_host32
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_decomp_host32.py

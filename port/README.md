@@ -25,13 +25,21 @@ It is a planning/status tool, not a host build. The next step is the source
 bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
 
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
-generated files stay under `build/port/`. The current launcher and guest
-runtime are experimental research tools. They translate retail MIPS
-instructions and simulate portions of console startup and graphics, so they
-are not the playable architecture and remain unplayable. The target is
-compiled Sly decompiled C++ with native platform services and a Sly-specific
-renderer, reusing OpenRAC's generic host/runtime infrastructure where it
-fits. See [`OPENRAC_REUSE.md`](../docs/port/OPENRAC_REUSE.md).
+default is `--asm off`, and generated files stay under `build/port/`. This
+generates host C only from matched Sly sources. It does not translate retail
+MIPS assembly. On the current source snapshot, 68 units produce 1,474 host
+functions; 3,286 catalogued functions still have no matching C. All 73
+generated C units compile and link into the local link-check program, but the
+retail entry `func_00100008` is still a generated stub, so this is not yet a
+runnable game. The direct 32-bit C++ object build is a separate experiment and
+also has no game executable yet.
+
+`python3 port/tools/sly1.py hostgen --asm on` writes a separate
+`build/port/hostgen/us-asm-research/` tree. That mode translates retail MIPS
+instructions for bounded research only; it is not the playable path. The
+target architecture is compiled Sly game logic with native platform services
+and a Sly-specific renderer, reusing OpenRAC's generic host/runtime
+infrastructure where it fits. See [`OPENRAC_REUSE.md`](../docs/port/OPENRAC_REUSE.md).
 
 The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
 generated game units into a local link-check executable, run:
@@ -43,15 +51,12 @@ cmake --build build/port --target port_link_generated
 cmake --build build/port --target port_native
 ```
 
-The link check confirms that generated game code and the guest runtime link
-together. It registers the generated function table if launched, but never calls
-the game entry. `port_native` separately builds `build/port/sly1_native`, the
-experimental research launcher that accepts the extracted `SCUS_971.98` ELF
-and optional disc image, registers translated functions and enters the retail
-boot path. Its output is not evidence that the native gameplay path works. A
-playable launcher will instead start compiled decompilation code with native
-services; the existing launcher may remain available for bounded research
-until that path replaces it.
+The link check confirms that the generated C and shared runtime link together;
+it does not call the game entry. `port_native` builds
+`build/port/sly1_native` from the same no-assembly host output. The current
+entry is a stub, so launching it cannot reach gameplay. The optional
+`--asm on` research output is separate and must not be used as a gameplay
+dependency.
 
 Port-side replacements are listed in `game/sly1-us/libraries.tsv`, with their
 native implementations in the runtime. The `extra_entries` list in

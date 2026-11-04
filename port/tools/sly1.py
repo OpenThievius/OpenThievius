@@ -106,19 +106,26 @@ def prepare_c_view(source, version):
     return staged
 
 
-def run_hostgen(source, version):
+def run_hostgen(source, version, asm):
     """Prepare and translate the available matched C into the ignored build tree."""
     if version != "us":
         raise ValueError("hostgen is configured for NTSC-U only")
     staged = prepare_c_view(source, version)
     config = ROOT / "port" / "game" / "sly1-us" / "hostgen.json"
-    out = ROOT / "build" / "port" / "hostgen" / version
+    output_name = version if asm == "off" else version + "-asm-research"
+    out = ROOT / "build" / "port" / "hostgen" / output_name
+    if asm == "off":
+        out.mkdir(parents=True, exist_ok=True)
+        for generated_asm in out.glob("asm_*.c"):
+            generated_asm.unlink()
     cmd = [sys.executable, str(ROOT / "port/tools/hostgen/hostgen.py"),
            "--game", str(config), "--source", str(staged), "--out", str(out), "--jobs", "1",
-           "--asm-source", str(source), "--allow-unreadable"]
-    retail = source / "baserom" / version / "SCUS_971.98"
-    if retail.is_file():
-        cmd += ["--retail-exe", str(retail)]
+           "--asm", asm, "--allow-unreadable"]
+    if asm == "on":
+        cmd += ["--asm-source", str(source)]
+        retail = source / "baserom" / version / "SCUS_971.98"
+        if retail.is_file():
+            cmd += ["--retail-exe", str(retail)]
     proc = subprocess.run(cmd, cwd=ROOT)
     return proc.returncode
 
@@ -132,13 +139,15 @@ def main(argv=None):
     p.add_argument("--json", action="store_true", help="print machine-readable JSON")
     hp = sub.add_parser("hostgen", help="generate host-side C for matched NTSC-U sources")
     hp.add_argument("--source", help="sly1-decomp checkout (or OPENTHIEVIUS_SOURCE_SLY1)")
+    hp.add_argument("--asm", choices=("off", "on"), default="off",
+                    help="translate unmatched retail assembly (default: off; native builds must not execute it)")
     args = parser.parse_args(argv)
     source = source_root(args.source)
     if args.command == "hostgen":
         if not (source / "config/us/functions.tsv").is_file():
             print("error: no sly1-decomp checkout at %s" % source, file=sys.stderr)
             return 1
-        return run_hostgen(source, "us")
+        return run_hostgen(source, "us", args.asm)
     try:
         result = status(source, args.version)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
