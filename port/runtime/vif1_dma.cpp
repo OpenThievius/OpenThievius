@@ -3,11 +3,14 @@
 #include "openrac/guest.h"
 #include "openrac/native_gs.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "common/log.h"
@@ -156,8 +159,18 @@ bool skip_bytes(size_t* cursor, size_t amount, size_t size) {
     return true;
 }
 
+struct VifTrace {
+    std::array<uint32_t, 0x80> command_counts{};
+    std::array<std::pair<uint32_t, uint32_t>, 32> mpg{};
+    std::array<std::pair<uint32_t, uint32_t>, 32> mscal{};
+    uint32_t mpg_total = 0;
+    uint32_t mscal_total = 0;
+    size_t mpg_count = 0;
+    size_t mscal_count = 0;
+};
+
 bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes,
-                        uint32_t* unsupported_command) {
+                        uint32_t* unsupported_command, VifTrace* trace) {
     size_t cursor = 0;
     while (cursor + sizeof(uint32_t) <= stream.size()) {
         uint32_t code = 0;
@@ -166,6 +179,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         const uint32_t command = (code >> 24) & 0x7Fu;
         const uint32_t count = (code >> 16) & 0xFFu;
         const uint32_t immediate = code & 0xFFFFu;
+        ++trace->command_counts[command];
 
         if (command == 0x50u || command == 0x51u) { // DIRECT / DIRECTHL
             const uint32_t qwc = immediate == 0 ? 0x10000u : immediate;
@@ -200,11 +214,19 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             immediate_bytes = 16;
             break;
         case 0x4A: // MPG
+            ++trace->mpg_total;
+            if (trace->mpg_count < trace->mpg.size())
+                trace->mpg[trace->mpg_count++] = {immediate,
+                                                   count == 0 ? 256u : count};
             immediate_bytes = static_cast<size_t>(count == 0 ? 256u : count) * 8u;
             break;
+        case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
+            ++trace->mscal_total;
+            if (trace->mscal_count < trace->mscal.size())
+                trace->mscal[trace->mscal_count++] = {command, immediate & 0xFFFFu};
+            break;
         case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05:
-        case 0x06: case 0x07: case 0x10: case 0x11: case 0x13: case 0x14:
-        case 0x15: case 0x17:
+        case 0x06: case 0x07: case 0x10: case 0x11: case 0x13:
             break;
         default:
             *unsupported_command = command;
@@ -216,6 +238,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
 }
 
 std::atomic<uint32_t> g_transfer_count{0};
+std::atomic<uint32_t> g_traced_transfer_count{0};
 std::atomic_flag g_unsupported_notice = ATOMIC_FLAG_INIT;
 }
 
@@ -227,17 +250,42 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     std::vector<uint8_t> stream;
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
+    VifTrace trace;
     const bool dma_ok = execute_dma(value, &stream);
-    const bool vif_ok = dma_ok && execute_vif_stream(stream, &direct_bytes, &unsupported);
+    const bool vif_ok = dma_ok && execute_vif_stream(stream, &direct_bytes, &unsupported,
+                                                       &trace);
     const uint32_t status = load_mmio(kDmacStat);
     if (dma_ok) {
         store_mmio(kDmacStat, status | (1u << 1));
         store_mmio(kVif1Chcr, value & ~0x100u);
         openrac_guest_raise_dmac(1);
         const uint32_t transfer = g_transfer_count.fetch_add(1, std::memory_order_relaxed);
-        if (transfer < 8) {
-            openrac::log::info("native VIF1 DMA transfer={} bytes={} DIRECT_bytes={}",
-                               transfer + 1, stream.size(), direct_bytes);
+        uint32_t trace_index = 8;
+        const char* trace_setting = std::getenv("OPENRAC_VIF_TRACE");
+        if (trace_setting != nullptr && trace_setting[0] != '\0' && trace_setting[0] != '0') {
+            const bool has_commands = std::any_of(trace.command_counts.begin(),
+                                                   trace.command_counts.end(),
+                                                   [](uint32_t count) { return count != 0; });
+            if (has_commands || direct_bytes != 0)
+                trace_index = g_traced_transfer_count.fetch_add(1,
+                                                               std::memory_order_relaxed);
+        }
+        if (trace_index < 2) {
+            openrac::log::info("native VIF1 DMA transfer={} bytes={} DIRECT_bytes={} MPG={} MSCAL={}",
+                               transfer + 1, stream.size(), direct_bytes, trace.mpg_total,
+                               trace.mscal_total);
+            for (size_t command = 0; command < trace.command_counts.size(); ++command) {
+                if (trace.command_counts[command] != 0)
+                    openrac::log::info("native VIF1 command transfer={} opcode={:#x} count={}",
+                                       transfer + 1, command,
+                                       trace.command_counts[command]);
+            }
+            for (size_t i = 0; i < trace.mpg_count; ++i)
+                openrac::log::info("native VIF1 MPG transfer={} address={} doublewords={}",
+                                   transfer + 1, trace.mpg[i].first, trace.mpg[i].second);
+            for (size_t i = 0; i < trace.mscal_count; ++i)
+                openrac::log::info("native VIF1 microcall transfer={} command={:#x} address={}",
+                                   transfer + 1, trace.mscal[i].first, trace.mscal[i].second);
         }
     } else {
         store_mmio(kDmacStat, (status & ~(1u << 1)) | (1u << 15));

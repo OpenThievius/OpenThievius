@@ -101,6 +101,13 @@ DMA status and interrupt boundary. The host does not run VU1 microprograms,
 so this advances display-list processing without completing the full native
 renderer.
 
+A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
+25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Current native
+handling skips the uploaded microcode and UNPACK data, so it cannot produce the
+geometry sent through VU1/XGKICK. The next renderer milestone is to execute
+Sly's VU1 display-list programs and feed their GIF output into the GS path.
+Set `OPENRAC_VIF_TRACE=1` to capture the first two populated transfers.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These
