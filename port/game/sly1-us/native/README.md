@@ -37,3 +37,10 @@ the retail `(1, -1)` arguments; `func_00211DE0.cpp` preserves its two global
 addresses. `func_001AEA70.cpp` and `func_001F2688.cpp` initialize the fixed Sly
 configuration records those callbacks target. All 18 initializer-table entries
 now resolve to native function definitions in the host32 combine output.
+
+`func_00128018.cpp` replaces the common affine coordinate helper with native
+float operations. It preserves the retail copy cases and computes the three
+local-space coordinates from the transform basis and translation. The retail
+routine also leaves intermediate values in VU0 registers; the native backfill
+does not model those registers, and carries the input homogeneous lane through
+the output. This is port-only math for host-native callers, not matching source.
