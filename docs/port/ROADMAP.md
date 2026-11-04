@@ -30,6 +30,20 @@ frame setup callbacks. Its latest bounded run exits at missing graphics setup
 function `0x00201D60`. It has no window or visible output; no title screen or
 playable scene is verified.
 
+The C-only hostgen path now has port-only startup loader initialization,
+message dispatch, and Sly stream range setup backfills in
+`game/sly1-us/hand/native_c/`. A bounded native run reaches the persistent
+frame loop and submits the four initial display packets, but the Splash
+request remains pending because `func_001E4EA8` has no C implementation. Its
+retail path constructs a memory reader, starts Sly's chunked stream callback,
+updates loader/UI state, and later releases the reader. The raw-disc read
+worker `func_00137490` still coordinates semaphores, refill windows, and IOP
+transfers; the earlier 74-sector read was observed only in the separate
+assembly-research path and does not verify this C-only path. The direct host32
+build also remains a diagnostic: its direct-call frontier and indirect
+graphics callbacks are incomplete, and it has no verified title or playable
+scene. Neither launcher currently demonstrates native gameplay.
+
 The separate C-only hostgen launcher does link and open a window, but it uses
 the experimental guest-memory/runtime path and is not the no-emulation game
 build. Its latest bounded run reaches a black window; the trace reports no
