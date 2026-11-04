@@ -7,12 +7,14 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <sstream>
 #include <vector>
 
 #include "common/log.h"
@@ -34,11 +36,16 @@ struct State {
     float q = 0.0f;
     float i = 0.0f;
     uint16_t itop = 0;
+    uint16_t mac_flags = 0;
+    uint16_t status_flags = 0;
+    uint32_t clip_flags = 0;
     uint32_t pc = 0;
 };
 
 std::mutex g_vu_mutex;
 State g_state;
+std::atomic_flag g_vu_context_notice = ATOMIC_FLAG_INIT;
+std::atomic_flag g_vu_kick_notice = ATOMIC_FLAG_INIT;
 
 Vector vf_read(const State& state, uint32_t index) {
     if (index == 0) return {0.0f, 0.0f, 0.0f, 1.0f};
@@ -50,6 +57,26 @@ void vf_write(State* state, uint32_t index, const Vector& value, uint32_t mask) 
     Vector& destination = state->vf[index & 31u];
     for (uint32_t lane = 0; lane < 4; ++lane)
         if ((mask & (8u >> lane)) != 0) destination[lane] = value[lane];
+}
+
+void update_float_flags(State* state, const Vector& value, uint32_t mask) {
+    uint16_t overflow = 0, underflow = 0, sign = 0, zero = 0;
+    for (uint32_t lane = 0; lane < 4; ++lane) {
+        if ((mask & (8u >> lane)) == 0) continue;
+        const uint16_t bit = static_cast<uint16_t>(1u << (3u - lane));
+        if (std::signbit(value[lane])) sign |= bit;
+        if (value[lane] == 0.0f) zero |= bit;
+        if (std::isinf(value[lane])) overflow |= bit;
+        if (value[lane] != 0.0f && std::fpclassify(value[lane]) == FP_SUBNORMAL)
+            underflow |= bit;
+    }
+    state->mac_flags = static_cast<uint16_t>((overflow << 12u) | (underflow << 8u) |
+                                             (sign << 4u) | zero);
+    const uint16_t current = static_cast<uint16_t>(
+        (zero != 0 ? 1u : 0u) | (sign != 0 ? 2u : 0u) |
+        (underflow != 0 ? 4u : 0u) | (overflow != 0 ? 8u : 0u));
+    const uint16_t sticky = static_cast<uint16_t>((state->status_flags >> 6u) | current);
+    state->status_flags = static_cast<uint16_t>(current | ((sticky & 0x3Fu) << 6u));
 }
 
 Vector data_read(uint32_t address) {
@@ -77,14 +104,18 @@ void vi_write(State* state, uint32_t index, uint16_t value) {
     if (index != 0) state->vi[index & 15u] = value;
 }
 
-bool kick_gif(uint32_t address) {
+bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag) {
     std::vector<uint8_t> packet;
     size_t cursor = static_cast<size_t>(address & 0x3FFu) * 16u;
     const size_t memory_end = kVu1Quadwords * 16u;
+    if (failure != nullptr) *failure = 0;
+    if (first_tag != nullptr) *first_tag = 0;
     while (cursor + 16u <= memory_end) {
         const uint8_t* tag = openrac_guest_base + kVu1Data + cursor;
         uint64_t low = 0;
         std::memcpy(&low, tag, sizeof(low));
+        if (first_tag != nullptr && cursor == static_cast<size_t>(address & 0x3FFu) * 16u)
+            *first_tag = low;
         const uint32_t loops = static_cast<uint32_t>(low & 0x7FFFu);
         const uint32_t format = static_cast<uint32_t>((low >> 58u) & 3u);
         uint32_t registers = static_cast<uint32_t>((low >> 60u) & 0xFu);
@@ -95,7 +126,10 @@ bool kick_gif(uint32_t address) {
             payload_qwords = (static_cast<size_t>(loops) * registers + 1u) / 2u;
         else payload_qwords = loops;
         if (payload_qwords > kVu1Quadwords ||
-            cursor + (payload_qwords + 1u) * 16u > memory_end) return false;
+            cursor + (payload_qwords + 1u) * 16u > memory_end) {
+            if (failure != nullptr) *failure = 1;
+            return false;
+        }
         const size_t bytes = (payload_qwords + 1u) * 16u;
         packet.insert(packet.end(), tag, tag + bytes);
         cursor += bytes;
@@ -104,6 +138,7 @@ bool kick_gif(uint32_t address) {
             return true;
         }
     }
+    if (failure != nullptr) *failure = 2;
     return false;
 }
 
@@ -135,6 +170,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             }
         }
         if (group == 2 || group == 3) state->acc = result;
+        update_float_flags(state, result, mask);
         vf_write(state, fd, result, mask);
         return true;
     }
@@ -196,6 +232,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
         if (opcode == 0x21 || opcode == 0x23 || opcode == 0x25 || opcode == 0x27 ||
             opcode == 0x29 || opcode == 0x2D)
             state->acc = result;
+        update_float_flags(state, result, mask);
         vf_write(state, fd, result, mask);
         return true;
     }
@@ -204,6 +241,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                   state->acc[1] - (source[2] * target[0] - source[0] * target[2]),
                   state->acc[2] - (source[0] * target[1] - source[1] * target[0]),
                   state->acc[3]};
+        update_float_flags(state, result, mask);
         vf_write(state, fd, result, mask);
         return true;
     default:
@@ -340,7 +378,15 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 return true;
             }
             if (function == 0x3Cu && field == 0x1Bu) { // XGKICK
-                if (!kick_gif(vi_read(*state, source))) {
+                uint32_t failure = 0;
+                uint64_t first_tag = 0;
+                const uint32_t address = vi_read(*state, source);
+                if (!kick_gif(address, &failure, &first_tag)) {
+                    if (!g_vu_kick_notice.test_and_set(std::memory_order_relaxed))
+                        openrac::log::warn(
+                            "native VU1 XGKICK failed: VI{}={} first_tag={:#018x} reason={}",
+                            source & 15u, address, first_tag,
+                            failure == 1 ? "tag payload exceeds VU1 data memory" : "missing EOP");
                     *unsupported = word;
                     return false;
                 }
@@ -356,6 +402,53 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 return true;
             }
             break;
+        default:
+            break;
+        }
+    }
+
+    if (primary >= 0x10u && primary <= 0x1Cu) {
+        const uint32_t immediate12 = (((word >> 21u) & 1u) << 11u) | (word & 0x7FFu);
+        const uint32_t immediate24 = word & 0x00FFFFFFu;
+        switch (primary) {
+        case 0x10: // FCEQ
+            vi_write(state, 1, static_cast<uint16_t>(state->clip_flags == immediate24));
+            return true;
+        case 0x11: // FCSET
+            state->clip_flags = immediate24;
+            return true;
+        case 0x12: // FCAND
+            vi_write(state, 1, static_cast<uint16_t>((state->clip_flags & immediate24) != 0));
+            return true;
+        case 0x13: // FCOR
+            vi_write(state, 1, static_cast<uint16_t>(
+                ((state->clip_flags | immediate24) & 0x00FFFFFFu) == 0x00FFFFFFu));
+            return true;
+        case 0x14: // FSEQ
+            vi_write(state, target, static_cast<uint16_t>(state->status_flags == immediate12));
+            return true;
+        case 0x15: // FSSET: set sticky flags
+            state->status_flags = static_cast<uint16_t>(
+                (state->status_flags & 0x003Fu) | (immediate12 & 0x0FC0u));
+            return true;
+        case 0x16: // FSAND
+            vi_write(state, target, static_cast<uint16_t>(state->status_flags & immediate12));
+            return true;
+        case 0x17: // FSOR
+            vi_write(state, target, static_cast<uint16_t>(state->status_flags | immediate12));
+            return true;
+        case 0x18: // FMEQ
+            vi_write(state, target, static_cast<uint16_t>(state->mac_flags == vi_read(*state, source)));
+            return true;
+        case 0x1A: // FMAND
+            vi_write(state, target, static_cast<uint16_t>(state->mac_flags & vi_read(*state, source)));
+            return true;
+        case 0x1B: // FMOR
+            vi_write(state, target, static_cast<uint16_t>(state->mac_flags | vi_read(*state, source)));
+            return true;
+        case 0x1C: // FCGET
+            vi_write(state, target, static_cast<uint16_t>(state->clip_flags & 0xFFFu));
+            return true;
         default:
             break;
         }
@@ -421,6 +514,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     bool end_delay = false;
     bool branch_delay = false;
     uint32_t branch_target = 0;
+    struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
+    std::array<RecentInstruction, 16> recent{};
     for (uint32_t cycle = 0; cycle < kMaxInstructions; ++cycle) {
         if (pc >= kVu1Doublewords) {
             *unsupported_word = 0xFFFFFFFFu;
@@ -433,6 +528,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         const uint8_t* instruction = openrac_guest_base + kVu1Micro + pc * 8u;
         std::memcpy(&lower, instruction, sizeof(lower));
         std::memcpy(&upper, instruction + 4u, sizeof(upper));
+        recent[cycle % recent.size()] = {pc, lower, upper};
         const uint32_t current_pc = pc;
         uint32_t next_pc = current_pc + 1u;
         State before = g_state;
@@ -451,6 +547,19 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             *paired_word = upper;
             *stopped_pc = current_pc;
             *stopped_pipeline = 1;
+            if (!g_vu_context_notice.test_and_set(std::memory_order_relaxed)) {
+                std::ostringstream context;
+                const uint32_t first_cycle = cycle >= recent.size() - 1u
+                    ? cycle - static_cast<uint32_t>(recent.size() - 1u) : 0u;
+                for (uint32_t trace_cycle = first_cycle; trace_cycle <= cycle; ++trace_cycle) {
+                    const RecentInstruction& recent_instruction =
+                        recent[trace_cycle % recent.size()];
+                    context << " pc=" << std::hex << recent_instruction.pc
+                            << " [" << recent_instruction.lower << '/'
+                            << recent_instruction.upper << ']';
+                }
+                openrac::log::warn("native VU1 executed path to fault:{}", context.str());
+            }
             return 0;
         }
         g_state = upper_result;
@@ -461,6 +570,10 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             }
         }
         g_state.vi = lower_result.vi;
+        if (lower_result.status_flags != before.status_flags)
+            g_state.status_flags = lower_result.status_flags;
+        if (lower_result.clip_flags != before.clip_flags)
+            g_state.clip_flags = lower_result.clip_flags;
         g_state.pc = next_pc;
 
         if (branch_delay) {
