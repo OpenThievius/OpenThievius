@@ -235,12 +235,39 @@ struct VifTrace {
     std::array<std::pair<uint32_t, uint32_t>, 32> mscal{};
     struct Operand { uint32_t command; uint32_t count; uint32_t immediate; };
     std::array<Operand, 48> operands{};
+    struct Program {
+        uint32_t address = 0;
+        uint32_t instruction_count = 0;
+        std::array<uint32_t, 64> upper_opcodes{};
+    };
+    std::array<Program, 32> programs{};
     uint32_t mpg_total = 0;
     uint32_t mscal_total = 0;
     size_t mpg_count = 0;
     size_t mscal_count = 0;
     size_t operand_count = 0;
+    size_t program_count = 0;
 };
+
+void trace_vu1_program(uint32_t address, VifTrace* trace) {
+    address &= 0x7FFu;
+    for (size_t i = 0; i < trace->program_count; ++i) {
+        if (trace->programs[i].address == address) return;
+    }
+    if (trace->program_count == trace->programs.size()) return;
+
+    VifTrace::Program program;
+    program.address = address;
+    for (uint32_t index = address; index < kVu1MemoryBytes / 8u; ++index) {
+        uint32_t upper = 0;
+        const uint8_t* instruction = openrac_guest_base + kVu1Micro + index * 8u;
+        std::memcpy(&upper, instruction + 4u, sizeof(upper));
+        ++program.instruction_count;
+        ++program.upper_opcodes[upper & 0x3Fu];
+        if ((upper & (1u << 30u)) != 0) break; // E-bit ends the microprogram.
+    }
+    trace->programs[trace->program_count++] = program;
+}
 
 bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes,
                         uint32_t* unsupported_command, VifTrace* trace) {
@@ -334,6 +361,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             ++trace->mscal_total;
             if (trace->mscal_count < trace->mscal.size())
                 trace->mscal[trace->mscal_count++] = {command, immediate & 0xFFFFu};
+            if (command != 0x17u) trace_vu1_program(immediate, trace);
             break;
         case 0x00: case 0x04: case 0x05: case 0x06: case 0x07:
         case 0x10: case 0x11: case 0x13:
@@ -400,6 +428,17 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
                 openrac::log::info("native VIF1 operand transfer={} opcode={:#x} num={} immediate={:#x}",
                                    transfer + 1, trace.operands[i].command,
                                    trace.operands[i].count, trace.operands[i].immediate);
+            for (size_t i = 0; i < trace.program_count; ++i) {
+                const VifTrace::Program& program = trace.programs[i];
+                openrac::log::info("native VIF1 microprogram transfer={} address={} instructions={}",
+                                   transfer + 1, program.address, program.instruction_count);
+                for (size_t opcode = 0; opcode < program.upper_opcodes.size(); ++opcode) {
+                    if (program.upper_opcodes[opcode] != 0)
+                        openrac::log::info("native VIF1 upper-op transfer={} address={} opcode={:#x} count={}",
+                                           transfer + 1, program.address, opcode,
+                                           program.upper_opcodes[opcode]);
+                }
+            }
         }
     } else {
         store_mmio(kDmacStat, (status & ~(1u << 1)) | (1u << 15));
