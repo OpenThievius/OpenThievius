@@ -150,10 +150,12 @@ range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
 bookkeeping. The native CD read fills the reader's backing ring; the compressed
 reader now uses the retail source cursor and control-byte sentinel. A bounded
-run matches the offline decoder's first 8 KiB, then stalls in
-`func_001DCCC0` while it skips resource entries. This is not proof that the
-resource parsed: critical calls including `func_00151A88`, `func_001C1190`, and
-`func_001B3040` still resolve to no-C stubs. Port-only overrides for `func_0018D608`,
+run matches the offline decoder's first 8 KiB. The next decoded value is
+`0x6876bb00`, far beyond a plausible entry count for the supported resource
+size, so the port-only loader backfill consumes it and continues through its
+callback. This recovery does not establish a valid resource parse: critical
+calls including `func_00151A88`, `func_001C1190`, and `func_001B3040` still
+resolve to no-C stubs. Port-only overrides for `func_0018D608`,
 `func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
 reserved guest-port memory. A bounded native run read sector 820372 for 74
 sectors, avoided the previous invalid allocation fault, and submitted 984

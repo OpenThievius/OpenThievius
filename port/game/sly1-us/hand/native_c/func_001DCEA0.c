@@ -2,6 +2,8 @@
 /* Port-only resource callback translated from the NTSC-U retail path. */
 #include "common.h"
 
+#define SLY1_MAX_RESOURCE_BYTES 0x10000000u
+
 extern u8 D_00261EF0[];
 extern void* D_00261990;
 extern s32 D_00275714;
@@ -16,6 +18,7 @@ void func_00151A88(void* context);
 void func_0011BF70(void);
 s32 func_00137B90(void* reader);
 s32 func_00137D10(void* reader);
+s32 func_00137C40(void* reader);
 void func_001DCCC0(void* reader);
 void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
@@ -70,7 +73,18 @@ void func_001DCEA0(void* self, void* reader) {
     sly1_native_loader_stage(17, (u32)object, (u32)reader);
     *(s32*)(object + 0x1D70) = func_00137D10(reader);
     sly1_native_loader_stage(18, (u32)object, (u32)reader);
-    func_001DCCC0(reader);
+    if (D_00275714 != 0 &&
+        *(s32*)(reader + 0x1C) >= 4 &&
+        *(u32*)(*(u32*)(reader + 0x18)) > SLY1_MAX_RESOURCE_BYTES / 2u + 1u) {
+        /* Each skipped retail entry consumes at least a 16-bit length. A
+         * count beyond half the port's maximum accepted resource size cannot
+         * fit in any supported stream; consume the field and keep the native
+         * loader from spinning billions of times on an invalid Splash table. */
+        (void)func_00137C40(reader);
+        sly1_native_loader_stage(20, (u32)object, (u32)reader);
+    } else {
+        func_001DCCC0(reader);
+    }
     sly1_native_loader_stage(19, (u32)object, (u32)reader);
     sly1_native_loader_stage(1, (u32)object, (u32)reader);
 
