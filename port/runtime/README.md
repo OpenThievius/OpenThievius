@@ -17,7 +17,7 @@ beside two C++ headers of the runtime's own (section 14.1 of
 |---|---|---|
 | [`guest.h`](include/openrac/guest.h) | C contract | game memory as translated C sees it (`gaddr`, `G()`, the game stack, string literals), the table of functions by code address, the overlays |
 | [`ee.h`](include/openrac/ee.h), [`ee_ops.h`](include/openrac/ee_ops.h) | C contract | the R5900's instructions, the FPU's divide and roots, the vector unit's registers, and what happens where the console would have trapped |
-| [`native_gs.h`](include/openrac/native_gs.h) | Sly native device boundary | GIF channel 2 DMA submission, decoded GS state, and per-frame host geometry snapshots |
+| [`native_gs.h`](include/openrac/native_gs.h) | Sly native device boundary | GIF channel 2 and VIF1 DMA submission, decoded GS state, and per-frame host geometry snapshots |
 | [`native_window.h`](include/openrac/native_window.h) | Native presentation boundary | SDL3 window lifecycle and presentation entry points |
 | [`ps2float.h`](include/openrac/ps2float.h) | C contract | the EE FPU's single-precision arithmetic in software (`openrac_ps2float`) |
 | [`host_env.h`](include/openrac/host_env.h) | C contract | `openrac_env_string`: the value of an `OPENRAC_*` variable of `common/env.h`'s table, for C |
@@ -34,6 +34,12 @@ and queues the GIF payload stream. `gs_stream.cpp` decodes the current
 color-only primitive subset into host screen-space vertices. `sdl_renderer.cpp`
 opens the native window and presents that geometry; textured GS state and
 rasterization are not implemented yet. The native port requires SDL3.
+
+`vif1_dma.cpp` handles VIF1 source-chain transfers, VIF UNPACK data lengths,
+tag transfer data, and DIRECT packets routed to the GIF stream reader. It
+completes the observed DMA channel instead of leaving CHCR busy. It does not
+execute VU1 microprograms. The VIF command and DMA tag formats follow the
+public [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 
 `sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
 It takes two host Count samples and updates the matching extended-counter

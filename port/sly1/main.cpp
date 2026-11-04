@@ -16,6 +16,7 @@ extern "C" {
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -128,8 +129,18 @@ int main(int argc, char** argv) {
                 uint64_t pmode = 0;
                 uint64_t dispfb1 = 0;
                 uint64_t display1 = 0;
+                uint64_t tex0_1 = 0;
+                uint64_t tex1_1 = 0;
+                uint64_t tex0_2 = 0;
+                uint64_t prim = 0;
+                uint64_t uv = 0;
                 openrac_guest_gs_read_register(0x4Cu, &framebuffer);
                 openrac_guest_gs_read_register(0x40u, &scissor);
+                openrac_guest_gs_read_register(0x06u, &tex0_1);
+                openrac_guest_gs_read_register(0x07u, &tex0_2);
+                openrac_guest_gs_read_register(0x14u, &tex1_1);
+                openrac_guest_gs_read_register(0x00u, &prim);
+                openrac_guest_gs_read_register(0x03u, &uv);
                 openrac_guest_gs_read_register(0x50u, &bitbltbuf);
                 openrac_guest_gs_read_register(0x51u, &trxpos);
                 openrac_guest_gs_read_register(0x52u, &trxreg);
@@ -137,6 +148,18 @@ int main(int argc, char** argv) {
                 openrac_guest_gs_read_privileged_register(0x00u, &pmode);
                 openrac_guest_gs_read_privileged_register(0x70u, &dispfb1);
                 openrac_guest_gs_read_privileged_register(0x80u, &display1);
+                uint32_t vif1_chcr = 0;
+                uint32_t vif1_madr = 0;
+                uint32_t vif1_qwc = 0;
+                uint32_t vif1_tadr = 0;
+                std::memcpy(&vif1_chcr, openrac_guest_base + 0x10009000u,
+                            sizeof(vif1_chcr));
+                std::memcpy(&vif1_madr, openrac_guest_base + 0x10009010u,
+                            sizeof(vif1_madr));
+                std::memcpy(&vif1_qwc, openrac_guest_base + 0x10009020u,
+                            sizeof(vif1_qwc));
+                std::memcpy(&vif1_tadr, openrac_guest_base + 0x10009030u,
+                            sizeof(vif1_tadr));
                 std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
                           << " address=0x" << std::hex << address << std::dec
                           << " kernel_service=";
@@ -150,6 +173,11 @@ int main(int argc, char** argv) {
                           << " scissor=0x" << scissor << " blit=0x" << bitbltbuf
                           << " trxpos=0x" << trxpos << " trxreg=0x" << trxreg
                           << " trxdir=0x" << trxdir << " pmode=0x" << pmode
+                          << " tex0_1=0x" << tex0_1 << " tex0_2=0x" << tex0_2
+                          << " tex1_1=0x" << tex1_1 << " prim=0x" << prim
+                          << " uv=0x" << uv << " vif1_chcr=0x" << vif1_chcr
+                          << " vif1_madr=0x" << vif1_madr << " vif1_qwc=0x" << vif1_qwc
+                          << " vif1_tadr=0x" << vif1_tadr
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << std::dec;

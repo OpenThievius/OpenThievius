@@ -18,6 +18,7 @@ typedef struct openrac_gs_vertex {
 /* The native EE device layer handles selected MMIO stores. Returns one when
  * it handled the store; other addresses use the ordinary guest-memory path. */
 int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value);
+int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value);
 
 /* Native GS frontends consume the ordered GIF qword stream from this FIFO. */
 size_t openrac_guest_gif_fifo_read(void* destination, size_t capacity);

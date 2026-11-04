@@ -80,18 +80,26 @@ pixels yet.
 The trace also reads the directly mapped GS privileged registers. During the
 bounded run PMODE stays at `0x8067`, DISPLAY1 at `0x1be9ff0183327c`, and
 DISPFB1 flips between `0x1400` and `0x1446`, confirming that Sly alternates
-display buffers while the GIF packet stream advances. The host still has no
-pixel store or window presentation path.
+display buffers while the GIF packet stream advances. SDL presents decoded
+host geometry in the native window; a GS pixel store is still absent.
 
 The packet reader now turns observed point, line, triangle, strip, fan and
 sprite vertex submissions into host screen-space triangle vertices. At the
-existing frame boundary the runtime publishes a snapshot; a bounded run
-reports 120 vertices. This first draw path carries vertex colors only. It
-does not yet draw textured geometry. An SDL3 window now consumes those
+existing frame boundary the runtime publishes a snapshot; a bounded run after
+VIF1 DMA completion reports up to 12,336 vertices. This draw path carries
+vertex colors only and does not yet draw textured geometry. An SDL3 window now consumes those
 snapshots on the main thread and presents the color geometry at the game's
 640x224 logical resolution. Guest execution runs on a separate host thread.
 This is an initial presentation prototype, not a playable renderer: it has no
 texture sampling, gamepad mapping or scene streaming yet.
+
+VIF1 channel 1 was holding its source-chain transfer active at CHCR `0x105`,
+which prevented later display-list work from completing. The native VIF1 path
+now walks source-chain tags, handles transfer-tag data and common VIF command
+payloads, and sends DIRECT packets to the GIF reader. It also completes the
+DMA status and interrupt boundary. The host does not run VU1 microprograms,
+so this advances display-list processing without completing the full native
+renderer.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler

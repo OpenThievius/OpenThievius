@@ -184,6 +184,9 @@ extern "C" int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value) {
     if (openrac_guest_base == nullptr || address < GUEST_EE_REGS ||
         address >= GUEST_EE_REGS + GUEST_EE_REGS_SIZE) return 0;
 
+    if (address == 0x10009000u)
+        return openrac_guest_vif1_mmio_store32(address, value);
+
     if (address == kDmacStat) {
         const uint32_t previous = load_mmio(kDmacStat);
         const uint32_t status = (previous & 0xFFFFu) & ~(value & 0xFFFFu);

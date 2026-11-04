@@ -19,9 +19,9 @@ bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 generated files stay under `build/port/`. The native launcher requires SDL3
 and remains experimental and unplayable. It enters the retail boot code,
-opens an SDL window and reaches the display loop. A first GIF parser extracts
-color-only geometry, but textured rendering, scene streaming, audio, input
-and saves remain unfinished.
+opens an SDL window and reaches the display loop. Native VIF1 DMA completion
+lets the guest produce larger color-only geometry batches, but textured
+rendering, scene streaming, audio, input and saves remain unfinished.
 
 The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
 generated game units into a local link-check executable, run:
