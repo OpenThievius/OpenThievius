@@ -92,6 +92,14 @@ before the parser input at decoded offset 5,512. The startup initializer
 64-bit field at offset `0x538`. The property behaviors are now traceable, but
 their asset-level names and the containing resource type are still unknown.
 
+At this parser call, the live object pointer is `0x008476b0` and its runtime
+descriptor pointer is `D_00220E20`. That descriptor has value 4, derives from
+`D_00217568`, and declares a `0x550`-byte object. Its method table includes
+`func_001B7A98` and `func_001B7B78`, which register and unregister the object
+with its owner. This identifies the parsed instance as a managed game-object
+class; the retail data and matching C do not yet give that class a meaningful
+name or tie this resource to a specific level.
+
 On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
