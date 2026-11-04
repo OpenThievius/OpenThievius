@@ -21,6 +21,8 @@
   "catalogues": [
     "config/us/functions.tsv"
   ],
+  "libraries": "libraries.tsv",
+  "library_api": "native_libraries.tsv",
   "roots": [
     "func_00100008",
     "func_001858F8",

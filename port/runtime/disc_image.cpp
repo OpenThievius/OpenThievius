@@ -4,8 +4,10 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -247,6 +249,7 @@ private:
 };
 
 DiscImage g_disc;
+std::atomic<bool> g_file_request_ready{false};
 
 }  // namespace
 
@@ -276,6 +279,59 @@ extern "C" int openrac_guest_disc_read(uint32_t first_sector, uint32_t count,
 
 extern "C" uint32_t openrac_guest_disc_sector_count(void) {
     return g_disc.sectors();
+}
+
+extern "C" int openrac_lib_sly1_iop_boot(void) {
+    if (g_disc.sectors() == 0) return 0;
+    constexpr uint32_t kCdState = 0x002613F0u;
+    const uint32_t address = openrac_guest_ram_address(kCdState);
+    if (openrac_guest_base == nullptr || address > openrac_guest_ram_size ||
+        openrac_guest_ram_size - address < sizeof(uint32_t)) return 0;
+    const uint32_t ready = 0x14u;
+    std::memcpy(openrac_guest_base + address, &ready, sizeof(ready));
+    g_file_request_ready.store(false, std::memory_order_relaxed);
+    return 1;
+}
+
+extern "C" int openrac_lib_sly1_iop_initialize(int mode) {
+    (void)mode;
+    // The native port replaces the IOP file service; there is no IOP to boot.
+    return g_disc.sectors() != 0 ? 1 : 0;
+}
+
+extern "C" int openrac_lib_sly1_cd_status(void) {
+    // Sly's func_00140968 accepts status 0x14 as the ready state.
+    return g_disc.sectors() != 0 ? 0x14 : 0;
+}
+
+extern "C" int openrac_lib_sly1_cd_file_open(uint32_t guest_path) {
+    const uint32_t address = openrac_guest_ram_address(guest_path);
+    if (openrac_guest_base == nullptr || address >= openrac_guest_ram_size) {
+        g_file_request_ready.store(false, std::memory_order_relaxed);
+        return 0;
+    }
+    const char* start = reinterpret_cast<const char*>(openrac_guest_base + address);
+    const size_t available = openrac_guest_ram_size - address;
+    const auto* end = static_cast<const char*>(std::memchr(start, '\0', available));
+    if (end == nullptr) {
+        g_file_request_ready.store(false, std::memory_order_relaxed);
+        return 0;
+    }
+    const std::string path(start, static_cast<size_t>(end - start));
+    uint32_t first_sector = 0;
+    uint32_t byte_size = 0;
+    const bool found = g_disc.find_file(path.c_str(), &first_sector, &byte_size);
+    g_file_request_ready.store(found, std::memory_order_relaxed);
+    return found ? 1 : 0;
+}
+
+extern "C" int openrac_lib_sly1_cd_file_ready(void) {
+    return g_file_request_ready.load(std::memory_order_relaxed) ? 1 : 0;
+}
+
+extern "C" int openrac_lib_sly1_cd_file_close(void) {
+    g_file_request_ready.store(false, std::memory_order_relaxed);
+    return 0;
 }
 
 extern "C" int openrac_guest_disc_file_info(const char* path, uint32_t* first_sector,

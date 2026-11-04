@@ -1,0 +1,7 @@
+# symbol	library	name	port	notes	signature
+func_001858F8	iop	sly1_iop_boot	host	Replace IOP module startup with native disc services	int(void)
+func_00203548	iop	sly1_iop_initialize	host	Replace the IOP RPC startup loop with native services	int(int)
+func_00203CF8	iop	sly1_cd_status	host	Report native disc readiness to Sly startup	int(void)
+func_001F9C50	iop	sly1_cd_file_open	host	Open a path from the native ISO reader	int(int)
+func_001F9C18	iop	sly1_cd_file_ready	host	Synchronous native file requests complete immediately	int(void)
+func_001F9820	iop	sly1_cd_file_close	host	Release the native file request state	int(void)

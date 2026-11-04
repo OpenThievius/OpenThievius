@@ -16,6 +16,14 @@ int openrac_guest_disc_open(const char* path);
 int openrac_guest_disc_read(uint32_t first_sector, uint32_t count, uint32_t guest_address);
 uint32_t openrac_guest_disc_sector_count(void);
 
+/* Sly startup's native replacements for its IOP boot and CD status calls. */
+int openrac_lib_sly1_iop_boot(void);
+int openrac_lib_sly1_iop_initialize(int mode);
+int openrac_lib_sly1_cd_status(void);
+int openrac_lib_sly1_cd_file_open(uint32_t guest_path);
+int openrac_lib_sly1_cd_file_ready(void);
+int openrac_lib_sly1_cd_file_close(void);
+
 /* Locate an ISO 9660 path and report its first logical sector and byte size. */
 int openrac_guest_disc_file_info(const char* path, uint32_t* first_sector, uint32_t* byte_size);
 

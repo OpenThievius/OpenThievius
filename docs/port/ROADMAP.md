@@ -20,7 +20,7 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 **Current implementation:** the hostgen tool and CMake entry point are in
 place. The Sly profile stages C++ sources as C-compatible inputs and, with
 local retail-backed assembly available, translates 1,532 functions from C and
-3,138 from assembly. The guest runtime builds, all 81 generated C units compile,
+3,132 from assembly. The guest runtime builds, all 81 generated C units compile,
 and `port_link_generated` links them without running the entry point. The Sly
 `port_native` target links a launcher that reads the user's extracted boot ELF,
 maps its segments into guest memory and calls the translated entry. Two
@@ -32,10 +32,14 @@ initialization until timeout. Two more interior entries from that path are now
 translated by hostgen. A native ISO 9660 reader accepts cooked images and raw
 2352-byte BINs, locates paths and reads file ranges. The local NTSC-U image was
 identified as `SCUS_971.98`, with `IOPRP243.IMG` and the boot modules in its
-ISO file table. Sly's CD/IOP calls do not use the reader yet. The analyzed
-boot call graph still reaches 26 functions without hostable C. Fifteen source
-files remain unreadable and the C++ adapter can lose constructs; disc services,
-most kernel calls, the renderer and frame loop still block gameplay. Continue
+ISO file table. The IOP bootstrap constructor is replaced by a native hook
+that marks CD state ready only when an ISO is loaded. Host replacements also
+cover file-open/poll/close with ISO path lookup. These changes still need a
+startup run; sector reads are not routed to Sly's later data requests yet. The
+analyzed boot call graph still reaches 26 functions without
+hostable C. Fifteen source files remain unreadable and the C++ adapter can lose
+constructs; remaining disc services, most kernel calls, the renderer and frame
+loop still block gameplay. Continue
 with the loader and boot call graph, preserving C++ semantics and grounding
 each host service in Sly retail evidence.
 

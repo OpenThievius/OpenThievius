@@ -38,11 +38,12 @@ launcher that accepts the extracted `SCUS_971.98` ELF and an optional ISO or
 raw BIN disc image, loads the ELF segments into guest memory, registers
 translated functions, and calls the game entry. The native runtime validates
 ISO 9660 images, reads logical sectors, locates paths and reads file ranges.
-The current CD/IOP game calls do not use that reader yet. The native launcher
-is experimental. The first
-authorized startup run stopped at the runtime's stack-bound check and five
-interior constructor table entries. The
-runtime now accepts Sly's `SetupThread` stack range, and the launcher registers
+The IOP bootstrap constructor now uses a native hook that sets CD-ready state
+when an ISO is loaded; the file-open poll uses ISO path lookup. These changes
+build but have not been startup-tested. The native launcher is experimental.
+The first authorized startup run stopped at the runtime's stack-bound check
+and five interior constructor table entries. The runtime now accepts Sly's
+`SetupThread` stack range, and the launcher registers
 those five callback addresses to call their translated registration routines.
 A second authorized startup run passed those points and stayed alive in the
 CD/IOP initialization path until its timeout. Hostgen now translates two more
@@ -59,9 +60,9 @@ Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 One startup VU busy poll reports idle because the host has no VU execution unit.
 The listed CP0 interrupt-status readers see no pending host interrupts.
 The startup path also saves and changes the GS interrupt mask through a
-software-backed guest register. The renderer, frame loop, disc services, and
-the rest of the required platform services are not implemented, so the port
-still cannot launch into gameplay.
+software-backed guest register. The renderer, frame loop, remaining disc
+services and other required platform services are not implemented, so the
+port still cannot launch into gameplay.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 
