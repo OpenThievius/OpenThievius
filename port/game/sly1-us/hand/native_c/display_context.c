@@ -4,6 +4,7 @@
 #include "common.h"
 
 s32 sly1_native_gs_privileged_store64(u32 address, u64 value);
+s32 openrac_guest_ee_mmio_store32(u32 address, u32 value);
 
 static void write_privileged(u32 address, u64 value)
 {
@@ -63,10 +64,34 @@ void func_00201BB8(void* context)
     write_privileged(0x12000080u, *(u64*)(bytes + 0x18));
 }
 
+void func_00201C78(void* context)
+{
+    u32 address = (u32)context;
+    u32 qwc;
+    u64 header;
+
+    if (context == 0) return;
+    header = *(u64*)context;
+    qwc = (u32)(header & 0x7FFFu) + 1u;
+    if ((address & 0x70000000u) == 0x70000000u) {
+        address = (address & 0x0FFFFFFFu) | 0x80000000u;
+    } else {
+        address &= 0x0FFFFFFFu;
+    }
+
+    /* The guest DMA register page is ordinary mapped memory; only CHCR starts
+     * the transfer through the host's synchronous GIF DMA implementation. */
+    *(volatile u32*)0x1000E000u = 1u;
+    *(volatile u32*)0x1000A020u = qwc;
+    *(volatile u32*)0x1000A010u = address;
+    if (openrac_guest_ee_mmio_store32(0x1000A000u, 0x101u) == 0) return;
+}
+
 void func_00201FF8(void* context, s32 page)
 {
     u8* bytes = (u8*)context;
     u32 selected = (u32)page & 1u;
     if (bytes == 0) return;
     func_00201BB8(bytes + selected * 0x28u);
+    func_00201C78(bytes + (selected ? 0x140u : 0x50u));
 }

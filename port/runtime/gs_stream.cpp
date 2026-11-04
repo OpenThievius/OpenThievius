@@ -348,6 +348,10 @@ extern "C" int openrac_guest_gs_read_privileged_register(uint32_t offset,
     if (openrac_guest_base == nullptr || value == nullptr || offset > GUEST_GS_REGS_SIZE - 8u)
         return 0;
     std::memcpy(value, openrac_guest_base + GUEST_GS_REGS + offset, sizeof(*value));
+    if (std::getenv("OPENRAC_TRACE_GS_PRIV") != nullptr) {
+        std::fprintf(stderr, "[trace] native GS privileged read offset=%#06x value=%#018llx\n",
+                     offset, static_cast<unsigned long long>(*value));
+    }
     return 1;
 }
 

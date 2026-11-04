@@ -294,7 +294,8 @@ int main(int argc, char** argv) {
                           << scene_pending_state << " state_flags=" << std::hex
                           << frame_flags_a << ',' << frame_flags_b << std::dec
                           << " elapsed=" << frame_elapsed
-                          << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
+                          << " dispfb1=0x" << std::hex << dispfb1
+                          << " display1=0x" << display1 << std::dec
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << " image_tags=" << openrac_guest_gif_image_tag_count()
                           << " image_qwords=" << openrac_guest_gif_image_qword_count()
