@@ -25,3 +25,8 @@ It is a port-only platform service; the matching source remains unchanged.
 `func_001FB6B0.cpp` supplies the signed 64-bit tick-to-float conversion used
 by Sly's frame timers. It uses the host's IEEE-754 conversion and remains a
 port-only implementation until matching C is available.
+
+The native backfills for `func_0016E118`, `func_001DDA20` and
+`func_001DDA50` preserve the retail flag and reference-count transitions used
+by the frame-state path. Their retail instruction sequences and matching
+call-site layouts were inspected before writing the replacements.
