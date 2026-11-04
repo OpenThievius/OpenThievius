@@ -8,6 +8,7 @@
 #include "openrac/guest.h"
 
 #include <atomic>
+#include <cstring>
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
@@ -31,7 +32,23 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
     case 0x04: // Exit(status); a host frame loop observes the request and closes the session.
         g_exit_requested.store(true, std::memory_order_relaxed);
         return 0;
+    case 0x5A: { // Copy(dest, src, size); KSEG0 aliases normalize to the same guest RAM.
+        const uint32_t dest = openrac_guest_ram_address(static_cast<uint32_t>(a0));
+        const uint32_t src = openrac_guest_ram_address(static_cast<uint32_t>(a1));
+        const uint32_t size = static_cast<uint32_t>(a2);
+        if (dest > openrac_guest_ram_size || src > openrac_guest_ram_size ||
+            size > openrac_guest_ram_size - dest || size > openrac_guest_ram_size - src) {
+            openrac_guest_missing("EE Copy range is outside guest RAM");
+            return 0;
+        }
+        std::memmove(openrac_guest_base + dest, openrac_guest_base + src, size);
+        return 0;
+    }
+    case 0x5B: // GetEntryAddress: the host dispatches calls without guest exception vectors.
+        return 0;
     case 0x64: // FlushCache: host code has no EE caches.
+        return 0;
+    case 0x74: // SetSyscall: guest exception vectors are not used by translated host code.
         return 0;
     case 0x23: // ExitThread: the port runs a single host thread.
         return 0;
