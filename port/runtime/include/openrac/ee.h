@@ -17,6 +17,7 @@
 #include <math.h>
 
 #include "openrac/guest.h"
+#include "openrac/native_gs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +34,11 @@ typedef int64_t openrac_s64;
 typedef float openrac_f32;
 
 #define OPENRAC_EE_INLINE static inline
+static inline int openrac_ee_native_mmio_sw(openrac_u32 address, openrac_u64 value) {
+    if (address < GUEST_EE_REGS || address >= GUEST_EE_REGS + GUEST_EE_REGS_SIZE) return 0;
+    return openrac_guest_ee_mmio_store32(address, (openrac_u32)value);
+}
+#define OPENRAC_EE_MMIO_SW(a, v) openrac_ee_native_mmio_sw((a), (v))
 /* Where game address a is (a translation can reach memory through its own, asmc.py's shadows). */
 #ifndef OPENRAC_EE_PTR
 #define OPENRAC_EE_PTR(a) G(a)

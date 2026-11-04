@@ -83,6 +83,7 @@ add_library(sly1_port_runtime STATIC
     runtime/ee.cpp
     runtime/elf.cpp
     runtime/guest.cpp
+    runtime/gs_dma.cpp
     runtime/host_env.cpp
     runtime/kernel.cpp
     runtime/sif.cpp

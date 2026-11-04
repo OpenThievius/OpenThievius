@@ -26,9 +26,11 @@ SPDX = "SPDX-License-Identifier: AGPL-3.0-or-later"
 OPENRAC_SPDX = "SPDX-License-Identifier: GPL-3.0-or-later"
 NEEDS_SPDX = {".py", ".sh", ".c", ".cpp", ".h", ".hpp", ".s", ".inc", ".ld"}
 LOCAL_RUNTIME = {
-    "port/runtime/disc_image.cpp", "port/runtime/dma.cpp", "port/runtime/sif.cpp",
+    "port/runtime/disc_image.cpp", "port/runtime/dma.cpp", "port/runtime/gs_dma.cpp",
+    "port/runtime/sif.cpp",
     "port/runtime/include/openrac/disc_image.h",
     "port/runtime/include/openrac/native_dma.h",
+    "port/runtime/include/openrac/native_gs.h",
     "port/runtime/include/openrac/native_sif.h",
 }
 

@@ -30,6 +30,12 @@
 #define OPENRAC_EE_MEM
 #endif
 
+/* The native EE bus can take selected MMIO stores in its device layer. Console
+ * checks and ordinary guest memory keep the direct store below. */
+#ifndef OPENRAC_EE_MMIO_SW
+#define OPENRAC_EE_MMIO_SW(a, v) 0
+#endif
+
 #define OPENRAC_EE_S32(x) ((openrac_u64)(openrac_s64)(openrac_s32)(openrac_u32)(x))
 #define OPENRAC_EE_B(a) (*(volatile openrac_u8 *)OPENRAC_EE_PTR(a))
 
@@ -102,6 +108,7 @@ OPENRAC_EE_INLINE void openrac_ee_sh(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u16 *)OPENRAC_EE_PTR(a & ~1u) = (openrac_u16)v;
 }
 OPENRAC_EE_INLINE void openrac_ee_sw(openrac_u32 a, openrac_u64 v) {
+    if (OPENRAC_EE_MMIO_SW(a, v)) return;
     *(OPENRAC_EE_MEM openrac_u32 *)OPENRAC_EE_PTR(a & ~3u) = (openrac_u32)v;
 }
 
