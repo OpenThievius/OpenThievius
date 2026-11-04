@@ -19,7 +19,7 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-36 port-native backfill objects, combines them by retail address, and links a
+37 port-native backfill objects, combines them by retail address, and links a
 freestanding Linux/i386 diagnostic launcher. The latest generated report
 (`build/port/host32/link/link-frontier.json`) records 2,367 native definitions
 for 4,766 catalogued addresses, with 583 catalogued addresses unresolved. Its
@@ -40,33 +40,36 @@ message dispatch, stream range setup, and object factory backfills in
 `game/sly1-us/hand/native_c/`. The factory now compiles as native C and
 dispatches descriptor constructors through the host-generated C function
 map. A bounded native run reaches the persistent frame loop and submits the
-four initial display packets. A port-only `func_001E4EA8` backfill now decodes
-the Splash range, constructs the type `0x6C` resource object and calls its
-parser callback. The latest bounded run reaches the callback but reports
-`func_001DCEA0` has no C, so no sector read or parsed scene follows. The
-coordinator backfill currently omits the retail progress/job bookkeeping and
-needs to be completed alongside the parser and worker. The factory's required class constructor
-`func_001DB4C8` now has a port-only native C backfill; its vector helper
-`func_001DBA90` and pool initializer `func_001DC740` are backfilled alongside
-it. They are registered through hostgen and link as native functions. The
-buffered byte reader `func_00137A60` is also backfilled and linked, though the
-current native run reaches the missing parser before exercising it. The
-resource parser callback `func_001DCEA0` and raw-disc read worker
-`func_00137490` still lack native implementations. The earlier
-74-sector read was observed only in the separate assembly-research path and
-does not verify this C-only path. The direct host32 build also remains a
-diagnostic: its direct-call frontier and indirect graphics callbacks are
-incomplete, and it has no verified title or playable scene. Neither launcher
-currently demonstrates native gameplay.
+four initial display packets. The port-only `func_001E4EA8` coordinator
+decodes the Splash range and constructs the type `0x6C` resource object. A
+partial, port-only `func_001DCEA0` parser backfill now compiles and reaches the
+native disc reader: a bounded run read sector 820372 (74 sectors), then
+faulted at game address `0xFFFFFFC0` through `func_001B3450` and
+`func_001692B0` in the downstream graphics setup path. The callback has not
+completed parsing or loaded a scene. Several functions it calls still resolve
+to hostgen no-C stubs; hostgen cannot currently read `00134000.cpp` because of
+C++ member-function syntax and a conflicting inferred declaration. Treat this
+as loader-path diagnostic evidence, not a playable milestone. The coordinator
+also omits retail progress/job bookkeeping. The factory's required class
+constructor `func_001DB4C8` now has a port-only native C backfill; its vector
+helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
+alongside it. They are registered through hostgen and link as native functions. The
+buffered byte reader `func_00137A60` is also backfilled and linked. The direct
+host32 build compiles all 68 Sly C++ units and 37 port-native backfills, then
+reaches frame setup before stopping at missing graphics setup function
+`func_00201D60`. Its direct-call frontier and indirect graphics callbacks
+remain incomplete, and it has no verified title or playable scene. Neither
+launcher currently demonstrates native gameplay.
 
-The separate C-only hostgen launcher does link and open a window, but it uses
-the experimental guest-memory/runtime path and is not the no-emulation game
-build. Its latest bounded run reaches a black window; the trace reports no
-display lists or render state reaching the renderer. Do not treat that run as
-evidence of native gameplay. Retail MIPS translation remains optional research
-output under `us-asm-research`. Build artifacts live under ignored
-`build/port/`; port-native host32 backfills stay outside the matching
-decompilation in `port/game/sly1-us/native/`.
+The separate C-only hostgen launcher compiles Sly C without translating
+assembly, and links OpenRAC's renderer, but still uses the experimental
+guest-memory/runtime services rather than the target native-service
+architecture. Its latest bounded run reads the Splash sectors, then faults
+before completing the resource callback; no scene reaches the renderer. Do
+not treat that run as evidence of native gameplay. Retail MIPS translation
+remains optional research output under `us-asm-research`. Build artifacts live
+under ignored `build/port/`; port-native host32 backfills stay outside the
+matching decompilation in `port/game/sly1-us/native/`.
 
 The separate direct-C++ path compiles all 68 source units and three port-only
 frame backfills as i386 objects, then combines them with retail-address aliases.
