@@ -26,8 +26,11 @@ size_t openrac_guest_gif_fifo_pending(void);
 
 /* GIF stream state decoded from the FIFO in submission order. */
 int openrac_guest_gs_read_register(uint32_t address, uint64_t* value);
+uint64_t openrac_guest_gs_register_write_count(uint32_t address);
 int openrac_guest_gs_read_privileged_register(uint32_t offset, uint64_t* value);
 uint64_t openrac_guest_gif_eop_count(void);
+uint64_t openrac_guest_gif_image_tag_count(void);
+uint64_t openrac_guest_gif_image_qword_count(void);
 void openrac_guest_gs_publish_frame(void);
 size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination, size_t capacity);
 size_t openrac_guest_gs_published_vertex_count(void);

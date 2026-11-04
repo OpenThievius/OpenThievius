@@ -22,6 +22,9 @@ struct GifParser {
     uint64_t tag_low = 0;
     uint64_t tag_registers = 0;
     uint64_t end_of_packet_count = 0;
+    uint64_t image_tag_count = 0;
+    uint64_t image_qword_count = 0;
+    std::array<uint64_t, 0x80> register_write_counts{};
     uint64_t current_uv = 0;
     uint32_t current_rgba = 0xFFFFFFFFu;
     std::array<openrac_gs_vertex, 3> primitive_vertices{};
@@ -158,6 +161,7 @@ void submit_vertex(uint64_t value) {
 
 void write_gs_register(uint32_t address, uint64_t value) {
     if (address >= g_parser.gs_registers.size()) return;
+    ++g_parser.register_write_counts[address];
     g_parser.gs_registers[address] = value;
     if (address == 0x00u) {
         g_parser.primitive_vertex_count = 0;
@@ -198,6 +202,9 @@ void begin_tag(uint64_t low, uint64_t high) {
             (g_parser.loops * g_parser.register_count + 1u) / 2u;
         break;
     case 2:
+    case 3:
+        ++g_parser.image_tag_count;
+        g_parser.image_qword_count += g_parser.loops;
         g_parser.remaining_qwords = g_parser.loops;
         break;
     default:
@@ -265,9 +272,25 @@ extern "C" int openrac_guest_gs_read_register(uint32_t address, uint64_t* value)
     return 1;
 }
 
+extern "C" uint64_t openrac_guest_gs_register_write_count(uint32_t address) {
+    if (address >= g_parser.register_write_counts.size()) return 0;
+    std::lock_guard lock(g_parser_mutex);
+    return g_parser.register_write_counts[address];
+}
+
 extern "C" uint64_t openrac_guest_gif_eop_count(void) {
     std::lock_guard lock(g_parser_mutex);
     return g_parser.end_of_packet_count;
+}
+
+extern "C" uint64_t openrac_guest_gif_image_tag_count(void) {
+    std::lock_guard lock(g_parser_mutex);
+    return g_parser.image_tag_count;
+}
+
+extern "C" uint64_t openrac_guest_gif_image_qword_count(void) {
+    std::lock_guard lock(g_parser_mutex);
+    return g_parser.image_qword_count;
 }
 
 extern "C" void openrac_guest_gs_publish_frame(void) {

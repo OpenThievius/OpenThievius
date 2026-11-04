@@ -83,15 +83,15 @@ DISPFB1 flips between `0x1400` and `0x1446`, confirming that Sly alternates
 display buffers while the GIF packet stream advances. SDL presents decoded
 host geometry in the native window; a GS pixel store is still absent.
 
-The packet reader now turns observed point, line, triangle, strip, fan and
-sprite vertex submissions into host screen-space triangle vertices. At the
-existing frame boundary the runtime publishes a snapshot; a bounded run after
-VIF1 DMA completion reports up to 12,336 vertices. This draw path carries
-vertex colors only and does not yet draw textured geometry. An SDL3 window now consumes those
-snapshots on the main thread and presents the color geometry at the game's
-640x224 logical resolution. Guest execution runs on a separate host thread.
-This is an initial presentation prototype, not a playable renderer: it has no
-texture sampling, gamepad mapping or scene streaming yet.
+An SDL3 window consumes host geometry snapshots on the main thread at the
+game's 640x224 logical resolution. Guest execution runs on a separate host
+thread. Initial counts of up to 12,336 vertices were artifacts: the GIF parser
+treated IMAGE2 payload as tags, so image bytes looked like register writes.
+The parser now consumes IMAGE2 payload framing correctly. The latest bounded
+run sees sustained image traffic but no decoded geometry vertices; the host
+does not run VU1 microprograms, which generate the display-list geometry. No
+visible title scene or playable renderer has been verified. Texture sampling,
+scene streaming and gamepad mapping are also missing.
 
 VIF1 channel 1 was holding its source-chain transfer active at CHCR `0x105`,
 which prevented later display-list work from completing. The native VIF1 path

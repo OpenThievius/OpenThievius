@@ -14,10 +14,12 @@ extern "C" {
 }
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <vector>
@@ -180,6 +182,12 @@ int main(int argc, char** argv) {
                           << " vif1_tadr=0x" << vif1_tadr
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
+                          << " image_tags=" << openrac_guest_gif_image_tag_count()
+                          << " image_qwords=" << openrac_guest_gif_image_qword_count()
+                          << " blit_writes=" << openrac_guest_gs_register_write_count(0x50u)
+                          << " trxpos_writes=" << openrac_guest_gs_register_write_count(0x51u)
+                          << " trxreg_writes=" << openrac_guest_gs_register_write_count(0x52u)
+                          << " trxdir_writes=" << openrac_guest_gs_register_write_count(0x53u)
                           << std::dec;
                 std::cerr << " active_threads=";
                 for (uint32_t id = 1; id < 16; ++id) {
@@ -189,6 +197,24 @@ int main(int argc, char** argv) {
                     std::cerr << id << ':'
                               << (active_name == nullptr ? "unknown" : active_name)
                               << "(0x" << std::hex << active << std::dec << "),";
+                }
+                const size_t vertex_count = openrac_guest_gs_published_vertex_count();
+                if (vertex_count != 0 && vertex_count <= (1u << 20)) {
+                    std::vector<openrac_gs_vertex> vertices(vertex_count);
+                    const size_t read_count = openrac_guest_gs_read_vertices(
+                        vertices.data(), vertices.size());
+                    float min_x = std::numeric_limits<float>::infinity();
+                    float min_y = std::numeric_limits<float>::infinity();
+                    float max_x = -std::numeric_limits<float>::infinity();
+                    float max_y = -std::numeric_limits<float>::infinity();
+                    for (size_t i = 0; i < read_count; ++i) {
+                        min_x = std::min(min_x, vertices[i].x);
+                        min_y = std::min(min_y, vertices[i].y);
+                        max_x = std::max(max_x, vertices[i].x);
+                        max_y = std::max(max_y, vertices[i].y);
+                    }
+                    std::cerr << " vertex_bounds=" << min_x << ',' << min_y << '-'
+                              << max_x << ',' << max_y;
                 }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::seconds(1));
