@@ -141,8 +141,13 @@ build.
 
 This means a native loader backfill cannot safely replace `func_001E4EA8` with
 a raw sector read or mark the request complete after decompression. The
-remaining gaps on the callback path are the coordinator (`func_001E4EA8`),
-resource parser callback (`func_001DCEA0`), and stream worker
+The coordinator (`func_001E4EA8`) now has a port-only backfill that decodes
+the range, constructs a type `0x6C` object, invokes its parser callback, and
+finalizes the reader. It does not yet reproduce the full progress/job
+bookkeeping. A bounded native run now reaches the callback and reports missing
+C for `func_001DCEA0`; it issues no raw-disc read, which confirms the parser is
+the immediate blocker and the new byte reader has not been exercised. The
+remaining callback-path gaps are the parser (`func_001DCEA0`) and stream worker
 (`func_00137490`). A port-only `func_0011E580` backfill implements retail
 descriptor lookup, allocation, owner-list registration, and constructor
 dispatch through the native function map. The port-only `func_00137A60`
@@ -151,8 +156,8 @@ stream worker; `func_0018D800` supplies its retail byte-copy operation. These
 Sly-specific behaviors
 live under `port/game/sly1-us/hand/native_c/`, separate from matching
 decompilation. A bounded native run still stops at the missing coordinator
-before exercising the new reader backfill. The coordinator is the next target;
-the parser and sector worker are also required to complete real resource loads.
+before exercising the new reader backfill. The parser and sector worker are
+required to complete real resource loads.
 
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill

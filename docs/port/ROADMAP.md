@@ -40,15 +40,17 @@ message dispatch, stream range setup, and object factory backfills in
 `game/sly1-us/hand/native_c/`. The factory now compiles as native C and
 dispatches descriptor constructors through the host-generated C function
 map. A bounded native run reaches the persistent frame loop and submits the
-four initial display packets, but the Splash request remains pending because
-`func_001E4EA8` has no C implementation. Its retail path constructs a memory
-reader, starts Sly's chunked stream callback, updates loader/UI state, and
-later releases the reader. The factory's required class constructor
+four initial display packets. A port-only `func_001E4EA8` backfill now decodes
+the Splash range, constructs the type `0x6C` resource object and calls its
+parser callback. The latest bounded run reaches the callback but reports
+`func_001DCEA0` has no C, so no sector read or parsed scene follows. The
+coordinator backfill currently omits the retail progress/job bookkeeping and
+needs to be completed alongside the parser and worker. The factory's required class constructor
 `func_001DB4C8` now has a port-only native C backfill; its vector helper
 `func_001DBA90` and pool initializer `func_001DC740` are backfilled alongside
 it. They are registered through hostgen and link as native functions. The
 buffered byte reader `func_00137A60` is also backfilled and linked, though the
-current native run reaches the missing coordinator before exercising it. The
+current native run reaches the missing parser before exercising it. The
 resource parser callback `func_001DCEA0` and raw-disc read worker
 `func_00137490` still lack native implementations. The earlier
 74-sector read was observed only in the separate assembly-research path and
