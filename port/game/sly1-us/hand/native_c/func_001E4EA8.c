@@ -65,9 +65,11 @@ void func_001E4EA8(void* state) {
         return;
     }
 
-    /* The synchronous native CD read fills the backing ring that retail's
-     * stream worker would populate. Leave +0x18/+0x1C empty so the normal
-     * reader enters the refill/decompression path. */
+    /* The native synchronous read replaces retail's async refill worker.
+     * Prime the compressed reader with the exact source span it just filled. */
+    *(u32*)(reader + 0x18) = (u32)D_002C3B00;
+    *(s32*)(reader + 0x1C) = (s32)range[1];
+
     sly1_native_loader_stage(10, 0, (u32)reader);
 
     for (index = 0; index < 8; ++index) {

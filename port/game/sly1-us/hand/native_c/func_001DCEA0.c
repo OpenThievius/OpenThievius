@@ -67,8 +67,11 @@ void func_001DCEA0(void* self, void* reader) {
     func_0011BF70();
     sly1_native_loader_stage(16, (u32)object, (u32)reader);
     D_00275714 = func_00137B90(reader);
+    sly1_native_loader_stage(17, (u32)object, (u32)reader);
     *(s32*)(object + 0x1D70) = func_00137D10(reader);
+    sly1_native_loader_stage(18, (u32)object, (u32)reader);
     func_001DCCC0(reader);
+    sly1_native_loader_stage(19, (u32)object, (u32)reader);
     sly1_native_loader_stage(1, (u32)object, (u32)reader);
 
     D_00261990 = func_0011E580(0x6D, self, 0, 4, -1);
