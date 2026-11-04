@@ -12,6 +12,7 @@ extern "C" {
 void openrac_lib_sly1_dma_reset(int unused);
 int openrac_lib_sly1_dma_status(uint32_t handle);
 uint32_t openrac_lib_sly1_dma_submit(uint32_t descriptors, int count);
+void openrac_lib_sly1_graphics_wait(int unused_a, int unused_b);
 
 #ifdef __cplusplus
 }

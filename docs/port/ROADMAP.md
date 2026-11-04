@@ -38,8 +38,10 @@ startup passed the first sound service request using an empty completion reply.
 The native disc readiness hook also passes the subsequent startup poll. The
 native fallback responses report sound initialization and bank loading as
 unavailable. The latest run reaches sound RPC 77, IOP service `0x80000400`
-RPC 254, and an unregistered code address `0x0018e5e8`. The fallback does not
-implement sound. SIF DMA (0x76–0x78), IOP
+RPC 254. A port-configured assembly entry resolves the previously missing
+constructor, and a provisional graphics wait lets startup proceed without
+waiting on hardware registers. Graphics synchronization and sound are not
+implemented. SIF DMA (0x76–0x78), IOP
 RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 The source bridge also has unreadable source files and C++ constructs that need

@@ -60,7 +60,8 @@ handshake and binds the two guest RPC clients. The latest 15-second run reached
 the first sound RPC request (service `0x00123456`, RPC 0) and passed it with
 an empty completion reply. Native disc readiness passes the following poll;
 fallback replies report sound initialization and bank loading as unavailable.
-The next run reaches sound RPC 77, IOP RPC 254 and an unregistered code address.
+The next run reaches sound RPC 77 and IOP RPC 254. A provisional graphics
+wait avoids polling hardware registers and reports the missing implementation.
 The native runtime still has no audio backend or SIF DMA command
 dispatcher, so startup has not reached a title screen or gameplay. The renderer,
 frame loop, input, audio, saves and remaining disc/device services are also
