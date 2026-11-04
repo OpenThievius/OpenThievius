@@ -100,10 +100,9 @@ An SDL3 window consumes host geometry snapshots on the main thread at the
 game's 640x224 logical resolution. Guest execution runs on a separate host
 thread. Initial counts of up to 12,336 vertices were artifacts: the GIF parser
 treated IMAGE2 payload as tags, so image bytes looked like register writes.
-The parser now consumes IMAGE2 payload framing correctly. The latest bounded
-run sees sustained image traffic but no decoded geometry vertices; the host
-does not run VU1 microprograms, which generate the display-list geometry. No
-visible title scene or playable renderer has been verified. Texture sampling,
+The parser now consumes IMAGE2 payload framing correctly. After fixing the
+VIF1 OFFSET buffer rebase below, a bounded run publishes 120 vertices; all are
+outside the display vertically, so the window remains black. Texture sampling,
 scene streaming and gamepad mapping are also missing.
 
 VIF1 channel 1 was holding its source-chain transfer active at CHCR `0x105`,
@@ -113,20 +112,23 @@ to mapped VU1 micro memory, unpacks the observed vector formats to VU1 data
 memory, and sends DIRECT packets to the GIF reader. It also completes the DMA
 status and interrupt boundary. The port-side VU1 translator now executes a
 partial microinstruction set, including integer loads/stores, and the VIF path
-tracks VIF1 TOP/TOPS/ITOP state across MSCAL calls. The first geometry path
-submits valid XGKICK GIF packets; later calls still encounter a non-tag at the
-kick address, and the renderer has not produced visible vertices.
+tracks VIF1 TOP/TOPS/ITOP state across MSCAL calls. A native run showed that
+OFFSET must clear DBF and rebase BASE to the current TOPS; the prior port
+service reset TOPS to the old BASE. After correcting that behavior, the same
+bounded startup run publishes 120 vertices instead of none, though their
+positions remain outside the screen. A later XGKICK still encounters a
+non-tag, so the renderer has not produced a visible scene.
 
 A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
-25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. A 15-second
-native run confirms that the accepted XGKICKs so far carry primitive-state
-writes without any vertex coordinates. A later kick starts at zero-filled VU
-data and encounters a value rejected as a GIF tag. Meanwhile the game advances
-large IMAGE payloads, which the host currently counts and discards. The next
-graphics work is therefore to correct the VU data path and consume GS image
-transfers before a scene can appear; no visible title scene or playable
-renderer has been verified. Set `OPENRAC_VIF_TRACE=1` to capture the first two
-populated transfers.
+25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Before the
+OFFSET fix, a 15-second run showed accepted XGKICKs carrying primitive-state
+writes without coordinates; a later kick started at zero-filled VU data and
+encountered a value rejected as a GIF tag. After the fix, 120 vertices are
+published but remain offscreen, and a later kick still encounters an invalid
+tag. The game also advances large IMAGE payloads, which the host currently
+counts and discards. No visible title scene or playable renderer has been
+verified. Set `OPENRAC_VIF_TRACE=1` to capture the first two populated
+transfers.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
