@@ -139,14 +139,19 @@ type `0x6C` constructor is `func_001DB4C8`; its base constructor is
 
 This means a native loader backfill cannot safely replace `func_001E4EA8` with
 a raw sector read or mark the request complete after decompression. The
-immediate C gaps on the callback path are the coordinator, the engine object
-factory (`func_0011E580`), and the resource parser callback (`func_001DCEA0`);
-the stream worker (`func_00137490`) is another required piece for the disk
-reader. These are Sly-specific behavior and belong under
+immediate C gaps on the callback path are the coordinator, the type `0x6C`
+constructor (`func_001DB4C8`), and the resource parser callback
+(`func_001DCEA0`); the stream worker (`func_00137490`) is another required
+piece for the disk reader. A port-only `func_0011E580` backfill now implements
+retail descriptor lookup, allocation, owner-list registration, and constructor
+dispatch through the native function map. It compiles in the C-only hostgen
+build, but it cannot initialize the type `0x6C` object until that type's
+constructor is implemented. These Sly-specific behaviors belong under
 `port/game/sly1-us/hand/native_c/`, separate from matching decompilation.
-The next useful implementation target is the resource parser callback and
-the minimal object-construction services it actually reaches, tracked from
-retail call sites rather than inferred from the decoded bytes alone.
+The next useful target is the type `0x6C` constructor, followed by the resource
+parser callback and the minimal object-construction services it reaches,
+tracked from retail call sites rather than inferred from the decoded bytes
+alone.
 
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill
