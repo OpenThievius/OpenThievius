@@ -202,10 +202,14 @@ lowering for game logic. The host ABI header restores 32-bit pointers and
 that would otherwise truncate on i386. This is an object-compile milestone,
 not a linked game or a playable build.
 
-The next native milestones are to map the retail data globals and function
-references into the native link, choose a boot path from matched C, and replace
-the title's platform calls with native services. The standalone C++ catalog
-reader now reproduces all 46 NTSC-U decoded ranges byte-for-byte. Resource
-`0x0100` is “A Stealthy Approach,” but its scene records and renderer inputs
-are still not identified. Keep the old guest executor isolated as research;
-it is not a gameplay dependency.
+All 68 objects combine into one relocatable i386 object without duplicate
+definitions. That object still has 2,559 unique unresolved names: 2,186
+function references and 373 data references. The next native work is to resolve
+the matched-function closure and retail data globals for an actual boot path,
+then replace that path's platform calls with native services. Do not stub this
+entire unresolved set and call the result a game.
+
+The standalone C++ catalog reader reproduces all 46 NTSC-U decoded ranges
+byte-for-byte. Resource `0x0100` is “A Stealthy Approach,” but its scene records
+and renderer inputs are still not identified. Keep the old guest executor
+isolated as research; it is not a gameplay dependency.
