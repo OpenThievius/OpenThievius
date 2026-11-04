@@ -40,12 +40,13 @@ native fallback responses report sound initialization and bank loading as
 unavailable. A native memory-card RPC boundary now answers the observed
 extended-server probe (`0x80000400`, RPC `0xFE`) with the documented
 `sceMcResDeniedPermit` result so the game-side library can select its legacy
-protocol. A 20-second native run passed that request, read 74 ISO sectors and
-continued issuing GIF work across guest threads. It still times out without a
-visible title screen: the host GIF FIFO has no renderer consumer, and the
-frame loop, input, audio, saves and other device services are incomplete.
-The trace still reports an unanswered sound RPC 77. SIF DMA command handling
-and other IOP RPCs remain unfinished.
+protocol. The native sound boundary now completes RPC 77 as idle for bounded
+queued audio submissions. A 12-second native run passed these requests, read
+74 ISO sectors and continued issuing GIF work across guest threads. This is a
+silent fallback, not audio playback. The run still times out without a visible
+title screen: the host GIF FIFO has no renderer consumer, and the frame loop,
+input, audio, saves and other device services are incomplete. SIF DMA command
+handling and other IOP RPCs remain unfinished.
 
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler

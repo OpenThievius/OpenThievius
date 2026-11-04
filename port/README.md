@@ -64,8 +64,9 @@ The native memory-card service answers the observed extended-server probe
 (`0x80000400`, RPC `0xFE`) with `sceMcResDeniedPermit`, allowing the guest
 library to select its legacy protocol. Guest threads continue issuing GIF work,
 but the native FIFO has no renderer consumer, so the run still has no visible
-title screen. Sound RPC 77 remains unanswered; the frame loop, renderer, input,
-audio, saves, SIF DMA and remaining device services are not implemented.
+title screen. The native sound boundary completes RPC 77 as idle, so the game
+continues without audio playback. The frame loop, renderer, input, real audio,
+saves, SIF DMA and remaining device services are not implemented.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,

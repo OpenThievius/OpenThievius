@@ -5,6 +5,7 @@
 #include "openrac/host_env.h"
 #include "common/log.h"
 
+#include <atomic>
 #include <cstring>
 #include <cstdio>
 #include <mutex>
@@ -20,6 +21,7 @@ constexpr uint32_t kMemoryCardService = 0x80000400u;
 constexpr uint32_t kInitCompletion = 0x006294C0u;
 std::mutex g_rpc_mutex;
 std::unordered_map<uint32_t, uint32_t> g_native_rpc_services;
+std::atomic<uint32_t> g_sound_idle_replies{0};
 
 bool guest_u32(uint32_t guest_address, uint32_t* value) {
     const uint32_t address = openrac_guest_ram_address(guest_address);
@@ -137,6 +139,9 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
                             receive_size == 12;
     const bool sound_load = service == kSlySoundLoadService && rpc_number == 3 &&
                             send_size == 8 && receive_size == 4;
+    const bool sound_queue = service == kSlySoundService && rpc_number == 0x4D &&
+                             send_size >= 12 && send_size <= 0x1000 &&
+                             receive_size == 12;
     const bool memory_card_probe = service == kMemoryCardService && rpc_number == 0xFE &&
                                    send_size == 48 && receive_size == 12;
     const bool memory_card_init = service == kMemoryCardService && rpc_number == 0x70 &&
@@ -156,6 +161,17 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
         if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
             std::fprintf(stderr, "[info] native memory-card RPC %u completed result=%d\n",
                          rpc_number, static_cast<int32_t>(response[0]));
+        return 1;
+    }
+    if (sound_queue) {
+        // Retail's func_0011DE18 submits queued sound work through RPC 0x4D.
+        // With no native audio device, complete the queue poll as idle using
+        // the -1 sentinel accepted by func_0011D078's completion check.
+        const uint32_t idle[3] = {0xFFFFFFFFu, 0, 0xFFFFFFFFu};
+        if (!complete_rpc_response(packet, receive_buffer, idle, 3)) return 0;
+        const uint32_t reply = g_sound_idle_replies.fetch_add(1, std::memory_order_relaxed);
+        if (reply < 8 && openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
+            std::fprintf(stderr, "[info] native sound queue RPC 77 completed as idle\n");
         return 1;
     }
     if (sound_init || sound_load) {
