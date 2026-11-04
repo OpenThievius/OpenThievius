@@ -47,3 +47,29 @@ s32 func_00137328(void* self, s32 sector, s32 byte_count) {
 s32 func_001373B0(void* self, const s32* pair) {
     return func_00137328(self, pair[0], pair[1]);
 }
+
+extern s32 func_001F8C38(s32);
+extern void func_00203E28(void);
+extern void func_0011E2A0(void);
+
+void func_001373D0(void* self) {
+    u8* bytes = (u8*)self;
+    s32 state = *(s32*)(bytes + 0x04);
+    s32 result = -1;
+
+    if (state == 0) {
+        s32 callback = *(s32*)(bytes + 0x34);
+        if (callback >= 0) (void)func_001F8C38(callback);
+    } else if (state == 1 && *(s32*)(bytes + 0x3C) != 0) {
+        if ((*(u32*)bytes & 2u) != 0) func_00203E28();
+        else func_0011E2A0();
+    }
+
+    *(s32*)(bytes + 0x2C) = 0;
+    *(s32*)(bytes + 0x04) = result;
+    *(s32*)(bytes + 0x20) = 0;
+    *(s32*)(bytes + 0x18) = 0;
+    *(s32*)(bytes + 0x24) = 0;
+    *(s32*)(bytes + 0x1C) = 0;
+    *(s32*)(bytes + 0x28) = 0;
+}
