@@ -50,16 +50,19 @@ sly1-decomp C++ ----------------> host preparation -> native game program
 
 - **Source boundary.** Build from a user-selected `sly1-decomp` checkout. Keep
   generated C, object files, executables and extracted game data out of git.
-- **Host preparation.** Adapt OpenRAC's host-generation approach only after
-  verifying its own code can be reused under the sourcing policy. The tool
-  should translate console-address pointers and fixed-address globals into a
-  safe host representation, keep function entry points addressable, and emit
-  a reachability/frontier report. Do not assume its implementation directly
-  fits Sly's compiler output.
+- **Host build.** Reuse OpenRAC hostgen's preparation and host ABI where it
+  fits the Sly decompilation, but build the decompiled C++ itself for the host.
+  Generated host C may remain a compatibility bridge for source constructs
+  that cannot yet build as C++, and for addressable retail assembly during
+  migration. It must not become a MIPS instruction executor or a simulated
+  console kernel that the playable game depends on. Keep the decomp checkout
+  read-only and emit generated sources under `build/port/`.
 - **Runtime services.** Replace calls to console libraries with host services
-  for files, timing, controllers, sound and saves. Derive the APIs from Sly's
-  retail call sites and public hardware documentation. Do not include Sony
-  SDK source, samples or headers.
+  for files, timing, controllers, sound, threads and saves. Derive the APIs
+  from Sly's decompiled call sites and retail behavior. Reuse suitable generic
+  OpenRAC service, window and platform modules with their original licenses;
+  adapt only the title-specific API semantics. Do not include Sony SDK source,
+  samples or headers.
 - **Graphics.** Research Sly's rendering code and assets from retail. Build
   native renderers for the game's drawing subsystems and expose the data they
   need from host-native game code. Do not build an instruction-level model of

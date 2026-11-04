@@ -154,15 +154,36 @@ ordinary 2048-byte sector mode is supported. Continue along the loader and
 frame/render paths, using OpenRAC's host-native workflow and grounding Sly
 behavior in its retail code.
 
-The port now enables syscall 0x30 so hostgen translates the retail wrapper
-`func_001F6AA0`, and the generic runtime returns a 0x30-byte
-`ReferThreadStatus` record for its native guest-thread bookkeeping. The
-`port_native` target builds with this addition. The latest available bounded
-startup trace remains at `func_001F6B60` (`WaitSema`) with zero rendered
-vertices; the status query has not yet been verified to advance startup. The
-refreshed frontier is 11 reachable functions without C. See
-[`OPENRAC_REUSE.md`](OPENRAC_REUSE.md) for the inventory of reused OpenRAC
-components and the selective-reuse plan.
+The port also enables syscall 0x30 and returns a `ReferThreadStatus` record;
+this remains inside the experimental MIPS assembly/guest-scheduler executor.
+It builds, but a fresh bounded trace still ends at `func_001F6B60` with zero
+rendered vertices. It does not demonstrate progress toward a native playable
+path. The report has 11 reachable functions without C, most of them Sly's
+handwritten syscall/interrupt path. That frontier is not the main architectural
+blocker: the current launcher executes translated retail instructions and
+simulated kernel calls, while the target architecture is compiled decompiled
+C++ plus native services. Stop extending the device-model and syscall shims
+as gameplay features. The launcher may be used for time-bounded research only.
+
+The next implementation milestone is to replace the MIPS assembly execution
+path with compiled Sly C++ and native library boundaries, reusing OpenRAC's
+generic runtime/platform pieces where their licenses and dependencies permit.
+The first task is a source-build audit: compile a representative constructor,
+utility, loader and frame unit directly as C++ against an address-preserving
+host ABI; inventory failures and library calls from the decomp sources; and
+confirm hostgen has not made the translated retail instruction executor a
+required dependency. Then connect the Sly frame data to a native renderer.
+See [`OPENRAC_REUSE.md`](OPENRAC_REUSE.md) for the reuse inventory and revised
+sequence. The current port is not playable.
+
+The existing hostgen report says its Sly staging is not complete: 17 of 68
+source units are unreadable. The logged causes include conflicting per-file
+prototypes for shared functions, C++ constructs rejected by the C frontend,
+and includes that the generated compile command cannot resolve. The other 51
+units compile as generated C; this is only a partial link check, not a working
+C++ build. The next adapter pass must compile a representative set of source
+units directly as C++ and retain hostgen only for the guest-address mapping,
+function table and any compatible translations that are still useful.
 
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in

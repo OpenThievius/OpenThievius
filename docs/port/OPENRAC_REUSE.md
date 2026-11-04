@@ -96,31 +96,42 @@ still need independent research.
 
 ## Architecture correction for this port
 
-The current `port/runtime/` path models parts of EE, IOP, SIF, DMA, VIF1, VU1
-and GS behavior. It has reached a black window and partial color-only
-geometry. This work helped locate startup and graphics boundaries, but it is
-not the route to continue toward playable Sly 1. Do not extend these device
-models as gameplay features.
+The current `port/runtime/` path started as an imported OpenRAC guest-memory
+and host-call foundation, but has since accumulated an Sly execution engine
+that translates retail MIPS assembly and models parts of EE, IOP, SIF, DMA,
+VIF1, VU1 and GS behavior. It has reached a black window and partial
+color-only geometry. The latest bounded run still waits in `func_001F6B60`
+with zero rendered vertices. This is a useful research harness, not a route
+to continue toward playable Sly 1. Do not extend the instruction/device models
+as gameplay features.
 
-The target is host-native game logic plus native services and Sly-specific
-renderers. Retain ELF/disc inspection utilities where useful for research and
-validation. Retire or isolate the device-model launcher path as the
-host-native execution path takes shape. Rendering should proceed by surveying
-Sly's frame loop and draw subsystems, identifying data that can be exposed
-from decompiled or backfilled game code, and implementing native renderers
-and asset conversion from that evidence.
+The target remains host-native game logic plus native services and
+Sly-specific renderers, following OpenRAC. A playable path must call compiled
+decompiled C++ and replace the title's platform/library boundaries with host
+services; it must not depend on an EE instruction interpreter, simulated
+console scheduler or emulated graphics devices. Retain ELF/disc inspection
+and the current launcher only as bounded research tools until an independent
+host-native boot path exists. The existing kernel, SIF, DMA, VIF/VU and GS
+implementations cannot be treated as that native service layer.
 
 Near-term sequence:
 
-1. Identify the boot, loader, main loop and public library call boundaries
-   from Sly's code and retail behavior.
-2. Decode the extracted NTSC-U resources and identify the level/model formats.
-3. Produce a native asset viewer or scene renderer, independently of the
-   runtime, to validate asset decoding and rendering conventions.
-4. Host the decompiled game call path with native service replacements and
-   port-only backfills, then connect its draw data to the renderer.
-5. Add audio, input, saves, loading and remaining game systems until a full
-   level can be played.
+1. Audit OpenRAC's host build/runtime and identify the generic modules that
+   can be brought over intact or adapted with their GPL notices; explicitly
+   separate those from R&C-specific render/data code.
+2. Replace the MIPS-assembly execution path with compiled Sly decompilation
+   output and a narrowly defined guest-memory ABI; retain only low-level
+   arithmetic or address compatibility that translated C actually requires.
+3. Derive Sly's startup, loader, main loop and platform boundaries from its
+   decompilation and retail behavior. Implement native files, timing, threads,
+   controllers, sound and saves at those boundaries, with port-only backfills
+   kept separate from matching source.
+4. Identify the decoded resource containers and their native draw data, then
+   reuse suitable generic OpenRAC window/rendering infrastructure while
+   implementing Sly-specific asset conversion and renderer adapters.
+5. Integrate the native frame path and keep building it through title, level
+   loading, and interactive gameplay; only call the port playable after
+   verifying a full level can be controlled and completed without emulation.
 
 This is a direction correction, not a claim that the current launcher is
 playable. Current implementation status is tracked in [`ROADMAP.md`](ROADMAP.md).
