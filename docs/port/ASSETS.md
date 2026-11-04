@@ -66,12 +66,14 @@ python3 port/tools/extract_sly1_lz.py /path/to/Sly1.iso \
   --sector 820372 --bytes 150849
 ```
 
-The decoded stream begins `f0 f4 05`. The retail reader used by
-`func_00162890` starts by consuming three one-byte fields; its third field is
-the count for an array of `0x90`-byte records. A value of five is structurally
-plausible for that parser. This makes the parser a useful lead, but does not
-prove that this particular stream is passed to it: the stream's resource name
-and index entry are still unknown.
+The first native raw read reaches `func_00162890` with the same reader object
+(`0x0064c580`) that initiated the disc read. At parser entry its decoded input
+pointer is `0x70001588`, with 2,680 bytes remaining in the current scratchpad
+window; the next 12 bytes are zero. The caller has already consumed fields
+from the stream, so the decoded file's initial bytes (`f0 f4 05`) are not this
+parser's header. Retail's parser begins by consuming three one-byte fields;
+the third controls an array of `0x90`-byte records. The relationship between
+the stream's resource data and this parser's input still needs to be recovered.
 
 On the supplied NTSC-U disc the corrected decoder expands 150,849 compressed
 bytes to 351,548 bytes. The decoded format and the index entry that selected it
