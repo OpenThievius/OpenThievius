@@ -128,6 +128,7 @@ add_library(sly1_port_runtime STATIC
     runtime/memory.cpp
     runtime/ps2float.cpp
     platform/audio.cpp
+    platform/clock.cpp
     platform/pad.cpp
     sly1/build_info.cpp)
 target_include_directories(sly1_port_runtime PUBLIC . runtime/include)

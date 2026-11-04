@@ -6,6 +6,7 @@
 #include "openrac/memory.h"
 #include "openrac/native_gs.h"
 #include "openrac/native_window.h"
+#include "../platform/clock.h"
 
 #include <SDL3/SDL.h>
 
@@ -307,6 +308,8 @@ int main(int argc, char** argv) {
         game_result = openrac_game_run();
         game_started.store(true, std::memory_order_release);
     });
+    openrac::platform::FramePacer presenter(
+        openrac::platform::field_rate(openrac::platform::VideoStandard::Ntsc));
     while (!game_started.load(std::memory_order_acquire)) {
         openrac_native_window_present();
         if (openrac_native_window_poll_quit()) {
@@ -316,7 +319,7 @@ int main(int argc, char** argv) {
             if (trace_thread.joinable()) trace_thread.join();
             return 0;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        presenter.wait();
     }
     game_thread.join();
     openrac_native_window_destroy();
