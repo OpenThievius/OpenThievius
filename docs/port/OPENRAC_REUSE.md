@@ -65,29 +65,24 @@ not imported.
 |---|---|---|
 | `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Imported and wired to the native launcher |
 | `platform/input.*`, `platform/bindings.*`, `platform/players.*` | High: keyboard/gamepad event handling and user bindings are generic | Connect its pad state to Sly's own pad-library calls and keep Sly's button semantics |
-| `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | High for 2D: consume VIF DIRECT/GIF packets emitted by the game and draw with native OpenGL | Imported and connected to the port-only DMA handoff; verify real packets and validate Sly-specific texture/framebuffer conventions |
+| `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | High for 2D: consume GIF packets emitted by the game and draw with native OpenGL | Imported and connected to Sly's GIF channel 2 DMA handoff; verify frame ordering and Sly-specific texture/framebuffer conventions |
 | `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
 
-The DirectRenderer integration is now compiled and linked into the C-only
-launcher. The port-only replacement for `func_00202A80` walks Sly's DMA tags,
-collects inline and referenced VIF data, rejects chains containing VU commands,
-and queues VIF DIRECT streams for OpenRAC's parser and native OpenGL renderer.
-This is a graphics boundary adapter, not a VIF/VU emulator. A successful
-launcher build proves module wiring, but not yet that a real Sly frame reaches
-it or that Sly's packet conventions match every renderer assumption. OpenRAC's
-world renderers remain R&C-specific and cannot draw Sly levels as-is.
+The DirectRenderer integration is compiled and linked into the C-only
+launcher. The port-only replacement for `func_00202A80` walks Sly's GIF
+channel 2 DMA tags, collects inline and referenced packet spans, and queues
+the raw GIF stream for OpenRAC's GIF parser. A bounded run accepts the four
+startup display packets (2,192 bytes total) without a parser warning. This
+verifies the initial packet boundary, not a visible Sly frame. OpenRAC's world
+renderers remain R&C-specific and cannot draw Sly levels as-is.
 
-The current host-native path does not yet produce that renderer input. Sly's
-matched code at `func_001B2640` appends DMA display-list entries, while the
-lower-level draw routine `func_00185D20` has no matching C in the current
-decompilation checkout. The GIF stream currently visible to `sdl_renderer.cpp`
-is produced by the experimental VIF/VU execution runtime. Connecting
-`GifInterpreter` to that stream would make the renderer depend on that runtime,
-so it is not a valid integration for the no-emulation port. Before using the
-OpenRAC direct renderer, the native Sly path needs a game-specific draw adapter
-that supplies compatible 2D packets or native draw data. The direct renderer
-can then be reused for Sly's 2D layer; Sly's 3D scene and asset adapters still
-need independent implementation.
+The initial graphics path now reaches OpenRAC's GIF parser directly; it does
+not pass through the experimental VIF/VU execution runtime. The window remains
+black because the main loop is in frame state 3 with no active scene object or
+level. Sly's lower-level draw routine `func_00185D20` also has no matching C in
+the current decompilation checkout. Advancing the title/scene loader and
+providing a native adapter for Sly's 3D scene data are still required; the
+Ratchet-specific world renderers cannot supply those pieces as-is.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions

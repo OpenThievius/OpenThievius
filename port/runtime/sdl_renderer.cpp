@@ -9,16 +9,18 @@
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_pool.h"
+#include "common/log.h"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <mutex>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -43,6 +45,11 @@ Clear g_clear = nullptr;
 Viewport g_viewport = nullptr;
 std::mutex g_packets_mutex;
 std::vector<std::uint8_t> g_packets;
+std::atomic<std::uint64_t> g_dma_submit_count{0};
+std::atomic<std::uint64_t> g_dma_accept_count{0};
+std::atomic<std::uint64_t> g_dma_reject_count{0};
+std::atomic<std::uint64_t> g_dma_bytes{0};
+std::atomic_flag g_dma_reject_notice = ATOMIC_FLAG_INIT;
 
 bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& out) {
     const std::uint32_t physical = openrac_guest_ram_address(address);
@@ -52,34 +59,6 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
     return true;
 }
 
-bool is_direct_vif(std::span<const std::uint8_t> stream) {
-    bool found_direct = false;
-    std::size_t at = 0;
-    while (at + 4 <= stream.size()) {
-        const std::uint32_t word = static_cast<std::uint32_t>(stream[at])
-            | (static_cast<std::uint32_t>(stream[at + 1]) << 8)
-            | (static_cast<std::uint32_t>(stream[at + 2]) << 16)
-            | (static_cast<std::uint32_t>(stream[at + 3]) << 24);
-        const std::uint8_t cmd = static_cast<std::uint8_t>(word >> 24);
-        const std::size_t immediate = word & 0xffffu;
-        at += 4;
-        std::size_t extra = 0;
-        switch (cmd) {
-        case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05:
-        case 0x06: case 0x07: case 0x10: case 0x11: case 0x13: break;
-        case 0x20: extra = 4; break;
-        case 0x30: case 0x31: extra = 16; break;
-        case 0x50: case 0x51:
-            found_direct = true;
-            extra = (immediate ? immediate : 65536u) * 16u;
-            break;
-        default: return false; // VU or unsupported operation: not a 2D display list.
-        }
-        if (extra > stream.size() - at) return false;
-        at += extra;
-    }
-    return found_direct && at == stream.size();
-}
 }
 
 extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_address) {
@@ -89,17 +68,18 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     std::array<std::uint32_t, 16> returns{};
     std::size_t return_count = 0;
     std::uint32_t tag_address = openrac_guest_ram_address(source_address);
+    g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);
     bool ok = false;
     for (std::size_t tags = 0; tags < kMaxTags; ++tags) {
         const std::uint8_t* tag = nullptr;
         if (!guest_span(tag_address, 16, tag)) break;
-        std::uint32_t lo, hi;
-        std::memcpy(&lo, tag, 4);
-        std::memcpy(&hi, tag + 4, 4);
-        const std::size_t qwc = lo & 0xffffu;
-        const unsigned id = (lo >> 28) & 7u;
+        std::uint64_t low;
+        std::memcpy(&low, tag, 8);
+        const std::size_t qwc = low & 0xffffu;
+        const unsigned id = (low >> 28) & 7u;
         const std::uint32_t inline_data = tag_address + 16;
-        const std::uint32_t referenced = openrac_guest_ram_address(hi & 0x7fffffffu);
+        const std::uint32_t referenced = openrac_guest_ram_address(
+            static_cast<std::uint32_t>(low >> 32) & 0x7fffffffu);
         std::uint32_t payload_address = inline_data;
         std::uint32_t next = inline_data;
         const std::size_t payload_size = qwc * 16;
@@ -144,10 +124,47 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
         }
         tag_address = next;
     }
-    if (!ok || !is_direct_vif(stream)) return;
-    std::scoped_lock lock(g_packets_mutex);
-    if (stream.size() <= kMaxBytes - g_packets.size())
+    if (!ok) {
+        g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+        if (!g_dma_reject_notice.test_and_set(std::memory_order_relaxed)) {
+            const std::uint32_t first = stream.size() >= 4
+                ? (static_cast<std::uint32_t>(stream[0]) |
+                   (static_cast<std::uint32_t>(stream[1]) << 8) |
+                   (static_cast<std::uint32_t>(stream[2]) << 16) |
+                   (static_cast<std::uint32_t>(stream[3]) << 24))
+                : 0;
+            openrac::log::warn(
+                "native GIF chain rejected: source={:#010x} chain_ok={} bytes={} first_word={:#010x}",
+                source_address, ok, stream.size(), first);
+        }
+        return;
+    }
+    {
+        std::scoped_lock lock(g_packets_mutex);
+        if (stream.size() > kMaxBytes - g_packets.size()) {
+            g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
         g_packets.insert(g_packets.end(), stream.begin(), stream.end());
+    }
+    g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
+    g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);
+}
+
+extern "C" std::uint64_t openrac_native_renderer_dma_submit_count(void) {
+    return g_dma_submit_count.load(std::memory_order_relaxed);
+}
+
+extern "C" std::uint64_t openrac_native_renderer_dma_accept_count(void) {
+    return g_dma_accept_count.load(std::memory_order_relaxed);
+}
+
+extern "C" std::uint64_t openrac_native_renderer_dma_reject_count(void) {
+    return g_dma_reject_count.load(std::memory_order_relaxed);
+}
+
+extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
+    return g_dma_bytes.load(std::memory_order_relaxed);
 }
 
 extern "C" int openrac_native_window_create(void) {
@@ -176,7 +193,7 @@ extern "C" int openrac_native_window_create(void) {
     g_direct = std::make_unique<openrac::renderer::DirectRenderer>(
         "sly1-direct", openrac::renderer::Bucket::Hud,
         openrac::renderer::DirectConfig{512, 448, 0},
-        openrac::renderer::DirectRenderer::Input::Vif);
+        openrac::renderer::DirectRenderer::Input::Gif);
     if (!g_direct->init(state, error)) {
         g_direct.reset(); g_textures.reset(); g_window.reset(); g_platform.reset(); return 0;
     }

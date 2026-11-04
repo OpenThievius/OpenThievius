@@ -184,6 +184,18 @@ int main(int argc, char** argv) {
                 std::uint32_t range_state[8]{};
                 std::memcpy(range_state, openrac_guest_base + 0x00275AF0u,
                             sizeof(range_state));
+                std::uint32_t frame_state[13]{};
+                std::memcpy(frame_state, openrac_guest_base + 0x00275BC0u,
+                            sizeof(frame_state));
+                std::uint32_t game_mode = 0;
+                std::uint32_t current_object = 0;
+                std::uint32_t active_level = 0;
+                std::memcpy(&game_mode, openrac_guest_base + 0x00264A58u,
+                            sizeof(game_mode));
+                std::memcpy(&current_object, openrac_guest_base + 0x00275710u,
+                            sizeof(current_object));
+                std::memcpy(&active_level, openrac_guest_base + 0x002701B8u,
+                            sizeof(active_level));
                 std::uint32_t range_record[8]{};
                 const bool have_range_record = range_state[1] != 0 &&
                     range_state[1] < 0x02000000u;
@@ -239,17 +251,25 @@ int main(int argc, char** argv) {
                         std::cerr << std::hex << word << ',';
                 }
                 std::cerr << std::dec
+                          << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
+                          << ',' << frame_state[2] << " frame_count=" << frame_state[11]
+                          << " game_mode=" << game_mode << " current_object=0x" << std::hex
+                          << current_object << " active_level=0x" << active_level << std::dec
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << " image_tags=" << openrac_guest_gif_image_tag_count()
                           << " image_qwords=" << openrac_guest_gif_image_qword_count()
+                          << " gif_chain_submits=" << openrac_native_renderer_dma_submit_count()
+                          << " gif_chain_accepts=" << openrac_native_renderer_dma_accept_count()
+                          << " gif_chain_rejects=" << openrac_native_renderer_dma_reject_count()
+                          << " gif_chain_bytes=" << openrac_native_renderer_dma_bytes()
                           << " blit_writes=" << openrac_guest_gs_register_write_count(0x50u)
                           << " trxpos_writes=" << openrac_guest_gs_register_write_count(0x51u)
                           << " trxreg_writes=" << openrac_guest_gs_register_write_count(0x52u)
                           << " trxdir_writes=" << openrac_guest_gs_register_write_count(0x53u)
                           << std::dec;
                 std::cerr << " active_threads=";
-                for (uint32_t id = 1; id < 16; ++id) {
+                for (uint32_t id = 0; id < 16; ++id) {
                     const gaddr active = openrac_guest_last_called_address_for_thread(id);
                     if (active == 0) continue;
                     const char* active_name = openrac_guest_function_name(active);

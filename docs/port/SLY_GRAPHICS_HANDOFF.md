@@ -1,66 +1,54 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly graphics handoff for the native renderer
 
-The native launcher now owns an OpenRAC SDL/OpenGL context and runs OpenRAC's
-`DirectRenderer` for the Sly 2D VIF DIRECT/GIF path. Its port-only
-`func_00202A80` backfill parses bounded DMA chains, filters out VU-producing
-streams, and queues supported direct packets for the renderer. The launcher
-builds and links, but a real packet has not yet been confirmed in a native run;
-world geometry is still outside this renderer.
+The native launcher uses OpenRAC's SDL/OpenGL context and `DirectRenderer` for
+Sly's GIF channel 2 packets. Its port-only `func_00202A80` backfill walks the
+bounded DMA tag chain and queues the raw GIF payload for OpenRAC's GIF parser.
+A bounded native run accepts the four startup display packets (2,192 bytes in
+total) without a parser warning. The window is still black: these packets set
+display state, and the game has not loaded a scene object or level.
 
 ## Sly's observed display path
 
-Retail-backed assembly shows that the callback at `0x0018E558` is a persistent
-display worker. It waits on the semaphore stored in `D_00269A00`, updates its
-display state, and calls `0x001686E8` with `D_00261F1C` plus one of two buffers
-inside that display state. It also calls `0x001683E8` and `0x001684E8` to
-advance the display buffers. These routines are still missing matching C in
-the decompilation.
+`D_00261F1C` is obtained from DMA channel index 2 in `func_00152810`, the GIF
+channel. The callback at `0x0018E558` is a persistent display worker. It waits
+on the semaphore stored in `D_00269A00`, submits one of two buffers through
+`0x001686E8`, then advances the display buffers. These routines are still
+missing matching C in the decompilation.
 
-`0x001686E8` waits for the VIF1 channel, resets its transfer state, starts the
-next transfer through `0x00202A80`, then waits on a semaphore. The port-only
-backfill reads the DMA tag chain beginning at the supplied source address,
-walks inline and referenced spans, and passes the assembled VIF stream through
-a strict VIF DIRECT filter before queueing it. The collector is bounded by tag,
-stack and byte limits and safely drops invalid or VU-producing chains.
+`0x001686E8` submits the GIF packet buffer through `0x00202A80` and waits for
+completion. The port-only backfill reads the DMA tag chain beginning at the
+supplied source address and appends each inline or referenced payload span.
+The DMA chain's QWC and tag IDs determine the byte spans. OpenRAC's
+`DirectRenderer` receives the assembled GIF packets directly; this boundary
+does not execute VIF or VU instructions.
 
 Retail's `func_00202A80` stores the source address at descriptor offset `0x30`
 and sets the channel active. The port replacement performs that handoff
 synchronously, then clears the active bit so Sly's subsequent wait can return.
-The DMA chain's QWC and tag IDs determine the byte spans; the filter validates
-that the assembled bytes contain supported VIF commands and at least one
-DIRECT/DIRECTHL payload. The renderer receives only that filtered stream.
 
 ## OpenRAC integration point
 
-OpenRAC's `DirectRenderer` accepts GIF packets directly and also has a VIF
-input mode. That mode recognizes VIF `DIRECT`/`DIRECTHL` payloads and forwards
-the enclosed GIF bytes; it rejects VIF commands that feed a VU program. This
-is a candidate for Sly's direct 2D/GIF submissions, not a complete renderer
-for Sly's world geometry. Sly's VU-produced geometry needs a separate native
-draw-data path or title-specific renderer. The direct renderer itself depends
-on OpenRAC's GL loader, shader, framebuffer, renderer state and texture pool;
-integrating `direct.cpp` alone would not provide a functioning renderer.
+OpenRAC's `DirectRenderer` consumes GIF packets directly. This is the correct
+path for Sly's GIF channel 2 output and avoids interpreting VIF/VU hardware for
+2D packets. It is not a complete renderer for Sly's world geometry: the game
+still needs a native draw-data adapter for its scene and object renderers.
+The direct renderer depends on OpenRAC's GL loader, shader, framebuffer,
+renderer state and texture pool; integrating `direct.cpp` alone would not
+provide a functioning renderer.
 
-Next, run the native launcher and record whether a supported stream reaches
-the renderer, then inspect the displayed result. The present adapter confirms
-packet shape syntactically but does not prove Sly's frame ordering, GS state,
-texture uploads, or display-buffer conventions match OpenRAC. The 3D scene
-still needs a Sly-specific native data path; VU-produced geometry is rejected
-at this 2D boundary.
+The current adapter confirms the startup packets reach the GIF parser, but
+does not prove Sly's frame ordering, texture uploads, or display-buffer
+conventions match OpenRAC. The next blocker is earlier in the game: its frame
+loop remains in state 3 with no current scene object or active level. Once the
+title/scene loader advances, the 3D scene still needs a Sly-specific native
+data path.
 
-## Current blocker
+## Port-only backfills
 
-The host32 native path now has port-only implementations of `func_00185D20`,
-`func_001860A8`, `func_001278A8` and `func_001280C0`. They prepare Sly's
-0x100-byte draw entries, calculate position/basis data with scalar host math,
-and dispatch the entry's object callbacks. These backfills live under
-`port/game/sly1-us/native/`, separate from matching decompilation. They do not
-execute VU instructions or feed the experimental GIF device model.
-
-The callback methods at vtable offsets `0xFC`, `0x100` and `0x104` still need
-native render adapters that expose Sly draw data. Neither the OpenRAC
-`DirectRenderer` nor a Sly world renderer is wired to these entries yet, so
-the launcher still has no visible scene. Reuse the direct renderer for Sly's
-2D/GIF layer once the native callbacks can provide compatible packets; the
-world geometry still needs a Sly-specific adapter.
+Functional replacements live under
+[`port/game/sly1-us/hand/native_c/`](../../port/game/sly1-us/hand/native_c/),
+outside `sly1-decomp`. When matching C becomes available, the port backfill can
+be removed and the decompiled function used without rewriting the project.
+These replacements are compatibility code for the native port and are not
+counted as decompiled functions.
