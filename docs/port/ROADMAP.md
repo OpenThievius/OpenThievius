@@ -35,7 +35,9 @@ identified as `SCUS_971.98`, with `IOPRP243.IMG` and the boot modules in its
 ISO file table. The IOP bootstrap constructor is replaced by a native hook
 that marks CD state ready only when an ISO is loaded. Host replacements also
 cover file-open/poll/close with ISO path lookup and preserve interrupt state
-for critical sections. Sector reads are not routed to Sly's later data requests yet. The
+for critical sections. The native DMA helper performs validated EE RAM copies
+synchronously; hardware transfers still need host device services. Sector reads
+are not routed to Sly's later data requests yet. The
 analyzed boot call graph still reaches functions without hostable C. Fifteen source files remain unreadable and the C++ adapter can lose
 constructs; remaining disc services, most kernel calls, the renderer and frame
 loop still block gameplay. Continue

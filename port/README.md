@@ -51,6 +51,10 @@ with native ISO file-open enabled, passed the previous CD wait and remained
 alive through further initialization until timeout. Hostgen now translates
 more interior entries used by that path. EE interrupt disable/enable helpers
 preserve nested critical-section state and return the prior enable bit.
+The retail DMA span helper now copies validated guest RAM spans immediately
+and reports them complete, which replaces the synchronous EE-to-EE transfer
+path without using a console emulator. Transfers to non-RAM devices still
+need native device services.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,

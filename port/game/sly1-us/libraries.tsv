@@ -7,3 +7,6 @@ func_00203CF8	iop	sly1_cd_status	host	Report native disc readiness to Sly startu
 func_001F9C50	iop	sly1_cd_file_open	host	Open a path from the native ISO reader	int(int)
 func_001F9C18	iop	sly1_cd_file_ready	host	Synchronous native file requests complete immediately	int(void)
 func_001F9820	iop	sly1_cd_file_close	host	Release the native file request state	int(void)
+func_001F6C20	kernel	sly1_dma_reset	host	Reset the native synchronous DMA service	void(int)
+func_001F6C90	kernel	sly1_dma_status	host	Complete native DMA submissions synchronously	int(int)
+func_001F6CA0	kernel	sly1_dma_submit	host	Copy EE RAM spans and complete them synchronously	int(int,int)
