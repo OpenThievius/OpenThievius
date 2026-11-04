@@ -28,12 +28,17 @@ generated game units into a local link-check executable, run:
 cmake -S port -B build/port -DOPENTHIEVIUS_SOURCE_SLY1=/path/to/sly1-decomp
 cmake --build build/port --target port_compile_generated
 cmake --build build/port --target port_link_generated
+cmake --build build/port --target port_native
 ```
 
 The link check confirms that generated game code and the guest runtime link
 together. It registers the generated function table if launched, but never calls
-the game entry. Hostgen now translates the entry's BSS setup and observed boot
-syscalls (`SetupThread`, `SetupHeap`, `ExitThread`, `Exit`, `SetGsCrt`, `Copy`,
+the game entry. `port_native` separately builds `build/port/sly1_native`, a
+launcher that accepts the extracted `SCUS_971.98` ELF, loads its segments into
+guest memory, registers translated functions, and calls the game entry. The
+launcher has been built but not run. Hostgen now translates the entry's BSS
+setup and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
+`Exit`, `SetGsCrt`, `Copy`,
 `GetEntryAddress`, `FlushCache`, and `SetSyscall`). The
 `GetMemorySize` and `_InitTLB` boot calls are also handled for the 32 MiB guest
 RAM configuration; TLB writes are ignored because the runtime maps guest RAM
