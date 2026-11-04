@@ -21,3 +21,7 @@ still lacks its thread creation/entry service and a linked game launcher.
 `func_001430F8.cpp` replaces the reachable CP0 Count read with a monotonic host
 counter scaled to the NTSC-U 294.912 MHz tick rate used by Sly's timer code.
 It is a port-only platform service; the matching source remains unchanged.
+
+`func_001FB6B0.cpp` supplies the signed 64-bit tick-to-float conversion used
+by Sly's frame timers. It uses the host's IEEE-754 conversion and remains a
+port-only implementation until matching C is available.

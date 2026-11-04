@@ -19,10 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-seven separate port-native backfill translation units, then combines them by
+eight separate port-native backfill translation units, then combines them by
 retail address.
-The current combined object contains 2,337 native function entries out of
-4,766 catalogued addresses and still has 611 unresolved function addresses.
+The current combined object contains 2,338 native function entries out of
+4,766 catalogued addresses and still has 610 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -48,17 +48,18 @@ assembly translation, a link check, or a black window as playable progress.
 
 The host32 combine step now also writes a direct-relocation frontier rooted at
 the port's native frame-loop backfill, `func_00185758`. In the current build,
-40 of 73 functions reached through function-address relocations have compiled
-definitions; 33 are missing. This is narrower than the 611-address whole-game
+41 of 73 functions reached through function-address relocations have compiled
+definitions; 32 are missing. This is narrower than the 610-address whole-game
 frontier and gives the next backfills a concrete starting list. It does not
 follow indirect calls through retail vtables or callback tables, so it is not
 the complete runtime closure. The machine-readable report is in
 `build/port/host32/link/link-frontier.json`.
 
 The native frame path now supplies `func_001430F8`, the Sly Count read, with a
-Linux host monotonic clock scaled to 294.912 MHz. This resolves one function in
-that direct frontier without executing CP0 instructions. It remains a
-port-only backfill, separate from the matching decompilation.
+Linux host monotonic clock scaled to 294.912 MHz, and `func_001FB6B0`, the
+64-bit tick conversion used by Sly's timers. These resolve two functions in
+that direct frontier without executing CP0 instructions. Both remain
+port-only backfills, separate from the matching decompilation.
 
 | Phase | Work | Milestone |
 |---|---|---|
