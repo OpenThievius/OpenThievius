@@ -43,8 +43,10 @@ English.
 Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 One startup VU busy poll reports idle because the host has no VU execution unit.
 The listed CP0 interrupt-status readers see no pending host interrupts.
-renderer, frame loop, disc services, and the rest of the required platform
-services are not implemented, so the port still cannot launch into gameplay.
+The startup path also saves and changes the GS interrupt mask through a
+software-backed guest register. The renderer, frame loop, disc services, and
+the rest of the required platform services are not implemented, so the port
+still cannot launch into gameplay.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 

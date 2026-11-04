@@ -19,6 +19,7 @@ uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::mutex g_kernel_mutex;
 std::map<uint32_t, int32_t> g_semaphores;
+uint64_t g_gs_imr = 0x7F00u;
 }
 
 extern "C" int openrac_guest_exit_requested(void) {
@@ -64,6 +65,13 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         return 0;
     case 0x74: // SetSyscall: guest exception vectors are not used by translated host code.
         return 0;
+    case 0x70: // GsGetIMR: the host renderer owns GS interrupts, so preserve the guest mask in software.
+        return g_gs_imr;
+    case 0x71: { // GsPutIMR returns the previous mask.
+        const uint64_t previous = g_gs_imr;
+        g_gs_imr = a0;
+        return previous;
+    }
     case 0x7F: // GetMemorySize; Sly's configured host RAM is 32 MiB.
         return GUEST_RAM_SIZE;
     case 0x82: // _InitTLB; the host maps guest RAM directly and has no EE TLB.
