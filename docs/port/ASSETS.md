@@ -105,14 +105,19 @@ the record's meaning or its relationship to an asset catalog.
 and size in the live stream descriptor are decoded from a record, not stored
 there as plain adjacent values. The remaining words participate in record
 validation, but the producer that supplies this block and its place in the
-disc catalog remain unidentified. Assembly inspection rules out one tempting
-direct link: `func_001EFFA0` copies a caller's message payload into
-`D_00275F80` and calls the state dispatcher `func_001F0220` in mode 1 or 2.
-Its matching callers include text and screen-position messages. That path does
-not directly provide the mode 3 state that copies a four-word record into
-`D_00275AF0`; the object and caller that provide that record still need to be
-traced. Do not treat the UI message path as evidence for the disc index or the
-observed sector range.
+disc catalog remain unidentified.
+
+The first record's provenance is now established. The static record at
+`D_00247AB0` is submitted by `func_00160918` through `func_001F0428` and the
+message/state dispatcher. A 10 ms native trace captured `D_00275AF0` active
+with its record pointer set to `D_00247AB0`; decoding that record produces
+sector 820372 and byte count 150849. The same run's native CD trace then read
+sector 820372 for 74 sectors, matching the descriptor's byte count. This
+confirms that the deferred range path supplies the first observed raw read.
+`func_001EFFA0` is a generic message/state path whose other matching callers
+also submit text and screen-position messages, so those callers do not identify
+this record as a disc catalog. The broader index and resource naming remain
+unknown.
 
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
