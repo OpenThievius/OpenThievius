@@ -25,11 +25,13 @@ Do not infer that a channel descriptor by itself is a complete GIF packet.
 ## OpenRAC integration point
 
 OpenRAC's `DirectRenderer` accepts GIF packets directly and also has a VIF
-input mode. That mode is the candidate for Sly's VIF1 submission boundary: it
-can consume the VIF stream and extract its direct GIF payload without running
-the VU program. The renderer itself depends on OpenRAC's GL loader, shader,
-framebuffer, renderer state and texture pool; integrating `direct.cpp` alone
-would not provide a functioning renderer.
+input mode. That mode recognizes VIF `DIRECT`/`DIRECTHL` payloads and forwards
+the enclosed GIF bytes; it rejects VIF commands that feed a VU program. This
+is a candidate for Sly's direct 2D/GIF submissions, not a complete renderer
+for Sly's world geometry. Sly's VU-produced geometry needs a separate native
+draw-data path or title-specific renderer. The direct renderer itself depends
+on OpenRAC's GL loader, shader, framebuffer, renderer state and texture pool;
+integrating `direct.cpp` alone would not provide a functioning renderer.
 
 Before connecting the renderer, add one concrete packet observation at the
 host boundary that already knows the transfer source and length. Confirm that
