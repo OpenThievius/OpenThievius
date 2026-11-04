@@ -1860,6 +1860,16 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index
+    # Explicit port-side entries cover callbacks placed inside a catalogued
+    # assembly range. Keep these separate from the decompilation's catalogue.
+    for name in a.get("extra_entries", []):
+        if name in program.functions:
+            continue  # The decompilation now supplies this entry.
+        f = Function(name, Signature(ctype.Base("int"), (), False, False), asm=True)
+        places = program.code_places(name)
+        if not any(place in index.code for place in places):
+            continue  # Assembly is optional in a source-only setup.
+        program.functions[name] = f
     # The retail program's own instructions (retail.py), where the player's executable and level
     # programs are given: everything the assembly files do not have, or all of it without them.
     source_of = retail_source(a, program, base)

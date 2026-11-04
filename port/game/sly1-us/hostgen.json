@@ -34,6 +34,7 @@
     "dirs": [
       "asm/us"
     ],
+    "extra_entries": ["func_0018E5E8"],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
     "syscalls": [2, 4, 16, 20, 21, 32, 33, 34, 35, 36, 41, 43, 47, 50, 51, 55, 60, 61, 62, 64, 65,

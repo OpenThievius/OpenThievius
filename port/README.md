@@ -41,6 +41,12 @@ ISO 9660 images, reads logical sectors, locates paths and reads file ranges.
 The IOP bootstrap constructor now uses a native hook that sets CD-ready state
 when an ISO is loaded; the file-open poll uses ISO path lookup. The native
 launcher is experimental.
+
+Port-side replacements are listed in `game/sly1-us/libraries.tsv`, with their
+native implementations in the runtime. The `extra_entries` list in
+`game/sly1-us/hostgen.json` identifies additional retail assembly entry points
+needed by the port. A matching entry supplied by the decompilation takes
+precedence over that list.
 The launcher now accepts Sly's `SetupThread` stack range and registers five
 interior constructor callbacks. Native ISO file lookup and reads, a CD-ready
 bootstrap hook, validated EE RAM DMA copies, interrupt registration, timer
