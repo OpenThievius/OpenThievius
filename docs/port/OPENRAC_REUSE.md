@@ -35,6 +35,9 @@ This repository already reuses OpenRAC's most important pieces:
   ABI, ELF loading, host fault reporting, float helpers and common support.
 - The top-level game registry/setup workflow follows OpenRAC's layout and
   conventions; it does not bring over Ratchet & Clank data.
+- `port/platform/audio.cpp`, `audio.h` and `audio_ring.h` provide game-agnostic
+  SDL3 PCM output and callback buffering. Sly's sound replacement can feed
+  decoded samples to this layer without adopting RAC's sound protocol.
 
 The port has also authored Sly-specific extensions around that base: Sly's
 raw-sector catalog and audio extractors, NTSC-U hostgen configuration,
@@ -79,11 +82,13 @@ and Vulkan backends may be reusable as generic graphics infrastructure after
 license/dependency review, but its renderer's game-facing draw records,
 texture/geometry conversion, scene traversal and shaders encode R&C formats
 and behavior. Sly still needs its own asset readers and draw-data adapter.
-Likewise, its input/audio/window modules may be useful generic foundations;
-their SDL device plumbing can be evaluated separately from the game-facing
-pad/audio semantics. The correct approach is selective reuse of generic
-modules and independent implementation of Sly boundaries, not cloning all of
-`port/` or rewriting generic infrastructure we already have.
+Its audio output is now integrated as a generic foundation. The SDL input
+module combines device plumbing with RAC-specific pad shaping and binding
+behavior, so reuse should wait until Sly's pad library boundary is mapped.
+The OpenGL window/context layer is a plausible next reuse after choosing the
+Sly renderer API. The correct approach is selective reuse of generic modules
+and independent implementation of Sly boundaries, not cloning all of `port/`
+or rewriting generic infrastructure we already have.
 
 The PS2 platform is shared, but library call sequences and graphics behavior
 are title-specific. A generic ISO 9660 reader can help read ordinary files;
