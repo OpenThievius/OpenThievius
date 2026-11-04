@@ -32,6 +32,14 @@ add_custom_target(port_hostgen
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
     COMMENT "Generating host-side C from matched Sly 1 sources")
 
+add_custom_target(port_compile_decomp_host32
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_decomp_host32.py
+            --source ${OPENTHIEVIUS_SOURCE_SLY1}
+            --out ${CMAKE_CURRENT_BINARY_DIR}/host32
+            --port ${CMAKE_CURRENT_SOURCE_DIR}
+            --cxx ${CMAKE_CXX_COMPILER}
+    COMMENT "Compiling decompiled Sly C++ directly for the native 32-bit ABI")
+
 add_custom_target(port_compile_generated
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_hostgen.py
             --generated ${CMAKE_CURRENT_BINARY_DIR}/hostgen/us

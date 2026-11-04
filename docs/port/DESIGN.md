@@ -52,11 +52,11 @@ sly1-decomp C++ ----------------> host preparation -> native game program
   generated C, object files, executables and extracted game data out of git.
 - **Host build.** Reuse OpenRAC hostgen's preparation and host ABI where it
   fits the Sly decompilation, but build the decompiled C++ itself for the host.
-  Generated host C may remain a compatibility bridge for source constructs
-  that cannot yet build as C++, and for addressable retail assembly during
-  migration. It must not become a MIPS instruction executor or a simulated
-  console kernel that the playable game depends on. Keep the decomp checkout
-  read-only and emit generated sources under `build/port/`.
+  The first direct build uses 32-bit host pointers plus a port-only ABI header,
+  preserving pointer fields and object offsets. A staging pass widens the PS2
+  toolchain's 64-bit `UL` literals for i386. Keep the decomp checkout read-only
+  and emit adapted sources and objects under `build/port/`. Generated host C
+  and the previous guest executor are research tools, not the gameplay path.
 - **Runtime services.** Replace calls to console libraries with host services
   for files, timing, controllers, sound, threads and saves. Derive the APIs
   from Sly's decompiled call sites and retail behavior. Reuse suitable generic

@@ -190,3 +190,22 @@ grounded in evidence from Sly's retail code. Continue function matching in
 `sly1-decomp`; prioritize functions and data on the loader, boot, frame and
 rendering paths once those paths are identified. Generated code and game
 assets stay in ignored local build/data directories.
+
+## Native C++ path update
+
+The port now compiles all 68 current US decompilation source units directly as
+32-bit host C++ through `port_compile_decomp_host32`. A standalone native i386
+probe also called the decompiled `func_00137820` and observed its expected state
+update. This keeps the source checkout untouched and avoids hostgen's C
+lowering for game logic. The host ABI header restores 32-bit pointers and
+64-bit Sly integer types; the staging pass widens the two PS2 `UL` literals
+that would otherwise truncate on i386. This is an object-compile milestone,
+not a linked game or a playable build.
+
+The next native milestones are to map the retail data globals and function
+references into the native link, choose a boot path from matched C, and replace
+the title's platform calls with native services. The standalone C++ catalog
+reader now reproduces all 46 NTSC-U decoded ranges byte-for-byte. Resource
+`0x0100` is “A Stealthy Approach,” but its scene records and renderer inputs
+are still not identified. Keep the old guest executor isolated as research;
+it is not a gameplay dependency.
