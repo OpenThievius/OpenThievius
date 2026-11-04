@@ -144,14 +144,17 @@ a raw sector read or mark the request complete after decompression. The
 The coordinator (`func_001E4EA8`) now has a port-only backfill that decodes
 the range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
-bookkeeping. A partial port-only `func_001DCEA0` backfill compiles and reaches
-the native raw-sector reader. Port-only overrides for `func_0018D608`,
+bookkeeping. The native CD read fills the reader's backing ring while the
+reader retains the retail sector/length pair and enters the normal refill and
+decompression path. A bounded run reaches parser stages 1–5 and returns to
+the coordinator, but this is not proof that the resource parsed: critical
+calls including `func_00151A88`, `func_001C1190`, and `func_001B3040` still
+resolve to no-C stubs. Port-only overrides for `func_0018D608`,
 `func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
 reserved guest-port memory. A bounded native run read sector 820372 for 74
 sectors, avoided the previous invalid allocation fault, and submitted 984
-accepted GIF chains over roughly 12 seconds. Parsing still did not complete:
-the display framebuffer remains unset, no scene is loaded, and hostgen emits
-no-C stubs for several
+accepted GIF chains over roughly 12 seconds. The display framebuffer remains
+unset and no scene is verified as loaded. Hostgen emits no-C stubs for several
 reader helpers because it cannot parse all of `00134000.cpp`; the missing C++
 member-function support and a conflicting inferred declaration are documented
 in the build report. The buffered reader is compiled but its complete refill

@@ -48,11 +48,16 @@ overrides for `func_0018D608`, `func_0018D658` and `func_0018D6F0` now provide a
 thread-local packet arena in reserved guest-port memory, preserving the game
 packet-building C while replacing its platform allocation boundary. The latest
 12-second run avoided the invalid allocation fault and recorded 984 accepted
-GIF-chain submits. The host window remains black: there is no display
-framebuffer setup, blit, or active scene. Parsing has not completed; several
-loader and graphics functions still resolve to hostgen no-C stubs. Treat this
-as loader-path diagnostic evidence, not a playable milestone. The coordinator
-also omits retail progress/job bookkeeping. The factory's required class
+GIF-chain submits. A newer bounded run follows the first callback through
+stages 1–5 and back to its coordinator, after correcting the reader to keep
+the retail sector/length range while the synchronous CD read fills its backing
+ring. This only proves the partial backfill returns: calls such as
+`func_00151A88`, `func_001C1190`, and `func_001B3040` still resolve to no-C
+stubs, so successful resource parsing is not established. The host window
+remains black; there is no display framebuffer setup, blit, or verified active
+scene. Treat this as loader-path diagnostic evidence, not a playable
+milestone. The coordinator also omits retail progress/job bookkeeping. The
+factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
 alongside it. They are registered through hostgen and link as native functions. The
@@ -66,10 +71,11 @@ launcher currently demonstrates native gameplay.
 The separate C-only hostgen launcher compiles Sly C without translating
 assembly, and links OpenRAC's renderer, but still uses the experimental
 guest-memory/runtime services rather than the target native-service
-architecture. Its latest bounded run reads the Splash sectors and submits
-accepted GIF chains, but does not complete the resource callback or configure
-a display framebuffer; no scene reaches the renderer. Do not treat that run
-as evidence of native gameplay. Retail MIPS translation
+architecture. Its latest bounded run reads the Splash sectors and returns
+from the partial resource callback, but no-C stubs prevent treating that as a
+loaded resource. It does not configure a display framebuffer; no scene
+reaches the renderer. Do not treat that run as evidence of native gameplay.
+Retail MIPS translation
 remains optional research output under `us-asm-research`. Build artifacts live
 under ignored `build/port/`; port-native host32 backfills stay outside the
 matching decompilation in `port/game/sly1-us/native/`.
