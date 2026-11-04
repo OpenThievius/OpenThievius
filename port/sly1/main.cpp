@@ -123,6 +123,15 @@ int main(int argc, char** argv) {
                 std::cerr << " kernel_thread=" << thread << " thread_entry="
                           << (thread_name == nullptr ? "main/unknown" : thread_name)
                           << "(0x" << std::hex << thread_entry << std::dec << ')';
+                std::cerr << " active_threads=";
+                for (uint32_t id = 1; id < 16; ++id) {
+                    const gaddr active = openrac_guest_last_called_address_for_thread(id);
+                    if (active == 0) continue;
+                    const char* active_name = openrac_guest_function_name(active);
+                    std::cerr << id << ':'
+                              << (active_name == nullptr ? "unknown" : active_name)
+                              << "(0x" << std::hex << active << std::dec << "),";
+                }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }

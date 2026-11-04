@@ -51,8 +51,9 @@ ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
 (register 4, value 0x60000) and an opaque subaddress when the disc-backed IOP
 replacement starts. Native command handling completes the SIF command-init
 handshake and binds the two guest RPC clients. The latest 15-second run reached
-the first RPC request (service `0x00123456`, RPC 0) and remained alive waiting
-for its reply. The native runtime still has no IOP service or SIF DMA command
+the first sound RPC request (service `0x00123456`, RPC 0) and passed it with
+an empty completion reply. The main thread then polls around `0x00203828`.
+The native runtime still has no audio backend or SIF DMA command
 dispatcher, so startup has not reached a title screen or gameplay. The renderer,
 frame loop, input, audio, saves and remaining disc/device services are also
 unimplemented.

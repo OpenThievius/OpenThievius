@@ -34,8 +34,9 @@ loop is bypassed for native startup. Native startup publishes SIF BOOTEND and
 CMDINIT at register 4 (value 0x60000), with an opaque subaddress, when the
 disc-backed IOP replacement starts. Native SIF command handling completes
 command-init and binds both guest RPC clients. In the latest bounded run,
-startup reached its first service request (service `0x00123456`, RPC 0) and
-waited on worker thread 5 for the IOP reply. SIF DMA (0x76–0x78), IOP
+startup passed the first sound service request using an empty completion reply.
+The main thread subsequently polls functions around `0x00203828`. This reply
+does not implement sound. SIF DMA (0x76–0x78), IOP
 RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 The source bridge also has unreadable source files and C++ constructs that need

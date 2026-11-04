@@ -169,6 +169,7 @@ std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 thread_local int g_overlay = OPENRAC_OVERLAY_EXE;
 thread_local gaddr g_unknown_target = 0;
 std::atomic<gaddr> g_last_called_address{0};
+std::array<std::atomic<gaddr>, 64> g_last_called_by_thread{};
 std::atomic<bool> g_guest_trace_enabled{false};
 
 bool strict() {
@@ -270,6 +271,11 @@ gaddr openrac_guest_last_called_address(void) {
     return g_last_called_address.load(std::memory_order_relaxed);
 }
 
+gaddr openrac_guest_last_called_address_for_thread(uint32_t thread_id) {
+    if (thread_id >= g_last_called_by_thread.size()) return 0;
+    return g_last_called_by_thread[thread_id].load(std::memory_order_relaxed);
+}
+
 void openrac_guest_trace_enable(int enabled) {
     g_guest_trace_enabled.store(enabled != 0, std::memory_order_relaxed);
 }
@@ -277,6 +283,9 @@ void openrac_guest_trace_enable(int enabled) {
 void openrac_guest_trace_function_entry(gaddr address) {
     if (g_guest_trace_enabled.load(std::memory_order_relaxed)) {
         g_last_called_address.store(address, std::memory_order_relaxed);
+        const uint32_t thread_id = openrac_guest_current_thread_id();
+        if (thread_id < g_last_called_by_thread.size())
+            g_last_called_by_thread[thread_id].store(address, std::memory_order_relaxed);
     }
 }
 

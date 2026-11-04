@@ -69,6 +69,10 @@ extern "C" uint32_t openrac_guest_last_kernel_thread(void) {
     return g_last_kernel_thread.load(std::memory_order_relaxed);
 }
 
+extern "C" uint32_t openrac_guest_current_thread_id(void) {
+    return g_current_thread_id;
+}
+
 extern "C" gaddr openrac_guest_thread_entry(uint32_t thread_id) {
     std::lock_guard lock(g_kernel_mutex);
     const auto it = g_threads.find(thread_id);

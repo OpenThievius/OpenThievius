@@ -14,6 +14,7 @@ namespace {
 constexpr uint32_t kSifCommandInit = 0x80000002u;
 constexpr uint32_t kSifRpcBind = 0x80000009u;
 constexpr uint32_t kSifRpcCall = 0x8000000Au;
+constexpr uint32_t kSlySoundService = 0x00123456u;
 constexpr uint32_t kInitCompletion = 0x006294C0u;
 std::mutex g_rpc_mutex;
 std::unordered_map<uint32_t, uint32_t> g_native_rpc_services;
@@ -93,6 +94,61 @@ void trace_rpc_call(uint32_t packet, uint32_t source, uint32_t destination, int 
         service, rpc_number, send_size, receive_buffer, receive_size, source, destination,
         data_size, request_word, client);
 }
+
+int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
+                      uint32_t destination, int data_size) {
+    uint32_t client = 0;
+    uint32_t rpc_number = 0;
+    uint32_t send_size = 0;
+    uint32_t receive_buffer = 0;
+    uint32_t receive_size = 0;
+    if (packet_size < 0x40 || !guest_u32(packet + 28, &client) ||
+        !guest_u32(packet + 32, &rpc_number) || !guest_u32(packet + 36, &send_size) ||
+        !guest_u32(packet + 40, &receive_buffer) || !guest_u32(packet + 44, &receive_size))
+        return 0;
+
+    uint32_t service = 0;
+    {
+        std::lock_guard lock(g_rpc_mutex);
+        const auto it = g_native_rpc_services.find(openrac_guest_ram_address(client));
+        if (it != g_native_rpc_services.end()) service = it->second;
+    }
+
+    // The first request from 989snd is an initialization poll. Retail's
+    // func_0011D078 accepts -1 in both the queue head and its indexed
+    // completion word; func_001F7E58 releases the corresponding EE RPC slot.
+    if (service == kSlySoundService && rpc_number == 0 && receive_size >= 12) {
+        if (!guest_write_u32(receive_buffer, 0xFFFFFFFFu) ||
+            !guest_write_u32(receive_buffer + 4, 0) ||
+            !guest_write_u32(receive_buffer + 8, 0xFFFFFFFFu)) return 0;
+
+        uint32_t request_flags = 0;
+        if (!guest_u32(packet + 16, &request_flags) ||
+            !guest_write_u32(packet + 0, 0) ||
+            !guest_write_u32(packet + 16, request_flags & ~1u) ||
+            !guest_write_u32(packet + 24, 0)) return 0;
+
+        if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr) {
+            uint32_t active_packet = 0, client_generation = 0, packet_generation = 0;
+            uint32_t active_flags = 0;
+            guest_u32(client, &active_packet);
+            guest_u32(client + 4, &client_generation);
+            guest_u32(active_packet + 16, &active_flags);
+            guest_u32(active_packet + 24, &packet_generation);
+            std::fprintf(stderr,
+                         "[info] native 989snd startup RPC completed client=%#010x "
+                         "send=%u/%#010x recv=%u/%#010x destination=%#010x data_size=%d "
+                         "packet=%#010x active=%#010x flags=%#010x generation=%u/%u\n",
+                         client, send_size, source, receive_size, receive_buffer,
+                         destination, data_size, packet, active_packet, active_flags,
+                         client_generation, packet_generation);
+        }
+        return 1;
+    }
+
+    trace_rpc_call(packet, source, destination, data_size);
+    return 0;
+}
 }
 
 extern "C" int openrac_lib_sly1_sif_send_cmd(uint32_t command, uint32_t packet,
@@ -106,8 +162,8 @@ extern "C" int openrac_lib_sly1_sif_send_cmd(uint32_t command, uint32_t packet,
     }
     if (command == kSifRpcBind) return complete_rpc_bind(packet);
     if (command == kSifRpcCall) {
-        trace_rpc_call(packet, source, destination, data_size);
-        return 0;
+        return complete_rpc_call(packet, static_cast<uint32_t>(packet_size), source,
+                                 destination, data_size);
     }
     if (command == kSifCommandInit) {
         // The retail EE sends command 0x80000002 after SIFCMD initialization
