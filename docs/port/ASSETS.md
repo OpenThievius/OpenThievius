@@ -54,9 +54,10 @@ the native launcher; it does not use an emulator.
 Retail function `func_001378A0` decodes this stream with an 8 KiB scratchpad
 dictionary. Each control byte supplies up to eight LSB-first tokens: a set bit
 is a literal; a clear bit is a two-byte dictionary reference with a 13-bit
-source position and a length stored in the top three bits plus two. The decoder
-in `port/tools/extract_sly1_lz.py` follows that layout and writes outputs under
-the ignored build directory.
+source position. Retail initializes the copy count to the top three bits plus
+two and copies through zero inclusively, so the total emitted length is the
+top three bits plus three. The decoder in `port/tools/extract_sly1_lz.py`
+follows that behavior and writes outputs under the ignored build directory.
 
 For the first native read above:
 
@@ -65,6 +66,13 @@ python3 port/tools/extract_sly1_lz.py /path/to/Sly1.iso \
   --sector 820372 --bytes 150849
 ```
 
-On the supplied NTSC-U disc this decodes 150,849 compressed bytes to 304,393
-bytes. The decompressed data format and the index entry that selected it remain
-unknown, so the port cannot catalog or load a level from it yet.
+The decoded stream begins `f0 f4 05`. The retail reader used by
+`func_00162890` starts by consuming three one-byte fields; its third field is
+the count for an array of `0x90`-byte records. A value of five is structurally
+plausible for that parser. This makes the parser a useful lead, but does not
+prove that this particular stream is passed to it: the stream's resource name
+and index entry are still unknown.
+
+On the supplied NTSC-U disc the corrected decoder expands 150,849 compressed
+bytes to 351,548 bytes. The decoded format and the index entry that selected it
+remain unknown, so the port cannot catalog or load a level from it yet.

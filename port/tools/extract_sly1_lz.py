@@ -47,7 +47,10 @@ def decode(source, max_output=DEFAULT_MAX_OUTPUT):
             token = (source[position] << 8) | source[position + 1]
             position += 2
             read_position = token & 0x1FFF
-            count = (token >> 13) + 2
+            # Retail initializes the run length to (token >> 13) + 2, then
+            # copies while decrementing through zero. That inclusive loop
+            # emits one extra byte: top-three-bits + 3 total.
+            count = (token >> 13) + 3
             if len(output) + count > max_output:
                 raise ValueError("decoded stream exceeds the output limit")
             for _ in range(count):
