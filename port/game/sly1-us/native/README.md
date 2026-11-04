@@ -17,3 +17,7 @@ retail executable.
 and `iPollSema` wrappers. It uses host futexes and does not run PS2 instructions.
 The semaphore boundary can support native host threads, but the host32 build
 still lacks its thread creation/entry service and a linked game launcher.
+
+`func_001430F8.cpp` replaces the reachable CP0 Count read with a monotonic host
+counter scaled to the NTSC-U 294.912 MHz tick rate used by Sly's timer code.
+It is a port-only platform service; the matching source remains unchanged.
