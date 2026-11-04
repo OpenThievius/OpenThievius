@@ -65,6 +65,8 @@ bool guest_span(DmaAddress address, size_t size, const uint8_t** source) {
 }
 
 bool fifo_append(const uint8_t* source, size_t size) {
+    if (size == 0) return true;
+    if (source == nullptr) return false;
     std::lock_guard lock(g_fifo_mutex);
     const size_t pending = g_gif_fifo.size() - g_gif_fifo_head;
     if (size > kMaxFifoBytes - pending) return false;
