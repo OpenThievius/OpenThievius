@@ -8,6 +8,10 @@ extern "C" {
 
 int openrac_native_window_create(void);
 int openrac_native_window_poll_quit(void);
+int openrac_native_window_poll_input(void);
+int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
+int openrac_native_window_poll_input(void);
+int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
 void openrac_native_window_present(void);
 void openrac_native_window_destroy(void);
 

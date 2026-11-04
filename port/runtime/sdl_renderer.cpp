@@ -5,6 +5,7 @@
 #include "openrac/guest.h"
 
 #include "../platform/window.h"
+#include "../platform/sly_input.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
@@ -37,6 +38,7 @@ using Clear = void (*)(unsigned int);
 using Viewport = void (*)(int, int, int, int);
 
 std::unique_ptr<openrac::platform::Platform> g_platform;
+std::unique_ptr<sly1::platform::Input> g_input;
 std::unique_ptr<openrac::platform::Window> g_window;
 std::unique_ptr<openrac::renderer::TexturePool> g_textures;
 std::unique_ptr<openrac::renderer::DirectRenderer> g_direct;
@@ -44,6 +46,7 @@ ClearColor g_clear_color = nullptr;
 Clear g_clear = nullptr;
 Viewport g_viewport = nullptr;
 std::mutex g_packets_mutex;
+std::mutex g_input_mutex;
 std::vector<std::uint8_t> g_packets;
 std::atomic<std::uint64_t> g_dma_submit_count{0};
 std::atomic<std::uint64_t> g_dma_accept_count{0};
@@ -169,8 +172,10 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" int openrac_native_window_create(void) {
     openrac::platform::set_app_metadata("OpenThievius - Sly 1", "open-thievius-sly1");
-    g_platform = std::make_unique<openrac::platform::Platform>(openrac::platform::kVideo);
+    g_platform = std::make_unique<openrac::platform::Platform>(
+        openrac::platform::kVideo | openrac::platform::kGamepad);
     if (!g_platform->ok()) { g_platform.reset(); return 0; }
+    g_input = std::make_unique<sly1::platform::Input>();
     openrac::platform::WindowConfig config;
     config.title = "OpenThievius - Sly 1";
     config.width = 960;
@@ -209,6 +214,28 @@ extern "C" int openrac_native_window_poll_quit(void) {
     return 0;
 }
 
+extern "C" int openrac_native_window_poll_input(void) {
+    if (!g_input) return 1;
+    SDL_Event event;
+    bool quit = false;
+    std::scoped_lock lock(g_input_mutex);
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT ||
+            (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) quit = true;
+        g_input->handle_event(event);
+    }
+    g_input->update();
+    return quit ? 1 : 0;
+}
+
+extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned int size) {
+    if (!g_input || report == nullptr || port < 0 || port >= 2 || size < 32) return 0;
+    std::scoped_lock lock(g_input_mutex);
+    std::span<unsigned char, 32> output(report, 32);
+    g_input->pad(port).write_read_buffer(output);
+    return 1;
+}
+
 extern "C" void openrac_native_window_present(void) {
     if (!g_window) return;
     int width = 0, height = 0;
@@ -231,7 +258,9 @@ extern "C" void openrac_native_window_present(void) {
 extern "C" void openrac_native_window_destroy(void) {
     if (g_direct) g_direct->release();
     if (g_textures) g_textures->release_gl();
-    g_direct.reset(); g_textures.reset(); g_window.reset(); g_platform.reset();
+    g_direct.reset(); g_textures.reset(); g_window.reset();
+    { std::scoped_lock lock(g_input_mutex); g_input.reset(); }
+    g_platform.reset();
     g_clear_color = nullptr; g_clear = nullptr; g_viewport = nullptr;
     std::scoped_lock lock(g_packets_mutex); g_packets.clear();
 }

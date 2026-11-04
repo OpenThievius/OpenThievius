@@ -152,6 +152,7 @@ add_library(sly1_port_runtime STATIC
     runtime/ps2float.cpp
     platform/audio.cpp
     platform/clock.cpp
+    platform/sly_input.cpp
     platform/gpu_driver.cpp
     platform/pad.cpp
     platform/window.cpp

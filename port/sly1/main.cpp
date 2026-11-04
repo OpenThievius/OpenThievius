@@ -190,12 +190,40 @@ int main(int argc, char** argv) {
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
                 std::uint32_t active_level = 0;
+                std::uint32_t frame_selector = 0;
+                std::int32_t scene_gate = 0;
+                std::uint32_t scene_pending = 0;
+                std::int32_t scene_pending_state = -1;
+                std::uint16_t frame_flags_a = 0;
+                std::uint16_t frame_flags_b = 0;
+                float frame_elapsed = 0.0f;
                 std::memcpy(&game_mode, openrac_guest_base + 0x00264A58u,
                             sizeof(game_mode));
                 std::memcpy(&current_object, openrac_guest_base + 0x00275710u,
                             sizeof(current_object));
                 std::memcpy(&active_level, openrac_guest_base + 0x002701B8u,
                             sizeof(active_level));
+                std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
+                            sizeof(frame_selector));
+                std::memcpy(&scene_gate, openrac_guest_base + 0x00275F84u,
+                            sizeof(scene_gate));
+                std::memcpy(&frame_flags_a, openrac_guest_base + 0x00262D38u + 0xAAu,
+                            sizeof(frame_flags_a));
+                std::memcpy(&frame_flags_b, openrac_guest_base + 0x00262C70u + 0xAAu,
+                            sizeof(frame_flags_b));
+                std::memcpy(&frame_elapsed, openrac_guest_base + 0x0026185Cu,
+                            sizeof(frame_elapsed));
+                std::memcpy(&scene_pending, openrac_guest_base + 0x0026F808u + 0x260u,
+                            sizeof(scene_pending));
+                const std::uint32_t scene_pending_physical =
+                    openrac_guest_ram_address(scene_pending);
+                if (scene_pending != 0 && scene_pending_physical <= openrac_guest_ram_size &&
+                    0x2D0u + sizeof(scene_pending_state) <=
+                        openrac_guest_ram_size - scene_pending_physical) {
+                    std::memcpy(&scene_pending_state,
+                                openrac_guest_base + scene_pending_physical + 0x2D0u,
+                                sizeof(scene_pending_state));
+                }
                 std::uint32_t range_record[8]{};
                 const bool have_range_record = range_state[1] != 0 &&
                     range_state[1] < 0x02000000u;
@@ -254,7 +282,13 @@ int main(int argc, char** argv) {
                           << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
-                          << current_object << " active_level=0x" << active_level << std::dec
+                          << current_object << " active_level=0x" << active_level
+                          << " scene_pending=0x" << scene_pending << std::dec
+                          << " state_selector=0x" << std::hex << frame_selector << std::dec
+                          << " scene_gate=" << scene_gate << " pending_state="
+                          << scene_pending_state << " state_flags=" << std::hex
+                          << frame_flags_a << ',' << frame_flags_b << std::dec
+                          << " elapsed=" << frame_elapsed
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
                           << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << " image_tags=" << openrac_guest_gif_image_tag_count()
@@ -332,7 +366,7 @@ int main(int argc, char** argv) {
         openrac::platform::field_rate(openrac::platform::VideoStandard::Ntsc));
     while (!game_started.load(std::memory_order_acquire)) {
         openrac_native_window_present();
-        if (openrac_native_window_poll_quit()) {
+        if (openrac_native_window_poll_input()) {
             game_thread.detach();
             openrac_native_window_destroy();
             trace_stop.store(true, std::memory_order_relaxed);
