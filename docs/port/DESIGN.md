@@ -64,10 +64,11 @@ sly1-decomp C++ ----------------> host preparation -> native game program
   native renderers for the game's drawing subsystems and expose the data they
   need from host-native game code. Do not build an instruction-level model of
   the GS, VU, VIF or DMA as a compatibility path.
-- **Assets.** The retail executable's loader and index indicate that game
-  data is stored outside the disc file system. Build an extractor and
-  converters from the player's own disc and from formats understood through
-  Sly's retail code. Validate the boot executable against `games/sly1/game.json`.
+- **Assets.** The NTSC-U executable has a 46-entry catalog for data stored
+  outside the disc file system. Build extractors and converters from the
+  player's own disc and formats understood through Sly's retail code. Validate
+  the boot executable against `games/sly1/game.json`; PAL's catalog is not yet
+  checked.
 - **Versions.** Start with NTSC-U. Keep PAL as a follow-up target and use the
   decompilation's cross-version matching to avoid building version-specific
   assumptions into shared port code.

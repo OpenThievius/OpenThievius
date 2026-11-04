@@ -2,9 +2,30 @@
 # Sly 1 disc assets
 
 Sly's ISO filesystem contains boot files and IOP modules. Most game media is
-stored in raw sectors after the filesystem; the retail loader's index and the
-level/model formats are still under investigation. See the decompilation's
+stored in raw sectors after the filesystem. The NTSC-U executable contains a
+46-entry catalog of named sector ranges, now extracted by the port tool below;
+the level/model formats are still under investigation. See the decompilation's
 [disc research](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/DISC.md).
+
+## Extract the NTSC-U catalog
+
+The US executable has a 46-entry range table at `D_00247AF0`, with 44-byte
+entries. Retail lookup functions scan it by resource key. Each entry contains
+an obfuscated sector and byte count, a key, a pointer to a human-readable
+label, and flags. The port extractor resolves these records from a user's ELF,
+validates every range against the matching disc, and writes the raw spans and
+a TSV manifest to the ignored build directory:
+
+```sh
+python3 port/tools/extract_sly1_catalog.py \
+  /path/to/SCUS_971.98 /path/to/Sly1.iso
+```
+
+The default output is `build/port/extracted/catalog/`. Each raw resource file
+uses its numeric key as its filename; the manifest carries the label, sector,
+byte count, rounded sector count, and flags. This recovers the catalog and raw
+resource spans, not the decoded level/model structures or a playable scene.
+The current table address is specific to NTSC-U; PAL has not been validated.
 
 ## Recover standalone audio samples
 
@@ -23,7 +44,7 @@ python3 port/tools/extract_sly1_vag.py /path/to/Sly1.iso
 It accepts cooked 2048-byte ISO images and raw 2352-byte BIN images. By
 default it scans from logical sector 12345 and writes the VAG files and
 `manifest.tsv` to `build/port/extracted/vag/`. Filenames use sector numbers
-because this pass does not recover the game's resource names or index.
+because this signature-based pass does not use the catalog.
 Outputs stay in the ignored build tree; no disc data or extracted media is
 committed.
 
@@ -41,9 +62,9 @@ into guest address `0x002c3b00`. The last traced retail function was
 offset `0x48` (`820372`) and byte length at offset `0x40` (`0x24d41`, or
 150,849 bytes); the sector count is the rounded-up length. The read is outside
 the ISO filesystem and contains no sector-aligned `VAGp` header or common
-zlib, gzip, bzip2 or xz stream at its start. This identifies the stream
-descriptor fields, but not the resource name, the index entry that populated
-them, or the data encoding.
+zlib, gzip, bzip2 or xz stream at its start. Later table and runtime tracing
+tied it to the first catalog record; the initial transfer trace by itself did
+not identify that source.
 
 To capture the read and its caller on a local build, set both variables when
 launching `sly1_native` with your own extracted ELF and disc image. This runs
@@ -105,7 +126,7 @@ the record's meaning or its relationship to an asset catalog.
 and size in the live stream descriptor are decoded from a record, not stored
 there as plain adjacent values. The remaining words participate in record
 validation, but the producer that supplies this block and its place in the
-disc catalog remain unidentified.
+catalog remain unidentified at this point in the loader trace.
 
 The first record's provenance is now established. The static record at
 `D_00247AB0` is submitted by `func_00160918` through `func_001F0428` and the
@@ -116,8 +137,8 @@ sector 820372 for 74 sectors, matching the descriptor's byte count. This
 confirms that the deferred range path supplies the first observed raw read.
 `func_001EFFA0` is a generic message/state path whose other matching callers
 also submit text and screen-position messages, so those callers do not identify
-this record as a disc catalog. The broader index and resource naming remain
-unknown.
+this record's role on their own. The catalog table separately confirms it as
+the entry with key `0x2`; resource labels are stored as pointers in the ELF.
 
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
@@ -138,11 +159,11 @@ with its owner. This identifies the parsed instance as a managed game-object
 class; the retail data and matching C do not yet give that class a meaningful
 name or tie this resource to a specific level.
 
-On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
+On the supplied NTSC-U disc the LZ decoder produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
 byte reader window also matches exactly at decoded offset 5,512. This validates
 token byte order, dictionary behavior and the observed output window; it does
-not yet verify the entire decoded file against retail output. The resource
-format and index entry are still unknown, so the port cannot catalog or load a
-level from it yet.
+not yet verify the entire decoded file against retail output. The catalog is
+now extractable, but the level/model formats and how the resources compose into
+a scene are still unknown, so the port cannot yet load a level.

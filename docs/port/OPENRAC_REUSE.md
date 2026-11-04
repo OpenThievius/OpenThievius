@@ -54,9 +54,10 @@ The PS2 platform is shared, but library call sequences and graphics behavior
 are title-specific. A generic ISO 9660 reader can help read ordinary files;
 it cannot locate Sly's main game data. Sly's disc notes say the ISO lists boot
 files and IOP modules while levels, models, textures and sound occupy raw
-sectors outside the filesystem, indexed by a format still to be understood.
-Therefore the Sly loader/index and asset readers must be derived from Sly's
-own retail code and disc.
+sectors outside the filesystem. The NTSC-U executable's 46-entry range table
+is now identified and has a port-side extractor in
+`port/tools/extract_sly1_catalog.py`. Its resource formats and PAL counterpart
+still need independent research.
 
 ## Architecture correction for this port
 
@@ -78,8 +79,7 @@ Near-term sequence:
 
 1. Identify the boot, loader, main loop and public library call boundaries
    from Sly's code and retail behavior.
-2. Resolve the out-of-filesystem disc index and extract one useful Sly asset
-   set from the user's own disc.
+2. Decode the extracted NTSC-U resources and identify the level/model formats.
 3. Produce a native asset viewer or scene renderer, independently of the
    runtime, to validate asset decoding and rendering conventions.
 4. Host the decompiled game call path with native service replacements and

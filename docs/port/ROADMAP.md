@@ -10,16 +10,17 @@ an experimental branch of the work, not the target port architecture. Follow
 the [OpenRAC reuse plan](OPENRAC_REUSE.md): native game code, native service
 replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
 models as gameplay features.
-An initial [VAG audio extractor](ASSETS.md) now recovers standalone samples
-from raw sectors. The LZ decoder matches the captured retail output window and
-reaches a structured Sly reader, but the unknown disc index and level/model
-formats still block the first playable scene.
+The [NTSC-U catalog extractor](ASSETS.md) now locates and extracts 46 named raw
+resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
+samples. The LZ decoder matches the captured retail output window and reaches
+a structured Sly reader. Level/model formats and a native scene renderer still
+block the first playable scene.
 
 | Phase | Work | Milestone |
 |---|---|---|
 | 0 | Decide source-generation boundary and host memory model; inspect reusable OpenRAC tooling and license | A small Sly source subset can be prepared without modifying sly1-decomp |
 | 1 | Read-only source integration, build scaffolding and frontier reporting | The port can build a host test program from generated Sly code |
-| 2 | Research the retail loader/index; implement disc validation, extraction and asset format notes | A user's own disc is validated and game files can be located safely |
+| 2 | Research the retail loader/index; implement disc validation, extraction and asset format notes | NTSC-U catalog ranges and standalone media can be extracted from a user's own disc |
 | 3 | Derive asset readers/converters from Sly's retail code | Port-ready level and texture assets from a user's disc |
 | 4 | Native viewer and renderer prototypes for Sly's actual rendering systems | An extracted Sly scene draws without running game code |
 | 5 | Replace required platform APIs and host the boot/title path | Native program reaches a useful in-game state |

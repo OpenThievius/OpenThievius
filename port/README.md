@@ -8,8 +8,9 @@ The [OpenRAC reuse plan](../docs/port/OPENRAC_REUSE.md) explains the native
 port pattern and marks the current hardware-model launcher as experimental,
 not the target gameplay architecture.
 
-The first raw-disc media extractor recovers standalone VAG audio samples;
-usage and limits are in [docs/port/ASSETS.md](../docs/port/ASSETS.md).
+The raw-disc tools recover standalone VAG audio samples and extract the
+NTSC-U executable's 46 catalogued resource ranges. Usage and limits are in
+[docs/port/ASSETS.md](../docs/port/ASSETS.md).
 
 The first port tool inspects the decompilation's committed sources and reports
 matching coverage:
