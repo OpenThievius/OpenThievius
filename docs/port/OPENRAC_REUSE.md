@@ -53,15 +53,15 @@ backfills. These are not OpenRAC code just because they use its architecture.
 I compared this checkout with OpenRAC commit
 `eefdcd1243a1c9a9fe8ca1e58bf4a5c03dd0a204` (the current upstream snapshot at
 the time of this audit). We have reused its source bridge, common/runtime
-foundation, audio output and basic DualShock 2 state. We have not imported its
-current SDL window/context layer, full keyboard/controller input system, frame
-pacing, or OpenGL renderer. Earlier work did build a separate SDL color
-primitive presenter and a GS/VIF/VU research path; neither is a substitute for
-those native port modules.
+foundation, audio output and basic DualShock 2 state. The current native
+launcher now uses OpenRAC's SDL/OpenGL window lifecycle and exact-rate frame
+pacer. We have not imported its full keyboard/controller input system or
+renderer. Earlier work built a GS/VIF/VU research path; that remains separate
+from the native presentation path.
 
 | OpenRAC module | Reuse value for Sly | Work still needed here |
 |---|---|---|
-| `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Port the needed settings/API surface and replace the current minimal SDL window owner |
+| `platform/window.*`, `platform/clock.*` | High: SDL lifecycle, OpenGL context, resize/swap and frame timing are title-independent | Imported and wired to the native launcher; add Sly settings and connect rendering |
 | `platform/input.*`, `platform/bindings.*`, `platform/players.*` | High: keyboard/gamepad event handling and user bindings are generic | Connect its pad state to Sly's own pad-library calls and keep Sly's button semantics |
 | `renderer/direct.*`, `renderer/gs.h`, texture conversion/pool and GL helpers | Promising: consume GIF/GS packets emitted by the game and draw with native OpenGL, without emulating the EE, VIF or VU | Prove Sly emits compatible packets, adapt packet submission and validate Sly's texture/framebuffer conventions |
 | `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
@@ -76,8 +76,9 @@ the renderer must be fed from those game-produced packets. OpenRAC's current
 level renderers are a separate matter: their CPU scene adapters encode R&C
 level formats and cannot draw Sly levels as-is.
 
-The current C-only native build confirms the boot override and isolated
-port-owned frame-path backfills compile and link. The native launcher now
+The current C-only native build confirms the boot override, isolated
+port-owned frame-path backfills and OpenRAC's OpenGL window platform compile
+and link. The native launcher now
 registers a port-owned callback at retail address `0x0018E5E8`; the latest
 bounded run reaches it, creates guest worker thread 3 at `0x0018E558`, and
 then remains there because that worker has no translated C yet. The renderer
