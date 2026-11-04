@@ -152,6 +152,8 @@ class Translator:
     cop0_nop: frozenset = frozenset()
     # asm.cp0_count in hostgen.json: functions whose CP0 Count read has a host clock equivalent.
     cp0_count: frozenset = frozenset()
+    # asm.cp0_zero in hostgen.json: interrupt-status reads have no host EE interrupt source.
+    cp0_zero: frozenset = frozenset()
     # asm.vu0_zero in hostgen.json: a hostless VU control read that means the unit is idle.
     vu0_zero: frozenset = frozenset()
     # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
@@ -272,6 +274,7 @@ class Translator:
         sub.syscall_services = self.syscall_services
         sub.cop0_nop = self.cop0_nop
         sub.cp0_count = self.cp0_count
+        sub.cp0_zero = self.cp0_zero
         sub.vu0_zero = self.vu0_zero
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
@@ -534,6 +537,9 @@ class Translator:
     def _cp0_count_read(self, ins: asm.Insn) -> bool:
         return ins.op == "mfc0" and ins.rd == 9 and self.f.symbol in self.cp0_count
 
+    def _cp0_zero_read(self, ins: asm.Insn) -> bool:
+        return ins.op == "mfc0" and ins.rd == 12 and self.f.symbol in self.cp0_zero
+
     def _flow(self):
         """The instructions reachable from the entry; those reached only as a delay slot; and
         each jump through a register that is a jump table, with its targets."""
@@ -556,7 +562,7 @@ class Translator:
                 raise AsmUnsupported(f"unsupported system call {label} at {ins.addr:08X}")
             cop0_is_hostless = self._cop0_is_nop(ins)
             if (ins.op in UNSUPPORTED and ins.op != "syscall" and not cop0_is_hostless
-                    and not self._cp0_count_read(ins)
+                    and not self._cp0_count_read(ins) and not self._cp0_zero_read(ins)
                     and self.microprogram(ins) is None and not done_wait):
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
@@ -1086,6 +1092,8 @@ class Translator:
             return []
         if self._cp0_count_read(ins):
             return self.W(ins.rt, "openrac_guest_cp0_count()")
+        if self._cp0_zero_read(ins):
+            return self.W(ins.rt, "0")
         if self.microprogram(ins) is not None:
             return [f"{{ extern void {self.microprogram(ins)}(void); {self.microprogram(ins)}(); }}"]
         if op == "syscall":
@@ -1829,6 +1837,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.syscall_services = frozenset(int(service) for service in a.get("syscalls", []))
     tr.cop0_nop = frozenset(a.get("cop0_nop", []))
     tr.cp0_count = frozenset(a.get("cp0_count", []))
+    tr.cp0_zero = frozenset(a.get("cp0_zero", []))
     tr.vu0_zero = frozenset(a.get("vu0_zero", []))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
