@@ -328,7 +328,10 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         case 0x02: { // OFFSET (VIF1)
             store_mmio(kVif1Offset, immediate & 0x3FFu);
             store_mmio(kVif1Status, load_mmio(kVif1Status) & ~(1u << 7));
-            store_mmio(kVif1Tops, load_mmio(kVif1Base) & 0x3FFu);
+            // OFFSET clears DBF and rebases BASE to the current TOPS buffer.
+            const uint32_t current_top = load_mmio(kVif1Tops) & 0x3FFu;
+            store_mmio(kVif1Base, current_top);
+            store_mmio(kVif1Tops, current_top);
             break;
         }
         case 0x03: { // BASE (VIF1)
