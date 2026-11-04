@@ -33,6 +33,7 @@ struct Semaphore { int32_t count; int32_t max_count; };
 struct GuestThread { gaddr entry; gaddr stack; uint32_t stack_size; bool started = false; };
 std::map<uint32_t, Semaphore> g_semaphores;
 std::map<uint32_t, GuestThread> g_threads;
+std::map<uint32_t, uint32_t> g_sif_registers;
 std::map<uint32_t, uint32_t> g_interrupt_handlers;
 std::set<uint32_t> g_enabled_interrupts;
 uint64_t g_gs_imr = 0x7F00u;
@@ -166,6 +167,16 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         const uint64_t previous = g_gs_imr;
         g_gs_imr = a0;
         return previous;
+    }
+    case 0x79: { // SifSetReg; SIF registers are represented in host memory.
+        std::lock_guard lock(g_kernel_mutex);
+        g_sif_registers[static_cast<uint32_t>(a0)] = static_cast<uint32_t>(a1);
+        return 0;
+    }
+    case 0x7A: { // SifGetReg
+        std::lock_guard lock(g_kernel_mutex);
+        const auto it = g_sif_registers.find(static_cast<uint32_t>(a0));
+        return it == g_sif_registers.end() ? 0 : it->second;
     }
     case 0x7F: // GetMemorySize; Sly's configured host RAM is 32 MiB.
         return GUEST_RAM_SIZE;

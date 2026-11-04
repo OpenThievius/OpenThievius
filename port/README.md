@@ -41,25 +41,18 @@ ISO 9660 images, reads logical sectors, locates paths and reads file ranges.
 The IOP bootstrap constructor now uses a native hook that sets CD-ready state
 when an ISO is loaded; the file-open poll uses ISO path lookup. The native
 launcher is experimental.
-The first authorized startup run stopped at the runtime's stack-bound check
-and five interior constructor table entries. The runtime now accepts Sly's
-`SetupThread` stack range, and the launcher registers
-those five callback addresses to call their translated registration routines.
-A second authorized startup run passed those points and stayed alive in the
-CD/IOP initialization path until its timeout. Later runs with native ISO file
-open remained alive through further initialization until timeout. The fourth
-authorized run, with native DMA span handling, ran to its 15-second timeout
-without a crash; it reported missing VU initialization and formatted logging.
-Native interrupt registration was implemented afterward, but no renderer events
-are wired yet. Hostgen now translates more
-interior entries used by that path. EE interrupt disable/enable helpers
-preserve nested critical-section state and return the prior enable bit. The
-retail DMA span helper copies validated guest RAM spans immediately and reports
-them complete. Transfers to non-RAM devices still need native device services.
-The data-cache range helper is replaced with a host memory fence, and the EE
-serial diagnostic print is discarded on the host. The translated boot frontier
-now has 14 functions without C, down from 16; formatted buffer output and the
-remaining device services still need work.
+The launcher now accepts Sly's `SetupThread` stack range and registers five
+interior constructor callbacks. Native ISO file lookup and reads, a CD-ready
+bootstrap hook, validated EE RAM DMA copies, interrupt registration, timer
+reads, and counting semaphores support more of startup. Guest worker threads
+run on host threads with their own guest stacks. SIF register reads and writes
+are stored in host memory, and the remote IOP RPC bind loop is bypassed when an
+ISO is present. The latest 15-second native startup run stayed alive: main
+startup polls SIF register 0x7A while worker thread 5 waits for SIF command
+traffic. The native runtime still has no IOP service or SIF DMA command
+dispatcher, so startup has not reached a title screen or gameplay. The renderer,
+frame loop, input, audio, saves and remaining disc/device services are also
+unimplemented.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
@@ -81,10 +74,11 @@ port still cannot launch into gameplay.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 
-1. Host-build scaffolding that reads `sly1-decomp` without modifying it and
-   reports the functions still blocking the execution path.
-2. An extractor and asset converters derived from Sly 1 retail discs.
-3. A native renderer and host services for audio, input, files and saves.
+1. Implement the SIF DMA and IOP RPC responses required to advance boot.
+2. Trace the title and frame paths, then implement the Sly renderer and host
+   services for input, audio, files and saves.
+3. Add asset extraction/conversion and platform packaging as their needs become
+   concrete.
 
 OpenRAC's port design and its own authored code may be used with the credit
 required by [the sourcing policy](../docs/policy/SOURCING.md#openrac). Sly's

@@ -18,38 +18,25 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 | 7 | PAL support, parity fixes, packaging and launcher | Both retail versions are supported |
 
 **Current implementation:** the hostgen tool and CMake entry point are in
-place. The Sly profile stages C++ sources as C-compatible inputs and, with
-local retail-backed assembly available, translates 1,532 functions from C and
-3,145 from assembly. The guest runtime builds, all 81 generated C units compile,
-and `port_link_generated` links them without running the entry point. The Sly
-`port_native` target links a launcher that reads the user's extracted boot ELF,
-maps its segments into guest memory and calls the translated entry. Four
-authorized startup runs reached translated code. The first exposed an
-incompatible stack range and five constructor-table interior entries; the
-runtime now adopts the range from `SetupThread`, and the launcher registers
-those five callbacks. The later runs passed them, then advanced through CD/IOP
-initialization and ISO path polling until timeout. The fourth run, with native
-DMA span handling, stayed alive to its 15-second timeout without a crash; it
-reported missing VU initialization and formatted logging functions. Native
-interrupt registration was implemented afterward, but renderer events remain
-unwired. More interior entries from that path are now translated by hostgen. A native ISO 9660 reader accepts cooked images and raw
-2352-byte BINs, locates paths and reads file ranges. The local NTSC-U image was
-identified as `SCUS_971.98`, with `IOPRP243.IMG` and the boot modules in its
-ISO file table. The IOP bootstrap constructor is replaced by a native hook
-that marks CD state ready only when an ISO is loaded. Host replacements also
-cover file-open/poll/close with ISO path lookup and preserve interrupt state
-for critical sections. The interrupt controller stores installed handlers and
-enable state and exposes a host event raise hook, but the renderer does not
-raise device events yet. The native DMA helper performs validated EE RAM copies
-synchronously; hardware transfers still need host device services. The
-data-cache range helper maps to a host memory fence, and serial diagnostic
-output is discarded. The 1,095-function boot frontier now has 14 functions
-without C. Sector reads are not routed to Sly's later data requests yet.
-Fifteen source files remain unreadable and the C++ adapter can lose
-constructs; remaining disc services, most kernel calls, the renderer and frame
-loop still block gameplay. Continue
-with the loader and boot call graph, preserving C++ semantics and grounding
-each host service in Sly retail evidence.
+place. With local retail-backed assembly available, the latest run translated
+1,532 functions from C and 3,147 from assembly; all 81 generated C units
+compile. `port_native` reads a user's extracted boot ELF and optional ISO,
+maps the ELF segments, and calls the translated entry. The launcher accepts
+Sly's `SetupThread` stack range, registers five constructor-table interior
+callbacks, and runs guest worker threads on host threads with separate guest
+stacks. A native ISO 9660 reader accepts cooked images and raw 2352-byte BINs,
+locates paths, and reads file ranges. The IOP bootstrap constructor has a
+native CD-ready hook, and file open/poll/close use ISO lookup. The native DMA
+helper performs validated EE RAM copies synchronously; interrupt handlers,
+semaphores and CP0 timer reads have basic host implementations. SIF SetReg and
+GetReg (syscalls 0x79 and 0x7A) use a host-side register map. The SIF RPC bind
+loop is bypassed for native startup. In the latest bounded run, main startup
+polls SIF register 0x7A and worker thread 5 waits on a semaphore for SIF command
+traffic. SIF DMA (0x76–0x78), IOP RPC command dispatch, renderer, frame loop,
+input, audio, saves and remaining disc/device services still block gameplay.
+The source bridge also has unreadable source files and C++ constructs that need
+preserving; continue along the loader and boot call graph, grounding host
+behavior in retail code or public hardware documentation.
 
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in
