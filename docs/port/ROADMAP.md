@@ -41,9 +41,11 @@ cover file-open/poll/close with ISO path lookup and preserve interrupt state
 for critical sections. The interrupt controller stores installed handlers and
 enable state and exposes a host event raise hook, but the renderer does not
 raise device events yet. The native DMA helper performs validated EE RAM copies
-synchronously; hardware transfers still need host device services. Sector reads
-are not routed to Sly's later data requests yet. The
-analyzed boot call graph still reaches functions without hostable C. Fifteen source files remain unreadable and the C++ adapter can lose
+synchronously; hardware transfers still need host device services. The
+data-cache range helper maps to a host memory fence, and serial diagnostic
+output is discarded. The 1,095-function boot frontier now has 14 functions
+without C. Sector reads are not routed to Sly's later data requests yet.
+Fifteen source files remain unreadable and the C++ adapter can lose
 constructs; remaining disc services, most kernel calls, the renderer and frame
 loop still block gameplay. Continue
 with the loader and boot call graph, preserving C++ semantics and grounding

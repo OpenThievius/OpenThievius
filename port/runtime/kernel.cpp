@@ -55,6 +55,19 @@ extern "C" uint32_t openrac_guest_cp0_status(void) {
     return g_cpu_interrupts_enabled.load(std::memory_order_relaxed) ? 0x10000u : 0u;
 }
 
+extern "C" void openrac_lib_sly1_cache_sync(uint32_t start, uint32_t end) {
+    (void)start;
+    (void)end;
+    // Guest and host share coherent memory; preserve the EE sync ordering only.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+}
+
+extern "C" int openrac_lib_sly1_console_printf(uint32_t guest_format) {
+    (void)guest_format;
+    // The EE serial diagnostic stream is not part of the game's native interface.
+    return 0;
+}
+
 extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
     uint32_t handler = 0;
     {

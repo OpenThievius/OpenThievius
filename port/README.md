@@ -56,6 +56,10 @@ interior entries used by that path. EE interrupt disable/enable helpers
 preserve nested critical-section state and return the prior enable bit. The
 retail DMA span helper copies validated guest RAM spans immediately and reports
 them complete. Transfers to non-RAM devices still need native device services.
+The data-cache range helper is replaced with a host memory fence, and the EE
+serial diagnostic print is discarded on the host. The translated boot frontier
+now has 14 functions without C, down from 16; formatted buffer output and the
+remaining device services still need work.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
