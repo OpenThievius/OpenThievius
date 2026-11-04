@@ -75,6 +75,10 @@ parser's header. Retail's parser begins by consuming three one-byte fields;
 the third controls an array of `0x90`-byte records. The relationship between
 the stream's resource data and this parser's input still needs to be recovered.
 
-On the supplied NTSC-U disc the corrected decoder expands 150,849 compressed
-bytes to 351,548 bytes. The decoded format and the index entry that selected it
-remain unknown, so the port cannot catalog or load a level from it yet.
+On the supplied NTSC-U disc the extractor currently produces 351,548 bytes
+from the 150,849-byte compressed span. A native capture of the parser's 2,680-
+byte reader window contains an exact 1,274-byte run from that output, but byte
+alignment drifts elsewhere in the window. The total decoded size and exact
+agreement with retail output therefore remain unverified. The resource format
+and index entry are also unknown, so the port cannot catalog or load a level
+from it yet.
