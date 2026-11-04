@@ -9,7 +9,7 @@ combined with this project under GPL/AGPL version 3 compatibility.
 | Repository or directory | License |
 |---|---|
 | OpenThievius-authored files | AGPL-3.0-or-later |
-| `port/tools/hostgen/`, `tools/openrac_common/` | GPL-3.0-or-later; OpenRAC-authored, credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| `port/tools/hostgen/`, `tools/openrac_common/`, `port/common/`, `port/runtime/` | GPL-3.0-or-later; OpenRAC-authored, credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | [sly1-decomp](https://github.com/OpenThievius/sly1-decomp) | AGPL-3.0-or-later; its [LEGAL.md](https://github.com/OpenThievius/sly1-decomp/blob/master/LEGAL.md) says what that covers there |
 
 OpenThievius-authored source files start with

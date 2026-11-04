@@ -8,8 +8,8 @@ untracked ones that are not ignored), and needs no disc and no compiler.
 
 1. tools/proprietary.py: no binaries, disc images, game data, toolchains,
    Sony SDK headers or banners, or dumps of retail data.
-2. Project source uses AGPL; the credited OpenRAC hostgen component keeps
-   its upstream GPL-3.0-or-later notices.
+2. Project source uses AGPL; credited OpenRAC components keep their upstream
+   GPL-3.0-or-later notices.
 3. LICENSE is the GNU Affero General Public License.
 4. The README tables are current (tools/openthievius.py tables --check).
 """
@@ -33,7 +33,8 @@ def main():
         path = ROOT / rel
         if path.is_file() and path.suffix in NEEDS_SPDX:
             header = path.read_text(errors="replace")[:400]
-            expected = OPENRAC_SPDX if rel.startswith(("port/tools/hostgen/", "tools/openrac_common/")) else SPDX
+            expected = OPENRAC_SPDX if rel.startswith(("port/tools/hostgen/", "tools/openrac_common/",
+                                                       "port/common/", "port/runtime/")) else SPDX
             if expected not in header:
                 errors.append("%s: no '%s' line at the top" % (rel, expected))
     if "GNU AFFERO GENERAL PUBLIC LICENSE" not in (ROOT / "LICENSE").read_text()[:200]:

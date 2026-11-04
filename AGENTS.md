@@ -41,8 +41,9 @@ own AGENTS.md.
   (run by `tests/check_repository.py` and CI) checks this; never weaken it to get a file in.
 - **Licence.** OpenThievius-authored work is AGPL-3.0-or-later. New source
   files start with `SPDX-License-Identifier: AGPL-3.0-or-later`. Credited
-  OpenRAC files retain their upstream license; currently imported hostgen
-  files are GPL-3.0-or-later (LICENSE.md, THIRD_PARTY_NOTICES.md).
+  OpenRAC files retain their upstream license; currently imported hostgen,
+  common and runtime files are GPL-3.0-or-later (LICENSE.md,
+  THIRD_PARTY_NOTICES.md).
 - **Generated tables** are regenerated with `tools/openthievius.py tables`, never edited by hand.
 - **Shared files** (`shared/files.json`) change in every copy at once.
 - **English** everywhere. **Never delete what you did not create.**

@@ -29,10 +29,11 @@ checks, documentation, policies, research on the PS2 toolchain, the port's
 design and code) may be used here, openly credited: in the commit that brings
 it, and in the repository's `THIRD_PARTY_NOTICES.md`.
 
-- OpenRAC files keep their own SPDX license. In particular, the imported
-  hostgen and shared Python helpers are marked GPL-3.0-or-later upstream;
-  they are not relabeled. GPL-3.0-or-later code may be combined with this
-  AGPL-3.0-or-later project under section 13 of the GPL and AGPL.
+- OpenRAC files keep their own SPDX license. The imported hostgen, shared
+  Python helpers, common utilities and generic runtime are marked
+  GPL-3.0-or-later upstream; they are not relabeled. GPL-3.0-or-later code
+  may be combined with this AGPL-3.0-or-later project under section 13 of
+  the GPL and AGPL.
 - Other OpenRAC files retain the license stated in their own notices.
 - It does not cover what OpenRAC itself took from other projects (its
   `THIRD_PARTY_NOTICES.md` lists that), nor any Ratchet & Clank game code.

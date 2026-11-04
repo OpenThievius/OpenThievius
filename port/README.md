@@ -21,6 +21,17 @@ generated files stay under `build/port/`. The current translation is
 experimental and does not produce a playable game. It needs full C++ source
 handling, a port runtime, and a host implementation of the boot/system calls.
 
+The reused guest runtime builds as `sly1_port_runtime`. To compile all generated
+game units into local object files, run:
+
+```sh
+cmake -S port -B build/port -DOPENTHIEVIUS_SOURCE_SLY1=/path/to/sly1-decomp
+cmake --build build/port --target port_compile_generated
+```
+
+This confirms that generated code and the guest runtime compile; it does not
+link or run the game.
+
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 
 1. Host-build scaffolding that reads `sly1-decomp` without modifying it and

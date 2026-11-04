@@ -8,8 +8,9 @@ the compiler is proprietary and never part of it ([toolchains/README.md](toolcha
 ## From OpenRAC
 
 OpenRAC code is included only where its own notices permit it, with its
-original SPDX license retained. The hostgen component and shared Python
-helpers below are GPL-3.0-or-later; section 13 permits combining them with
+original SPDX license retained. The hostgen component, shared Python
+helpers, common utilities and generic runtime below are GPL-3.0-or-later;
+section 13 permits combining them with
 this AGPL-3.0-or-later project. These files were imported from OpenRAC
 checkout commit `ae2fed40a9f4caa2e252db09b8507dc262689905`.
 
@@ -21,5 +22,6 @@ checkout commit `ae2fed40a9f4caa2e252db09b8507dc262689905`.
 | `LICENSE.md` | `LICENSE.md` | one license, the AGPL-3.0-or-later |
 | `tools/openthievius.py` | `tools/openrac.py` (`discs`, `setup`, `tables`) | written anew for game.json's shape here, with `check` |
 | `port/tools/hostgen/`, `tools/openrac_common/` | `port/tools/hostgen/`, `tools/openrac_common/` | imported for Sly host generation; upstream GPL notices retained |
+| `port/common/`, `port/runtime/` | `port/common/`, `port/runtime/` | imported as the generic native runtime foundation; RAC-specific expanded memory constants removed from the guest header |
 | `baserom/README.md`, `toolchains/README.md`, `.gitignore` | the same files | this project's discs, compiler and paths |
 | `.github/workflows/checks.yml` | rac3-decomp's `checks.yml` | this repository's checks |

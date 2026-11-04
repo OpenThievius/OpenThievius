@@ -30,6 +30,7 @@
     "dirs": [
       "asm/us"
     ],
-    "gp": "0x002832F0"
+    "gp": "0x002832F0",
+    "forward_unprototyped": true
   }
 }
