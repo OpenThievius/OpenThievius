@@ -34,15 +34,17 @@ to render and play a level.
 
 ## First native raw-sector read
 
-With `OPENRAC_TRACE_CD=1`, a 15-second native startup run against the US ELF
-and disc read logical sectors 820372–820445 (74 sectors) into guest address
-`0x002c3b00`. The read is outside the ISO filesystem and contains no sector-
-aligned `VAGp` header or common zlib, gzip, bzip2 or xz stream at its start.
-This confirms that the retail startup path reaches raw media, but does not yet
-identify the resource, its index entry, or its encoding. The runtime could not
-report a guest caller address for this request, so the next useful step is to
-trace the resource descriptor that supplies its sector and byte range.
+With `OPENRAC_TRACE_CD=1` and `OPENRAC_STARTUP_TRACE=1`, a native startup run
+against the US ELF and disc read logical sectors 820372–820445 (74 sectors)
+into guest address `0x002c3b00`. The last traced retail function was
+`func_00137490`, the stream worker. Its guest object has the source sector at
+offset `0x48` (`820372`) and byte length at offset `0x40` (`0x24d41`, or
+150,849 bytes); the sector count is the rounded-up length. The read is outside
+the ISO filesystem and contains no sector-aligned `VAGp` header or common
+zlib, gzip, bzip2 or xz stream at its start. This identifies the stream
+descriptor fields, but not the resource name, the index entry that populated
+them, or the data encoding.
 
-To capture this read on a local build, set `OPENRAC_TRACE_CD=1` when launching
-`sly1_native` with your own extracted ELF and disc image. This runs the native
-launcher; it does not use an emulator.
+To capture the read and its caller on a local build, set both variables when
+launching `sly1_native` with your own extracted ELF and disc image. This runs
+the native launcher; it does not use an emulator.
