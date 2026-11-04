@@ -103,6 +103,19 @@ def prepare_c_view(source, version):
             tags = sorted(set(re.findall(r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*\)\)\s*)?([A-Za-z_]\w*)\s*\{", text)))
             prelude = "#define bool _Bool\n" + "".join("typedef {0} {1} {1};\n".format(kind, tag) for kind, tag in tags)
             (out_dir / (cpp.stem + ".c")).write_text(prelude + text, encoding="utf-8")
+
+    # Port-owned functional replacements stay outside sly1-decomp. Hostgen
+    # treats them as ordinary C units so matching source can replace them by
+    # removing the corresponding backfill file.
+    backfills = ROOT / "port" / "game" / "sly1-us" / "hand" / "native_c"
+    if backfills.is_dir():
+        out_dir = staged / "src" / "native_backfills"
+        out_dir.mkdir()
+        for source_file in sorted(backfills.rglob("*")):
+            if source_file.is_file() and source_file.suffix in (".c", ".h"):
+                target = out_dir / source_file.relative_to(backfills)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_file, target)
     return staged
 
 
