@@ -18,3 +18,5 @@ func_001F0220	native_c/loader_messages.c
 func_00137290	native_c/stream_reader.c
 func_00137328	native_c/stream_reader.c
 func_001373B0	native_c/stream_reader.c
+func_0018D800	native_c/func_0018D800.c
+func_00137A60	native_c/func_00137A60.c
