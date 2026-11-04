@@ -27,15 +27,14 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. This
 generates host C from matched Sly sources plus port-only backfills. It does not
-translate retail MIPS assembly. On the current source snapshot, 68
-decompilation units and three port-owned backfills produce 1,486 host
-functions; 3,282 catalogued
-functions still have no matching C. All 76 generated C units compile and link
-into the native launcher. Its port-owned boot backfill sets up host guest
-memory and calls the backfilled frame loop, but many functions on that loop
-still lack matching C and are no-ops. The launcher reaches that loop without
-displaying a title or gameplay. Backfills are kept under
-`game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
+translate retail MIPS assembly. In the current build, 68 decompilation units
+and five port-owned backfills produce about 1,500 host functions; roughly
+3,270 catalogued functions still have no matching C. The SDL native launcher
+builds and opens a window, reaches Sly's display loop, and submits GIF work,
+but the renderer sees no visible vertices and the window remains black. The
+separate freestanding host32 launcher is a startup diagnostic and does not
+open a window. Backfills are kept under `game/sly1-us/hand/native_c/`, outside
+`sly1-decomp`.
 
 `python3 port/tools/sly1.py hostgen --asm on` writes a separate
 `build/port/hostgen/us-asm-research/` tree. That mode translates retail MIPS
