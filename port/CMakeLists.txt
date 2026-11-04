@@ -21,6 +21,12 @@ add_custom_target(port_status
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
     COMMENT "Inspecting the configured Sly 1 decompilation")
 
+# Standalone native prototype for the Sly catalog and compressed resources.
+# It deliberately does not depend on the experimental guest execution runtime.
+add_executable(sly1_resource_inspect
+    sly1/resource_inspect.cpp
+    sly1/resource_loader.cpp)
+
 add_custom_target(port_hostgen
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py hostgen
             --source ${OPENTHIEVIUS_SOURCE_SLY1}

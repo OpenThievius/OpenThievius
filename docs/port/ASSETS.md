@@ -173,3 +173,26 @@ catalog extraction run successfully decoded all 46 NTSC-U ranges, producing
 the streams are accepted by the observed decoder, but not that the full outputs
 match a retail capture. The level/model formats and how the resources compose
 into a scene are still unknown, so the port cannot yet load a level.
+
+## Native C++ resource-loading prototype
+
+`port/sly1/resource_loader.cpp` is a standalone host-native C++ implementation
+of the independently established NTSC-U catalog and raw-disc LZ path. It reads
+catalog records from the user's ELF, reads corresponding raw logical sectors
+from a cooked ISO or raw BIN image, and applies the retail 8 KiB dictionary
+decoder. It is separate from the experimental guest execution runtime and does
+not interpret the decoded resource as a level.
+
+Build and inspect catalog key `0x0100` (“A Stealthy Approach”) with:
+
+```sh
+cmake -S port -B build/port/native-resource
+cmake --build build/port/native-resource --target sly1_resource_inspect
+build/port/native-resource/sly1_resource_inspect \
+  /path/to/SCUS_971.98 /path/to/Sly1.iso 0100 /tmp/level-resource.bin
+```
+
+The prototype's output for key `0x0100` was compared byte-for-byte with the
+existing Python extractor output (7,352,657 decoded bytes, identical SHA-256).
+That verifies catalog lookup, disc reads and decompression for this resource;
+the decoded scene/container format and renderer inputs remain to be identified.
