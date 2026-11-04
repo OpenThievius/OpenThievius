@@ -19,10 +19,10 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-sixteen separate port-native backfill translation units, then combines them by
+nineteen separate port-native backfill translation units, then combines them by
 retail address.
-The current combined object contains 2,340 native function entries out of
-4,766 catalogued addresses and still has 606 unresolved function addresses.
+The current combined object contains 2,343 native function entries out of
+4,766 catalogued addresses and still has 605 unresolved function addresses.
 Recent catalog backfills implement the resource-key lookup used by compiled C
 and a catalog flag counter whose caller remains assembly-only. This is an
 object build only: there is no linked native game executable or native service
@@ -63,6 +63,13 @@ code. All 18 table entries currently have native definitions, including
 port-only wrappers and two Sly configuration initializers. This establishes
 constructor coverage for that table; the host32 objects still do not link into
 a launcher.
+
+The host32 backfill for `func_00185B38` reproduces the frame callback setup
+already present in the separate hostgen backfill and invokes callback targets
+through the native address map. The current NTSC-U callback table has 29
+entries; 23 have native targets and six are skipped until their code is
+available. `func_001430C8` now has a host32 snapshot replacement that stores
+the full monotonic 64-bit count into Sly's extended timer globals.
 
 The native frame path supplies `func_001430F8`, the Sly Count read, with a
 Linux host monotonic clock scaled to 294.912 MHz, and `func_001FB6B0`, the
