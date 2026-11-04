@@ -13,6 +13,7 @@ import struct
 import sys
 from pathlib import Path
 
+from extract_sly1_lz import decode
 from extract_sly1_vag import Disc
 
 TABLE_ADDRESS = 0x00247AF0
@@ -101,17 +102,21 @@ def catalog_entries(elf_path, disc):
     return entries
 
 
-def extract(elf_path, disc_path, output_dir):
+def extract(elf_path, disc_path, output_dir, decode_lz=False):
     disc = None
     try:
         disc = Disc(disc_path)
         entries = catalog_entries(elf_path, disc)
         output_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = output_dir / "catalog.tsv"
+        decoded_dir = output_dir / "decoded"
+        if decode_lz:
+            decoded_dir.mkdir(parents=True, exist_ok=True)
         with manifest_path.open("w", newline="", encoding="utf-8") as manifest_file:
             writer = csv.DictWriter(
                 manifest_file,
-                fieldnames=("key", "label", "sector", "byte_count", "sector_count", "flags", "file"),
+                fieldnames=("key", "label", "sector", "byte_count", "sector_count", "flags", "file")
+                + (("decoded_bytes",) if decode_lz else ()),
                 delimiter="\t",
             )
             writer.writeheader()
@@ -119,9 +124,16 @@ def extract(elf_path, disc_path, output_dir):
                 filename = "resource_%04x.bin" % entry["key"]
                 payload = disc.read_logical(entry["sector"], 0, entry["byte_count"])
                 (output_dir / filename).write_bytes(payload)
-                writer.writerow({**entry, "file": filename})
-                print("resource 0x%04x: %d bytes" % (
-                    entry["key"], entry["byte_count"]
+                row = {**entry, "file": filename}
+                if decode_lz:
+                    decoded = decode(payload)
+                    decoded_filename = "resource_%04x.decoded.bin" % entry["key"]
+                    (decoded_dir / decoded_filename).write_bytes(decoded)
+                    row["decoded_bytes"] = len(decoded)
+                writer.writerow(row)
+                print("resource 0x%04x: %d bytes%s" % (
+                    entry["key"], entry["byte_count"],
+                    (", %d decoded" % len(decoded)) if decode_lz else ""
                 ))
 
         print("extracted %d catalog resources" % len(entries))
@@ -141,12 +153,14 @@ def main(argv=None):
     parser.add_argument("elf", help="user-owned NTSC-U Sly 1 boot ELF")
     parser.add_argument("disc", help="matching user-owned cooked ISO or raw 2352-byte BIN")
     parser.add_argument("--output", help="output directory (default: ignored build catalog folder)")
+    parser.add_argument("--decode-lz", action="store_true",
+                        help="also decode each catalog range with the retail LZ routine")
     args = parser.parse_args(argv)
 
     root = Path(__file__).resolve().parents[2]
     output_dir = (Path(args.output).expanduser().resolve() if args.output else
                   root / "build/port/extracted/catalog")
-    return extract(args.elf, args.disc, output_dir)
+    return extract(args.elf, args.disc, output_dir, args.decode_lz)
 
 
 if __name__ == "__main__":

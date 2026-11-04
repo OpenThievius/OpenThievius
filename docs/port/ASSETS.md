@@ -23,9 +23,12 @@ python3 port/tools/extract_sly1_catalog.py \
 
 The default output is `build/port/extracted/catalog/`. Each raw resource file
 uses its numeric key as its filename; the manifest carries the label, sector,
-byte count, rounded sector count, and flags. This recovers the catalog and raw
-resource spans, not the decoded level/model structures or a playable scene.
-The current table address is specific to NTSC-U; PAL has not been validated.
+byte count, rounded sector count, and flags. Add `--decode-lz` to also run each
+range through the retail 8 KiB LZ decoder; decoded files go under the
+`decoded/` subdirectory and the manifest gains their decoded sizes. This
+recovers the catalog and decoded resource streams, not yet their level/model
+structures or a playable scene. The current table address is specific to
+NTSC-U; PAL has not been validated.
 
 ## Recover standalone audio samples
 
@@ -164,6 +167,9 @@ On the supplied NTSC-U disc the LZ decoder produces 430,858 bytes from this
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
 byte reader window also matches exactly at decoded offset 5,512. This validates
 token byte order, dictionary behavior and the observed output window; it does
-not yet verify the entire decoded file against retail output. The catalog is
-now extractable, but the level/model formats and how the resources compose into
-a scene are still unknown, so the port cannot yet load a level.
+not yet verify the entire decoded file against retail output. The integrated
+catalog extraction run successfully decoded all 46 NTSC-U ranges, producing
+285,281,013 bytes total (430,858–8,669,578 bytes per resource). That confirms
+the streams are accepted by the observed decoder, but not that the full outputs
+match a retail capture. The level/model formats and how the resources compose
+into a scene are still unknown, so the port cannot yet load a level.
