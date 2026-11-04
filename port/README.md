@@ -76,6 +76,8 @@ RAM configuration; TLB writes are ignored because the runtime maps guest RAM
 directly. Guest worker threads run on host threads, and semaphores block and
 signal across them. OSD configuration currently defaults to English.
 Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
+The missing retail timer snapshot at `func_001430C8` is replaced in the port
+runtime and updates Sly's extended timer globals using two host clock samples.
 One startup VU busy poll reports idle because the host has no VU execution unit.
 The interrupt controller stores installed handlers and enable state; the
 renderer can raise those events through a host API, but no renderer events are

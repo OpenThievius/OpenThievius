@@ -32,6 +32,10 @@ stores, validates source-chain spans, updates the DMAC completion registers,
 and queues the GIF payload stream for a native renderer. The FIFO is currently
 headless: queued packets are not rasterized or displayed.
 
+`sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
+It takes two host Count samples and updates the matching extended-counter
+globals in guest RAM; `kernel.cpp` supplies the monotonic 294.912 MHz Count.
+
 ### The C entry point to the environment variables
 
 `host_env.h` is how C reads an `OPENRAC_*` variable: C cannot include `common/env.h`, and the port

@@ -18,4 +18,5 @@ func_001F6C90	kernel	sly1_dma_status	host	Complete native DMA submissions synchr
 func_001F6CA0	kernel	sly1_dma_submit	host	Copy EE RAM spans and complete them synchronously	int(int,int)
 func_00201988	graphics	sly1_graphics_wait	host	Provisional native graphics and DMA completion boundary	void(int,int)
 func_00204E20	kernel	sly1_cache_sync	host	Keep the host memory fence where Sly flushes the EE data cache	void(unsigned int,unsigned int)
+func_001430C8	kernel	sly1_timer_snapshot	host	Sample the host EE count and update Sly's extended timer state	void(void)
 func_001E1F10	kernel	sly1_console_printf	host	Discard guest serial diagnostic output on the host	int(unsigned int)
