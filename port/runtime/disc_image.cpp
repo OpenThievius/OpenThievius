@@ -299,6 +299,23 @@ extern "C" int openrac_lib_sly1_iop_initialize(int mode) {
     return g_disc.sectors() != 0 ? 1 : 0;
 }
 
+extern "C" int openrac_lib_sly1_iop_services_start(int mode) {
+    (void)mode;
+    // The guest implementation waits for IOP-side SIF RPC bind replies. Native
+    // file and DMA services replace those endpoints, so mark this service group
+    // initialized without starting a guest RPC poller.
+    constexpr uint32_t kIopServicesReady = 0x0027AE80u;
+    const uint32_t address = openrac_guest_ram_address(kIopServicesReady);
+    if (openrac_guest_base == nullptr || address > openrac_guest_ram_size ||
+        openrac_guest_ram_size - address < sizeof(uint32_t)) {
+        openrac_guest_missing("native IOP service state is outside guest RAM");
+        return 0;
+    }
+    const uint32_t ready = 1;
+    std::memcpy(openrac_guest_base + address, &ready, sizeof(ready));
+    return 1;
+}
+
 extern "C" int openrac_lib_sly1_cd_status(void) {
     // Sly's func_00140968 accepts status 0x14 as the ready state.
     return g_disc.sectors() != 0 ? 0x14 : 0;
