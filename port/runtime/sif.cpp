@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-#include "openrac/sif.h"
+#include "openrac/native_sif.h"
 
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
