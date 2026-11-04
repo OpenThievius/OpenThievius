@@ -317,17 +317,17 @@ initialization, resource-loading and platform dependencies are unresolved.
 Implement those specific boundaries next; do not generate generic no-op
 definitions for the full unresolved frontier.
 
-The current host32 combine artifact records 1,345 function-reference aliases,
-379 retail data aliases, 2,349 native function addresses, and 601 unresolved
-function addresses across 68 decompilation units and 25 port-native backfill
+The current host32 combine artifact records 1,350 function-reference aliases,
+379 retail data aliases, 2,351 native function addresses, and 599 unresolved
+function addresses across 68 decompilation units and 27 port-native backfill
 objects. The direct frame-call frontier remains 57 of 89 functions defined;
 the report does not follow indirect renderer callbacks. New backfills for
-`func_00185D20` and `func_001860A8` prepare Sly's draw entries and dispatch
-their object callbacks. Their transform walk still reaches missing
-`func_001278A8`, and no renderer consumes these entries yet. These are
-port-only implementations, not matching decompilation. The unresolved count
-is a whole-program static frontier, not a count of functions needed by the
-boot path. Rebuild it with
+`func_00185D20`, `func_001860A8`, `func_001278A8` and `func_001280C0` prepare
+Sly's draw entries, transform their basis data and dispatch object callbacks.
+No native renderer consumes these entries yet. These are port-only
+implementations, not matching decompilation. The unresolved count is a
+whole-program static frontier, not a count of functions needed by the boot
+path. Rebuild it with
 `cmake --build build/port --target port_combine_decomp_host32`; its report is
 kept in the ignored `build/port/host32/link/link-frontier.json`.
 

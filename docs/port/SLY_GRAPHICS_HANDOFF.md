@@ -42,18 +42,16 @@ is produced by title-specific draw code and VU programs.
 
 ## Current blocker
 
-The host32 native path now has port-only implementations of `func_00185D20`
-and `func_001860A8`. They prepare Sly's 0x100-byte draw entries, apply the
-available native affine transform, and dispatch the entry's object callbacks.
-These backfills live under `port/game/sly1-us/native/`, separate from matching
-decompilation. They do not execute VU instructions or feed the experimental
-GIF device model.
+The host32 native path now has port-only implementations of `func_00185D20`,
+`func_001860A8`, `func_001278A8` and `func_001280C0`. They prepare Sly's
+0x100-byte draw entries, calculate position/basis data with scalar host math,
+and dispatch the entry's object callbacks. These backfills live under
+`port/game/sly1-us/native/`, separate from matching decompilation. They do not
+execute VU instructions or feed the experimental GIF device model.
 
-The next missing helper on this object-draw route is `func_001278A8`, which
-walks object transforms and computes the draw entry's basis data. The object
-callbacks then need a native adapter that exposes Sly draw data to a renderer.
-Neither the OpenRAC `DirectRenderer` nor a Sly renderer is wired to these
-entries yet, so the launcher still has no visible scene. Keep the direct
-renderer as the preferred reusable 2D/GIF layer after the Sly callback path
-can provide compatible packets; the world geometry still needs a Sly-specific
-adapter.
+The callback methods at vtable offsets `0xFC`, `0x100` and `0x104` still need
+native render adapters that expose Sly draw data. Neither the OpenRAC
+`DirectRenderer` nor a Sly world renderer is wired to these entries yet, so
+the launcher still has no visible scene. Reuse the direct renderer for Sly's
+2D/GIF layer once the native callbacks can provide compatible packets; the
+world geometry still needs a Sly-specific adapter.

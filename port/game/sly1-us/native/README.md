@@ -57,5 +57,6 @@ direct call; the host32 map now resolves it.
 `func_00185D20.cpp` and `func_001860A8.cpp` prepare and dispatch Sly's
 0x100-byte object draw entries without executing VU instructions.
 `func_00185D20` uses the existing native affine transform backfill;
-`func_001278A8` still needs a native implementation, and the callbacks need an
-adapter to the reused OpenRAC renderer or a Sly world-draw path.
+`func_001278A8.cpp` and `func_001280C0.cpp` provide the object transform walk
+and relative-vector math with host scalar operations. The indirect callbacks
+still need an adapter to the reused OpenRAC renderer or a Sly world-draw path.
