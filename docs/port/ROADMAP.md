@@ -18,17 +18,18 @@ block the first playable scene.
 
 ## Current no-emulation build status
 
-The normal `port/tools/sly1.py hostgen` path now defaults to `--asm off`.
-Translated retail MIPS output is isolated in the optional
-`us-asm-research` build tree and is not used by the native gameplay targets.
-The C-only host build reads 68 Sly source units and three port-only C
-backfills, translates 1,486 functions, and reports 3,282 catalogued functions
-without matching C. Its 76 generated C units compile and link. A native boot
-backfill now initializes guest memory and calls the port-owned frame loop,
-which runs without assembly translation. A bounded run reaches that loop but
-reports missing functions as no-ops and produces no rendered geometry. It is
-not playable. Build output is under ignored `build/port/`; backfills stay in
-`port/game/sly1-us/hand/native_c/`, outside the matching decompilation.
+The no-emulation host32 path directly compiles all 68 Sly C++ source units and
+five separate port-native backfills, then combines them by retail address.
+The current combined object contains 2,324 native function entries out of
+4,766 catalogued addresses and still has 615 unresolved function addresses.
+Recent catalog backfills implement the resource-key lookup used by compiled C
+and a catalog flag counter whose caller remains assembly-only. This is an
+object build only: there is no linked native game executable or native service
+entry yet. The older C-only hostgen launcher still depends on the experimental
+guest runtime and does not count as the no-emulation gameplay path. The retail
+MIPS output remains isolated in optional `us-asm-research` output. Build
+artifacts live under ignored `build/port/`; port-native backfills stay outside
+the matching decompilation in `port/game/sly1-us/native/`.
 
 The separate direct-C++ path compiles all 68 source units and three port-only
 frame backfills as i386 objects, then combines them with retail-address aliases.
