@@ -145,10 +145,13 @@ The coordinator (`func_001E4EA8`) now has a port-only backfill that decodes
 the range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
 bookkeeping. A partial port-only `func_001DCEA0` backfill compiles and reaches
-the native raw-sector reader. A bounded native run read sector 820372 for 74
-sectors, then faulted at game address `0xFFFFFFC0` while the callback entered
-graphics setup through `func_001B3450` and `func_001692B0`. Parsing did not
-complete and no scene was loaded. Hostgen still emits no-C stubs for several
+the native raw-sector reader. Port-only overrides for `func_0018D608`,
+`func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
+reserved guest-port memory. A bounded native run read sector 820372 for 74
+sectors, avoided the previous invalid allocation fault, and submitted 984
+accepted GIF chains over roughly 12 seconds. Parsing still did not complete:
+the display framebuffer remains unset, no scene is loaded, and hostgen emits
+no-C stubs for several
 reader helpers because it cannot parse all of `00134000.cpp`; the missing C++
 member-function support and a conflicting inferred declaration are documented
 in the build report. The buffered reader is compiled but its complete refill
