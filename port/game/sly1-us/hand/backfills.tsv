@@ -40,5 +40,8 @@ func_001DCEA0	native_c/func_001DCEA0.c
 func_001F6910	native_c/display_mode.c
 func_001F6C70	native_c/display_mode.c
 func_00201A18	native_c/display_mode.c
+func_00201BB8	native_c/display_context.c
+func_00201D60	native_c/display_context.c
+func_00201FF8	native_c/display_context.c
 func_001683B8	native_c/func_001683B8.c
 func_002018E8	native_c/func_002018E8.c

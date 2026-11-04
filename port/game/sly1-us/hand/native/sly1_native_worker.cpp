@@ -2,6 +2,7 @@
 // Port-only implementation of the worker-start callback at retail address 0x0018E5E8.
 #include "openrac/guest.h"
 #include "openrac/disc_image.h"
+#include "openrac/native_gs.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -61,6 +62,11 @@ extern "C" void sly1_native_start_worker(void) {
 extern "C" int game_sly1_native_display_kernel_call(uint32_t service, uint32_t a0,
                                                       uint32_t a1, uint32_t a2) {
     return static_cast<int>(openrac_guest_kernel_syscall(service, a0, a1, a2, 0, 0, 0, 0, 0));
+}
+
+extern "C" int game_sly1_native_gs_privileged_store64(uint32_t address,
+                                                        uint64_t value) {
+    return openrac_guest_gs_privileged_store64(address, value);
 }
 
 // Object constructors in retail descriptors are guest code addresses. Route

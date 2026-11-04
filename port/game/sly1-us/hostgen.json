@@ -8,6 +8,7 @@
     "openrac_native_renderer_submit_dma_chain",
     "openrac_guest_ee_mmio_store32",
     "sly1_native_display_kernel_call",
+    "sly1_native_gs_privileged_store64",
     "openrac_guest_vif1_fifo_write",
     "sly1_native_call_constructor",
     "sly1_native_call_method",

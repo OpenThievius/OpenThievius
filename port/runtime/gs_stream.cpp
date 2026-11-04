@@ -7,6 +7,8 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <vector>
@@ -346,5 +348,18 @@ extern "C" int openrac_guest_gs_read_privileged_register(uint32_t offset,
     if (openrac_guest_base == nullptr || value == nullptr || offset > GUEST_GS_REGS_SIZE - 8u)
         return 0;
     std::memcpy(value, openrac_guest_base + GUEST_GS_REGS + offset, sizeof(*value));
+    return 1;
+}
+
+extern "C" int openrac_guest_gs_privileged_store64(uint32_t address,
+                                                       uint64_t value) {
+    if (openrac_guest_base == nullptr || address < GUEST_GS_REGS ||
+        address - GUEST_GS_REGS > GUEST_GS_REGS_SIZE - sizeof(value) ||
+        (address & 7u) != 0) return 0;
+    std::memcpy(openrac_guest_base + address, &value, sizeof(value));
+    if (std::getenv("OPENRAC_TRACE_GS_PRIV") != nullptr) {
+        std::fprintf(stderr, "[trace] native GS privileged write address=%#010x value=%#018llx\n",
+                     address, static_cast<unsigned long long>(value));
+    }
     return 1;
 }
