@@ -162,6 +162,16 @@ with its owner. This identifies the parsed instance as a managed game-object
 class; the retail data and matching C do not yet give that class a meaningful
 name or tie this resource to a specific level.
 
+Static disassembly of retail `func_00162890` (4,264 bytes; still not matched
+to C) confirms that it is a nested object-data parser, not a top-level level
+header. It reads small scalar fields through `func_00137B90`, allocates arrays
+using counts from the stream, copies fixed-size blocks, and handles flags that
+select additional per-object fields. These observations support the live trace
+but do not yet define a safe standalone record schema; the callers and stream
+position still determine the meaning of those fields. No decoder for this
+function's records should be treated as a level loader until the caller chain
+and containing resource are established.
+
 On the supplied NTSC-U disc the LZ decoder produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
@@ -192,7 +202,9 @@ build/port/native-resource/sly1_resource_inspect \
   /path/to/SCUS_971.98 /path/to/Sly1.iso 0100 /tmp/level-resource.bin
 ```
 
-The prototype's output for key `0x0100` was compared byte-for-byte with the
-existing Python extractor output (7,352,657 decoded bytes, identical SHA-256).
-That verifies catalog lookup, disc reads and decompression for this resource;
-the decoded scene/container format and renderer inputs remain to be identified.
+All 46 catalog outputs from the C++ prototype were compared byte-for-byte with
+the existing Python extractor output. Key `0x0100` (“A Stealthy Approach”)
+decodes to 7,352,657 bytes, with identical SHA-256 in both implementations.
+This verifies catalog lookup, exact-length disc reads and decompression across
+the NTSC-U catalog; the decoded scene/container format and renderer inputs
+remain to be identified.

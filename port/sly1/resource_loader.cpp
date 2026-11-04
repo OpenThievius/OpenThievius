@@ -55,14 +55,13 @@ public:
     }
 
     std::uint64_t sectors() const { return sectors_; }
-    std::vector<std::uint8_t> read(std::uint32_t sector, std::uint32_t count) {
-        if (std::uint64_t(sector) + count > sectors_) throw std::runtime_error("catalog range extends beyond disc image");
-        const std::uint64_t bytes = std::uint64_t(count) * kSectorSize;
-        if (bytes > std::numeric_limits<std::size_t>::max()) throw std::runtime_error("disc read is too large");
-        std::vector<std::uint8_t> out(static_cast<std::size_t>(bytes));
+    std::vector<std::uint8_t> read(std::uint32_t sector, std::uint32_t offset, std::uint32_t byte_count) {
+        if (offset >= kSectorSize || std::uint64_t(sector) * kSectorSize + offset + byte_count > sectors_ * kSectorSize)
+            throw std::runtime_error("catalog range extends beyond disc image");
+        std::vector<std::uint8_t> out(byte_count);
         std::size_t done = 0;
         while (done < out.size()) {
-            const auto logical = std::uint64_t(sector) * kSectorSize + done;
+            const auto logical = std::uint64_t(sector) * kSectorSize + offset + done;
             const auto lba = logical / kSectorSize;
             const auto within = logical % kSectorSize;
             const auto amount = std::min<std::size_t>(out.size() - done, kSectorSize - within);
@@ -155,10 +154,7 @@ std::vector<std::uint8_t> load_resource(const std::filesystem::path& disc_path,
                                         const CatalogResource& resource,
                                         std::size_t max_decoded_bytes) {
     Disc disc(disc_path);
-    const auto sectors = (std::uint64_t(resource.compressed_bytes) + kSectorSize - 1) / kSectorSize;
-    if (sectors > std::numeric_limits<std::uint32_t>::max()) throw std::runtime_error("catalog resource is too large");
-    auto compressed = disc.read(resource.sector, static_cast<std::uint32_t>(sectors));
-    compressed.resize(resource.compressed_bytes);
+    auto compressed = disc.read(resource.sector, 0, resource.compressed_bytes);
 
     std::array<std::uint8_t, 0x2000> dictionary{};
     std::vector<std::uint8_t> output;
