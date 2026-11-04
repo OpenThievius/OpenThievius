@@ -134,12 +134,14 @@ int main(int argc, char** argv) {
                 uint64_t tex0_1 = 0;
                 uint64_t tex1_1 = 0;
                 uint64_t tex0_2 = 0;
+                uint64_t xyoffset = 0;
                 uint64_t prim = 0;
                 uint64_t uv = 0;
                 openrac_guest_gs_read_register(0x4Cu, &framebuffer);
                 openrac_guest_gs_read_register(0x40u, &scissor);
                 openrac_guest_gs_read_register(0x06u, &tex0_1);
                 openrac_guest_gs_read_register(0x07u, &tex0_2);
+                openrac_guest_gs_read_register(0x18u, &xyoffset);
                 openrac_guest_gs_read_register(0x14u, &tex1_1);
                 openrac_guest_gs_read_register(0x00u, &prim);
                 openrac_guest_gs_read_register(0x03u, &uv);
@@ -176,7 +178,8 @@ int main(int argc, char** argv) {
                           << " trxpos=0x" << trxpos << " trxreg=0x" << trxreg
                           << " trxdir=0x" << trxdir << " pmode=0x" << pmode
                           << " tex0_1=0x" << tex0_1 << " tex0_2=0x" << tex0_2
-                          << " tex1_1=0x" << tex1_1 << " prim=0x" << prim
+                          << " tex1_1=0x" << tex1_1 << " xyoffset=0x" << xyoffset
+                          << " prim=0x" << prim
                           << " uv=0x" << uv << " vif1_chcr=0x" << vif1_chcr
                           << " vif1_madr=0x" << vif1_madr << " vif1_qwc=0x" << vif1_qwc
                           << " vif1_tadr=0x" << vif1_tadr
@@ -207,14 +210,22 @@ int main(int argc, char** argv) {
                     float min_y = std::numeric_limits<float>::infinity();
                     float max_x = -std::numeric_limits<float>::infinity();
                     float max_y = -std::numeric_limits<float>::infinity();
+                    size_t visible_vertices = 0;
+                    size_t opaque_vertices = 0;
                     for (size_t i = 0; i < read_count; ++i) {
                         min_x = std::min(min_x, vertices[i].x);
                         min_y = std::min(min_y, vertices[i].y);
                         max_x = std::max(max_x, vertices[i].x);
                         max_y = std::max(max_y, vertices[i].y);
+                        if (vertices[i].x >= 0.0f && vertices[i].x < 640.0f &&
+                            vertices[i].y >= 0.0f && vertices[i].y < 224.0f)
+                            ++visible_vertices;
+                        if ((vertices[i].rgba >> 24u) != 0) ++opaque_vertices;
                     }
                     std::cerr << " vertex_bounds=" << min_x << ',' << min_y << '-'
-                              << max_x << ',' << max_y;
+                              << max_x << ',' << max_y
+                              << " visible_vertices=" << visible_vertices
+                              << " opaque_vertices=" << opaque_vertices;
                 }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::seconds(1));
