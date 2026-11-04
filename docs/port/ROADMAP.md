@@ -343,3 +343,14 @@ The standalone C++ catalog reader reproduces all 46 NTSC-U decoded ranges
 byte-for-byte. Resource `0x0100` is “A Stealthy Approach,” but its scene records
 and renderer inputs are still not identified. Keep the old guest executor
 isolated as research; it is not a gameplay dependency.
+
+The SDL frontend now updates two host-side DualShock snapshots and exposes the
+existing OpenRAC pressure-mode report serializer through a native pad-read
+entry point. This input API is not yet bound to Sly's pad library calls. A
+hostgen Clang include fix also makes the 001B8000 and 001E0000 decompilation
+units readable through an AST-only guest header; the generated host build now
+translates 1,526 functions (27 more than before) and reports 3,210 without C.
+All 83 generated translation units compile and link. A fresh native run still
+has no active scene or level and submits only the four startup GIF packets, so
+the port is not playable. Fifteen source units remain unreadable, and the next
+gameplay work is the scene loader and its native service boundaries.

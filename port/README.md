@@ -27,13 +27,15 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. This
 generates host C from matched Sly sources plus port-only backfills. It does not
-translate retail MIPS assembly. In the current build, 68 decompilation units
-and five port-owned backfills produce about 1,500 host functions; roughly
-3,270 catalogued functions still have no matching C. The SDL native launcher
+translate retail MIPS assembly. The current report translates 1,526 functions
+and lists 3,210 catalogued functions without C; 15 of 68 source units remain
+unreadable to its C frontend. The SDL native launcher
 builds and opens a window, reaches Sly's display loop, and submits GIF work,
 but the renderer sees no visible vertices and the window remains black. The
 separate freestanding host32 launcher is a startup diagnostic and does not
-open a window. Backfills are kept under `game/sly1-us/hand/native_c/`, outside
+open a window. SDL keyboard/gamepad input now updates host-side DualShock
+reports, but the game's pad-library calls are not connected to them yet.
+Backfills are kept under `game/sly1-us/hand/native_c/`, outside
 `sly1-decomp`.
 
 `python3 port/tools/sly1.py hostgen --asm on` writes a separate
@@ -90,8 +92,9 @@ The native memory-card boundary answers the observed extended-server probe
 does not implement card detection or saves. Guest threads continue issuing GIF
 work, but the color-only renderer does not yet draw the game's textures or
 produce a title screen. The native sound boundary completes RPC 77 as idle, so
-the game continues without audio playback. Textured rendering, input, real
-audio, saves, SIF DMA and remaining device services are not implemented.
+the game continues without audio playback. Textured rendering, Sly pad-library
+integration, real audio, saves, SIF DMA and remaining device services are not
+implemented.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,

@@ -1312,7 +1312,10 @@ def main(argv: list[str] | None = None) -> int:
     units = units_of(root, cfg)
     if args.only:
         units = [u for u in units if u in args.only]
-    flags = clangast.base_flags([Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"], cfg.get("source_standard", "gnu89"))
+    flags = clangast.base_flags(
+        [Path(i) for i in cfg["includes"]] + [HERE / "include", HERE.parent.parent / "runtime/include"],
+        cfg["defines"], cfg.get("source_standard", "gnu89")
+    )
     state = {"clang": clangast.clang_binary(), "root": root, "flags": flags, "out": out,
              "names": cfg["names"], "groups": cfg["groups"]}
 

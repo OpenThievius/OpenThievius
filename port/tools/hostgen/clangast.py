@@ -56,6 +56,9 @@ _CLANG_ALIASES = re.compile(r"\b(?:__size_t|__ptrdiff_t)\b")
 
 
 def base_flags(includes: list[Path], defines: list[str], standard: str = "gnu89") -> list[str]:
+    resource_dir = subprocess.run(
+        [clang_binary(), "-print-resource-dir"], check=True, capture_output=True, text=True
+    ).stdout.strip()
     flags = [
         "--target=mipsel-linux-gnu", f"-std={standard}", "-fsyntax-only", "-w", "-ferror-limit=50",
         "-fsigned-char", "-nostdinc",
@@ -64,6 +67,7 @@ def base_flags(includes: list[Path], defines: list[str], standard: str = "gnu89"
         "-DM2CTX", "-DOPENRAC_HOSTGEN",
         "-DINCLUDE_ASM(FOLDER,NAME)=extern int openrac_asm_##NAME",
         "-DINCLUDE_RODATA(FOLDER,NAME)=",
+        "-isystem", str(Path(resource_dir) / "include"),
     ] + RELAXED
     for inc in includes:
         flags += ["-I", str(inc)]

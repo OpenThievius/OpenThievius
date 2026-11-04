@@ -229,8 +229,8 @@ extern "C" int openrac_native_window_poll_input(void) {
 }
 
 extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned int size) {
-    if (!g_input || report == nullptr || port < 0 || port >= 2 || size < 32) return 0;
     std::scoped_lock lock(g_input_mutex);
+    if (!g_input || report == nullptr || port < 0 || port >= 2 || size < 32) return 0;
     std::span<unsigned char, 32> output(report, 32);
     g_input->pad(port).write_read_buffer(output);
     return 1;
