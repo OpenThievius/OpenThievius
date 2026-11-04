@@ -21,16 +21,19 @@ generated files stay under `build/port/`. The current translation is
 experimental and does not produce a playable game. It needs full C++ source
 handling, a port runtime, and a host implementation of the boot/system calls.
 
-The reused guest runtime builds as `sly1_port_runtime`. To compile all generated
-game units into local object files, run:
+The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
+generated game units into a local link-check executable, run:
 
 ```sh
 cmake -S port -B build/port -DOPENTHIEVIUS_SOURCE_SLY1=/path/to/sly1-decomp
 cmake --build build/port --target port_compile_generated
+cmake --build build/port --target port_link_generated
 ```
 
-This confirms that generated code and the guest runtime compile; it does not
-link or run the game.
+The link check confirms that generated game code and the guest runtime link
+together. It registers the generated function table if launched, but never calls
+the game entry. This is not a playable build: the entry function is currently a
+stub because hostgen cannot translate its first PS2 system call.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 

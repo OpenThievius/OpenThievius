@@ -32,6 +32,19 @@ add_custom_target(port_compile_generated
     DEPENDS port_hostgen
     COMMENT "Compiling generated Sly 1 host code")
 
+add_custom_target(port_link_generated
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/link_hostgen.py
+            --generated ${CMAKE_CURRENT_BINARY_DIR}/hostgen/us
+            --objects ${CMAKE_CURRENT_BINARY_DIR}/objects
+            --runtime $<TARGET_FILE:sly1_port_runtime>
+            --runtime-includes ${CMAKE_CURRENT_SOURCE_DIR}/runtime/include
+            --stub ${CMAKE_CURRENT_SOURCE_DIR}/sly1/link_check.cpp
+            --out ${CMAKE_CURRENT_BINARY_DIR}/sly1_link_check
+            --cxx ${CMAKE_CXX_COMPILER}
+            --link-library=${CMAKE_DL_LIBS}
+    DEPENDS port_compile_generated sly1_port_runtime
+    COMMENT "Linking generated Sly 1 code without running it")
+
 add_library(sly1_port_runtime STATIC
     common/breadcrumbs.cpp
     common/cache_folder.cpp
