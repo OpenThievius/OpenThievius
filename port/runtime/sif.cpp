@@ -52,6 +52,20 @@ bool complete_rpc_response(uint32_t packet, uint32_t receive_buffer,
            guest_write_u32(packet + 24, 0);
 }
 
+bool complete_rpc_call_response(uint32_t packet, uint32_t client, uint32_t receive_buffer,
+                                const uint32_t* response, size_t response_words) {
+    if (!complete_rpc_response(packet, receive_buffer, response, response_words)) return false;
+
+    // SIF RPC's command-end handler signals the synchronous caller's semaphore
+    // after copying the response. Native completion has no IOP command-end
+    // interrupt, so deliver that part of the boundary here.
+    uint32_t semaphore = 0xFFFFFFFFu;
+    if (!guest_u32(client + 8, &semaphore)) return false;
+    if (static_cast<int32_t>(semaphore) >= 0)
+        openrac_guest_kernel_syscall(0x42u, semaphore, 0, 0, 0, 0, 0, 0, 0);
+    return true;
+}
+
 int complete_rpc_bind(uint32_t packet) {
     uint32_t client = 0;
     uint32_t service = 0;
@@ -149,7 +163,7 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
         // 0x20A and returns -0x78. A zero response takes that existing error
         // path without claiming that a native memory-card service exists.
         const uint32_t unavailable[3] = {};
-        if (!complete_rpc_response(packet, receive_buffer, unavailable, 3)) return 0;
+        if (!complete_rpc_call_response(packet, client, receive_buffer, unavailable, 3)) return 0;
         if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
             std::fprintf(stderr, "[info] native memory-card RPC %u completed as unavailable\n",
                          rpc_number);
@@ -160,7 +174,7 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
         // With no native audio device, complete the queue poll as idle using
         // the -1 sentinel accepted by func_0011D078's completion check.
         const uint32_t idle[3] = {0xFFFFFFFFu, 0, 0xFFFFFFFFu};
-        if (!complete_rpc_response(packet, receive_buffer, idle, 3)) return 0;
+        if (!complete_rpc_call_response(packet, client, receive_buffer, idle, 3)) return 0;
         const uint32_t reply = g_sound_idle_replies.fetch_add(1, std::memory_order_relaxed);
         if (reply < 8 && openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
             std::fprintf(stderr, "[info] native sound queue RPC 77 completed as idle\n");
@@ -178,8 +192,8 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
         const uint32_t completion[3] = {0xFFFFFFFFu, 0, 0xFFFFFFFFu};
         const uint32_t empty_result[1] = {0};
         const uint32_t* response = sound_init ? completion : empty_result;
-        if (!complete_rpc_response(packet, receive_buffer, response,
-                                   receive_size / sizeof(uint32_t))) return 0;
+        if (!complete_rpc_call_response(packet, client, receive_buffer, response,
+                                        receive_size / sizeof(uint32_t))) return 0;
 
         if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr) {
             uint32_t active_packet = 0, client_generation = 0, packet_generation = 0;
