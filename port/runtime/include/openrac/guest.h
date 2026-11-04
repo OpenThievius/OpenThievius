@@ -227,6 +227,8 @@ typedef struct openrac_fn_entry {
 /* Overlay -1 is the executable; 0..n are the level programs. */
 #define OPENRAC_OVERLAY_EXE (-1)
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count);
+/* Replace selected translated entries with port-owned native callbacks. */
+void openrac_guest_replace_functions(int overlay, const openrac_fn_entry* entries, size_t count);
 void openrac_guest_set_overlay(int overlay);
 int openrac_guest_overlay(void);
 openrac_host_fn openrac_guest_function(gaddr address);

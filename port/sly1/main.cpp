@@ -26,6 +26,7 @@ extern "C" {
 
 extern "C" {
 const char* openrac_game_disc_image = nullptr;
+void sly1_native_start_worker(void);
 }
 
 namespace {
@@ -72,6 +73,14 @@ void register_sly1_subentries() {
     openrac_guest_register_thunks(thunks, sizeof(thunks) / sizeof(thunks[0]));
 }
 
+void register_sly1_native_backfills() {
+    static const openrac_fn_entry functions[] = {
+        {0x0018E5E8u, sly1_native_start_worker, "sly1_native_start_worker"},
+    };
+    openrac_guest_replace_functions(OPENRAC_OVERLAY_EXE, functions,
+                                    sizeof(functions) / sizeof(functions[0]));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -110,6 +119,7 @@ int main(int argc, char** argv) {
     openrac::runtime::install_crash_handler();
     openrac_game_register_functions();
     register_sly1_subentries();
+    register_sly1_native_backfills();
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
     std::atomic<bool> trace_stop{false};
     std::thread trace_thread;

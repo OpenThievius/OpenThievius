@@ -579,6 +579,14 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
     }
 }
 
+void openrac_guest_replace_functions(int overlay, const openrac_fn_entry* entries, size_t count) {
+    forget_answers();
+    Table& table = overlay == OPENRAC_OVERLAY_EXE ? g_exe : g_overlays[overlay];
+    for (size_t i = 0; i < count; i++) {
+        table.insert_or_assign(entries[i].address, Entry{entries[i].fn, entries[i].name});
+    }
+}
+
 void openrac_guest_register_thunks(const openrac_thunk_entry* entries, size_t count) {
     for (size_t i = 0; i < count; i++) {
         g_thunks.emplace(entries[i].fn, entries[i].thunk);
