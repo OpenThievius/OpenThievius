@@ -62,9 +62,10 @@ handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
 The latest bounded run reads the initial ISO sectors, passes the first sound
 service request using a silent fallback and reaches the display loop. A
-port-side VU1 translator handles part of the uploaded display microcode, but
-it currently stops on an unsupported instruction before producing vertices.
-The SDL window remains black.
+port-side VU1 translator handles part of the uploaded display microcode and
+now reaches XGKICK in the first populated display list. Its GIF tag at VU1 data
+address 81 is currently invalid under the partial VU/VIF implementation, so the
+geometry packet is rejected and the SDL window remains black.
 The native memory-card boundary answers the observed extended-server probe
 (`0x80000400`, RPC `0xFE`) with a zero result structure; retail's
 `func_002093F0` rejects the missing version field and returns `-0x78`. This
