@@ -47,10 +47,11 @@ bootstrap hook, validated EE RAM DMA copies, interrupt registration, timer
 reads, and counting semaphores support more of startup. Guest worker threads
 run on host threads with their own guest stacks. SIF register reads and writes
 are stored in host memory, and the remote IOP RPC bind loop is bypassed when an
-ISO is present. Native startup publishes the SIF BOOTEND flag (register 4,
-value 0x40000) when the disc-backed IOP replacement starts. The latest bounded
-run stayed alive: main startup continues polling register 4 while worker
-thread 5 waits for SIF command traffic. The native runtime still has no IOP service or SIF DMA command
+ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
+(register 4, value 0x60000) and an opaque subaddress when the disc-backed IOP
+replacement starts. The latest 15-second run passed the register polling and
+remained alive with worker thread 5 waiting for SIF command traffic. The native
+runtime still has no IOP service or SIF DMA command
 dispatcher, so startup has not reached a title screen or gameplay. The renderer,
 frame loop, input, audio, saves and remaining disc/device services are also
 unimplemented.
