@@ -91,13 +91,12 @@ record array at offset 5,512 is not evidence about the disc index format.
 
 The range fields have a concrete setter: `func_00137328(reader, sector,
 byte_count)` stores the sector at `+0x48` and byte count at `+0x40`, while
-`func_001373B0` forwards a two-word pair to it. In the loader path,
-`func_001E4EA8` builds a memory reader over `D_002C3B00`, derives a range pair
-from its input record, and passes it to that setter before invoking the reader's
-data callback. `func_0018578C` calls this routine on `D_00275AF0` when its state
-is active. This connects the generic stream range to a higher-level resource
-loader, but the record's meaning and its relationship to an asset catalog are
-not yet established.
+`func_001373B0` forwards a two-word pair to it. `func_001E4EA8` builds a memory
+reader over `D_002C3B00`, derives a range pair from the record in
+`D_00275AF0`, and passes it to that setter before invoking the reader's data
+callback. The polling loop in `func_0018578C` calls this routine while the
+global state is active. This establishes a deferred range-read path, but not
+the record's meaning or its relationship to an asset catalog.
 
 `func_001E4EA8` reads eight words through the record pointer stored at
 `D_00275AF0 + 4`. It forms the range passed to the reader as
@@ -106,7 +105,14 @@ not yet established.
 and size in the live stream descriptor are decoded from a record, not stored
 there as plain adjacent values. The remaining words participate in record
 validation, but the producer that supplies this block and its place in the
-disc catalog remain unidentified.
+disc catalog remain unidentified. Assembly inspection rules out one tempting
+direct link: `func_001EFFA0` copies a caller's message payload into
+`D_00275F80` and calls the state dispatcher `func_001F0220` in mode 1 or 2.
+Its matching callers include text and screen-position messages. That path does
+not directly provide the mode 3 state that copies a four-word record into
+`D_00275AF0`; the object and caller that provide that record still need to be
+traced. Do not treat the UI message path as evidence for the disc index or the
+observed sector range.
 
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
