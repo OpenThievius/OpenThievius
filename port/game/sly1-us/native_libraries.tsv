@@ -1,4 +1,5 @@
 # name	library	signature
+sly1_native_bootstrap	kernel	int(void)
 sly1_iop_boot	iop	int(void)
 sly1_iop_initialize	iop	int(int)
 sly1_iop_services_start	iop	int(int)

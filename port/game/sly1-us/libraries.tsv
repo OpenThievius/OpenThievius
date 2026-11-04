@@ -1,4 +1,5 @@
 # symbol	library	name	port	notes	signature
+func_00100008	kernel	sly1_native_bootstrap	host	Replace the PS2 boot stub with native guest-memory and frame-path setup	int(void)
 func_001858F8	iop	sly1_iop_boot	host	Replace IOP module startup with native disc services	int(void)
 func_001F9D60	kernel	sly1_interrupt_disable	host	Preserve Sly critical-section state on the host	int()
 func_001F9DA8	kernel	sly1_interrupt_enable	host	Preserve Sly critical-section state on the host	int()
