@@ -118,8 +118,22 @@ int main(int argc, char** argv) {
                 const char* thread_name = openrac_guest_function_name(thread_entry);
                 uint64_t framebuffer = 0;
                 uint64_t scissor = 0;
+                uint64_t bitbltbuf = 0;
+                uint64_t trxpos = 0;
+                uint64_t trxreg = 0;
+                uint64_t trxdir = 0;
+                uint64_t pmode = 0;
+                uint64_t dispfb1 = 0;
+                uint64_t display1 = 0;
                 openrac_guest_gs_read_register(0x4Cu, &framebuffer);
                 openrac_guest_gs_read_register(0x40u, &scissor);
+                openrac_guest_gs_read_register(0x50u, &bitbltbuf);
+                openrac_guest_gs_read_register(0x51u, &trxpos);
+                openrac_guest_gs_read_register(0x52u, &trxreg);
+                openrac_guest_gs_read_register(0x53u, &trxdir);
+                openrac_guest_gs_read_privileged_register(0x00u, &pmode);
+                openrac_guest_gs_read_privileged_register(0x70u, &dispfb1);
+                openrac_guest_gs_read_privileged_register(0x80u, &display1);
                 std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
                           << " address=0x" << std::hex << address << std::dec
                           << " kernel_service=";
@@ -130,7 +144,11 @@ int main(int argc, char** argv) {
                           << "(0x" << std::hex << thread_entry << std::dec << ')'
                           << " gif_eop=" << openrac_guest_gif_eop_count()
                           << " frame1=0x" << std::hex << framebuffer
-                          << " scissor=0x" << scissor << std::dec;
+                          << " scissor=0x" << scissor << " blit=0x" << bitbltbuf
+                          << " trxpos=0x" << trxpos << " trxreg=0x" << trxreg
+                          << " trxdir=0x" << trxdir << " pmode=0x" << pmode
+                          << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
+                          << std::dec;
                 std::cerr << " active_threads=";
                 for (uint32_t id = 1; id < 16; ++id) {
                     const gaddr active = openrac_guest_last_called_address_for_thread(id);

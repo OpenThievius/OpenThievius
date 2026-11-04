@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Sly's native renderer input: stateful decoding of GIF packet framing. */
 #include "openrac/native_gs.h"
+#include "openrac/guest.h"
 
 #include <array>
 #include <cstdint>
@@ -125,4 +126,12 @@ extern "C" int openrac_guest_gs_read_register(uint32_t address, uint64_t* value)
 extern "C" uint64_t openrac_guest_gif_eop_count(void) {
     std::lock_guard lock(g_parser_mutex);
     return g_parser.end_of_packet_count;
+}
+
+extern "C" int openrac_guest_gs_read_privileged_register(uint32_t offset,
+                                                            uint64_t* value) {
+    if (openrac_guest_base == nullptr || value == nullptr || offset > GUEST_GS_REGS_SIZE - 8u)
+        return 0;
+    std::memcpy(value, openrac_guest_base + GUEST_GS_REGS + offset, sizeof(*value));
+    return 1;
 }

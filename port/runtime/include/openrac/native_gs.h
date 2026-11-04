@@ -19,6 +19,7 @@ size_t openrac_guest_gif_fifo_pending(void);
 
 /* GIF stream state decoded from the FIFO in submission order. */
 int openrac_guest_gs_read_register(uint32_t address, uint64_t* value);
+int openrac_guest_gs_read_privileged_register(uint32_t offset, uint64_t* value);
 uint64_t openrac_guest_gif_eop_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);
 

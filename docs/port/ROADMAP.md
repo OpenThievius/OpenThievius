@@ -77,6 +77,12 @@ reads FRAME_1 `0xa0046` and SCISSOR `0x027f0000`, identifying a 640x224 display
 target. This is renderer input state only; it does not rasterize or present
 pixels yet.
 
+The trace also reads the directly mapped GS privileged registers. During the
+bounded run PMODE stays at `0x8067`, DISPLAY1 at `0x1be9ff0183327c`, and
+DISPFB1 flips between `0x1400` and `0x1446`, confirming that Sly alternates
+display buffers while the GIF packet stream advances. The host still has no
+pixel store or window presentation path.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These
