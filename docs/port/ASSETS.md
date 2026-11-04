@@ -83,11 +83,14 @@ resource remain unknown.
 
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
-each nonnegative ID through 32-byte entries at `D_002505D8`. Thus the 5,512-byte
-prefix includes earlier object data and a typed-property section; the captured
-zero-count tables follow that section. The table is zero-initialized in the
-retail ELF and its runtime population is still unresolved, so these IDs cannot
-yet be mapped to names or asset classes.
+each nonnegative ID through 32-byte entries at `D_002505D8`. A native trace of
+the captured reader saw IDs 130 and 145, then the `0xffff` sentinel immediately
+before the parser input at decoded offset 5,512. The startup initializer
+`func_00109488` populates this dispatch table. In the live entries, ID 130 uses
+`func_001BB000`, which calls `func_001B9AE0(self, 3, 0, 3, 0)`; ID 145 uses
+`func_001BB138`, which writes a four-bit value into bits 32–35 of the object's
+64-bit field at offset `0x538`. The property behaviors are now traceable, but
+their asset-level names and the containing resource type are still unknown.
 
 On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
