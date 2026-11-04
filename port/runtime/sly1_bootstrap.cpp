@@ -15,6 +15,10 @@ extern "C" int openrac_lib_sly1_native_bootstrap(void) {
     // SetupHeap(start, -1). The host compiler owns the actual call stack.
     openrac_guest_kernel_syscall(0x3Cu, 0x002832F0u, 0x0062C700u, 0x00020000u,
                                  0x0027B380u, 0x001000C0u, 0, 0, 0);
+    // SetupThread records the range, but the native main thread does not pass
+    // through the worker-thread trampoline that normally positions its guest
+    // stack pointer at the top of that range.
+    openrac_guest_sp = 0x0064C700u;
     openrac_guest_kernel_syscall(0x3Du, 0x0064C700u, 0xFFFFFFFFu, 0, 0, 0, 0, 0, 0);
 
     // The native DMA and interrupt services replace the corresponding EE
