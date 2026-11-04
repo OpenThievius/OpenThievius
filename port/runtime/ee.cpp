@@ -46,7 +46,8 @@ extern "C" void openrac_ee_float_mode(int round_nearest, int keep_denormals) {
 }
 
 // vf0 reads (0, 0, 0, 1) and is never written.
-extern "C" openrac_vu0_state openrac_vu0 = {{{0.0f, 0.0f, 0.0f, 1.0f}}, {}, {}, 0.0f, 0.0f, 0.0f, 0.0f};
+extern "C" OPENRAC_THREAD_LOCAL openrac_vu0_state openrac_vu0 = {
+    {{0.0f, 0.0f, 0.0f, 1.0f}}, {}, {}, 0.0f, 0.0f, 0.0f, 0.0f};
 
 namespace {
 std::mutex g_lock;

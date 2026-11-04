@@ -9,23 +9,32 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <map>
 #include <mutex>
 #include <set>
+#include <thread>
 #include <vector>
+
+#include "openrac/ee.h"
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
 std::atomic<bool> g_cpu_interrupts_enabled{true};
-uint32_t g_stack_top = GUEST_RAM_SIZE;
+thread_local uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::atomic<uint32_t> g_last_kernel_service{0xFFFFFFFFu};
 std::mutex g_kernel_mutex;
-std::map<uint32_t, int32_t> g_semaphores;
+std::condition_variable g_semaphore_changed;
+struct Semaphore { int32_t count; int32_t max_count; };
+struct GuestThread { gaddr entry; gaddr stack; uint32_t stack_size; bool started = false; };
+std::map<uint32_t, Semaphore> g_semaphores;
+std::map<uint32_t, GuestThread> g_threads;
 std::map<uint32_t, uint32_t> g_interrupt_handlers;
 std::set<uint32_t> g_enabled_interrupts;
 uint64_t g_gs_imr = 0x7F00u;
+thread_local uint32_t g_current_thread_id = 1;
 }
 
 /* The EE replacements for `di` and `ei` return the previous Status.IE bit,
@@ -151,59 +160,117 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         return 0;
     case 0x83: // FindAddress is used only by the bypassed guest exception setup.
         return 0;
-    case 0x23: // ExitThread: the port runs a single host thread.
+    case 0x20: { // CreateThread(ThreadParam*): retain the entry and its guest stack.
+        const uint32_t param = openrac_guest_ram_address(static_cast<uint32_t>(a0));
+        if (param > openrac_guest_ram_size || openrac_guest_ram_size - param < 24) {
+            openrac_guest_missing("CreateThread parameter is outside guest RAM");
+            return static_cast<uint64_t>(-1);
+        }
+        const gaddr entry = GREF(uint32_t, param + 4);
+        const gaddr stack = openrac_guest_ram_address(GREF(uint32_t, param + 8));
+        const uint32_t stack_size = GREF(uint32_t, param + 12);
+        if (entry == 0 || stack > openrac_guest_ram_size || stack_size == 0 ||
+            stack_size > openrac_guest_ram_size - stack) {
+            openrac_guest_missing("CreateThread entry or stack is invalid");
+            return static_cast<uint64_t>(-1);
+        }
+        const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);
+        std::lock_guard lock(g_kernel_mutex);
+        g_threads.emplace(id, GuestThread{entry, stack, stack_size, false});
+        return id;
+    }
+    case 0x22: { // StartThread(thread_id, arg): execute the guest entry on a host thread.
+        const uint32_t id = static_cast<uint32_t>(a0);
+        GuestThread guest_thread{};
+        {
+            std::lock_guard lock(g_kernel_mutex);
+            const auto it = g_threads.find(id);
+            if (it == g_threads.end() || it->second.started) return static_cast<uint64_t>(-1);
+            it->second.started = true;
+            guest_thread = it->second;
+        }
+        try {
+            std::thread([id, guest_thread, argument = a1] {
+                g_current_thread_id = id;
+                const gaddr top = guest_thread.stack + guest_thread.stack_size;
+                if (!openrac_guest_set_stack(guest_thread.stack, top)) return;
+                openrac_guest_sp = top;
+                openrac_ee_float_mode(0, 0);
+                uint64_t ints[8] = {argument};
+                const float floats[8] = {};
+                float result = 0.0f;
+                openrac_guest_call_regs(guest_thread.entry, ints, floats, &result, 0);
+            }).detach();
+        } catch (const std::system_error&) {
+            std::lock_guard lock(g_kernel_mutex);
+            if (auto it = g_threads.find(id); it != g_threads.end()) it->second.started = false;
+            return static_cast<uint64_t>(-1);
+        }
         return 0;
-    case 0x20: // CreateThread: worker threads are represented but not scheduled separately.
-        return g_next_id.fetch_add(1, std::memory_order_relaxed);
+    }
+    case 0x23: // ExitThread: translated thread entry returns to its host wrapper.
+    case 0x26:
+        return 0;
     case 0x21: // DeleteThread
-    case 0x22: // StartThread
     case 0x24: // ExitDeleteThread
     case 0x25: // TerminateThread
-    case 0x26: // ExitThread
     case 0x29: // ChangeThreadPriority
     case 0x2B: // RotateThreadReadyQueue
     case 0x32: // SleepThread
     case 0x33: // WakeupThread
     case 0x37: // SuspendThread
         return 0;
-    case 0x2F: // GetThreadId: the host runs the game on one thread.
-        return 1;
+    case 0x2F: // GetThreadId: return the current guest thread's id.
+        return g_current_thread_id;
     case 0x40: { // CreateSema; the initial count is the third word in SemaParam.
         const uint32_t param = openrac_guest_ram_address(static_cast<uint32_t>(a0));
         if (param > openrac_guest_ram_size || openrac_guest_ram_size - param < 12) {
             openrac_guest_missing("CreateSema parameter is outside guest RAM");
             return static_cast<uint64_t>(-1);
         }
+        const int32_t maximum = static_cast<int32_t>(GREF(uint32_t, param + 4));
         const int32_t initial = static_cast<int32_t>(GREF(uint32_t, param + 8));
         const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard lock(g_kernel_mutex);
-        g_semaphores[id] = initial;
+        g_semaphores[id] = Semaphore{initial, maximum > 0 ? maximum : INT32_MAX};
         return id;
     }
     case 0x41: { // DeleteSema
         std::lock_guard lock(g_kernel_mutex);
         g_semaphores.erase(static_cast<uint32_t>(a0));
+        g_semaphore_changed.notify_all();
         return a0;
     }
     case 0x42:
     case 0x43: { // SignalSema / iSignalSema
-        std::lock_guard lock(g_kernel_mutex);
-        auto it = g_semaphores.find(static_cast<uint32_t>(a0));
-        if (it != g_semaphores.end()) ++it->second;
+        {
+            std::lock_guard lock(g_kernel_mutex);
+            auto it = g_semaphores.find(static_cast<uint32_t>(a0));
+            if (it == g_semaphores.end()) return static_cast<uint64_t>(-1);
+            if (it->second.count < it->second.max_count) ++it->second.count;
+        }
+        g_semaphore_changed.notify_one();
         return a0;
     }
-    case 0x44: { // WaitSema; the single-threaded host cannot block on a missing signal.
-        std::lock_guard lock(g_kernel_mutex);
-        auto it = g_semaphores.find(static_cast<uint32_t>(a0));
-        if (it != g_semaphores.end() && it->second > 0) --it->second;
+    case 0x44: { // WaitSema: sleep the host thread until another guest thread signals it.
+        std::unique_lock lock(g_kernel_mutex);
+        const uint32_t id = static_cast<uint32_t>(a0);
+        if (!g_semaphores.contains(id)) return static_cast<uint64_t>(-1);
+        g_semaphore_changed.wait(lock, [id] {
+            const auto it = g_semaphores.find(id);
+            return it == g_semaphores.end() || it->second.count > 0;
+        });
+        const auto it = g_semaphores.find(id);
+        if (it == g_semaphores.end()) return static_cast<uint64_t>(-1);
+        --it->second.count;
         return a0;
     }
     case 0x45:
     case 0x46: { // PollSema / iPollSema
         std::lock_guard lock(g_kernel_mutex);
         auto it = g_semaphores.find(static_cast<uint32_t>(a0));
-        if (it == g_semaphores.end() || it->second <= 0) return static_cast<uint64_t>(-1);
-        --it->second;
+        if (it == g_semaphores.end() || it->second.count <= 0) return static_cast<uint64_t>(-1);
+        --it->second.count;
         return a0;
     }
     case 0x3E: // EndOfHeap

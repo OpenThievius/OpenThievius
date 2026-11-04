@@ -35,9 +35,9 @@
 #include "openrac/memory.h"
 
 extern "C" {
-gaddr openrac_guest_sp = GUEST_STACK_TOP;
-gaddr openrac_guest_stack_bottom = GUEST_STACK_BOTTOM;
-gaddr openrac_guest_stack_top = GUEST_STACK_TOP;
+OPENRAC_THREAD_LOCAL gaddr openrac_guest_sp = GUEST_STACK_TOP;
+OPENRAC_THREAD_LOCAL gaddr openrac_guest_stack_bottom = GUEST_STACK_BOTTOM;
+OPENRAC_THREAD_LOCAL gaddr openrac_guest_stack_top = GUEST_STACK_TOP;
 }
 
 namespace {
@@ -166,7 +166,7 @@ std::map<int, Table> g_overlays;
 std::unordered_map<openrac_host_fn, int> g_ambiguous;
 // Each game function's thunk (openrac_guest_call_regs), by its host function.
 std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
-int g_overlay = OPENRAC_OVERLAY_EXE;
+thread_local int g_overlay = OPENRAC_OVERLAY_EXE;
 thread_local gaddr g_unknown_target = 0;
 std::atomic<gaddr> g_last_called_address{0};
 std::atomic<bool> g_guest_trace_enabled{false};
@@ -1823,8 +1823,8 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
     });
 }
 
-gaddr openrac_guest_last_entry = 0;
-openrac_host_fn openrac_guest_last_fn = nullptr;
+OPENRAC_THREAD_LOCAL gaddr openrac_guest_last_entry = 0;
+OPENRAC_THREAD_LOCAL openrac_host_fn openrac_guest_last_fn = nullptr;
 
 // Which lui each register's upper half came from, as a function's code runs straight through: a
 // register move (addu, daddu or or with $zero) carries it along, and any other write forgets it.

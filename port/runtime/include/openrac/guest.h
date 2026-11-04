@@ -25,6 +25,12 @@
 #include <string.h>
 
 #ifdef __cplusplus
+#define OPENRAC_THREAD_LOCAL thread_local
+#else
+#define OPENRAC_THREAD_LOCAL _Thread_local
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -126,9 +132,9 @@ static inline gaddr openrac_guest_ram_address(gaddr address) {
  * GUEST_STACK_*, then set by SetupThread): GFRAME(n) reserves n bytes,
  * aligned to 16, and gives them back when the function returns, by whatever
  * path. */
-extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_sp;
-extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_stack_bottom;
-extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_stack_top;
+extern OPENRAC_GUEST_GLOBAL OPENRAC_THREAD_LOCAL gaddr openrac_guest_sp;
+extern OPENRAC_GUEST_GLOBAL OPENRAC_THREAD_LOCAL gaddr openrac_guest_stack_bottom;
+extern OPENRAC_GUEST_GLOBAL OPENRAC_THREAD_LOCAL gaddr openrac_guest_stack_top;
 int openrac_guest_set_stack(gaddr bottom, gaddr top);
 gaddr openrac_guest_frame(uint32_t size);
 
@@ -343,8 +349,8 @@ gaddr openrac_relocate_level_code(int from, gaddr address);
  * forms that nowhere, another place of target's function in that program: a place the catalogue
  * folded into it), and reads the same instructions at `self`. Without a place, or one that does
  * not form it, it is OPENRAC_LCODE's. */
-extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_last_entry;
-extern OPENRAC_GUEST_GLOBAL openrac_host_fn openrac_guest_last_fn;
+extern OPENRAC_GUEST_GLOBAL OPENRAC_THREAD_LOCAL gaddr openrac_guest_last_entry;
+extern OPENRAC_GUEST_GLOBAL OPENRAC_THREAD_LOCAL openrac_host_fn openrac_guest_last_fn;
 static inline gaddr openrac_guest_entry(openrac_host_fn self) {
     return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;
 }
