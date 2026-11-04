@@ -23,7 +23,35 @@ def main(argv=None):
     out = args.out.expanduser().resolve()
     port = args.port.resolve()
     include = source / "include"
-    sources = sorted((source / "src").rglob("*.cpp"))
+    # This launcher targets NTSC-U. Whole-file units in files.tsv own their
+    # address ranges; do not also compile the overlapping 0x4000 source chunks.
+    whole_files = []
+    whole_ranges = []
+    files_table = source / "config" / "us" / "files.tsv"
+    if files_table.is_file():
+        for row in files_table.read_text(encoding="utf-8").splitlines()[1:]:
+            fields = row.split("\t")
+            if len(fields) < 3:
+                continue
+            unit = source / fields[0]
+            if unit.is_file():
+                whole_files.append(unit)
+                whole_ranges.append((int(fields[1], 16), int(fields[2], 16)))
+    main = source / "src" / "main"
+    chunks = []
+    if main.is_dir():
+        for path in main.glob("[0-9A-Fa-f]*.cpp"):
+            try:
+                address = int(path.stem, 16)
+            except ValueError:
+                continue
+            if not any(start <= address < end for start, end in whole_ranges):
+                chunks.append(path)
+    sources = sorted(set(whole_files + chunks + [
+        path
+        for directory in ("lib", "libm")
+        for path in (source / "src" / directory).rglob("*.cpp")
+    ]))
     if not sources:
         parser.error("no C++ source units found under " + str(source / "src"))
     compiler = shlex.split(args.cxx)
@@ -31,12 +59,18 @@ def main(argv=None):
     warnings = 0
     staged_root = out / "staged"
     objects_root = out / "objects"
+    shutil.rmtree(staged_root, ignore_errors=True)
+    shutil.rmtree(objects_root, ignore_errors=True)
+    staged_root.mkdir(parents=True, exist_ok=True)
+    objects_root.mkdir(parents=True, exist_ok=True)
     backfill_root = port / "game" / "sly1-us" / "native"
+    host_include = port / "sly1" / "host32" / "include"
     flags = [
         "-m32", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
         "-include", str(port / "sly1" / "host_abi.h"),
+        "-I", str(host_include),
         "-I", str(include),
     ]
     out.mkdir(parents=True, exist_ok=True)
@@ -50,9 +84,50 @@ def main(argv=None):
         original = src.read_text(encoding="utf-8")
         # The PS2 compiler treats unsigned long literals as 64-bit; i386 does not.
         adapted = re.sub(r"(?i)(0x[0-9a-f]+|[0-9]+)UL\b", r"\1ULL", original)
-        if not staged.exists() or staged.read_text(encoding="utf-8") != adapted:
-            staged.write_text(adapted, encoding="utf-8")
-        cmd = compiler + flags + ["-I", str(src.parent), "-c", str(staged), "-o", str(obj)]
+        # A pair of format strings in the US source contains literal newlines
+        # between quotes; preserve their intended newline in host C++ syntax.
+        adapted = re.sub(r'"([^"\\\n]*)\n"', lambda m: '"' + m.group(1) + r'\n"', adapted)
+        if rel.as_posix() == "main/0015C000.cpp":
+            # The PS2 ABI gives long 64 bits; i386 gets the same aliases from
+            # host_abi.h, where they are represented with long long.
+            adapted = adapted.replace("typedef signed long s64;\n", "")
+            adapted = adapted.replace("typedef unsigned long u64;\n", "")
+        elif rel.as_posix() == "main/file_1C05D0.cpp":
+            # The PS2 compiler lays each variadic argument in an 8-byte slot.
+            # Native i386 callers use 4-byte slots, so stage the equivalent
+            # host vararg walk without changing the decompilation source.
+            old = "ap = (VaList_1C2430)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8;"
+            if old not in adapted:
+                raise RuntimeError("expected PS2 varargs expression not found in " + rel.as_posix())
+            adapted = adapted.replace(old, "ap = (VaList_1C2430)__builtin_next_arg(size);")
+            adapted = adapted.replace(
+                "#define VA_ARG_1C2430(ap, T) (*(T*)((ap += 8) - 8))",
+                "#define VA_ARG_1C2430(ap, T) (*(T*)((ap += sizeof(T)) - sizeof(T)))")
+        elif rel.as_posix() == "lib/001FC000.cpp":
+            # The retail library uses the SN Systems exception runtime. This
+            # freestanding host launcher has no compatible unwind runtime;
+            # route only its exceptional paths through Sly's registered
+            # non-returning handlers. Ordinary allocation and library code is
+            # left intact in staged source.
+            begin = "void func_001FEC10(s32 count, void** allowed)\n{"
+            end = "\n}\n\nvoid func_001FEDC8()"
+            start_at = adapted.find(begin)
+            end_at = adapted.find(end, start_at)
+            if start_at < 0 or end_at < 0:
+                raise RuntimeError("expected Sly exception handler not found in " + rel.as_posix())
+            adapted = (adapted[:start_at] +
+                       "void func_001FEC10(s32 count, void** allowed)\n{\n"
+                       "    (void)count;\n    (void)allowed;\n    func_001FE938();\n" +
+                       adapted[end_at:])
+            adapted = adapted.replace("throw Fault_1FEDC8();", "func_001FE8F0();")
+            adapted = adapted.replace("throw Fault_1FEE48();", "func_001FE8F0();")
+            adapted = adapted.replace(" throw(Fault_1FD8A8)", "")
+        staged.write_text(adapted, encoding="utf-8")
+        unit_flags = flags
+        if rel.as_posix() == "main/0016C000.cpp":
+            # Avoid depending on the host's optional 32-bit libc headers.
+            unit_flags = flags + ["-Dfabsf=__builtin_fabsf"]
+        cmd = compiler + unit_flags + ["-I", str(src.parent), "-c", str(staged), "-o", str(obj)]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode:
             failures.append((rel.as_posix(), proc.stderr))

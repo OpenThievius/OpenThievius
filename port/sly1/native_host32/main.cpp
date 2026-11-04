@@ -11,7 +11,7 @@ extern const NativeFunctionAddress sly1_native_function_addresses[];
 extern const u32 sly1_native_function_address_count;
 }
 extern "C" void func_001FAE18();
-void func_00185758(void*, void*);
+void func_00185758(int, int);
 extern "C" int sly1_i386_syscall6(int, int, int, int, int, int, int);
 
 namespace {
@@ -221,7 +221,8 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
         return 1;
     }
     write_text("native host32: retail data and ISO mapped; starting compiled Sly frame path\n");
-    func_00185758((void*)*(volatile u32*)0x0027B380u, (void*)0x0027B384u);
+    func_00185758((int)*(volatile u32*)0x0027B380u,
+                  (int)0x0027B384u);
     return 0;
 }
 
@@ -244,8 +245,6 @@ extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
     g_disc_read_error = 0;
     return 1;
 }
-
-extern "C" int sly1_host_cd_read_error() { return g_disc_read_error; }
 
 extern "C" __attribute__((noreturn)) void sly1_missing_function(u32 address) {
     char line[] = "native host32: missing compiled function at 0x00000000\n";
