@@ -100,13 +100,14 @@ bool execute_gif_chain(uint32_t chcr, size_t* transferred_bytes) {
         const uint8_t* tag_ptr = nullptr;
         if (!guest_span(tadr, 16, &tag_ptr)) return false;
         uint64_t low = 0;
-        uint64_t high = 0;
         std::memcpy(&low, tag_ptr, sizeof(low));
-        std::memcpy(&high, tag_ptr + 8, sizeof(high));
         const uint32_t qwc = static_cast<uint32_t>(low & 0xFFFFu);
         const uint32_t id = static_cast<uint32_t>((low >> 28) & 7u);
-        const DmaAddress data_address{static_cast<uint32_t>(high & 0x7FFFFFFFu),
-                                      (high >> 63) != 0};
+        // QWC, ID, ADDR and SPR all occupy the first 64-bit word. The second
+        // word is optional tag-transfer data; Sly starts this channel with
+        // TTE clear, so it is not the source address.
+        const DmaAddress data_address{static_cast<uint32_t>((low >> 32) & 0x7FFFFFFFu),
+                                      (low >> 63) != 0};
         DmaAddress payload{tadr.address + 16u, tadr.scratchpad};
         DmaAddress next{tadr.address + 16u, tadr.scratchpad};
         bool end_after_payload = false;

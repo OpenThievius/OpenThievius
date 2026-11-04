@@ -66,6 +66,11 @@ completed native SIF commands dispatch that registered callback. The latest
 12-second run no longer reports those functions as missing, but still reads
 only the initial sectors and remains headless; renderer work is still required.
 
+The GIF source-chain reader now takes ADDR and SPR from bits 32-63 of the
+first DMAtag word. A bounded run accepts the observed 704-byte packed A+D
+stream and subsequent image-data chunks without rejecting channel 2 transfers.
+The FIFO still has no consumer, so these validated commands are not yet drawn.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These
