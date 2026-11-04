@@ -27,6 +27,28 @@ port fixes must not change what `sly1-decomp` can later match or correct.
 
 ## What transfers to Sly
 
+This repository already reuses OpenRAC's most important pieces:
+
+- `port/tools/hostgen/` and `tools/openrac_common/` generate host C from the
+  read-only Sly decompilation and report the reachable no-C frontier.
+- `port/common/` and the base files in `port/runtime/` provide the game-memory
+  ABI, ELF loading, host fault reporting, float helpers and common support.
+- The top-level game registry/setup workflow follows OpenRAC's layout and
+  conventions; it does not bring over Ratchet & Clank data.
+
+The port has also authored Sly-specific extensions around that base: Sly's
+raw-sector catalog and audio extractors, NTSC-U hostgen configuration,
+`libraries.tsv`, native launcher, service replacements and the two formatting
+backfills. These are not OpenRAC code just because they use its architecture.
+
+The current kernel replacement is a mixed case. The generic syscall dispatch
+and thread/semaphore scaffolding were adapted from OpenRAC's documented
+interpreter/runtime behavior, while the Sly service IDs, wrappers and required
+status behavior must be verified from Sly's retail executable. Recent work
+added an EE-layout `ReferThreadStatus` response using that boundary. This is
+still part of the experimental guest-execution launcher, not a native Sly
+service layer proven to advance gameplay.
+
 | OpenRAC pattern | Sly application |
 |---|---|
 | Host-generate decompiled C without changing the decomp checkout | Keep `sly1-decomp` read-only and build generated sources under `build/port/` |
@@ -48,7 +70,20 @@ They are not evidence for Sly behavior and are not copied into this project.
 Our sourcing policy permits reuse of OpenRAC-authored generic tools or
 infrastructure only with the required attribution and license notices; it
 does not permit reuse of its R&C-derived game work. Review candidate code
-against `docs/policy/SOURCING.md` before adoption.
+against `docs/policy/SOURCING.md` before adoption. For each candidate, check
+its file-level license and third-party notices; a component's generic purpose
+does not make its dependencies or game-specific assumptions reusable.
+
+The renderer code is not an automatic shortcut. OpenRAC's high-level OpenGL
+and Vulkan backends may be reusable as generic graphics infrastructure after
+license/dependency review, but its renderer's game-facing draw records,
+texture/geometry conversion, scene traversal and shaders encode R&C formats
+and behavior. Sly still needs its own asset readers and draw-data adapter.
+Likewise, its input/audio/window modules may be useful generic foundations;
+their SDL device plumbing can be evaluated separately from the game-facing
+pad/audio semantics. The correct approach is selective reuse of generic
+modules and independent implementation of Sly boundaries, not cloning all of
+`port/` or rewriting generic infrastructure we already have.
 
 The PS2 platform is shared, but library call sequences and graphics behavior
 are title-specific. A generic ISO 9660 reader can help read ordinary files;

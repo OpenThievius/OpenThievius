@@ -154,6 +154,16 @@ ordinary 2048-byte sector mode is supported. Continue along the loader and
 frame/render paths, using OpenRAC's host-native workflow and grounding Sly
 behavior in its retail code.
 
+The port now enables syscall 0x30 so hostgen translates the retail wrapper
+`func_001F6AA0`, and the generic runtime returns a 0x30-byte
+`ReferThreadStatus` record for its native guest-thread bookkeeping. The
+`port_native` target builds with this addition. The latest available bounded
+startup trace remains at `func_001F6B60` (`WaitSema`) with zero rendered
+vertices; the status query has not yet been verified to advance startup. The
+refreshed frontier is 11 reachable functions without C. See
+[`OPENRAC_REUSE.md`](OPENRAC_REUSE.md) for the inventory of reused OpenRAC
+components and the selective-reuse plan.
+
 The order can change as source research reveals dependencies. Keep each phase
 grounded in evidence from Sly's retail code. Continue function matching in
 `sly1-decomp`; prioritize functions and data on the loader, boot, frame and
