@@ -424,7 +424,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "the level code's relocation, in the log and on stderr"},
     {Var::TraceSif, "OPENRAC_TRACE_SIF",
      Kind::Flag, Truth::NotEmpty, "off",
-     "the first 32 SIF binds and calls, on stderr"},
+     "the first 32 SIF binds, calls, and register accesses, on stderr"},
     {Var::TraceWad, "OPENRAC_TRACE_WAD",
      Kind::Flag, Truth::Set, "off",
      "each WAD decompression, on stderr"},

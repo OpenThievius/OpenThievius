@@ -19,6 +19,7 @@
 
 #include "common/log.h"
 #include "openrac/ee.h"
+#include "openrac/host_env.h"
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
@@ -27,6 +28,8 @@ thread_local uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::atomic<uint32_t> g_last_kernel_service{0xFFFFFFFFu};
 std::atomic<uint32_t> g_last_kernel_thread{1};
+std::atomic<uint32_t> g_sif_trace_get_count{0};
+std::atomic<uint32_t> g_sif_trace_set_count{0};
 std::mutex g_kernel_mutex;
 std::condition_variable g_semaphore_changed;
 struct Semaphore { int32_t count; int32_t max_count; };
@@ -70,6 +73,11 @@ extern "C" gaddr openrac_guest_thread_entry(uint32_t thread_id) {
     std::lock_guard lock(g_kernel_mutex);
     const auto it = g_threads.find(thread_id);
     return it == g_threads.end() ? 0 : it->second.entry;
+}
+
+extern "C" void openrac_guest_sif_set_register(uint32_t reg, uint32_t value) {
+    std::lock_guard lock(g_kernel_mutex);
+    g_sif_registers[reg] = value;
 }
 
 extern "C" uint32_t openrac_guest_cp0_count(void) {
@@ -169,14 +177,25 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         return previous;
     }
     case 0x79: { // SifSetReg; SIF registers are represented in host memory.
-        std::lock_guard lock(g_kernel_mutex);
-        g_sif_registers[static_cast<uint32_t>(a0)] = static_cast<uint32_t>(a1);
+        if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr &&
+            g_sif_trace_set_count.fetch_add(1, std::memory_order_relaxed) < 32) {
+            openrac::log::info("SIF SetReg thread={} reg={:#010x} value={:#010x}",
+                               g_current_thread_id, static_cast<uint32_t>(a0),
+                               static_cast<uint32_t>(a1));
+        }
+        openrac_guest_sif_set_register(static_cast<uint32_t>(a0), static_cast<uint32_t>(a1));
         return 0;
     }
     case 0x7A: { // SifGetReg
         std::lock_guard lock(g_kernel_mutex);
         const auto it = g_sif_registers.find(static_cast<uint32_t>(a0));
-        return it == g_sif_registers.end() ? 0 : it->second;
+        const uint32_t value = it == g_sif_registers.end() ? 0 : it->second;
+        if (openrac_env_string("OPENRAC_TRACE_SIF") != nullptr &&
+            g_sif_trace_get_count.fetch_add(1, std::memory_order_relaxed) < 32) {
+            openrac::log::info("SIF GetReg thread={} reg={:#010x} value={:#010x}",
+                               g_current_thread_id, static_cast<uint32_t>(a0), value);
+        }
+        return value;
     }
     case 0x7F: // GetMemorySize; Sly's configured host RAM is 32 MiB.
         return GUEST_RAM_SIZE;

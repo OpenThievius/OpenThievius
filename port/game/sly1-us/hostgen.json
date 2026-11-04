@@ -43,6 +43,11 @@
     "cp0_status": ["func_001F6D40", "func_001F6DA8", "func_00204EC8"],
     "vu0_zero": ["func_00201988"],
     "signatures": {
+      "func_001F6CB0": "int(void*, int)",
+      "func_001F6CC0": "int(void*, int)",
+      "func_001F6CD0": "int(void*, int)",
+      "func_001F6CE0": "int(int, int)",
+      "func_001F6CF0": "int(int)",
       "func_001F6A10": "int(void*)",
       "func_001F6A20": "int(int, void*)"
     }
