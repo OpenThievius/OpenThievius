@@ -12,6 +12,8 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <set>
+#include <vector>
 
 namespace {
 std::atomic<bool> g_exit_requested{false};
@@ -20,6 +22,8 @@ uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::mutex g_kernel_mutex;
 std::map<uint32_t, int32_t> g_semaphores;
+std::map<uint32_t, uint32_t> g_interrupt_handlers;
+std::set<uint32_t> g_enabled_interrupts;
 uint64_t g_gs_imr = 0x7F00u;
 }
 
@@ -47,10 +51,49 @@ extern "C" uint32_t openrac_guest_cp0_count(void) {
     return static_cast<uint32_t>(static_cast<uint64_t>(cycles));
 }
 
+extern "C" uint32_t openrac_guest_cp0_status(void) {
+    return g_cpu_interrupts_enabled.load(std::memory_order_relaxed) ? 0x10000u : 0u;
+}
+
+extern "C" int openrac_guest_raise_interrupt(uint32_t cause) {
+    uint32_t handler = 0;
+    {
+        std::lock_guard lock(g_kernel_mutex);
+        if (!g_cpu_interrupts_enabled.load(std::memory_order_relaxed) ||
+            !g_enabled_interrupts.contains(cause)) return 0;
+        const auto it = g_interrupt_handlers.find(cause);
+        if (it == g_interrupt_handlers.end()) return 0;
+        handler = it->second;
+    }
+    const uint64_t ints[8] = {};
+    const float floats[8] = {};
+    float result = 0.0f;
+    openrac_guest_call_regs(handler, ints, floats, &result, 0);
+    return 1;
+}
+
 extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, uint64_t a1,
                                                   uint64_t a2, uint64_t, uint64_t,
                                                   uint64_t, uint64_t, uint64_t) {
     switch (service) {
+    case 0x10: { // InstallIntcHandler; the host renderer raises registered causes when ready.
+        const uint32_t cause = static_cast<uint32_t>(a0);
+        const uint32_t handler = static_cast<uint32_t>(a1);
+        if (handler == 0) return 0;
+        std::lock_guard lock(g_kernel_mutex);
+        g_interrupt_handlers[cause] = handler;
+        return handler;
+    }
+    case 0x14: { // EnableIntc
+        std::lock_guard lock(g_kernel_mutex);
+        g_enabled_interrupts.insert(static_cast<uint32_t>(a0));
+        return 0;
+    }
+    case 0x15: { // DisableIntc
+        std::lock_guard lock(g_kernel_mutex);
+        g_enabled_interrupts.erase(static_cast<uint32_t>(a0));
+        return 0;
+    }
     case 0x02: // SetGsCrt(interlace, mode, field); display setup belongs to the host renderer.
         return 0;
     case 0x04: // Exit(status); a host frame loop observes the request and closes the session.

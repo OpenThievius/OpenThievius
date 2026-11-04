@@ -46,15 +46,16 @@ and five interior constructor table entries. The runtime now accepts Sly's
 `SetupThread` stack range, and the launcher registers
 those five callback addresses to call their translated registration routines.
 A second authorized startup run passed those points and stayed alive in the
-CD/IOP initialization path until its timeout. A third authorized startup run,
-with native ISO file-open enabled, passed the previous CD wait and remained
-alive through further initialization until timeout. Hostgen now translates
-more interior entries used by that path. EE interrupt disable/enable helpers
-preserve nested critical-section state and return the prior enable bit.
-The retail DMA span helper now copies validated guest RAM spans immediately
-and reports them complete, which replaces the synchronous EE-to-EE transfer
-path without using a console emulator. Transfers to non-RAM devices still
-need native device services.
+CD/IOP initialization path until its timeout. Later runs with native ISO file
+open remained alive through further initialization until timeout. The fourth
+authorized run, with native DMA span handling, ran to its 15-second timeout
+without a crash; it reported missing VU initialization and formatted logging.
+Native interrupt registration was implemented afterward, but no renderer events
+are wired yet. Hostgen now translates more
+interior entries used by that path. EE interrupt disable/enable helpers
+preserve nested critical-section state and return the prior enable bit. The
+retail DMA span helper copies validated guest RAM spans immediately and reports
+them complete. Transfers to non-RAM devices still need native device services.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
@@ -66,7 +67,9 @@ use a single-thread counting model. OSD configuration currently defaults to
 English.
 Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 One startup VU busy poll reports idle because the host has no VU execution unit.
-The listed CP0 interrupt-status readers see no pending host interrupts.
+The interrupt controller stores installed handlers and enable state; the
+renderer can raise those events through a host API, but no renderer events are
+wired yet. CP0 interrupt-status reads reflect the host interrupt-enable state.
 The startup path also saves and changes the GS interrupt mask through a
 software-backed guest register. The renderer, frame loop, remaining disc
 services and other required platform services are not implemented, so the

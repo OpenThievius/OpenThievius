@@ -7,16 +7,17 @@
 - [x] `tools/openthievius.py`: recognises your discs, sets up sly1-decomp, generates the README tables and checks the two repositories agree.
 - [x] sly1-decomp set up: disc extraction, a first splat split, the compiler identified and running ([its roadmap](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/ROADMAP.md)).
 
+## In progress
+
+- **sly1-decomp:** matching the NTSC-U executable and improving the source coverage.
+- **Native port:** hostgen builds translated game code into a desktop launcher. It has reached startup code with a user's ELF and disc image without emulation, but it has not reached gameplay. The current gaps are listed in the [port roadmap](port/ROADMAP.md).
+
 ## Next
 
-1. **sly1-decomp builds `SCUS_971.98` byte for byte** from assembly. Everything after rests on it.
-2. **Matching.** The compiler qualified, the file split, the per-function checker, progress reporting.
-3. **Asset research.** How the retail disc stores its data, and the level, model, texture and sound formats, documented from retail's own code. Measured so far ([sly1-decomp's DISC.md](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/DISC.md)): the file system lists only the executable and the IOP modules; everything else lies in unlisted sectors from 12345 on, found through an index the loader reads, and it is data only, with no code to port.
-4. **The port.** Its design: how decompiled PS2 code is hosted on PC, the renderer, audio, input, saves. A design note in `docs/port/` comes before code. OpenRAC's `port/` is the model, and its code may be used, credited.
-5. **A launcher**, once something runs.
+1. **Reach a playable NTSC-U state natively.** Complete disc data loading, the renderer and frame path, audio, input and saves.
+2. **Keep improving the decompilation and host translation.** Prioritize functions and data on the loader, boot, frame and render paths.
+3. **Add PAL support, parity fixes and packaging.**
 
-## Open decisions
-
-- How the port hosts the game code: built from sly1-decomp's sources directly, or through a host-generation step as OpenRAC does.
-- The port's language and build system (OpenRAC: C++ with CMake).
-- Whether a website and a community channel are wanted, and where.
+The native port uses a host-generation step and CMake, following OpenRAC's
+architecture where it fits. All game behavior and assets are derived from
+retail Sly 1, under the sourcing policy.

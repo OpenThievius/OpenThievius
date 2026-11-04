@@ -20,22 +20,27 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 **Current implementation:** the hostgen tool and CMake entry point are in
 place. The Sly profile stages C++ sources as C-compatible inputs and, with
 local retail-backed assembly available, translates 1,532 functions from C and
-3,141 from assembly. The guest runtime builds, all 81 generated C units compile,
+3,145 from assembly. The guest runtime builds, all 81 generated C units compile,
 and `port_link_generated` links them without running the entry point. The Sly
 `port_native` target links a launcher that reads the user's extracted boot ELF,
-maps its segments into guest memory and calls the translated entry. Three
+maps its segments into guest memory and calls the translated entry. Four
 authorized startup runs reached translated code. The first exposed an
 incompatible stack range and five constructor-table interior entries; the
 runtime now adopts the range from `SetupThread`, and the launcher registers
 those five callbacks. The later runs passed them, then advanced through CD/IOP
-initialization and ISO path polling until timeout. More interior entries from
-that path are now translated by hostgen. A native ISO 9660 reader accepts cooked images and raw
+initialization and ISO path polling until timeout. The fourth run, with native
+DMA span handling, stayed alive to its 15-second timeout without a crash; it
+reported missing VU initialization and formatted logging functions. Native
+interrupt registration was implemented afterward, but renderer events remain
+unwired. More interior entries from that path are now translated by hostgen. A native ISO 9660 reader accepts cooked images and raw
 2352-byte BINs, locates paths and reads file ranges. The local NTSC-U image was
 identified as `SCUS_971.98`, with `IOPRP243.IMG` and the boot modules in its
 ISO file table. The IOP bootstrap constructor is replaced by a native hook
 that marks CD state ready only when an ISO is loaded. Host replacements also
 cover file-open/poll/close with ISO path lookup and preserve interrupt state
-for critical sections. The native DMA helper performs validated EE RAM copies
+for critical sections. The interrupt controller stores installed handlers and
+enable state and exposes a host event raise hook, but the renderer does not
+raise device events yet. The native DMA helper performs validated EE RAM copies
 synchronously; hardware transfers still need host device services. Sector reads
 are not routed to Sly's later data requests yet. The
 analyzed boot call graph still reaches functions without hostable C. Fifteen source files remain unreadable and the C++ adapter can lose
