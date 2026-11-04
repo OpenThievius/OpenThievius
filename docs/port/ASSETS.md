@@ -69,19 +69,23 @@ python3 port/tools/extract_sly1_lz.py /path/to/Sly1.iso \
 The first native raw read reaches `func_00162890` with the same reader object
 (`0x0064c580`) that initiated the disc read. At parser entry its decoded input
 pointer is `0x70001588`, with 2,680 bytes remaining in the current scratchpad
-window; the next 12 bytes are zero. The caller has already consumed fields
-from the stream, so the decoded file's initial bytes (`f0 f4 05`) are not this
-parser's header. Retail's parser begins by consuming three one-byte fields;
-the third controls an array of `0x90`-byte records. The relationship between
-the stream's resource data and this parser's input still needs to be recovered.
+window. That window matches decoded offset 5,512, not the file start. Its first
+three bytes are zero, so this call's `0x90`-byte record array has count zero.
+The caller has already consumed fields from the stream, so the decoded file's
+initial bytes (`f0 f4 05`) are not this parser's header.
+
+The direct caller, `func_001289C0`, first reads three 12-byte groups, another
+12-byte field, flags and scalar values, then invokes `func_00162890`. Matching
+C shows `func_001289C0` is reused by several object constructors, so this is a
+nested object-data reader rather than the disc index or a uniquely identified
+level header. The concrete object type and its connection to the containing
+resource remain unknown.
 
 On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
-byte reader window also matches exactly at decoded offset 5,512. The parser's
-caller has advanced the stream before invoking `func_00162890`, which explains
-why its input begins at that offset rather than at the decoded stream start.
-This validates token byte order, dictionary behavior and the observed output
-window; it does not yet verify the entire decoded file against retail output.
-The resource format and index entry are still unknown, so the port cannot
-catalog or load a level from it yet.
+byte reader window also matches exactly at decoded offset 5,512. This validates
+token byte order, dictionary behavior and the observed output window; it does
+not yet verify the entire decoded file against retail output. The resource
+format and index entry are still unknown, so the port cannot catalog or load a
+level from it yet.
