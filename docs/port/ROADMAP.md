@@ -10,6 +10,9 @@ an experimental branch of the work, not the target port architecture. Follow
 the [OpenRAC reuse plan](OPENRAC_REUSE.md): native game code, native service
 replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
 models as gameplay features.
+An initial [VAG audio extractor](ASSETS.md) now recovers standalone samples
+from raw sectors. The unknown disc index and level/model assets still block
+the first playable scene.
 
 | Phase | Work | Milestone |
 |---|---|---|
