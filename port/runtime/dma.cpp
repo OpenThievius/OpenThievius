@@ -3,6 +3,7 @@
 #include "openrac/native_dma.h"
 
 #include "openrac/guest.h"
+#include "openrac/native_gs.h"
 
 #include <algorithm>
 #include <chrono>
@@ -50,6 +51,7 @@ extern "C" void openrac_lib_sly1_graphics_wait(int unused_a, int unused_b) {
         g_next_frame = deadline + frame_period;
     }
     std::this_thread::sleep_until(deadline);
+    openrac_guest_gs_publish_frame();
     openrac_guest_raise_interrupt(0);
     openrac_guest_raise_interrupt(2);
 }

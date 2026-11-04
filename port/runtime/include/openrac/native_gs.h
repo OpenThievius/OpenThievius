@@ -9,6 +9,12 @@
 extern "C" {
 #endif
 
+typedef struct openrac_gs_vertex {
+    float x;
+    float y;
+    uint32_t rgba;
+} openrac_gs_vertex;
+
 /* The native EE device layer handles selected MMIO stores. Returns one when
  * it handled the store; other addresses use the ordinary guest-memory path. */
 int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value);
@@ -21,6 +27,9 @@ size_t openrac_guest_gif_fifo_pending(void);
 int openrac_guest_gs_read_register(uint32_t address, uint64_t* value);
 int openrac_guest_gs_read_privileged_register(uint32_t offset, uint64_t* value);
 uint64_t openrac_guest_gif_eop_count(void);
+void openrac_guest_gs_publish_frame(void);
+size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination, size_t capacity);
+size_t openrac_guest_gs_published_vertex_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);
 
 #ifdef __cplusplus

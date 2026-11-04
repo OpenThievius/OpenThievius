@@ -83,6 +83,12 @@ DISPFB1 flips between `0x1400` and `0x1446`, confirming that Sly alternates
 display buffers while the GIF packet stream advances. The host still has no
 pixel store or window presentation path.
 
+The packet reader now turns observed point, line, triangle, strip, fan and
+sprite vertex submissions into host screen-space triangle vertices. At the
+existing frame boundary the runtime publishes a snapshot; a bounded run
+reports 120 vertices. This first draw path carries vertex colors only. It
+does not yet draw textured geometry or present a window.
+
 Translating `func_001B93D8` from retail assembly fixed a zero-argument C
 placeholder that discarded callback registers. A separate native MMIO handler
 accepts GIF channel 2 transfers and queues their source-chain payloads. These

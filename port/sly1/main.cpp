@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
                           << " trxpos=0x" << trxpos << " trxreg=0x" << trxreg
                           << " trxdir=0x" << trxdir << " pmode=0x" << pmode
                           << " dispfb1=0x" << dispfb1 << " display1=0x" << display1
+                          << " vertices=" << std::dec << openrac_guest_gs_published_vertex_count()
                           << std::dec;
                 std::cerr << " active_threads=";
                 for (uint32_t id = 1; id < 16; ++id) {
