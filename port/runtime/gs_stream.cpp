@@ -170,8 +170,7 @@ void write_gs_register(uint32_t address, uint64_t value) {
         g_parser.current_rgba = static_cast<uint32_t>(value);
     } else if (address == 0x03u) {
         g_parser.current_uv = value;
-    } else if (address == 0x04u || address == 0x05u ||
-               address == 0x0Cu || address == 0x0Du) {
+    } else if (address == 0x04u || address == 0x05u) {
         submit_vertex(value);
     }
 }
@@ -220,6 +219,17 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
         (g_parser.tag_registers >> ((sequence_index % g_parser.register_count) * 4u)) & 0xFu);
     if (descriptor == 0xEu) {
         write_gs_register(static_cast<uint32_t>(meta & 0xFFu), value);
+    } else if (g_parser.format == 0 && (descriptor == 0x04u || descriptor == 0x05u)) {
+        // PACKED XYZ uses a 128-bit layout: Y starts at bit 32, while the
+        // register-list form uses the GS register's native 64-bit layout.
+        uint64_t native_value = value & 0xFFFFu;
+        native_value |= ((value >> 32u) & 0xFFFFu) << 16u;
+        const bool xyzf = descriptor == 0x04u;
+        const uint64_t z = xyzf ? ((meta >> 4u) & 0xFFFFFFu) : (meta & 0xFFFFFFFFu);
+        native_value |= z << 32u;
+        if (xyzf) native_value |= ((meta >> 36u) & 0xFFu) << 56u;
+        const bool disable_drawing = ((meta >> 47u) & 1u) != 0;
+        write_gs_register(descriptor + (disable_drawing ? 8u : 0u), native_value);
     } else if (descriptor != 0xFu) {
         write_gs_register(descriptor, value);
     }
