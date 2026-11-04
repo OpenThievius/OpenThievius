@@ -15,6 +15,7 @@ constexpr uint32_t kSifCommandInit = 0x80000002u;
 constexpr uint32_t kSifRpcBind = 0x80000009u;
 constexpr uint32_t kSifRpcCall = 0x8000000Au;
 constexpr uint32_t kSlySoundService = 0x00123456u;
+constexpr uint32_t kSlySoundLoadService = 0x00123457u;
 constexpr uint32_t kInitCompletion = 0x006294C0u;
 std::mutex g_rpc_mutex;
 std::unordered_map<uint32_t, uint32_t> g_native_rpc_services;
@@ -117,10 +118,19 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
     // The first request from 989snd is an initialization poll. Retail's
     // func_0011D078 accepts -1 in both the queue head and its indexed
     // completion word; func_001F7E58 releases the corresponding EE RPC slot.
-    if (service == kSlySoundService && rpc_number == 0 && receive_size >= 12) {
-        if (!guest_write_u32(receive_buffer, 0xFFFFFFFFu) ||
-            !guest_write_u32(receive_buffer + 4, 0) ||
-            !guest_write_u32(receive_buffer + 8, 0xFFFFFFFFu)) return 0;
+    const bool sound_init = service == kSlySoundService &&
+                            (rpc_number == 0 || rpc_number == 0x2a) &&
+                            receive_size == 12;
+    const bool sound_load = service == kSlySoundLoadService && rpc_number == 3 &&
+                            send_size == 8 && receive_size == 4;
+    if (sound_init || sound_load) {
+        // Zero reports unavailable for sound initialization or bank loading.
+        // Keep the game on its existing fallback path until audio is native.
+        if (sound_load && !guest_write_u32(receive_buffer, 0)) return 0;
+        if (sound_init &&
+            (!guest_write_u32(receive_buffer, 0xFFFFFFFFu) ||
+             !guest_write_u32(receive_buffer + 4, 0) ||
+             !guest_write_u32(receive_buffer + 8, 0xFFFFFFFFu))) return 0;
 
         uint32_t request_flags = 0;
         if (!guest_u32(packet + 16, &request_flags) ||
@@ -136,10 +146,10 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
             guest_u32(active_packet + 16, &active_flags);
             guest_u32(active_packet + 24, &packet_generation);
             std::fprintf(stderr,
-                         "[info] native 989snd startup RPC completed client=%#010x "
+                         "[info] native 989snd RPC %u completed client=%#010x "
                          "send=%u/%#010x recv=%u/%#010x destination=%#010x data_size=%d "
                          "packet=%#010x active=%#010x flags=%#010x generation=%u/%u\n",
-                         client, send_size, source, receive_size, receive_buffer,
+                         rpc_number, client, send_size, source, receive_size, receive_buffer,
                          destination, data_size, packet, active_packet, active_flags,
                          client_generation, packet_generation);
         }

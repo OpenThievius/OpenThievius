@@ -36,9 +36,10 @@ disc-backed IOP replacement starts. Native SIF command handling completes
 command-init and binds both guest RPC clients. In the latest bounded run,
 startup passed the first sound service request using an empty completion reply.
 The native disc readiness hook also passes the subsequent startup poll. The
-latest run reaches sound service requests `0x00123457` RPC 3 and `0x00123456`
-RPC 42, which have no native responses yet. The earlier reply does not implement
-sound. SIF DMA (0x76–0x78), IOP
+native fallback responses report sound initialization and bank loading as
+unavailable. The latest run reaches sound RPC 77, IOP service `0x80000400`
+RPC 254, and an unregistered code address `0x0018e5e8`. The fallback does not
+implement sound. SIF DMA (0x76–0x78), IOP
 RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 The source bridge also has unreadable source files and C++ constructs that need
