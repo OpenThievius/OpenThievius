@@ -8,7 +8,10 @@
     "openrac_native_renderer_submit_dma_chain",
     "sly1_native_call_constructor",
     "sly1_native_call_method",
-    "sly1_native_read_sectors"
+    "sly1_native_read_sectors",
+    "sly1_native_temp_begin",
+    "sly1_native_temp_alloc",
+    "sly1_native_temp_end"
   ],
   "hand": "hand/backfills.tsv",
   "source": "src",

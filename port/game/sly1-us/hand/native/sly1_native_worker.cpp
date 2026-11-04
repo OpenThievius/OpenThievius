@@ -7,6 +7,33 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace {
+
+constexpr gaddr kNativeTempBase = GUEST_PORT + 0x00400000u;
+constexpr gaddr kNativeTempSize = 0x00010000u;
+constexpr uint32_t kNativeTempThreadSlots = 128;
+constexpr uint32_t kNativeTempMarkSlots = 64;
+
+struct NativeTempArena {
+    gaddr cursor = 0;
+    gaddr marks[kNativeTempMarkSlots]{};
+    uint32_t depth = 0;
+};
+
+thread_local NativeTempArena g_native_temp_arena;
+
+gaddr native_temp_floor() {
+    const uint32_t thread_id = openrac_guest_current_thread_id();
+    if (thread_id >= kNativeTempThreadSlots) return 0;
+    return kNativeTempBase + thread_id * kNativeTempSize;
+}
+
+gaddr native_temp_top(gaddr floor) {
+    return floor + kNativeTempSize;
+}
+
+}  // namespace
+
 extern "C" void sly1_native_start_worker(void) {
     const gaddr saved_sp = openrac_guest_sp;
     const gaddr params = openrac_guest_frame(0x48u);
@@ -59,6 +86,34 @@ extern "C" int game_sly1_native_read_sectors(uint32_t sector, uint32_t count,
                      sector, count, destination, success);
     }
     return success;
+}
+
+extern "C" void game_sly1_native_temp_begin(void) {
+    const gaddr floor = native_temp_floor();
+    if (floor == 0 || g_native_temp_arena.depth >= kNativeTempMarkSlots) return;
+    if (g_native_temp_arena.cursor < floor ||
+        g_native_temp_arena.cursor > native_temp_top(floor)) {
+        g_native_temp_arena.cursor = native_temp_top(floor);
+    }
+    g_native_temp_arena.marks[g_native_temp_arena.depth++] = g_native_temp_arena.cursor;
+}
+
+extern "C" uint32_t game_sly1_native_temp_alloc(int32_t size) {
+    const gaddr floor = native_temp_floor();
+    if (floor == 0 || size <= 0) return 0;
+    if (g_native_temp_arena.cursor < floor ||
+        g_native_temp_arena.cursor > native_temp_top(floor)) {
+        g_native_temp_arena.cursor = native_temp_top(floor);
+    }
+    const uint32_t aligned = (static_cast<uint32_t>(size) + 15u) & ~15u;
+    if (aligned > g_native_temp_arena.cursor - floor) return 0;
+    g_native_temp_arena.cursor -= aligned;
+    return g_native_temp_arena.cursor;
+}
+
+extern "C" void game_sly1_native_temp_end(void) {
+    if (g_native_temp_arena.depth == 0) return;
+    g_native_temp_arena.cursor = g_native_temp_arena.marks[--g_native_temp_arena.depth];
 }
 
 extern "C" void sly1_native_start_loader(void) {
