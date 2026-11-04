@@ -42,10 +42,18 @@ is produced by title-specific draw code and VU programs.
 
 ## Current blocker
 
-The C-only host build backfills the outer frame loop, but the worker and its
-display callback functions still have no C. The latest bounded run reaches
-the registered port callback at `0x0018E5E8`; worker `0x0018E558` is a no-C
-stub. The trace has no GIF end marker and no vertices. First make the Sly
-display path reach its packet submission boundary with port-only C kept under
-`port/game/sly1-us/hand/`. Then the direct renderer can be connected to actual
-Sly-produced packets.
+The host32 native path now has port-only implementations of `func_00185D20`
+and `func_001860A8`. They prepare Sly's 0x100-byte draw entries, apply the
+available native affine transform, and dispatch the entry's object callbacks.
+These backfills live under `port/game/sly1-us/native/`, separate from matching
+decompilation. They do not execute VU instructions or feed the experimental
+GIF device model.
+
+The next missing helper on this object-draw route is `func_001278A8`, which
+walks object transforms and computes the draw entry's basis data. The object
+callbacks then need a native adapter that exposes Sly draw data to a renderer.
+Neither the OpenRAC `DirectRenderer` nor a Sly renderer is wired to these
+entries yet, so the launcher still has no visible scene. Keep the direct
+renderer as the preferred reusable 2D/GIF layer after the Sly callback path
+can provide compatible packets; the world geometry still needs a Sly-specific
+adapter.

@@ -53,3 +53,9 @@ single-precision math and do not depend on the guest VU state.
 the port completes DMA submissions synchronously and has no pending hardware
 queue to reset. The previous-frame frontier showed this wrapper as a missing
 direct call; the host32 map now resolves it.
+
+`func_00185D20.cpp` and `func_001860A8.cpp` prepare and dispatch Sly's
+0x100-byte object draw entries without executing VU instructions.
+`func_00185D20` uses the existing native affine transform backfill;
+`func_001278A8` still needs a native implementation, and the callbacks need an
+adapter to the reused OpenRAC renderer or a Sly world-draw path.
