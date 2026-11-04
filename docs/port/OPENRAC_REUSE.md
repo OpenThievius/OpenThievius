@@ -76,12 +76,14 @@ the renderer must be fed from those game-produced packets. OpenRAC's current
 level renderers are a separate matter: their CPU scene adapters encode R&C
 level formats and cannot draw Sly levels as-is.
 
-The current C-only native build confirms the boot override and three
-port-owned frame backfills compile and link. A bounded native run enters the
-frame loop, but warnings show missing Sly functions on that path and the
-renderer receives no geometry. This is not a playable milestone. The
-backfills remain separate from matching source under
-`port/game/sly1-us/hand/native_c/`.
+The current C-only native build confirms the boot override and isolated
+port-owned frame-path backfills compile and link. The native launcher now
+registers a port-owned callback at retail address `0x0018E5E8`; the latest
+bounded run reaches it, creates guest worker thread 3 at `0x0018E558`, and
+then remains there because that worker has no translated C yet. The renderer
+still receives no geometry and the window remains black. This is startup
+evidence, not a playable milestone. The backfills remain separate from
+matching source under `port/game/sly1-us/hand/`.
 
 The current kernel replacement is a mixed case. The generic syscall dispatch
 and thread/semaphore scaffolding were adapted from OpenRAC's documented
@@ -158,10 +160,10 @@ implementations cannot be treated as the native service layer.
 
 The default hostgen command now disables assembly translation. It compiles
 matched Sly C plus port-only backfills and links against the shared guest
-memory runtime. The native boot override reaches the C frame loop, but the
-bounded run warns on missing functions and renders nothing. Passing `--asm on`
-writes a separate research output tree; it is never a dependency of the
-playable target. Directly compiling Sly C++ as i386 preserves retail data
+memory runtime. The native boot override reaches the C frame loop and its
+worker callback, but the bounded run warns on missing functions and renders
+nothing. Passing `--asm on` writes a separate research output tree; it is
+never a dependency of the playable target. Directly compiling Sly C++ as i386 preserves retail data
 layout, but the imported guest runtime is not an i386 native-service layer:
 its EE/VU support uses `__int128`, unavailable in that ABI. The 64-bit
 host-generated C route is currently the viable native compilation experiment.
