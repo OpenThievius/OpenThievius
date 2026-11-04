@@ -16,6 +16,13 @@ int openrac_guest_disc_open(const char* path);
 int openrac_guest_disc_read(uint32_t first_sector, uint32_t count, uint32_t guest_address);
 uint32_t openrac_guest_disc_sector_count(void);
 
+/* Locate an ISO 9660 path and report its first logical sector and byte size. */
+int openrac_guest_disc_file_info(const char* path, uint32_t* first_sector, uint32_t* byte_size);
+
+/* Read a byte range from an ISO 9660 file into guest RAM. */
+int openrac_guest_disc_read_file(const char* path, uint32_t file_offset, uint32_t byte_count,
+                                 uint32_t guest_address);
+
 #ifdef __cplusplus
 }
 #endif

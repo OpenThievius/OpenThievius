@@ -29,8 +29,10 @@ incompatible stack range and five constructor-table interior entries; the
 runtime now adopts the range from `SetupThread`, and the launcher registers
 those five callbacks. The second run passed them, then remained in CD/IOP
 initialization until timeout. Two more interior entries from that path are now
-translated by hostgen. A native ISO 9660 sector reader accepts cooked images
-and raw 2352-byte BINs, but Sly's CD/IOP calls do not use it yet. The analyzed
+translated by hostgen. A native ISO 9660 reader accepts cooked images and raw
+2352-byte BINs, locates paths and reads file ranges. The local NTSC-U image was
+identified as `SCUS_971.98`, with `IOPRP243.IMG` and the boot modules in its
+ISO file table. Sly's CD/IOP calls do not use the reader yet. The analyzed
 boot call graph still reaches 26 functions without hostable C. Fifteen source
 files remain unreadable and the C++ adapter can lose constructs; disc services,
 most kernel calls, the renderer and frame loop still block gameplay. Continue

@@ -4,12 +4,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "openrac/guest.h"
@@ -44,17 +47,25 @@ public:
         uint64_t base = 0;
         if (size % kLogicalSectorSize == 0 && has_primary_volume(input, 0, 0, kLogicalSectorSize)) {
             stride = kLogicalSectorSize;
-        } else if (size % 2352 == 0 && has_primary_volume(input, 0, 24, 2352)) {
-            stride = 2352;
-            payload = 24;
-        } else if (size > uint64_t{150} * 2352 && (size - uint64_t{150} * 2352) % 2352 == 0 &&
-                   has_primary_volume(input, uint64_t{150} * 2352, 24, 2352)) {
-            stride = 2352;
-            payload = 24;
-            base = uint64_t{150} * 2352;
         } else {
-            *reason = "disc image has no ISO 9660 primary volume descriptor at logical sector 16";
-            return false;
+            const std::optional<uint32_t> first_track_payload = raw_primary_payload(input, 0);
+            if (size % 2352 == 0 && first_track_payload) {
+                stride = 2352;
+                payload = *first_track_payload;
+            } else {
+                constexpr uint64_t kPregapBytes = uint64_t{150} * 2352;
+                const std::optional<uint32_t> pregap_payload =
+                    size > kPregapBytes && (size - kPregapBytes) % 2352 == 0
+                        ? raw_primary_payload(input, kPregapBytes)
+                        : std::nullopt;
+                if (!pregap_payload) {
+                    *reason = "disc image has no ISO 9660 primary volume descriptor at logical sector 16";
+                    return false;
+                }
+                stride = 2352;
+                payload = *pregap_payload;
+                base = kPregapBytes;
+            }
         }
 
         input_ = std::move(input);
@@ -62,8 +73,61 @@ public:
         base_ = base;
         stride_ = stride;
         payload_ = payload;
+        if ((size - base) / stride > std::numeric_limits<uint32_t>::max()) {
+            *reason = "disc image has more logical sectors than the reader supports";
+            input_.close();
+            return false;
+        }
         sectors_ = static_cast<uint32_t>((size - base) / stride);
         return true;
+    }
+
+    bool find_file(const char* path, uint32_t* first_sector, uint32_t* byte_size) {
+        if (!input_.is_open() || path == nullptr || first_sector == nullptr || byte_size == nullptr)
+            return false;
+        std::string_view remaining(path);
+        if (remaining.size() >= 7 && equal_ascii(remaining.substr(0, 7), "cdrom0:"))
+            remaining.remove_prefix(7);
+        while (!remaining.empty() && (remaining.front() == '/' || remaining.front() == '\\'))
+            remaining.remove_prefix(1);
+        if (remaining.empty()) return false;
+
+        std::array<uint8_t, kLogicalSectorSize> pvd{};
+        if (!read(16, 1, pvd.data())) return false;
+        if (pvd[0] != 1 || pvd[1] != 'C' || pvd[2] != 'D' || pvd[3] != '0' ||
+            pvd[4] != '0' || pvd[5] != '1' || pvd[6] != 1) return false;
+        const uint8_t* root = pvd.data() + 156;
+        if (root[0] < 34 || root[32] != 1 || root[33] != 0) return false;
+        uint32_t directory_sector = read_le32(root + 2) + root[1];
+        uint32_t directory_size = read_le32(root + 10);
+
+        while (!remaining.empty()) {
+            const size_t separator = remaining.find_first_of("/\\");
+            const std::string_view component = remaining.substr(0, separator);
+            if (component.empty() || component == "." || component == "..") return false;
+            if (separator == std::string_view::npos) remaining = {};
+            else {
+                remaining.remove_prefix(separator + 1);
+                while (!remaining.empty() && (remaining.front() == '/' || remaining.front() == '\\'))
+                    remaining.remove_prefix(1);
+            }
+
+            uint32_t extent = 0;
+            uint32_t size = 0;
+            uint8_t flags = 0;
+            if (!find_record(directory_sector, directory_size, component, &extent, &size, &flags))
+                return false;
+            if (remaining.empty()) {
+                if ((flags & 0x02u) != 0) return false;
+                *first_sector = extent;
+                *byte_size = size;
+                return true;
+            }
+            if ((flags & 0x02u) == 0) return false;
+            directory_sector = extent;
+            directory_size = size;
+        }
+        return false;
     }
 
     bool read(uint32_t first, uint32_t count, uint8_t* output) {
@@ -94,6 +158,72 @@ public:
     uint32_t sectors() const { return sectors_; }
 
 private:
+    static uint32_t read_le32(const uint8_t* bytes) {
+        return uint32_t{bytes[0]} | (uint32_t{bytes[1]} << 8) |
+               (uint32_t{bytes[2]} << 16) | (uint32_t{bytes[3]} << 24);
+    }
+
+    static std::optional<uint32_t> raw_primary_payload(std::ifstream& input, uint64_t base) {
+        std::array<uint8_t, 24> raw{};
+        const uint64_t offset = base + uint64_t{16} * 2352;
+        input.clear();
+        input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+        input.read(reinterpret_cast<char*>(raw.data()), raw.size());
+        if (input.gcount() != static_cast<std::streamsize>(raw.size()) || raw[0] != 0 || raw[11] != 0)
+            return std::nullopt;
+        for (size_t i = 1; i < 11; ++i) if (raw[i] != 0xFF) return std::nullopt;
+        const uint32_t payload = raw[15] == 1 ? 16 : raw[15] == 2 ? 24 : 0;
+        return payload != 0 && has_primary_volume(input, base, payload, 2352)
+                   ? std::optional<uint32_t>(payload)
+                   : std::nullopt;
+    }
+
+    static bool equal_ascii(std::string_view left, std::string_view right) {
+        if (left.size() != right.size()) return false;
+        for (size_t i = 0; i < left.size(); ++i) {
+            if (std::tolower(static_cast<unsigned char>(left[i])) !=
+                std::tolower(static_cast<unsigned char>(right[i]))) return false;
+        }
+        return true;
+    }
+
+    static std::string_view versionless(std::string_view name) {
+        const size_t version = name.rfind(';');
+        if (version != std::string_view::npos) name = name.substr(0, version);
+        return name;
+    }
+
+    bool find_record(uint32_t directory_sector, uint32_t directory_size,
+                     std::string_view wanted, uint32_t* extent, uint32_t* size, uint8_t* flags) {
+        std::array<uint8_t, kLogicalSectorSize> sector{};
+        uint32_t position = 0;
+        while (position < directory_size) {
+            const uint32_t sector_index = position / kLogicalSectorSize;
+            const uint32_t in_sector = position % kLogicalSectorSize;
+            if (!read(directory_sector + sector_index, 1, sector.data())) return false;
+            if (sector[in_sector] == 0) {
+                position = (sector_index + 1) * kLogicalSectorSize;
+                continue;
+            }
+            const uint8_t record_size = sector[in_sector];
+            if (record_size < 34 || record_size > kLogicalSectorSize - in_sector ||
+                record_size > directory_size - position) return false;
+            const uint8_t* record = sector.data() + in_sector;
+            const uint8_t name_size = record[32];
+            if (33u + name_size > record_size) return false;
+            const std::string_view name(reinterpret_cast<const char*>(record + 33), name_size);
+            if (!(name_size == 1 && (name[0] == '\0' || name[0] == '\1')) &&
+                equal_ascii(versionless(name), versionless(wanted))) {
+                *extent = read_le32(record + 2) + record[1];
+                *size = read_le32(record + 10);
+                *flags = record[25];
+                return true;
+            }
+            position += record_size;
+        }
+        return false;
+    }
+
     static bool has_primary_volume(std::ifstream& input, uint64_t base, uint32_t payload,
                                    uint32_t stride) {
         std::array<uint8_t, 7> descriptor{};
@@ -146,4 +276,32 @@ extern "C" int openrac_guest_disc_read(uint32_t first_sector, uint32_t count,
 
 extern "C" uint32_t openrac_guest_disc_sector_count(void) {
     return g_disc.sectors();
+}
+
+extern "C" int openrac_guest_disc_file_info(const char* path, uint32_t* first_sector,
+                                              uint32_t* byte_size) {
+    return g_disc.find_file(path, first_sector, byte_size) ? 1 : 0;
+}
+
+extern "C" int openrac_guest_disc_read_file(const char* path, uint32_t file_offset,
+                                              uint32_t byte_count, uint32_t guest_address) {
+    uint32_t first_sector = 0;
+    uint32_t file_size = 0;
+    if (!g_disc.find_file(path, &first_sector, &file_size) || file_offset > file_size ||
+        byte_count > file_size - file_offset) return 0;
+    const uint32_t address = openrac_guest_ram_address(guest_address);
+    if (address > openrac_guest_ram_size || byte_count > openrac_guest_ram_size - address) {
+        openrac_guest_missing("disc file read destination is outside guest RAM");
+        return 0;
+    }
+    if (byte_count == 0) return 1;
+
+    const uint32_t skipped = file_offset % kLogicalSectorSize;
+    const uint32_t sectors = (skipped + byte_count + kLogicalSectorSize - 1) /
+                             kLogicalSectorSize;
+    std::vector<uint8_t> data(uint64_t{sectors} * kLogicalSectorSize);
+    if (!g_disc.read(first_sector + file_offset / kLogicalSectorSize, sectors, data.data()))
+        return 0;
+    std::copy_n(data.data() + skipped, byte_count, openrac_guest_base + address);
+    return 1;
 }

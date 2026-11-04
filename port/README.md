@@ -37,8 +37,9 @@ the game entry. `port_native` separately builds `build/port/sly1_native`, a
 launcher that accepts the extracted `SCUS_971.98` ELF and an optional ISO or
 raw BIN disc image, loads the ELF segments into guest memory, registers
 translated functions, and calls the game entry. The native runtime validates
-ISO 9660 images and reads their logical sectors. The current CD/IOP game calls
-do not use that reader yet. The native launcher is experimental. The first
+ISO 9660 images, reads logical sectors, locates paths and reads file ranges.
+The current CD/IOP game calls do not use that reader yet. The native launcher
+is experimental. The first
 authorized startup run stopped at the runtime's stack-bound check and five
 interior constructor table entries. The
 runtime now accepts Sly's `SetupThread` stack range, and the launcher registers
