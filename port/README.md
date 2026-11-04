@@ -16,10 +16,11 @@ python3 port/tools/sly1.py status --version eu --json
 It is a planning/status tool, not a host build. The next step is the source
 bridge and host build described in [the port roadmap](../docs/port/ROADMAP.md).
 
-Host generation can be tried with `python3 port/tools/sly1.py hostgen`; its
-generated files stay under `build/port/`. The current translation is
-experimental and does not produce a playable game. It needs full C++ source
-handling, a port runtime, and a host implementation of the boot/system calls.
+Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
+generated files stay under `build/port/`. The current native launcher is
+experimental and does not produce a playable game. It enters the retail boot
+code and reads sectors from an ISO, but startup stalls in a DMA-related poll;
+there is no renderer or title screen yet.
 
 The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
 generated game units into a local link-check executable, run:
@@ -56,7 +57,11 @@ are stored in host memory, and the remote IOP RPC bind loop is bypassed when an
 ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
 (register 4, value 0x60000) and an opaque subaddress when the disc-backed IOP
 replacement starts. Native command handling completes the SIF command-init
-handshake and binds the two guest RPC clients. The latest 15-second run reached
+handshake and binds the two guest RPC clients. A retail-assembly translation
+for `func_001B93D8` preserves callback registers that its C placeholder lost.
+The latest bounded run no longer calls address zero, reads 74 ISO sectors, and
+remains in a DMA-related poll with two guest workers active. The latest
+15-second run reached
 the first sound RPC request (service `0x00123456`, RPC 0) and passed it with
 an empty completion reply. Native disc readiness passes the following poll;
 fallback replies report sound initialization and bank loading as unavailable.
@@ -72,9 +77,8 @@ and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `GetEntryAddress`, `FlushCache`, and `SetSyscall`). The
 `GetMemorySize` and `_InitTLB` boot calls are also handled for the 32 MiB guest
 RAM configuration; TLB writes are ignored because the runtime maps guest RAM
-directly. Worker threads are recorded but do not run separately; Sema calls
-use a single-thread counting model. OSD configuration currently defaults to
-English.
+directly. Guest worker threads run on host threads, and semaphores block and
+signal across them. OSD configuration currently defaults to English.
 Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 One startup VU busy poll reports idle because the host has no VU execution unit.
 The interrupt controller stores installed handlers and enable state; the

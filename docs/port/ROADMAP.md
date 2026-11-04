@@ -18,8 +18,8 @@ See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
 | 7 | PAL support, parity fixes, packaging and launcher | Both retail versions are supported |
 
 **Current implementation:** the hostgen tool and CMake entry point are in
-place. With local retail-backed assembly available, the latest run translated
-1,532 functions from C and 3,147 from assembly; all 81 generated C units
+place. With local retail-backed assembly available, the latest build translated
+1,531 functions from C and 3,146 from assembly; all 81 generated C units
 compile. `port_native` reads a user's extracted boot ELF and optional ISO,
 maps the ELF segments, and calls the translated entry. The launcher accepts
 Sly's `SetupThread` stack range, registers five constructor-table interior
@@ -45,9 +45,14 @@ implemented. SIF DMA (0x76–0x78), IOP
 RPC service responses, renderer, frame loop,
 input, audio, saves and remaining disc/device services still block gameplay.
 Native sector reads now connect the retail disc-read entry to the ISO reader;
-the latest run read 74 sectors and passed two additional callback entries.
-It then reported a call to address zero and remained active until timeout.
-Only the ordinary 2048-byte sector mode is supported.
+the latest bounded run read 74 sectors. Translating `func_001B93D8` from its
+retail assembly fixed a zero-argument C placeholder that discarded callback
+registers; startup no longer reports a call to address zero. The main thread
+now remains in a DMA-related poll while two guest worker threads run. Sound
+RPC 77 and IOP memory-card RPC 254 still have no native responses. The run
+times out without reaching a title screen. `func_001E1FD0` and
+`func_001E20B8` remain unsupported varargs stubs. Only the ordinary 2048-byte
+sector mode is supported.
 The source bridge also has unreadable source files and C++ constructs that need
 preserving; continue along the loader and boot call graph, grounding host
 behavior in retail code or public hardware documentation.
