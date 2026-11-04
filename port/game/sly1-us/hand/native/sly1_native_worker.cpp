@@ -27,6 +27,18 @@ extern "C" void sly1_native_start_worker(void) {
     (void)openrac_guest_kernel_syscall(0x22u, thread, 0, 0, 0, 0, 0, 0, 0);
     openrac_guest_sp = saved_sp;
 }
+
+// Object constructors in retail descriptors are guest code addresses. Route
+// them through the host-generated C function map so the native factory never
+// casts a 32-bit guest address into a host function pointer.
+extern "C" void game_sly1_native_call_constructor(uint32_t address, uint32_t object) {
+    const uint64_t integer_registers[8] = {object};
+    const float float_registers[8]{};
+    float float_result = 0.0f;
+    (void)openrac_guest_call_regs(address, integer_registers, float_registers,
+                                  &float_result, 0);
+}
+
 extern "C" void sly1_native_start_loader(void) {
     const gaddr saved_sp = openrac_guest_sp;
     const gaddr params = openrac_guest_frame(0x30u);

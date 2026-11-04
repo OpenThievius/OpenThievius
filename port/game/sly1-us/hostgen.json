@@ -5,7 +5,8 @@
   "serial": "SCUS_971.98",
   "entry": "func_00100008",
   "host_functions": [
-    "openrac_native_renderer_submit_dma_chain"
+    "openrac_native_renderer_submit_dma_chain",
+    "sly1_native_call_constructor"
   ],
   "hand": "hand/backfills.tsv",
   "source": "src",
