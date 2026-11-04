@@ -19,13 +19,16 @@ block the first playable scene.
 ## Current no-emulation build status
 
 The no-emulation host32 path directly compiles all 68 Sly C++ source units and
-27 port-native backfill objects, then combines them by retail address. The
-latest generated report (`build/port/host32/link/link-frontier.json`) records
-2,351 native definitions for 4,766 catalogued addresses, with 599 catalogued
-addresses unresolved. Its direct-call frame frontier has 57 definitions and
-32 missing functions among 89 addresses; it does not trace indirect callbacks
-or vtables. This remains an object build: there is no linked native game
-executable, startup/service layer, or verified frame renderer.
+36 port-native backfill objects, combines them by retail address, and links a
+freestanding Linux/i386 diagnostic launcher. The latest generated report
+(`build/port/host32/link/link-frontier.json`) records 2,364 native definitions
+for 4,766 catalogued addresses, with 586 catalogued addresses unresolved. Its
+reachable direct-call frontier is 60/89 functions defined; the report does not
+follow indirect callbacks, function tables, constructors or vtables. The
+launcher maps the retail ELF, patches native function pointers and reaches the
+frame setup callbacks. Its latest bounded run exits at missing graphics setup
+function `0x00201D60`. It has no window or visible output; no title screen or
+playable scene is verified.
 
 The separate C-only hostgen launcher does link and open a window, but it uses
 the experimental guest-memory/runtime path and is not the no-emulation game

@@ -14,7 +14,7 @@
 OpenThievius brings *Sly Cooper and the Thievius Raccoonus* (Sucker Punch Productions, 2002) to PC as a real native game. No emulator.
 
 - **How:** the game is decompiled into source that rebuilds the original executable exactly ([sly1-decomp](https://github.com/OpenThievius/sly1-decomp)), then built for your PC by the native port here.
-- **Where it stands:** the native port is still at the object-build and research stage. It has no linked native game executable; the older C-only launcher opens a black window and is not the gameplay path. No title or playable gameplay is visible yet ([port roadmap](docs/port/ROADMAP.md)).
+- **Where it stands:** the port has a freestanding Linux/i386 diagnostic launcher that maps the retail ELF and runs compiled Sly C++ through early frame setup. It currently stops at a missing graphics setup function; it has no window or visible game output, and is not playable yet ([port roadmap](docs/port/ROADMAP.md)).
 - **No game files included:** models, textures, sound and levels come from your own disc.
 
 ## Games

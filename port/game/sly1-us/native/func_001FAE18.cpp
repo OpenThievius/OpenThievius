@@ -2,11 +2,22 @@
 // Port-only native startup for Sly's NTSC-U global initializer table.
 #include "native_function_lookup.hpp"
 
+using u32 = unsigned int;
+extern "C" int sly1_i386_syscall6(int, int, int, int, int, int, int);
+
 namespace {
 
 constexpr unsigned int kConstructorTable = 0x0027B130u;
 constexpr unsigned int kMaximumConstructors = 64;
 unsigned int g_initializers_run;
+
+void trace_constructor(unsigned int address) {
+    char line[] = "native host32: constructor 0x00000000\n";
+    const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 8; ++i) line[29 + i] = hex[(address >> ((7-i)*4)) & 15];
+    // Linux/i386 write(2, line, sizeof(line)-1).
+    __asm__ volatile("int $0x80" : : "a"(4), "b"(2), "c"(line), "d"(sizeof(line)-1) : "memory", "cc");
+}
 
 }  // namespace
 
@@ -22,6 +33,7 @@ extern "C" void func_001FAE18() {
     for (unsigned int index = count; index != 0; --index) {
         const unsigned int address = sly1::native_function_address(constructors[index]);
         if (address == 0) continue;
+        trace_constructor(constructors[index]);
         reinterpret_cast<void (*)()>(address)();
     }
 }

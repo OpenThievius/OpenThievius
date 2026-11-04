@@ -52,6 +52,18 @@ add_custom_target(port_combine_decomp_host32
     DEPENDS port_compile_decomp_host32
     COMMENT "Combining native C++ objects using retail function and data addresses")
 
+add_custom_target(port_link_native_host32
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/link_native_host32.py
+            --object ${CMAKE_CURRENT_BINARY_DIR}/host32/link/decomp-native32.o
+            --aliases ${CMAKE_CURRENT_BINARY_DIR}/host32/link/retail-address-aliases.ld
+            --out ${CMAKE_CURRENT_BINARY_DIR}/host32/launcher
+            --source ${CMAKE_CURRENT_SOURCE_DIR}/sly1/native_host32
+            --cxx ${CMAKE_CXX_COMPILER}
+            --ld ${CMAKE_LINKER}
+            --nm ${CMAKE_NM}
+    DEPENDS port_combine_decomp_host32
+    COMMENT "Linking freestanding Linux/i386 native Sly launcher")
+
 add_custom_target(port_compile_generated
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_hostgen.py
             --generated ${CMAKE_CURRENT_BINARY_DIR}/hostgen/us

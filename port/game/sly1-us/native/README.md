@@ -5,7 +5,9 @@ This directory contains functional replacements for the host-native C++ build
 only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
-function names to retail addresses alongside compiled decomp functions.
+function names to retail addresses alongside compiled decomp functions. The
+freestanding diagnostic launcher currently reaches frame setup and stops at
+the unresolved graphics setup function `func_00201D60`.
 
 Remove a backfill as soon as matching C/C++ for that address is available;
 the combine step rejects an address defined by both trees. Keep these
@@ -15,8 +17,9 @@ retail executable.
 `linux_semaphores.cpp` supplies Linux i386 host services for Sly's retail
 `CreateSema`, `DeleteSema`, `SignalSema`, `iSignalSema`, `WaitSema`, `PollSema`
 and `iPollSema` wrappers. It uses host futexes and does not run PS2 instructions.
-The semaphore boundary can support native host threads, but the host32 build
-still lacks its thread creation/entry service and a linked game launcher.
+The semaphore boundary can support native host threads, but the freestanding
+host32 diagnostic path still lacks a graphics setup service and a visible
+presentation path.
 
 `func_001430F8.cpp` replaces the reachable CP0 Count read with a monotonic host
 counter scaled to the NTSC-U 294.912 MHz tick rate used by Sly's timer code.
