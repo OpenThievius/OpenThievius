@@ -38,7 +38,9 @@ syscalls (`SetupThread`, `SetupHeap`, `ExitThread`, `Exit`, `SetGsCrt`, `Copy`,
 `GetMemorySize` and `_InitTLB` boot calls are also handled for the 32 MiB guest
 RAM configuration; TLB writes are ignored because the runtime maps guest RAM
 directly. Worker threads are recorded but do not run separately; Sema calls
-use a single-thread counting model.
+use a single-thread counting model. OSD configuration currently defaults to
+English.
+Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
 renderer, frame loop, disc services, and the rest of the required platform
 services are not implemented, so the port still cannot launch into gameplay.
 

@@ -424,6 +424,7 @@ uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, uint64_t a1
                                      uint64_t a5, uint64_t a6, uint64_t a7);
 int openrac_guest_exit_requested(void);
 void openrac_guest_clear_exit_requested(void);
+uint32_t openrac_guest_cp0_count(void);
 void openrac_guest_report_missing(void);
 void openrac_guest_stop_on_missing(int stop);
 
