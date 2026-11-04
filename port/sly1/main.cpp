@@ -112,11 +112,17 @@ int main(int argc, char** argv) {
                 const gaddr address = openrac_guest_last_called_address();
                 const char* name = openrac_guest_function_name(address);
                 const uint32_t service = openrac_guest_last_kernel_service();
+                const uint32_t thread = openrac_guest_last_kernel_thread();
+                const gaddr thread_entry = openrac_guest_thread_entry(thread);
+                const char* thread_name = openrac_guest_function_name(thread_entry);
                 std::cerr << "[trace] guest=" << (name == nullptr ? "unknown" : name)
                           << " address=0x" << std::hex << address << std::dec
                           << " kernel_service=";
                 if (service == 0xFFFFFFFFu) std::cerr << "none";
                 else std::cerr << "0x" << std::hex << service << std::dec;
+                std::cerr << " kernel_thread=" << thread << " thread_entry="
+                          << (thread_name == nullptr ? "main/unknown" : thread_name)
+                          << "(0x" << std::hex << thread_entry << std::dec << ')';
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }

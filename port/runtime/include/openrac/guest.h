@@ -233,6 +233,8 @@ openrac_host_fn openrac_guest_function(gaddr address);
 const char* openrac_guest_function_name(gaddr address);
 gaddr openrac_guest_last_called_address(void);
 uint32_t openrac_guest_last_kernel_service(void);
+uint32_t openrac_guest_last_kernel_thread(void);
+gaddr openrac_guest_thread_entry(uint32_t thread_id);
 void openrac_guest_trace_enable(int enabled);
 void openrac_guest_trace_function_entry(gaddr address);
 /* A registered function by its name (the executable's first, then each level program's), or null;

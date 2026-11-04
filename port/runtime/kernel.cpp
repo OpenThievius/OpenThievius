@@ -26,6 +26,7 @@ std::atomic<bool> g_cpu_interrupts_enabled{true};
 thread_local uint32_t g_stack_top = GUEST_RAM_SIZE;
 std::atomic<uint32_t> g_next_id{2};
 std::atomic<uint32_t> g_last_kernel_service{0xFFFFFFFFu};
+std::atomic<uint32_t> g_last_kernel_thread{1};
 std::mutex g_kernel_mutex;
 std::condition_variable g_semaphore_changed;
 struct Semaphore { int32_t count; int32_t max_count; };
@@ -58,6 +59,16 @@ extern "C" void openrac_guest_clear_exit_requested(void) {
 
 extern "C" uint32_t openrac_guest_last_kernel_service(void) {
     return g_last_kernel_service.load(std::memory_order_relaxed);
+}
+
+extern "C" uint32_t openrac_guest_last_kernel_thread(void) {
+    return g_last_kernel_thread.load(std::memory_order_relaxed);
+}
+
+extern "C" gaddr openrac_guest_thread_entry(uint32_t thread_id) {
+    std::lock_guard lock(g_kernel_mutex);
+    const auto it = g_threads.find(thread_id);
+    return it == g_threads.end() ? 0 : it->second.entry;
 }
 
 extern "C" uint32_t openrac_guest_cp0_count(void) {
@@ -104,6 +115,7 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
                                                   uint64_t a2, uint64_t, uint64_t,
                                                   uint64_t, uint64_t, uint64_t) {
     g_last_kernel_service.store(service, std::memory_order_relaxed);
+    g_last_kernel_thread.store(g_current_thread_id, std::memory_order_relaxed);
     switch (service) {
     case 0x10: { // InstallIntcHandler; the host renderer raises registered causes when ready.
         const uint32_t cause = static_cast<uint32_t>(a0);
