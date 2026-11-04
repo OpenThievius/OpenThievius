@@ -284,6 +284,13 @@ extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) 
     }
 }
 
+extern "C" void openrac_guest_gs_reset(void) {
+    std::lock_guard lock(g_parser_mutex);
+    g_parser = GifParser{};
+    g_current_frame.clear();
+    g_published_frame.clear();
+}
+
 extern "C" int openrac_guest_gs_read_register(uint32_t address, uint64_t* value) {
     if (value == nullptr || address >= g_parser.gs_registers.size()) return 0;
     std::lock_guard lock(g_parser_mutex);

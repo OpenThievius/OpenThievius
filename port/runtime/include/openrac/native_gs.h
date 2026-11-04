@@ -19,6 +19,10 @@ typedef struct openrac_gs_vertex {
  * it handled the store; other addresses use the ordinary guest-memory path. */
 int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value);
 int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value);
+void openrac_guest_gs_reset(void);
+/* Feed one 16-byte EE write to the VIF1 FIFO through the native VIF command path. */
+int openrac_guest_vif1_fifo_write(uint32_t word0, uint32_t word1,
+                                  uint32_t word2, uint32_t word3);
 
 /* Native GS frontends consume the ordered GIF qword stream from this FIFO. */
 size_t openrac_guest_gif_fifo_read(void* destination, size_t capacity);

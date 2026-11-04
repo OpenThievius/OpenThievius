@@ -415,6 +415,19 @@ std::atomic_flag g_unsupported_notice = ATOMIC_FLAG_INIT;
 }
 
 extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value) {
+    if (address == 0x10003C10u) {
+        store_mmio(address, value);
+        if ((value & 1u) != 0) {
+            for (uint32_t reg : {kVif1Status, kVif1Cycle, kVif1Itops, kVif1Itop,
+                                 kVif1Base, kVif1Offset, kVif1Tops, kVif1Top})
+                store_mmio(reg, 0);
+        }
+        return 1;
+    }
+    if (address == 0x10003C20u) {
+        store_mmio(address, value);
+        return 1;
+    }
     if (address != kVif1Chcr || (value & 0x100u) == 0) return 0;
     if (openrac_guest_base == nullptr) return 1;
 
@@ -486,4 +499,16 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
                            unsupported);
     }
     return 1;
+}
+
+extern "C" int openrac_guest_vif1_fifo_write(uint32_t word0, uint32_t word1,
+                                              uint32_t word2, uint32_t word3) {
+    if (openrac_guest_base == nullptr) return 0;
+    std::vector<uint8_t> stream(16);
+    const uint32_t words[4] = {word0, word1, word2, word3};
+    std::memcpy(stream.data(), words, stream.size());
+    size_t direct_bytes = 0;
+    uint32_t unsupported = 0xFFFFFFFFu;
+    VifTrace trace;
+    return execute_vif_stream(stream, &direct_bytes, &unsupported, &trace) ? 1 : 0;
 }

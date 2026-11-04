@@ -17,6 +17,7 @@
 
 namespace {
 constexpr uint32_t kGifChcr = 0x1000A000u;
+constexpr uint32_t kGifCtrl = 0x10003000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
 constexpr size_t kMaxTransferBytes = 64u * 1024u * 1024u;
@@ -201,6 +202,17 @@ extern "C" int openrac_guest_ee_mmio_store32(uint32_t address, uint32_t value) {
 
     if (address == 0x10009000u)
         return openrac_guest_vif1_mmio_store32(address, value);
+
+    if (address == kGifCtrl) {
+        store_mmio(address, value);
+        if ((value & 1u) != 0) {
+            openrac_guest_gs_reset();
+            std::lock_guard lock(g_fifo_mutex);
+            g_gif_fifo.clear();
+            g_gif_fifo_head = 0;
+        }
+        return 1;
+    }
 
     if (address == kDmacStat) {
         const uint32_t previous = load_mmio(kDmacStat);
