@@ -81,6 +81,14 @@ nested object-data reader rather than the disc index or a uniquely identified
 level header. The concrete object type and its connection to the containing
 resource remain unknown.
 
+Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
+routine reads signed 16-bit property IDs until a negative sentinel and dispatches
+each nonnegative ID through 32-byte entries at `D_002505D8`. Thus the 5,512-byte
+prefix includes earlier object data and a typed-property section; the captured
+zero-count tables follow that section. The table is zero-initialized in the
+retail ELF and its runtime population is still unresolved, so these IDs cannot
+yet be mapped to names or asset classes.
+
 On the supplied NTSC-U disc the extractor produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
 matches the corrected extractor byte-for-byte. The parser's captured 2,680-
