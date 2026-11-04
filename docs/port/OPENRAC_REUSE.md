@@ -76,6 +76,18 @@ the renderer must be fed from those game-produced packets. OpenRAC's current
 level renderers are a separate matter: their CPU scene adapters encode R&C
 level formats and cannot draw Sly levels as-is.
 
+The current host-native path does not yet produce that renderer input. Sly's
+matched code at `func_001B2640` appends DMA display-list entries, while the
+lower-level draw routine `func_00185D20` has no matching C in the current
+decompilation checkout. The GIF stream currently visible to `sdl_renderer.cpp`
+is produced by the experimental VIF/VU execution runtime. Connecting
+`GifInterpreter` to that stream would make the renderer depend on that runtime,
+so it is not a valid integration for the no-emulation port. Before using the
+OpenRAC direct renderer, the native Sly path needs a game-specific draw adapter
+that supplies compatible 2D packets or native draw data. The direct renderer
+can then be reused for Sly's 2D layer; Sly's 3D scene and asset adapters still
+need independent implementation.
+
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions
 on ordinary host threads; it does not execute the retail MIPS instructions.
