@@ -76,15 +76,17 @@ the renderer must be fed from those game-produced packets. OpenRAC's current
 level renderers are a separate matter: their CPU scene adapters encode R&C
 level formats and cannot draw Sly levels as-is.
 
-The current C-only native build confirms the boot override, isolated
-port-owned frame-path backfills and OpenRAC's OpenGL window platform compile
-and link. The native launcher now
-registers a port-owned callback at retail address `0x0018E5E8`; the latest
-bounded run reaches it, creates guest worker thread 3 at `0x0018E558`, and
-then remains there because that worker has no translated C yet. The renderer
-still receives no geometry and the window remains black. This is startup
-evidence, not a playable milestone. The backfills remain separate from
-matching source under `port/game/sly1-us/hand/`.
+The no-assembly hostgen launcher builds 1,489 translated functions and links
+against OpenRAC's host runtime. That runtime dispatches compiled host functions
+on ordinary host threads; it does not execute the retail MIPS instructions.
+The port-only backfill at `0x0018E558` now runs Sly's queued display-worker
+loop, and its `WaitSema` call reaches OpenRAC's host semaphore service. A
+bounded run confirms worker thread 3 blocks there as expected. The launcher
+still reports thousands of functions without C, leaves many frame and graphics
+calls as no-ops, and renders no geometry. Its experimental VIF/GS device code
+is not the target no-emulation renderer, so this is startup evidence only.
+Backfills remain separate from matching source under
+`port/game/sly1-us/hand/`.
 
 The current kernel replacement is a mixed case. The generic syscall dispatch
 and thread/semaphore scaffolding were adapted from OpenRAC's documented

@@ -10,8 +10,9 @@ view under `build/port/`. When matching C becomes available, remove the
 corresponding backfill and let the matching source take precedence. Keep any
 port-specific changes here so the decompilation can later replace them cleanly.
 
-These initial replacements cover the persistent frame loop, frame-state
-dispatcher and state-transition helper. They still call many functions with
-no matching C; the current generated host build warns and leaves those calls
-as no-ops. They are scaffolding for native execution, not a playable frame
-path.
+These replacements cover the persistent frame loop, frame-state dispatcher,
+state-transition helper, frame callback setup and queued display worker. The
+worker waits through the native `WaitSema` service and then calls Sly's
+existing queue and graphics routines. The generated host build still reaches
+many functions with no matching C; it warns and leaves those calls as no-ops.
+This is port-only startup scaffolding, not a playable frame path.
