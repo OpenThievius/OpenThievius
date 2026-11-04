@@ -141,8 +141,9 @@ extern "C" int func_001F6B20(const EeSemaphoreParameters* parameters) {
         if (g_next_identifier <= 0) g_next_identifier = 1;
         __atomic_store_n(&semaphore->count, parameters->init_count, __ATOMIC_RELAXED);
         semaphore->active = 1;
+        const int identifier = semaphore->identifier;
         unlock_registry();
-        return static_cast<int>(i + 1);
+        return identifier;
     }
     unlock_registry();
     return -1;
