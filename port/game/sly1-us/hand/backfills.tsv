@@ -20,5 +20,16 @@ func_00137328	native_c/stream_reader.c
 func_001373B0	native_c/stream_reader.c
 func_0018D800	native_c/func_0018D800.c
 func_00137A60	native_c/func_00137A60.c
+func_001378A0	native_c/func_001378A0.c
+func_00137B90	native_c/stream_reader_scalar.c
+func_00137BE0	native_c/stream_reader_scalar.c
+func_00137C40	native_c/stream_reader_scalar.c
+func_00137CC0	native_c/stream_reader_scalar.c
+func_00137D10	native_c/stream_reader_scalar.c
+func_00137D78	native_c/stream_reader_scalar.c
+func_00137DF8	native_c/stream_reader_scalar.c
+func_00137E70	native_c/stream_reader_scalar.c
+func_00137E90	native_c/stream_reader_scalar.c
+func_00137EB0	native_c/stream_reader_scalar.c
 func_001E4EA8	native_c/func_001E4EA8.c
 func_001DCEA0	native_c/func_001DCEA0.c
