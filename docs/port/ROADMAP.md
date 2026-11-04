@@ -37,23 +37,20 @@ command-init and binds both guest RPC clients. In the latest bounded run,
 startup passed the first sound service request using an empty completion reply.
 The native disc readiness hook also passes the subsequent startup poll. The
 native fallback responses report sound initialization and bank loading as
-unavailable. The latest run reaches sound RPC 77, IOP service `0x80000400`
-RPC 254. A port-configured assembly entry resolves the previously missing
-constructor, and a provisional graphics wait lets startup proceed without
-waiting on hardware registers. Graphics synchronization and sound are not
-implemented. SIF DMA (0x76–0x78), IOP
-RPC service responses, renderer, frame loop,
-input, audio, saves and remaining disc/device services still block gameplay.
-Native sector reads now connect the retail disc-read entry to the ISO reader;
-the latest bounded run read 74 sectors. Translating `func_001B93D8` from its
-retail assembly fixed a zero-argument C placeholder that discarded callback
-registers; startup no longer reports a call to address zero. The main thread
-now remains in a DMA-related poll while two guest worker threads run. Sound
-RPC 77 and IOP memory-card RPC 254 still have no native responses. The run
-times out without reaching a title screen. A separate native MMIO handler now
-accepts GIF channel 2 transfers and queues their source-chain payloads; the
-latest trace queued eight transfers (about 3.5 KB) before timing out. The FIFO
-has no renderer consumer yet, so the display remains unavailable.
+unavailable. A native memory-card RPC boundary now answers the observed
+extended-server probe (`0x80000400`, RPC `0xFE`) with the documented
+`sceMcResDeniedPermit` result so the game-side library can select its legacy
+protocol. A 20-second native run passed that request, read 74 ISO sectors and
+continued issuing GIF work across guest threads. It still times out without a
+visible title screen: the host GIF FIFO has no renderer consumer, and the
+frame loop, input, audio, saves and other device services are incomplete.
+The trace still reports an unanswered sound RPC 77. SIF DMA command handling
+and other IOP RPCs remain unfinished.
+
+Translating `func_001B93D8` from retail assembly fixed a zero-argument C
+placeholder that discarded callback registers. A separate native MMIO handler
+accepts GIF channel 2 transfers and queues their source-chain payloads. These
+port-side services do not modify the vanilla functions in `sly1-decomp`.
 `func_001E1FD0` and
 `func_001E20B8` remain unsupported varargs stubs. Only the ordinary 2048-byte
 sector mode is supported.

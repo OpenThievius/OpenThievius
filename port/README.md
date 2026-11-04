@@ -59,19 +59,13 @@ ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
 replacement starts. Native command handling completes the SIF command-init
 handshake and binds the two guest RPC clients. A retail-assembly translation
 for `func_001B93D8` preserves callback registers that its C placeholder lost.
-The latest bounded run no longer calls address zero, reads 74 ISO sectors, and
-remains in a DMA-related poll with two guest workers active. The latest
-run queued eight GIF DMA transfers (about 3.5 KB) into the native FIFO, but no
-renderer consumes or displays those commands yet. The 15-second run reached
-the first sound RPC request (service `0x00123456`, RPC 0) and passed it with
-an empty completion reply. Native disc readiness passes the following poll;
-fallback replies report sound initialization and bank loading as unavailable.
-The next run reaches sound RPC 77 and IOP RPC 254. A provisional graphics
-wait avoids polling hardware registers and reports the missing implementation.
-The native runtime still has no audio backend or SIF DMA command
-dispatcher, so startup has not reached a title screen or gameplay. The renderer,
-frame loop, input, audio, saves and remaining disc/device services are also
-unimplemented.
+The latest bounded run no longer calls address zero and reads 74 ISO sectors.
+The native memory-card service answers the observed extended-server probe
+(`0x80000400`, RPC `0xFE`) with `sceMcResDeniedPermit`, allowing the guest
+library to select its legacy protocol. Guest threads continue issuing GIF work,
+but the native FIFO has no renderer consumer, so the run still has no visible
+title screen. Sound RPC 77 remains unanswered; the frame loop, renderer, input,
+audio, saves, SIF DMA and remaining device services are not implemented.
 Hostgen translates the entry's BSS setup
 and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
 `Exit`, `SetGsCrt`, `Copy`,
@@ -92,9 +86,10 @@ port still cannot launch into gameplay.
 
 What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
 
-1. Implement the SIF DMA and IOP RPC responses required to advance boot.
-2. Trace the title and frame paths, then implement the Sly renderer and host
-   services for input, audio, files and saves.
+1. Resolve remaining boot RPCs and identify the transition from startup into
+   the title and frame paths.
+2. Implement the Sly renderer and host services for input, audio, files and
+   saves.
 3. Add asset extraction/conversion and platform packaging as their needs become
    concrete.
 
