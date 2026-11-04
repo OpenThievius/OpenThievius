@@ -221,6 +221,26 @@ static entries for one known retail function. These are address-space
 primitives only; the native map has not yet been connected to a game entry
 point.
 
+The first native control-flow target is now identified. The retail boot stub
+`func_00100008` performs PS2 setup and transfers to `func_00185758`. That
+assembly-only routine initializes persistent game state, then runs the frame
+loop; each iteration calls `func_001E9108` for the current state and
+`func_001607D0` for frame timing/update work. `func_001E9108` is also
+assembly-only and dispatches on a state field through a nine-entry table.
+Neither function has a compiled definition in the 68 current C++ units, so
+the native launcher cannot enter the game's frame path yet. Port-owned C/C++
+replacements belong in a distinct native-backfill directory, with the
+matching sources in `sly1-decomp` left untouched. Implement and resolve this
+pair first, then follow the calls they make into loading and rendering; do
+not generate generic no-op definitions for the full unresolved frontier.
+
+The current host32 combine artifact records 1,310 function-reference aliases,
+373 retail data aliases, 2,319 native function addresses, and 603 unresolved
+function addresses across all compiled units. This is a whole-program static
+frontier, not a count of functions needed by the boot path. Rebuild it with
+`cmake --build build/port --target port_combine_decomp_host32`; its report is
+kept in the ignored `build/port/host32/link/link-frontier.json`.
+
 The standalone C++ catalog reader reproduces all 46 NTSC-U decoded ranges
 byte-for-byte. Resource `0x0100` is “A Stealthy Approach,” but its scene records
 and renderer inputs are still not identified. Keep the old guest executor
