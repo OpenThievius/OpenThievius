@@ -100,10 +100,11 @@ An SDL3 window consumes host geometry snapshots on the main thread at the
 game's 640x224 logical resolution. Guest execution runs on a separate host
 thread. Initial counts of up to 12,336 vertices were artifacts: the GIF parser
 treated IMAGE2 payload as tags, so image bytes looked like register writes.
-The parser now consumes IMAGE2 payload framing correctly. After fixing the
-VIF1 OFFSET buffer rebase below, a bounded run publishes 120 vertices; all are
-outside the display vertically, so the window remains black. Texture sampling,
-scene streaming and gamepad mapping are also missing.
+The parser now consumes IMAGE2 payload framing correctly. A bounded native
+run after the VIF1 OFFSET and PACKED XYZ fixes publishes 120 vertices, with 58
+inside the 640x224 viewport. This confirms screen-space geometry reaches SDL,
+but does not verify a recognizable scene. Texture sampling, scene streaming
+and gamepad mapping are also missing.
 
 VIF1 channel 1 was holding its source-chain transfer active at CHCR `0x105`,
 which prevented later display-list work from completing. The native VIF1 path
@@ -114,10 +115,11 @@ status and interrupt boundary. The port-side VU1 translator now executes a
 partial microinstruction set, including integer loads/stores, and the VIF path
 tracks VIF1 TOP/TOPS/ITOP state across MSCAL calls. A native run showed that
 OFFSET must clear DBF and rebase BASE to the current TOPS; the prior port
-service reset TOPS to the old BASE. After correcting that behavior, the same
-bounded startup run publishes 120 vertices instead of none, though their
-positions remain outside the screen. A later XGKICK still encounters a
-non-tag, so the renderer has not produced a visible scene.
+service reset TOPS to the old BASE. Correcting this produced 120 vertices. A
+second renderer fix decodes PACKED XYZ's Y field from its 128-bit position
+instead of the native 64-bit register layout; the latest trace places 58
+vertices inside the display viewport. A later XGKICK still encounters a
+non-tag, and no recognizable scene has been verified.
 
 A VIF trace of the first populated display-list transfer sees 19 MPG uploads,
 25 MSCAL/MSCALF calls, V2/V3/V4 UNPACKs and two DIRECT packets. Before the
