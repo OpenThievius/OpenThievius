@@ -474,10 +474,13 @@ request its first page, push it onto the overlay stack, and open it. The trace
 now advances the frame-state object from state 3 to state 5 and keeps its overlay
 stack stable at two entries; this fixed repeated menu insertion and frame-state
 corruption. These remain port-only implementations, apart from matching
-decompilation code. The current hostgen build compiles and links 143 C units
-(171 translated functions). The native display worker submits hundreds of
-initialization GIF chains, but the window is still black: the current scene
-pointer is zero, no scene geometry reaches the renderer, and `func_001936A0`
-still has no C implementation in the port. The port is not playable; title
-page population, scene activation, resource-to-scene decoding, rendering,
-audio and further platform services remain.
+decompilation code. Port-only UI frame dispatch now walks the 37 retail UI
+objects and invokes their update and draw callbacks. The current hostgen build
+compiles and links 144 C units (176 translated functions). The native display
+worker submits hundreds of initialization GIF chains, but the window is still
+black: the current scene pointer is zero, no scene geometry reaches the
+renderer, and the title menu's `func_001936A0` page population and
+`func_00194F80` drawing callbacks still have no C implementation in the port.
+The port is not playable; title page population, scene activation,
+resource-to-scene decoding, rendering, audio and further platform services
+remain.
