@@ -12,19 +12,23 @@ separate working decomp checkout remains untouched. The host32 build compiles
 84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
 `func_00180398`, and `func_001F5CD0`. PR #54 adds readable button-code names
 and notes, but no new US function matches or function bodies relevant to
-startup. Against this snapshot, 84/84 Sly units and 45/45 port backfill files
-compile. The combined object provides
-3,810 of 4,806 catalogued function addresses and defines 727 of 788 direct-call
-frontier functions. The native startup bridges now complete the two sound SIF
-bootstrap calls, suppress sound bank RPCs, and report the already-open disc as
-ready. Host staging pads the three undersized T217D backing arrays so native
-class initialization does not overwrite neighboring vtables. Port-only DMA
-channel lookups and waits now carry startup beyond both DMA callbacks; the
-startup worker continues through `func_0018B580` during an 8-second native run.
-The renderer accepts the submitted GIF traffic, but the ISO receives no sector
-reads and no game scene is visible yet. These IOP, sound, and DMA replacements
-remain separate from matching C; the matching `func_001F8290` implementation
-remains untouched in the decomp's `nonmatching/` directory.
+startup. Against this snapshot, 84/84 Sly units and 61/61 port-native C++
+backfills compile. The combined object provides 3,836 of 4,806 catalogued
+function addresses; its instrumented direct-call frontier resolves 744 of 799
+functions. The native startup bridges complete the two sound SIF bootstrap
+calls, suppress sound bank RPCs, and report the already-open disc as ready.
+Host staging pads the three undersized T217D backing arrays so native class
+initialization does not overwrite neighboring vtables. Port-only DMA channel
+lookups and waits carry startup beyond both DMA callbacks.
+
+The native GIF-DMA boundary now preserves the retail QWC size and submits raw
+GIF packets separately from DMAC tag chains. Native host-pointer spans are
+checked against mapped pages before the renderer reads them. A five-second
+uninstrumented run on 2026-11-05 opened the SDL window and accepted two
+16-byte display packets, but remained black and read no ISO sectors. The port
+is not playable yet. These runtime services and functional C backfills remain
+separate from matching C; the matching `func_001F8290` implementation remains
+untouched in the decomp's `nonmatching/` directory.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
 
@@ -73,6 +77,12 @@ single-precision math and do not depend on the guest VU state.
 the port completes DMA submissions synchronously and has no pending hardware
 queue to reset. The previous-frame frontier showed this wrapper as a missing
 direct call; the host32 map now resolves it.
+
+`func_001388A0.cpp` removes a C03 body's contact-index entries from the three
+fixed-size banks. It is a port-only implementation based on the matching
+`func_00138828` layout and remains separate so the decompilation can replace it.
+The current decomp checkout has an 88.7% near miss for this address in
+`nonmatching/func_001388A0.cpp`; it is not yet a matching definition.
 
 `func_00185D20.cpp` and `func_001860A8.cpp` prepare and dispatch Sly's
 0x100-byte object draw entries without executing VU instructions.
