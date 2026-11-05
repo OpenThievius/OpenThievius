@@ -85,26 +85,6 @@ void func_00161278(void* opaque, s32 end_packet) {
     writer->last_tag = 0;
 }
 
-void func_00161278(void* frame, s32 end_packet) {
-    u32* words = (u32*)frame;
-    u32 last = words[7];
-    if (last == 0) return;
-
-    const u32 register_count = words[9];
-    const u32 tag_units = words[8] == 0 ? 0 : register_count / words[8];
-    u32 current = words[3];
-    if ((current & 0xFu) != 0) {
-        *(u64*)current = 0;
-        current += 8;
-        words[3] = current;
-    }
-
-    u32 tag = *(u32*)last;
-    if (end_packet) tag |= 0x8000u;
-    *(u32*)last = tag | tag_units;
-    words[7] = 0;
-}
-
 void func_001613C0(void* frame, s32 mode, s32 count, s32 format) {
     SlyPacketWriter* writer = (SlyPacketWriter*)frame;
     packet_writer_close(writer, 0);
