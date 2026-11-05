@@ -144,7 +144,11 @@ port-only HSV-to-RGB conversion and an explicit host wrapper for
 no-argument prototype alias; its child callback skips entries whose descriptor
 is outside the mapped retail ELF. `func_001848B8.cpp` and `func_00144008.cpp`
 translate the next two VU0 camera-vector routines with scalar host math.
+`func_001EEBB0.cpp` translates the tagged direction-list query, including its
+null-state `-1` result and threshold checks.
 
 A freestanding host32 trace passes nested scene records and scene initialization
 with these overrides, then reaches unresolved retail function `0x001EEBB0`
-during camera setup. Rendering has not started; the port is not playable.
+during camera setup. With that routine backfilled, startup reaches unresolved
+list operation `0x001389D0`. Rendering has not started; the port is not
+playable.
