@@ -13,6 +13,7 @@
     "sly1_native_call_constructor",
     "sly1_native_call_method",
     "sly1_native_call_regs4",
+    "sly1_native_monotonic_ticks",
     "sly1_native_read_sectors",
     "sly1_native_temp_begin",
     "sly1_native_temp_alloc",

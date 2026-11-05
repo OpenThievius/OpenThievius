@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <time.h>
 
 namespace {
 
@@ -34,6 +35,14 @@ gaddr native_temp_top(gaddr floor) {
 }
 
 }  // namespace
+
+extern "C" uint64_t game_sly1_native_monotonic_ticks(void) {
+    struct timespec now{};
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+    constexpr uint64_t ticks_per_second = 294912000u;
+    return static_cast<uint64_t>(now.tv_sec) * ticks_per_second +
+           static_cast<uint64_t>(now.tv_nsec) * ticks_per_second / 1000000000u;
+}
 
 extern "C" void sly1_native_start_worker(void) {
     const gaddr saved_sp = openrac_guest_sp;
