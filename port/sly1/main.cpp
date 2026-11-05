@@ -195,6 +195,9 @@ int main(int argc, char** argv) {
                 std::uint32_t frame_top = 0;
                 std::uint32_t frame_top_vtable = 0;
                 std::uint32_t frame_top_callback = 0;
+                std::uint32_t frame_top_kind = 0;
+                std::uint32_t frame_top_mode = 0;
+                std::uint32_t frame_top_state = 0;
                 const std::uint32_t frame_count = frame_state[11];
                 if (frame_count > 0 && frame_count <= 8) {
                     std::memcpy(&frame_top,
@@ -204,11 +207,20 @@ int main(int argc, char** argv) {
                     const std::uint32_t frame_top_physical =
                         openrac_guest_ram_address(frame_top);
                     if (frame_top != 0 && frame_top_physical <= openrac_guest_ram_size &&
-                        sizeof(frame_top_vtable) <=
+                        0x28Cu <=
                             openrac_guest_ram_size - frame_top_physical) {
                         std::memcpy(&frame_top_vtable,
                                     openrac_guest_base + frame_top_physical,
                                     sizeof(frame_top_vtable));
+                        std::memcpy(&frame_top_mode,
+                                    openrac_guest_base + frame_top_physical + 0x250u,
+                                    sizeof(frame_top_mode));
+                        std::memcpy(&frame_top_kind,
+                                    openrac_guest_base + frame_top_physical + 0x260u,
+                                    sizeof(frame_top_kind));
+                        std::memcpy(&frame_top_state,
+                                    openrac_guest_base + frame_top_physical + 0x274u,
+                                    sizeof(frame_top_state));
                         const std::uint32_t vtable_physical =
                             openrac_guest_ram_address(frame_top_vtable);
                         if (frame_top_vtable != 0 &&
@@ -493,7 +505,10 @@ int main(int argc, char** argv) {
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " frame_top=0x" << std::hex << frame_top
                           << ",vtable=0x" << frame_top_vtable
-                          << ",callback=0x" << frame_top_callback << std::dec
+                          << ",callback=0x" << frame_top_callback
+                          << ",mode=0x" << frame_top_mode
+                          << ",kind=0x" << frame_top_kind
+                          << ",state=0x" << frame_top_state << std::dec
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " menu=" << std::dec << menu_mode << ','
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
