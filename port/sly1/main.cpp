@@ -194,6 +194,13 @@ int main(int argc, char** argv) {
                             sizeof(frame_state));
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
+                std::uint32_t resource_manager = 0;
+                std::uint32_t resource_level = 0;
+                std::uint32_t resource_record = 0;
+                std::uint32_t resource_visual_state[8]{};
+                std::int32_t resource_level_index = -1;
+                std::int32_t resource_record_index = -1;
+                std::int32_t resource_record_flags = 0;
                 std::uint32_t world_registry_head = 0;
                 std::uint32_t world_lists[3]{};
                 std::uint32_t frame_selector = 0;
@@ -212,6 +219,35 @@ int main(int argc, char** argv) {
                             sizeof(game_mode));
                 std::memcpy(&current_object, openrac_guest_base + 0x00275710u,
                             sizeof(current_object));
+                std::memcpy(&resource_manager, openrac_guest_base + 0x002623C0u,
+                            sizeof(resource_manager));
+                std::memcpy(&resource_level, openrac_guest_base + 0x002623C4u,
+                            sizeof(resource_level));
+                std::memcpy(&resource_record, openrac_guest_base + 0x002623C8u,
+                            sizeof(resource_record));
+                std::memcpy(resource_visual_state, openrac_guest_base + 0x00261EF4u,
+                            sizeof(resource_visual_state));
+                const std::uint32_t resource_manager_physical =
+                    openrac_guest_ram_address(resource_manager);
+                if (resource_manager != 0 && resource_manager_physical <= openrac_guest_ram_size &&
+                    0x19E0u + sizeof(resource_level_index) <=
+                        openrac_guest_ram_size - resource_manager_physical) {
+                    std::memcpy(&resource_level_index,
+                                openrac_guest_base + resource_manager_physical + 0x19D8u,
+                                sizeof(resource_level_index));
+                    std::memcpy(&resource_record_index,
+                                openrac_guest_base + resource_manager_physical + 0x19DCu,
+                                sizeof(resource_record_index));
+                }
+                const std::uint32_t resource_record_physical =
+                    openrac_guest_ram_address(resource_record);
+                if (resource_record != 0 && resource_record_physical <= openrac_guest_ram_size &&
+                    sizeof(resource_record_flags) <=
+                        openrac_guest_ram_size - resource_record_physical) {
+                    std::memcpy(&resource_record_flags,
+                                openrac_guest_base + resource_record_physical,
+                                sizeof(resource_record_flags));
+                }
                 std::memcpy(&world_registry_head, openrac_guest_base + 0x002701B8u,
                             sizeof(world_registry_head));
                 const std::uint32_t world_physical = openrac_guest_ram_address(current_object);
@@ -315,6 +351,17 @@ int main(int argc, char** argv) {
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " world_registry_head=0x" << world_registry_head
+                          << " resource_manager=0x" << resource_manager
+                          << " resource_level=0x" << resource_level
+                          << " resource_record=0x" << resource_record
+                          << " resource_visual_state=";
+                for (const std::uint32_t word : resource_visual_state)
+                    std::cerr << std::hex << word << ',';
+                std::cerr << std::dec
+                          << " resource_level_index=" << std::dec << resource_level_index
+                          << " resource_record_index=" << resource_record_index
+                          << " resource_record_flags=0x" << std::hex
+                          << resource_record_flags
                           << " world_lists=" << world_lists[0] << ',' << world_lists[1]
                           << ',' << world_lists[2] << " map_selection=0x" << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
