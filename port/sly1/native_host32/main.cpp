@@ -402,6 +402,18 @@ extern "C" __attribute__((noreturn)) void sly1_missing_function(
     write_hex("native host32: first argument ", (int)argument0);
     write_hex("native host32: second argument ", (int)argument1);
     write_hex("native host32: third argument ", (int)argument2);
+    if (address == 0x00162890u && argument1 >= 0x10000000u &&
+        argument1 < 0xF0000000u) {
+        const auto* reader = reinterpret_cast<volatile const u32*>(argument1);
+        const u32 cursor = reader[6];
+        write_hex("native host32: reader cursor ", (int)cursor);
+        write_hex("native host32: reader remaining ", (int)reader[7]);
+        if (cursor >= 0x10000000u && cursor < 0xF0000000u) {
+            const auto* bytes = reinterpret_cast<volatile const u8*>(cursor);
+            for (u32 i = 0; i < 16; ++i)
+                write_hex("native host32: reader byte ", bytes[i]);
+        }
+    }
     if (address == 0x001841D0u && argument0 >= 0x00100000u &&
         argument0 < 0x02100000u) {
         const auto* camera = reinterpret_cast<volatile const u32*>(argument0);
