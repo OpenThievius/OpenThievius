@@ -15,6 +15,9 @@ func_00152B80	native_c/display_packets.c
 func_00161278	native_c/display_packets.c
 func_001612E8	native_c/display_packets.c
 func_001613C0	native_c/display_packets.c
+func_0015F618	native_c/display_packets.c
+func_0015F658	native_c/display_packets.c
+func_001EE318	native_c/display_packets.c
 func_00161708	native_c/display_packets.c
 func_00161768	native_c/display_packets.c
 func_001617E8	native_c/display_packets.c

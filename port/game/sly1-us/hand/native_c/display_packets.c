@@ -58,6 +58,34 @@ void func_001611B8(void* frame) {
     words[9] = 0;
 }
 
+/* Constructor for the secondary packet writer at 0x002622A8. */
+int func_001EE318(void* opaque) {
+    u32* words = (u32*)opaque;
+    if (words == 0) return 0;
+    func_00152888(opaque);
+    words[4] = 1;
+    words[6] = 0x0024A0E0u;
+    words[7] = 0;
+    words[8] = 0;
+    return (int)(u32)opaque;
+}
+
+extern u8 D_00262280[];
+extern u8 D_002622A8[];
+
+int func_0015F618(s32 flag, s32 code) {
+    if (code == 0xFFFF && flag != 0) {
+        func_001611B8(D_00262280);
+        (void)func_001EE318(D_002622A8);
+    }
+    return 0;
+}
+
+int func_0015F658(void) {
+    (void)func_0015F618(1, 0xFFFF);
+    return 0;
+}
+
 void func_001612E8(void* frame) {
     ++((u32*)frame)[9];
 }
