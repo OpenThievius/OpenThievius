@@ -54,3 +54,17 @@ int func_001460E0(void)
 {
     return func_001460B8(1, -1);
 }
+
+/* Port backfill for the file_15F678.cpp global RGBA constructor. The retail
+ * initializer stores the packed value 0x80101010 in D_002623E0. */
+int func_00167D20(s32 initialize, s32 mode)
+{
+    if (initialize != 0 && mode == -1)
+        *(u32*)0x002623E0u = 0x80101010u;
+    return 0;
+}
+
+int func_00167D48(void)
+{
+    return func_00167D20(1, -1);
+}

@@ -219,6 +219,40 @@ void func_001684E8(void)
     func_00201C78((void*)packet);
 }
 
+/* Apply Sly's interlaced display-field adjustment on the native GS. Retail
+ * reads CSR at 0x12001000 and updates DISPFB2, DISPLAY2 and PMODE. Keep this
+ * callback port-only until the decompilation unit is host-readable. */
+void func_00168130(void)
+{
+    extern s32 D_002626C0;
+    extern s32 D_002626C8;
+    u8* record = (u8*)0x00262490u + ((u32)D_002626C0 & 1u) * 0x28u;
+    u64 pmode = *(u64*)(record + 0x00);
+    u64 framebuffer = *(u64*)(record + 0x10);
+    u64 display = *(u64*)(record + 0x18);
+    /* The native guest mapping mirrors the privileged GS register page. */
+    u64 csr = *(volatile u64*)0x12001000u;
+
+    if ((u32)D_002626C8 != (s32)((csr >> 13) & 1u)) {
+        u32 display_height = (u32)((display >> 44) & 0x7FFu);
+        display = (display & ~((u64)0x7FFu << 44)) |
+                  ((u64)((display_height - 1u) & 0x7FFu) << 44);
+        if (D_002626C8 != 0) {
+            u32 display_y = (u32)((display >> 12) & 0x7FFu);
+            display = (display & ~((u64)0x7FFu << 12)) |
+                      ((u64)((display_y + 1u) & 0x7FFu) << 12);
+        } else {
+            u32 framebuffer_y = (u32)((framebuffer >> 43) & 0x7FFu);
+            framebuffer = (framebuffer & ~((u64)0x7FFu << 43)) |
+                          ((u64)((framebuffer_y + 1u) & 0x7FFu) << 43);
+        }
+        write_privileged(0x12000080u, display);
+        write_privileged(0x12000070u, framebuffer);
+        pmode |= 1u;
+    }
+    write_privileged(0x12000000u, pmode);
+}
+
 /* Port-only version of the display offset math in the decomp's current C.
  * Keep it here until func_00202098 is matching C in the decomp checkout. */
 void func_00202098(struct NativeDisplayOffsetContext* self, s32 source_size,

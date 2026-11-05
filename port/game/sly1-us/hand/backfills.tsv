@@ -2,6 +2,7 @@
 func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
+func_00168130	native_c/display_context.c
 func_001683E8	native_c/display_context.c
 func_001684E8	native_c/display_context.c
 func_001688B8	native_c/display_context.c
@@ -186,6 +187,7 @@ func_00193E58	native_c/func_00193E58.c
 func_001940E8	native_c/func_001940E8.c
 func_00194F00	native_c/ui_show.c
 func_00194F80	native_c/menu_text.c
+func_001AB198	native_c/screen_element_draw.c
 func_00193598	native_c/menu_text.c
 func_00194E60	native_c/ui_show.c
 func_001AA8F0	native_c/ui_show.c
@@ -214,6 +216,8 @@ func_00136FE8	native_c/visual_styles.c
 func_00137270	native_c/visual_styles.c
 func_001460B8	native_c/visual_styles.c
 func_001460E0	native_c/visual_styles.c
+func_00167D20	native_c/visual_styles.c
+func_00167D48	native_c/visual_styles.c
 func_0015E9F0	native_c/frame_context.c
 func_0015EFE8	native_c/frame_context.c
 func_00191E70	native_c/frame_context.c
