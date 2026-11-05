@@ -12,8 +12,14 @@ from collections import defaultdict
 from pathlib import Path
 
 FUNCTION_ADDRESS = re.compile(r"^(?:_Z13func_|func_)([0-9A-Fa-f]{8})")
+MEMBER_FUNCTION_ADDRESS = re.compile(r"^_ZN\d+.*?13func_([0-9A-Fa-f]{8})E")
 DATA_ADDRESS = re.compile(r"D_([0-9A-Fa-f]{8})")
 FUNCTION_ADDRESS_IN_NAME = re.compile(r"(?:_Z13func_|func_)([0-9A-Fa-f]{8})")
+
+
+def function_address_match(symbol):
+    """Match free retail functions and C++ methods named for their retail address."""
+    return FUNCTION_ADDRESS.match(symbol) or MEMBER_FUNCTION_ADDRESS.match(symbol)
 
 
 def nm_symbols(nm, mode, path):
@@ -77,7 +83,7 @@ def reachable_function_frontier(objdump, nm, path, roots):
 
     defined = set()
     for symbol in nm_function_definitions(nm, path):
-        match = FUNCTION_ADDRESS.search(symbol)
+        match = function_address_match(symbol)
         if match:
             defined.add(int(match.group(1), 16))
 
@@ -123,7 +129,7 @@ def main(argv=None):
     for obj in objects:
         is_backfill = "port_native" in obj.parts
         for symbol in nm_function_definitions(args.nm, obj):
-            match = FUNCTION_ADDRESS.search(symbol)
+            match = function_address_match(symbol)
             if match:
                 address = int(match.group(1), 16)
                 defined_by_address[address].add(symbol)
@@ -142,7 +148,7 @@ def main(argv=None):
     data_aliases = 0
     ambiguous = []
     for symbol in sorted(undefined):
-        match = FUNCTION_ADDRESS.search(symbol)
+        match = function_address_match(symbol)
         if match:
             address = int(match.group(1), 16)
             candidates = defined_by_address.get(address, set())
@@ -227,7 +233,7 @@ def main(argv=None):
 
     remaining = nm_symbols(args.nm, "--undefined-only", combined)
     missing_addresses = sorted({int(m.group(1), 16) for name in remaining
-                                if (m := FUNCTION_ADDRESS.search(name))})
+                                if (m := function_address_match(name))})
     try:
         roots = [int(root.removeprefix("0x"), 16)
                  for root in (args.root or ["00185758"])]
