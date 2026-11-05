@@ -14,15 +14,14 @@ The [NTSC-U catalog extractor](ASSETS.md) now locates and extracts 46 named raw
 resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
 samples. The native LZ backfill now consumes the 150,849-byte Splash stream
 from the retail source fields, and its first 8 KiB begins with the same bytes
-as the independent offline decoder. The first resource-skip field is
-`0x6876bb00`, which cannot fit as an entry count in the supported resource
-limit. The port-only loader backfill now consumes that impossible count and
-returns through stages 1–5 rather than looping indefinitely. This diagnostic
-recovery does not validate the Splash container or prove the object loaded.
-The native window is still black. Current port-only backfills initialize the
-640x224 GS display context and produce GIF end-of-packet events, but game frame
-state and visible vertex counts remain zero. Scene loading and a Sly scene
-renderer remain ahead of a playable scene.
+as the independent offline decoder. A bounded loader-stage trace confirms the
+Splash parser reads a zero resource flag, a value of 1, and a plausible table
+count of 1491, then completes its callback. The earlier `0x6876bb00` report
+mistook overlapping compressed-header bytes for a parsed entry count; the
+defensive size guard is not taken by this run. Splash is catalog key `0x2`,
+not level resource `0x0100`. Startup reaches the title menu, but the native
+window is still black: menu page population/drawing is incomplete, the world
+lists are empty, and no scene geometry reaches the renderer.
 
 ## Current no-emulation build status
 
@@ -488,3 +487,11 @@ geometry reaches the renderer. The title menu's `func_001936A0` page population
 and `func_00194F80` drawing callbacks still have no C implementation in the
 port. It is not playable; scene activation, resource-to-scene decoding, title
 page population, rendering, audio and further platform services remain.
+
+The 2026-11-05 loader trace clarifies that the Splash read is not a failed
+level load: key `0x2` reaches parser stages 1–5 with decoded cursor `0x15af`.
+Its first records are flag `0`, value `1`, and table count `1491`; the parser's
+oversized-count escape path is not taken. The earlier `0x6876bb00` diagnosis
+came from interpreting bytes overlapping the compressed header as a parser
+count. The next visible milestone is a rendered title menu, then identifying
+and loading the distinct level resource.

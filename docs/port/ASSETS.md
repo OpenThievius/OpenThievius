@@ -154,12 +154,14 @@ range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
 bookkeeping. The native CD read fills the reader's backing ring; the compressed
 reader now uses the retail source cursor and control-byte sentinel. A bounded
-run matches the offline decoder's first 8 KiB. The next decoded value is
-`0x6876bb00`, far beyond a plausible entry count for the supported resource
-size, so the port-only loader backfill consumes it and continues through its
-callback. This recovery does not establish a valid resource parse: critical
-calls including `func_00151A88`, `func_001C1190`, and `func_001B3040` still
-resolve to no-C stubs. Port-only overrides for `func_0018D608`,
+run matches the offline decoder's first 8 KiB. A later bounded run with loader
+stage tracing shows the parser reading flag `0`, value `1`, and table count
+`1491`, then reaching callback stages 1–5 at decoded offset `0x15af`. The
+defensive oversized-count branch in the port backfill is not taken. The prior
+`0x6876bb00` diagnosis was a misread of bytes overlapping the compressed
+header, not the table count. This Splash parse still does not establish level
+loading: Splash is resource key `0x2`, while the level resource is `0x0100`.
+Port-only overrides for `func_0018D608`,
 `func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
 reserved guest-port memory. A bounded native run read sector 820372 for 74
 sectors, avoided the previous invalid allocation fault, and submitted 984
