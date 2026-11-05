@@ -247,6 +247,10 @@ bool load_retail_image(const char* path) {
             return false;
         }
         if (memory_size == 0) continue;
+        // PS2 executable images commonly carry the ELF header as a writable
+        // PT_LOAD at virtual address zero. It is file metadata, not EE RAM;
+        // the native process deliberately leaves the null page unmapped.
+        if (address == 0 && file_size == 0x1000 && memory_size == 0x1000) continue;
         if (address < guest_ram_base || address >= guest_ram_base + guest_ram_size ||
             memory_size > guest_ram_base + guest_ram_size - address) {
             write_text("native host32: ELF segment lies outside mapped EE RAM\n");
@@ -269,6 +273,7 @@ bool load_retail_image(const char* path) {
         const u32 type = read32(s + 4), flags = read32(s + 8);
         const u32 address = read32(s + 12), offset = read32(s + 16), size = read32(s + 20);
         if (!(flags & 2) || (flags & 4) || type != 1 || size == 0) continue;
+        if (address == 0) continue; // .elf_header is not part of the running game image.
         if ((u64)offset + size > (u32)length) {
             write_text("native host32: data section outside ELF\n");
             return false;
@@ -497,7 +502,27 @@ extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
     write_hex("native host32: GLOBSET value ", (int)value);
 }
 
-#if defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_resource_state(u32 self, u32 pending, u32 world) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: resource self ", (int)self);
+    write_hex("native host32: resource pending ", (int)pending);
+    write_hex("native host32: current world ", (int)world);
+    if (self >= 0x08048000u && self < 0x09000000u) {
+        const auto* words = reinterpret_cast<volatile const u32*>(self);
+        for (u32 i = 0; i < 13; ++i)
+            write_hex("native host32: resource field ", (int)words[i]);
+    }
+    if (pending >= 0x08048000u && pending < 0x09000000u) {
+        const auto* words = reinterpret_cast<volatile const u32*>(pending);
+        for (u32 i = 0; i < 8; ++i)
+            write_hex("native host32: pending blob word ", (int)words[i]);
+    }
+    if (world >= 0x08048000u && world < 0x09000000u)
+        write_hex("native host32: current world state ",
+                  (int)*(volatile const u32*)(world + 0x1D7Cu));
+}
+
 extern "C" __attribute__((no_instrument_function)) void
 __cyg_profile_func_enter(void* function, void*) {
     const u32 native_address = reinterpret_cast<u32>(function);
@@ -513,6 +538,20 @@ __cyg_profile_func_enter(void* function, void*) {
         }
     }
     __atomic_store_n(&g_trace_last_guest_function, guest_address, __ATOMIC_RELAXED);
+    u32 depth = 0;
+    if (slot < kTraceThreadSlots) {
+        depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
+        if (depth < 128) {
+            __atomic_store_n(&g_trace_thread_stack[slot][depth], guest_address,
+                             __ATOMIC_RELAXED);
+            __atomic_store_n(&g_trace_thread_depth[slot], depth + 1,
+                             __ATOMIC_RELAXED);
+        }
+    }
+    if (g_startup_trace_enabled && guest_address != 0) {
+        write_hex("native host32: call depth ", (int)depth);
+        write_hex("native host32: entered function ", (int)guest_address);
+    }
     if (slot < kTraceThreadSlots)
         __atomic_store_n(&g_trace_thread_function[slot], guest_address, __ATOMIC_RELAXED);
     __atomic_add_fetch(&g_trace_function_entries, 1u, __ATOMIC_RELAXED);
@@ -531,6 +570,7 @@ __cyg_profile_func_exit(void*, void*) {
     __atomic_store_n(&g_trace_thread_function[slot], parent, __ATOMIC_RELAXED);
 }
 
+#if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_startup_callback(unsigned int index) {
     sly1_native_startup_callback_index = index + 1;
 #if defined(OPENRAC_SLY1_WITH_SDL)

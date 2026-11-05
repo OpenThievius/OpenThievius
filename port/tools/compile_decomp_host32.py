@@ -381,6 +381,20 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one second DMA wait definition in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/file_1E08F8.cpp" and args.trace_functions:
+            # Capture the pending key/blob and current world when the direct
+            # native startup path handles a resource request.
+            hook = 'extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
+            adapted = hook + adapted
+            signature = "void func_001E4EA8(Self_1E4EA8* self)\n{"
+            replacement = (
+                signature + "\n"
+                "    sly1_native_trace_resource_state((u32)self, (u32)self->f4, "
+                "(u32)D_00275710);"
+            )
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected one resource request handler in " + rel.as_posix())
+            adapted = adapted.replace(signature, replacement)
         elif rel.as_posix() == "main/0011C000.cpp":
             # Sound RPC requests cannot be serviced without Sly's IOP sound
             # module. Keep the matching body staged while the port supplies a
@@ -484,6 +498,11 @@ def main(argv=None):
         cmd = compiler + flags + [
             "-I", str(port), "-I", str(port / "runtime" / "include"),
         ]
+        if src.name == "sly1_native_loader_bridge.cpp":
+            # The freestanding launcher has no 32-bit libc. Loader-stage
+            # tracing is optional there; leave the bridge's native dispatch
+            # active while compiling its trace hook out.
+            cmd += ["-DSLY1_HOST32_FREESTANDING"]
         if args.trace_functions:
             cmd.append("-finstrument-functions")
         cmd += ["-c", str(src), "-o", str(obj)]
