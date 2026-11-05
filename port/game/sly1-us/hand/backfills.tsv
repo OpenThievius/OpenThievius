@@ -175,3 +175,6 @@ func_001C1390	native_c/resource_object_records.c
 func_001DB480	native_c/resource_object_records.c
 func_00140F48	native_c/resource_state_setup.c
 func_00160690	native_c/resource_state_setup.c
+func_00151A88	native_c/resource_state_setup.c
+func_00152410	native_c/resource_state_setup.c
+func_001EAA70	native_c/resource_state_setup.c
