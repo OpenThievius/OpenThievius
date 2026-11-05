@@ -209,6 +209,11 @@ int main(int argc, char** argv) {
                 std::uint32_t menu_count = 0;
                 std::uint32_t menu_glyphs = 0;
                 std::uint32_t menu_glyph_count = 0;
+                std::uint32_t movie_on = 0;
+                std::uint32_t movie_status = 0;
+                std::uint32_t pending_resource = 0;
+                std::uint32_t resource_state_mode = 0;
+                std::uint32_t resource_state_busy = 0;
                 std::memcpy(&menu_font, openrac_guest_base + 0x0026FF6Cu,
                             sizeof(menu_font));
                 std::memcpy(&menu_title, openrac_guest_base + 0x00269D50u,
@@ -217,6 +222,16 @@ int main(int argc, char** argv) {
                             sizeof(menu_count));
                 std::memcpy(&menu_items, openrac_guest_base + 0x00269D64u,
                             sizeof(menu_items));
+                std::memcpy(&movie_on, openrac_guest_base + 0x00269A04u,
+                            sizeof(movie_on));
+                std::memcpy(&movie_status, openrac_guest_base + 0x00269A10u,
+                            sizeof(movie_status));
+                std::memcpy(&pending_resource, openrac_guest_base + 0x00275AF0u,
+                            sizeof(pending_resource));
+                std::memcpy(&resource_state_busy, openrac_guest_base + 0x00275F84u,
+                            sizeof(resource_state_busy));
+                std::memcpy(&resource_state_mode, openrac_guest_base + 0x00275FA4u,
+                            sizeof(resource_state_mode));
                 if (menu_font != 0) {
                     const std::uint32_t font_physical = openrac_guest_ram_address(menu_font);
                     if (font_physical <= openrac_guest_ram_size &&
@@ -456,6 +471,10 @@ int main(int argc, char** argv) {
                           << " menu_data=" << std::hex << menu_font << ',' << menu_title
                           << ',' << menu_count << ',' << menu_items << ',' << menu_glyph_count
                           << ',' << menu_glyphs << std::dec
+                          << " load_request=" << std::hex << pending_resource << std::dec
+                          << " movie=" << movie_on << ',' << movie_status
+                          << " resource_draw=" << resource_state_busy << ','
+                          << resource_state_mode
                           << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
                           << ',' << overlay_state[2] << " ui_objects=" << ui_active_count
                           << " camera=0x" << camera_object << " camera_stack="
