@@ -85,6 +85,15 @@ silently switching the working build to an unmerged layout. The fetched branch
 is available in `/home/reaper/.cache/sly1-decomp-upstream` for review. No files
 in the decomp checkout were changed.
 
+The next graphics integration path has also been checked on the current host:
+the full `sly1_port_runtime` source, including OpenRAC's SDL3 window and
+DirectRenderer, compiles as 32-bit i386 when supplied the matching i686 headers
+and SSE2 flags. A minimal dynamically linked i386 SDL3 executable also links
+and runs. This removes the assumption that rendering must stay in the separate
+64-bit C-only launcher. The decomp host32 launcher still uses a freestanding
+entry point and has not yet been connected to that renderer; its DMA and GS
+register boundaries remain to be routed through port-only services.
+
 The no-emulation host32 path directly compiles the Sly C++ source units and
 remaining port-native backfills, then combines them by retail address. With
 upstream `f54bff5`, all 74 selected C++ units compile and the freestanding

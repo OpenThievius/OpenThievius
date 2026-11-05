@@ -37,9 +37,13 @@ extern "C" {
 /* An address in game memory: what a pointer is in the game. */
 typedef uint32_t gaddr;
 
-/* The game's 128-bit integer (gcc's mode(TI)): quadword copies and MMI. */
+/* The game's 128-bit integer (gcc's mode(TI)): quadword copies and MMI.
+ * GCC's i386 target does not provide __int128, and host-side presentation
+ * code does not need these aliases. */
+#if defined(__SIZEOF_INT128__)
 __extension__ typedef __int128 openrac_s128;
 __extension__ typedef unsigned __int128 openrac_u128;
+#endif
 
 /* ---- The memory map, in game addresses ----
  *
