@@ -5,6 +5,13 @@ These C files provide functional replacements for Sly functions whose
 matching C is not available to the native host build. They belong to the
 port, not `sly1-decomp`, and do not count as matching decompilation progress.
 
+`func_00144008`, `func_001EEBB0`, and `func_001389D0` are port-only scalar
+translations of the retail camera basis update, tagged direction-list query,
+and two-axis endpoint sorter. They are listed in `backfills.tsv` so the SDL
+launcher uses them; same-address C++ versions under `native/` only serve the
+freestanding host32 diagnostic and do not feed the SDL build. Remove both
+port-side versions when matching decompilation code becomes available.
+
 `port/tools/sly1.py hostgen` copies this directory into its generated source
 view under `build/port/`. When matching C becomes available, remove the
 corresponding backfill and let the matching source take precedence. Keep any
