@@ -495,3 +495,13 @@ oversized-count escape path is not taken. The earlier `0x6876bb00` diagnosis
 came from interpreting bytes overlapping the compressed header as a parser
 count. The next visible milestone is a rendered title menu, then identifying
 and loading the distinct level resource.
+
+The menu drawing boundary is deeper than `func_00194F80`: its text path calls
+`func_0015C8B8`, `func_0015DB28`, `func_0015DFF8`, `func_0015E1B0`,
+`func_0015E318`, and `func_0015C900`, all currently unresolved assembly in the
+64-bit hostgen build. Hostgen also cannot read `file_193210.cpp` as C because
+the unit uses C++ inheritance and scoped helper methods. The separate direct
+C++ build does compile that unit, but its SDL launcher requires a 32-bit SDL3
+runtime that is not installed in this environment. A useful menu milestone
+therefore needs a native font/glyph rendering path and working menu callbacks,
+not only a backfill for the high-level draw function.
