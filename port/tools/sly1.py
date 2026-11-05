@@ -194,8 +194,8 @@ def prepare_c_view(source, version):
                 text,
             )
             text = re.sub(
-                r"([A-Za-z_]\w*)->desc(\d+)\(\)",
-                r"((const struct Desc\2*)((struct C01*)\1)->desc)",
+                r"([A-Za-z_]\w*(?:->[A-Za-z_]\w*)*)->desc(\d+)\(\)",
+                r"((const struct Desc\2*)((struct C01*)(\1))->desc)",
                 text,
             )
             text = re.sub(
@@ -203,6 +203,25 @@ def prepare_c_view(source, version):
                 r"((const struct Desc\2*)((struct C01*)\1)->desc)",
                 text,
             )
+            # One matched C unit uses a tiny local C++ iterator with a
+            # constructor/destructor. Lower that iterator to its field layout
+            # and initialize the fields at its sole call site; the host C
+            # translation does not need its destructor bookkeeping.
+            if cpp.stem == "00138000":
+                text = re.sub(
+                    r"struct Frame_13B610\s*\{.*?\n\};",
+                    "struct Frame_13B610 { void* base; void* cur; s32 off; "
+                    "struct Frame_13B610* prev; };",
+                    text,
+                    count=1,
+                    flags=re.DOTALL,
+                )
+                text = text.replace(
+                    "Frame_13B610 f((List_13B610*)&self->children);",
+                    "Frame_13B610 f;\n"
+                    "    f.base = (List_13B610*)&self->children;\n"
+                    "    f.off = ((List_13B610*)f.base)->off;",
+                )
             (out_dir / (cpp.stem + ".c")).write_text(prelude + text, encoding="utf-8")
 
     # Port-owned functional replacements stay outside sly1-decomp. Hostgen

@@ -104,6 +104,7 @@ func_0011EC40	native_c/resource_value_parser.c
 func_0011E680	native_c/resource_descriptors.c
 func_00137A60	native_c/func_00137A60.c
 func_001378A0	native_c/func_001378A0.c
+func_00137FB0	native_c/collision_mesh_reader.c
 func_00137B90	native_c/stream_reader_scalar.c
 func_00137BE0	native_c/stream_reader_scalar.c
 func_00137C40	native_c/stream_reader_scalar.c
