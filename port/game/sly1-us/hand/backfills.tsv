@@ -184,6 +184,7 @@ func_001526D0	native_c/world_object_attach.c
 func_00182FC8	native_c/world_object_attach.c
 func_00182C80	native_c/world_object_attach.c
 func_001DBE48	native_c/world_jobs.c
+func_001EA118	native_c/world_update.c
 func_001B5D80	native_c/resource_pools.c
 func_001B5E30	native_c/resource_pools.c
 func_001B5DD0	native_c/resource_pools.c
