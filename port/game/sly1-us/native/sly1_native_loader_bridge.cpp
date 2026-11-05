@@ -17,11 +17,8 @@ extern "C" void sly1_native_call_method(u32 retail_address, u32 object) {
 
 extern "C" void sly1_native_loader_stage(u32 stage, u32 object, u32 reader) {
 #if defined(SLY1_HOST32_FREESTANDING)
-    // The freestanding diagnostic has no libc; stage tracing is optional and
-    // the direct native frame trace already reports the active game function.
-    (void)stage;
-    (void)object;
-    (void)reader;
+    extern void sly1_native_trace_loader_stage(u32, u32, u32);
+    sly1_native_trace_loader_stage(stage, object, reader);
 #else
     if (std::getenv("OPENRAC_STARTUP_TRACE") == nullptr || reader == 0) return;
     const u32 cursor = GREF(u32, reader + 0x18u);

@@ -486,6 +486,26 @@ extern "C" void sly1_port_trace_reader(u32 stage, void* reader_ptr) {
     }
 }
 
+extern "C" void sly1_native_trace_loader_stage(u32 stage, u32 value,
+                                                   u32 reader_ptr) {
+    if (!g_startup_trace_enabled || reader_ptr == 0) return;
+    // Keep the high volume object field reads out of the log. These points
+    // bracket the scene record parsers and identify their decoded values.
+    if (stage != 3 && stage != 4 && (stage < 21 || stage > 25) &&
+        (stage < 29 || stage > 33)) return;
+    const auto* reader = reinterpret_cast<volatile const u32*>(reader_ptr);
+    write_hex("native host32: loader stage ", (int)stage);
+    write_hex("native host32: loader value ", (int)value);
+    write_hex("native host32: loader cursor ", (int)reader[6]);
+    write_hex("native host32: loader remaining ", (int)reader[7]);
+    if (stage == 3 || (stage >= 29 && stage <= 33) ||
+        stage == 21 || stage == 22 || stage == 23 || stage == 24) {
+        const auto* bytes = reinterpret_cast<volatile const u8*>(reader[6]);
+        write_hex("native host32: loader next halfword ",
+                  (int)((u32)bytes[0] | ((u32)bytes[1] << 8)));
+    }
+}
+
 extern "C" void sly1_port_trace_nested_counts(
     u32 count0, u32 count1, u32 count2, u32 count3, u32 count4) {
     if (!g_startup_trace_enabled) return;

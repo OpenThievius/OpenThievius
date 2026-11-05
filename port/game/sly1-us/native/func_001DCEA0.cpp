@@ -103,14 +103,19 @@ extern "C" void func_001DCEA0(void* self, void* reader) {
     sly1_native_loader_stage(2, (u32)object, (u32)reader);
 
     func_001C1190(self, reader);
+    sly1_native_loader_stage(29, (u32)object, (u32)reader);
     func_0011EC40(self, reader);
+    sly1_native_loader_stage(30, (u32)object, (u32)reader);
     sly1_native_loader_stage(3, (u32)object, (u32)reader);
     func_00138550(reader, object + 0x2310);
     func_001384A0(reader, object + 0x2314);
     func_00138550(reader, object + 0x1D74);
+    sly1_native_loader_stage(31, (u32)object, (u32)reader);
     func_001B3040(reader);
+    sly1_native_loader_stage(32, (u32)object, (u32)reader);
     /* Retail passes the world instance, a null parent, and the reader. */
     func_0011ECB8(self, 0, reader);
+    sly1_native_loader_stage(33, (u32)object, (u32)reader);
     func_001DBA38(reader);
 
     if (*(s32*)(object + 0x1D70) >= 0)

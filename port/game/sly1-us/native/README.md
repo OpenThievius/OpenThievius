@@ -6,9 +6,11 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-current upstream snapshot is `a0fd295` (PR #54) from
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp); the
-separate working decomp checkout remains untouched. The host32 build compiles
+The last fully compiled upstream snapshot was `a0fd295` (PR #54) from
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp). The
+separate checkout is now at `e1b39f1`, matching `origin/master` on 2026-11-05;
+the port's source-shape adapters need updating before that snapshot can be
+rebuilt. The host32 build compiles
 84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
 `func_00180398`, and `func_001F5CD0`. PR #54 adds readable button-code names
 and notes, but no new US function matches or function bodies relevant to
@@ -121,15 +123,18 @@ matching decompilation code replaces them.
 from the NTSC-U retail routine. `func_00158288.cpp` translates its shared
 relationship update and VU0 reciprocal-distance calculation with scalar host
 math. Both remain port-only replacements, separate from matching sources.
-The host32 build now resolves both functions. The run reaches nested scene
-object loading, then returns to invalid address `0x556`; a diagnostic build
-with the relationship updater disabled faults at the same address. Scene
-startup and rendering are still incomplete.
+`func_0011ECB8.cpp` reads nested scene object records. `func_0011E580.cpp`
+implements the bounded 149-entry object factory through `D_00247448`, so
+invalid class IDs return null instead of indexing outside the descriptor
+table. `func_001686E8.cpp` submits VIF1 display packets through the synchronous
+native DMA boundary and skips the retail interrupt wait. Both are port-only
+backfills and should be removed when matching functions become available.
 
 The scene-object path also has port-only replacements for the EE transform
 helpers `func_00128150` and `func_00188520`, object initialization and parent
 updates (`func_00124868`, `func_001245A8`), attachment transforms
 (`func_00128FD0`), and the vector thresholds `func_00123DC0` and
-`func_00123E00`. The host32 trace now advances into mesh rendering at
-`func_001662A8`, which remains unresolved; the native port is still not
-playable.
+`func_00123E00`. The latest native startup trace passes nested object
+construction and the synchronous DMA wait, then reaches unresolved retail
+function `0x001B4330` from `func_001B4580`. The screen remains black and the
+port is not playable.
