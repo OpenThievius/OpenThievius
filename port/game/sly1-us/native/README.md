@@ -140,9 +140,11 @@ updates (`func_00124868`, `func_001245A8`), attachment transforms
 the decompilation's alternate prototypes, so the null-safe reader and bounded
 factory replace their stale compiled bodies. `func_001B4330.cpp` adds a
 port-only HSV-to-RGB conversion and an explicit host wrapper for
-`func_001B4580`.
+`func_001B4580`. `func_001DCEA0.cpp` also exports the retail callback's
+no-argument prototype alias; its child callback skips entries whose descriptor
+is outside the mapped retail ELF. `func_001848B8.cpp` and `func_00144008.cpp`
+translate the next two VU0 camera-vector routines with scalar host math.
 
-A freestanding host32 run with these overrides parsed nested scene records for
-15 seconds without a missing-function trap or crash. It was still processing
-GLOBSET records when the diagnostic timeout ended, so this does not confirm
-that rendering starts. The screen remains black and the port is not playable.
+A freestanding host32 trace passes nested scene records and scene initialization
+with these overrides, then reaches unresolved retail function `0x001EEBB0`
+during camera setup. Rendering has not started; the port is not playable.
