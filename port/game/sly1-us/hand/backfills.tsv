@@ -198,6 +198,8 @@ func_0019D6C0	native_c/func_0019D6C0.c
 func_0016EC20	native_c/func_0016EC20.c
 func_0016EED0	native_c/pad_navigation.c
 func_0016EC98	native_c/pad_navigation.c
+func_001FFBE0	native_c/display_setup.c
+func_001C29C8	native_c/display_setup.c
 func_0015E9F0	native_c/frame_context.c
 func_0015EFE8	native_c/frame_context.c
 func_00191E70	native_c/frame_context.c
