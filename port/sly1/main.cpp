@@ -194,7 +194,8 @@ int main(int argc, char** argv) {
                             sizeof(frame_state));
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
-                std::uint32_t active_level = 0;
+                std::uint32_t world_registry_head = 0;
+                std::uint32_t world_lists[3]{};
                 std::uint32_t frame_selector = 0;
                 std::int32_t scene_gate = 0;
                 std::uint32_t scene_pending = 0;
@@ -211,8 +212,19 @@ int main(int argc, char** argv) {
                             sizeof(game_mode));
                 std::memcpy(&current_object, openrac_guest_base + 0x00275710u,
                             sizeof(current_object));
-                std::memcpy(&active_level, openrac_guest_base + 0x002701B8u,
-                            sizeof(active_level));
+                std::memcpy(&world_registry_head, openrac_guest_base + 0x002701B8u,
+                            sizeof(world_registry_head));
+                const std::uint32_t world_physical = openrac_guest_ram_address(current_object);
+                if (current_object != 0 && world_physical <= openrac_guest_ram_size &&
+                    0x1CDCu + sizeof(world_lists) <=
+                        openrac_guest_ram_size - world_physical) {
+                    std::memcpy(&world_lists[0], openrac_guest_base + world_physical + 0x60u,
+                                sizeof(world_lists[0]));
+                    std::memcpy(&world_lists[1], openrac_guest_base + world_physical + 0x78u,
+                                sizeof(world_lists[1]));
+                    std::memcpy(&world_lists[2], openrac_guest_base + world_physical + 0x1CD8u,
+                                sizeof(world_lists[2]));
+                }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
                             sizeof(frame_selector));
                 std::memcpy(&scene_gate, openrac_guest_base + 0x00275F84u,
@@ -302,8 +314,9 @@ int main(int argc, char** argv) {
                           << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
-                          << current_object << " active_level=0x" << active_level
-                          << " scene_pending=0x" << scene_pending << std::dec
+                          << current_object << " world_registry_head=0x" << world_registry_head
+                          << " world_lists=" << world_lists[0] << ',' << world_lists[1]
+                          << ',' << world_lists[2] << " map_selection=0x" << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
                           << " pad_report=0x" << std::hex << pad_report << std::dec
                           << " pad_mode=" << pad_mode << " pad_state=" << pad_state

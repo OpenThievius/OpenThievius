@@ -475,12 +475,14 @@ now advances the frame-state object from state 3 to state 5 and keeps its overla
 stack stable at two entries; this fixed repeated menu insertion and frame-state
 corruption. These remain port-only implementations, apart from matching
 decompilation code. Port-only UI frame dispatch now walks the 37 retail UI
-objects and invokes their update and draw callbacks. The current hostgen build
-compiles and links 144 C units (176 translated functions). The native display
-worker submits hundreds of initialization GIF chains, but the window is still
-black: the current scene pointer is zero, no scene geometry reaches the
-renderer, and the title menu's `func_001936A0` page population and
-`func_00194F80` drawing callbacks still have no C implementation in the port.
-The port is not playable; title page population, scene activation,
-resource-to-scene decoding, rendering, audio and further platform services
-remain.
+objects and invokes their update and draw callbacks. Port-only world-update
+dispatch in `func_0019D6C0` now walks its three retail object lists with
+guest-address scratch frames. The latest trace reports all three world lists
+empty (`0,0,0`) and the map selection null; the current world object has not
+received level content. The current hostgen build compiles and links 145 C
+units (181 translated functions). The native display worker submits hundreds
+of initialization GIF chains, but the window is still black and no scene
+geometry reaches the renderer. The title menu's `func_001936A0` page population
+and `func_00194F80` drawing callbacks still have no C implementation in the
+port. It is not playable; scene activation, resource-to-scene decoding, title
+page population, rendering, audio and further platform services remain.
