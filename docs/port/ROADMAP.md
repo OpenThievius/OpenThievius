@@ -132,9 +132,10 @@ file and produces the offline decoder's verified first 8 KiB. A port-only
 guard rejects the resulting impossible resource-entry count, after which the
 callback returns through stages 1–5. The port-only resource value and animation
 table parsers now have C backfills, and the resource factory initializes its
-owner lists and resolves listener records through the resource context. A
-bounded native run completes the Splash callback without fault. The resource
-state backfill resolves Splash to resource ID 2 and initializes the visual
+owner lists, descriptor methods, aligned free-list pools, and listener records
+through the resource context. A bounded native run completes the Splash
+callback without fault. The resource state backfill resolves Splash to
+resource ID 2 and initializes the visual
 state table; the opt-in trace reports the expected level and record indices.
 This does not establish a usable scene: several resource callbacks and state
 setup routines still resolve to no-C stubs. The host window remains black,
