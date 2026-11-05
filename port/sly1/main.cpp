@@ -195,6 +195,8 @@ int main(int argc, char** argv) {
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
                 std::uint32_t resource_manager = 0;
+                std::uint32_t camera_object = 0;
+                std::uint32_t camera_stack[4]{};
                 std::uint32_t resource_level = 0;
                 std::uint32_t resource_record = 0;
                 std::uint32_t resource_visual_state[8]{};
@@ -204,7 +206,8 @@ int main(int argc, char** argv) {
                 std::int32_t resource_record_index = -1;
                 std::int32_t resource_record_flags = 0;
                 std::uint32_t world_registry_head = 0;
-                std::uint32_t world_lists[3]{};
+                std::uint32_t world_lists[7]{};
+                std::uint32_t world_job_queue[2]{};
                 std::uint32_t frame_selector = 0;
                 std::int32_t scene_gate = 0;
                 std::uint32_t scene_pending = 0;
@@ -223,6 +226,22 @@ int main(int argc, char** argv) {
                             sizeof(current_object));
                 std::memcpy(&resource_manager, openrac_guest_base + 0x002623C0u,
                             sizeof(resource_manager));
+                std::memcpy(&camera_object, openrac_guest_base + 0x00261990u,
+                            sizeof(camera_object));
+                const std::uint32_t camera_physical =
+                    openrac_guest_ram_address(camera_object);
+                if (camera_object != 0 && camera_physical <= openrac_guest_ram_size &&
+                    0x3E0u + sizeof(camera_stack) <=
+                        openrac_guest_ram_size - camera_physical) {
+                    std::memcpy(&camera_stack[0], openrac_guest_base + camera_physical + 0x3D0u,
+                                sizeof(camera_stack[0]));
+                    std::memcpy(&camera_stack[1], openrac_guest_base + camera_physical + 0x220u,
+                                sizeof(camera_stack[1]));
+                    std::memcpy(&camera_stack[2], openrac_guest_base + camera_physical + 0x224u,
+                                sizeof(camera_stack[2]));
+                    std::memcpy(&camera_stack[3], openrac_guest_base + camera_physical + 0x3D8u,
+                                sizeof(camera_stack[3]));
+                }
                 std::memcpy(&resource_level, openrac_guest_base + 0x002623C4u,
                             sizeof(resource_level));
                 std::memcpy(&resource_record, openrac_guest_base + 0x002623C8u,
@@ -258,14 +277,24 @@ int main(int argc, char** argv) {
                             sizeof(world_registry_head));
                 const std::uint32_t world_physical = openrac_guest_ram_address(current_object);
                 if (current_object != 0 && world_physical <= openrac_guest_ram_size &&
-                    0x1CDCu + sizeof(world_lists) <=
+                    0x1ED0u <=
                         openrac_guest_ram_size - world_physical) {
-                    std::memcpy(&world_lists[0], openrac_guest_base + world_physical + 0x60u,
+                    std::memcpy(&world_lists[0], openrac_guest_base + world_physical + 0x48u,
                                 sizeof(world_lists[0]));
-                    std::memcpy(&world_lists[1], openrac_guest_base + world_physical + 0x78u,
+                    std::memcpy(&world_lists[1], openrac_guest_base + world_physical + 0x54u,
                                 sizeof(world_lists[1]));
-                    std::memcpy(&world_lists[2], openrac_guest_base + world_physical + 0x1CD8u,
+                    std::memcpy(&world_lists[2], openrac_guest_base + world_physical + 0x60u,
                                 sizeof(world_lists[2]));
+                    std::memcpy(&world_lists[3], openrac_guest_base + world_physical + 0x6Cu,
+                                sizeof(world_lists[3]));
+                    std::memcpy(&world_lists[4], openrac_guest_base + world_physical + 0x78u,
+                                sizeof(world_lists[4]));
+                    std::memcpy(&world_lists[5], openrac_guest_base + world_physical + 0x1B7Cu,
+                                sizeof(world_lists[5]));
+                    std::memcpy(&world_lists[6], openrac_guest_base + world_physical + 0x1C54u,
+                                sizeof(world_lists[4]));
+                    std::memcpy(world_job_queue, openrac_guest_base + world_physical + 0x1EC8u,
+                                sizeof(world_job_queue));
                 }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
                             sizeof(frame_selector));
@@ -357,6 +386,10 @@ int main(int argc, char** argv) {
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " world_registry_head=0x" << world_registry_head
+                          << " camera=0x" << camera_object << " camera_stack="
+                          << std::dec << camera_stack[0] << ",0x" << std::hex
+                          << camera_stack[3] << " camera_flags=" << camera_stack[1]
+                          << ',' << camera_stack[2]
                           << " resource_manager=0x" << resource_manager
                           << " resource_level=0x" << resource_level
                           << " resource_record=0x" << resource_record
@@ -371,7 +404,11 @@ int main(int argc, char** argv) {
                           << " resource_record_flags=0x" << std::hex
                           << resource_record_flags
                           << " world_lists=" << world_lists[0] << ',' << world_lists[1]
-                          << ',' << world_lists[2] << " map_selection=0x" << scene_pending << std::dec
+                          << ',' << world_lists[2] << ',' << world_lists[3] << ','
+                          << world_lists[4] << ',' << world_lists[5] << ',' << world_lists[6]
+                          << " world_job_queue=0x" << std::hex
+                          << world_job_queue[0] << ",0x" << world_job_queue[1]
+                          << std::dec << " map_selection=0x" << std::hex << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
                           << " pad_report=0x" << std::hex << pad_report << std::dec
                           << " pad_mode=" << pad_mode << " pad_state=" << pad_state

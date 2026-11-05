@@ -87,13 +87,22 @@ void func_00182ED8(void* object) {
 
 void func_0011ECB8(void* world, void* parameter, void* reader) {
     s32 count = func_00137D10(reader);
+    extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+    sly1_native_loader_stage(21, (u32)count, (u32)reader);
     while (count-- > 0) {
         s32 slot = func_00137D10(reader);
         s32 key = func_00137D10(reader);
         s32 flag = func_00137D10(reader);
+        sly1_native_loader_stage(22, (u32)slot, (u32)reader);
+        sly1_native_loader_stage(23, (u32)key, (u32)reader);
+        sly1_native_loader_stage(24, (u32)flag, (u32)reader);
         void* object = func_0011E580(slot, world, parameter, key, flag);
+        sly1_native_loader_stage(25, (u32)object, (u32)reader);
 
         if (object == 0) continue;
+        sly1_native_loader_stage(26, *(u32*)object, (u32)reader);
+        sly1_native_loader_stage(27, *(u32*)((u8*)object + 0x14), (u32)reader);
+        sly1_native_loader_stage(28, *(u32*)((u8*)object + 0x18), (u32)reader);
         u32 vtable = *(u32*)object;
         u32 read_method = vtable != 0 ? *(u32*)(vtable + 14u * 4u) : 0;
         if (read_method != 0) {
