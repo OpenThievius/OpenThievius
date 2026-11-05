@@ -340,12 +340,62 @@ int main(int argc, char** argv) {
                 std::memcpy(&overlay_state[2], openrac_guest_base + 0x00275BECu,
                             sizeof(overlay_state[2]));
                 std::uint32_t ui_active_count = 0;
+                std::uint32_t ui_visible_count = 0;
+                std::uint32_t ui_font_count = 0;
+                struct UiSample {
+                    std::uint32_t index;
+                    std::uint32_t object;
+                    std::uint32_t mode;
+                    std::uint32_t font;
+                    std::uint32_t frame;
+                    std::uint32_t draw;
+                    std::uint32_t glyph_count;
+                    std::uint32_t first_text_byte;
+                } ui_samples[8]{};
+                std::uint32_t ui_sample_count = 0;
                 for (std::uint32_t i = 0; i < 37; ++i) {
                     std::uint32_t object = 0;
                     std::memcpy(&object, openrac_guest_base + 0x002486B0u + i * 4u,
                                 sizeof(object));
                     ui_active_count += object != 0;
+                    if (object == 0) continue;
+                    const std::uint32_t object_physical = openrac_guest_ram_address(object);
+                    if (object_physical > openrac_guest_ram_size ||
+                        0x25Du > openrac_guest_ram_size - object_physical) continue;
+                    std::uint32_t mode = 0, font = 0, frame = 0, vtable = 0;
+                    std::memcpy(&mode, openrac_guest_base + object_physical + 0x250u, 4);
+                    std::memcpy(&font, openrac_guest_base + object_physical + 0x04u, 4);
+                    std::memcpy(&frame, openrac_guest_base + object_physical + 0x210u, 4);
+                    std::memcpy(&vtable, openrac_guest_base + object_physical, 4);
+                    const std::uint32_t first_text_byte =
+                        openrac_guest_base[object_physical + 0x08u];
+                    std::uint32_t draw = 0;
+                    const std::uint32_t vtable_physical = openrac_guest_ram_address(vtable);
+                    if (vtable != 0 && vtable_physical <= openrac_guest_ram_size &&
+                        0x28u <= openrac_guest_ram_size - vtable_physical)
+                        std::memcpy(&draw, openrac_guest_base + vtable_physical + 9u * 4u, 4);
+                    std::uint32_t glyph_count = 0;
+                    const std::uint32_t font_physical = openrac_guest_ram_address(font);
+                    if (font != 0 && font_physical <= openrac_guest_ram_size &&
+                        0x7Cu <= openrac_guest_ram_size - font_physical)
+                        std::memcpy(&glyph_count, openrac_guest_base + font_physical + 0x78u, 4);
+                    ui_visible_count += mode != 0 && first_text_byte != 0;
+                    ui_font_count += font != 0;
+                    if (ui_sample_count < 8 && (mode != 0 || first_text_byte != 0)) {
+                        ui_samples[ui_sample_count++] = {
+                            i, object, mode, font, frame, draw, glyph_count,
+                            first_text_byte};
+                    }
                 }
+                std::uint32_t active_world = 0;
+                std::memcpy(&active_world, openrac_guest_base + 0x00275710u, 4);
+                std::uint32_t font_count = 0, font_array = 0, default_font = 0;
+                std::uint32_t font_ids[4]{};
+                std::memcpy(&font_count, openrac_guest_base + 0x00262260u, 4);
+                std::memcpy(&font_array, openrac_guest_base + 0x00262264u, 4);
+                std::memcpy(&default_font, openrac_guest_base + 0x0026227Cu, 4);
+                std::memcpy(font_ids, openrac_guest_base + 0x00262268u,
+                            sizeof(font_ids));
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
                 std::uint32_t resource_manager = 0;
@@ -654,6 +704,24 @@ int main(int argc, char** argv) {
                         std::cerr << vertices[i].x << ',' << vertices[i].y << ":0x"
                                   << std::hex << vertices[i].rgba << std::dec;
                     }
+                }
+                std::cerr << '\n';
+                std::cerr << "[ui trace] active_world=0x" << std::hex << active_world
+                          << std::dec << " objects=" << ui_active_count
+                          << " visible_text=" << ui_visible_count
+                          << " fonts=" << ui_font_count << " font_registry="
+                          << font_count << ",0x" << std::hex << font_array << ",0x"
+                          << default_font << " ids=" << font_ids[0] << ','
+                          << font_ids[1] << ',' << font_ids[2] << ',' << font_ids[3]
+                          << std::dec << " samples=";
+                for (std::uint32_t i = 0; i < ui_sample_count; ++i) {
+                    const UiSample& sample = ui_samples[i];
+                    if (i != 0) std::cerr << ';';
+                    std::cerr << sample.index << ":0x" << std::hex << sample.object
+                              << "/mode=" << sample.mode << "/font=" << sample.font
+                              << "/frame=" << sample.frame << "/draw=" << sample.draw
+                              << "/glyphs=" << sample.glyph_count << "/text="
+                              << sample.first_text_byte << std::dec;
                 }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
