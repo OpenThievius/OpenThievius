@@ -229,6 +229,35 @@ def main(argv=None):
                 "s32 decomp_func_00203D90(void)", adapted)
             if replacements != 1:
                 raise RuntimeError("expected one CD status definition in " + rel.as_posix())
+        elif rel.as_posix() == "main/00184000.cpp":
+            # The candidate projection helper has a shifted argument list.
+            # Preserve that body in staging while the port supplies the
+            # argument flow derived from the retail call site.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001840F0\(f32 a, f32 b, f32 c, f32 d, Out_1840F0\* out0, void\* out1\)",
+                "void decomp_func_001840F0(f32 a, f32 b, f32 c, f32 d, Out_1840F0* out0, void* out1)",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one projection helper in " + rel.as_posix())
+            # Retail Quad16 inputs are 16-byte aligned. Native retail-address
+            # data symbols can be only 8-byte aligned, so keep the source body
+            # staged and replace its aligned vector load in the port layer.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001847F0\(C51\* self, Quad_001847F0\* src\)",
+                "void decomp_func_001847F0(C51* self, Quad_001847F0* src)",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one camera vector setter in " + rel.as_posix())
+        elif rel.as_posix() == "main/001EC000.cpp":
+            # The matching packet-copy body calls the packet-size helper with
+            # an incomplete prototype. Keep it staged while a port-only writer
+            # reproduces the retail VIF header and payload copy.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001EE668\(void\* s, void\* a1, s32 size, u32\* src, void\* a4\)",
+                "void decomp_func_001EE668(void* s, void* a1, s32 size, u32* src, void* a4)",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one packet-copy definition in " + rel.as_posix())
         elif rel.as_posix() == "main/001E4000.cpp":
             # G275F80 is a 0x40-byte native view assembled from separate retail
             # labels. Reserve the full view in the host image so its tail cannot
