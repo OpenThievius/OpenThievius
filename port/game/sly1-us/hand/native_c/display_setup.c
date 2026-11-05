@@ -83,6 +83,40 @@ int func_001931F0(void)
     return func_001930B8(1, -1);
 }
 
+int func_00180E38(s32 initialize, s32 mode)
+{
+    u8* gray = (u8*)0x00264098u;
+    u8* blue = (u8*)0x002640A0u;
+
+    if (initialize == 0 || mode != -1) return 0;
+    gray[0] = 0xBF;
+    gray[1] = 0xBF;
+    gray[2] = 0xBF;
+    gray[3] = 0x7F;
+    blue[0] = 0x00;
+    blue[1] = 0x87;
+    blue[2] = 0xFF;
+    blue[3] = 0x7F;
+    return 0;
+}
+
+int func_00180E90(void)
+{
+    return func_00180E38(1, -1);
+}
+
+int func_0018F940(s32 initialize, s32 mode)
+{
+    if (initialize != 0 && mode == -1)
+        *(u32*)0x00279AECu = 0x0025B5B8u;
+    return 0;
+}
+
+int func_0018F968(void)
+{
+    return func_0018F940(1, -1);
+}
+
 void func_001FFBE0(void* first, void* entry)
 {
     u8* node = (u8*)entry;
