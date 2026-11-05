@@ -146,8 +146,12 @@ zero submitted vertices, image tags, blits, or local-to-local transfers. The
 next blocker is producing scene or Splash draw commands through the frame and
 resource callbacks, not opening a display mode. Treat this as loader/frame-loop
 diagnostic evidence, not a playable milestone. The coordinator also omits
-retail progress/job bookkeeping. The
-factory's required class
+retail progress/job bookkeeping. Port-only backfills `func_001526D0`,
+`func_00182FC8`, and `func_00182C80` now
+restore object-list membership and activation from the retail C path. In a
+bounded run the world registry becomes nonempty, but the renderer still sees
+zero vertices; frame traversal and draw submission remain incomplete.
+The factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
 alongside it. They are registered through hostgen and link as native functions. The
