@@ -183,7 +183,14 @@ def prepare_c_view(source, version):
         out_dir.mkdir()
         for cpp in sorted((source / "src" / directory).glob("*.cpp")):
             text = cpp.read_text(encoding="utf-8")
-            tags = sorted(set(re.findall(r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*\)\)\s*)?([A-Za-z_]\w*)\s*\{", text)))
+            # C++ permits a bare forward-declared tag in later casts, while C
+            # requires its typedef name. Collect declarations as well as
+            # definitions so those casts remain valid in the staged C view.
+            tags = sorted(set(re.findall(
+                r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*?\)\)\s*)?"
+                r"([A-Za-z_]\w*)\b",
+                text,
+            )))
             all_tags = sorted(set(tags) | shared_tags)
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
