@@ -84,8 +84,26 @@ def prepare_c_view(source, version):
     (staged / "src").mkdir(parents=True)
     (staged / "include").mkdir()
     (staged / "config" / version).mkdir(parents=True)
-    for path in ("include/common.h", f"config/{version}/symbol_addrs.txt"):
+    for path in (f"config/{version}/symbol_addrs.txt",):
         shutil.copy2(source / path, staged / path)
+    # Newer decomp snapshots use shared class and helper headers in whole-file
+    # units. Stage those headers too; copying only common.h made hostgen reject
+    # otherwise readable C units and silently replace their functions with
+    # no-C stubs. The upstream checkout remains read-only.
+    source_includes = source / "include"
+    for header in sorted(source_includes.rglob("*")):
+        if not header.is_file() or header.suffix not in (".h", ".hpp", ".inc"):
+            continue
+        target = staged / "include" / header.relative_to(source_includes)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(header, target)
+    shared_tags = set()
+    for header in sorted((staged / "include").rglob("*")):
+        if not header.is_file() or header.suffix not in (".h", ".hpp", ".inc"):
+            continue
+        shared_tags.update(re.findall(
+            r"\b(struct|union|enum)\s+([A-Za-z_]\w*)\s*(?=;|\{)",
+            header.read_text(encoding="utf-8")))
     function_table = (source / "config" / version / "functions.tsv").read_text(encoding="utf-8").splitlines()
     catalogue_rows = []
     for line in function_table[1:]:
@@ -101,7 +119,10 @@ def prepare_c_view(source, version):
         for cpp in sorted((source / "src" / directory).glob("*.cpp")):
             text = cpp.read_text(encoding="utf-8")
             tags = sorted(set(re.findall(r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*\)\)\s*)?([A-Za-z_]\w*)\s*\{", text)))
-            prelude = "#define bool _Bool\n" + "".join("typedef {0} {1} {1};\n".format(kind, tag) for kind, tag in tags)
+            all_tags = sorted(set(tags) | shared_tags)
+            prelude = "#define bool _Bool\n" + "".join(
+                "typedef {0} {1} {1};\n".format(kind, tag)
+                for kind, tag in all_tags)
             (out_dir / (cpp.stem + ".c")).write_text(prelude + text, encoding="utf-8")
 
     # Port-owned functional replacements stay outside sly1-decomp. Hostgen
