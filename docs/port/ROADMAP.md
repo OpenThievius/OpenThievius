@@ -40,21 +40,22 @@ PS2 exception runtime constructs in `lib/001FC000.cpp`, local 64-bit typedefs
 in `main/0015C000.cpp`, missing `fabsf` declaration in `main/0016C000.cpp`,
 and PS2 varargs arithmetic in `main/file_1C05D0.cpp`. Port-side staging
 adaptations compile the selected C++ units without modifying decomp source.
-Against the latest snapshot, all 73 selected Sly C++ units and 29 port-native
-backfill units compile. The combine step reports 3,389 catalogued native
-function addresses and a direct-call frontier of 455/574 functions defined
-(119 missing); source consolidation changes these totals compared with the
-previous snapshot. The
-freestanding Linux/i386 launcher now links. Port-side ABI adapters, compiler
+Against the latest snapshot, all 73 selected Sly C++ units and 33 port-native
+backfill units compile. The combine step records 3,403 native definitions for
+4,806 catalogued functions and a direct-call frontier of 499/616 functions
+defined (117 missing); source consolidation changes these totals compared with
+the previous snapshot. The freestanding Linux/i386 launcher now links.
+Port-side ABI adapters, compiler
 runtime support, constructor dispatch, a native DMA channel service, and Linux
 thread wrappers cleared the earlier link and startup traps. A fresh bounded
 launch runs all eight native initialization callbacks, uses port-only display
 context setup for `0x00201D60`, and registers the two display interrupt
 callbacks. Subsequent GS DMA service backfills cleared the unmapped
-`0x1000A000` crash. A trace-enabled run now faults when matching
-`func_001684E8` reads GS status at `0x12001000`; the title screen remains black
-and there is no playable scene. The old report (2,367 definitions and
-60/89 direct-call frontier) was from the stale source and is superseded.
+`0x1000A000` crash. The native host maps GS status at `0x12001000`; the current
+trace passes that boundary and reaches the missing pad initialization function
+`func_002042C8`. The window still shows no scene. The old report (2,367
+definitions and 60/89 direct-call frontier) was from the stale source and is
+superseded.
 
 The refreshed decomp also defines 24 functions that previously had port-only
 shadow backfills. Those shadows were removed so matching C is now the source
@@ -79,33 +80,34 @@ frontier;
 function table. The merge also consolidates shared class and record layouts
 across many US files and adds typed global/shape headers, making object fields
 and data relationships more useful for native layout and asset work. PR #52 is
-mostly PAL near-miss cleanup and does not add a US startup fix. None of these
-changes addresses the current GS/display boundary or makes a scene render.
+mostly PAL near-miss cleanup and does not add a US startup fix. These changes do
+not address the current startup stop at `func_002042C8` or make a scene render.
 
-The read-only snapshot at `/home/reaper/.cache/sly1-decomp-upstream` is now
-advanced to `3ef6157` and the 73-unit host compilation succeeds against it.
+The read-only snapshot at `/home/reaper/.cache/sly1-decomp-upstream` is at
+`3ef6157`; a fresh fetch found no newer `master` commit or open pull request.
 The separate checkout at `/home/reaper/Code/sly1-decomp` remains untouched.
-The refreshed objects combine successfully; we have not yet rerun the SDL
-launcher against this snapshot.
+The refreshed objects combine successfully, and the SDL launcher has since
+been rerun against them with startup tracing enabled.
 
 The SDL3 and OpenRAC DirectRenderer runtime compiles as 32-bit i386 with the
 matching i686 headers and SSE2 flags. The dynamic SDL host32 launcher links and
 opens its window, runs the decompiled game on a worker thread, and submits GS
-GIF chains through port-only DMA services. The window remains black: the
-trace-enabled game thread still hits a direct read of GS status at
-`0x12001000`, which needs a native platform replacement.
+GIF chains through port-only DMA services. Port-only IOP/SIF and interrupt
+critical-section replacements now carry startup past earlier waits. The latest
+trace stops at missing `func_002042C8`, the pad RPC initializer; the window is
+still black and there is no playable scene yet.
 
 The no-emulation host32 path directly compiles the Sly C++ source units and
 remaining port-native backfills, then combines them by retail address. Against
-the refreshed `3ef6157` upstream snapshot, 73 Sly units and 29 port-native
-backfill units compile. The combined object records 3,389 native function
-entries for 4,806 catalogued addresses, with 644 addresses unresolved. Its
-direct-call frontier is 455/574 functions defined (119 missing); this does not
+the refreshed `3ef6157` upstream snapshot, 73 Sly units and 33 port-native
+backfill units compile. The combined object records 3,403 native function
+definitions for 4,806 catalogued addresses. Its direct-call frontier is
+499/616 functions defined (117 missing); this does not
 follow indirect callbacks, function tables, constructors or vtables. The SDL
 launcher opens a user-supplied cooked ISO or raw BIN and provides native
 synchronous sector-read, wait, and error services at Sly's CD boundary. A
-trace-enabled launch against the prior compiled snapshot reaches the direct GS
-status read at `0x12001000`; the refreshed objects have not yet been launched.
+trace-enabled launch of this snapshot now reaches the missing pad RPC
+initializer `func_002042C8`; no scene is visible yet.
 
 The C-only hostgen path now has port-only startup loader initialization,
 message dispatch, stream range setup, and object factory backfills in

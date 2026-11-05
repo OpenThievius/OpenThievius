@@ -6,11 +6,15 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-current upstream snapshot compiles all 74 selected Sly C++ units and links the
-freestanding diagnostic launcher. Port-only display setup now carries startup
-past `0x00201D60`; execution then faults in matching `func_00201C78` when it
-reads the unmapped GS DMA register `0x1000A000`. This is the next native
-graphics boundary. There is no title screen yet.
+current upstream snapshot is `3ef6157` from
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp), with
+no newer upstream commit available at the latest fetch. The host32 build
+compiles 73 selected Sly C++ units, including recent matching functions
+`func_001A0BA0`, `func_00180398`, and `func_001F5CD0`, plus 33 port-native
+backfill units. The launcher opens its SDL window and advances through native
+display and IOP startup services, then stops at missing pad RPC initializer
+`func_002042C8`. The window is still black; there is no title screen or
+playable scene yet.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
 
