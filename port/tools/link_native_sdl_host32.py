@@ -51,7 +51,9 @@ def main(argv=None):
     asm = [".section .text.missing,\"ax\",@progbits"]
     for symbol, address in sorted(missing.items()):
         asm.extend([f".globl {symbol}", f".type {symbol},@function", f"{symbol}:",
-                    f"    pushl $0x{address:08x}", "    call sly1_missing_function", "    ud2"])
+                    "    pushl 4(%esp)", "    pushl 4(%esp)",
+                    f"    pushl $0x{address:08x}",
+                    "    call sly1_missing_function", "    ud2"])
     missing_asm = args.out / "missing_functions.S"
     missing_asm.write_text("\n".join(asm) + "\n", encoding="utf-8")
 

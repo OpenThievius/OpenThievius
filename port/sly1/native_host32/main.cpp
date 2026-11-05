@@ -114,6 +114,8 @@ u32 g_disc_sector_count = 0;
 int g_disc_read_error = 0;
 volatile u32 g_disc_read_count = 0;
 volatile u32 g_disc_sectors_read = 0;
+extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
+extern "C" volatile u32 sly1_native_startup_callback_index = 0;
 volatile u32 g_trace_last_guest_function = 0;
 volatile u32 g_trace_function_entries = 0;
 constexpr u32 kTraceThreadSlots = 32;
@@ -331,8 +333,10 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
                          openrac_native_renderer_dma_reject_count(),
                          openrac_native_renderer_dma_bytes());
             std::fprintf(stderr,
-                         "[native startup] entry_returned=%u cd_reads=%u sectors=%u last_func=0x%08x calls=%u\n",
+                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u last_func=0x%08x calls=%u\n",
                          game_finished.load(std::memory_order_acquire) ? 1u : 0u,
+                         sly1_native_startup_callback_index,
+                         sly1_native_iop_boot_stage,
                          g_disc_read_count, g_disc_sectors_read,
                          __atomic_load_n(&g_trace_last_guest_function, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_trace_function_entries, __ATOMIC_RELAXED));
@@ -391,11 +395,24 @@ extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
     return 1;
 }
 
-extern "C" __attribute__((noreturn)) void sly1_missing_function(u32 address) {
-    char line[] = "native host32: missing compiled function at 0x00000000\n";
-    const char hex[] = "0123456789abcdef";
-    for (int i = 0; i < 8; ++i) line[46 + i] = hex[(address >> ((7-i)*4)) & 15];
-    write_text(line);
+extern "C" __attribute__((noreturn)) void sly1_missing_function(
+    u32 address, u32 caller, u32 argument0) {
+    write_hex("native host32: missing compiled function at ", (int)address);
+    write_hex("native host32: called from ", (int)caller);
+    write_hex("native host32: first argument ", (int)argument0);
+    if (address == 0x001841D0u && argument0 >= 0x00100000u &&
+        argument0 < 0x02100000u) {
+        const auto* camera = reinterpret_cast<volatile const u32*>(argument0);
+        static const u32 offsets[] = {
+            0x2D0u, 0x2D4u, 0x2E0u, 0x2E4u, 0x2E8u, 0x2ECu,
+            0x2F0u, 0x2F4u, 0x2F8u, 0x2FCu, 0x300u, 0x304u,
+            0x320u, 0x324u, 0x328u, 0x32Cu};
+        for (u32 i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
+            const u32 offset = offsets[i];
+            write_hex("native host32: C51+offset ", (int)offset);
+            write_hex("native host32: C51 value ", (int)camera[offset / 4]);
+        }
+    }
     syscall1(1, 127);
     __builtin_unreachable();
 }
@@ -416,14 +433,8 @@ __cyg_profile_func_enter(void* function, void*) {
         }
     }
     __atomic_store_n(&g_trace_last_guest_function, guest_address, __ATOMIC_RELAXED);
-    if (slot < kTraceThreadSlots) {
+    if (slot < kTraceThreadSlots)
         __atomic_store_n(&g_trace_thread_function[slot], guest_address, __ATOMIC_RELAXED);
-        const u32 depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
-        if (depth < 128) {
-            __atomic_store_n(&g_trace_thread_stack[slot][depth], guest_address, __ATOMIC_RELAXED);
-            __atomic_store_n(&g_trace_thread_depth[slot], depth + 1, __ATOMIC_RELAXED);
-        }
-    }
     __atomic_add_fetch(&g_trace_function_entries, 1u, __ATOMIC_RELAXED);
 }
 
@@ -438,6 +449,34 @@ __cyg_profile_func_exit(void*, void*) {
     const u32 parent = depth == 0 ? 0 : __atomic_load_n(
         &g_trace_thread_stack[slot][depth - 1], __ATOMIC_RELAXED);
     __atomic_store_n(&g_trace_thread_function[slot], parent, __ATOMIC_RELAXED);
+}
+
+extern "C" void sly1_native_startup_callback(unsigned int index) {
+    sly1_native_startup_callback_index = index + 1;
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    const char* trace = std::getenv("OPENRAC_STARTUP_TRACE");
+    if (trace != nullptr && trace[0] != '0')
+        std::fprintf(stderr, "[native startup] callback=%u iop_stage=%u\n",
+                     index + 1, sly1_native_iop_boot_stage);
+#endif
+}
+
+extern "C" int sly1_native_host32_iop_boot(void) {
+    if (g_disc_sector_count == 0) return 0;
+    *(volatile u32*)0x002613F0u = 0x14u;
+    return 1;
+}
+
+extern "C" int sly1_native_host32_iop_initialize(int mode) {
+    (void)mode;
+    return g_disc_sector_count != 0;
+}
+
+extern "C" int sly1_native_host32_iop_services_start(int mode) {
+    (void)mode;
+    if (g_disc_sector_count == 0) return 0;
+    *(volatile u32*)0x0027AE80u = 1u;
+    return 1;
 }
 
 int main(int argc, char** argv) {

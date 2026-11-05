@@ -229,7 +229,87 @@ def main(argv=None):
                 "s32 decomp_func_00203D90(void)", adapted)
             if replacements != 1:
                 raise RuntimeError("expected one CD status definition in " + rel.as_posix())
+        elif rel.as_posix() == "main/001E4000.cpp":
+            # G275F80 is a 0x40-byte native view assembled from separate retail
+            # labels. Reserve the full view in the host image so its tail cannot
+            # overlap the next compiled global (D_00274118) when callbacks write it.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 D_00275F80 = 0;$",
+                "u8 D_00275F80[0x40] = {0};", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected the 4-byte D_00275F80 retail label in " +
+                                   rel.as_posix())
+            # Retail labels can expose only part of a T217D object (some methods
+            # write large derived arrays beyond those label extents). Reserve
+            # each complete typed object in the host image to prevent adjacent
+            # compiled globals from being overwritten during native startup.
+            object_table = (source / "src" / "main" / "001A8000.cpp").read_text(
+                encoding="utf-8")
+            table = re.search(
+                r"extern void\* const D_002486B0\[38\]\s*=\s*\{(.*?)\};",
+                object_table, re.S)
+            if table is None:
+                raise RuntimeError("expected the T217D object table in 001A8000.cpp")
+            typed_header = (source / "include" / "t217d.h").read_text(encoding="utf-8")
+            object_types = {
+                name: type_name
+                for type_name, name in re.findall(
+                    r"extern\s+(T217D_[0-9A-Fa-f]+)\s+(D_002[0-9A-Fa-f]+);",
+                    typed_header)
+            }
+            adapted = adapted.replace('#include "common.h"',
+                                      '#include "common.h"\n#include "t217d.h"', 1)
+            for name in re.findall(r"&\s*(D_002[0-9A-Fa-f]+)", table.group(1)):
+                if name not in object_types:
+                    raise RuntimeError("missing typed T217D object " + name)
+                object = re.compile(r"(?m)^[^\n]*\b" + re.escape(name) +
+                                    r"\b[^\n]*=\s*\{(?:0)?\};(?:\s*//[^\n]*)?$")
+                match = object.search(adapted)
+                if match is None:
+                    raise RuntimeError("expected zeroed T217D storage for " + name)
+                adapted = (adapted[:match.start()] + object_types[name] + " " +
+                           name + " = {};" + adapted[match.end():])
+        elif rel.as_posix() == "main/00168000.cpp":
+            # Native DMA completion is synchronous, so the display setup path
+            # must not wait for the PS2 GS interrupt semaphore. Keep the retail
+            # body staged while the port supplies its own no-wait equivalent.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001683B8\(void\)(?=\s*\{)",
+                "void decomp_func_001683B8(void)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one GS completion wait in " + rel.as_posix())
+        elif rel.as_posix() == "main/file_15F678.cpp":
+            # Obj_161958 overlays the V24A0 packet writer with a C++ virtual
+            # method, but the native host cannot use the retail buffer-end word
+            # as a C++ vptr. Keep that body staged under a private name while a
+            # port-only V24A0-aware implementation owns the callable address.
+            adapted, replacements = re.subn(
+                r"(?m)^    void func_00161958\(s32 count\);",
+                "    void decomp_func_00161958(s32 count);", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected Obj_161958 declaration in " + rel.as_posix())
+            adapted, replacements = re.subn(
+                r"(?m)^void Obj_161958::func_00161958\(s32 count\)",
+                "void Obj_161958::decomp_func_00161958(s32 count)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected Obj_161958 method definition in " + rel.as_posix())
         elif rel.as_posix() == "main/file_184D78.cpp":
+            # Retain the most recent one-based startup callback index in the
+            # native launcher diagnostics. This isolates a startup spin loop
+            # without instrumenting every retail function's return path.
+            callback_declaration = (
+                'extern "C" void sly1_native_startup_callback(unsigned int);\n\n'
+                'void func_00185B38(void)\n{')
+            adapted, replacements = re.subn(
+                r"(?m)^void func_00185B38\(void\)\n\{",
+                callback_declaration, adapted)
+            if replacements != 1:
+                raise RuntimeError("expected startup callback loop in " + rel.as_posix())
+            adapted, replacements = re.subn(
+                r"(?m)^(\s*)tbl\[i\]\(\);",
+                r"\1sly1_native_startup_callback(i);\n\1tbl[i]();", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one startup callback call in " + rel.as_posix())
             # Replace only the IOP module/CDVD bootstrap at its retail address;
             # keep the original matching body in the staged source for review.
             adapted, replacements = re.subn(
@@ -288,24 +368,6 @@ def main(argv=None):
                 "s32 decomp_func_001F80C0(Ctx_1F80C0* self, s32 a1, s32 a2)", adapted)
             if replacements != 1:
                 raise RuntimeError("expected one SIF RPC definition in " + rel.as_posix())
-        elif rel.as_posix() == "main/001E4000.cpp":
-            # Several retail T217D globals have backing declarations truncated
-            # before their full host-used layouts. The native linker compacts
-            # these arrays, so fields such as inTime or the 57-point sparkle
-            # buffer overwrite the next object's vtable. Pad only this staged
-            # host copy to the layout size; leave decomp data unchanged.
-            for name, old_size, new_size in (
-                ("00272930", 572, 636),   # T217D_470: next retail slot is 0x280
-                ("002708E0", 592, 3180),  # T217D_3F0: size through pts[57]
-                ("00271558", 592, 3180),
-            ):
-                old_decl = f"u8 D_{name}[{old_size}] = {{0}};"
-                new_decl = f"u8 D_{name}[{new_size}] = {{0}};"
-                replacements = adapted.count(old_decl)
-                adapted = adapted.replace(old_decl, new_decl)
-                if replacements != 1:
-                    raise RuntimeError("expected one T217D host backing array " + name +
-                                       " in " + rel.as_posix())
         elif rel.as_posix() == "main/00150000.cpp":
             # Native processes cannot map valid EE low-memory addresses below
             # the host mmap_min_addr. Keep the matching list-offset helper in
