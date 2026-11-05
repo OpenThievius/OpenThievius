@@ -49,10 +49,65 @@ typedef struct FontGlyph {
     u16 width;
 } FontGlyph;
 
+typedef struct FontPacketWriter {
+    u32 end;
+    u32 begin;
+    u32 dma_tag;
+    u32 cursor;
+    s32 pad;
+    s32 use_close_callback;
+    u32 vtable;
+    u32 last_tag;
+    u32 registers_per_loop;
+    u32 register_count;
+} FontPacketWriter;
+
+typedef struct FontImageA {
+    u32 words[8];
+} FontImageA;
+
+typedef struct FontImageB {
+    u32 words[6];
+} FontImageB;
+
+typedef struct FontDisplayState {
+    u8 pad[0x18];
+    u32 flags;
+} FontDisplayState;
+
+typedef struct FontTextLayout {
+    f32 x;
+    f32 y;
+    f32 w;
+    f32 h;
+    u32 color;
+    s32 horizontal;
+    s32 vertical;
+} FontTextLayout;
+
 extern u32 D_00262268[];
 extern s32 D_0026227C;
 extern s8 D_00262250[];
 extern u8 D_0024A220[];
+extern FontDisplayState* D_002622D8;
+FontGlyph* func_0015DAB8(void* opaque, s32 key);
+void func_001613C0(void* packet, s32 mode, s32 count, s32 format);
+void func_00161708(void* packet, s32 address, u64 value);
+void func_00161768(void* packet, u32 register_count, u64 value);
+void func_001617E8(void* packet, u32 register_id, f32 value);
+void func_00161860(void* packet, s32 first, s32 second);
+void func_001618C0(void* packet, s32 first, s32 second, u32 third, u32 fourth);
+void func_00152D70(void* packet);
+void func_00152B38(void* packet);
+void func_00152B80(void* packet, s32 low, s32 high);
+
+static u32 font_vtable_method(FontTextFont* font, u32 method_offset,
+                              u32 adjust_offset, u32* adjusted) {
+    u32 vtable = font->vtable;
+    s16 adjustment = *(s16*)(vtable + adjust_offset);
+    *adjusted = (u32)((u8*)font + adjustment);
+    return *(u32*)(vtable + method_offset);
+}
 extern f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2,
                                 u32 a3, f32 f12, f32 f14);
 
@@ -126,6 +181,224 @@ f32 func_0015CA60(void* opaque, s32 key) {
     FontGlyph* glyph = func_0015DAB8(opaque, key);
     return glyph == 0 ? (f32)font->advance * font->sx
                       : (f32)(glyph->width + 1u) * font->sx;
+}
+
+void func_0015D338(void* opaque, u32 color, f32 x0, f32 y0, f32 x1,
+                   f32 y1, f32 u0, f32 v0, f32 u1, f32 v1,
+                   void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    color = (color & 0xFFFFFFu) | ((((color >> 24) + 1u) & 0x1FEu) << 23);
+    func_001617E8(packet, color, 0.0f);
+    func_00161860(packet, (s32)(u0 * 16.0f), (s32)(v0 * 16.0f));
+    func_001618C0(packet, (s32)((x0 + 1728.0f) * 16.0f),
+                  (s32)((y0 * 0.45454547f + 1936.0f) * 16.0f),
+                  (u32)font->f40, 0);
+    func_00161860(packet, (s32)(u1 * 16.0f), (s32)(v1 * 16.0f));
+    func_001618C0(packet, (s32)((x1 + 1728.0f) * 16.0f),
+                  (s32)((y1 * 0.45454547f + 1936.0f) * 16.0f),
+                  (u32)font->f40, 0);
+}
+
+s32 func_0015CAB8(void* opaque, void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    s32 changed = (D_002622D8->flags & (u32)font->mask) == 0;
+    if (changed) {
+        FontImageA* image_a = (FontImageA*)font->image_a;
+        FontImageB* image_b = (FontImageB*)font->image_b;
+        func_00152D70(packet);
+        func_00152B80(packet, font->f68, font->f6c);
+        func_00152B80(packet, (s32)image_a->words[5], (s32)image_a->words[4]);
+        if (image_b != 0) {
+            func_00152B80(packet, font->f70, font->f74);
+            func_00152B80(packet, (s32)image_b->words[3], (s32)image_b->words[2]);
+        }
+        func_00152B38(packet);
+        D_002622D8->flags |= (u32)font->mask;
+    }
+    return changed;
+}
+
+void func_0015C2E8(void* unused, void* rectangle, void* packet) {
+    if (rectangle == 0) return;
+    f32* rect = (f32*)rectangle;
+    s32 width = (s32)(rect[0] + rect[2]) - 1;
+    s32 bottom = (s32)((rect[1] + rect[3]) * 0.454545468f) - 1;
+    s32 top = (s32)(rect[1] * 0.454545468f);
+    s32 left = (s32)rect[0];
+    func_001613C0(packet, 0, 1, 0xE);
+    u64 value = (u64)(u32)left | ((u64)(u32)width << 16) |
+                ((u64)(u32)top << 32) | ((u64)(u32)bottom << 48);
+    func_00161708(packet, 0x40, value);
+}
+
+void func_0015CB88(void* opaque, s32 rectangle, void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    func_0015C2E8(font, (void*)(u32)rectangle, packet);
+    s32 changed = func_0015CAB8(font, packet);
+    func_001613C0(packet, 6, 1, 0xE);
+    if (changed) func_00161708(packet, 0x3F, 0);
+    func_00161708(packet, 0x47, font->f30 != 0 ? font->f38 : 0x31001u);
+    func_00161708(packet, 0x42, 0x44);
+    func_00161708(packet, 6, font->tex0);
+    func_00161708(packet, 0x14, 0x60);
+    func_00161708(packet, 8, 5);
+    func_00161708(packet, 0, 0x1D6);
+    func_00161768(packet, 5, 0x43431);
+}
+
+void func_0015CC80(void* opaque, void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    s32 changed = func_0015CAB8(font, packet);
+    func_001613C0(packet, 6, 1, 0xE);
+    if (changed) func_00161708(packet, 0x3F, 0);
+    func_00161708(packet, 6, font->tex0);
+    func_00161708(packet, 0, 0x1D6);
+    func_00161768(packet, 5, 0x43431);
+}
+
+void func_0015C3C0(void* unused, s32 flush, void* packet) {
+    if (flush) {
+        func_001613C0(packet, 0, 1, 0xE);
+        func_00161708(packet, 0x40, 0xDF0000027F0000ULL);
+    }
+}
+
+void func_0015DBB8(void* opaque, void* color) {
+    FontTextBuffer* text = (FontTextBuffer*)opaque;
+    text->color_a4.packed = *(u32*)color;
+    text->color_9c.packed = *(u32*)color;
+}
+
+void func_0015E318(void* opaque, FontTextLayout* layout, s32 flag,
+                   void* packet) {
+    FontTextBuffer* text = (FontTextBuffer*)opaque;
+    f32 line_widths[64] = {0};
+    s32 line = 0;
+    s32 first = 1;
+    s32 begun = 0;
+    f32 top;
+    f32 left = 0.0f;
+    s32 value;
+
+    func_0015DB80(text);
+    while ((value = func_0015DBE0(text)) != 0) {
+        if (value == 10) {
+            ++line;
+        } else {
+            FontTextFont* font = (FontTextFont*)text->font;
+            u32 adjusted;
+            u32 callback = font_vtable_method(font, 0x1Cu, 0x18u, &adjusted);
+            line_widths[line] += sly1_native_call_f32(
+                callback, adjusted, (u32)value, 0, 0, 0.0f, 0.0f);
+        }
+    }
+
+    if (layout->vertical == 0) {
+        top = layout->y;
+    } else {
+        FontTextFont* font = (FontTextFont*)text->default_font;
+        f32 total = (f32)(line + 1) * ((f32)font->height * font->sy);
+        top = layout->vertical == 2 ? (layout->y + layout->h) - total
+                                    : layout->y + (layout->h - total) * 0.5f;
+    }
+    func_0015DBB8(text, &layout->color);
+    func_0015DB80(text);
+    line = 0;
+
+    while ((value = func_0015DBE0(text)) != 0) {
+        if (value == 10) {
+            first = 1;
+            ++line;
+            top += (f32)((FontTextFont*)text->default_font)->height *
+                   ((FontTextFont*)text->default_font)->sy;
+            continue;
+        }
+        FontTextFont* font = (FontTextFont*)text->font;
+        u32 adjusted;
+        if (first) {
+            if (layout->horizontal == 0) left = layout->x;
+            else {
+                f32 width = line_widths[line];
+                if (layout->horizontal == 2)
+                    left = (layout->x + layout->w) - width;
+                else
+                    left = layout->x + (layout->w - width) * 0.5f;
+            }
+            first = 0;
+        }
+
+        u32 begin_method = font_vtable_method(font, 0x24u, 0x20u, &adjusted);
+        if (!begun) {
+            (void)sly1_native_call_regs4(begin_method, adjusted,
+                                         (u32)flag, (u32)packet, 0);
+            begun = 1;
+        } else if (text->font_changed != 0) {
+            u32 flush_method = font_vtable_method(font, 0x2Cu, 0x28u, &adjusted);
+            (void)sly1_native_call_regs4(flush_method, adjusted,
+                                         (u32)packet, 0, 0);
+            text->font_changed = 0;
+        }
+        u32 draw_method = font_vtable_method(font, 0x34u, 0x30u, &adjusted);
+        left += sly1_native_call_f32(draw_method, adjusted, (u32)value,
+                                     text->color_9c.packed, (u32)packet,
+                                     left, top);
+    }
+
+    FontTextFont* font = (FontTextFont*)text->font;
+    u32 adjusted;
+    u32 end_method = font_vtable_method(font, 0x3Cu, 0x38u, &adjusted);
+    (void)sly1_native_call_regs4(end_method, adjusted, (u32)flag,
+                                 (u32)packet, 0);
+}
+
+f32 func_0015CD18(f32 x, f32 y, void* opaque, s32 key, u32 color,
+                  void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    FontGlyph* glyph = func_0015DAB8(font, key);
+    if (glyph == 0) return (f32)font->advance * font->sx;
+    s32 shift = (s32)((font->tex0 >> 30) & 0xFu);
+    s32 texture_height = 1 << shift;
+    f32 height = (f32)font->height * font->sy;
+    f32 width = (f32)glyph->width * font->sx;
+    f32 right = x + width;
+    f32 bottom = y + height;
+    if (0.0f <= right && x <= 640.0f && 0.0f <= bottom && y <= 492.80002f) {
+        u32 tag = (color & 0xFFFFFFu) | ((((color >> 24) + 1u) & 0x1FEu) << 23);
+        func_001617E8(packet, tag, 0.0f);
+        func_00161860(packet, (s32)glyph->u << 4,
+                      (texture_height - (s32)glyph->v) << 4);
+        func_001618C0(packet, (s32)((x + 1728.0f) * 16.0f),
+                      (s32)((y * 0.45454547f + 1936.0f) * 16.0f),
+                      (u32)font->f40, 0);
+        func_00161860(packet, (s32)(glyph->u + glyph->width) << 4,
+                      (texture_height - ((s32)glyph->v + font->height)) << 4);
+        func_001618C0(packet, (s32)((right + 1728.0f) * 16.0f),
+                      (s32)((bottom * 0.45454547f + 1936.0f) * 16.0f),
+                      (u32)font->f40, 0);
+    }
+    return (f32)(glyph->width + 1u) * font->sx;
+}
+
+void func_00137228(FontTextLayout* layout, f32 x, f32 y) {
+    layout->x = x;
+    layout->y = y;
+}
+
+void func_00137238(FontTextLayout* layout, f32 width, f32 height) {
+    layout->w = width;
+    layout->h = height;
+}
+
+void func_00137248(FontTextLayout* layout, void* color) {
+    layout->color = *(u32*)color;
+}
+
+void func_00137260(FontTextLayout* layout, s32 horizontal) {
+    layout->horizontal = horizontal;
+}
+
+void func_00137268(FontTextLayout* layout, s32 vertical) {
+    layout->vertical = vertical;
 }
 
 void func_0015DB80(void* opaque) {
