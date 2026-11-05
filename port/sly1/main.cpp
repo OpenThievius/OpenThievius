@@ -203,6 +203,32 @@ int main(int argc, char** argv) {
                 float menu_since = 0.0f;
                 std::uint32_t menu_clock = 0;
                 float menu_clock_value = 0.0f;
+                std::uint32_t menu_font = 0;
+                std::uint32_t menu_title = 0;
+                std::uint32_t menu_items = 0;
+                std::uint32_t menu_count = 0;
+                std::uint32_t menu_glyphs = 0;
+                std::uint32_t menu_glyph_count = 0;
+                std::memcpy(&menu_font, openrac_guest_base + 0x0026FF6Cu,
+                            sizeof(menu_font));
+                std::memcpy(&menu_title, openrac_guest_base + 0x00269D50u,
+                            sizeof(menu_title));
+                std::memcpy(&menu_count, openrac_guest_base + 0x00269D60u,
+                            sizeof(menu_count));
+                std::memcpy(&menu_items, openrac_guest_base + 0x00269D64u,
+                            sizeof(menu_items));
+                if (menu_font != 0) {
+                    const std::uint32_t font_physical = openrac_guest_ram_address(menu_font);
+                    if (font_physical <= openrac_guest_ram_size &&
+                        0x80u <= openrac_guest_ram_size - font_physical) {
+                        std::memcpy(&menu_glyph_count,
+                                    openrac_guest_base + font_physical + 0x78u,
+                                    sizeof(menu_glyph_count));
+                        std::memcpy(&menu_glyphs,
+                                    openrac_guest_base + font_physical + 0x7Cu,
+                                    sizeof(menu_glyphs));
+                    }
+                }
                 std::memcpy(&menu_blend, openrac_guest_base + 0x002701A4u,
                             sizeof(menu_blend));
                 std::memcpy(&menu_since, openrac_guest_base + 0x002701BCu,
@@ -427,6 +453,9 @@ int main(int argc, char** argv) {
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
                           << " menu_anim=" << menu_blend << ',' << menu_since << ','
                           << menu_clock << ':' << menu_clock_value
+                          << " menu_data=" << std::hex << menu_font << ',' << menu_title
+                          << ',' << menu_count << ',' << menu_items << ',' << menu_glyph_count
+                          << ',' << menu_glyphs << std::dec
                           << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
                           << ',' << overlay_state[2] << " ui_objects=" << ui_active_count
                           << " camera=0x" << camera_object << " camera_stack="
