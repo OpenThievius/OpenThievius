@@ -28,6 +28,26 @@ int func_001AEC90(void)
     return func_001AEA70(1, -1);
 }
 
+int func_00196330(s32 initialize, s32 mode)
+{
+    u8* object = (u8*)0x0027A210u;
+    u32 i;
+
+    if (initialize == 0 || mode != -1) return 0;
+    for (i = 0; i < 7; ++i) *(u32*)(object + i * 4u) = 0;
+    *(u8*)(object + 0x04) = 45;
+    *(f32*)(object + 0x08) = 15.0f;
+    *(f32*)(object + 0x10) = 0.6f;
+    *(f32*)(object + 0x14) = 0.6f;
+    *(u32*)(object + 0x18) = 0xFF7D4B00u;
+    return 0;
+}
+
+int func_001963B8(void)
+{
+    return func_00196330(1, -1);
+}
+
 void func_001FFBE0(void* first, void* entry)
 {
     u8* node = (u8*)entry;
