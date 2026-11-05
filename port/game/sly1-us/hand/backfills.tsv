@@ -186,11 +186,13 @@ func_001E9648	native_c/ui_frame.c
 func_0019D6C0	native_c/func_0019D6C0.c
 func_0016EC20	native_c/func_0016EC20.c
 func_0015E9F0	native_c/frame_context.c
+func_0015EFE8	native_c/frame_context.c
 func_00191E70	native_c/frame_context.c
 func_001529C8	native_c/display_packets.c
 func_0015EC68	native_c/frame_context.c
 func_00152438	native_c/intrusive_lists.c
 func_00152440	native_c/intrusive_lists.c
+func_00152600	native_c/intrusive_lists.c
 func_00152460	native_c/intrusive_lists.c
 func_00152470	native_c/intrusive_lists.c
 func_00152720	native_c/intrusive_lists.c

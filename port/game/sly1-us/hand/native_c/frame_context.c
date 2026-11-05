@@ -33,6 +33,8 @@ extern s32 D_002622D0;
 extern s32 D_00269BA4;
 extern s32 D_002623B4;
 extern s32 D_002623B0;
+extern u8* D_00275710;
+extern u32 D_0027B314;
 
 extern NativeFrameList D_002622E0;
 extern NativeFrameList D_002622F0;
@@ -41,10 +43,50 @@ extern NativeFrameList D_00262300;
 s32 func_001F6B60(s32 semaphore);
 void func_00191E70(s32 value);
 void func_0015EFE8(NativeFrameContext* context);
+void func_00152600(void* list, void* node);
+void func_00152470(void* list, void* node);
+void func_00152440(void* list);
+void func_001B5F28(void* list, void* node);
 void func_001529C8(void* packet, s32 capacity, void* buffer);
 void func_00152B38(void* packet);
 void func_001F6C20(s32 channel);
 int openrac_lib_sly1_signal_sema(u32 semaphore);
+
+void func_0015EFE8(NativeFrameContext* context)
+{
+    NativeFrameList* lists[3];
+    u8 temporary_anchor[16];
+    u32 saved_temp;
+    s32 list_index;
+    if (context == 0) return;
+    saved_temp = D_0027B314;
+    D_0027B314 = (u32)temporary_anchor;
+    lists[0] = &context->l20;
+    lists[1] = &context->l2C;
+    lists[2] = &context->l38;
+
+    for (list_index = 0; list_index < 3; ++list_index) {
+        NativeFrameList* list = lists[list_index];
+        u32 visited = 0;
+        while (list->head != 0 && visited++ < 4096u) {
+            u8* node = (u8*)list->head;
+            u8* root = D_00275710;
+            if (list_index == 0) {
+                void* owner = *(void**)(node + 0x14);
+                func_00152600(list, node);
+                if (owner != 0) func_00152470((u8*)owner + 0x1CC0, node);
+            } else {
+                if (list_index == 1 && *(u32*)(node + 0x1088) != 0 && root != 0)
+                    func_001B5F28(root + 0x1B4C, node);
+                func_00152600(list, node);
+                if (root != 0)
+                    func_00152470(root + (list_index == 1 ? 0x1B40 : 0x1BF4), node);
+            }
+        }
+        if (list->head == 0) func_00152440(list);
+    }
+    D_0027B314 = saved_temp;
+}
 
 void func_00191E70(s32 value)
 {

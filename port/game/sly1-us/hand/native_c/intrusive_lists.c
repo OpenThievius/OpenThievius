@@ -47,6 +47,19 @@ void func_00152470(NativeList* list, void* node)
     list->tail = node;
 }
 
+void func_00152600(NativeList* list, void* node)
+{
+    NativeListLink* link;
+    if (list == 0 || node == 0) return;
+    link = node_link(list, node);
+    if (link->previous == 0) list->head = link->next;
+    else node_link(list, link->previous)->next = link->next;
+    if (link->next == 0) list->tail = link->previous;
+    else node_link(list, link->next)->previous = link->previous;
+    link->next = 0;
+    link->previous = 0;
+}
+
 s32 func_00152720(NativeList* list)
 {
     return list->head == 0;

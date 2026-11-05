@@ -12,6 +12,12 @@ launcher uses them; same-address C++ versions under `native/` only serve the
 freestanding host32 diagnostic and do not feed the SDL build. Remove both
 port-side versions when matching decompilation code becomes available.
 
+`func_0015EFE8` drains a completed frame's three intrusive lists and returns
+their nodes to their owning objects. `func_00152600` is the corresponding
+list unlink primitive. These keep the SDL frame-context cleanup separate from
+the unfinished matching source; the display loop still needs its missing
+active object callback and scene drawing path.
+
 `port/tools/sly1.py hostgen` copies this directory into its generated source
 view under `build/port/`. When matching C becomes available, remove the
 corresponding backfill and let the matching source take precedence. Keep any
