@@ -20,7 +20,8 @@
     "sly1_native_temp_begin",
     "sly1_native_temp_alloc",
     "sly1_native_temp_end",
-    "sly1_native_loader_stage"
+    "sly1_native_loader_stage",
+    "openrac_lib_sly1_signal_sema"
   ],
   "hand": "hand/backfills.tsv",
   "source": "src",

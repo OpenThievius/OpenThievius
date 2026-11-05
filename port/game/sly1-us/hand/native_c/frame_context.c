@@ -44,7 +44,7 @@ void func_0015EFE8(NativeFrameContext* context);
 void func_001529C8(void* packet, s32 capacity, void* buffer);
 void func_00152B38(void* packet);
 void func_001F6C20(s32 channel);
-void func_001F6B40(s32 semaphore);
+int openrac_lib_sly1_signal_sema(u32 semaphore);
 
 void func_00191E70(s32 value)
 {
@@ -94,5 +94,5 @@ void func_0015EC68(void)
     context->l38 = D_00262300;
     D_002622D8 = 0;
     D_002622D0 = 0;
-    func_001F6B40(D_002623B0);
+    (void)openrac_lib_sly1_signal_sema((u32)D_002623B0);
 }
