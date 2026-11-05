@@ -56,8 +56,10 @@ def main():
               "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-O2"]
     objects = []
     for name, source in (("start.o", args.source / "start.S"),
+                         ("clone.o", args.source / "clone.S"),
                          ("main.o", args.source / "main.cpp"),
                          ("builtins.o", args.source / "builtins.cpp"),
+                         ("abi_compat.o", args.source / "abi_compat.cpp"),
                          ("missing_functions.o", asm_path)):
         obj = args.out / name
         command = [args.cxx, *common]
@@ -82,6 +84,11 @@ SECTIONS {
   .rodata : { *(.rodata .rodata.*) } :text
   . = ALIGN(0x1000);
   .data : { *(.data .data.*) } :data
+  .init_array : {
+    __init_array_start = .;
+    KEEP(*(.init_array .init_array.*))
+    __init_array_end = .;
+  } :data
   .bss : { *(.bss .bss.*) *(COMMON) } :data
   /DISCARD/ : { *(.comment) *(.eh_frame) *(.note.gnu.property) }
 }

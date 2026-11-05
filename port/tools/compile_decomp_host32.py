@@ -67,6 +67,7 @@ def main(argv=None):
     host_include = port / "sly1" / "host32" / "include"
     flags = [
         "-m32", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
+        "-O2",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
         "-include", str(port / "sly1" / "host_abi.h"),
@@ -122,6 +123,17 @@ def main(argv=None):
             adapted = adapted.replace("throw Fault_1FEDC8();", "func_001FE8F0();")
             adapted = adapted.replace("throw Fault_1FEE48();", "func_001FE8F0();")
             adapted = adapted.replace(" throw(Fault_1FD8A8)", "")
+        elif rel.as_posix() == "lib/00200000.cpp":
+            # These three matching functions are PS2 DMA/interrupt MMIO
+            # boundaries. Keep their vanilla implementations in the staged
+            # source for reference, but let separate port-native service
+            # definitions own the callable retail addresses.
+            for address in ("00201A18", "002027C8", "00202A80"):
+                pattern = re.compile(r"\bfunc_" + address + r"(?=\s*\()")
+                adapted, replacements = pattern.subn("decomp_func_" + address, adapted)
+                if replacements != 1:
+                    raise RuntimeError("expected one platform function " + address +
+                                       " in " + rel.as_posix())
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags
         if rel.as_posix() == "main/0016C000.cpp":

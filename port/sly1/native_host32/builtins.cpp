@@ -9,6 +9,18 @@ extern "C" void* memcpy(void* destination, const void* source, unsigned int size
     return destination;
 }
 
+extern "C" void* memset(void* destination, int value, unsigned int size) {
+    auto* dst = static_cast<unsigned char*>(destination);
+    for (unsigned int i = 0; i < size; ++i) dst[i] = static_cast<unsigned char>(value);
+    return destination;
+}
+
+extern "C" unsigned int strlen(const char* value) {
+    unsigned int size = 0;
+    while (value[size] != '\0') ++size;
+    return size;
+}
+
 static u64 divide_unsigned(u64 numerator, u64 denominator, u64* remainder) {
     u64 quotient = 0;
     u64 rest = 0;
