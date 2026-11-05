@@ -199,6 +199,23 @@ int main(int argc, char** argv) {
                             sizeof(menu_state[2]));
                 std::memcpy(&menu_state[3], openrac_guest_base + 0x002701C4u,
                             sizeof(menu_state[3]));
+                float menu_blend = 0.0f;
+                float menu_since = 0.0f;
+                std::uint32_t menu_clock = 0;
+                float menu_clock_value = 0.0f;
+                std::memcpy(&menu_blend, openrac_guest_base + 0x002701A4u,
+                            sizeof(menu_blend));
+                std::memcpy(&menu_since, openrac_guest_base + 0x002701BCu,
+                            sizeof(menu_since));
+                std::memcpy(&menu_clock, openrac_guest_base + 0x002701C0u,
+                            sizeof(menu_clock));
+                const std::uint32_t menu_clock_physical =
+                    openrac_guest_ram_address(menu_clock);
+                if (menu_clock != 0 && menu_clock_physical <= openrac_guest_ram_size &&
+                    sizeof(menu_clock_value) <= openrac_guest_ram_size - menu_clock_physical) {
+                    std::memcpy(&menu_clock_value, openrac_guest_base + menu_clock_physical,
+                                sizeof(menu_clock_value));
+                }
                 std::uint32_t overlay_state[3]{};
                 std::memcpy(&overlay_state[0], openrac_guest_base + 0x00275BC4u,
                             sizeof(overlay_state[0]));
@@ -408,6 +425,8 @@ int main(int argc, char** argv) {
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " menu=" << std::dec << menu_mode << ','
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
+                          << " menu_anim=" << menu_blend << ',' << menu_since << ','
+                          << menu_clock << ':' << menu_clock_value
                           << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
                           << ',' << overlay_state[2] << " ui_objects=" << ui_active_count
                           << " camera=0x" << camera_object << " camera_stack="
