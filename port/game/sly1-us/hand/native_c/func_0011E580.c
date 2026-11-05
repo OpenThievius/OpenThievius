@@ -41,9 +41,8 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
     *(u32*)((u8*)object + 0x18) = (u32)parameter;
     *(u32*)((u8*)object + 0x14) = (u32)owner;
 
-    /* The listener table belongs to the resource owner passed as parameter.
-     * `owner` can be a child camera (C6D), whose layout has no listener table. */
-    attachment = func_001C1390(listener_id, parameter);
+    /* Retail resolves listener IDs through the owning world, not the parent. */
+    attachment = func_001C1390(listener_id, owner);
     *(u32*)((u8*)object + 0x2C) = (u32)attachment;
     owner_list = func_00159F20(owner, mode);
     func_00152470(owner_list, object);

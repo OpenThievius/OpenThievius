@@ -20,6 +20,9 @@ void func_00123ED0(void* object) {
     *(u8*)(self + 0x2CB) = has_parent ? 0x01 : 0x0A;
 
     func_00182C18(object);
+    /* The C02 root is the topmost object in its parent chain. */
+    *(u32*)(self + 0x50) = has_parent
+        ? *(u32*)(*(u32*)(self + 0x18) + 0x50u) : (u32)object;
     *(f32*)(self + 0x80) = 3.402823466e+38f;
     *(s32*)(self + 0x88) = 0x0FFFFFFF;
     *(f32*)(self + 0x84) = 3.402823466e+38f;
