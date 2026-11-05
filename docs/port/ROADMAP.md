@@ -153,7 +153,10 @@ bounded run the world registry becomes nonempty, but the renderer still sees
 zero vertices; frame traversal and draw submission remain incomplete.
 The resource-property activation callback `func_0011EDA8` is now backfilled
 too. Its latest bounded run completes Splash parsing without the former no-C
-warning, but still produces no draw geometry.
+warning, but still produces no draw geometry. The deferred world-job drain
+`func_001DBE48` now dispatches queued callbacks and returns their records to the
+world pool; a bounded run completes without its former no-C warning or fault,
+but vertices remain at zero.
 The factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
