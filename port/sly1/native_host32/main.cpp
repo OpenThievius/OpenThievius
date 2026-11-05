@@ -4,6 +4,7 @@ using u8 = unsigned char;
 using u16 = unsigned short;
 using u32 = unsigned int;
 using u64 = unsigned long long;
+extern "C" char* getenv(const char*);
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
@@ -118,6 +119,7 @@ extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
 extern "C" volatile u32 sly1_native_startup_callback_index = 0;
 volatile u32 g_trace_last_guest_function = 0;
 volatile u32 g_trace_function_entries = 0;
+bool g_startup_trace_enabled = false;
 constexpr u32 kTraceThreadSlots = 32;
 volatile u32 g_trace_thread_count = 0;
 volatile u32 g_trace_thread_tid[kTraceThreadSlots]{};
@@ -293,10 +295,12 @@ bool load_retail_image(const char* path) {
 } // namespace
 
 extern "C" int sly1_native_host32_main(int argc, char** argv) {
-    if (argc != 3) {
-        write_text("usage: sly1_host32 <Sly 1 NTSC-U ELF> <ISO or BIN>\n");
+    if (argc != 3 && argc != 4) {
+        write_text("usage: sly1_host32 <Sly 1 NTSC-U ELF> <ISO or BIN> [--trace]\n");
         return 2;
     }
+    g_startup_trace_enabled = argc == 4 && argv[3][0] == '-' && argv[3][1] == '-' &&
+                              argv[3][2] == 't';
     if (!load_retail_image(argv[1])) return 1;
     if (!open_disc_image(argv[2])) {
         write_text("native host32: cannot open ISO 9660 disc image\n");
@@ -465,18 +469,21 @@ extern "C" __attribute__((noreturn)) void sly1_missing_function(
 }
 
 extern "C" void sly1_port_trace_reader(u32 stage, void* reader_ptr) {
-    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
-    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    if (!g_startup_trace_enabled) return;
     const auto* reader = reinterpret_cast<volatile const u32*>(reader_ptr);
     write_hex("native host32: GLOBSET reader stage ", (int)stage);
     write_hex("native host32: GLOBSET reader cursor ", (int)reader[6]);
     write_hex("native host32: GLOBSET reader remaining ", (int)reader[7]);
+    if (stage == 0xb4) {
+        const auto* bytes = reinterpret_cast<volatile const u8*>(reader[6]);
+        for (u32 i = 0; i < 16; ++i)
+            write_hex("native host32: scene next byte ", bytes[i]);
+    }
 }
 
 extern "C" void sly1_port_trace_nested_counts(
     u32 count0, u32 count1, u32 count2, u32 count3, u32 count4) {
-    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
-    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    if (!g_startup_trace_enabled) return;
     write_hex("native host32: nested count 0 ", (int)count0);
     write_hex("native host32: nested count 1 ", (int)count1);
     write_hex("native host32: nested count 2 ", (int)count2);
@@ -485,8 +492,7 @@ extern "C" void sly1_port_trace_nested_counts(
 }
 
 extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
-    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
-    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    if (!g_startup_trace_enabled) return;
     write_hex("native host32: GLOBSET value tag ", (int)tag);
     write_hex("native host32: GLOBSET value ", (int)value);
 }
@@ -556,5 +562,50 @@ extern "C" int sly1_native_host32_iop_services_start(int mode) {
 int main(int argc, char** argv) {
     sly1_native_host32_crt_initialized = 1;
     return sly1_native_host32_main(argc, argv);
+}
+#endif
+
+#if !defined(OPENRAC_SLY1_WITH_SDL)
+// Host32 diagnostic shims: SDL builds bind these services to the native
+// runtime. The freestanding launcher has no input or renderer, but still
+// needs to execute startup far enough to inspect resource loading.
+extern "C" int sly1_native_host32_iop_boot(void) {
+    if (g_disc_sector_count == 0) return 0;
+    *(volatile u32*)0x002613F0u = 0x14u;
+    sly1_native_iop_boot_stage = 1;
+    return 1;
+}
+
+extern "C" int sly1_native_host32_iop_initialize(int mode) {
+    (void)mode;
+    sly1_native_iop_boot_stage = 2;
+    return g_disc_sector_count != 0;
+}
+
+extern "C" int sly1_native_host32_iop_services_start(int mode) {
+    (void)mode;
+    if (g_disc_sector_count == 0) return 0;
+    *(volatile u32*)0x0027AE80u = 1u;
+    sly1_native_iop_boot_stage = 3;
+    return 1;
+}
+
+extern "C" void sly1_native_startup_callback(unsigned int index) {
+    sly1_native_startup_callback_index = index + 1;
+}
+
+extern "C" unsigned long long openrac_guest_kernel_syscall(
+    unsigned int service, unsigned long long, unsigned long long,
+    unsigned long long, unsigned long long, unsigned long long,
+    unsigned long long, unsigned long long, unsigned long long) {
+    // Host32 runs startup on one thread; the shared runtime's GS mask calls
+    // therefore need no locking service here.
+    (void)service;
+    return 0;
+}
+
+extern "C" void openrac_native_renderer_submit_gif_stream(u32) {}
+extern "C" int openrac_native_pad_read(int, unsigned char*, unsigned int) {
+    return 0;
 }
 #endif

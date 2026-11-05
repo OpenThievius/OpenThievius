@@ -15,6 +15,17 @@ extern "C" void* memset(void* destination, int value, unsigned int size) {
     return destination;
 }
 
+extern "C" void* memmove(void* destination, const void* source, unsigned int size) {
+    auto* dst = static_cast<unsigned char*>(destination);
+    const auto* src = static_cast<const unsigned char*>(source);
+    if (dst < src) {
+        for (unsigned int i = 0; i < size; ++i) dst[i] = src[i];
+    } else if (dst > src) {
+        for (unsigned int i = size; i != 0; --i) dst[i - 1] = src[i - 1];
+    }
+    return destination;
+}
+
 extern "C" unsigned int strlen(const char* value) {
     unsigned int size = 0;
     while (value[size] != '\0') ++size;
