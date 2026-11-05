@@ -48,6 +48,41 @@ int func_001963B8(void)
     return func_00196330(1, -1);
 }
 
+int func_001930B8(s32 initialize, s32 mode)
+{
+    u8* first = (u8*)0x00604700u;
+    u8* second = (u8*)0x00279C10u;
+    u8* template_a = (u8*)0x00258D30u;
+    u8* template_b = (u8*)0x00258D20u;
+    u32 i;
+
+    if (initialize == 0 || mode != -1) return 0;
+    for (i = 0; i < 0x80; ++i) {
+        first[i] = 0;
+        second[i] = 0;
+    }
+    for (i = 0; i < 0x10; ++i) {
+        first[0x60 + i] = template_a[i];
+        second[0x30 + i] = template_b[i];
+    }
+    *(f32*)(second + 0x00) = 1000.0f;
+    *(f32*)(second + 0x04) = 1200.0f;
+    *(f32*)(second + 0x08) = 1.0f;
+    *(f32*)(second + 0x18) = -1750.0f;
+    *(f32*)(second + 0x20) = -0.5f;
+    *(u32*)(second + 0x4C) = 1;
+    *(f32*)(second + 0x50) = 0.5f;
+    *(f32*)(second + 0x54) = 2.0f;
+    *(f32*)(second + 0x70) = 1.0f;
+    *(f32*)(second + 0x74) = -1.0f;
+    return 0;
+}
+
+int func_001931F0(void)
+{
+    return func_001930B8(1, -1);
+}
+
 void func_001FFBE0(void* first, void* entry)
 {
     u8* node = (u8*)entry;

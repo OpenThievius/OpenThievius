@@ -204,6 +204,8 @@ func_001AEA70	native_c/display_setup.c
 func_001AEC90	native_c/display_setup.c
 func_00196330	native_c/display_setup.c
 func_001963B8	native_c/display_setup.c
+func_001930B8	native_c/display_setup.c
+func_001931F0	native_c/display_setup.c
 func_0015E9F0	native_c/frame_context.c
 func_0015EFE8	native_c/frame_context.c
 func_00191E70	native_c/frame_context.c
