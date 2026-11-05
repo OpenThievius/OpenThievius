@@ -5,14 +5,33 @@ using u16 = unsigned short;
 using u32 = unsigned int;
 using u64 = unsigned long long;
 
+#if defined(OPENRAC_SLY1_WITH_SDL)
+#include "openrac/native_window.h"
+#include <SDL3/SDL.h>
+#include <cstdio>
+#include <cstdlib>
+#include <thread>
+extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
+extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
+extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
+extern "C" unsigned long long openrac_native_renderer_dma_bytes();
+extern "C" int sly1_native_critical_owner();
+extern "C" unsigned int sly1_native_critical_depth();
+extern "C" unsigned int sly1_native_critical_spins();
+#endif
+
 struct NativeFunctionAddress { u32 retail_address; u32 native_address; };
 namespace sly1 {
 extern const NativeFunctionAddress sly1_native_function_addresses[];
 extern const u32 sly1_native_function_address_count;
 }
 extern "C" void func_001FAE18();
+extern "C" int sly1_native_host32_crt_initialized = 0;
 void func_00185758(int, int);
 extern "C" int sly1_i386_syscall6(int, int, int, int, int, int, int);
+#if !defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" __attribute__((weak)) void openrac_native_renderer_submit_dma_chain(u32) {}
+#endif
 
 namespace {
 
@@ -93,6 +112,33 @@ u32 g_disc_stride = 0;
 u32 g_disc_payload = 0;
 u32 g_disc_sector_count = 0;
 int g_disc_read_error = 0;
+volatile u32 g_disc_read_count = 0;
+volatile u32 g_disc_sectors_read = 0;
+volatile u32 g_trace_last_guest_function = 0;
+volatile u32 g_trace_function_entries = 0;
+constexpr u32 kTraceThreadSlots = 32;
+volatile u32 g_trace_thread_count = 0;
+volatile u32 g_trace_thread_tid[kTraceThreadSlots]{};
+volatile u32 g_trace_thread_function[kTraceThreadSlots]{};
+volatile u32 g_trace_thread_entries[kTraceThreadSlots]{};
+volatile u32 g_trace_thread_depth[kTraceThreadSlots]{};
+volatile u32 g_trace_thread_stack[kTraceThreadSlots][128]{};
+
+__attribute__((no_instrument_function)) u32 trace_current_tid() {
+    int result;
+    __asm__ __volatile__("int $0x80" : "=a"(result) : "0"(224) : "memory", "cc");
+    return static_cast<u32>(result);
+}
+
+u32 trace_slot_for_tid(u32 tid) {
+    u32 count = __atomic_load_n(&g_trace_thread_count, __ATOMIC_RELAXED);
+    for (u32 i = 0; i < count && i < kTraceThreadSlots; ++i) {
+        if (__atomic_load_n(&g_trace_thread_tid[i], __ATOMIC_RELAXED) == tid) return i;
+    }
+    const u32 slot = __atomic_fetch_add(&g_trace_thread_count, 1u, __ATOMIC_RELAXED);
+    if (slot < kTraceThreadSlots) __atomic_store_n(&g_trace_thread_tid[slot], tid, __ATOMIC_RELAXED);
+    return slot;
+}
 
 bool probe_disc_signature(u32 offset) {
     u8 signature[6]{};
@@ -148,6 +194,44 @@ bool load_retail_image(const char* path) {
         return false;
     }
     bool mapped_any = false;
+    const u32 guest_ram_base = 0x00010000u;
+    const u32 guest_ram_size = 0x01ff0000u;
+    const int guest_ram = sly1_i386_syscall6(
+        192, (int)guest_ram_base, (int)guest_ram_size, kProtRead | kProtWrite,
+        kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
+    if (syscall_failed(guest_ram) || (u32)guest_ram != guest_ram_base) {
+        write_text("native host32: retail EE RAM address range unavailable\n");
+        return false;
+    }
+    const int scratchpad = sly1_i386_syscall6(
+        192, 0x70000000, 0x4000, kProtRead | kProtWrite,
+        kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
+    if (syscall_failed(scratchpad) || (u32)scratchpad != 0x70000000u) {
+        write_text("native host32: scratchpad address range unavailable\n");
+        return false;
+    }
+    // Back the GS privileged register aperture with native shadow RAM. Sly's
+    // matching display setup writes PMODE/SMODE2/DISPFB/DISPLAY/BGCOLOR here;
+    // native GIF packets are consumed by the SDL renderer separately.
+    const int gs_registers = sly1_i386_syscall6(
+        192, 0x12000000, 0x2000, kProtRead | kProtWrite,
+        kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
+    if (syscall_failed(gs_registers) || (u32)gs_registers != 0x12000000u) {
+        write_text("native host32: GS register shadow address unavailable\n");
+        return false;
+    }
+    *(volatile u32*)0x12001000u = 0;
+    // The native DMA service completes submissions synchronously. Sly still
+    // clears this VIF0 CHCR register directly in matching frame code, so map
+    // its page as a zeroed status shadow for those host-native accesses.
+    const int vif0_registers = sly1_i386_syscall6(
+        192, 0x10003000, kPage, kProtRead | kProtWrite,
+        kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
+    if (syscall_failed(vif0_registers) || (u32)vif0_registers != 0x10003000u) {
+        write_text("native host32: VIF0 register shadow address unavailable\n");
+        return false;
+    }
+    *(volatile u32*)0x10003010u = 0;
     for (u16 i = 0; i < phnum; ++i) {
         const u8* p = bytes + phoff + (u32)i * phentsize;
         if (read32(p) != 1) continue;
@@ -159,13 +243,9 @@ bool load_retail_image(const char* path) {
             return false;
         }
         if (memory_size == 0) continue;
-        const u32 base = align_down(address);
-        const u32 delta = address - base;
-        const u32 size = align_up(delta + memory_size);
-        const int mapped = sly1_i386_syscall6(192, (int)base, (int)size, kProtRead|kProtWrite,
-                                              kMapPrivate|kMapAnonymous|kMapFixedNoReplace, -1, 0);
-        if (syscall_failed(mapped) || (u32)mapped != base) {
-            write_text("native host32: retail address range unavailable\n");
+        if (address < guest_ram_base || address >= guest_ram_base + guest_ram_size ||
+            memory_size > guest_ram_base + guest_ram_size - address) {
+            write_text("native host32: ELF segment lies outside mapped EE RAM\n");
             return false;
         }
         for (u32 n = 0; n < file_size; ++n) ((u8*)address)[n] = bytes[offset+n];
@@ -221,12 +301,77 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
         return 1;
     }
     write_text("native host32: retail data and ISO mapped; starting compiled Sly frame path\n");
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    if (!openrac_native_window_create()) {
+        write_text("native host32: SDL3 renderer startup failed\n");
+        return 1;
+    }
+    std::atomic<bool> game_finished{false};
+    std::thread game_thread([&] {
+        func_00185758((int)*(volatile u32*)0x0027B380u, (int)0x0027B384u);
+        game_finished.store(true, std::memory_order_release);
+    });
+    const bool trace_graphics = [] {
+        const char* value = std::getenv("OPENRAC_STARTUP_TRACE");
+        return value != nullptr && value[0] != '0';
+    }();
+    unsigned trace_frames = 0;
+    for (;;) {
+        openrac_native_window_present();
+        // GS CSR.FIELD is the only status bit read by the Sly display path.
+        // Advance it with the native window's presentation cadence.
+        __atomic_fetch_xor((u32*)0x12001000u, 1u << 13, __ATOMIC_RELAXED);
+        if (openrac_native_window_poll_input()) {
+            break;
+        }
+        if (trace_graphics && (++trace_frames % 60u) == 0) {
+            std::fprintf(stderr, "[native graphics] dma=%llu accepted=%llu rejected=%llu bytes=%llu\n",
+                         openrac_native_renderer_dma_submit_count(),
+                         openrac_native_renderer_dma_accept_count(),
+                         openrac_native_renderer_dma_reject_count(),
+                         openrac_native_renderer_dma_bytes());
+            std::fprintf(stderr,
+                         "[native startup] entry_returned=%u cd_reads=%u sectors=%u last_func=0x%08x calls=%u\n",
+                         game_finished.load(std::memory_order_acquire) ? 1u : 0u,
+                         g_disc_read_count, g_disc_sectors_read,
+                         __atomic_load_n(&g_trace_last_guest_function, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_trace_function_entries, __ATOMIC_RELAXED));
+            const u32 trace_threads = __atomic_load_n(&g_trace_thread_count, __ATOMIC_RELAXED);
+            for (u32 i = 0; i < trace_threads && i < kTraceThreadSlots; ++i) {
+                std::fprintf(stderr, "[native thread %u tid=%u] active_func=0x%08x calls=%u stack=",
+                             i, __atomic_load_n(&g_trace_thread_tid[i], __ATOMIC_RELAXED),
+                             __atomic_load_n(&g_trace_thread_function[i], __ATOMIC_RELAXED),
+                             __atomic_load_n(&g_trace_thread_entries[i], __ATOMIC_RELAXED));
+                const u32 depth = __atomic_load_n(&g_trace_thread_depth[i], __ATOMIC_RELAXED);
+                for (u32 n = 0; n < depth && n < 8; ++n) {
+                    const u32 at = depth - n - 1;
+                    std::fprintf(stderr, "%s%08x", n == 0 ? "" : "/",
+                                 __atomic_load_n(&g_trace_thread_stack[i][at], __ATOMIC_RELAXED));
+                }
+                std::fprintf(stderr, "\n");
+            }
+            std::fprintf(stderr, "[native critical] owner=%d depth=%u spins=%u\n",
+                         sly1_native_critical_owner(), sly1_native_critical_depth(),
+                         sly1_native_critical_spins());
+        }
+        SDL_Delay(16);
+    }
+    game_thread.detach();
+    openrac_native_window_destroy();
+    // Native guest worker services may still be running. Exit the process as
+    // a unit rather than racing their use of C++ globals during CRT teardown.
+    syscall1(1, 0);
+    __builtin_unreachable();
+#else
     func_00185758((int)*(volatile u32*)0x0027B380u,
                   (int)0x0027B384u);
     return 0;
+#endif
 }
 
 extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
+    ++g_disc_read_count;
+    g_disc_sectors_read += count;
     if (g_disc_fd < 0 || sector > g_disc_sector_count ||
         count > g_disc_sector_count - sector) {
         g_disc_read_error = -1;
@@ -254,3 +399,49 @@ extern "C" __attribute__((noreturn)) void sly1_missing_function(u32 address) {
     syscall1(1, 127);
     __builtin_unreachable();
 }
+
+#if defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" __attribute__((no_instrument_function)) void
+__cyg_profile_func_enter(void* function, void*) {
+    const u32 native_address = reinterpret_cast<u32>(function);
+    const u32 slot = trace_slot_for_tid(trace_current_tid());
+    if (slot < kTraceThreadSlots)
+        __atomic_add_fetch(&g_trace_thread_entries[slot], 1u, __ATOMIC_RELAXED);
+    u32 guest_address = 0;
+    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
+        const auto& entry = sly1::sly1_native_function_addresses[i];
+        if (entry.native_address == native_address) {
+            guest_address = entry.retail_address;
+            break;
+        }
+    }
+    __atomic_store_n(&g_trace_last_guest_function, guest_address, __ATOMIC_RELAXED);
+    if (slot < kTraceThreadSlots) {
+        __atomic_store_n(&g_trace_thread_function[slot], guest_address, __ATOMIC_RELAXED);
+        const u32 depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
+        if (depth < 128) {
+            __atomic_store_n(&g_trace_thread_stack[slot][depth], guest_address, __ATOMIC_RELAXED);
+            __atomic_store_n(&g_trace_thread_depth[slot], depth + 1, __ATOMIC_RELAXED);
+        }
+    }
+    __atomic_add_fetch(&g_trace_function_entries, 1u, __ATOMIC_RELAXED);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+__cyg_profile_func_exit(void*, void*) {
+    const u32 slot = trace_slot_for_tid(trace_current_tid());
+    if (slot >= kTraceThreadSlots) return;
+    u32 depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
+    if (depth == 0) return;
+    --depth;
+    __atomic_store_n(&g_trace_thread_depth[slot], depth, __ATOMIC_RELAXED);
+    const u32 parent = depth == 0 ? 0 : __atomic_load_n(
+        &g_trace_thread_stack[slot][depth - 1], __ATOMIC_RELAXED);
+    __atomic_store_n(&g_trace_thread_function[slot], parent, __ATOMIC_RELAXED);
+}
+
+int main(int argc, char** argv) {
+    sly1_native_host32_crt_initialized = 1;
+    return sly1_native_host32_main(argc, argv);
+}
+#endif

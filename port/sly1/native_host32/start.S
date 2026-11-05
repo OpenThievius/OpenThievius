@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+#if !defined(OPENRAC_SLY1_WITH_SDL)
 .section .text.start,"ax",@progbits
 .global _start
 .type _start,@function
@@ -17,6 +18,7 @@ _start:
     int $0x80
     ud2
 .size _start, .-_start
+#endif
 
 .global sly1_i386_syscall6
 .type sly1_i386_syscall6,@function

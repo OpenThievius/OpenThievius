@@ -12,6 +12,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(OPENTHIEVIUS_SOURCE_SLY1 "${CMAKE_CURRENT_SOURCE_DIR}/../../sly1-decomp" CACHE PATH
     "Path to the sibling sly1-decomp checkout")
+option(OPENRAC_NATIVE_FUNCTION_TRACE
+    "Instrument the direct host32 build to trace active game functions" OFF)
+set(SLY1_NATIVE_TRACE_ARGUMENTS)
+if(OPENRAC_NATIVE_FUNCTION_TRACE)
+    list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-functions)
+endif()
 
 # Native runtime modules are added here as their interfaces are established.
 # SDL3 is required for the native window target; source inspection remains
@@ -39,6 +45,7 @@ add_custom_target(port_compile_decomp_host32
             --out ${CMAKE_CURRENT_BINARY_DIR}/host32
             --port ${CMAKE_CURRENT_SOURCE_DIR}
             --cxx ${CMAKE_CXX_COMPILER}
+            ${SLY1_NATIVE_TRACE_ARGUMENTS}
     COMMENT "Compiling decompiled Sly C++ directly for the native 32-bit ABI")
 
 add_custom_target(port_combine_decomp_host32
@@ -169,3 +176,22 @@ add_custom_command(
     VERBATIM)
 target_include_directories(sly1_port_runtime PUBLIC . runtime/include ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads SDL3::SDL3 ${CMAKE_DL_LIBS})
+
+# A separate 32-bit build can run the decompiled C++ against retail-address
+# memory and OpenRAC's native SDL/GS renderer. The normal 64-bit hostgen
+# launcher remains available in the default build.
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_compile_definitions(sly1_port_runtime PRIVATE OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    add_custom_target(port_native_sdl_host32
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/link_native_sdl_host32.py
+                --object ${CMAKE_CURRENT_BINARY_DIR}/host32/link/decomp-native32.o
+                --runtime $<TARGET_FILE:sly1_port_runtime>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/host32/sdl-launcher
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/sly1/native_host32
+                --port ${CMAKE_CURRENT_SOURCE_DIR}
+                --runtime-includes ${CMAKE_CURRENT_BINARY_DIR}
+                --cxx ${CMAKE_CXX_COMPILER}
+                --cxxflags "${CMAKE_CXX_FLAGS}"
+        DEPENDS port_combine_decomp_host32 sly1_port_runtime
+        COMMENT "Linking native 32-bit Sly with the SDL3 GS renderer")
+endif()
