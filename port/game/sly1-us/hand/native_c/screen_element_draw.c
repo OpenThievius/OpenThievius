@@ -37,6 +37,51 @@ void func_0015C900(void* font);
 void* func_0015DB28(void* output, s32 text_address, s32 font_address);
 void func_0015E318(void* text, SlyScreenTextLayout* layout, s32 flag,
                    void* packet);
+void func_0015C638(void* font, char* text, SlyScreenTextLayout* layout,
+                   s32 flag, u32 packet);
+extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
+                                  u32 a3);
+
+/* Retail's generic ScreenElement draw slot. The game installs this method
+ * for captions, counters, prompts, and other text-bearing UI elements. */
+void func_001AA790(void* opaque)
+{
+    u8* self = (u8*)opaque;
+    SlyScreenTextLayout layout;
+    s32 color;
+    u32 frame;
+    u32 object;
+
+    if (self == 0 || self[8] == 0) return;
+    func_00137228(&layout, *(f32*)(self + 0x21Cu),
+                  *(f32*)(self + 0x220u));
+    func_00137238(&layout, *(f32*)(self + 0x234u),
+                  *(f32*)(self + 0x238u));
+    color = *(s32*)(self + 0x208u);
+    func_00137248(&layout, &color);
+    func_00137260(&layout, 0);
+    func_00137268(&layout, 0);
+
+    frame = *(u32*)(self + 0x210u);
+    object = frame != 0 ? *(u32*)frame : 0;
+    if (object != 0) {
+        u32 vtable = *(u32*)(object + 0x4Cu);
+        if (vtable != 0) {
+            u32 entry = vtable + 9u * 8u;
+            s16 adjustment = *(s16*)entry;
+            u32 draw = *(u32*)(entry + 4u);
+            (void)sly1_native_call_regs4(draw, object + (s32)adjustment,
+                                         frame, (u32)&layout,
+                                         (u32)D_00262280);
+        }
+    }
+
+    func_0015C8B8((void*)(u32)*(u32*)(self + 4u),
+                  *(f32*)(self + 0x20Cu), *(f32*)(self + 0x20Cu));
+    func_0015C638((void*)(u32)*(u32*)(self + 4u), (char*)(self + 8u),
+                  &layout, 0, (u32)D_00262280);
+    func_0015C900((void*)(u32)*(u32*)(self + 4u));
+}
 
 void func_001AB198(void* opaque)
 {

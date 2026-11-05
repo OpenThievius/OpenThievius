@@ -110,6 +110,81 @@ static u32 font_vtable_method(FontTextFont* font, u32 method_offset,
 }
 extern f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2,
                                 u32 a3, f32 f12, f32 f14);
+extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
+                                  u32 a3);
+
+typedef struct FontLegacyLayout {
+    f32 x;
+    f32 y;
+    f32 w;
+    f32 h;
+    s32 color;
+    s32 horizontal;
+    s32 vertical;
+} FontLegacyLayout;
+
+/* Port-only implementation of the retail V24A2 text loop. This is separate
+ * from decomp source so it can be replaced when the matching unit is ready. */
+void func_0015C638(void* opaque, char* string,
+                   FontLegacyLayout* layout, s32 flags, u32 packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    char* p;
+    char* next;
+    s32 pending = 1;
+    f32 x = 0.0f;
+    f32 y;
+    u32 adjusted;
+    u32 method;
+
+    if (font == 0 || string == 0 || layout == 0) return;
+    method = font_vtable_method(font, 0x24u, 0x20u, &adjusted);
+    (void)sly1_native_call_regs4(method, adjusted, (u32)flags, packet, 0);
+
+    if (layout->vertical == 0) {
+        y = layout->y;
+    } else {
+        f32 height = (f32)font->height * font->sy;
+        for (p = string; *p != 0; ++p)
+            if (*p == '\n') height += (f32)font->height * font->sy;
+        y = layout->vertical == 2
+            ? layout->y + layout->h - height
+            : layout->y + (layout->h - height) * 0.5f;
+    }
+
+    for (p = string; *p != 0; p = next) {
+        const u8 character = (u8)*p;
+        next = p + 1;
+        if (character == '\n') {
+            pending = 1;
+            y += (f32)font->height * font->sy;
+            continue;
+        }
+
+        if (pending != 0) {
+            if (layout->horizontal == 0) {
+                x = layout->x;
+            } else {
+                char* q;
+                f32 line_width = 0.0f;
+                method = font_vtable_method(font, 0x1Cu, 0x18u, &adjusted);
+                for (q = p; *q != 0 && *q != '\n'; ++q)
+                    line_width += sly1_native_call_f32(
+                        method, adjusted, (u32)(u8)*q, 0, 0, 0.0f, 0.0f);
+                x = layout->horizontal == 2
+                    ? layout->x + layout->w - line_width
+                    : layout->x + (layout->w - line_width) * 0.5f;
+            }
+            pending = 0;
+        }
+
+        method = font_vtable_method(font, 0x34u, 0x30u, &adjusted);
+        x += sly1_native_call_f32(method, adjusted, (u32)character,
+                                  (u32)layout->color, packet, x, y);
+    }
+
+    method = font_vtable_method(font, 0x3Cu, 0x38u, &adjusted);
+    (void)sly1_native_call_regs4(method, adjusted, (u32)flags, packet, 0);
+}
 
 void func_0015C8B8(void* opaque, f32 sx, f32 sy) {
     FontTextFont* font = (FontTextFont*)opaque;
