@@ -52,14 +52,87 @@ std::atomic<std::uint64_t> g_dma_submit_count{0};
 std::atomic<std::uint64_t> g_dma_accept_count{0};
 std::atomic<std::uint64_t> g_dma_reject_count{0};
 std::atomic<std::uint64_t> g_dma_bytes{0};
-std::atomic_flag g_dma_reject_notice = ATOMIC_FLAG_INIT;
+std::atomic<unsigned> g_dma_reject_notices{0};
+
+std::uint32_t guest_address(std::uint32_t address) {
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    if (address >= 0x70000000u && address < 0x70004000u) return address;
+    if (address >= 0x20000000u && address < 0x22000000u) return address - 0x20000000u;
+    if (address >= 0x30000000u && address < 0x32000000u) return address - 0x30000000u;
+    // The native C++ build keeps addressed locals on the Linux stack and in
+    // its own static storage, rather than in a translated guest RAM arena.
+    if ((address >= 0x08000000u && address < 0x10000000u) ||
+        address >= 0xf0000000u) return address;
+    return address & 0x01ffffffu;
+#else
+    return openrac_guest_ram_address(address);
+#endif
+}
 
 bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& out) {
-    const std::uint32_t physical = openrac_guest_ram_address(address);
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    const std::uint32_t physical = guest_address(address);
+    if (size == 0 && physical == 0) {
+        out = nullptr;
+        return true;
+    }
+    const bool in_ram = physical >= 0x00010000u && physical <= 0x02000000u &&
+        size <= static_cast<std::size_t>(0x02000000u - physical);
+    const bool in_scratchpad = physical >= 0x70000000u && physical <= 0x70004000u &&
+        size <= static_cast<std::size_t>(0x70004000u - physical);
+    const bool in_native_storage =
+        ((physical >= 0x08000000u && physical <= 0x10000000u) ||
+         physical >= 0xf0000000u) &&
+        size <= static_cast<std::size_t>(0xffffffffu - physical);
+    if (!in_ram && !in_scratchpad && !in_native_storage) return false;
+    out = reinterpret_cast<const std::uint8_t*>(physical);
+    return true;
+#else
+    const std::uint32_t physical = guest_address(address);
     if (!openrac_guest_base || physical > openrac_guest_ram_size
         || size > static_cast<std::size_t>(openrac_guest_ram_size - physical)) return false;
     out = openrac_guest_base + physical;
     return true;
+#endif
+}
+
+bool guest_gif_stream_size(std::uint32_t address, std::size_t max_bytes,
+                           std::size_t& stream_size) {
+    std::uint32_t cursor = guest_address(address);
+    stream_size = 0;
+    for (std::size_t tags = 0; tags < 65536; ++tags) {
+        const std::uint8_t* tag = nullptr;
+        if (!guest_span(cursor, 16, tag)) return false;
+        std::uint64_t control;
+        std::memcpy(&control, tag, sizeof(control));
+        const std::size_t loops = control & 0x7fffu;
+        const bool eop = (control & 0x8000u) != 0;
+        const unsigned format = (control >> 58) & 3u;
+        const std::size_t register_count = (control >> 60) & 0xfu;
+        const std::size_t registers = register_count == 0 ? 16u : register_count;
+        std::size_t payload_size = 0;
+        switch (format) {
+        case 0: // PACKED: one 128-bit value per loop/register pair.
+            payload_size = loops * registers * 16;
+            break;
+        case 1: // REGLIST: two 64-bit values per 128-bit transfer.
+            payload_size = ((loops * registers + 1) / 2) * 16;
+            break;
+        case 2: // IMAGE: one 128-bit value per loop.
+            payload_size = loops * 16;
+            break;
+        default:
+            return false;
+        }
+        if (stream_size > max_bytes - 16 ||
+            payload_size > max_bytes - stream_size - 16) return false;
+        const std::size_t packet_size = 16 + payload_size;
+        if (!guest_span(cursor, packet_size, tag)) return false;
+        stream_size += packet_size;
+        if (eop) return true;
+        cursor += static_cast<std::uint32_t>(packet_size);
+    }
+    return false;
 }
 
 }
@@ -70,18 +143,25 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     std::vector<std::uint8_t> stream;
     std::array<std::uint32_t, 16> returns{};
     std::size_t return_count = 0;
-    std::uint32_t tag_address = openrac_guest_ram_address(source_address);
+    std::uint32_t tag_address = guest_address(source_address);
+    std::uint32_t failed_tag_address = tag_address;
+    std::uint64_t failed_tag_low = 0;
+    std::uint32_t failed_payload_address = 0;
+    std::size_t failed_payload_size = 0;
+    const char* failure = "tag limit";
     g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);
     bool ok = false;
     for (std::size_t tags = 0; tags < kMaxTags; ++tags) {
         const std::uint8_t* tag = nullptr;
-        if (!guest_span(tag_address, 16, tag)) break;
+        failed_tag_address = tag_address;
+        if (!guest_span(tag_address, 16, tag)) { failure = "tag span"; break; }
         std::uint64_t low;
         std::memcpy(&low, tag, 8);
+        failed_tag_low = low;
         const std::size_t qwc = low & 0xffffu;
         const unsigned id = (low >> 28) & 7u;
         const std::uint32_t inline_data = tag_address + 16;
-        const std::uint32_t referenced = openrac_guest_ram_address(
+        const std::uint32_t referenced = guest_address(
             static_cast<std::uint32_t>(low >> 32) & 0x7fffffffu);
         std::uint32_t payload_address = inline_data;
         std::uint32_t next = inline_data;
@@ -116,11 +196,19 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             stop = true;
             break;
         }
-        if (!valid) break;
+        if (!valid) { failure = "call depth"; break; }
         const std::uint8_t* payload = nullptr;
-        if (payload_size > kMaxBytes - stream.size()
-            || !guest_span(payload_address, payload_size, payload)) break;
-        stream.insert(stream.end(), payload, payload + payload_size);
+        failed_payload_address = payload_address;
+        failed_payload_size = payload_size;
+        if (payload_size > kMaxBytes - stream.size()) {
+            failure = "byte limit";
+            break;
+        }
+        if (!guest_span(payload_address, payload_size, payload)) {
+            failure = "payload span";
+            break;
+        }
+        if (payload_size != 0) stream.insert(stream.end(), payload, payload + payload_size);
         if (stop) {
             ok = true;
             break;
@@ -128,17 +216,46 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
         tag_address = next;
     }
     if (!ok) {
+        std::size_t gif_size = 0;
+        if (guest_gif_stream_size(source_address, kMaxBytes, gif_size)) {
+            const std::uint8_t* gif = nullptr;
+            if (guest_span(source_address, gif_size, gif)) {
+                std::scoped_lock lock(g_packets_mutex);
+                if (gif_size <= kMaxBytes - g_packets.size()) {
+                    g_packets.insert(g_packets.end(), gif, gif + gif_size);
+                    g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
+                    g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
+                    return;
+                }
+            }
+        }
         g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
-        if (!g_dma_reject_notice.test_and_set(std::memory_order_relaxed)) {
+        const unsigned notice = g_dma_reject_notices.fetch_add(1, std::memory_order_relaxed);
+        if (notice < 12) {
             const std::uint32_t first = stream.size() >= 4
                 ? (static_cast<std::uint32_t>(stream[0]) |
                    (static_cast<std::uint32_t>(stream[1]) << 8) |
                    (static_cast<std::uint32_t>(stream[2]) << 16) |
                    (static_cast<std::uint32_t>(stream[3]) << 24))
                 : 0;
+            std::uint64_t adjacent = 0;
+            std::uint64_t preceding = 0;
+            const std::uint8_t* adjacent_bytes = nullptr;
+            if (guest_span(failed_tag_address + 4, 8, adjacent_bytes)) {
+                std::memcpy(&adjacent, adjacent_bytes, 8);
+            }
+            const std::uint8_t* preceding_bytes = nullptr;
+            if (failed_tag_address >= 4 &&
+                guest_span(failed_tag_address - 4, 8, preceding_bytes)) {
+                std::memcpy(&preceding, preceding_bytes, 8);
+            }
             openrac::log::warn(
-                "native GIF chain rejected: source={:#010x} chain_ok={} bytes={} first_word={:#010x}",
-                source_address, ok, stream.size(), first);
+                "native GIF chain rejected: source={:#010x} tag={:#010x} preceding={:#018x} low={:#018x} adjacent={:#018x} id={} qwc={} payload={:#010x}/{} reason={} bytes={} first_word={:#010x}",
+                source_address, failed_tag_address, preceding, failed_tag_low,
+                adjacent,
+                static_cast<unsigned>((failed_tag_low >> 28) & 7u),
+                static_cast<unsigned>(failed_tag_low & 0xffffu),
+                failed_payload_address, failed_payload_size, failure, stream.size(), first);
         }
         return;
     }
