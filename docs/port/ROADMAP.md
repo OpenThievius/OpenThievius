@@ -130,13 +130,15 @@ packet-building C while replacing its platform allocation boundary. The latest
 GIF-chain submits. The newest run confirms the reader serves the cached sector
 file and produces the offline decoder's verified first 8 KiB. A port-only
 guard rejects the resulting impossible resource-entry count, after which the
-callback returns through stages 1–5. This does not establish successful
-resource parsing: calls such as
-`func_00151A88`, `func_001C1190`, and `func_001B3040` still resolve to no-C
-stubs, so successful resource parsing is not established. The host window
-remains black; there is no display framebuffer setup, blit, or verified active
-scene. Treat this as loader-path diagnostic evidence, not a playable
-milestone. The coordinator also omits retail progress/job bookkeeping. The
+callback returns through stages 1–5. The port-only resource value and animation
+table parsers now have C backfills, and the resource factory initializes its
+owner lists and resolves listener records through the resource context. A
+bounded native run completes the Splash callback without fault. This does not
+establish a usable scene: several resource callbacks and state setup routines
+still resolve to no-C stubs. The host window remains black, with zero submitted
+vertices and no display framebuffer setup or verified active scene. Treat this
+as loader-path diagnostic evidence, not a playable milestone. The coordinator
+also omits retail progress/job bookkeeping. The
 factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
@@ -151,10 +153,10 @@ launcher currently demonstrates native gameplay.
 The separate C-only hostgen launcher compiles Sly C without translating
 assembly, and links OpenRAC's renderer, but still uses the experimental
 guest-memory/runtime services rather than the target native-service
-architecture. Its latest bounded run reads the cached Splash sectors and
-matches the offline decoder's initial output bytes, but the native parser
-stalls in a resource-skip routine. It does not configure a display framebuffer;
-no scene reaches the renderer. Do not treat that run as evidence of native
+architecture. Its latest bounded run reads the cached Splash sectors, matches
+the offline decoder's initial output bytes, and returns through the Splash
+resource callback. It does not configure a display framebuffer; no scene
+vertices reach the renderer. Do not treat that run as evidence of native
 gameplay.
 Retail MIPS translation
 remains optional research output under `us-asm-research`. Build artifacts live
