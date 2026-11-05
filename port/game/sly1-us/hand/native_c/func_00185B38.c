@@ -28,10 +28,17 @@ void func_00191EB0(void);
 
 void func_00185B38(void) {
     u8 storage[0x70];
+    const u32 callbacks[29] = {
+        0x0012B868u, 0x0018D430u, 0x00152810u, 0x001E2398u, 0x001688B8u,
+        0x001858F8u, 0x001409D8u, 0x00140790u, 0x0016E0B8u, 0x0016F588u,
+        0x0015E810u, 0x0015C178u, 0x0011E560u, 0x00143140u, 0x001BF130u,
+        0x001A9C68u, 0x001E9088u, 0x001DFD48u, 0x0017FD48u, 0x00191EC0u,
+        0x00169C58u, 0x00185A58u, 0x00185AC8u, 0x00139C38u, 0x0019DF48u,
+        0x001430C8u, 0x0018B580u, 0x00160070u, 0x0018E5E8u
+    };
     FrameSetup* setup = (FrameSetup*)storage;
     FrameCounter* counter = (FrameCounter*)storage;
     FrameQueue* queue = (FrameQueue*)storage;
-    u32* callbacks = (u32*)0x002647C0u;
 
     *(u32*)(storage + 0x30) = 0x007F0000u;
     *(u32*)(storage + 0x40) = 0x003F3F3Fu;

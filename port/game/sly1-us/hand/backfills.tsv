@@ -18,12 +18,14 @@ func_00160880	native_c/startup_loader.c
 func_00160918	native_c/startup_loader.c
 func_00160070	native_c/startup_loader.c
 func_001EFFA0	native_c/loader_messages.c
+func_001F0428	native_c/loader_messages.c
 func_001F0220	native_c/loader_messages.c
 func_00137290	native_c/stream_reader.c
 func_00137328	native_c/stream_reader.c
 func_001373B0	native_c/stream_reader.c
 func_0018D800	native_c/func_0018D800.c
 func_0018D430	native_c/native_heap.c
+func_0018D500	native_c/native_heap.c
 func_0011C128	native_c/resource_pool.c
 func_0011C288	native_c/resource_pool.c
 func_0011CA90	native_c/resource_tables.c
@@ -40,7 +42,10 @@ func_00137E70	native_c/stream_reader_scalar.c
 func_00137E90	native_c/stream_reader_scalar.c
 func_00137EB0	native_c/stream_reader_scalar.c
 func_001E4EA8	native_c/func_001E4EA8.c
+func_001E4E80	native_c/func_001E4EA8.c
 func_001DCEA0	native_c/func_001DCEA0.c
+func_001DB928	native_c/func_001DB928.c
+func_001DCCC0	native_c/func_001DCCC0.c
 func_001F6910	native_c/display_mode.c
 func_001F6C70	native_c/display_mode.c
 func_00201A18	native_c/display_mode.c

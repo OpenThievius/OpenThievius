@@ -10,6 +10,7 @@ void* func_00137290(void* self, s32 source, u32 buffer, s32 buffer_length);
 s32 func_001373B0(void* self, const s32* pair);
 void func_001373D0(void* self);
 void func_00160690(void* self, s32 value);
+void func_001DB928(s32 changed, void* reader);
 int sly1_native_read_sectors(u32 sector, u32 count, u32 destination);
 void* func_00193210(void* self, const u32* a, const u32* b, const u32* c,
                     const u32* d);
@@ -17,6 +18,21 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
 void func_001DCEA0(void* self, void* reader);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+void func_001E4EA8(void* state);
+
+void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
+    u8* bytes = (u8*)block;
+    if (*(s32*)bytes != 0) return;
+    *(s32*)(bytes + 0x00) = 1;
+    *(s32*)(bytes + 0x04) = a;
+    *(s32*)(bytes + 0x08) = b;
+    *(s32*)(bytes + 0x0C) = c;
+    *(s32*)(bytes + 0x10) = d;
+    sly1_native_loader_stage(7, 0, (u32)block);
+    /* The native loader performs synchronous sector reads, so dispatch the
+     * queued job here instead of waiting for Sly's absent worker scheduler. */
+    func_001E4EA8(block);
+}
 
 void func_001E4EA8(void* state) {
     u8* request = (u8*)state;
@@ -32,6 +48,8 @@ void func_001E4EA8(void* state) {
     void* object;
     s32 index;
 
+    /* Trace point 9 is the request boundary, before validation or I/O. */
+    sly1_native_loader_stage(9, 0, (u32)state);
     if (request == 0 || *(u32*)(request + 4) == 0) return;
 
     func_0018D410(record);
@@ -77,6 +95,9 @@ void func_001E4EA8(void* state) {
         *(u32*)(request + 0x14 + index * 4) = record[index];
     }
     func_00160690(request + 0x14, *(s32*)(request + 0x10));
+    /* Retail reads the resource's 8-byte header and prepares its decoded
+     * output buffer before the type 0x6C parser sees the stream. */
+    func_001DB928(1, reader);
 
     object = func_0011E580(0x6C, 0, 0, 3, -1);
     D_00275710 = object;

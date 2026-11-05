@@ -2,6 +2,9 @@
 // Port-only bridges used by the native resource-loader backfill.
 #include "sly1/host_abi.h"
 #include "native_function_lookup.hpp"
+#include <openrac/guest.h>
+#include <cstdio>
+#include <cstdlib>
 
 extern "C" void sly1_native_call_method(u32 retail_address, u32 object) {
     const u32 native_address = sly1::native_function_address(retail_address);
@@ -11,7 +14,15 @@ extern "C" void sly1_native_call_method(u32 retail_address, u32 object) {
 }
 
 extern "C" void sly1_native_loader_stage(u32 stage, u32 object, u32 reader) {
-    (void)stage;
-    (void)object;
-    (void)reader;
+    if (std::getenv("OPENRAC_STARTUP_TRACE") == nullptr || reader == 0) return;
+    const u32 cursor = GREF(u32, reader + 0x18u);
+    const s32 remaining = GREF(s32, reader + 0x1Cu);
+    const u32 source = GREF(u32, reader + 0x20u);
+    const s32 source_remaining = GREF(s32, reader + 0x24u);
+    const u32 next_word = remaining >= 4 && cursor != 0 ? GREF(u32, cursor) : 0;
+    std::fprintf(stderr,
+                 "[loader] stage=%u object=%08x reader=%08x mode=%d cursor=%08x "
+                 "remaining=%d next=%08x source=%08x source_remaining=%d\n",
+                 stage, object, reader, GREF(s32, reader + 4u), cursor,
+                 remaining, next_word, source, source_remaining);
 }

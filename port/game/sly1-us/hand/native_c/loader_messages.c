@@ -7,10 +7,34 @@ extern u32 D_0026FA68;
 extern u32 D_00275710;
 extern u32 D_00275B04;
 extern f32 D_00261868;
+extern u8 D_00275F80[];
 
 void func_001DDAD0(void);
 void func_001F1050(void* object, s32 mode);
 void func_001F0220(void* state, s32 mode);
+void func_001EFFA0(u8* state, u8* message, s32 count);
+void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+
+struct NativeLoaderMessage {
+    s32 kind;
+    void* object;
+    void* value;
+    u8 pad0[3];
+    s32 last;
+};
+
+void func_001F0428(void* object, void* value, s32 count) {
+    struct NativeLoaderMessage message;
+    message.kind = 1;
+    message.object = object;
+    message.value = value;
+    message.pad0[0] = 0;
+    message.pad0[1] = 0;
+    message.pad0[2] = 0;
+    message.last = 0;
+    sly1_native_loader_stage(8, (u32)object, (u32)object);
+    func_001EFFA0(D_00275F80, (u8*)&message, count);
+}
 
 void func_001EFFA0(u8* state, u8* message, s32 count) {
     u32 record;
