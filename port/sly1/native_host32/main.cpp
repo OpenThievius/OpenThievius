@@ -396,10 +396,12 @@ extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
 }
 
 extern "C" __attribute__((noreturn)) void sly1_missing_function(
-    u32 address, u32 caller, u32 argument0) {
+    u32 address, u32 caller, u32 argument0, u32 argument1, u32 argument2) {
     write_hex("native host32: missing compiled function at ", (int)address);
     write_hex("native host32: called from ", (int)caller);
     write_hex("native host32: first argument ", (int)argument0);
+    write_hex("native host32: second argument ", (int)argument1);
+    write_hex("native host32: third argument ", (int)argument2);
     if (address == 0x001841D0u && argument0 >= 0x00100000u &&
         argument0 < 0x02100000u) {
         const auto* camera = reinterpret_cast<volatile const u32*>(argument0);
