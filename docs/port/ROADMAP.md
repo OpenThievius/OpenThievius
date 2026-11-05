@@ -139,11 +139,14 @@ resource ID 2 and initializes the visual
 state table; the opt-in trace reports the expected level and record indices.
 The trace shows no active or pending movie keys. It does not establish whether
 the game has queued another resource request.
-This does not establish a usable scene: several resource callbacks and state
-setup routines still resolve to no-C stubs. The host window remains black,
-with zero submitted vertices and no display framebuffer setup or verified
-active scene. Treat this as loader-path diagnostic evidence, not a playable
-milestone. The coordinator also omits retail progress/job bookkeeping. The
+This does not establish a usable scene: several resource and frame callbacks
+still resolve to no-C stubs. The host window remains black. The trace now shows
+the GS display registers being written (`PMODE=0x8066`, `DISPFB1=0x1446`), but
+zero submitted vertices, image tags, blits, or local-to-local transfers. The
+next blocker is producing scene or Splash draw commands through the frame and
+resource callbacks, not opening a display mode. Treat this as loader/frame-loop
+diagnostic evidence, not a playable milestone. The coordinator also omits
+retail progress/job bookkeeping. The
 factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
