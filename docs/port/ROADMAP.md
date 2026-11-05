@@ -19,8 +19,10 @@ as the independent offline decoder. The first resource-skip field is
 limit. The port-only loader backfill now consumes that impossible count and
 returns through stages 1–5 rather than looping indefinitely. This diagnostic
 recovery does not validate the Splash container or prove the object loaded.
-The native window is still black; display setup, asset interpretation and a
-Sly scene renderer remain ahead of a playable scene.
+The native window is still black. Current port-only backfills initialize the
+640x224 GS display context and produce GIF end-of-packet events, but game frame
+state and visible vertex counts remain zero. Scene loading and a Sly scene
+renderer remain ahead of a playable scene.
 
 ## Current no-emulation build status
 

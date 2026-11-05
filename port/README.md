@@ -32,8 +32,9 @@ generates host C from matched Sly sources plus port-only backfills. It does not
 translate retail MIPS assembly. The current report translates 1,654 functions
 and lists 3,116 catalogued functions without C; 12 of 68 source units remain
 unreadable to its C frontend. The SDL native launcher
-builds and opens a window, reaches Sly's display loop, and submits GIF work,
-but the renderer sees no visible vertices and the window remains black. The
+builds and opens a window, reaches Sly's display loop, initializes a 640x224
+GS display context, and submits GIF end-of-packet events. The renderer sees no
+visible vertices and the window remains black. The
 separate freestanding host32 launcher is a startup diagnostic and does not
 open a window. SDL keyboard/gamepad input now updates host-side DualShock
 reports, but the game's pad-library calls are not connected to them yet.

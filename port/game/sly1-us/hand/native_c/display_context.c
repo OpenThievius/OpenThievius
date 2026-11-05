@@ -133,11 +133,44 @@ void func_00201FF8(void* context, s32 page)
  * field locally while preserving Sly's double-buffer state and packet setup. */
 extern s32 D_002BE470, D_002BE474, D_00262484, D_002626C0;
 extern s32 D_002626C4, D_002626C8, D_002626CC;
-void func_00202098(void* address, s32 source_size, s32 destination_size, s32 field);
+extern u8 D_00262490[];
+struct NativeDisplayOffsetContext {
+    u8 pad0[0x20];
+    u64 out;
+    u8 pad1[0x08];
+    u64 in;
+};
+void func_00202098(struct NativeDisplayOffsetContext* self, s32 source_size,
+                   s32 destination_size, s32 field);
 void func_001F6C20(s32 channel);
 void func_00168130(void);
 void func_00201988(s32 a, s32 b);
 void func_001683B8(void);
+void func_001683E8(void);
+void func_00201A18(s32 mode, s32 x, s32 y, s32 flag);
+
+/* Initialize the retail display context before the native display worker
+ * starts submitting frames. The rest of the retail routine schedules VU
+ * fills and interrupt callbacks, which the host renderer replaces. */
+void func_001688B8(void)
+{
+    u8* block;
+    s32 i;
+
+    func_00201A18(0, 1, 2, 1);
+    func_00201D60(D_00262490, 0, 0x280, 0xE0, 3, 0x30, 0);
+    block = D_00262490;
+    for (i = 0; i < 2; ++i) {
+        *(s32*)block &= -2;
+        block[1] = 0x80;
+        *(s32*)block |= 0x20;
+        block += 0x28;
+    }
+    D_002626CC = 0;
+    D_00262484 = 0;
+    D_002626C0 = 0;
+    func_001683E8();
+}
 
 void func_001683E8(void)
 {
@@ -155,7 +188,8 @@ void func_001683E8(void)
 
     const s32 field_buffer = (D_002626C0 & 1) != 0
         ? 0x002625E0u : 0x002624F0u;
-    func_00202098((void*)field_buffer, 0x800, 0x800, D_002626C4);
+    func_00202098((struct NativeDisplayOffsetContext*)field_buffer,
+                  0x800, 0x800, D_002626C4);
     func_001F6C20(0);
     const s32 page = D_002626C0 + 1;
     D_002626C0 = page;
@@ -177,9 +211,26 @@ void func_001684E8(void)
     const s32 current = D_002626C0;
     const s32 field_buffer = (current & 1) != 0
         ? 0x002625E0u : 0x002624F0u;
-    func_00202098((void*)field_buffer, 0x800, 0x800, D_002626C4);
+    func_00202098((struct NativeDisplayOffsetContext*)field_buffer,
+                  0x800, 0x800, D_002626C4);
     func_001F6C20(0);
     const s32 packet = (current & 1) != 0
         ? 0x002625D0u : 0x002624E0u;
     func_00201C78((void*)packet);
+}
+
+/* Port-only version of the display offset math in the decomp's current C.
+ * Keep it here until func_00202098 is matching C in the decomp checkout. */
+void func_00202098(struct NativeDisplayOffsetContext* self, s32 source_size,
+                   s32 destination_size, s32 field)
+{
+    const u64 input = self->in;
+    const s64 y = (u64)((s32)((input >> 48) & 0x7FFu) + 1) >> 1;
+    const s64 x = (u64)((s32)((input >> 16) & 0x7FFu) + 1) >> 1;
+    s64 vertical = (s64)destination_size - y;
+    s64 horizontal = (s64)source_size - x;
+    const s64 high = (vertical << 4) + (field != 0 ? 8 : 0);
+    const u64 low = (u64)(horizontal << 4);
+
+    self->out = low | ((u64)high << 32);
 }
