@@ -170,3 +170,5 @@ func_00152460	native_c/intrusive_lists.c
 func_00152470	native_c/intrusive_lists.c
 func_00152720	native_c/intrusive_lists.c
 func_0018D410	native_c/resource_key.c
+func_00159F20	native_c/resource_object_records.c
+func_001C1390	native_c/resource_object_records.c

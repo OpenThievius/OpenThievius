@@ -7,6 +7,24 @@ void* func_0011E580(s32 slot, void* world, void* parameter, s32 key, s32 flag);
 s32 func_0011ECA0(s32 key);
 void func_00182ED8(void* object);
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void func_0011A6C0(void* list, s32 value);
+
+void* func_00159F20(void* base, s32 index)
+{
+    const u32 slot = ((u32)(index * 0x95675) & 0x1FFu) * 12u + 0x84u;
+    return (void*)((u32)base + slot);
+}
+
+void* func_001C1390(s32 index, void* context)
+{
+    u8* table;
+    void* value;
+    if (index == -1) return 0;
+    table = *(u8**)((u8*)context + 0x1EF4u);
+    value = *(void**)(table + (u32)index * 8u + 4u);
+    if (value != 0) func_0011A6C0((void*)0x00259F38u, (s32)value);
+    return value;
+}
 
 s32 func_0011ECA0(s32 value) {
     s32 index = value - 12;
