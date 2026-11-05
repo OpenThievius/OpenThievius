@@ -22,6 +22,7 @@ void func_001DDA20(void* object);
 void func_001A7E70(void);
 void func_001C06A0(s32 a, s32 b, f32 value);
 void func_00142ED0(f32 value);
+void func_001EFD10(void* state, void* input);
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 
 static void call_overlay_method(u32 object_address, u32 slot) {
@@ -102,4 +103,24 @@ void func_001E96F8(void* opaque, s32 state) {
 
 void func_001E90E8(void* object) {
     func_001E96F8(object, 3);
+}
+
+void func_001A9FD0(void) {
+    u32* slots = (u32*)0x002486B0u;
+    u32 flags = *(u32*)0x00262C68u;
+    void* input = (void*)((flags & 4u) != 0 ? 0x00262C70u : 0x00262D38u);
+
+    for (s32 i = 36; i >= 0; --i) {
+        u32 object = slots[i];
+        u32 vtable;
+        u32 update;
+        if (object == 0) continue;
+        vtable = *(u32*)object;
+        if (vtable == 0) continue;
+        update = *(u32*)(vtable + 8u);
+        if (update != 0)
+            (void)sly1_native_call_regs4(update, object, 0, 0, 0);
+    }
+
+    func_001EFD10(D_00275F80, input);
 }

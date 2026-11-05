@@ -203,3 +203,4 @@ func_001B5DD0	native_c/resource_pools.c
 func_001E98E8	native_c/ui_state.c
 func_001E96F8	native_c/ui_state.c
 func_001E90E8	native_c/ui_state.c
+func_001A9FD0	native_c/ui_state.c
