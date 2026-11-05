@@ -48,6 +48,8 @@ extern void func_00137238(SlyTextLayout* out, f32 w, f32 h);
 extern void func_00137248(SlyTextLayout* out, void* color);
 extern void func_00137260(SlyTextLayout* out, s32 horizontal);
 extern void func_00137268(SlyTextLayout* out, s32 vertical);
+extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
+                                  u32 a3);
 
 static void menu_layout(SlyTextLayout* out, f32 x, f32 y, f32 w, f32 h,
                         u32 color, s32 horizontal) {
@@ -86,12 +88,38 @@ void func_00194F80(void* opaque) {
     f32 cursor_y = shown_y * blend +
                    (shown_y + *(f32*)(self + 0x238u) * 0.5f) * (1.0f - blend);
     const s32 cursor = *(s32*)(self + 0x264u);
+    SlyTextLayout layout;
     u8 alpha = (u8)(s32)(*(f32*)(self + 0x284u) * 255.0f);
     if (alpha == 0 && blend > 0.0f) alpha = (u8)(s32)(blend * 255.0f);
     *(f32*)(self + 0x284u) = (f32)alpha * (1.0f / 255.0f);
 
+    /* Retail draws the menu's owning frame before its title and options. */
+    u32 owner = *(u32*)(self + 0x210u);
+    if (owner != 0) {
+        u32 hook = *(u32*)owner;
+        if (hook != 0) {
+            u32 vtable = *(u32*)(hook + 0x4Cu);
+            if (vtable != 0) {
+                const u32 entry = vtable + 9u * 8u;
+                const s16 adjustment = *(s16*)entry;
+                const u32 draw = *(u32*)(entry + 4u);
+                u32 saved = *(u32*)(owner + 0x18u);
+                *(u32*)(owner + 0x18u) = (saved & 0x00FFFFFFu) |
+                                          ((u32)alpha << 24);
+                menu_layout(&layout, center_x, cursor_y, width, height,
+                            0xFF808080u, 0);
+                (void)sly1_native_call_regs4(
+                    draw, hook + (s32)adjustment, owner, (u32)&layout,
+                    MENU_PACKET_ADDRESS);
+                *(u32*)(owner + 0x18u) = saved;
+            }
+        }
+    }
+
+    /* The native font table is populated by the level resource loader. */
+    if (font_address == 0) return;
+
     u8 scratch[0xB0];
-    SlyTextLayout layout;
     if (menu->title != 0) {
         f32 scale = menu->title_scale * blend;
         func_0015C8B8(font, scale, scale);
