@@ -192,6 +192,34 @@ int main(int argc, char** argv) {
                 std::uint32_t frame_state[13]{};
                 std::memcpy(frame_state, openrac_guest_base + 0x00275BC0u,
                             sizeof(frame_state));
+                std::uint32_t frame_top = 0;
+                std::uint32_t frame_top_vtable = 0;
+                std::uint32_t frame_top_callback = 0;
+                const std::uint32_t frame_count = frame_state[11];
+                if (frame_count > 0 && frame_count <= 8) {
+                    std::memcpy(&frame_top,
+                                openrac_guest_base + 0x00275BC0u + 0x0Cu +
+                                    (frame_count - 1u) * sizeof(frame_top),
+                                sizeof(frame_top));
+                    const std::uint32_t frame_top_physical =
+                        openrac_guest_ram_address(frame_top);
+                    if (frame_top != 0 && frame_top_physical <= openrac_guest_ram_size &&
+                        sizeof(frame_top_vtable) <=
+                            openrac_guest_ram_size - frame_top_physical) {
+                        std::memcpy(&frame_top_vtable,
+                                    openrac_guest_base + frame_top_physical,
+                                    sizeof(frame_top_vtable));
+                        const std::uint32_t vtable_physical =
+                            openrac_guest_ram_address(frame_top_vtable);
+                        if (frame_top_vtable != 0 &&
+                            vtable_physical <= openrac_guest_ram_size &&
+                            0x14u <= openrac_guest_ram_size - vtable_physical) {
+                            std::memcpy(&frame_top_callback,
+                                        openrac_guest_base + vtable_physical + 0x10u,
+                                        sizeof(frame_top_callback));
+                        }
+                    }
+                }
                 std::uint32_t menu_state[4]{};
                 std::memcpy(&menu_state[1], openrac_guest_base + 0x002701C8u,
                             sizeof(menu_state[1]));
@@ -463,6 +491,9 @@ int main(int argc, char** argv) {
                 std::cerr << std::dec
                           << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
+                          << " frame_top=0x" << std::hex << frame_top
+                          << ",vtable=0x" << frame_top_vtable
+                          << ",callback=0x" << frame_top_callback << std::dec
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " menu=" << std::dec << menu_mode << ','
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
