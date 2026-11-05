@@ -27,8 +27,11 @@ func_0018D800	native_c/func_0018D800.c
 func_0018D430	native_c/native_heap.c
 func_0018D500	native_c/native_heap.c
 func_0018D5C0	native_c/native_heap.c
+func_0018D568	native_c/resource_readers.c
 func_0011C128	native_c/resource_pool.c
 func_0011C288	native_c/resource_pool.c
+func_0011C1D8	native_c/resource_pool.c
+func_0011C240	native_c/resource_pool.c
 func_0011CA90	native_c/resource_tables.c
 func_0011A6A8	native_c/value_pool_setup.c
 func_0011A670	native_c/value_pool_setup.c
@@ -51,6 +54,8 @@ func_001E4E80	native_c/func_001E4EA8.c
 func_001DCEA0	native_c/func_001DCEA0.c
 func_001DB928	native_c/func_001DB928.c
 func_001DCCC0	native_c/func_001DCCC0.c
+func_00138550	native_c/resource_readers.c
+func_001384A0	native_c/resource_readers.c
 func_001F6910	native_c/display_mode.c
 func_001F6C70	native_c/display_mode.c
 func_00201A18	native_c/display_mode.c
