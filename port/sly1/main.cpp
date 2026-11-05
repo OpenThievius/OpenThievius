@@ -349,8 +349,21 @@ int main(int argc, char** argv) {
                     std::uint32_t font;
                     std::uint32_t frame;
                     std::uint32_t draw;
+                    std::uint32_t font_vtable;
+                    std::uint32_t font_advance;
+                    std::uint32_t font_height;
+                    std::uint32_t font_image_a;
+                    std::uint32_t font_image_b;
+                    std::uint64_t font_tex0;
                     std::uint32_t glyph_count;
+                    std::uint32_t glyphs;
                     std::uint32_t first_text_byte;
+                    std::uint32_t menu_title;
+                    std::uint32_t menu_items;
+                    std::uint32_t menu_count;
+                    std::uint32_t item0_index;
+                    std::uint32_t item0_string;
+                    std::uint32_t item0_text_byte;
                 } ui_samples[8]{};
                 std::uint32_t ui_sample_count = 0;
                 for (std::uint32_t i = 0; i < 37; ++i) {
@@ -374,17 +387,60 @@ int main(int argc, char** argv) {
                     if (vtable != 0 && vtable_physical <= openrac_guest_ram_size &&
                         0x28u <= openrac_guest_ram_size - vtable_physical)
                         std::memcpy(&draw, openrac_guest_base + vtable_physical + 9u * 4u, 4);
-                    std::uint32_t glyph_count = 0;
-                    const std::uint32_t font_physical = openrac_guest_ram_address(font);
-                    if (font != 0 && font_physical <= openrac_guest_ram_size &&
-                        0x7Cu <= openrac_guest_ram_size - font_physical)
+                    std::uint32_t font_vtable = 0, font_advance = 0;
+                    std::uint32_t font_height = 0, glyph_count = 0, glyphs = 0;
+                    std::uint32_t font_image_a = 0, font_image_b = 0;
+                    std::uint64_t font_tex0 = 0;
+                    const bool font_in_port_heap =
+                        font >= GUEST_PORT && font - GUEST_PORT < GUEST_PORT_SIZE;
+                    const std::uint32_t font_physical = font_in_port_heap
+                        ? font : openrac_guest_ram_address(font);
+                    const std::uint32_t font_limit = font_in_port_heap
+                        ? GUEST_PORT + GUEST_PORT_SIZE : openrac_guest_ram_size;
+                    if (font != 0 && font_physical <= font_limit &&
+                        0x80u <= font_limit - font_physical) {
+                        std::memcpy(&font_advance, openrac_guest_base + font_physical + 4u, 4);
+                        std::memcpy(&font_height, openrac_guest_base + font_physical + 8u, 4);
+                        std::memcpy(&font_vtable, openrac_guest_base + font_physical + 0x4Cu, 4);
+                        std::memcpy(&font_image_a, openrac_guest_base + font_physical + 0x54u, 4);
+                        std::memcpy(&font_image_b, openrac_guest_base + font_physical + 0x58u, 4);
+                        std::memcpy(&font_tex0, openrac_guest_base + font_physical + 0x60u, 8);
                         std::memcpy(&glyph_count, openrac_guest_base + font_physical + 0x78u, 4);
+                        std::memcpy(&glyphs, openrac_guest_base + font_physical + 0x7Cu, 4);
+                    }
+                    std::uint32_t menu_title = 0, menu_items = 0, menu_count = 0;
+                    std::uint32_t item0_index = 0, item0_string = 0, item0_text_byte = 0;
+                    std::uint32_t page = 0;
+                    std::memcpy(&page, openrac_guest_base + object_physical + 0x260u, 4);
+                    if (mode == 2 && page < 33u) {
+                        const std::uint32_t menu = 0x00269D50u + page * 24u;
+                        std::memcpy(&menu_title, openrac_guest_base + menu, 4);
+                        std::memcpy(&menu_count, openrac_guest_base + menu + 0x10u, 4);
+                        std::memcpy(&menu_items, openrac_guest_base + menu + 0x14u, 4);
+                        const std::uint32_t items_physical = openrac_guest_ram_address(menu_items);
+                        if (menu_count != 0 && menu_items != 0 &&
+                            items_physical <= openrac_guest_ram_size &&
+                            4u <= openrac_guest_ram_size - items_physical) {
+                            std::memcpy(&item0_index, openrac_guest_base + items_physical, 4);
+                            const std::uint32_t string_slot = 0x0026A068u + item0_index * 4u;
+                            if (string_slot <= openrac_guest_ram_size - 4u) {
+                                std::memcpy(&item0_string, openrac_guest_base + string_slot, 4);
+                                const std::uint32_t string_physical =
+                                    openrac_guest_ram_address(item0_string);
+                                if (item0_string != 0 && string_physical < openrac_guest_ram_size)
+                                    item0_text_byte = openrac_guest_base[string_physical];
+                            }
+                        }
+                    }
                     ui_visible_count += mode != 0 && first_text_byte != 0;
                     ui_font_count += font != 0;
                     if (ui_sample_count < 8 && (mode != 0 || first_text_byte != 0)) {
                         ui_samples[ui_sample_count++] = {
-                            i, object, mode, font, frame, draw, glyph_count,
-                            first_text_byte};
+                            i, object, mode, font, frame, draw, font_vtable,
+                            font_advance, font_height, font_image_a, font_image_b,
+                            font_tex0, glyph_count, glyphs,
+                            first_text_byte, menu_title, menu_items, menu_count,
+                            item0_index, item0_string, item0_text_byte};
                     }
                 }
                 std::uint32_t active_world = 0;
@@ -720,8 +776,17 @@ int main(int argc, char** argv) {
                     std::cerr << sample.index << ":0x" << std::hex << sample.object
                               << "/mode=" << sample.mode << "/font=" << sample.font
                               << "/frame=" << sample.frame << "/draw=" << sample.draw
-                              << "/glyphs=" << sample.glyph_count << "/text="
-                              << sample.first_text_byte << std::dec;
+                              << "/font_vt=" << sample.font_vtable << "/adv="
+                              << sample.font_advance << "/height=" << sample.font_height
+                              << "/image=" << sample.font_image_a << ','
+                              << sample.font_image_b << "/tex0=" << sample.font_tex0
+                              << "/glyphs=" << sample.glyph_count << "/glyph_ptr="
+                              << sample.glyphs << "/text_byte=" << sample.first_text_byte
+                              << "/menu=" << sample.menu_title << ','
+                              << sample.menu_count << ",0x" << sample.menu_items
+                              << "/item0=" << sample.item0_index << ",0x"
+                              << sample.item0_string << "/item_byte="
+                              << sample.item0_text_byte << std::dec;
                 }
                 std::cerr << '\n';
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
