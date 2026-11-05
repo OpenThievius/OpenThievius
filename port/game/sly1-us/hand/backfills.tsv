@@ -107,6 +107,8 @@ func_001378A0	native_c/func_001378A0.c
 func_00137FB0	native_c/collision_mesh_reader.c
 func_00160E80	native_c/collision_mesh_copy.c
 func_00160EA0	native_c/collision_mesh_copy.c
+func_001897F0	native_c/collision_transform.c
+func_001B9448	native_c/collision_transform.c
 func_00123ED0	native_c/resource_base_constructor.c
 func_00137B60	native_c/resource_object_common.c
 func_00162890	native_c/resource_object_common.c
