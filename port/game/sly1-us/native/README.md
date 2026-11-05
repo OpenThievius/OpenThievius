@@ -146,9 +146,10 @@ is outside the mapped retail ELF. `func_001848B8.cpp` and `func_00144008.cpp`
 translate the next two VU0 camera-vector routines with scalar host math.
 `func_001EEBB0.cpp` translates the tagged direction-list query, including its
 null-state `-1` result and threshold checks.
+`func_001389D0.cpp` sorts the two populated endpoint banks and updates their
+crossings through the existing native collision-list helper.
 
-A freestanding host32 trace passes nested scene records and scene initialization
-with these overrides, then reaches unresolved retail function `0x001EEBB0`
-during camera setup. With that routine backfilled, startup reaches unresolved
-list operation `0x001389D0`. Rendering has not started; the port is not
-playable.
+A freestanding host32 trace passes nested resource records, camera setup and
+both endpoint-sort passes. It then runs for 15 seconds without another missing
+function trap. This diagnostic does not display frames, so visible rendering
+and gameplay remain unverified; the port is not yet playable.

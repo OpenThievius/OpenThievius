@@ -577,6 +577,15 @@ sly1_native_trace_c02_list(u32 tag, u32 list, u32 item, u32 result) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_sorter(u32 stage, u32 world, u32 axis, u32 value) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: sorter stage ", (int)stage);
+    write_hex("native host32: sorter world ", (int)world);
+    write_hex("native host32: sorter axis ", (int)axis);
+    write_hex("native host32: sorter value ", (int)value);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 __cyg_profile_func_enter(void* function, void*) {
     const u32 native_address = reinterpret_cast<u32>(function);
     const u32 slot = trace_slot_for_tid(trace_current_tid());
