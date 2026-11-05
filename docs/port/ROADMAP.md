@@ -151,6 +151,9 @@ retail progress/job bookkeeping. Port-only backfills `func_001526D0`,
 restore object-list membership and activation from the retail C path. In a
 bounded run the world registry becomes nonempty, but the renderer still sees
 zero vertices; frame traversal and draw submission remain incomplete.
+The resource-property activation callback `func_0011EDA8` is now backfilled
+too. Its latest bounded run completes Splash parsing without the former no-C
+warning, but still produces no draw geometry.
 The factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled

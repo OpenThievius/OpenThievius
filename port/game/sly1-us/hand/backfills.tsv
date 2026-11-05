@@ -179,6 +179,7 @@ func_00151A88	native_c/resource_state_setup.c
 func_00152410	native_c/resource_state_setup.c
 func_001EAA70	native_c/resource_state_setup.c
 func_00182C18	native_c/resource_object_records.c
+func_0011EDA8	native_c/resource_activation.c
 func_001526D0	native_c/world_object_attach.c
 func_00182FC8	native_c/world_object_attach.c
 func_00182C80	native_c/world_object_attach.c
