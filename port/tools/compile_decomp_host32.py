@@ -17,14 +17,18 @@ def main(argv=None):
     parser.add_argument("--out", required=True, type=Path, help="staged source and object output directory")
     parser.add_argument("--port", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--cxx", default="c++")
+    parser.add_argument("--trace-functions", action="store_true",
+                        help="instrument native function entries for startup diagnostics")
     args = parser.parse_args(argv)
 
     source = args.source.expanduser().resolve()
     out = args.out.expanduser().resolve()
     port = args.port.resolve()
     include = source / "include"
-    # This launcher targets NTSC-U. Whole-file units in files.tsv own their
-    # address ranges; do not also compile the overlapping 0x4000 source chunks.
+    # This launcher targets NTSC-U. A proven whole-file unit replaces only its
+    # own address range, not an entire 0x4000 window that happens to overlap it.
+    # Keep chunks with uncovered text so matching functions after a file's end
+    # are not silently dropped from the native build.
     whole_files = []
     whole_ranges = []
     files_table = source / "config" / "us" / "files.tsv"
@@ -45,7 +49,10 @@ def main(argv=None):
                 address = int(path.stem, 16)
             except ValueError:
                 continue
-            if not any(start <= address < end for start, end in whole_ranges):
+            window_end = address + 0x4000
+            fully_covered = any(start <= address and window_end <= end
+                                for start, end in whole_ranges)
+            if not fully_covered:
                 chunks.append(path)
     sources = sorted(set(whole_files + chunks + [
         path
@@ -134,8 +141,126 @@ def main(argv=None):
                 if replacements != 1:
                     raise RuntimeError("expected one platform function " + address +
                                        " in " + rel.as_posix())
+            # The native display path replaces these two additional GS
+            # register boundaries while keeping the original C bodies staged.
+            for signature, address in (("void", "00201BB8"), ("s32", "00201C78")):
+                pattern = re.compile(
+                    r"(?m)^" + signature + r" func_" + address + r"\((?:void\* self|void \*self)\)"
+                )
+                adapted, replacements = pattern.subn(
+                    signature + " decomp_func_" + address + "(void* self)", adapted)
+                if replacements != 1:
+                    raise RuntimeError("expected one GS boundary definition " + address +
+                                       " in " + rel.as_posix())
+            # EE DMA wait routines poll CHCR until hardware clears STR. A
+            # native DMA submission is synchronous, so port services own these
+            # waits too; leave their matching bodies visible in staged C++.
+            for address, pattern in (
+                ("00202B68", r"(?m)^void func_00202B68\(DmaChan_202B68\* ch\)"),
+                ("00202C38", r"(?m)^s32 func_00202C38\(DmaChan_202C38\* ch, s32 mode, s32 timeout\)"),
+            ):
+                signatures = {
+                    "00202B68": "void decomp_func_00202B68(DmaChan_202B68* ch)",
+                    "00202C38": "s32 decomp_func_00202C38(DmaChan_202C38* ch, s32 mode, s32 timeout)",
+                }
+                adapted, replacements = re.subn(pattern, signatures[address], adapted)
+                if replacements != 1:
+                    raise RuntimeError("expected one DMA wait definition " + address +
+                                       " in " + rel.as_posix())
+        elif rel.as_posix() == "main/file_184D78.cpp":
+            # Replace only the IOP module/CDVD bootstrap at its retail address;
+            # keep the original matching body in the staged source for review.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001858F8\(\)(?=\n\{)",
+                "void decomp_func_001858F8()", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one IOP bootstrap definition in " +
+                                   rel.as_posix())
+            # Native DMA channels live in host memory; this wait routine must
+            # recover the channel record if startup retained its retail MMIO
+            # address in the shared global.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_00185A58\(void\)(?=\n\{)",
+                "void decomp_func_00185A58(void)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one DMA wait definition in " + rel.as_posix())
+            adapted, replacements = re.subn(
+                r"(?m)^void func_00185AC8\(\)(?=\n\{)",
+                "void decomp_func_00185AC8()", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one second DMA wait definition in " +
+                                   rel.as_posix())
+        elif rel.as_posix() == "main/0011C000.cpp":
+            # Sound RPC requests cannot be serviced without Sly's IOP sound
+            # module. Keep the matching body staged while the port supplies a
+            # synchronous, silent native service at this retail address.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 func_0011D968\(s32 id, s32 size, u8\* data\)(?=\n\{)",
+                "s32 decomp_func_0011D968(s32 id, s32 size, u8* data)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one sound RPC definition in " + rel.as_posix())
+            # The native port has no Sly IOP sound module. Keep the matching
+            # bank loader available in staged source while the port supplies
+            # a silent, synchronous implementation at its retail address.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 func_0011D140\(s32 a0, s32 a1\)(?=\n\{)",
+                "s32 decomp_func_0011D140(s32 a0, s32 a1)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one sound bank loader definition in " + rel.as_posix())
+        elif rel.as_posix() == "lib/00204000.cpp":
+            # Replace the IOP RPC wait with the native CD service; retain the
+            # retail body in staged source so it remains available for review.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 func_002040E8\(void\* arg\)(?=\n\{)",
+                "s32 decomp_func_002040E8(void* arg)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one IOP service-start definition in " +
+                                   rel.as_posix())
+        elif rel.as_posix() == "lib/001F8000.cpp":
+            # SIF RPC completion for the two sound bootstrap services has no
+            # IOP peer in the host build. Keep the matching implementation in
+            # staged source, and let a port-only synchronous boundary own the
+            # retail address.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 func_001F80C0\(Ctx_1F80C0\* self, s32 a1, s32 a2\)(?=\n\{)",
+                "s32 decomp_func_001F80C0(Ctx_1F80C0* self, s32 a1, s32 a2)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one SIF RPC definition in " + rel.as_posix())
+        elif rel.as_posix() == "main/001E4000.cpp":
+            # Several retail T217D globals have backing declarations truncated
+            # before their full host-used layouts. The native linker compacts
+            # these arrays, so fields such as inTime or the 57-point sparkle
+            # buffer overwrite the next object's vtable. Pad only this staged
+            # host copy to the layout size; leave decomp data unchanged.
+            for name, old_size, new_size in (
+                ("00272930", 572, 636),   # T217D_470: next retail slot is 0x280
+                ("002708E0", 592, 3180),  # T217D_3F0: size through pts[57]
+                ("00271558", 592, 3180),
+            ):
+                old_decl = f"u8 D_{name}[{old_size}] = {{0}};"
+                new_decl = f"u8 D_{name}[{new_size}] = {{0}};"
+                replacements = adapted.count(old_decl)
+                adapted = adapted.replace(old_decl, new_decl)
+                if replacements != 1:
+                    raise RuntimeError("expected one T217D host backing array " + name +
+                                       " in " + rel.as_posix())
+        elif rel.as_posix() == "main/00200000.cpp":
+            # The retail DMA table contains MMIO addresses. The native port
+            # owns separate host channel records, so route this lookup through
+            # the port service while retaining the matching body in staging.
+            adapted, replacements = re.subn(
+                r"(?m)^u32 func_002027A0\(u32 index\) \{[^\n]*\}",
+                "u32 decomp_func_002027A0(u32 index) { if (index >= 10) return 0; return D_00279340[index]; }",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags
+        if args.trace_functions and rel.parts[0] == "main":
+            # Keep library inline helpers eligible for normal code generation;
+            # instrumenting those class-heavy units can make GCC emit methods
+            # that the matching translation unit intentionally leaves inline.
+            unit_flags = flags + ["-finstrument-functions"]
         if rel.as_posix() == "main/0016C000.cpp":
             # Avoid depending on the host's optional 32-bit libc headers.
             unit_flags = flags + ["-Dfabsf=__builtin_fabsf"]
@@ -159,8 +284,10 @@ def main(argv=None):
         obj.parent.mkdir(parents=True, exist_ok=True)
         cmd = compiler + flags + [
             "-I", str(port), "-I", str(port / "runtime" / "include"),
-            "-c", str(src), "-o", str(obj),
         ]
+        if args.trace_functions:
+            cmd.append("-finstrument-functions")
+        cmd += ["-c", str(src), "-o", str(obj)]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode:
             backfill_failures.append((src.relative_to(port).as_posix(), proc.stderr))

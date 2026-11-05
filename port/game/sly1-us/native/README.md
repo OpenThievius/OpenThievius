@@ -13,12 +13,18 @@ separate working decomp checkout remains untouched. The host32 build compiles
 `func_00180398`, and `func_001F5CD0`. PR #53 adds typed script values,
 accessors, and object layouts, but no new US function matches and no matching
 definitions for `func_00109488` or `func_0015F320`. Against this snapshot, 84/84
-Sly units and 35/35 port backfills compile. The combined object provides 3,805
-of 4,806 catalogued function addresses and defines 722 of 788 direct-call
-frontier functions. The latest observed native run gets past those two
-backfilled functions, then hits missing `func_001FBE00` and a null indirect
-display callback. The window remains black; there is no title screen or
-playable scene yet.
+Sly units and 44/44 port backfill files compile. The combined object provides
+3,810 of 4,806 catalogued function addresses and defines 727 of 788 direct-call
+frontier functions. The native startup bridges now complete the two sound SIF
+bootstrap calls, suppress sound bank RPCs, and report the already-open disc as
+ready. Host staging pads the three undersized T217D backing arrays so native
+class initialization does not overwrite neighboring vtables. Port-only DMA
+channel lookups and waits now carry startup beyond both DMA callbacks; the
+startup worker continues through `func_0018B580` during an 8-second native run.
+The renderer accepts the submitted GIF traffic, but the ISO receives no sector
+reads and no game scene is visible yet. These IOP, sound, and DMA replacements
+remain separate from matching C; the matching `func_001F8290` implementation
+remains untouched in the decomp's `nonmatching/` directory.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
 
