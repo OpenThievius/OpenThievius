@@ -6,15 +6,18 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-current upstream snapshot is `3ef6157` from
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp), with
-no newer upstream commit available at the latest fetch. The host32 build
-compiles 84 selected Sly C++ units, including recent matching functions
-`func_001A0BA0`, `func_00180398`, and `func_001F5CD0`, plus 32 port-native
-backfill units. The combined object provides 3,802 of 4,806 catalogued function
-addresses and defines 719 of 787 direct-call frontier functions. The launcher
-opens its SDL window, reports missing `func_00109488` and `func_0015F320`, then
-remains in `func_001F6B60` without CD reads. The window is still black; there is no title screen or
+current upstream snapshot is `3ab5c70` (PR #53) from
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp); the
+separate working decomp checkout remains untouched. The host32 build compiles
+84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
+`func_00180398`, and `func_001F5CD0`. PR #53 adds typed script values,
+accessors, and object layouts, but no new US function matches and no matching
+definitions for `func_00109488` or `func_0015F320`. Against this snapshot, 84/84
+Sly units and 35/35 port backfills compile. The combined object provides 3,805
+of 4,806 catalogued function addresses and defines 722 of 788 direct-call
+frontier functions. The latest observed native run gets past those two
+backfilled functions, then hits missing `func_001FBE00` and a null indirect
+display callback. The window remains black; there is no title screen or
 playable scene yet.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
