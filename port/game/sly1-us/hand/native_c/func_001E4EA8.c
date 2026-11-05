@@ -19,6 +19,7 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
 void func_001DCEA0(void* self, void* reader);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 void func_001E4EA8(void* state);
+void func_00142ED0(f32 scale);
 
 void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
     u8* bytes = (u8*)block;
@@ -106,6 +107,8 @@ void func_001E4EA8(void* state) {
         sly1_native_loader_stage(12, (u32)object, (u32)reader);
         func_001DCEA0(object, reader);
         sly1_native_loader_stage(13, (u32)object, (u32)reader);
+        /* Retail resumes the game clock after its resource setup completes. */
+        func_00142ED0(1.0f);
     }
 
     func_001373D0(reader);

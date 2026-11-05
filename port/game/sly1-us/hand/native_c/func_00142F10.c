@@ -7,6 +7,11 @@ extern f32 D_00261850;
 extern f32 D_00261854;
 u64 sly1_native_monotonic_ticks(void);
 
+void func_00142ED0(f32 scale) {
+    D_00261850 = scale;
+    *(s32*)D_00261858 = scale > 0.0f ? 1 : 0;
+}
+
 void func_00142F10(void* clock) {
     u8* state = (u8*)clock;
     s64 now = (s64)sly1_native_monotonic_ticks();

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <errno.h>
 #include <time.h>
 
 namespace {
@@ -37,6 +38,19 @@ gaddr native_temp_top(gaddr floor) {
 }  // namespace
 
 extern "C" uint64_t game_sly1_native_monotonic_ticks(void) {
+    // The retail frame loop is paced by PS2 display interrupts. The native
+    // loop has no interrupt source, so pace this sole frame-clock caller at
+    // 60 Hz instead of letting the game clock run at host CPU speed.
+    struct timespec deadline{};
+    clock_gettime(CLOCK_MONOTONIC, &deadline);
+    deadline.tv_nsec += 16666667L;
+    if (deadline.tv_nsec >= 1000000000L) {
+        ++deadline.tv_sec;
+        deadline.tv_nsec -= 1000000000L;
+    }
+    while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline, nullptr) == EINTR) {
+    }
+
     struct timespec now{};
     if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
     constexpr uint64_t ticks_per_second = 294912000u;
