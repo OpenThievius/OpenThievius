@@ -62,6 +62,8 @@ func_0011B8A8	native_c/resource_value_parser.c
 func_0011A630	native_c/resource_value_parser.c
 func_0011A6C0	native_c/resource_value_parser.c
 func_0011A358	native_c/resource_value_parser.c
+func_0011A080	native_c/resource_value_parser.c
+func_0011EC40	native_c/resource_value_parser.c
 func_00137A60	native_c/func_00137A60.c
 func_001378A0	native_c/func_001378A0.c
 func_00137B90	native_c/stream_reader_scalar.c

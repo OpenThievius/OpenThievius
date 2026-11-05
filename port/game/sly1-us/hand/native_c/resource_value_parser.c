@@ -6,6 +6,8 @@
 void* func_0018D500(u32 size);
 void* func_0011BA28(void* reader);
 s32 func_00137C40(void* reader);
+s32 func_00137D10(void* reader);
+void func_0011E680(void* object, void* descriptor, void* reader);
 void* func_0011C240(void* pool);
 u8* func_001F5C0C(u8* destination, int value, int byte_count);
 
@@ -95,6 +97,30 @@ void* func_0011A358(void* output, s32 owner, s32 kind, void* body) {
     value[0] = 0xFFFFFFFFu;
     value[1] = 0x22;
     return output;
+}
+
+void func_0011A080(void* output, void* input, s32 context) {
+    u8 value[16];
+    s32 kind = *(s32*)input;
+    (void)context;
+    func_0011B008(value);
+    switch (kind) {
+    case 0: case 20: case 21: case 22: case 23: case 24: case 25: case 26:
+    case 27: case 29: case 32: case 33:
+        func_0011B0A8(value, input);
+        break;
+    default:
+        break;
+    }
+    func_0011B018(output, value);
+    func_0011B060(value, 2);
+}
+
+void func_0011EC40(void* object, void* reader) {
+    s32 id;
+    while ((id = func_00137D10(reader)) >= 0) {
+        func_0011E680(object, (void*)(0x002505D8u + ((u32)id << 5)), reader);
+    }
 }
 void func_00138518(void* reader);
 s32 func_0011A630(void);
