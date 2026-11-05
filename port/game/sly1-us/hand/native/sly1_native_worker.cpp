@@ -88,6 +88,21 @@ extern "C" void game_sly1_native_call_method(uint32_t address, uint32_t object) 
                                   &float_result, 0);
 }
 
+extern "C" uint32_t game_sly1_native_call_regs4(uint32_t address, uint32_t a0,
+                                                  uint32_t a1, uint32_t a2,
+                                                  uint32_t a3) {
+    if (address == 0 || openrac_guest_function_name(address) == nullptr) return 0;
+    const uint64_t integer_registers[8] = {a0, a1, a2, a3};
+    float float_registers[8]{};
+    const uint32_t arguments[4] = {a0, a1, a2, a3};
+    for (unsigned i = 0; i < 4; ++i) {
+        std::memcpy(&float_registers[i], &arguments[i], sizeof(float));
+    }
+    float float_result = 0.0f;
+    return static_cast<uint32_t>(openrac_guest_call_regs(
+        address, integer_registers, float_registers, &float_result, 0));
+}
+
 extern "C" int game_sly1_native_read_sectors(uint32_t sector, uint32_t count,
                                               uint32_t destination) {
     const int success = openrac_guest_disc_read(sector, count, destination);

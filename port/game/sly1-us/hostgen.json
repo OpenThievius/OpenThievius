@@ -12,6 +12,7 @@
     "openrac_guest_vif1_fifo_write",
     "sly1_native_call_constructor",
     "sly1_native_call_method",
+    "sly1_native_call_regs4",
     "sly1_native_read_sectors",
     "sly1_native_temp_begin",
     "sly1_native_temp_alloc",
