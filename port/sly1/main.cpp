@@ -198,6 +198,12 @@ int main(int argc, char** argv) {
                 std::uint32_t frame_top_kind = 0;
                 std::uint32_t frame_top_mode = 0;
                 std::uint32_t frame_top_state = 0;
+                std::uint32_t frame_top_flags = 0;
+                std::uint32_t frame_top_action = 0;
+                std::uint32_t frame_top_pending = 0;
+                std::uint32_t frame_top_timer_bits = 0;
+                std::uint32_t global_state_ptr = 0;
+                std::uint32_t global_state[10]{};
                 const std::uint32_t frame_count = frame_state[11];
                 if (frame_count > 0 && frame_count <= 8) {
                     std::memcpy(&frame_top,
@@ -221,6 +227,18 @@ int main(int argc, char** argv) {
                         std::memcpy(&frame_top_state,
                                     openrac_guest_base + frame_top_physical + 0x274u,
                                     sizeof(frame_top_state));
+                        std::memcpy(&frame_top_flags,
+                                    openrac_guest_base + frame_top_physical + 0x278u,
+                                    sizeof(frame_top_flags));
+                        std::memcpy(&frame_top_pending,
+                                    openrac_guest_base + frame_top_physical + 0x288u,
+                                    sizeof(frame_top_pending));
+                        std::memcpy(&frame_top_action,
+                                    openrac_guest_base + frame_top_physical + 0x27Cu,
+                                    sizeof(frame_top_action));
+                        std::memcpy(&frame_top_timer_bits,
+                                    openrac_guest_base + frame_top_physical + 0x254u,
+                                    sizeof(frame_top_timer_bits));
                         const std::uint32_t vtable_physical =
                             openrac_guest_ram_address(frame_top_vtable);
                         if (frame_top_vtable != 0 &&
@@ -231,6 +249,23 @@ int main(int argc, char** argv) {
                                         sizeof(frame_top_callback));
                         }
                     }
+                }
+                std::memcpy(&global_state_ptr, openrac_guest_base + 0x002623C0u,
+                            sizeof(global_state_ptr));
+                const std::uint32_t global_state_physical =
+                    openrac_guest_ram_address(global_state_ptr);
+                if (global_state_ptr != 0 && global_state_physical <= openrac_guest_ram_size &&
+                    0x1A00u <= openrac_guest_ram_size - global_state_physical) {
+                    std::memcpy(&global_state[0], openrac_guest_base + global_state_physical + 0x19D8u, 4);
+                    std::memcpy(&global_state[1], openrac_guest_base + global_state_physical + 0x19DCu, 4);
+                    std::memcpy(&global_state[2], openrac_guest_base + global_state_physical + 0x19E0u, 4);
+                    std::memcpy(&global_state[3], openrac_guest_base + global_state_physical + 0x19E4u, 4);
+                    std::memcpy(&global_state[4], openrac_guest_base + global_state_physical + 0x19E8u, 4);
+                    std::memcpy(&global_state[5], openrac_guest_base + global_state_physical + 0x19ECu, 4);
+                    std::memcpy(&global_state[6], openrac_guest_base + global_state_physical + 0x19F0u, 4);
+                    std::memcpy(&global_state[7], openrac_guest_base + global_state_physical + 0x19F4u, 4);
+                    std::memcpy(&global_state[8], openrac_guest_base + global_state_physical + 0x19F8u, 4);
+                    std::memcpy(&global_state[9], openrac_guest_base + global_state_physical + 0x19FCu, 4);
                 }
                 std::uint32_t menu_state[4]{};
                 std::memcpy(&menu_state[1], openrac_guest_base + 0x002701C8u,
@@ -509,6 +544,16 @@ int main(int argc, char** argv) {
                           << ",mode=0x" << frame_top_mode
                           << ",kind=0x" << frame_top_kind
                           << ",state=0x" << frame_top_state << std::dec
+                          << std::hex << ",flags=0x" << frame_top_flags
+                          << ",action=0x" << frame_top_action
+                          << ",pending=0x" << frame_top_pending
+                          << ",timer=0x" << frame_top_timer_bits
+                          << ",global=0x" << global_state_ptr << ':'
+                          << global_state[0] << ',' << global_state[1] << ','
+                          << global_state[2] << ',' << global_state[3] << ','
+                          << global_state[4] << ',' << global_state[5] << ','
+                          << global_state[6] << ',' << global_state[7] << ','
+                          << global_state[8] << ',' << global_state[9] << std::dec
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
                           << current_object << " menu=" << std::dec << menu_mode << ','
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
