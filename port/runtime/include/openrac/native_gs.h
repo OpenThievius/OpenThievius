@@ -44,6 +44,7 @@ void openrac_guest_gif_stream_write(const void* source, size_t size);
 /* Synchronously collect a guest DMAtag chain and queue its raw GIF packet data
  * for OpenRAC's native 2D renderer. */
 void openrac_native_renderer_submit_dma_chain(uint32_t source_address);
+void openrac_native_renderer_submit_gif_stream(uint32_t source_address);
 uint64_t openrac_native_renderer_dma_submit_count(void);
 uint64_t openrac_native_renderer_dma_accept_count(void);
 uint64_t openrac_native_renderer_dma_reject_count(void);

@@ -23,6 +23,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <sys/mman.h>
+#include <unistd.h>
 #include <vector>
 
 // The standalone Sly window renders straight to framebuffer 0 without MSAA.
@@ -80,11 +82,26 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
         size <= static_cast<std::size_t>(0x02000000u - physical);
     const bool in_scratchpad = physical >= 0x70000000u && physical <= 0x70004000u &&
         size <= static_cast<std::size_t>(0x70004000u - physical);
-    const bool in_native_storage =
-        ((physical >= 0x08000000u && physical <= 0x10000000u) ||
-         physical >= 0xf0000000u) &&
-        size <= static_cast<std::size_t>(0xffffffffu - physical);
+    const bool native_address =
+        (physical >= 0x08000000u && physical < 0x10000000u) ||
+        physical >= 0xf0000000u;
+    const bool in_native_storage = native_address &&
+        size <= static_cast<std::size_t>(0x100000000ull - physical);
     if (!in_ram && !in_scratchpad && !in_native_storage) return false;
+    if (in_native_storage && size != 0) {
+        const long page_size = ::sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) return false;
+        const std::uintptr_t begin = static_cast<std::uintptr_t>(physical);
+        const std::uintptr_t page_begin = begin - begin % static_cast<std::uintptr_t>(page_size);
+        const std::uintptr_t end = begin + size;
+        const std::size_t page_count =
+            (end - page_begin + static_cast<std::uintptr_t>(page_size) - 1) /
+            static_cast<std::uintptr_t>(page_size);
+        std::vector<unsigned char> resident(page_count);
+        if (::mincore(reinterpret_cast<void*>(page_begin), page_count *
+                          static_cast<std::size_t>(page_size), resident.data()) != 0)
+            return false;
+    }
     out = reinterpret_cast<const std::uint8_t*>(physical);
     return true;
 #else
@@ -94,45 +111,6 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
     out = openrac_guest_base + physical;
     return true;
 #endif
-}
-
-bool guest_gif_stream_size(std::uint32_t address, std::size_t max_bytes,
-                           std::size_t& stream_size) {
-    std::uint32_t cursor = guest_address(address);
-    stream_size = 0;
-    for (std::size_t tags = 0; tags < 65536; ++tags) {
-        const std::uint8_t* tag = nullptr;
-        if (!guest_span(cursor, 16, tag)) return false;
-        std::uint64_t control;
-        std::memcpy(&control, tag, sizeof(control));
-        const std::size_t loops = control & 0x7fffu;
-        const bool eop = (control & 0x8000u) != 0;
-        const unsigned format = (control >> 58) & 3u;
-        const std::size_t register_count = (control >> 60) & 0xfu;
-        const std::size_t registers = register_count == 0 ? 16u : register_count;
-        std::size_t payload_size = 0;
-        switch (format) {
-        case 0: // PACKED: one 128-bit value per loop/register pair.
-            payload_size = loops * registers * 16;
-            break;
-        case 1: // REGLIST: two 64-bit values per 128-bit transfer.
-            payload_size = ((loops * registers + 1) / 2) * 16;
-            break;
-        case 2: // IMAGE: one 128-bit value per loop.
-            payload_size = loops * 16;
-            break;
-        default:
-            return false;
-        }
-        if (stream_size > max_bytes - 16 ||
-            payload_size > max_bytes - stream_size - 16) return false;
-        const std::size_t packet_size = 16 + payload_size;
-        if (!guest_span(cursor, packet_size, tag)) return false;
-        stream_size += packet_size;
-        if (eop) return true;
-        cursor += static_cast<std::uint32_t>(packet_size);
-    }
-    return false;
 }
 
 }
@@ -216,19 +194,6 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
         tag_address = next;
     }
     if (!ok) {
-        std::size_t gif_size = 0;
-        if (guest_gif_stream_size(source_address, kMaxBytes, gif_size)) {
-            const std::uint8_t* gif = nullptr;
-            if (guest_span(source_address, gif_size, gif)) {
-                std::scoped_lock lock(g_packets_mutex);
-                if (gif_size <= kMaxBytes - g_packets.size()) {
-                    g_packets.insert(g_packets.end(), gif, gif + gif_size);
-                    g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
-                    g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
-                    return;
-                }
-            }
-        }
         g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
         const unsigned notice = g_dma_reject_notices.fetch_add(1, std::memory_order_relaxed);
         if (notice < 12) {
@@ -269,6 +234,43 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     }
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);
+}
+
+extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_address) {
+    constexpr std::size_t kMaxBytes = 16 * 1024 * 1024;
+    g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);
+    const char* failure = "unknown";
+    const std::uint8_t* first_tag = nullptr;
+    std::uint64_t first_lo = 0;
+    std::uint64_t first_hi = 0;
+    if (!guest_span(source_address, 16, first_tag)) {
+        failure = "tag span";
+    } else {
+        std::memcpy(&first_lo, first_tag, 8);
+        std::memcpy(&first_hi, first_tag + 8, 8);
+    }
+    const std::size_t qwc = static_cast<std::size_t>(first_lo & 0x7fffu) + 1;
+    const std::size_t gif_size = qwc * 16;
+    const std::uint8_t* gif = nullptr;
+    if (failure == "unknown" && gif_size > kMaxBytes) failure = "byte limit";
+    if (failure == "unknown" && !guest_span(source_address, gif_size, gif))
+        failure = "packet span";
+    if (failure != "unknown") {
+        g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+        const unsigned notice = g_dma_reject_notices.fetch_add(1, std::memory_order_relaxed);
+        if (notice < 12)
+            openrac::log::warn("native GIF stream rejected: source={:#010x} tag={:#018x}/{:#018x} reason={}",
+                               source_address, first_lo, first_hi, failure);
+        return;
+    }
+    std::scoped_lock lock(g_packets_mutex);
+    if (gif_size > kMaxBytes - g_packets.size()) {
+        g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    g_packets.insert(g_packets.end(), gif, gif + gif_size);
+    g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
+    g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
 }
 
 extern "C" std::uint64_t openrac_native_renderer_dma_submit_count(void) {
