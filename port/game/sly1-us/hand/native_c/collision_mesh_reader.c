@@ -3,6 +3,7 @@
 #include "common.h"
 
 s32 func_00137B90(void* reader);
+s32 func_00137C40(void* reader);
 s32 func_00137BE0(void* reader);
 s32 func_00137D10(void* reader);
 f32 func_00137DF8(void* reader);
@@ -13,8 +14,43 @@ static s32 stream_failed(void* reader) {
     return *(s32*)((u8*)reader + 0x1C) < 0;
 }
 
+static s32 read_u16(void* reader) {
+    u8* bytes = (u8*)reader;
+    if (*(s32*)(bytes + 0x1C) < 2) return func_00137D10(reader);
+    const u8* cursor = (const u8*)*(u32*)(bytes + 0x18);
+    const s32 value = (s32)cursor[0] | ((s32)cursor[1] << 8);
+    *(u32*)(bytes + 0x18) += 2u;
+    *(s32*)(bytes + 0x1C) -= 2;
+    return value;
+}
+
+static u32 read_u32(void* reader) {
+    u8* bytes = (u8*)reader;
+    if (*(s32*)(bytes + 0x1C) < 4) return func_00137C40(reader);
+    const u8* cursor = (const u8*)*(u32*)(bytes + 0x18);
+    const u32 value = (u32)cursor[0] | ((u32)cursor[1] << 8) |
+                      ((u32)cursor[2] << 16) | ((u32)cursor[3] << 24);
+    *(u32*)(bytes + 0x18) += 4u;
+    *(s32*)(bytes + 0x1C) -= 4;
+    return value;
+}
+
+static void read_bytes(void* reader, void* destination, s32 size) {
+    u8* bytes = (u8*)reader;
+    s32 remaining = *(s32*)(bytes + 0x1C);
+    if (remaining < size) {
+        func_00137E70(reader, destination);
+        return;
+    }
+    const u8* cursor = (const u8*)*(u32*)(bytes + 0x18);
+    u8* output = (u8*)destination;
+    for (s32 i = 0; i < size; ++i) output[i] = cursor[i];
+    *(u32*)(bytes + 0x18) += (u32)size;
+    *(s32*)(bytes + 0x1C) = remaining - size;
+}
+
 static s32 read_count(void* reader, s32 limit) {
-    const s32 count = func_00137BE0(reader);
+    const s32 count = read_u16(reader);
     return count >= 0 && count <= limit ? count : -1;
 }
 
@@ -53,9 +89,9 @@ void func_00137FB0(void* reader, void* mesh) {
     u32 link_cursor = *(u32*)(out + 0x18);
     for (s32 i = 0; i < face_count; ++i) {
         u8* face = (u8*)*(u32*)(out + 0x10) + (u32)i * 0x20u;
-        const s16 a = (s16)func_00137D10(reader);
-        const s16 b = (s16)func_00137D10(reader);
-        const s16 c = (s16)func_00137D10(reader);
+        const s16 a = (s16)read_u16(reader);
+        const s16 b = (s16)read_u16(reader);
+        const s16 c = (s16)read_u16(reader);
         if (stream_failed(reader)) return;
         const u8* vertices = (const u8*)*(u32*)(out + 0x08);
         if (a >= 0 && b >= 0 && c >= 0 &&
@@ -79,8 +115,10 @@ void func_00137FB0(void* reader, void* mesh) {
 
         /* Retail consumes a scalar and a 12-byte face vector before the byte
          * link count. The scalar is faceData[i], the vector is faceData[i]+4. */
-        *(f32*)((u8*)*(u32*)(out + 0x1C) + (u32)i * 0x10u) = func_00137DF8(reader);
-        func_00137E70(reader, (u8*)*(u32*)(out + 0x1C) + (u32)i * 0x10u + 4u);
+        union { u32 bits; f32 value; } face_scalar;
+        face_scalar.bits = read_u32(reader);
+        *(f32*)((u8*)*(u32*)(out + 0x1C) + (u32)i * 0x10u) = face_scalar.value;
+        read_bytes(reader, (u8*)*(u32*)(out + 0x1C) + (u32)i * 0x10u + 4u, 12);
         if (stream_failed(reader)) return;
         const s32 edge_count = func_00137B90(reader);
         if (stream_failed(reader)) return;
@@ -89,7 +127,17 @@ void func_00137FB0(void* reader, void* mesh) {
         u32 first = 0;
         u32 previous = 0;
         for (s32 edge = 0; edge < edge_count; ++edge) {
-            const s16 edge_index = (s16)func_00137D10(reader);
+            u8* reader_bytes = (u8*)reader;
+            s32 remaining = *(s32*)(reader_bytes + 0x1C);
+            s16 edge_index;
+            if (remaining >= 2) {
+                const u8* encoded = (const u8*)*(u32*)(reader_bytes + 0x18);
+                edge_index = (s16)((u16)encoded[0] | ((u16)encoded[1] << 8));
+                *(u32*)(reader_bytes + 0x18) += 2u;
+                *(s32*)(reader_bytes + 0x1C) = remaining - 2;
+            } else {
+                edge_index = (s16)func_00137D10(reader);
+            }
             if (stream_failed(reader)) return;
             if ((u32)(link_cursor - *(u32*)(out + 0x18)) >= (u32)link_capacity * 0x10u) {
                 /* Keep consuming the retail stream if malformed data exceeds
