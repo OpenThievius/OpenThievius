@@ -107,6 +107,44 @@ def main(argv=None):
             # host_abi.h, where they are represented with long long.
             adapted = adapted.replace("typedef signed long s64;\n", "")
             adapted = adapted.replace("typedef unsigned long u64;\n", "")
+            # The display worker publishes its current packet through a
+            # shared global, then dereferences it twice while the main thread
+            # may clear that global during a synchronous frame handoff. Keep
+            # this iteration's pointer local, while preserving the published
+            # pointer for the matching consumer.
+            old_frame = "        D_0026231C = &D_00262320[D_00262314];"
+            new_frame = (
+                "        G262320* frame = &D_00262320[D_00262314];\n"
+                "        D_0026231C = frame;"
+            )
+            if adapted.count(old_frame) != 1:
+                raise RuntimeError("expected one display frame publication in " + rel.as_posix())
+            adapted = adapted.replace(old_frame, new_frame)
+            for member in ("i0C", "i04"):
+                old_use = "((G262320*)D_0026231C)->" + member
+                if adapted.count(old_use) != 1:
+                    raise RuntimeError("expected one display frame read " + member +
+                                       " in " + rel.as_posix())
+                adapted = adapted.replace(old_use, "frame->" + member)
+            # The memory-card cleanup iterates an EE list containing valid
+            # low-address nodes. Translate those pointers to the host's
+            # mapped low-memory shadow before dereferencing them.
+            old = (
+                "        Node_15EFE8* obj = *(Node_15EFE8**)it->link;\n"
+                "        it->link = (u8*)obj + it->offset;\n"
+                "        return obj;"
+            )
+            new = (
+                "        Node_15EFE8* obj = *(Node_15EFE8**)it->link;\n"
+                "        u32 address = (u32)obj;\n"
+                "        if (address != 0 && address < 0x10000)\n"
+                "            obj = (Node_15EFE8*)(address + 0x10000);\n"
+                "        it->link = (u8*)obj + it->offset;\n"
+                "        return obj;"
+            )
+            if old not in adapted:
+                raise RuntimeError("expected low-address list iterator in " + rel.as_posix())
+            adapted = adapted.replace(old, new)
         elif rel.as_posix() == "main/file_1C05D0.cpp":
             # The PS2 compiler lays each variadic argument in an 8-byte slot.
             # Native i386 callers use 4-byte slots, so stage the equivalent
@@ -174,6 +212,14 @@ def main(argv=None):
                 if replacements != 1:
                     raise RuntimeError("expected one DMA wait definition " + address +
                                        " in " + rel.as_posix())
+            # Native CD reads complete synchronously. Preserve the matching
+            # IOP status routine for reference, while the port reports its
+            # host read result at this retail address.
+            adapted, replacements = re.subn(
+                r"(?m)^s32 func_00203D90\(void\)(?=\n\{)",
+                "s32 decomp_func_00203D90(void)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one CD status definition in " + rel.as_posix())
         elif rel.as_posix() == "main/file_184D78.cpp":
             # Replace only the IOP module/CDVD bootstrap at its retail address;
             # keep the original matching body in the staged source for review.
@@ -251,6 +297,32 @@ def main(argv=None):
                 if replacements != 1:
                     raise RuntimeError("expected one T217D host backing array " + name +
                                        " in " + rel.as_posix())
+        elif rel.as_posix() == "main/00150000.cpp":
+            # Native processes cannot map valid EE low-memory addresses below
+            # the host mmap_min_addr. Keep the matching list-offset helper in
+            # the staged source and let a port-only boundary translate those
+            # low results into the corresponding mapped guest-RAM shadow.
+            adapted, replacements = re.subn(
+                r"(?m)^u32 func_00152460\(List01\* p, u32 value\)(?=\n\{)",
+                "u32 func_00152460(List01* p, u32 value);\n"
+                "u32 decomp_func_00152460(List01* p, u32 value)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one list address helper in " + rel.as_posix())
+            adapted, replacements = re.subn(
+                r"(?m)^void func_00152470\(List01\* self, u32 value\)(?=\n\{)",
+                "void func_00152470(List01* self, u32 value);\n"
+                "void decomp_func_00152470(List01* self, u32 value)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one list append definition in " + rel.as_posix())
+        elif rel.as_posix() == "main/001B4000.cpp":
+            # The renderer's first cleanup can run before a world exists.
+            # Keep the matching pool insertion body staged and let the native
+            # boundary safely ignore returns to the absent world's pool.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_001B5F28\(Pool6C\* list, T2195\* item\)(?=\n\{)",
+                "void decomp_func_001B5F28(Pool6C* list, T2195* item)", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one world pool insertion in " + rel.as_posix())
         elif rel.as_posix() == "main/00200000.cpp":
             # The retail DMA table contains MMIO addresses. The native port
             # owns separate host channel records, so route this lookup through

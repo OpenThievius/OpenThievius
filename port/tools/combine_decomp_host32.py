@@ -31,7 +31,11 @@ def nm_function_definitions(nm, path):
     symbols = set()
     for line in result.stdout.splitlines():
         fields = line.split()
-        if len(fields) >= 3 and fields[-2] in ("T", "t", "W", "w"):
+        # Only externally callable definitions can represent retail function
+        # entries. GCC may split a function into local `.cold`/`.part` clones;
+        # counting those as competing definitions hides the real entry from
+        # the native address map.
+        if len(fields) >= 3 and fields[-2] in ("T", "W"):
             symbols.add(fields[-1])
     return symbols
 
