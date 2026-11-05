@@ -404,10 +404,43 @@ extern "C" __attribute__((noreturn)) void sly1_missing_function(
     write_hex("native host32: third argument ", (int)argument2);
     if (address == 0x00162890u && argument1 >= 0x10000000u &&
         argument1 < 0xF0000000u) {
+        if (argument0 >= 0x00100000u && argument0 < 0x02100000u) {
+            const auto* block = reinterpret_cast<volatile const u32*>(argument0);
+            write_hex("native host32: GLOBSET list count ", (int)block[0]);
+            write_hex("native host32: GLOBSET record count ", (int)block[3]);
+            write_hex("native host32: GLOBSET pose count ", (int)block[16]);
+            if (block[3] != 0 && block[4] >= 0x00100000u &&
+                block[4] < 0x02100000u) {
+                for (u32 i = 0; i < block[3] && i < 6; ++i) {
+                    const auto* record = reinterpret_cast<volatile const u32*>(
+                        block[4] + i * 0x70u);
+                    write_hex("native host32: GLOB flags ", (int)record[26]);
+                    write_hex("native host32: GLOB nested count ", (int)record[22]);
+                    if (record[22] != 0 && record[23] >= 0x00100000u &&
+                        record[23] < 0x02100000u) {
+                        const auto* nested = reinterpret_cast<volatile const u32*>(record[23]);
+                        for (u32 j = 0; j < record[22] && j < 3; ++j) {
+                            const auto* entry = nested + j * 20;
+                            write_hex("native host32: nested type ", (int)entry[5]);
+                            write_hex("native host32: nested reference ", (int)entry[6]);
+                            write_hex("native host32: nested reference count ", (int)entry[9]);
+                        }
+                    }
+                }
+            }
+        }
         const auto* reader = reinterpret_cast<volatile const u32*>(argument1);
         const u32 cursor = reader[6];
+        write_hex("native host32: reader flags ", (int)reader[0]);
+        write_hex("native host32: reader mode ", (int)reader[1]);
+        write_hex("native host32: reader end ", (int)reader[2]);
+        write_hex("native host32: reader start ", (int)reader[3]);
         write_hex("native host32: reader cursor ", (int)cursor);
         write_hex("native host32: reader remaining ", (int)reader[7]);
+        write_hex("native host32: reader next ", (int)reader[8]);
+        write_hex("native host32: reader next count ", (int)reader[9]);
+        write_hex("native host32: reader f28 ", (int)reader[10]);
+        write_hex("native host32: reader f2c ", (int)reader[11]);
         if (cursor >= 0x10000000u && cursor < 0xF0000000u) {
             const auto* bytes = reinterpret_cast<volatile const u8*>(cursor);
             for (u32 i = 0; i < 16; ++i)
@@ -429,6 +462,33 @@ extern "C" __attribute__((noreturn)) void sly1_missing_function(
     }
     syscall1(1, 127);
     __builtin_unreachable();
+}
+
+extern "C" void sly1_port_trace_reader(u32 stage, void* reader_ptr) {
+    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
+    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    const auto* reader = reinterpret_cast<volatile const u32*>(reader_ptr);
+    write_hex("native host32: GLOBSET reader stage ", (int)stage);
+    write_hex("native host32: GLOBSET reader cursor ", (int)reader[6]);
+    write_hex("native host32: GLOBSET reader remaining ", (int)reader[7]);
+}
+
+extern "C" void sly1_port_trace_nested_counts(
+    u32 count0, u32 count1, u32 count2, u32 count3, u32 count4) {
+    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
+    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    write_hex("native host32: nested count 0 ", (int)count0);
+    write_hex("native host32: nested count 1 ", (int)count1);
+    write_hex("native host32: nested count 2 ", (int)count2);
+    write_hex("native host32: nested count 3 ", (int)count3);
+    write_hex("native host32: nested count 4 ", (int)count4);
+}
+
+extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
+    const char* enabled = std::getenv("OPENRAC_STARTUP_TRACE");
+    if (enabled == nullptr || enabled[0] == 0 || enabled[0] == '0') return;
+    write_hex("native host32: GLOBSET value tag ", (int)tag);
+    write_hex("native host32: GLOBSET value ", (int)value);
 }
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
