@@ -469,10 +469,15 @@ The SDL frontend's pressure-mode pad report now feeds port-only Sly controller
 setup and button-edge polling backfills. The native frame clock uses a 60 Hz
 host cadence, and the native synchronous resource path retires its pending-load
 gate. Startup initializes the frame-state object and global game-manager
-vtables. These changes remain in `hand/native_c` and the host pad bridge, apart
-from matching decompilation code. The current hostgen build compiles and links
-138 C units. The native display worker submits hundreds of initialization GIF
-chains, and the startup trace reaches frame state 3 with the loader gate clear.
-However, `active_level` remains zero and the renderer receives no geometry.
-The port is not playable; scene activation, resource-to-scene decoding,
-rendering, audio and further platform services remain.
+vtables. Recent `hand/native_c` backfills initialize the title/menu object,
+request its first page, push it onto the overlay stack, and open it. The trace
+now advances the frame-state object from state 3 to state 5 and keeps its overlay
+stack stable at two entries; this fixed repeated menu insertion and frame-state
+corruption. These remain port-only implementations, apart from matching
+decompilation code. The current hostgen build compiles and links 143 C units
+(171 translated functions). The native display worker submits hundreds of
+initialization GIF chains, but the window is still black: the current scene
+pointer is zero, no scene geometry reaches the renderer, and `func_001936A0`
+still has no C implementation in the port. The port is not playable; title
+page population, scene activation, resource-to-scene decoding, rendering,
+audio and further platform services remain.
