@@ -27,12 +27,18 @@ OPENRAC_SPDX = "SPDX-License-Identifier: GPL-3.0-or-later"
 NEEDS_SPDX = {".py", ".sh", ".c", ".cpp", ".h", ".hpp", ".s", ".inc", ".ld"}
 LOCAL_RUNTIME = {
     "port/runtime/disc_image.cpp", "port/runtime/dma.cpp", "port/runtime/gs_dma.cpp",
-    "port/runtime/sif.cpp",
+    "port/runtime/gs_stream.cpp", "port/runtime/sdl_renderer.cpp",
+    "port/runtime/sif.cpp", "port/runtime/sly1_bootstrap.cpp",
+    "port/runtime/sly1_format.cpp", "port/runtime/sly1_timer.cpp",
+    "port/runtime/vif1_dma.cpp", "port/runtime/vu1_native.cpp",
     "port/runtime/include/openrac/disc_image.h",
     "port/runtime/include/openrac/native_dma.h",
     "port/runtime/include/openrac/native_gs.h",
     "port/runtime/include/openrac/native_sif.h",
+    "port/runtime/include/openrac/native_vu1.h",
+    "port/runtime/include/openrac/native_window.h",
 }
+LOCAL_PLATFORM = {"port/platform/sly_input.cpp", "port/platform/sly_input.h"}
 
 
 def main():
@@ -42,7 +48,9 @@ def main():
         if path.is_file() and path.suffix in NEEDS_SPDX:
             header = path.read_text(errors="replace")[:400]
             imported = rel.startswith(("port/tools/hostgen/", "tools/openrac_common/",
-                                       "port/common/", "port/runtime/")) and rel not in LOCAL_RUNTIME
+                                       "port/common/", "port/platform/", "port/renderer/",
+                                       "port/runtime/")) and rel not in LOCAL_RUNTIME
+            imported = imported and rel not in LOCAL_PLATFORM
             expected = OPENRAC_SPDX if imported else SPDX
             if expected not in header:
                 errors.append("%s: no '%s' line at the top" % (rel, expected))

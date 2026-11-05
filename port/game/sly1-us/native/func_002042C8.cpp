@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Native replacement for the Sly libpad port-open and query boundary.
 // Retail forwards these requests to padman through SIF RPC. The native port
 // reads a DualShock-compatible report from its SDL input layer instead.

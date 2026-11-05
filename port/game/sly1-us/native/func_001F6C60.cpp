@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Native implementations of the two retail GS interrupt-mask syscall
 // wrappers. The shared host runtime owns this mask while SDL presents frames.
 extern "C" unsigned long long openrac_guest_kernel_syscall(
