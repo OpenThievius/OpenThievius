@@ -19,7 +19,8 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
     void* attachment;
     void* owner_list;
 
-    if (type < 0 || type >= 0x200 || (type != 0x6C && owner == 0)) return 0;
+    /* D_00247448 is the 149-entry retail descriptor table (through 0x94). */
+    if (type < 0 || type >= 0x95 || (type != 0x6C && owner == 0)) return 0;
 
     descriptor_address = *(u32*)(0x00247448u + (u32)type * 4u);
     if (descriptor_address == 0) return 0;

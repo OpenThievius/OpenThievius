@@ -109,7 +109,7 @@ extern "C" void func_001DCEA0(void* self, void* reader) {
     func_001384A0(reader, object + 0x2314);
     func_00138550(reader, object + 0x1D74);
     func_001B3040(reader);
-    func_0011ECB8(self, 0, reader);
+    func_0011ECB8(D_00261990, self, reader);
     func_001DBA38(reader);
 
     if (*(s32*)(object + 0x1D70) >= 0) func_001BE268();
