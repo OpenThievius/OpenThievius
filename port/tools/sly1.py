@@ -91,18 +91,83 @@ def prepare_c_view(source, version):
     # otherwise readable C units and silently replace their functions with
     # no-C stubs. The upstream checkout remains read-only.
     source_includes = source / "include"
+    header_texts = {}
     for header in sorted(source_includes.rglob("*")):
         if not header.is_file() or header.suffix not in (".h", ".hpp", ".inc"):
             continue
+        header_text = header.read_text(encoding="utf-8")
+        # The C-like decomp headers use C++ inheritance and one-line accessors.
+        # Keep the upstream checkout untouched; convert those constructs only
+        # in the disposable C staging tree below.
+        header_text = re.sub(
+            r"^\s*[^\n{};]+\([^\n{};]*\)\s*(?:const\s*)?\{[^\n{}]*\}\s*$\n?",
+            "",
+            header_text,
+            flags=re.MULTILINE,
+        )
+        header_texts[header] = header_text
+
+    def struct_bodies(text):
+        """Find complete named struct bodies, including nested aggregates."""
+        result = {}
+        start_re = re.compile(
+            r"\bstruct\s+(?:__attribute__\s*\(\(.*?\)\)\s*)?"
+            r"([A-Za-z_]\w*)(?:\s*:\s*[A-Za-z_]\w*)?\s*\{"
+        )
+        for match in start_re.finditer(text):
+            depth = 1
+            pos = match.end()
+            body_start = pos
+            while pos < len(text) and depth:
+                if text[pos] == "{":
+                    depth += 1
+                elif text[pos] == "}":
+                    depth -= 1
+                pos += 1
+            if depth == 0:
+                result[match.group(1)] = text[body_start:pos - 1]
+        return result
+
+    inheritance = re.compile(
+        r"(\bstruct\s+[A-Za-z_]\w*)\s*:\s*([A-Za-z_]\w*)\s*\{"
+    )
+    derived = {}
+    for text in header_texts.values():
+        for match in inheritance.finditer(text):
+            tag = re.search(r"struct\s+([A-Za-z_]\w*)$", match.group(1)).group(1)
+            derived[tag] = match.group(2)
+    ready = set(derived.values()) - set(derived)
+    for _ in range(8):
+        base_bodies = struct_bodies("\n".join(header_texts.values()))
+        changed = False
+        flattened = set()
+        for header, header_text in list(header_texts.items()):
+            def inline_base(match):
+                nonlocal changed
+                base = match.group(2)
+                body = base_bodies.get(base)
+                if body is None or base not in ready:
+                    return match.group(0)
+                tag = re.search(r"struct\s+([A-Za-z_]\w*)$", match.group(1)).group(1)
+                flattened.add(tag)
+                changed = True
+                return match.group(1) + " {\n    struct {" + body + "\n    };"
+            header_texts[header] = inheritance.sub(inline_base, header_text)
+        ready.update(flattened)
+        if not changed:
+            break
+
+    for header, header_text in header_texts.items():
         target = staged / "include" / header.relative_to(source_includes)
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(header, target)
+        target.write_text(header_text, encoding="utf-8")
     shared_tags = set()
     for header in sorted((staged / "include").rglob("*")):
         if not header.is_file() or header.suffix not in (".h", ".hpp", ".inc"):
             continue
         shared_tags.update(re.findall(
-            r"\b(struct|union|enum)\s+([A-Za-z_]\w*)\s*(?=;|\{)",
+            r"\b(struct|union|enum)\s+(?:__attribute__\s*\(\(.*?\)\)\s*)?"
+            r"([A-Za-z_]\w*)\s*(?=;|\{)",
             header.read_text(encoding="utf-8")))
     function_table = (source / "config" / version / "functions.tsv").read_text(encoding="utf-8").splitlines()
     catalogue_rows = []
@@ -123,6 +188,21 @@ def prepare_c_view(source, version):
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
                 for kind, tag in all_tags)
+            text = re.sub(
+                r"([A-Za-z_]\w*)->root03\(\)",
+                r"((struct C03*)((struct C02*)\1)->root)",
+                text,
+            )
+            text = re.sub(
+                r"([A-Za-z_]\w*)->desc(\d+)\(\)",
+                r"((const struct Desc\2*)((struct C01*)\1)->desc)",
+                text,
+            )
+            text = re.sub(
+                r"(\([^;{}]+\))->desc(\d+)\(\)",
+                r"((const struct Desc\2*)((struct C01*)\1)->desc)",
+                text,
+            )
             (out_dir / (cpp.stem + ".c")).write_text(prelude + text, encoding="utf-8")
 
     # Port-owned functional replacements stay outside sly1-decomp. Hostgen
