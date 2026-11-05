@@ -104,6 +104,8 @@ func_0011EC40	native_c/resource_value_parser.c
 func_0011E680	native_c/resource_descriptors.c
 func_00137A60	native_c/func_00137A60.c
 func_001378A0	native_c/func_001378A0.c
+func_001377C0	native_c/resource_stream_refill.c
+func_00137820	native_c/resource_stream_refill.c
 func_00137FB0	native_c/collision_mesh_reader.c
 func_00160E80	native_c/collision_mesh_copy.c
 func_00160EA0	native_c/collision_mesh_copy.c
