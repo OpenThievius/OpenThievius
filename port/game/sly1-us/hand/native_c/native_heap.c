@@ -9,10 +9,16 @@ u8* func_001F5C0C(u8* destination, int value, int byte_count);
 
 void* func_0018D500(s32 size) {
     u32 current;
-    if (size == 0) return 0;
+    u32 allocation;
+    const u32 heap_base = 0xE0C00000u;
+    const u32 heap_limit = heap_base + 0x02000000u;
+    if (size <= 0) return 0;
 
     current = D_002C2A1C;
-    D_002C2A1C = current + (((u32)size + 15u) & ~15u);
+    allocation = ((u32)size + 15u) & ~15u;
+    if (current < heap_base || current > heap_limit || allocation > heap_limit - current)
+        return 0;
+    D_002C2A1C = current + allocation;
     return (void*)current;
 }
 

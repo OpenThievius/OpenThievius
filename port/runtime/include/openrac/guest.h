@@ -69,7 +69,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_SCRATCHPAD 0x70000000u
 #define GUEST_SCRATCHPAD_SIZE 0x00004000u /* 16 KB */
 #define GUEST_PORT 0xE0000000u
-#define GUEST_PORT_SIZE 0x01000000u /* 16 MB */
+#define GUEST_PORT_SIZE 0x04000000u /* 64 MB; includes the native 32 MB game heap */
 #define GUEST_STACK_TOP (GUEST_PORT + 0x00100000u)
 #define GUEST_STACK_BOTTOM GUEST_PORT
 #define GUEST_STRINGS (GUEST_PORT + 0x00100000u)
