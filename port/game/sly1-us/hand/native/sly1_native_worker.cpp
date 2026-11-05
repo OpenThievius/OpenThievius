@@ -134,6 +134,18 @@ extern "C" uint32_t game_sly1_native_call_regs4(uint32_t address, uint32_t a0,
         address, integer_registers, float_registers, &float_result, 0));
 }
 
+extern "C" float game_sly1_native_call_f32(uint32_t address, uint32_t a0,
+                                              uint32_t a1, uint32_t a2,
+                                              uint32_t a3, float f12, float f14) {
+    if (address == 0 || openrac_guest_function_name(address) == nullptr) return 0.0f;
+    const uint64_t integer_registers[8] = {a0, a1, a2, a3};
+    const float float_registers[8] = {f12, f14};
+    float result = 0.0f;
+    (void)openrac_guest_call_regs(address, integer_registers, float_registers,
+                                  &result, 1);
+    return result;
+}
+
 extern "C" int game_sly1_native_read_sectors(uint32_t sector, uint32_t count,
                                               uint32_t destination) {
     const int success = openrac_guest_disc_read(sector, count, destination);
