@@ -154,6 +154,17 @@ def main(argv=None):
             if old not in adapted:
                 raise RuntimeError("expected low-address list iterator in " + rel.as_posix())
             adapted = adapted.replace(old, new)
+        elif rel.as_posix() == "main/001E8000.cpp":
+            # Retail's trigonometry helper receives the angle in the first
+            # argument slot, followed by the sine and cosine output pointers.
+            # The decomp body models the mixed EE GPR/FPU argument placement
+            # as (outputs, angle); on i386 that C++ signature reverses the
+            # actual host stack layout used by its angle-first callers.
+            old_signature = "void func_001EAD88(f32* sinOut, f32* cosOut, f32 angle)"
+            new_signature = "void func_001EAD88(f32 angle, f32* sinOut, f32* cosOut)"
+            if adapted.count(old_signature) != 1:
+                raise RuntimeError("expected one EAD88 definition in " + rel.as_posix())
+            adapted = adapted.replace(old_signature, new_signature)
         elif rel.as_posix() == "main/file_1C05D0.cpp":
             # The PS2 compiler lays each variadic argument in an 8-byte slot.
             # Native i386 callers use 4-byte slots, so stage the equivalent

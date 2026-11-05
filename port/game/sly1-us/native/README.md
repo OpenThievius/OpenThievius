@@ -29,12 +29,12 @@ GIF packets separately from DMAC tag chains. Native host-pointer spans are
 checked against mapped pages before the renderer reads them. A five-second
 SDL run on 2026-11-05 opened a window and accepted two 16-byte display packets,
 but remained black. The newer freestanding host32 diagnostic maps the US ELF
-and ISO, parses the common GLOBSET records, and enters nested scene objects;
-it currently faults in a later transform calculation because the position
-reader and vector evaluator backfills still use default outputs. The port is
-not playable yet. These runtime services and functional C backfills remain
-separate from matching C; the matching `func_001F8290` implementation remains
-untouched in the decomp's `nonmatching/` directory.
+and ISO, parses the common GLOBSET records, and enters nested scene objects.
+Its startup path now passes the position transforms and stops at the next
+unresolved retail call. The port is not playable yet. These runtime services
+and functional C backfills remain separate from matching C; the matching
+`func_001F8290` implementation remains untouched in the decomp's
+`nonmatching/` directory.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
 
@@ -107,3 +107,12 @@ and currently defaults its result to false. `func_0011F6B0.cpp` initializes
 optional track output buffers but does not evaluate the track curves. These
 are explicit startup fallbacks; they need full math translations or matching
 decompilation before position-driven gameplay can work.
+
+`func_00189150.cpp` translates the three-vector transform previously executed
+by the EE VU0 macro into scalar host math. The host staging pass also adjusts
+the `func_001EAD88` definition to the angle-first calling convention used by
+its native callers; neither change modifies the decompilation checkout.
+
+`func_00188D28.cpp` supplies the next matrix-to-axis-angle step using
+scalar host math. Both transform functions remain port-only backfills until
+matching decompilation code replaces them.
