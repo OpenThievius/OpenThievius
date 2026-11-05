@@ -24,6 +24,7 @@ extern f32 D_00276650;
 extern u8 D_00275B50[8];
 extern u8 D_00262988[];
 extern u8 D_002629A8[];
+extern u8 D_00275AF0[];
 u8* func_001F5C0C(u8* destination, s32 value, s32 byte_count);
 
 void func_001E0848(void* self, u32 mode) {
@@ -53,6 +54,15 @@ s32 func_001E8878(s32 enabled, u32 value) {
 
 void func_001E88B0(void) {
     (void)func_001E8878(1, 0xFFFFu);
+}
+
+/* Static constructor for D_00275AF0 (Ctor_1E4E38 in sly1-decomp). */
+void func_001E5358(void) {
+    *(s32*)(D_00275AF0 + 4) = 0;
+    *(s32*)(D_00275AF0 + 0x10) = 0;
+    *(s32*)(D_00275AF0 + 0x0C) = -1;
+    *(s32*)(D_00275AF0 + 8) = -1;
+    (void)func_001F5C0C(D_00275AF0 + 0x14, 0, 0x20);
 }
 
 void func_001F2688(s32 enabled, s32 value) {
