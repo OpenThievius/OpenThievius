@@ -45,6 +45,33 @@ startup worker in `func_0018B580`. The graphics worker submits native GIF
 traffic, but the window is still black and the ISO receives no sector reads.
 There is no playable scene yet.
 
+### Latest bounded native run (2026-11-05)
+
+The synchronous CD bridge now reports its completed read through the native
+`func_00203D90` backfill, while the matching IOP-backed body remains available
+in staged source as `decomp_func_00203D90`. This stopped the stream worker from
+reissuing the same Splash request: the latest 5-second run read sector 820372
+for 74 sectors exactly once. The host staging for the display worker also keeps
+its current frame pointer local across the main thread's shared-pointer clear,
+avoiding the earlier null dereference in `func_0015EE80`.
+
+The combiner now excludes local GCC cold clones from callable retail entries.
+That exposed compiled functions such as `func_00151A88` that were previously
+misreported as ambiguous; the direct-call frontier rose from 729/788 to
+743/799 with 56 missing. The current build compiles 84/84 Sly C++ units and
+60/60 port-native backfills, and maps 3,834/4,806 catalogued functions plus one
+non-catalogued backfill address.
+
+The parser proceeds into the resource's camera and collision-object paths, but
+the latest run stops its loader thread at missing `func_001388A0` while the
+active frame workers continue submitting GIF traffic. It remains a black
+window with no verified scene or gameplay. Several port-only camera/VU
+boundaries (`func_00144540`, `func_00144BE8`, and `func_00125138`) are explicitly
+temporary no-ops; the mesh boundary `func_001B8820` only preserves copied
+geometry and does not apply the retail VU transform. These gaps cannot support
+a playable scene and must be replaced with real native renderer/collision
+behavior.
+
 ### New decomp work found (2026-11-05)
 
 Upstream `master` is `a0fd295` (PR #54, Nov 5), fetched into the read-only
