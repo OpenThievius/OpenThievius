@@ -381,6 +381,22 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one second DMA wait definition in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/00134000.cpp":
+            # The decomp declares this wrapper void even though callers use
+            # its status result and the wrapped initializer returns s32. Keep
+            # the correction in the native staging layer so the decomp tree
+            # remains untouched and can replace it once its signature is fixed.
+            adapted, replacements = re.subn(
+                r"(?m)^void func_00137328\(void\* a, void\* b, s32 c\);\n\n"
+                r"void func_001373B0\(void\* a, S18D410\* pair\)\n\{\n"
+                r"    func_00137328\(a, pair->p0, pair->second\);\n\}",
+                "s32 func_00137328(void* a, void* b, s32 c);\n\n"
+                "s32 func_001373B0(void* a, S18D410* pair)\n{\n"
+                "    return func_00137328(a, pair->p0, pair->second);\n}",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected mismatched resource-key wrapper in " +
+                                   rel.as_posix())
         elif rel.as_posix() == "main/file_1E08F8.cpp" and args.trace_functions:
             # Capture the pending key/blob and current world when the direct
             # native startup path handles a resource request.
