@@ -477,10 +477,12 @@ corruption. These remain port-only implementations, apart from matching
 decompilation code. Port-only UI frame dispatch now walks the 37 retail UI
 objects and invokes their update and draw callbacks. Port-only world-update
 dispatch in `func_0019D6C0` now walks its three retail object lists with
-guest-address scratch frames. The latest trace reports all three world lists
-empty (`0,0,0`) and the map selection null; the current world object has not
-received level content. The current hostgen build compiles and links 145 C
-units (181 translated functions). The native display worker submits hundreds
+guest-address scratch frames. The frame-state backfill now clears the retail
+input flags and pushes the selected map node with the correct two-argument
+overlay call. The latest trace reports all three world lists empty (`0,0,0`)
+and the map selection null; the current world object has not received level
+content. The current hostgen build compiles and links 146 C units (182
+translated functions). The native display worker submits hundreds
 of initialization GIF chains, but the window is still black and no scene
 geometry reaches the renderer. The title menu's `func_001936A0` page population
 and `func_00194F80` drawing callbacks still have no C implementation in the
