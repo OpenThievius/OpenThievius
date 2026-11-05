@@ -2,6 +2,32 @@
 /* Port-only display setup backfills translated from the NTSC-U ELF. */
 #include "common.h"
 
+int func_001AEA70(s32 initialize, s32 mode)
+{
+    static const u32 objects[5] = {
+        0x002743D0u, 0x002743F0u, 0x00274410u, 0x00274450u, 0x00274488u
+    };
+    u32 i;
+
+    if (initialize == 0 || mode != -1) return 0;
+    for (i = 0; i < 5; ++i) {
+        u8* object = (u8*)objects[i];
+        *(u32*)(object + 0x00) = 0;
+        *(u8*)(object + 0x04) = i == 2 || i == 3 ? 61 : 45;
+        *(f32*)(object + 0x08) = 2.0f;
+        *(f32*)(object + 0x0C) = i == 0 ? 1.0f : -4.0f;
+        *(f32*)(object + 0x10) = 0.3f;
+        *(f32*)(object + 0x14) = 0.3f;
+        *(u32*)(object + 0x18) = 0xFF7D4B00u;
+    }
+    return 0;
+}
+
+int func_001AEC90(void)
+{
+    return func_001AEA70(1, -1);
+}
+
 void func_001FFBE0(void* first, void* entry)
 {
     u8* node = (u8*)entry;
