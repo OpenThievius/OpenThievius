@@ -268,6 +268,15 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected the 4-byte D_00275F80 retail label in " +
                                    rel.as_posix())
+            # func_00140D90 clears this system table through +0x42f, although
+            # the decompilation exposes only its first 0x210 bytes as a label.
+            # Reserve the whole native span so the clear cannot hit a neighbor.
+            adapted, replacements = re.subn(
+                r"(?m)^u8 D_00261420\[528\] = \{0\};$",
+                "u8 D_00261420[0x430] = {0};", adapted)
+            if replacements != 1:
+                raise RuntimeError("expected the D_00261420 retail table label in " +
+                                   rel.as_posix())
             # Retail labels can expose only part of a T217D object (some methods
             # write large derived arrays beyond those label extents). Reserve
             # each complete typed object in the host image to prevent adjacent
