@@ -32,6 +32,22 @@ void func_00152888(void* frame) {
     words[6] = 0x0024A0E0u;
 }
 
+/* Retail's buffer-range initializer. The size is in 16-byte QWC units.
+ * func_001611B8 owns vtable/callback initialization, so preserve those fields
+ * while resetting the DMA segment and open GIF tag for the supplied buffer. */
+void func_001529C8(void* opaque, s32 qwords, void* buffer) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    u32 begin = (u32)buffer;
+    if (writer == 0 || qwords < 0 || (u32)qwords > 0x0FFFFFFFu) return;
+    writer->end = begin + (u32)qwords * 16u;
+    writer->begin = begin;
+    writer->dma_tag = 0;
+    writer->cursor = begin;
+    writer->last_tag = 0;
+    writer->registers_per_loop = 0;
+    writer->register_count = 0;
+}
+
 void func_001611B8(void* frame) {
     u32* words = (u32*)frame;
     func_00152888(frame);
