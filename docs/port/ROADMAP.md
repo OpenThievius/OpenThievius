@@ -62,11 +62,28 @@ playable scene. The old report (2,367 definitions and
 
 The refreshed decomp also defines 24 functions that previously had port-only
 shadow backfills. Those shadows were removed so matching C is now the source
-used by the native build. Port platform boundaries remain separate. The
-upstream tree has not changed since the Nov 4 merge, and there are no newer
-open PRs with decomp data to import. Its type consolidation is useful for
-future layout and renderer work, but does not itself add a boot-path
-implementation.
+used by the native build. Port platform boundaries remain separate.
+
+### New decomp work found (2026-11-05)
+
+After fetching the public repository, `master` is still at `f54bff5`, but the
+active `files83` branch has advanced to `2320680` (Nov 4 evening). Its US report
+now records 4,710/4,806 matched functions and 91.89% matched code, up from
+4,707 functions and 91.40% on `master`. This is a 0.49 percentage-point code
+gain; the report's data match is effectively unchanged. The branch adds
+matching C for `func_001F5CD0` (the library quicksort), `func_001A0BA0`, and
+`func_00180398`, alongside broad type cleanup and new class/record headers.
+
+These additions are useful port data: `func_00180398` is currently unresolved
+in our native link frontier, `func_001F5CD0` is called from two game units, and
+`func_001A0BA0` is referenced by a function table. They do not address the
+current GS DMA fault or make the display render a scene, so they are not a
+startup fix. `files83` is not the merged `master` snapshot; it reorganizes many
+source files and headers. The port's staged build therefore remains pinned to
+`f54bff5` until we validate that branch as a source update, rather than
+silently switching the working build to an unmerged layout. The fetched branch
+is available in `/home/reaper/.cache/sly1-decomp-upstream` for review. No files
+in the decomp checkout were changed.
 
 The no-emulation host32 path directly compiles the Sly C++ source units and
 remaining port-native backfills, then combines them by retail address. With
