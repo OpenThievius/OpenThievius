@@ -12,9 +12,11 @@ port-specific changes here so the decompilation can later replace them cleanly.
 
 These replacements cover the persistent frame loop, frame-state dispatcher,
 state-transition helper, frame callback setup, queued display worker, loader
-request setup and worker, executable checksum guard, packet-list finalization,
-display packet primitives, and initial display-environment packet. The loader backfills
-reproduce the retail request-list sizes, CRC table and semaphore ordering.
+request setup and worker, resource key and visual-state selection, resource
+owner lists and listener records, executable checksum guard, packet-list
+finalization, display packet primitives, and initial display-environment
+packet. The loader backfills reproduce the retail request-list sizes, CRC table
+and semaphore ordering.
 Native services create the loader semaphores and start its guest thread. The
 loader thread now runs and blocks on its request semaphore, while the display
 worker submits initialization GIF chains. The renderer still receives no

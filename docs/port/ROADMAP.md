@@ -133,12 +133,14 @@ guard rejects the resulting impossible resource-entry count, after which the
 callback returns through stages 1–5. The port-only resource value and animation
 table parsers now have C backfills, and the resource factory initializes its
 owner lists and resolves listener records through the resource context. A
-bounded native run completes the Splash callback without fault. This does not
-establish a usable scene: several resource callbacks and state setup routines
-still resolve to no-C stubs. The host window remains black, with zero submitted
-vertices and no display framebuffer setup or verified active scene. Treat this
-as loader-path diagnostic evidence, not a playable milestone. The coordinator
-also omits retail progress/job bookkeeping. The
+bounded native run completes the Splash callback without fault. The resource
+state backfill resolves Splash to resource ID 2 and initializes the visual
+state table; the opt-in trace reports the expected level and record indices.
+This does not establish a usable scene: several resource callbacks and state
+setup routines still resolve to no-C stubs. The host window remains black,
+with zero submitted vertices and no display framebuffer setup or verified
+active scene. Treat this as loader-path diagnostic evidence, not a playable
+milestone. The coordinator also omits retail progress/job bookkeeping. The
 factory's required class
 constructor `func_001DB4C8` now has a port-only native C backfill; its vector
 helper `func_001DBA90` and pool initializer `func_001DC740` are backfilled
