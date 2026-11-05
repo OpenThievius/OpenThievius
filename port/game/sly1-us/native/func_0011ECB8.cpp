@@ -51,3 +51,17 @@ extern "C" void func_0011ECB8(void* world, void* parameter, void* reader) {
         }
     }
 }
+
+/* These prototypes describe the same retail entry in different source units.
+ * Export both host symbols so the null-safe port reader overrides each one. */
+extern "C" void func_0011ECB8_C01(void* world, void* parameter, void* reader)
+    __asm__("_Z13func_0011ECB8P3C6CPvS1_");
+extern "C" void func_0011ECB8_C01(void* world, void* parameter, void* reader) {
+    func_0011ECB8(world, parameter, reader);
+}
+
+extern "C" void func_0011ECB8_stream(void* world, void* parameter, void* reader)
+    __asm__("_Z13func_0011ECB8PvP3C53P8Stream53");
+extern "C" void func_0011ECB8_stream(void* world, void* parameter, void* reader) {
+    func_0011ECB8(world, parameter, reader);
+}

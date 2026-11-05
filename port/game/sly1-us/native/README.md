@@ -127,14 +127,22 @@ math. Both remain port-only replacements, separate from matching sources.
 implements the bounded 149-entry object factory through `D_00247448`, so
 invalid class IDs return null instead of indexing outside the descriptor
 table. `func_001686E8.cpp` submits VIF1 display packets through the synchronous
-native DMA boundary and skips the retail interrupt wait. Both are port-only
-backfills and should be removed when matching functions become available.
+native DMA boundary and skips the retail interrupt wait. These backfills export
+the prototype aliases used by native callers so the port implementations are
+selected instead of stale compiled bodies. Remove them when matching functions
+become available.
 
 The scene-object path also has port-only replacements for the EE transform
 helpers `func_00128150` and `func_00188520`, object initialization and parent
 updates (`func_00124868`, `func_001245A8`), attachment transforms
 (`func_00128FD0`), and the vector thresholds `func_00123DC0` and
-`func_00123E00`. The latest native startup trace passes nested object
-construction and the synchronous DMA wait, then reaches unresolved retail
-function `0x001B4330` from `func_001B4580`. The screen remains black and the
-port is not playable.
+`func_00123E00`. `func_0011ECB8.cpp` and `func_0011E580.cpp` export aliases for
+the decompilation's alternate prototypes, so the null-safe reader and bounded
+factory replace their stale compiled bodies. `func_001B4330.cpp` adds a
+port-only HSV-to-RGB conversion and an explicit host wrapper for
+`func_001B4580`.
+
+A freestanding host32 run with these overrides parsed nested scene records for
+15 seconds without a missing-function trap or crash. It was still processing
+GLOBSET records when the diagnostic timeout ended, so this does not confirm
+that rendering starts. The screen remains black and the port is not playable.

@@ -69,3 +69,22 @@ extern "C" void* func_0011E580(s32 type, void* owner, void* parameter,
     if (constructor != 0) sly1_native_call_method(constructor, (u32)object);
     return object;
 }
+
+/* Host callers refer to several decompilation prototype spellings for this
+ * retail entry. Export each spelling so they all reach the bounded factory. */
+#define SLY1_FACTORY_ALIAS(symbol) \
+    extern "C" void* sly1_factory_alias_##symbol(s32, void*, void*, s32, s32) \
+        __asm__(#symbol); \
+    extern "C" void* sly1_factory_alias_##symbol( \
+        s32 type, void* owner, void* parameter, s32 mode, s32 listener_id) { \
+        return func_0011E580(type, owner, parameter, mode, listener_id); \
+    }
+
+SLY1_FACTORY_ALIAS(_Z13func_0011E580P12Alloc_1DC9A0P10Obj_1DC9A0Pvii)
+SLY1_FACTORY_ALIAS(_Z13func_0011E580iPvS_ii)
+SLY1_FACTORY_ALIAS(_Z13func_0011E580iPviii)
+SLY1_FACTORY_ALIAS(_Z13func_0011E580iiP3C03ii)
+SLY1_FACTORY_ALIAS(_Z13func_0011E580iiPvii)
+SLY1_FACTORY_ALIAS(_Z13func_0011E580iiiii)
+
+#undef SLY1_FACTORY_ALIAS
