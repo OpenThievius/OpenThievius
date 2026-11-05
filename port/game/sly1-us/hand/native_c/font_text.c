@@ -85,6 +85,24 @@ typedef struct FontTextLayout {
     s32 vertical;
 } FontTextLayout;
 
+typedef struct FontFrameItem {
+    u32 font;
+    s8 key;
+    u8 pad05[3];
+    f32 pad_x;
+    f32 pad_y;
+    f32 scale_x;
+    f32 scale_y;
+    u32 color;
+} FontFrameItem;
+
+typedef struct FontFrameRect {
+    f32 x;
+    f32 y;
+    f32 w;
+    f32 h;
+} FontFrameRect;
+
 extern u32 D_00262268[];
 extern s32 D_0026227C;
 extern s8 D_00262250[];
@@ -279,6 +297,66 @@ void func_0015D338(void* opaque, u32 color, f32 x0, f32 y0, f32 x1,
     func_001618C0(packet, (s32)((x1 + 1728.0f) * 16.0f),
                   (s32)((y1 * 0.45454547f + 1936.0f) * 16.0f),
                   (u32)font->f40, 0);
+}
+
+/* Port-only backfill of retail's nine-slice font frame. */
+void func_0015D4E0(void* opaque, FontFrameItem* item, FontFrameRect* rect,
+                   void* packet) {
+    FontTextFont* font = (FontTextFont*)opaque;
+    FontGlyph* glyph;
+    u32 method, adjusted;
+    if (font == 0 || item == 0 || rect == 0 || packet == 0) return;
+    glyph = func_0015DAB8(font, item->key);
+    if (glyph == 0) return;
+
+    func_0015C8B8((void*)(u32)item->font, item->scale_x, item->scale_y);
+    const f32 top = rect->y;
+    const f32 sx = font->sx;
+    const f32 left = rect->x;
+    const s32 u2i = (s32)glyph->u + (s32)glyph->width;
+    const f32 x2 = left + rect->w + item->pad_x * sx;
+    const f32 cw = (f32)glyph->width * sx;
+    const f32 x1 = left - item->pad_x * sx;
+    const s32 sz = 1 << (s32)((font->tex0 >> 30) & 0xFu);
+    const s32 height = font->height;
+    const f32 sy = font->sy;
+    const s32 v0i = sz - (s32)glyph->v;
+    const f32 x0 = x1 - cw;
+    const s32 v2i = sz - ((s32)glyph->v + height);
+    const f32 u1 = (f32)(((s32)glyph->u + u2i) / 2);
+    const f32 v1 = (f32)((v0i + v2i) / 2);
+    const f32 u0 = (f32)glyph->u;
+    const f32 y1 = top - item->pad_y * sy;
+    const f32 v0 = (f32)v0i;
+    const f32 x3 = x2 + cw;
+    const f32 y2 = top + rect->h + item->pad_y * sy;
+    const f32 y0 = y1 - (f32)height * sy;
+    const f32 y3 = y2 + (f32)height * sy;
+    const f32 u2 = (f32)u2i;
+
+    method = font_vtable_method(font, 0x24u, 0x20u, &adjusted);
+    (void)sly1_native_call_regs4(method, adjusted, 0, (u32)packet, 0);
+    func_0015D338(font, item->color, x0, y0, x1, y1, u0, v0, u1, v1,
+                  packet);
+    func_0015D338(font, item->color, x2, y0, x3, y1, u1, v0, u2, v1,
+                  packet);
+    func_0015D338(font, item->color, x0, y2, x1, y3, u0, v1, u1, v2i,
+                  packet);
+    func_0015D338(font, item->color, x2, y2, x3, y3, u1, v1, u2, v2i,
+                  packet);
+    func_0015D338(font, item->color, x1, y0, x2, y1, u1, v0, u1, v1,
+                  packet);
+    func_0015D338(font, item->color, x1, y2, x2, y3, u1, v1, u1, v2i,
+                  packet);
+    func_0015D338(font, item->color, x0, y1, x1, y2, u0, v1, u1, v1,
+                  packet);
+    func_0015D338(font, item->color, x2, y1, x3, y2, u1, v1, u2, v1,
+                  packet);
+    func_0015D338(font, item->color, x1, y1, x2, y2, u1, v1, u1, v1,
+                  packet);
+    func_0015C900((void*)(u32)item->font);
+    method = font_vtable_method(font, 0x3Cu, 0x38u, &adjusted);
+    (void)sly1_native_call_regs4(method, adjusted, 0, (u32)packet, 0);
 }
 
 s32 func_0015CAB8(void* opaque, void* packet) {

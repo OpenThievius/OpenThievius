@@ -3,6 +3,7 @@ func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
 func_0015C638	native_c/font_text.c
+func_0015D4E0	native_c/font_text.c
 func_0015D998	native_c/font_image_init.c
 func_0015E5F0	native_c/font_image_init.c
 func_00168D30	native_c/font_image_init.c
