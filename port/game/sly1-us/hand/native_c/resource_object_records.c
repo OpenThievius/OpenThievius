@@ -15,6 +15,14 @@ void* func_00159F20(void* base, s32 index)
     return (void*)((u32)base + slot);
 }
 
+void func_001DB480(void* object)
+{
+    s32 index;
+    for (index = 0; index < 0x200; ++index) {
+        func_00152438((u8*)object + 0x84u + (u32)index * 0xCu, 0xCu);
+    }
+}
+
 void* func_001C1390(s32 index, void* context)
 {
     u8* table;
