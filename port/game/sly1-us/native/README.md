@@ -6,14 +6,14 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-current upstream snapshot is `3ab5c70` (PR #53) from
+current upstream snapshot is `a0fd295` (PR #54) from
 [`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp); the
 separate working decomp checkout remains untouched. The host32 build compiles
 84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
-`func_00180398`, and `func_001F5CD0`. PR #53 adds typed script values,
-accessors, and object layouts, but no new US function matches and no matching
-definitions for `func_00109488` or `func_0015F320`. Against this snapshot, 84/84
-Sly units and 44/44 port backfill files compile. The combined object provides
+`func_00180398`, and `func_001F5CD0`. PR #54 adds readable button-code names
+and notes, but no new US function matches or function bodies relevant to
+startup. Against this snapshot, 84/84 Sly units and 45/45 port backfill files
+compile. The combined object provides
 3,810 of 4,806 catalogued function addresses and defines 727 of 788 direct-call
 frontier functions. The native startup bridges now complete the two sound SIF
 bootstrap calls, suppress sound bank RPCs, and report the already-open disc as
