@@ -16,6 +16,7 @@ typedef struct SlyPacketWriter {
 } SlyPacketWriter;
 
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void* func_0018D568(s32 size, void* source);
 void func_00152D70(void* opaque);
 
 static void packet_writer_close(SlyPacketWriter* writer, s32 flag) {
@@ -249,4 +250,40 @@ void func_00152D70(void* self) {
         tag[0] |= units;
         fields->dma_tag = 0;
     }
+}
+
+void func_001528C8(void* opaque) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    writer->end = 0;
+    writer->begin = 0;
+    writer->dma_tag = 0;
+    writer->cursor = 0;
+}
+
+void func_00152A50(void* opaque, u32* count, u32* begin, u32* output) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    u32 qwords;
+    if (writer == 0) return;
+    func_00152D70(writer);
+    qwords = (writer->cursor - writer->begin) >> 4;
+    if (count != 0) *count = qwords;
+    if (begin != 0) *begin = writer->begin;
+    if (output != 0)
+        *output = (u32)func_0018D568((s32)(qwords << 4), (void*)writer->begin);
+    func_001528C8(writer);
+}
+
+/* Start an IMAGE-format GIF tag after closing any current register packet. */
+void func_00161958(void* opaque, s32 qwords) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    u32 cursor;
+    if (writer == 0 || qwords < 0) return;
+    packet_writer_close(writer, 0);
+    if (writer->last_tag != 0) func_00161278(writer, 0);
+    cursor = writer->cursor;
+    writer->cursor = cursor + 16u;
+    *(u64*)cursor = (u64)(u32)qwords | ((u64)2u << 58);
+    *(u64*)(cursor + 8u) = 0;
+    writer->last_tag = 0;
 }

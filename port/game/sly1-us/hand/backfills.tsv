@@ -3,6 +3,16 @@ func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
 func_0015C638	native_c/font_text.c
+func_0015D998	native_c/font_image_init.c
+func_0015E5F0	native_c/font_image_init.c
+func_00168D30	native_c/font_image_init.c
+func_00168D68	native_c/font_image_init.c
+func_00168D88	native_c/font_image_init.c
+func_00168D98	native_c/font_image_init.c
+func_00168E78	native_c/font_image_init.c
+func_00168F48	native_c/font_image_init.c
+func_00168FB0	native_c/font_image_init.c
+func_00169088	native_c/font_image_init.c
 func_0015C188	native_c/font_text.c
 func_00168130	native_c/display_context.c
 func_001683E8	native_c/display_context.c
@@ -15,6 +25,9 @@ func_00152B80	native_c/display_packets.c
 func_00161278	native_c/display_packets.c
 func_001612E8	native_c/display_packets.c
 func_001613C0	native_c/display_packets.c
+func_001528C8	native_c/display_packets.c
+func_00152A50	native_c/display_packets.c
+func_00161958	native_c/display_packets.c
 func_0015F618	native_c/display_packets.c
 func_0015F658	native_c/display_packets.c
 func_001EE318	native_c/display_packets.c

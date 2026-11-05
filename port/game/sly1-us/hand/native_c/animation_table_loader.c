@@ -68,6 +68,12 @@ typedef struct FontSource {
     u16 reserved;
 } FontSource;
 
+typedef struct BumpAllocator {
+    s32 next;
+    s32 start;
+    s32 limit;
+} BumpAllocator;
+
 extern s32 D_002744F8;
 extern AnimRecord* D_002744FC;
 extern s32 D_00274500;
@@ -90,6 +96,13 @@ extern u8 D_002626D8[];
 s32 func_00137BE0(void* reader);
 void func_00137A60(void* reader, s32 size, void* destination);
 void* func_0018D5C0(s32 bytes);
+void func_00168D68(void* allocator, s32 start, s32 limit);
+s32 func_001690C0(s32 mask, BumpAllocator* allocator, void* writer);
+void func_001B3510(s32 mask);
+void func_0015E5F0(void);
+void func_001A9F78(void);
+s32 func_00169780(s32 mask);
+s32 func_001693A8(s32 mask);
 
 static void read_image_b_table(void* reader) {
     D_00274508 = func_00137BE0(reader);
@@ -206,6 +219,7 @@ static void read_font_table(void* reader) {
         *(s32*)(font + 0x78) = source.glyph_count;
         u32 glyphs = (u32)func_0018D5C0(source.glyph_count * 8);
         *(u32*)(font + 0x7c) = glyphs;
+        *(u32*)(font + 0x80) = 1u << i;
         func_00137A60(reader, source.glyph_count * 8, (void*)glyphs);
     }
     D_0026227C = D_00262268[0];
@@ -283,9 +297,14 @@ void func_001B3040(void* reader) {
     }
 
     read_font_table(reader);
-    D_00274538 = 0;
-    for (s32 i = 0; i < 6; ++i) D_00274520[i] = 0;
-    *(s32*)D_002626D8 = 0x1e00;
-    *(s32*)(D_002626D8 + 4) = 0x1e00;
-    *(s32*)(D_002626D8 + 8) = 0x4000;
+    BumpAllocator allocator;
+    func_00168D68(&allocator, 0x1e00, 0x4000);
+    (void)func_001690C0(0x10000000, &allocator, 0);
+    func_001B3510(0x10000000);
+    func_00168D68(D_002626D8, allocator.next, 0x4000);
+    func_0015E5F0();
+    func_001A9F78();
+    for (s32 i = 0; i < 6; ++i)
+        D_00274520[i] = func_00169780((1 << i) | 0x40000000);
+    D_00274538 = func_001693A8(0x20000000);
 }
