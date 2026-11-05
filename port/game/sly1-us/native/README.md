@@ -117,6 +117,12 @@ its native callers; neither change modifies the decompilation checkout.
 scalar host math. Both transform functions remain port-only backfills until
 matching decompilation code replaces them.
 
+`func_001662A8.cpp` translates the scene mesh's two-pass VIF/GIF packet builder
+from the NTSC-U retail routine. It remains a port-only replacement because
+the decompilation still marks this function `INCLUDE_ASM`. The native startup
+trace now passes this function and reaches the next unresolved retail helper
+at `0x00158288`; scene startup and rendering are still incomplete.
+
 The scene-object path also has port-only replacements for the EE transform
 helpers `func_00128150` and `func_00188520`, object initialization and parent
 updates (`func_00124868`, `func_001245A8`), attachment transforms
