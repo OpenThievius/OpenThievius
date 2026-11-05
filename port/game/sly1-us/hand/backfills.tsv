@@ -54,6 +54,7 @@ func_001F2688	native_c/startup_static_constructors.c
 func_001F2738	native_c/startup_static_constructors.c
 func_0016C360	native_c/startup_static_constructors.c
 func_0016C450	native_c/startup_static_constructors.c
+func_00144270	native_c/func_00144270.c
 func_00140D90	native_c/startup_loader.c
 func_001605E8	native_c/startup_loader.c
 func_00160CC8	native_c/startup_loader.c
