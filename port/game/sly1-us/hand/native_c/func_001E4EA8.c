@@ -7,7 +7,7 @@ extern void* D_00275710;
 extern u8 D_00275F80[];
 
 void func_0018D410(void* memory);
-void* func_00137290(void* self, s32 source, u32 buffer, s32 buffer_length);
+void* func_00137290(void* self, s32 buffer_length, u32 buffer, s32 flags);
 s32 func_001373B0(void* self, const s32* pair);
 void func_001373D0(void* self);
 void func_00160690(void* self, s32 value);
@@ -75,7 +75,7 @@ void func_001E4EA8(void* state) {
     func_00193210(callback_data, &callback_word0, &callback_word1,
                   &callback_word2, &callback_word3);
 
-    func_00137290(reader, (s32)(u32)D_002C3B00, 0x00340C00u, 6);
+    func_00137290(reader, 0x00340C00, (u32)D_002C3B00, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;
     if (func_001373B0(reader, (const s32*)range) == 0) {
         func_001373D0(reader);

@@ -2,12 +2,13 @@
 /* Port-only Sly stream-reader setup translated from NTSC-U retail behavior. */
 #include "common.h"
 
-void* func_00137290(void* self, s32 source, u32 buffer, s32 buffer_length) {
+void* func_00137290(void* self, s32 buffer_length, u32 buffer, s32 flags) {
     u8* bytes = (u8*)self;
-    u32 aligned = (buffer_length + 0x3Fu) & ~0x3Fu;
+    u32 aligned = (buffer + 0x3Fu) & ~0x3Fu;
+
     *(u32*)(bytes + 0x04) = 0xFFFFFFFFu;
-    *(u32*)(bytes + 0x0C) = (u32)(source - (s32)(aligned - (u32)buffer_length));
-    *(u32*)(bytes + 0x00) = (u32)buffer_length;
+    *(u32*)(bytes + 0x00) = (u32)flags;
+    *(u32*)(bytes + 0x0C) = (u32)(buffer_length - (s32)(aligned - buffer));
     *(u32*)(bytes + 0x20) = 0;
     *(u32*)(bytes + 0x18) = 0;
     *(u32*)(bytes + 0x24) = 0;
@@ -16,7 +17,6 @@ void* func_00137290(void* self, s32 source, u32 buffer, s32 buffer_length) {
     *(u32*)(bytes + 0x28) = 0;
     *(u32*)(bytes + 0x2C) = 0;
     *(u32*)(bytes + 0x08) = aligned;
-    (void)buffer;
     return self;
 }
 

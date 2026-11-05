@@ -4,7 +4,7 @@
 
 extern u8 D_00244950[];
 
-void func_00137290(void* reader, s32 source, s32 size, s32 flags);
+void func_00137290(void* reader, s32 buffer_length, u32 buffer, s32 flags);
 void func_00137398(void* reader, s32 mode, void* data);
 void func_0011E680(void* object, void* record, void* reader);
 void func_001372E0(void* reader, s32 flags);
