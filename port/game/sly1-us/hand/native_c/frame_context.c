@@ -32,6 +32,11 @@ extern u8 D_002622A8[];
 extern s32 D_002622D0;
 extern s32 D_00269BA4;
 extern s32 D_002623B4;
+extern s32 D_002623B0;
+
+extern NativeFrameList D_002622E0;
+extern NativeFrameList D_002622F0;
+extern NativeFrameList D_00262300;
 
 s32 func_001F6B60(s32 semaphore);
 void func_00191E70(s32 value);
@@ -39,6 +44,7 @@ void func_0015EFE8(NativeFrameContext* context);
 void func_001529C8(void* packet, s32 capacity, void* buffer);
 void func_00152B38(void* packet);
 void func_001F6C20(s32 channel);
+void func_001F6B40(s32 semaphore);
 
 void func_00191E70(s32 value)
 {
@@ -70,4 +76,23 @@ void func_0015E9F0(void)
     D_002622D0 = context->i10;
     func_00152B38(D_00262280);
     func_00152B38(D_002622A8);
+}
+
+/* Retire an empty native frame and wake the retail display worker. The
+ * matching object-list destructors are still assembly-only; keep queued
+ * objects intact until their callbacks have a port implementation. */
+void func_0015EC68(void)
+{
+    NativeFrameContext* context = D_002622D8;
+    if (context == 0) return;
+    if (D_002622E0.head != 0 || D_002622E0.tail != 0 ||
+        D_002622F0.head != 0 || D_002622F0.tail != 0 ||
+        D_00262300.head != 0 || D_00262300.tail != 0) return;
+
+    context->l20 = D_002622E0;
+    context->l2C = D_002622F0;
+    context->l38 = D_00262300;
+    D_002622D8 = 0;
+    D_002622D0 = 0;
+    func_001F6B40(D_002623B0);
 }
