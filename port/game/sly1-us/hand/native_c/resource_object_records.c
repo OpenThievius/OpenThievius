@@ -106,7 +106,18 @@ void func_0011ECB8(void* world, void* parameter, void* reader) {
         u32 vtable = *(u32*)object;
         u32 read_method = vtable != 0 ? *(u32*)(vtable + 14u * 4u) : 0;
         if (read_method != 0) {
-            sly1_native_call_regs4(read_method, (u32)object, (u32)reader, 0, 0);
+            if (read_method == 0x0013B598u) {
+                /* This C03 reader callback forwards the incoming reader in
+                 * a1 even though its current decomp signature omits it. */
+                sly1_native_call_regs4(0x001BAC30u, (u32)object,
+                                       (u32)reader, 0, 0);
+                sly1_native_call_regs4(0x00159478u,
+                                       (u32)object + 0x5BCu,
+                                       (u32)object, 0, 0);
+            } else {
+                sly1_native_call_regs4(read_method, (u32)object,
+                                       (u32)reader, 0, 0);
+            }
         }
 
         s32 index = func_0011ECA0(key);
