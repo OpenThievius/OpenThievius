@@ -116,3 +116,11 @@ its native callers; neither change modifies the decompilation checkout.
 `func_00188D28.cpp` supplies the next matrix-to-axis-angle step using
 scalar host math. Both transform functions remain port-only backfills until
 matching decompilation code replaces them.
+
+The scene-object path also has port-only replacements for the EE transform
+helpers `func_00128150` and `func_00188520`, object initialization and parent
+updates (`func_00124868`, `func_001245A8`), attachment transforms
+(`func_00128FD0`), and the vector thresholds `func_00123DC0` and
+`func_00123E00`. The host32 trace now advances into mesh rendering at
+`func_001662A8`, which remains unresolved; the native port is still not
+playable.
