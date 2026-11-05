@@ -210,6 +210,10 @@ func_00180E38	native_c/display_setup.c
 func_00180E90	native_c/display_setup.c
 func_0018F940	native_c/display_setup.c
 func_0018F968	native_c/display_setup.c
+func_00136FE8	native_c/visual_styles.c
+func_00137270	native_c/visual_styles.c
+func_001460B8	native_c/visual_styles.c
+func_001460E0	native_c/visual_styles.c
 func_0015E9F0	native_c/frame_context.c
 func_0015EFE8	native_c/frame_context.c
 func_00191E70	native_c/frame_context.c
