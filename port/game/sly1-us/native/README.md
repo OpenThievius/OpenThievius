@@ -6,10 +6,13 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-current upstream snapshot compiles all 74 selected Sly C++ units, but the
-freestanding diagnostic launcher does not yet link: generated C++ method
-aliases and freestanding compiler/runtime symbols remain unresolved. Matching
-definitions discovered upstream replace the corresponding old port backfills.
+current upstream snapshot compiles all 74 selected Sly C++ units and links the
+freestanding diagnostic launcher. Startup runs eight native initialization
+callbacks, then stops at missing graphics setup function `0x00201D60`; there
+is no title screen yet. The thread wrapper at `0x001F6A90` is compiled but has
+not yet been reached by this launch.
+Matching definitions discovered upstream replace the corresponding old port
+backfills.
 
 Run it with the extracted NTSC-U ELF and a cooked ISO or raw BIN:
 

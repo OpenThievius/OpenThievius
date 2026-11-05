@@ -48,28 +48,37 @@ PS2 exception runtime constructs in `lib/001FC000.cpp`, local 64-bit typedefs
 in `main/0015C000.cpp`, missing `fabsf` declaration in `main/0016C000.cpp`,
 and PS2 varargs arithmetic in `main/file_1C05D0.cpp`. Port-side staging
 adaptations now compile all 74 selected C++ units; none modifies decomp source.
-The refreshed combine step reports 3,401 native function entries and a direct
-call frontier of 610/750. The final freestanding link still fails on host ABI
-gaps, including cross-translation-unit generated C++ constructor/method names,
-`memcpy` and compiler runtime support. The old report (2,367 definitions and
+The refreshed combine step now reports 3,389 native function entries and a
+direct-call frontier of 468/588 functions defined (120 missing). The
+freestanding Linux/i386 launcher now links. Port-side ABI adapters, compiler
+runtime support, constructor dispatch, a native DMA channel service, and Linux
+thread wrappers cleared the earlier link and startup traps. A fresh bounded
+launch runs all eight native initialization callbacks, then stops at missing
+graphics setup function `0x00201D60`; the title screen remains black and there
+is no playable scene. The old report (2,367 definitions and
 60/89 direct-call frontier) was from the stale source and is superseded.
 
 The refreshed decomp also defines 24 functions that previously had port-only
 shadow backfills. Those shadows were removed so matching C is now the source
 used by the native build. Port platform boundaries remain separate. The
-remaining host32 link failure means there is not yet a launcher run or updated
-startup result for this upstream snapshot.
+upstream tree has not changed since the Nov 4 merge, and there are no newer
+open PRs with decomp data to import. Its type consolidation is useful for
+future layout and renderer work, but does not itself add a boot-path
+implementation.
 
 The no-emulation host32 path directly compiles the Sly C++ source units and
 remaining port-native backfills, then combines them by retail address. With
-upstream `f54bff5`, all 74 selected C++ units compile, but the freestanding
-Linux/i386 launcher does not yet link. The generated report in
-`build/port/host32/link/link-frontier.json` records 3,401 native function
+upstream `f54bff5`, all 74 selected C++ units compile and the freestanding
+Linux/i386 launcher links. The generated report in
+`build/port/host32/link/link-frontier.json` records 3,389 native function
 entries for 4,806 catalogued addresses, with 645 catalogued addresses
-unresolved. Its direct-call frontier is 610/750 functions defined; this does
+unresolved. Its direct-call frontier is 468/588 functions defined; this does
 not follow indirect callbacks, function tables, constructors or vtables. The
-previous launcher result at missing graphics setup `0x00201D60` came from the
-stale decomp snapshot. There is no verified title screen or playable scene.
+launcher runs its native constructor table, then reaches missing graphics
+setup function `0x00201D60`. This function is declared and called from the
+latest upstream `src/main/00168000.cpp` but has no matching C definition yet.
+There is no verified title screen or playable scene. The Linux thread wrapper
+at `0x001F6A90` has compiled but is not yet shown to execute on this launch.
 The launcher now also opens a user-supplied cooked ISO or raw BIN and provides
 native synchronous sector-read, wait, and error services at Sly's CD library
 boundary. The current startup run validates the image and reaches the same
