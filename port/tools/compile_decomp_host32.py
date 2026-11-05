@@ -81,6 +81,13 @@ def main(argv=None):
         "-I", str(host_include),
         "-I", str(include),
     ]
+    # host_abi.h defines the retail common.h guard because it supplies the
+    # host-width integer aliases. Newer decomp snapshots include generated
+    # readable symbol macros from common.h, so force that independent header
+    # after the ABI header rather than letting the guard suppress it.
+    names_header = include / "names.h"
+    if names_header.is_file():
+        flags[flags.index("-I"):flags.index("-I")] = ["-include", str(names_header)]
     out.mkdir(parents=True, exist_ok=True)
 
     for src in sources:
