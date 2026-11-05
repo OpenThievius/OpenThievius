@@ -26,36 +26,33 @@ Sly scene renderer remain ahead of a playable scene.
 
 ### Decomp synchronization (2026-11-05)
 
-The decomp checkout used by this port was stale and pointed at a personal fork.
-The authoritative public upstream is
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp); its
-current snapshot and coverage are recorded below. The committed report is
-matching coverage, not runtime or playable-game coverage.
-
-The upstream snapshot currently staged outside the repository at
-`/home/reaper/.cache/sly1-decomp-upstream` is the source configured in this build tree. The
-decomp checkout at `/home/reaper/Code/sly1-decomp` was not modified. Building
+The working checkout at `/home/reaper/Code/sly1-decomp` remains at `e1b39f1`
+from Oct 30. The build uses the separate read-only snapshot at
+`/home/reaper/.cache/sly1-decomp-upstream`, fetched from the authoritative
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp)
+upstream at `3ef6157` from Nov 4. The committed decomp report is matching
+coverage, not runtime or playable-game coverage; the working checkout was not
+modified. Building
 against the upstream snapshot exposed four host32 compiler blockers:
 PS2 exception runtime constructs in `lib/001FC000.cpp`, local 64-bit typedefs
 in `main/0015C000.cpp`, missing `fabsf` declaration in `main/0016C000.cpp`,
 and PS2 varargs arithmetic in `main/file_1C05D0.cpp`. Port-side staging
 adaptations compile the selected C++ units without modifying decomp source.
-Against the latest snapshot, all 73 selected Sly C++ units and 33 port-native
-backfill units compile. The combine step records 3,403 native definitions for
-4,806 catalogued functions and a direct-call frontier of 499/616 functions
-defined (117 missing); source consolidation changes these totals compared with
-the previous snapshot. The freestanding Linux/i386 launcher now links.
-Port-side ABI adapters, compiler
-runtime support, constructor dispatch, a native DMA channel service, and Linux
+Against the latest snapshot, all 84 selected Sly C++ units and 32 port-native
+backfill units compile. The combine step records 3,802 native definitions for
+4,806 catalogued functions and a direct-call frontier of 719/787 functions
+defined (68 missing); the compiler now includes partially covered 0x4000
+windows alongside whole-file units. The freestanding Linux/i386 launcher now links. Port-side ABI adapters,
+compiler runtime support, constructor dispatch, a native DMA channel service, and Linux
 thread wrappers cleared the earlier link and startup traps. A fresh bounded
 launch runs all eight native initialization callbacks, uses port-only display
 context setup for `0x00201D60`, and registers the two display interrupt
 callbacks. Subsequent GS DMA service backfills cleared the unmapped
 `0x1000A000` crash. The native host maps GS status at `0x12001000`; the current
-trace passes that boundary and reaches the missing pad initialization function
-`func_002042C8`. The window still shows no scene. The old report (2,367
-definitions and 60/89 direct-call frontier) was from the stale source and is
-superseded.
+trace passes that boundary and reports missing functions `func_00109488` and
+`func_0015F320`. The startup thread remains active in the `func_001F6B60` loop,
+with no CD reads and no visible scene. The older report (2,367 definitions and
+60/89 direct-call frontier) was from the stale source and is superseded.
 
 The refreshed decomp also defines 24 functions that previously had port-only
 shadow backfills. Those shadows were removed so matching C is now the source
@@ -81,7 +78,8 @@ function table. The merge also consolidates shared class and record layouts
 across many US files and adds typed global/shape headers, making object fields
 and data relationships more useful for native layout and asset work. PR #52 is
 mostly PAL near-miss cleanup and does not add a US startup fix. These changes do
-not address the current startup stop at `func_002042C8` or make a scene render.
+not address the current startup stop around `func_001F6B60` or make a scene
+render.
 
 The read-only snapshot at `/home/reaper/.cache/sly1-decomp-upstream` is at
 `3ef6157`; a fresh fetch found no newer `master` commit or open pull request.
@@ -94,20 +92,22 @@ matching i686 headers and SSE2 flags. The dynamic SDL host32 launcher links and
 opens its window, runs the decompiled game on a worker thread, and submits GS
 GIF chains through port-only DMA services. Port-only IOP/SIF and interrupt
 critical-section replacements now carry startup past earlier waits. The latest
-trace stops at missing `func_002042C8`, the pad RPC initializer; the window is
-still black and there is no playable scene yet.
+trace reports missing `func_00109488` and `func_0015F320`, then remains active in
+`func_001F6B60`; the window is still black, CD reads remain at zero, and there
+is no playable scene yet.
 
 The no-emulation host32 path directly compiles the Sly C++ source units and
 remaining port-native backfills, then combines them by retail address. Against
-the refreshed `3ef6157` upstream snapshot, 73 Sly units and 33 port-native
-backfill units compile. The combined object records 3,403 native function
+the refreshed `3ef6157` upstream snapshot, 84 Sly units and 32 port-native
+backfill units compile. The combined object records 3,802 native function
 definitions for 4,806 catalogued addresses. Its direct-call frontier is
-499/616 functions defined (117 missing); this does not
+719/787 functions defined (68 missing); this does not
 follow indirect callbacks, function tables, constructors or vtables. The SDL
 launcher opens a user-supplied cooked ISO or raw BIN and provides native
 synchronous sector-read, wait, and error services at Sly's CD boundary. A
-trace-enabled launch of this snapshot now reaches the missing pad RPC
-initializer `func_002042C8`; no scene is visible yet.
+trace-enabled launch of this snapshot reports missing functions
+`func_00109488` and `func_0015F320`, then remains in `func_001F6B60` without CD
+reads. No scene is visible yet.
 
 The C-only hostgen path now has port-only startup loader initialization,
 message dispatch, stream range setup, and object factory backfills in

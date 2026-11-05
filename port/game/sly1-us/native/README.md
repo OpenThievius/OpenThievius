@@ -9,11 +9,12 @@ function names to retail addresses alongside compiled decomp functions. The
 current upstream snapshot is `3ef6157` from
 [`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp), with
 no newer upstream commit available at the latest fetch. The host32 build
-compiles 73 selected Sly C++ units, including recent matching functions
-`func_001A0BA0`, `func_00180398`, and `func_001F5CD0`, plus 33 port-native
-backfill units. The launcher opens its SDL window and advances through native
-display and IOP startup services, then stops at missing pad RPC initializer
-`func_002042C8`. The window is still black; there is no title screen or
+compiles 84 selected Sly C++ units, including recent matching functions
+`func_001A0BA0`, `func_00180398`, and `func_001F5CD0`, plus 32 port-native
+backfill units. The combined object provides 3,802 of 4,806 catalogued function
+addresses and defines 719 of 787 direct-call frontier functions. The launcher
+opens its SDL window, reports missing `func_00109488` and `func_0015F320`, then
+remains in `func_001F6B60` without CD reads. The window is still black; there is no title screen or
 playable scene yet.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
