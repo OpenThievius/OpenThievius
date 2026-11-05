@@ -102,6 +102,15 @@ def main(argv=None):
         # A pair of format strings in the US source contains literal newlines
         # between quotes; preserve their intended newline in host C++ syntax.
         adapted = re.sub(r'"([^"\\\n]*)\n"', lambda m: '"' + m.group(1) + r'\n"', adapted)
+        # func_001612F8 writes a GIF packet from two 64-bit tag arguments.
+        # Several matching translation units declared those arguments as
+        # 32-bit values, which shifts the final output pointer on the i386
+        # host ABI. Normalize only staged prototypes; leave decomp source
+        # untouched and retain each unit's first pointer type.
+        adapted = re.sub(
+            r"(?m)^(void func_001612F8\([^,]+),[^;\n]*;",
+            r"\1, u64 prim, s32 nloop, s32 nreg, u64 data, s32* out);",
+            adapted)
         if rel.as_posix() == "main/0015C000.cpp":
             # The PS2 ABI gives long 64 bits; i386 gets the same aliases from
             # host_abi.h, where they are represented with long long.
