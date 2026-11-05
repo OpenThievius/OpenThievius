@@ -20,8 +20,6 @@ extern "C" void func_001EE668(void* packet, s32 tag, s32 count,
 extern "C" void func_00152CA0(void* packet);
 extern "C" void func_00152A50(void* packet, u32* count, u32* begin, u32* out);
 extern "C" void func_0018D6F0(void);
-extern "C" void func_001EE7D0(void* packet, s32 qwords, void* buffer,
-                                s32 flag);
 
 extern "C" u8 D_002623E0[];
 
@@ -33,6 +31,7 @@ extern "C" void func_001662A8(void* self, void* entry, void* sub, void*) {
     auto* owner = static_cast<u8*>(self);
     auto* table = static_cast<u8*>(entry);
     auto* output = static_cast<u8*>(sub);
+    auto* subrecords = reinterpret_cast<u8*>(read_word(output, 0x04));
     const s32 primary_count = static_cast<s32>(read_word(table, 0x58));
     const s32 secondary_count = static_cast<s32>(read_word(table, 0x60));
     auto* primary = reinterpret_cast<u8*>(read_word(table, 0x5C));
@@ -57,10 +56,10 @@ extern "C" void func_001662A8(void* self, void* entry, void* sub, void*) {
         func_0018D608();
         func_00152980(packet, 0x1000);
 
-        u32 unpack_words = primary_count > 0 ? 40u : 532u;
+        u32 unpack_words = pass == 0 ? 40u : 532u;
         for (s32 i = 0; i < primary_count; ++i) {
             auto* record = primary + i * 0x50;
-            auto* subrecord = output + i * 0x30;
+            auto* subrecord = subrecords + i * 0x30;
             if (i != 0) func_00152B38(packet);
             func_001EE3B8(packet, unpack_words, 0);
             func_00152D70(packet);
@@ -136,7 +135,6 @@ extern "C" void func_001662A8(void* self, void* entry, void* sub, void*) {
 
         func_00152CA0(packet);
         func_00152A50(packet, output_count, nullptr, output_buffer);
-        func_001EE7D0(packet, 0xBF0 / 16, output_buffer, 0);
         func_0018D6F0();
         ++packet_count;
         if (packet_count < 2) {

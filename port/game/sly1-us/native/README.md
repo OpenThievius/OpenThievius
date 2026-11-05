@@ -118,10 +118,13 @@ scalar host math. Both transform functions remain port-only backfills until
 matching decompilation code replaces them.
 
 `func_001662A8.cpp` translates the scene mesh's two-pass VIF/GIF packet builder
-from the NTSC-U retail routine. It remains a port-only replacement because
-the decompilation still marks this function `INCLUDE_ASM`. The native startup
-trace now passes this function and reaches the next unresolved retail helper
-at `0x00158288`; scene startup and rendering are still incomplete.
+from the NTSC-U retail routine. `func_00158288.cpp` translates its shared
+relationship update and VU0 reciprocal-distance calculation with scalar host
+math. Both remain port-only replacements, separate from matching sources.
+The host32 build now resolves both functions. The run reaches nested scene
+object loading, then returns to invalid address `0x556`; a diagnostic build
+with the relationship updater disabled faults at the same address. Scene
+startup and rendering are still incomplete.
 
 The scene-object path also has port-only replacements for the EE transform
 helpers `func_00128150` and `func_00188520`, object initialization and parent
