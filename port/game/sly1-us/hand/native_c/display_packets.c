@@ -146,6 +146,11 @@ void func_001617E8(void* frame, u32 register_id, f32 value) {
     ((SlyPacketWriter*)frame)->cursor = cursor + 8u;
 }
 
+/* Packed RGBAQ payload used by the retail flat-color primitive writer. */
+void func_00161458(void* frame, u32 color) {
+    func_001617E8(frame, color, 0.0f);
+}
+
 void func_00161860(void* frame, s32 first, s32 second) {
     func_001612E8(frame);
     SlyPacketWriter* writer = (SlyPacketWriter*)frame;
@@ -163,6 +168,26 @@ void func_001618C0(void* frame, s32 first, s32 second,
                     ((u64)(third & 0xFFFFFFu) << 32) |
                     ((u64)(fourth & 0xFFu) << 56);
     writer->cursor = cursor + 8u;
+}
+
+/* Packed XYZ2 payload shared by the retail flat and textured quad writers. */
+void func_001615F0(void* frame, s32 x, s32 y, s32 z, s32 fog) {
+    func_001618C0(frame, x, y, (u32)z, (u32)fog);
+}
+
+/* Port backfill of retail's flat-color rectangle packet builder. */
+void func_0019DDA0(f32 x0, f32 y0, f32 x1, f32 y1, s32 r, s32 g,
+                   s32 b, s32 a, void* packet) {
+    func_001613C0(packet, a <= 0xFE ? 0x46 : 6, 5, 0x441EE);
+    u32 color = ((((u32)(a + 1) & 0x1FEu) << 23) |
+                 ((u32)b << 16) | ((u32)g << 8) | (u32)r);
+    func_00161708(packet, 0x47, 0x31001);
+    func_00161708(packet, 0x42, 0x44);
+    func_00161458(packet, color);
+    func_001615F0(packet, (s32)((x0 + 1728.0f) * 16.0f),
+                  (s32)((y0 * 0.45454547f + 1936.0f) * 16.0f), 0, 0);
+    func_001615F0(packet, (s32)((x1 + 1728.0f) * 16.0f),
+                  (s32)((y1 * 0.45454547f + 1936.0f) * 16.0f), 0, 0);
 }
 
 void func_00161200(void* frame) {
