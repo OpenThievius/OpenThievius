@@ -88,34 +88,24 @@ The separate checkout at `/home/reaper/Code/sly1-decomp` remains untouched.
 The refreshed objects combine successfully; we have not yet rerun the SDL
 launcher against this snapshot.
 
-The next graphics integration path has also been checked on the current host:
-the full `sly1_port_runtime` source, including OpenRAC's SDL3 window and
-DirectRenderer, compiles as 32-bit i386 when supplied the matching i686 headers
-and SSE2 flags. A minimal dynamically linked i386 SDL3 executable also links
-and runs. This removes the assumption that rendering must stay in the separate
-64-bit C-only launcher. The decomp host32 launcher still uses a freestanding
-entry point and has not yet been connected to that renderer; its DMA and GS
-register boundaries remain to be routed through port-only services.
+The SDL3 and OpenRAC DirectRenderer runtime compiles as 32-bit i386 with the
+matching i686 headers and SSE2 flags. The dynamic SDL host32 launcher links and
+opens its window, runs the decompiled game on a worker thread, and submits GS
+GIF chains through port-only DMA services. The window remains black: the
+trace-enabled game thread still hits a direct read of GS status at
+`0x12001000`, which needs a native platform replacement.
 
 The no-emulation host32 path directly compiles the Sly C++ source units and
-remaining port-native backfills, then combines them by retail address. With
-upstream `f54bff5`, all 74 selected C++ units compile and the freestanding
-Linux/i386 launcher links. The generated report in
-`build/port/host32/link/link-frontier.json` records 3,392 native function
-entries for 4,806 catalogued addresses, with 642 catalogued addresses
-unresolved. Its direct-call frontier is 468/588 functions defined; this does
-not follow indirect callbacks, function tables, constructors or vtables. The
-launcher runs its native constructor table, applies the port-only
-`0x00201D60` display-context backfill and registers display interrupt
-callbacks. It then faults when matching `func_00201C78` reads unmapped GS DMA
-register `0x1000A000`. That C function is a console DMA boundary and needs a
-native graphics submission service; there is no verified title screen or
-playable scene.
-The launcher now also opens a user-supplied cooked ISO or raw BIN and provides
-native synchronous sector-read, wait, and error services at Sly's CD library
-boundary. The current startup run validates the image and reaches the same
-graphics setup stop; the stream worker has not yet issued a verified level
-read on this host32 path.
+remaining port-native backfills, then combines them by retail address. Against
+the refreshed `3ef6157` upstream snapshot, 73 Sly units and 29 port-native
+backfill units compile. The combined object records 3,389 native function
+entries for 4,806 catalogued addresses, with 644 addresses unresolved. Its
+direct-call frontier is 455/574 functions defined (119 missing); this does not
+follow indirect callbacks, function tables, constructors or vtables. The SDL
+launcher opens a user-supplied cooked ISO or raw BIN and provides native
+synchronous sector-read, wait, and error services at Sly's CD boundary. A
+trace-enabled launch against the prior compiled snapshot reaches the direct GS
+status read at `0x12001000`; the refreshed objects have not yet been launched.
 
 The C-only hostgen path now has port-only startup loader initialization,
 message dispatch, stream range setup, and object factory backfills in
