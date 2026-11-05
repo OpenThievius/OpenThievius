@@ -30,7 +30,7 @@ void func_0011EC40(void* object, void* reader);
 void func_00138550(void* reader, void* output);
 void func_001384A0(void* reader, void* output);
 void func_001B3040(void* reader);
-void func_0011ECB8(void* object, s32 index, void* reader);
+void func_0011ECB8(void* object, void* parent, void* reader);
 void func_001DBA38(void* reader);
 int func_001BE268(int bank);
 void func_001BECF8(void);
@@ -109,7 +109,8 @@ extern "C" void func_001DCEA0(void* self, void* reader) {
     func_001384A0(reader, object + 0x2314);
     func_00138550(reader, object + 0x1D74);
     func_001B3040(reader);
-    func_0011ECB8(D_00261990, self, reader);
+    /* Retail passes the world instance, a null parent, and the reader. */
+    func_0011ECB8(self, 0, reader);
     func_001DBA38(reader);
 
     if (*(s32*)(object + 0x1D70) >= 0)

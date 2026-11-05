@@ -18,7 +18,7 @@ def main(argv=None):
     parser.add_argument("--port", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--cxx", default="c++")
     parser.add_argument("--trace-functions", action="store_true",
-                        help="instrument native function entries for startup diagnostics")
+                        help="add targeted startup state traces without instrumenting game calls")
     args = parser.parse_args(argv)
 
     source = args.source.expanduser().resolve()
@@ -483,13 +483,81 @@ def main(argv=None):
                 adapted)
             if replacements != 1:
                 raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
+        if args.trace_functions and rel.as_posix() in {
+                "main/00124000.cpp", "main/001B4000.cpp", "main/001B8000.cpp"}:
+            # Global -finstrument-functions changes behavior where the decomp
+            # has mismatched prototypes. Trace only the C02 root lifecycle at
+            # selected boundaries so diagnostics do not perturb game calls.
+            hook = 'extern "C" void sly1_native_trace_c02_state(u32, u32);\n'
+            adapted = hook + adapted
+            trace_points = {
+                "main/00124000.cpp": [
+                    ("void func_001240F8(C02* self)\n{",
+                     "    sly1_native_trace_c02_state(0x1240F8, (u32)self);\n"),
+                    ("        self->root = self;",
+                     "        self->root = self;\n"
+                     "        sly1_native_trace_c02_state(0x1240F9, (u32)self);"),
+                    ("        self->root = ((C02*)self->parent)->root;",
+                     "        self->root = ((C02*)self->parent)->root;\n"
+                     "        sly1_native_trace_c02_state(0x1240FA, (u32)self);")],
+                "main/001B4000.cpp": [
+                    ("void func_001B7968(C03* self)\n{",
+                     "    sly1_native_trace_c02_state(0x1B7968, (u32)self);\n"),
+                    ("void func_001B7A98(C03* self)\n{",
+                     "    sly1_native_trace_c02_state(0x1B7A98, (u32)self);\n"),
+                    ("    func_001240F8(self);",
+                     "    func_001240F8(self);\n"
+                     "    sly1_native_trace_c02_state(0x1B7A99, (u32)self);")],
+                "main/001B8000.cpp": [
+                    ("void func_001B89B8(C03* self)\n{",
+                     "    sly1_native_trace_c02_state(0x1B89B8, (u32)self);\n"),
+                    ("    func_00125108(self);",
+                     "    func_00125108(self);\n"
+                     "    sly1_native_trace_c02_state(0x1B89B9, (u32)self);"),
+                    ("        self->desc03()->m32(self);",
+                     "        sly1_native_trace_c02_state(0x1BAC30, (u32)self);\n"
+                     "        self->desc03()->m32(self);")]
+            }[rel.as_posix()]
+            for old, new in trace_points:
+                if adapted.count(old) != 1:
+                    raise RuntimeError("expected one C02 trace location in " +
+                                       rel.as_posix() + ": " + old.splitlines()[0])
+                adapted = adapted.replace(old, old + "\n" + new, 1)
+        if args.trace_functions and rel.as_posix() == "main/00180000.cpp":
+            adapted = 'extern "C" void sly1_native_trace_c02_state(u32, u32);\n' + adapted
+            hook = 'extern "C" void sly1_native_trace_c02_list(u32, u32, u32, u32);\n'
+            adapted = hook + adapted
+            signature = "void func_00182C80(C01* self)\n{"
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected C01 parent-link constructor in " + rel.as_posix())
+            adapted = adapted.replace(
+                signature,
+                signature + "\n    sly1_native_trace_c02_state(0x182C80, (u32)self);", 1)
+            old = """    if (func_001526D0(sub, self) != 0) {
+        return;
+    }
+    func_00152470(sub, self);
+    if (func_00182FC8(self) != 0) {
+        self->desc->m04(self);
+    }"""
+            new = """    s32 already_linked = func_001526D0(sub, self);
+    sly1_native_trace_c02_list(0x182C80, (u32)sub, (u32)self,
+                               (u32)already_linked);
+    if (already_linked != 0) {
+        return;
+    }
+    func_00152470(sub, self);
+    s32 fully_linked = func_00182FC8(self);
+    sly1_native_trace_c02_list(0x182FC8, (u32)sub, (u32)self,
+                               (u32)fully_linked);
+    if (fully_linked != 0) {
+        self->desc->m04(self);
+    }"""
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected C01 constructor list gate in " + rel.as_posix())
+            adapted = adapted.replace(old, new, 1)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags
-        if args.trace_functions and rel.parts[0] == "main":
-            # Keep library inline helpers eligible for normal code generation;
-            # instrumenting those class-heavy units can make GCC emit methods
-            # that the matching translation unit intentionally leaves inline.
-            unit_flags = flags + ["-finstrument-functions"]
         if rel.as_posix() == "main/0016C000.cpp":
             # Avoid depending on the host's optional 32-bit libc headers.
             unit_flags = flags + ["-Dfabsf=__builtin_fabsf"]
@@ -519,8 +587,6 @@ def main(argv=None):
             # tracing is optional there; leave the bridge's native dispatch
             # active while compiling its trace hook out.
             cmd += ["-DSLY1_HOST32_FREESTANDING"]
-        if args.trace_functions:
-            cmd.append("-finstrument-functions")
         cmd += ["-c", str(src), "-o", str(obj)]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode:

@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(OPENTHIEVIUS_SOURCE_SLY1 "${CMAKE_CURRENT_SOURCE_DIR}/../../sly1-decomp" CACHE PATH
     "Path to the sibling sly1-decomp checkout")
 option(OPENRAC_NATIVE_FUNCTION_TRACE
-    "Instrument the direct host32 build to trace active game functions" OFF)
+    "Enable targeted startup state traces in the direct host32 build" OFF)
 set(SLY1_NATIVE_TRACE_ARGUMENTS)
 if(OPENRAC_NATIVE_FUNCTION_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-functions)

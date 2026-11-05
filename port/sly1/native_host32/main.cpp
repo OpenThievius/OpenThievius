@@ -524,6 +524,39 @@ sly1_native_trace_resource_state(u32 self, u32 pending, u32 world) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_c02_state(u32 tag, u32 self) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: C02 trace point ", (int)tag);
+    write_hex("native host32: C02 object ", (int)self);
+    if (self < 0x00010000u || self >= 0x12000000u) return;
+    const auto* words = reinterpret_cast<volatile const u32*>(self);
+    write_hex("native host32: C02 descriptor ", (int)words[0]);
+    write_hex("native host32: C02 parent ", (int)words[6]);
+    write_hex("native host32: C02 world ", (int)words[5]);
+    write_hex("native host32: C02 root ", (int)words[20]);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_c02_list(u32 tag, u32 list, u32 item, u32 result) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: C02 list trace point ", (int)tag);
+    write_hex("native host32: C02 list address ", (int)list);
+    write_hex("native host32: C02 list result ", (int)result);
+    if (list < 0x00010000u || list >= 0x12000000u ||
+        item < 0x00010000u || item >= 0x12000000u) return;
+    const auto* fields = reinterpret_cast<volatile const u32*>(list);
+    const u32 offset = fields[2];
+    write_hex("native host32: C02 list head ", (int)fields[0]);
+    write_hex("native host32: C02 list tail ", (int)fields[1]);
+    write_hex("native host32: C02 list offset ", (int)offset);
+    if (offset < 0x100000u) {
+        const auto* link = reinterpret_cast<volatile const u32*>(item + offset);
+        write_hex("native host32: C02 item next ", (int)link[0]);
+        write_hex("native host32: C02 item prev ", (int)link[1]);
+    }
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 __cyg_profile_func_enter(void* function, void*) {
     const u32 native_address = reinterpret_cast<u32>(function);
     const u32 slot = trace_slot_for_tid(trace_current_tid());
