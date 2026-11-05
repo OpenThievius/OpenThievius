@@ -28,17 +28,9 @@ Sly scene renderer remain ahead of a playable scene.
 
 The decomp checkout used by this port was stale and pointed at a personal fork.
 The authoritative public upstream is
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp),
-currently at commit `f54bff58780abd430ab848028a2b8394486af4b6` (Nov 4).
-Its committed US report records 4,707/4,806 functions (97.94%) and 91.40% of
-code matched; 3,803 functions are exact C and 904 are original assembly. The
-largest immediate port benefit in this update is a broad set of class and
-record types in `include/` and the whole-file game sources. These make the
-compiled decomp more readable and help native layout work. The update also
-contains fully matched input-turning functions `func_0016EC98` and
-`func_0016EED0`, plus `func_001C2430`; however these are not on the current
-frame loop's direct-call frontier. The committed report is matching coverage,
-not runtime or playable-game coverage.
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp); its
+current snapshot and coverage are recorded below. The committed report is
+matching coverage, not runtime or playable-game coverage.
 
 The upstream snapshot currently staged outside the repository at
 `/home/reaper/.cache/sly1-decomp-upstream` is the source configured in this build tree. The
@@ -47,17 +39,21 @@ against the upstream snapshot exposed four host32 compiler blockers:
 PS2 exception runtime constructs in `lib/001FC000.cpp`, local 64-bit typedefs
 in `main/0015C000.cpp`, missing `fabsf` declaration in `main/0016C000.cpp`,
 and PS2 varargs arithmetic in `main/file_1C05D0.cpp`. Port-side staging
-adaptations now compile all 74 selected C++ units; none modifies decomp source.
-The refreshed combine step now reports 3,392 native function entries and a
-direct-call frontier of 468/588 functions defined (120 missing). The
+adaptations compile the selected C++ units without modifying decomp source.
+Against the latest snapshot, all 73 selected Sly C++ units and 29 port-native
+backfill units compile. The combine step reports 3,389 catalogued native
+function addresses and a direct-call frontier of 455/574 functions defined
+(119 missing); source consolidation changes these totals compared with the
+previous snapshot. The
 freestanding Linux/i386 launcher now links. Port-side ABI adapters, compiler
 runtime support, constructor dispatch, a native DMA channel service, and Linux
 thread wrappers cleared the earlier link and startup traps. A fresh bounded
 launch runs all eight native initialization callbacks, uses port-only display
 context setup for `0x00201D60`, and registers the two display interrupt
-callbacks. It then faults in matching `func_00201C78` while reading unmapped
-GS DMA register `0x1000A000`; the title screen remains black and there is no
-playable scene. The old report (2,367 definitions and
+callbacks. Subsequent GS DMA service backfills cleared the unmapped
+`0x1000A000` crash. A trace-enabled run now faults when matching
+`func_001684E8` reads GS status at `0x12001000`; the title screen remains black
+and there is no playable scene. The old report (2,367 definitions and
 60/89 direct-call frontier) was from the stale source and is superseded.
 
 The refreshed decomp also defines 24 functions that previously had port-only
@@ -66,24 +62,31 @@ used by the native build. Port platform boundaries remain separate.
 
 ### New decomp work found (2026-11-05)
 
-After fetching the public repository, `master` is still at `f54bff5`, but the
-active `files83` branch has advanced to `2320680` (Nov 4 evening). Its US report
-now records 4,710/4,806 matched functions and 91.89% matched code, up from
-4,707 functions and 91.40% on `master`. This is a 0.49 percentage-point code
-gain; the report's data match is effectively unchanged. The branch adds
-matching C for `func_001F5CD0` (the library quicksort), `func_001A0BA0`, and
-`func_00180398`, alongside broad type cleanup and new class/record headers.
+The latest upstream `master` is `3ef6157` (Nov 4, 2026), fetched from
+[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp). It
+includes PR #51 (`files83`) and PR #52 (`files84`); the former is now merged,
+so its changes are part of the authoritative snapshot. The committed US report
+records 4,710/4,806 matched functions (98.00%), 91.89% matched code, and 88.70%
+matched data (3,806 exact C functions plus 904 original assembly). PAL is at
+4,703/4,831 functions and 91.04% code. These figures represent
+matching coverage, not runtime or playable-game coverage.
 
-These additions are useful port data: `func_00180398` is currently unresolved
-in our native link frontier, `func_001F5CD0` is called from two game units, and
-`func_001A0BA0` is referenced by a function table. They do not address the
-current GS DMA fault or make the display render a scene, so they are not a
-startup fix. `files83` is not the merged `master` snapshot; it reorganizes many
-source files and headers. The port's staged build therefore remains pinned to
-`f54bff5` until we validate that branch as a source update, rather than
-silently switching the working build to an unmerged layout. The fetched branch
-is available in `/home/reaper/.cache/sly1-decomp-upstream` for review. No files
-in the decomp checkout were changed.
+Useful additions now available to the port include matching C for
+`func_001F5CD0` (library quicksort), `func_001A0BA0`, and `func_00180398`.
+`func_00180398` now resolves one entry from the previous native unresolved
+frontier;
+`func_001F5CD0` is called from two game units, and `func_001A0BA0` is in a
+function table. The merge also consolidates shared class and record layouts
+across many US files and adds typed global/shape headers, making object fields
+and data relationships more useful for native layout and asset work. PR #52 is
+mostly PAL near-miss cleanup and does not add a US startup fix. None of these
+changes addresses the current GS/display boundary or makes a scene render.
+
+The read-only snapshot at `/home/reaper/.cache/sly1-decomp-upstream` is now
+advanced to `3ef6157` and the 73-unit host compilation succeeds against it.
+The separate checkout at `/home/reaper/Code/sly1-decomp` remains untouched.
+The refreshed objects combine successfully; we have not yet rerun the SDL
+launcher against this snapshot.
 
 The next graphics integration path has also been checked on the current host:
 the full `sly1_port_runtime` source, including OpenRAC's SDL3 window and
