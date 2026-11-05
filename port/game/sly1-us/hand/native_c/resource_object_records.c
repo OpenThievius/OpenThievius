@@ -23,6 +23,24 @@ void func_001DB480(void* object)
     }
 }
 
+void func_00182C18(void* object)
+{
+    u32 descriptor;
+    u32 method;
+
+    if (object == 0) return;
+    descriptor = *(u32*)object;
+    if (descriptor == 0) return;
+    method = *(u32*)(descriptor + 0x14u);
+    if (method != 0) {
+        sly1_native_call_regs4(method, (u32)object, 0, 0, 0);
+    }
+    method = *(u32*)(descriptor + 0x18u);
+    if (method != 0) {
+        sly1_native_call_regs4(method, (u32)object, 0, 0, 0);
+    }
+}
+
 void* func_001C1390(s32 index, void* context)
 {
     u8* table;

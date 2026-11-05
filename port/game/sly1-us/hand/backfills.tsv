@@ -178,3 +178,7 @@ func_00160690	native_c/resource_state_setup.c
 func_00151A88	native_c/resource_state_setup.c
 func_00152410	native_c/resource_state_setup.c
 func_001EAA70	native_c/resource_state_setup.c
+func_00182C18	native_c/resource_object_records.c
+func_001B5D80	native_c/resource_pools.c
+func_001B5E30	native_c/resource_pools.c
+func_001B5DD0	native_c/resource_pools.c
