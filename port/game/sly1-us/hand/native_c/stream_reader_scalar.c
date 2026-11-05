@@ -66,8 +66,10 @@ s32 func_00137D10(void* self) {
         *(s32*)(reader + 0x1C) = remaining - 2;
         return value;
     }
+    if (remaining < 0) return -1;
     s16 value = 0;
     func_00137A60(self, 2, &value);
+    if (*(s32*)(reader + 0x1C) < 0) return -1;
     return value;
 }
 
