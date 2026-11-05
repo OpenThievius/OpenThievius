@@ -128,3 +128,58 @@ void func_00201FF8(void* context, s32 page)
     func_00201BB8(bytes + selected * 0x28u);
     func_00201C78(bytes + (selected ? 0x140u : 0x50u));
 }
+
+/* Native display-frame callbacks. The host owns GS timing, so alternate the
+ * field locally while preserving Sly's double-buffer state and packet setup. */
+extern s32 D_002BE470, D_002BE474, D_00262484, D_002626C0;
+extern s32 D_002626C4, D_002626C8, D_002626CC;
+void func_00202098(void* address, s32 source_size, s32 destination_size, s32 field);
+void func_001F6C20(s32 channel);
+void func_00168130(void);
+void func_00201988(s32 a, s32 b);
+void func_001683B8(void);
+
+void func_001683E8(void)
+{
+    D_002BE470 = 1;
+    func_001683B8();
+    s32 pending = D_00262484;
+    D_002626C8 = D_002626C4;
+    D_002BE470 = 0;
+    if (pending > 0) {
+        D_002626C4 = 0;
+        D_00262484 = pending - 1;
+    } else {
+        D_002626C4 ^= 1;
+    }
+
+    const s32 field_buffer = (D_002626C0 & 1) != 0
+        ? 0x002625E0u : 0x002624F0u;
+    func_00202098((void*)field_buffer, 0x800, 0x800, D_002626C4);
+    func_001F6C20(0);
+    const s32 page = D_002626C0 + 1;
+    D_002626C0 = page;
+    func_00201FF8((void*)0x00262490u, page);
+
+    const s32 state = D_002626CC;
+    if (state == 1 || state == 2) func_00168130();
+    func_00201988(0, 0);
+}
+
+void func_001684E8(void)
+{
+    if (D_002626CC == 3)
+        D_002626CC = 2;
+    if (D_002BE474 == 0) return;
+
+    D_002BE474 = 0;
+    D_002626C4 ^= 1;
+    const s32 current = D_002626C0;
+    const s32 field_buffer = (current & 1) != 0
+        ? 0x002625E0u : 0x002624F0u;
+    func_00202098((void*)field_buffer, 0x800, 0x800, D_002626C4);
+    func_001F6C20(0);
+    const s32 packet = (current & 1) != 0
+        ? 0x002625D0u : 0x002624E0u;
+    func_00201C78((void*)packet);
+}
