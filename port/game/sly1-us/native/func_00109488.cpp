@@ -1211,6 +1211,8 @@ extern "C" void func_00109488(void) {
     for (u32 i = 0; i < 1179; ++i) {
         if (properties[i].flags & 0x400u)
             properties[i].callback = native_function(properties[i].callback);
+        if (properties[i].flags & 0x100u)
+            properties[i].offset = native_function(properties[i].offset);
         if (properties[i].flags & 0x1000u)
             properties[i].accessor = native_function(properties[i].accessor);
     }
