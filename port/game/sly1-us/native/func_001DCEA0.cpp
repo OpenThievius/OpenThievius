@@ -56,7 +56,9 @@ static void call_descriptor_method(void* object, u32 slot) {
     u32 address;
     if (object == 0) return;
     descriptor = *(u32*)object;
-    if (descriptor == 0) return;
+    /* Corrupt/uninitialized child links can contain scalar data rather than
+     * an EE descriptor. Valid retail descriptors live in the mapped ELF. */
+    if (descriptor < 0x08048000u || descriptor >= 0x09000000u) return;
     address = *(u32*)(descriptor + slot);
     if (address != 0) sly1_native_call_method(address, (u32)object);
 }
@@ -156,4 +158,12 @@ extern "C" void func_001DCEA0(void* self, void* reader) {
     func_001C0B38(self);
     D_0027B314 = saved_context;
     sly1_native_loader_stage(5, (u32)object, (u32)reader);
+}
+
+/* The retail callback is called through this no-argument C++ spelling even
+ * though the host bridge supplies the object and reader in its first slots. */
+extern "C" void func_001DCEA0_method(void* self, void* reader)
+    __asm__("_Z13func_001DCEA0v");
+extern "C" void func_001DCEA0_method(void* self, void* reader) {
+    func_001DCEA0(self, reader);
 }
