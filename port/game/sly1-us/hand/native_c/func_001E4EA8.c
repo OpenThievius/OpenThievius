@@ -4,6 +4,7 @@
 
 extern u8 D_002C3B00[];
 extern void* D_00275710;
+extern u8 D_00275F80[];
 
 void func_0018D410(void* memory);
 void* func_00137290(void* self, s32 source, u32 buffer, s32 buffer_length);
@@ -20,6 +21,7 @@ void func_001DCEA0(void* self, void* reader);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 void func_001E4EA8(void* state);
 void func_00142ED0(f32 scale);
+void func_001F0220(void* state, s32 mode);
 
 void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
     u8* bytes = (u8*)block;
@@ -51,7 +53,13 @@ void func_001E4EA8(void* state) {
 
     /* Trace point 9 is the request boundary, before validation or I/O. */
     sly1_native_loader_stage(9, 0, (u32)state);
-    if (request == 0 || *(u32*)(request + 4) == 0) return;
+    if (request == 0) return;
+    if (*(u32*)(request + 4) == 0) {
+        /* The native reader completed synchronously; retire the retail
+         * worker's busy state on the next frame-loop service pass. */
+        if (D_00275710 != 0) func_001F0220(D_00275F80, 0);
+        return;
+    }
 
     func_0018D410(record);
     for (index = 0; index < 8; ++index) {

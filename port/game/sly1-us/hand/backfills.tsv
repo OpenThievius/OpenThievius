@@ -101,3 +101,9 @@ func_001A9C68	native_c/func_001A9C68.c
 func_001E9088	native_c/func_001E90A8.c
 func_001E90A8	native_c/func_001E90A8.c
 func_00142ED0	native_c/func_00142F10.c
+func_0018D4B0	native_c/input_manager.c
+func_0016E148	native_c/input_manager.c
+func_0016E1A0	native_c/input_manager.c
+func_0016E0B8	native_c/input_manager.c
+func_0016E238	native_c/input_manager.c
+func_002040E8	native_c/input_manager.c

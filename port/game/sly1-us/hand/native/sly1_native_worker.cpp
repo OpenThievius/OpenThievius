@@ -3,6 +3,7 @@
 #include "openrac/guest.h"
 #include "openrac/disc_image.h"
 #include "openrac/native_gs.h"
+#include "openrac/native_window.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -56,6 +57,13 @@ extern "C" uint64_t game_sly1_native_monotonic_ticks(void) {
     constexpr uint64_t ticks_per_second = 294912000u;
     return static_cast<uint64_t>(now.tv_sec) * ticks_per_second +
            static_cast<uint64_t>(now.tv_nsec) * ticks_per_second / 1000000000u;
+}
+
+extern "C" int game_sly1_native_pad_read(uint32_t port, uint32_t report,
+                                           uint32_t size) {
+    if (report == 0) return 0;
+    return openrac_native_pad_read(static_cast<int>(port),
+                                   reinterpret_cast<unsigned char*>(G(report)), size);
 }
 
 extern "C" void sly1_native_start_worker(void) {

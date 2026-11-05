@@ -96,7 +96,9 @@ void func_001F0220(u8* state, s32 mode) {
         *(u32*)(state + 0x10) = 0;
         *(f32*)(state + 0x0C) = 1.0f;
         *(u32*)(state + 0x28) = 0;
-        *(s32*)(state + 4) = 2;
+        /* func_001E4E80 drains the native request inline, so no retail
+         * worker remains outstanding to hold the busy state at 2. */
+        *(s32*)(state + 4) = 0;
     } else {
         *(s32*)(state + 4) = mode;
     }

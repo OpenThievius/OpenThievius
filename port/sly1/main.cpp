@@ -201,6 +201,11 @@ int main(int argc, char** argv) {
                 std::int32_t scene_pending_state = -1;
                 std::uint16_t frame_flags_a = 0;
                 std::uint16_t frame_flags_b = 0;
+                std::uint32_t pad_report = 0;
+                std::uint32_t pad_mode = 0;
+                std::uint32_t pad_state = 0;
+                std::uint16_t pad_buttons = 0;
+                std::uint16_t pad_pressed = 0;
                 float frame_elapsed = 0.0f;
                 std::memcpy(&game_mode, openrac_guest_base + 0x00264A58u,
                             sizeof(game_mode));
@@ -216,6 +221,16 @@ int main(int argc, char** argv) {
                             sizeof(frame_flags_a));
                 std::memcpy(&frame_flags_b, openrac_guest_base + 0x00262C70u + 0xAAu,
                             sizeof(frame_flags_b));
+                std::memcpy(&pad_report, openrac_guest_base + 0x00262C70u + 0x0Cu,
+                            sizeof(pad_report));
+                std::memcpy(&pad_mode, openrac_guest_base + 0x00262C70u + 0x14u,
+                            sizeof(pad_mode));
+                std::memcpy(&pad_state, openrac_guest_base + 0x00262C70u + 0x18u,
+                            sizeof(pad_state));
+                std::memcpy(&pad_buttons, openrac_guest_base + 0x00262C70u + 0xA8u,
+                            sizeof(pad_buttons));
+                std::memcpy(&pad_pressed, openrac_guest_base + 0x00262C70u + 0xAAu,
+                            sizeof(pad_pressed));
                 std::memcpy(&frame_elapsed, openrac_guest_base + 0x0026185Cu,
                             sizeof(frame_elapsed));
                 std::memcpy(&scene_pending, openrac_guest_base + 0x0026F808u + 0x260u,
@@ -290,6 +305,10 @@ int main(int argc, char** argv) {
                           << current_object << " active_level=0x" << active_level
                           << " scene_pending=0x" << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
+                          << " pad_report=0x" << std::hex << pad_report << std::dec
+                          << " pad_mode=" << pad_mode << " pad_state=" << pad_state
+                          << " pad_buttons=0x" << std::hex << pad_buttons
+                          << " pad_pressed=0x" << pad_pressed << std::dec
                           << " scene_gate=" << scene_gate << " pending_state="
                           << scene_pending_state << " state_flags=" << std::hex
                           << frame_flags_a << ',' << frame_flags_b << std::dec
