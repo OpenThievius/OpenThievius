@@ -12,21 +12,27 @@ separate working decomp checkout remains untouched. The host32 build compiles
 84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
 `func_00180398`, and `func_001F5CD0`. PR #54 adds readable button-code names
 and notes, but no new US function matches or function bodies relevant to
-startup. Against this snapshot, 84/84 Sly units and 61/61 port-native C++
-backfills compile. The combined object provides 3,836 of 4,806 catalogued
-function addresses; its instrumented direct-call frontier resolves 744 of 799
-functions. The native startup bridges complete the two sound SIF bootstrap
-calls, suppress sound bank RPCs, and report the already-open disc as ready.
-Host staging pads the three undersized T217D backing arrays so native class
-initialization does not overwrite neighboring vtables. Port-only DMA channel
-lookups and waits carry startup beyond both DMA callbacks.
+startup. Against this snapshot, 84/84 Sly units and 82/82 port-native C++
+backfill objects compile. The combined object provides 3,852 of 4,806
+catalogued function addresses; its direct-call frontier resolves 699 of 752
+functions. The host32 linker lays address-named C globals out at their retail
+relative offsets, preserving adjacent objects used as larger structures, and
+keeps that range writable and aligned in the native ELF. The native startup
+bridges complete the two sound SIF bootstrap calls, suppress sound bank RPCs,
+and report the already-open disc as ready. Host staging pads the three
+undersized T217D backing arrays so native class initialization does not
+overwrite neighboring vtables. Port-only DMA channel lookups and waits carry
+startup beyond both DMA callbacks.
 
 The native GIF-DMA boundary now preserves the retail QWC size and submits raw
 GIF packets separately from DMAC tag chains. Native host-pointer spans are
 checked against mapped pages before the renderer reads them. A five-second
-uninstrumented run on 2026-11-05 opened the SDL window and accepted two
-16-byte display packets, but remained black and read no ISO sectors. The port
-is not playable yet. These runtime services and functional C backfills remain
+SDL run on 2026-11-05 opened a window and accepted two 16-byte display packets,
+but remained black. The newer freestanding host32 diagnostic maps the US ELF
+and ISO, parses the common GLOBSET records, and enters nested scene objects;
+it currently faults in a later transform calculation because the position
+reader and vector evaluator backfills still use default outputs. The port is
+not playable yet. These runtime services and functional C backfills remain
 separate from matching C; the matching `func_001F8290` implementation remains
 untouched in the decomp's `nonmatching/` directory.
 Matching definitions discovered upstream replace the corresponding old port
@@ -90,3 +96,14 @@ The current decomp checkout has an 88.7% near miss for this address in
 `func_001278A8.cpp` and `func_001280C0.cpp` provide the object transform walk
 and relative-vector math with host scalar operations. The indirect callbacks
 still need an adapter to the reused OpenRAC renderer or a Sly world-draw path.
+
+`func_001B5F50.cpp` parses scene reference and entry records, consumes property
+values without running their callbacks, and constructs nested child objects
+through the matching factory. Its scene data shape follows the retail EE
+assembly; missing property callbacks remain port work.
+
+`func_0011FC90.cpp` consumes position-track data through the matching reader
+and currently defaults its result to false. `func_0011F6B0.cpp` initializes
+optional track output buffers but does not evaluate the track curves. These
+are explicit startup fallbacks; they need full math translations or matching
+decompilation before position-driven gameplay can work.
