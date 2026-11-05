@@ -30,6 +30,10 @@ func_0018D5C0	native_c/native_heap.c
 func_0011C128	native_c/resource_pool.c
 func_0011C288	native_c/resource_pool.c
 func_0011CA90	native_c/resource_tables.c
+func_0011A6A8	native_c/value_pool_setup.c
+func_0011A670	native_c/value_pool_setup.c
+func_0011A6B8	native_c/value_pool_setup.c
+func_0011BF70	native_c/value_pool_setup.c
 func_00137A60	native_c/func_00137A60.c
 func_001378A0	native_c/func_001378A0.c
 func_00137B90	native_c/stream_reader_scalar.c
