@@ -137,8 +137,8 @@ through the resource context. A bounded native run completes the Splash
 callback without fault. The resource state backfill resolves Splash to
 resource ID 2 and initializes the visual
 state table; the opt-in trace reports the expected level and record indices.
-After the callback, both pack-loader key slots are zero, so no next resource
-has been queued yet.
+The trace shows no active or pending movie keys. It does not establish whether
+the game has queued another resource request.
 This does not establish a usable scene: several resource callbacks and state
 setup routines still resolve to no-C stubs. The host window remains black,
 with zero submitted vertices and no display framebuffer setup or verified
