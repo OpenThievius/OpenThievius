@@ -192,6 +192,27 @@ int main(int argc, char** argv) {
                 std::uint32_t frame_state[13]{};
                 std::memcpy(frame_state, openrac_guest_base + 0x00275BC0u,
                             sizeof(frame_state));
+                std::uint32_t menu_state[4]{};
+                std::memcpy(&menu_state[1], openrac_guest_base + 0x002701C8u,
+                            sizeof(menu_state[1]));
+                std::memcpy(&menu_state[2], openrac_guest_base + 0x002701CCu,
+                            sizeof(menu_state[2]));
+                std::memcpy(&menu_state[3], openrac_guest_base + 0x002701C4u,
+                            sizeof(menu_state[3]));
+                std::uint32_t overlay_state[3]{};
+                std::memcpy(&overlay_state[0], openrac_guest_base + 0x00275BC4u,
+                            sizeof(overlay_state[0]));
+                std::memcpy(&overlay_state[1], openrac_guest_base + 0x00275BC8u,
+                            sizeof(overlay_state[1]));
+                std::memcpy(&overlay_state[2], openrac_guest_base + 0x00275BECu,
+                            sizeof(overlay_state[2]));
+                std::uint32_t ui_active_count = 0;
+                for (std::uint32_t i = 0; i < 37; ++i) {
+                    std::uint32_t object = 0;
+                    std::memcpy(&object, openrac_guest_base + 0x002486B0u + i * 4u,
+                                sizeof(object));
+                    ui_active_count += object != 0;
+                }
                 std::uint32_t game_mode = 0;
                 std::uint32_t current_object = 0;
                 std::uint32_t resource_manager = 0;
@@ -205,7 +226,7 @@ int main(int argc, char** argv) {
                 std::int32_t resource_level_index = -1;
                 std::int32_t resource_record_index = -1;
                 std::int32_t resource_record_flags = 0;
-                std::uint32_t world_registry_head = 0;
+                std::uint32_t menu_mode = 0;
                 std::uint32_t world_lists[7]{};
                 std::uint32_t world_job_queue[2]{};
                 std::uint32_t frame_selector = 0;
@@ -273,8 +294,8 @@ int main(int argc, char** argv) {
                                 openrac_guest_base + resource_record_physical,
                                 sizeof(resource_record_flags));
                 }
-                std::memcpy(&world_registry_head, openrac_guest_base + 0x002701B8u,
-                            sizeof(world_registry_head));
+                std::memcpy(&menu_mode, openrac_guest_base + 0x002701B8u,
+                            sizeof(menu_mode));
                 const std::uint32_t world_physical = openrac_guest_ram_address(current_object);
                 if (current_object != 0 && world_physical <= openrac_guest_ram_size &&
                     0x1ED0u <=
@@ -385,7 +406,10 @@ int main(int argc, char** argv) {
                           << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
                           << ',' << frame_state[2] << " frame_count=" << frame_state[11]
                           << " game_mode=" << game_mode << " current_object=0x" << std::hex
-                          << current_object << " world_registry_head=0x" << world_registry_head
+                          << current_object << " menu=" << std::dec << menu_mode << ','
+                          << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
+                          << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
+                          << ',' << overlay_state[2] << " ui_objects=" << ui_active_count
                           << " camera=0x" << camera_object << " camera_stack="
                           << std::dec << camera_stack[0] << ",0x" << std::hex
                           << camera_stack[3] << " camera_flags=" << camera_stack[1]
