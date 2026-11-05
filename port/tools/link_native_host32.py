@@ -84,6 +84,8 @@ SECTIONS {
   .rodata : { *(.rodata .rodata.*) } :text
   . = ALIGN(0x1000);
   .data : { *(.data .data.*) } :data
+  . = ALIGN(16);
+  .sly1_retail_data : { *(.sly1_retail_data) } :data
   .init_array : {
     __init_array_start = .;
     KEEP(*(.init_array .init_array.*))

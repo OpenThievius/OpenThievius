@@ -53,6 +53,7 @@ add_custom_target(port_combine_decomp_host32
             --objects ${CMAKE_CURRENT_BINARY_DIR}/host32/objects
             --out ${CMAKE_CURRENT_BINARY_DIR}/host32/link
             --functions ${OPENTHIEVIUS_SOURCE_SLY1}/config/us/functions.tsv
+            --data ${OPENTHIEVIUS_SOURCE_SLY1}/config/us/c_data.tsv
             --nm ${CMAKE_NM}
             --ld ${CMAKE_LINKER}
             --cxx ${CMAKE_CXX_COMPILER}

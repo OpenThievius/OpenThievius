@@ -111,6 +111,8 @@ def main(argv=None):
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--functions", required=True, type=Path,
                         help="US function catalog from sly1-decomp/config/us/functions.tsv")
+    parser.add_argument("--data", required=True, type=Path,
+                        help="US C data layout catalog from sly1-decomp/config/us/c_data.tsv")
     parser.add_argument("--nm", default="nm")
     parser.add_argument("--ld", default="ld")
     parser.add_argument("--objdump", default="objdump")
@@ -220,10 +222,45 @@ def main(argv=None):
         return compiled_map.returncode
 
     args.out.mkdir(parents=True, exist_ok=True)
+    # Native C++ objects otherwise let ld place every -fdata-sections global
+    # independently. Sly deliberately uses adjacent retail globals as larger
+    # structures, so lay catalogued sections out at their retail offsets in
+    # one output section. Keep the lowest object at offset zero to avoid a
+    # large sparse VMA in the relocatable combined object.
+    data_rows = []
+    for line in args.data.read_text(encoding="utf-8").splitlines()[1:]:
+        fields = line.split("\t")
+        if len(fields) < 4 or not re.fullmatch(r"[0-9A-Fa-f]{8}", fields[1]):
+            continue
+        section = fields[3]
+        # -fdata-sections gives address-specific input sections for globals.
+        # A plain .rodata/.data section may contain many variables and cannot
+        # be moved as one retail-addressed object without symbol-offset data.
+        if re.fullmatch(r"\.(?:rodata|data|bss)\.D_[0-9A-Fa-f]{8}", section):
+            data_rows.append((int(fields[1], 16), section))
+    data_sections = sorted(set(data_rows))
+    layout = []
+    if data_sections:
+        minimum = min(address for address, _ in data_sections)
+        # PS2 data often has 8-byte alignment while host structs acquire 16
+        # byte vector alignment. Preserve retail addresses exactly; i386
+        # permits the unaligned accesses used by this binary.
+        # A distinct section keeps the final host linker from folding this
+        # range into either regular data or read-only data. The -r object
+        # preserves internal offsets while the final link maps it writable.
+        layout.append("  .sly1_retail_data 0 : SUBALIGN(1) {")
+        for address, section in data_sections:
+            layout.append(f"    . = 0x{address - minimum:x};")
+            layout.append(f"    *({section})")
+        layout.append("  }")
+    layout_script = args.out / "retail-data-layout.ld"
+    layout_script.write_text(("SECTIONS {\n" + "\n".join(layout) + "\n}\n"
+                              if layout else ""), encoding="utf-8")
     script = args.out / "retail-address-aliases.ld"
     script.write_text("\n".join(aliases) + "\n", encoding="utf-8")
     combined = args.out / "decomp-native32.o"
-    cmd = [args.ld, "-m", "elf_i386", "-r", "-T", str(script), "-o", str(combined)]
+    cmd = [args.ld, "-m", "elf_i386", "-r", "-T", str(layout_script),
+           "-T", str(script), "-o", str(combined)]
     cmd.extend(map(str, objects))
     cmd.append(str(map_object))
     result = subprocess.run(cmd, text=True, capture_output=True)
