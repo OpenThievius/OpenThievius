@@ -50,6 +50,8 @@ extern void func_00137260(SlyTextLayout* out, s32 horizontal);
 extern void func_00137268(SlyTextLayout* out, s32 vertical);
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
                                   u32 a3);
+extern s32 func_0015C188(s32 index);
+extern s32 func_0015C1C0(s32 index);
 
 static void menu_layout(SlyTextLayout* out, f32 x, f32 y, f32 w, f32 h,
                         u32 color, s32 horizontal) {
@@ -75,7 +77,13 @@ void func_00194F80(void* opaque) {
     const s32 page = *(s32*)(self + 0x260u);
     if (mode == 0 || page < 0 || page >= 33) return;
 
-    const u32 font_address = *(u32*)(self + 4u);
+    u32 font_address = *(u32*)(self + 4u);
+    if (font_address == 0) {
+        /* Native startup can register fonts after the static UI constructors
+         * have run. Bind the same default font when the menu first draws. */
+        font_address = *(u32*)0x0026227Cu;
+        *(u32*)(self + 4u) = font_address;
+    }
     SlyFontForMenu* font = (SlyFontForMenu*)font_address;
     SlyMenuText* menu = (SlyMenuText*)(MENU_TABLE_ADDRESS + (u32)page * 24u);
     const f32 blend = *(f32*)(self + 0x23Cu);
@@ -95,6 +103,11 @@ void func_00194F80(void* opaque) {
 
     /* Retail draws the menu's owning frame before its title and options. */
     u32 owner = *(u32*)(self + 0x210u);
+    if (owner == 0 && font_address != 0 && func_0015C188(2) != 0) {
+        owner = 0x0026A210u;
+        *(u32*)(self + 0x210u) = owner;
+        *(u32*)owner = (u32)func_0015C1C0(2);
+    }
     if (owner != 0) {
         u32 hook = *(u32*)owner;
         if (hook != 0) {

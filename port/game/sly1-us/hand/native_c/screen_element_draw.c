@@ -42,6 +42,18 @@ void func_0015C638(void* font, char* text, SlyScreenTextLayout* layout,
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
                                   u32 a3);
 
+/* Base ScreenElement constructor: attach the loaded default font and reset
+ * the text style before a derived element sets its own fields. */
+void func_001AA268(void* opaque)
+{
+    u8* self = (u8*)opaque;
+    if (self == 0) return;
+    *(u32*)(self + 4u) = *(u32*)0x0026227Cu;
+    *(f32*)(self + 0x20Cu) = 1.0f;
+    *(u32*)(self + 0x208u) = 0xFF808080u;
+    self[8] = 0;
+}
+
 /* Retail's generic ScreenElement draw slot. The game installs this method
  * for captions, counters, prompts, and other text-bearing UI elements. */
 void func_001AA790(void* opaque)

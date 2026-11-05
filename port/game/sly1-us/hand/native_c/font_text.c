@@ -229,6 +229,13 @@ s32 func_0015C1C0(s32 index) {
     return D_00262268[index] != 0 ? D_00262268[index] : D_0026227C;
 }
 
+/* Retail's font-presence test used by menu constructors before they attach
+ * their frame font. */
+s32 func_0015C188(s32 index) {
+    if (index == -1) return 0;
+    return D_00262268[index] != 0;
+}
+
 s32 func_0015C200(s32 key) {
     s32 index;
     for (index = 0; index < 5; ++index)
