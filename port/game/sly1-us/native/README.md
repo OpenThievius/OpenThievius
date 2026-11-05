@@ -7,10 +7,10 @@ sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
 current upstream snapshot compiles all 74 selected Sly C++ units and links the
-freestanding diagnostic launcher. Startup runs eight native initialization
-callbacks, then stops at missing graphics setup function `0x00201D60`; there
-is no title screen yet. The thread wrapper at `0x001F6A90` is compiled but has
-not yet been reached by this launch.
+freestanding diagnostic launcher. Port-only display setup now carries startup
+past `0x00201D60`; execution then faults in matching `func_00201C78` when it
+reads the unmapped GS DMA register `0x1000A000`. This is the next native
+graphics boundary. There is no title screen yet.
 Matching definitions discovered upstream replace the corresponding old port
 backfills.
 
