@@ -19,9 +19,9 @@ Splash parser reads a zero resource flag, a value of 1, and a plausible table
 count of 1491, then completes its callback. The earlier `0x6876bb00` report
 mistook overlapping compressed-header bytes for a parsed entry count; the
 defensive size guard is not taken by this run. Splash is catalog key `0x2`,
-not level resource `0x0100`. Startup reaches the title menu, but the native
-window is still black: menu page population/drawing is incomplete, the world
-lists are empty, and no scene geometry reaches the renderer.
+not level resource `0x0100`. Startup constructs the type `0x6C` scene object,
+but the native window is still black: `game_mode=0`, `world_registry_head=0`,
+and the renderer sees no vertices.
 
 ## Current no-emulation build status
 
@@ -41,10 +41,14 @@ missing). The build includes partially covered 0x4000 windows alongside
 whole-file units. Matching functions now take precedence over former
 port-only shadow backfills; platform service replacements remain separate.
 
-The latest bounded startup run passes both DMA callback waits and reaches the
-startup worker in `func_0018B580`. The graphics worker submits native GIF
-traffic, but the window is still black and the ISO receives no sector reads.
-There is no playable scene yet.
+The latest bounded startup run reads Splash from sector 820372 (74 sectors),
+decompresses it, and reaches parser stages 1–5. Port-only frame-context and
+packet-buffer backfills now initialize and retire empty frames; intrusive-list
+helpers also match the decomp's append, reset, offset and empty-check behavior.
+The native semaphore bridge wakes the display workers. A five-second launch
+survives without the previous packet-vector corruption, but the window remains
+black: the scene lists and registry are empty, and the renderer reports zero
+vertices. This is startup progress, not a playable state.
 
 ### Latest bounded native run (2026-11-05)
 
@@ -63,15 +67,13 @@ misreported as ambiguous; the direct-call frontier rose from 729/788 to
 60/60 port-native backfills, and maps 3,834/4,806 catalogued functions plus one
 non-catalogued backfill address.
 
-The parser proceeds into the resource's camera and collision-object paths, but
-the latest run stops its loader thread at missing `func_001388A0` while the
-active frame workers continue submitting GIF traffic. It remains a black
-window with no verified scene or gameplay. Several port-only camera/VU
-boundaries (`func_00144540`, `func_00144BE8`, and `func_00125138`) are explicitly
-temporary no-ops; the mesh boundary `func_001B8820` only preserves copied
-geometry and does not apply the retail VU transform. These gaps cannot support
-a playable scene and must be replaced with real native renderer/collision
-behavior.
+The parser reaches stage 5 for the startup Splash object. The first missing
+work is now scene population and rendering: multiple object construction and
+resource callbacks remain no-C stubs, and the active frame trace still has no
+world lists or geometry. Several port-only camera/VU boundaries
+(`func_00144540`, `func_00144BE8`, and `func_00125138`) remain temporary no-ops;
+the mesh boundary `func_001B8820` only preserves copied geometry and does not
+apply the retail VU transform. These gaps cannot support a playable scene.
 
 ### New decomp work found (2026-11-05)
 
