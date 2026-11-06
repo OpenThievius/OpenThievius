@@ -17,6 +17,9 @@ void func_001DBA38(void* opaque) {
 
     if (D_0027571C == 0) return;
 
+    sly1_native_trace_font(19, (u32)reader, *(u32*)(reader + 4),
+                           *(u32*)(reader + 0x14), *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1c));
     D_00275728 = *(s32*)(reader + 0x14u);
     func_00137B60(reader, 0x10);
     func_00137A60(reader, D_00275720, (void*)(u32)D_00275718);

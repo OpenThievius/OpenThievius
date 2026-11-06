@@ -20,6 +20,7 @@ extern "C" {
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -36,13 +37,18 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 19> traces{};
+    static std::array<std::atomic<unsigned>, 20> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
-    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8};
+    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4};
     if (index >= limits[stage]) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+    if (stage == 7 && std::getenv("OPENRAC_DUMP_FONT_RESOURCE") != nullptr &&
+        a0 <= 0xffffffffu - a1) {
+        std::ofstream dump("/tmp/sly1-font-resource.bin", std::ios::binary);
+        if (dump) dump.write(reinterpret_cast<const char*>(openrac_guest_base + a0), a1);
+    }
 }
 
 namespace {

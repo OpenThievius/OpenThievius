@@ -104,6 +104,7 @@ Additional opt-in diagnostics for a new run:
 ```sh
 OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
   OPENRAC_TRACE_DMA_PAYLOAD=1 \
+  OPENRAC_DUMP_FONT_RESOURCE=1 \
   OPENRAC_DEBUG_T4_INDEX=all OPENRAC_DUMP_TEXTURE=1400 timeout 18s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/path/to/your/Sly 1 NTSC-U.iso'
@@ -119,7 +120,8 @@ values `0` through `15` make one index transparent. The
 existing GS-local-memory image; it is not a default renderer mode.
 `OPENRAC_TRACE_DMA_PAYLOAD=1` logs large DMA payload source addresses, QWC,
 and their offset in the assembled stream to help locate the atlas's REF/REFS
-source range.
+source range. `OPENRAC_DUMP_FONT_RESOURCE=1` writes the current image table's
+full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
