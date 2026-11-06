@@ -3,6 +3,8 @@
 #include "common.h"
 
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 typedef struct Matrix4 {
     f32 row[4][4];
@@ -95,12 +97,18 @@ void func_00188668(f32 output[4][4], const f32 matrix[4][4],
 /* Retail sphere/frustum scale calculation (func_001453B0). */
 s32 func_001453B0(const u8* camera, const f32 point[4], f32 radius,
                   f32* scale) {
+    union { f32 value; u32 bits; } radius_value = {radius};
+    union { f32 value; u32 bits; } scale_value;
     f32 depth = point[3] * *(const f32*)(camera + 0xB0) + radius;
     f32 distance_squared = depth * depth;
     f32 point_squared = point[0] * point[0]
                       + point[1] * point[1]
                       + point[2] * point[2];
-    if (distance_squared < point_squared) return 0;
+    if (distance_squared < point_squared) {
+        sly1_native_trace_font(30, (u32)camera, (u32)point,
+                               radius_value.bits, 0, 0);
+        return 0;
+    }
 
     f32 far_depth = depth - *(const f32*)(camera + 0xB0) * 400.0f;
     f32 far_squared = far_depth * far_depth;
@@ -110,6 +118,9 @@ s32 func_001453B0(const u8* camera, const f32 point[4], f32 radius,
     } else {
         *scale = 1.0f;
     }
+    scale_value.value = *scale;
+    sly1_native_trace_font(30, (u32)camera, (u32)point,
+                           radius_value.bits, 1, scale_value.bits);
     return 1;
 }
 
