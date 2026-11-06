@@ -23,10 +23,12 @@ visible in the native launcher.
 ## Current visual blocker (2026-11-06)
 
 The user-provided 63-second PCSX2 reference screencast (2026-11-06) shows the
-publisher credits, the Paris rooftop opening movie, and the animated title
-screen with Start/Select prompts. It does not show selecting New Game or
-controlling Sly. The native target sequence is now explicit: reach that title
-scene, then transition to a controllable level.
+European 2.00 release booting through publisher credits and the Paris rooftop
+opening movie to the animated title screen with Start/Select prompts. It does
+not show selecting New Game or controlling Sly. Current native probes use the
+NTSC-U `SCUS_971.98` ELF and matching US disc, so use the video for sequence
+and feature reference rather than pixel comparison. The native target sequence
+is to reach that title scene, then transition to a controllable level.
 
 A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
@@ -91,6 +93,12 @@ completion is not evidence of a valid rendered or controllable level. The
 direct-load option is disabled by default; unset `OPENRAC_BOOT_LEVEL` for the
 normal startup path. The next gameplay milestone is to populate/render the
 loaded level and bring up Sly's player/input/collision path.
+
+The latest world trace correctly resolves guest-port heap pointers: it counts
+25 entries at the world root and 24 entries in the `0x55` family list (classes
+`0x58` and `0x51`), while the actor/update lists are empty. This narrows the
+post-parse gap to object activation/registration or the later render path; it
+does not yet identify which missing callback is responsible.
 
 The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
 (US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;

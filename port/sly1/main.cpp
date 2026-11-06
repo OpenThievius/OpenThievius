@@ -82,6 +82,72 @@ extern "C" std::uint32_t game_sly1_native_boot_level_key() {
 
 namespace {
 
+bool trace_guest_range(std::uint32_t address, std::size_t size,
+                       std::uint32_t* offset_out) {
+    std::uint64_t offset = address;
+    std::uint64_t limit = openrac_guest_ram_size;
+    if (address >= GUEST_PORT &&
+        static_cast<std::uint64_t>(address) + size <=
+            static_cast<std::uint64_t>(GUEST_PORT) + GUEST_PORT_SIZE) {
+        limit = static_cast<std::uint64_t>(GUEST_PORT) + GUEST_PORT_SIZE;
+    } else {
+        offset = openrac_guest_ram_address(address);
+    }
+    if (offset > limit || size > limit - offset) return false;
+    *offset_out = static_cast<std::uint32_t>(offset);
+    return true;
+}
+
+std::uint32_t trace_world_list_count(std::uint32_t world, std::uint32_t list_offset) {
+    std::uint32_t list_address = 0;
+    if (!trace_guest_range(world + list_offset, 12u, &list_address)) return 0;
+    std::uint32_t node = 0;
+    std::int32_t link_offset = 0;
+    std::memcpy(&node, openrac_guest_base + list_address, sizeof(node));
+    std::memcpy(&link_offset, openrac_guest_base + list_address + 8u,
+                sizeof(link_offset));
+    if (link_offset <= 0 || link_offset > 0x10000) return 0;
+
+    std::uint32_t count = 0;
+    while (node != 0 && count < 0x1000u) {
+        std::uint32_t link_address = 0;
+        if (!trace_guest_range(node + static_cast<std::uint32_t>(link_offset),
+                               sizeof(std::uint32_t), &link_address)) break;
+        std::memcpy(&node, openrac_guest_base + link_address, sizeof(node));
+        ++count;
+    }
+    return count;
+}
+
+std::array<std::uint32_t, 5> trace_world_list_classes(std::uint32_t world,
+                                                      std::uint32_t list_offset) {
+    std::array<std::uint32_t, 5> classes{};
+    std::uint32_t list_address = 0;
+    if (!trace_guest_range(world + list_offset, 12u, &list_address)) return classes;
+    std::uint32_t node = 0;
+    std::int32_t link_offset = 0;
+    std::memcpy(&node, openrac_guest_base + list_address, sizeof(node));
+    std::memcpy(&link_offset, openrac_guest_base + list_address + 8u,
+                sizeof(link_offset));
+    if (link_offset <= 0 || link_offset > 0x10000) return classes;
+
+    for (std::uint32_t i = 0; i < classes.size() && node != 0; ++i) {
+        std::uint32_t object_address = 0;
+        if (!trace_guest_range(node, 0x34u, &object_address)) break;
+        std::uint32_t descriptor = 0;
+        std::memcpy(&descriptor, openrac_guest_base + object_address, sizeof(descriptor));
+        std::uint32_t descriptor_address = 0;
+        if (!trace_guest_range(descriptor, 8u, &descriptor_address)) break;
+        std::memcpy(&classes[i], openrac_guest_base + descriptor_address + 4u,
+                    sizeof(classes[i]));
+        std::uint32_t link_address = 0;
+        if (!trace_guest_range(node + static_cast<std::uint32_t>(link_offset),
+                               sizeof(node), &link_address)) break;
+        std::memcpy(&node, openrac_guest_base + link_address, sizeof(node));
+    }
+    return classes;
+}
+
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \
     uint64_t name(                                                                               \
         uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
@@ -584,25 +650,24 @@ int main(int argc, char** argv) {
                 }
                 std::memcpy(&menu_mode, openrac_guest_base + 0x002701B8u,
                             sizeof(menu_mode));
-                const std::uint32_t world_physical = openrac_guest_ram_address(current_object);
-                if (current_object != 0 && world_physical <= openrac_guest_ram_size &&
-                    0x1ED0u <=
-                        openrac_guest_ram_size - world_physical) {
-                    std::memcpy(&world_lists[0], openrac_guest_base + world_physical + 0x48u,
+                std::uint32_t world_address = 0;
+                if (current_object != 0 &&
+                    trace_guest_range(current_object, 0x1ED0u, &world_address)) {
+                    std::memcpy(&world_lists[0], openrac_guest_base + world_address + 0x48u,
                                 sizeof(world_lists[0]));
-                    std::memcpy(&world_lists[1], openrac_guest_base + world_physical + 0x54u,
+                    std::memcpy(&world_lists[1], openrac_guest_base + world_address + 0x54u,
                                 sizeof(world_lists[1]));
-                    std::memcpy(&world_lists[2], openrac_guest_base + world_physical + 0x60u,
+                    std::memcpy(&world_lists[2], openrac_guest_base + world_address + 0x60u,
                                 sizeof(world_lists[2]));
-                    std::memcpy(&world_lists[3], openrac_guest_base + world_physical + 0x6Cu,
+                    std::memcpy(&world_lists[3], openrac_guest_base + world_address + 0x6Cu,
                                 sizeof(world_lists[3]));
-                    std::memcpy(&world_lists[4], openrac_guest_base + world_physical + 0x78u,
+                    std::memcpy(&world_lists[4], openrac_guest_base + world_address + 0x78u,
                                 sizeof(world_lists[4]));
-                    std::memcpy(&world_lists[5], openrac_guest_base + world_physical + 0x1B7Cu,
+                    std::memcpy(&world_lists[5], openrac_guest_base + world_address + 0x1B7Cu,
                                 sizeof(world_lists[5]));
-                    std::memcpy(&world_lists[6], openrac_guest_base + world_physical + 0x1C54u,
-                                sizeof(world_lists[4]));
-                    std::memcpy(world_job_queue, openrac_guest_base + world_physical + 0x1EC8u,
+                    std::memcpy(&world_lists[6], openrac_guest_base + world_address + 0x1C54u,
+                                sizeof(world_lists[6]));
+                    std::memcpy(world_job_queue, openrac_guest_base + world_address + 0x1EC8u,
                                 sizeof(world_job_queue));
                 }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
@@ -743,6 +808,23 @@ int main(int argc, char** argv) {
                           << " world_lists=" << world_lists[0] << ',' << world_lists[1]
                           << ',' << world_lists[2] << ',' << world_lists[3] << ','
                           << world_lists[4] << ',' << world_lists[5] << ',' << world_lists[6]
+                          << " world_list_counts="
+                          << trace_world_list_count(current_object, 0x48u) << ','
+                          << trace_world_list_count(current_object, 0x54u) << ','
+                          << trace_world_list_count(current_object, 0x60u) << ','
+                          << trace_world_list_count(current_object, 0x6Cu) << ','
+                          << trace_world_list_count(current_object, 0x78u) << ','
+                          << trace_world_list_count(current_object, 0x1B7Cu) << ','
+                          << trace_world_list_count(current_object, 0x1C54u)
+                          << " world_root_classes=";
+                for (const std::uint32_t class_id :
+                     trace_world_list_classes(current_object, 0x48u))
+                    std::cerr << std::hex << class_id << ',';
+                std::cerr << " family55_classes=";
+                for (const std::uint32_t class_id :
+                     trace_world_list_classes(current_object, 0x1C54u))
+                    std::cerr << std::hex << class_id << ',';
+                std::cerr
                           << " world_job_queue=0x" << std::hex
                           << world_job_queue[0] << ",0x" << world_job_queue[1]
                           << std::dec << " map_selection=0x" << std::hex << scene_pending << std::dec

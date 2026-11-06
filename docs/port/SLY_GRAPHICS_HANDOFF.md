@@ -6,13 +6,23 @@ path does not reach the opening movie or title screen and its visible output is
 malformed, dark text fragments against a mostly black background. The
 user-provided 63-second PCSX2 recording shows the publisher credits, Paris
 rooftop opening movie, and the animated Sly Raccoon title screen with Sly and
-the Start/Select prompts. It does not show selecting New Game or level control.
+the Start/Select prompts. Its PCSX2 game list identifies the European 2.00
+disc (`Sly Raccoon (Europe) (En,Fr,De,Es,It)`); current native probes use the
+NTSC-U `SCUS_971.98` ELF and matching US disc. Treat the recording as a
+sequence and feature reference, not a pixel-matched target. It does not show
+selecting New Game or level control.
 
 An opt-in native probe now skips movie/title startup and synchronously loads
 catalog key `0x0100` (`A Stealthy Approach`) after the first startup resource.
 The parser completes and installs a second world, but scene vertices remain at
 zero and the window stays black. This isolates level parsing from title startup;
 it does not make the game playable.
+
+The direct-load trace now reads world pointers through both EE RAM and the
+guest-port heap correctly. It sees 25 entries in the world root list and 24 in
+the `0x55` family list, with class IDs `0x58` and `0x51`; actor/update lists
+remain empty. The parsed object tree therefore exists, but the current trace
+does not show actors registered for update or scene geometry submitted.
 
 The latest native trace reaches the menu text callback and submits two draws
 with 372–480 vertices. It uploads a 512x512 PSMT4 atlas at GS block `0x1400`
