@@ -53,23 +53,33 @@ enabled alongside `OPENRAC_TRACE_LOADER=1`.
 This fixes a proven decoder defect, but the live font atlas is still wrong.
 The latest resource dump is `0x5F4F0` (390,384) bytes. Its first 371,418 bytes
 match the corrected Splash decode exactly at offset `0xE830`; the remaining
-18,966 bytes were not available from the decoded stream. The declared buffer
-size and full decoded length imply an expected payload start at `0x9E1A`, so
-the parser reaches the image-data read 18,966 bytes too late. Its cursor is
-`0xE821` before 16-byte alignment, then `0xE830` at the read.
+18,966 bytes were not available from the decoded stream. If the declared
+`0x5F4F0`-byte buffer is the final suffix of the decoded stream, its expected
+start would be `0x9E1A`; that interpretation places the image-data read
+18,966 bytes later than expected. The suffix assumption still needs
+confirmation from the retail container format. The live cursor is `0xE821`
+before 16-byte alignment, then `0xE830` at the read.
 
 The long cursor advance is in the second top-level object's nested
 `func_001463C0`/`func_001289C0` callback. It reads 191 groups of 65 floats,
 which consumes about 50 KiB. That loop agrees with the retail
 `func_001289C0` assembly, so it is not a safe place to trim bytes. The callback
 also calls `func_00162890`; that still-unmatched port backfill reads a record
-count of 9,542 but returns after roughly 1 KiB in this trace. Since runtime LZ
-output now matches the complete extracted Splash stream, the remaining cursor
-discrepancy is in resource/container parsing or payload-size semantics rather
-than decompression. Audit the binary format and nested callback reads against
-retail behavior before changing parser counts. Keep any functional correction
-in port backfills until matching C exists. Do not change GS texture
-interpretation based on the current bad atlas.
+count of 9,542 but returns after roughly 1 KiB in this trace. A focused trace
+found the early exit at record 4: the backfill reads nested count `0x1F3F`
+and rejects values above 16. Retail assembly has no matching cap and continues
+through the nested records. Removing that guard alone made the incomplete
+backfill consume to the decoded reader's end without recovering the image
+payload, so it is not a safe standalone fix. The backfill needs a faithful
+port-only implementation of the remaining record and auxiliary-array reads.
+The following 191-by-65 group-float loop is present in retail assembly, but
+the live trace reaches the decoded stream's `0xFF`-filled region beginning at
+`0xBFD0`; do not trim that loop until the preceding record parser and resource
+format are understood. Since runtime LZ output matches the complete extracted
+Splash stream, the remaining cursor discrepancy is in resource/container
+parsing or payload-size semantics rather than decompression. Keep functional
+corrections in port backfills until matching C exists. Do not change GS
+texture interpretation based on the current bad atlas.
 
 Reproduce the focused startup trace with:
 
