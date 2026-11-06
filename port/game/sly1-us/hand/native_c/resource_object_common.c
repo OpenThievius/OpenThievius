@@ -12,6 +12,7 @@ void func_00137E70(void* reader, void* destination);
 void func_00137E90(void* reader, void* destination);
 void func_00137EB0(void* reader, void* destination);
 void func_00137F08(void* reader, void* destination);
+void* func_001B4A10(void* reader);
 void* func_0018D500(s32 size);
 void* func_0018D5C0(s32 size);
 void* func_0018D568(s32 size, void* source);
@@ -117,8 +118,7 @@ void func_00162890(void* block, void* reader, void* object) {
                 *(f32*)(record + 0x20) = value;
         }
         if (flags & 0x040) {
-            const s32 count = func_00137BE0(reader);
-            if (count > 0) sly1_discard(reader, 0x1C);
+            (void)func_001B4A10(reader);
             ++*(s32*)(bytes + 0x50);
         }
         if (flags & 0x080) {
@@ -199,12 +199,12 @@ void func_00162890(void* block, void* reader, void* object) {
             if (n < 4) sly1_native_loader_stage(122, base_payload_bytes, (u32)reader);
             if (word_count) {
                 const u32 first_dimension = (u32)func_00137BE0(reader);
-                const u32 first_dimension_bytes = first_dimension * 12u;
+                const u32 first_dimension_bytes = refs * first_dimension * 12u;
                 if (n < 4) sly1_native_loader_stage(123, first_dimension_bytes, (u32)reader);
                 sly1_discard(reader, first_dimension_bytes);
 
                 const u32 second_dimension = (u32)func_00137BE0(reader);
-                const u32 second_dimension_bytes = second_dimension * 12u;
+                const u32 second_dimension_bytes = refs * second_dimension * 12u;
                 if (n < 4) sly1_native_loader_stage(124, second_dimension_bytes, (u32)reader);
                 sly1_discard(reader, second_dimension_bytes);
 
