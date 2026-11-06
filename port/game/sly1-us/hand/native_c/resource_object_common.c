@@ -75,7 +75,7 @@ void func_00162890(void* block, void* reader, void* object) {
     for (s32 i = 0; i < record_count; ++i) {
         u8* record = records + (u32)i * 0x70u;
         const s32 flags = func_00137BE0(reader);
-        if (trace_records < 4) {
+        if (trace_records < 16) {
             sly1_native_loader_stage(110, (u32)flags, (u32)reader);
             ++trace_records;
         }
@@ -158,13 +158,12 @@ void func_00162890(void* block, void* reader, void* object) {
         *(s32*)(record + 0x34) = func_00137B90(reader);
         *(s32*)(record + 0x14) = func_00137B90(reader);
         *(s32*)(record + 0x2C) = func_00137B90(reader);
+        const s32 nested_count = flags & 1 ? 0 : func_00137BE0(reader);
         if (flags & 1) {
             /* Retail post-processes the referenced record, then starts the
              * next one without reading the nested-record payload. */
             continue;
         }
-
-        const s32 nested_count = func_00137BE0(reader);
         if (nested_count < 0 || nested_count > 16 || (word_count && nested_count)) return;
         *(s32*)(record + 0x58) = nested_count;
         const u32 nested = (u32)func_0018D5C0(nested_count * 0x50);

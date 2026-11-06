@@ -65,25 +65,29 @@ The long cursor advance is in the second top-level object's nested
 which consumes about 50 KiB. That loop agrees with the retail
 `func_001289C0` assembly, so it is not a safe place to trim bytes. The callback
 also calls `func_00162890`; that still-unmatched port backfill reads a record
-count of 9,542 but returns after roughly 1 KiB in this trace. A focused trace
-found the early exit at record 4: the backfill reads nested count `0x1F3F`
-and rejects values above 16. Retail assembly has no matching cap and continues
-through the nested records. Removing that guard alone made the incomplete
-backfill consume to the decoded reader's end without recovering the image
-payload, so it is not a safe standalone fix. The backfill needs a faithful
-port-only implementation of the remaining nested-record reads. The
-auxiliary-array path now follows the retail assembly for its
-`item_count * first_count * 4` payload and the optional word-count arrays.
-The bounded Splash trace still exits before this path, so that correction is
-not yet exercised by startup.
-The following 191-by-65 group-float loop is present in retail assembly, but
-the live trace reaches the decoded stream's `0xFF`-filled region beginning at
-`0xBFD0`; do not trim that loop until the preceding record parser and resource
-format are understood. Since runtime LZ output matches the complete extracted
-Splash stream, the remaining cursor discrepancy is in resource/container
-parsing or payload-size semantics rather than decompression. Keep functional
-corrections in port backfills until matching C exists. Do not change GS
-texture interpretation based on the current bad atlas.
+count of 9,542 and returns at cursor `0x70001AB1`, at record 4 (`flags=0x3F04`).
+The earlier trace labeled the rejected value `0x1F3F` as a nested count. The
+backfill now correctly skips the nested-count field for reused records (flag
+bit 0), as retail does, but record 4 has that bit clear and the same early
+return remains. The reused-record correction is therefore valid but does not
+fix this Splash cursor. The auxiliary-array path also follows retail for its
+`item_count * first_count * 4` payload and optional word-count arrays; startup
+still returns before reaching that path. Keep these functional corrections
+in port-only backfills and replace them with matching decompiled C when
+available.
+
+The next cursor comparison is the record-4 `0x100` flag path, which reads a
+mode-dependent payload through `func_00137CC0`, four floats and
+`func_00137F08` when the mode is not `-1`, then three words. A bounded run
+after the reused-record correction still reports `func_00162890` returning at
+`0x70001AB1`; the following callback reaches group count 191 and reads 65
+floats per group through `0x70001E56`. It then reads a child-list count at
+`0x70001E59` with 423 bytes remaining. The child-list callback advances to
+`0x70001E5C` with 420 bytes remaining before its tail later encounters a
+zero-remaining reader. Keep the retail group-float loop intact while tracing
+the preceding record and child-list parsing. Runtime LZ output matches the
+complete extracted Splash stream, so do not change GS texture interpretation
+based on the current bad atlas.
 
 Reproduce the focused startup trace with:
 
