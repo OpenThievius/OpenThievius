@@ -183,6 +183,8 @@ func_00201FF8	native_c/display_context.c
 func_001683B8	native_c/func_001683B8.c
 func_002018E8	native_c/func_002018E8.c
 func_0011ECB8	native_c/resource_object_records.c
+func_0012AA28	native_c/func_0012AA28.c
+func_001DFD90	native_c/func_001DFD90.c
 func_00124DF8	native_c/func_00124DF8.c
 func_001463C0	native_c/func_001463C0.c
 func_001B3040	native_c/animation_table_loader.c
