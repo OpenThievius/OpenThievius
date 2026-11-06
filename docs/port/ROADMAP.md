@@ -630,14 +630,16 @@ empty child list then end at `0x1594`. Its actual descriptor dispatch reaches
 the retail C03 reader `func_001BAC30`; that callback parses a zero-vertex,
 zero-face first mesh before returning at `0x1594`. The next bytes decode as
 `00 53 00 4B 05 FF`, and a later C03 starts at `0x1643` with 6,626 vertices.
-These facts alone do not establish a row-boundary error: the decoded file's
-first word is `0x5F4F0` (390,384), and the file is 430,858 bytes, leaving
-`0x9E1A` bytes after that declared length. A high-entropy 390,384-byte range
-starts at `0x9E1A`, but its identity as the image payload remains unverified.
-Map the decoded resource's section ownership and compare object construction
-against retail before adding a skip or changing geometry counts. Keep the
-`func_001B89B8` translation and other functional backfills port-only. The
-frame remains black and the port is not playable.
+These facts alone do not establish a row-boundary error. The retail image
+callback reads a separately stored byte count after aligning the stream to 16
+bytes. The Splash decoded size is 430,858 bytes and the image request is
+`0x5F4F0` (390,384), leaving `0x9E1A`; this arithmetic is a useful lead but does
+not prove that the callback's cursor is `0x9E1A`. The previous trace did not
+capture the image header revision/count or cached revision. Add trace points at
+`func_001DB928` and before/after alignment in `func_001DBA38`, then compare the
+native state to current retail cache control flow before changing reader or
+geometry behavior. Keep the `func_001B89B8` translation and other functional
+backfills port-only. The frame remains black and the port is not playable.
 
 The 2026-11-06 native collider pass adds a port-only scalar translation of
 `func_001B8960` and its retail VU mesh transform. It runs the existing

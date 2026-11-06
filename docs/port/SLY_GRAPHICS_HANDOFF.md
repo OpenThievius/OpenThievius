@@ -76,19 +76,21 @@ unresolved:
   framebuffer remains black.
 
 The next investigation is the decoded container layout and the ownership of
-the suspected image block. The Splash decoded size is 430,858 bytes, its first
-word is `0x5F4F0` (390,384), and `430858 - 390384 = 0x9E1A`. The 390,384 bytes
-beginning at decoded offset `0x9E1A` have high entropy and look like image data,
-but that offset has not been proven to be the serialized image payload. The
-object list starts at `0x14D5`; its first type-4/key-1 row enters the retail
-C03 collider callback and returns at `0x1594`. At that offset the bytes are
-`00 53 00 4B 05 FF`, and the next 6,626-vertex collider begins at `0x1643`.
-The generic property loop and observed scalar widths agree with current
-retail C. None of this yet identifies whether the offsets are overlapping
-sections, a mistaken payload length, or a port-only parser divergence. Compare
-retail resource construction and object callbacks against these byte ranges
-before changing the cursor, face count, texture upload, or GS behavior. Keep
-functional corrections in `hand/native_c/` as port-only backfills. The earlier
+the suspected image block. The Splash decoded size is 430,858 bytes, the image
+read requests `0x5F4F0` (390,384) bytes, and their difference is `0x9E1A`.
+The 390,384 bytes beginning at decoded offset `0x9E1A` have high entropy and
+look like image data, but the offset has not been verified as the reader's
+position when the retail image callback runs. The object list starts at
+`0x14D5`; its first type-4/key-1 row enters the retail C03 collider callback
+and returns at `0x1594`. At that offset the bytes are `00 53 00 4B 05 FF`, and
+the next 6,626-vertex collider begins at `0x1643`. The generic property loop
+and observed scalar widths agree with current retail C. The image callback
+uses a separately stored byte count, aligns the reader to 16 bytes, then reads
+that count; the run did not capture its header revision/count or the previous
+revision value. Capture those values and the cursor immediately before/after
+alignment, then compare with the current retail cache path before changing the
+cursor, face count, texture upload, or GS behavior. Keep functional
+corrections in `hand/native_c/` as port-only backfills. The earlier
 9,542-record and `0x128BC` dimension claims were from a different,
 misattributed parser trace and should not guide fixes.
 
@@ -189,13 +191,13 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Reconcile the Splash decoded sections and find the first parser divergence.
-   The first collider callback consumes `0x14DD`–`0x1594`; a later collider
-   starts at `0x1643`, and an apparent image-sized payload starts at `0x9E1A`.
-   The LZ output is verified, while the meaning and overlap of these ranges are
-   not. Trace the current retail parser and object construction against the
-   same offsets before changing functional code. Keep any correction in the
-   port-only backfill.
+1. Trace the retail image-cache callback with its header state. Capture the
+   image amount/revision read by `func_001DB928`, the cached revision, the
+   `func_001DBA38` entry cursor, its 16-byte aligned cursor, and final cursor.
+   The request length is `0x5F4F0`, and decoded EOF minus that length is
+   `0x9E1A`; this arithmetic suggests but does not prove a payload offset.
+   Compare against the unmodified retail control flow before changing any
+   reader behavior. Keep corrections in port-only backfills.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
