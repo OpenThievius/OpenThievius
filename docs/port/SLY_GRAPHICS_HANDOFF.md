@@ -85,21 +85,24 @@ the first array read in each nested entry uses the one-based nested index as
 its byte count; the remaining four reads use their decoded count fields. It
 then reads the reference list and payload, plus the word-count arrays. The
 first auxiliary payload likewise uses the nested count as its byte count.
-Dimensional byte sizes use the original
-`reference_count * first_count * 4` base independently for each dimension,
-matching retail's 32-bit arithmetic. Overflowed sizes are passed through a
-signed-size discard helper, so negative results are ignored as in the matching
-reader. The auxiliary-record dimensional arrays use the same rule.
+Each optional dimension value is consumed, followed by another read of the
+same base payload size. Although assembly computes a dimension-scaled value
+for an allocation call, the call's delay-slot argument and subsequent reader
+size remain the original base size. Overflowed base sizes are passed through
+a signed-size discard helper, so negative results are ignored as in the
+matching reader. The auxiliary-record dimensional arrays use the same rule.
 
-A bounded trace confirms the first nested entry's count reads and payload
-sizes. It reaches the `0xFFFF` dimensions in the `0xFF`-filled region and
-completes its per-row arrays at decoded offset `0x17257`, still in that fill.
-Subsequent entries also parse padded bytes; the reader reaches
-`remaining=-1` during the 7,999-entry loop, which continues with zero-valued
-fallback reads. This is not a validated full-resource parse and has not
-produced a readable image. Continue comparing the remaining per-entry cursor
-operations with assembly and determine where the retail parser is expected to
-resume meaningful resource data.
+The latest bounded trace parses nested entry 0 with the assembly-derived
+read sizes and reaches decoded offset `0x15D3F` at the end of its row arrays.
+Entry 1 begins in the `0xFF` fill and supplies `0xFF` for its count fields. Its
+reference count and first count produce a 260,100-byte base payload; the
+reader consumes that payload, reads another `0xFFFF` dimension, then requests
+the same base size again and runs past the available decoded stream. This
+shows why the synthetic padded entry sequence exhausts the reader, but does
+not explain why retail enters the 7,999-entry loop on this resource. Keep the
+assembly-derived read sizes and investigate the surrounding resource boundary
+or record-count source before changing the renderer. No readable image has
+been confirmed yet.
 
 After the current backfill returns, the following callback reaches group
 count 191 and reads 65 floats per group through `0x70001E56`. It then reads a

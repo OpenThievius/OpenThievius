@@ -189,7 +189,7 @@ void func_00162890(void* block, void* reader, void* object) {
             func_00137B60(reader, 4);
             /* Retail reads the one-based nested-record index byte count. */
             sly1_discard(reader, (u32)(n + 1));
-            sly1_discard(reader, c1 * 12u);
+            sly1_discard(reader, c1);
             sly1_discard(reader, c2 * 4u);
             sly1_discard(reader, c3 * 8u);
             sly1_discard(reader, c4 * 4u);
@@ -204,13 +204,13 @@ void func_00162890(void* block, void* reader, void* object) {
             sly1_discard(reader, base_payload_bytes);
             if (n < 4) sly1_native_loader_stage(122, base_payload_bytes, (u32)reader);
             if (word_count) {
-                const u32 first_dimension = (u32)func_00137BE0(reader);
-                if (n < 4) sly1_native_loader_stage(123, first_dimension, (u32)reader);
-                sly1_discard(reader, base_payload_bytes * first_dimension * 12u);
+                (void)func_00137BE0(reader);
+                if (n < 4) sly1_native_loader_stage(123, base_payload_bytes, (u32)reader);
+                sly1_discard(reader, base_payload_bytes);
 
-                const u32 second_dimension = (u32)func_00137BE0(reader);
-                if (n < 4) sly1_native_loader_stage(124, second_dimension, (u32)reader);
-                sly1_discard(reader, base_payload_bytes * second_dimension * 12u);
+                (void)func_00137BE0(reader);
+                if (n < 4) sly1_native_loader_stage(124, base_payload_bytes, (u32)reader);
+                sly1_discard(reader, base_payload_bytes);
 
                 const u32 row_bytes = c4 * 2u;
                 for (s32 row = 0; row < word_count; ++row) {
@@ -241,11 +241,11 @@ void func_00162890(void* block, void* reader, void* object) {
             const u32 base_payload_bytes = items * c0 * 4u;
             sly1_discard(reader, base_payload_bytes);
             if (word_count) {
-                const u32 first_dimension = (u32)func_00137BE0(reader);
-                sly1_discard(reader, base_payload_bytes * first_dimension * 12u);
+                (void)func_00137BE0(reader);
+                sly1_discard(reader, base_payload_bytes);
 
-                const u32 second_dimension = (u32)func_00137BE0(reader);
-                sly1_discard(reader, base_payload_bytes * second_dimension * 12u);
+                (void)func_00137BE0(reader);
+                sly1_discard(reader, base_payload_bytes);
 
                 /* The block word count selects two c0*2-byte arrays per row. */
                 const u32 row_bytes = c0 * 2u;
