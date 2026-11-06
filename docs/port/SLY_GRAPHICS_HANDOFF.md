@@ -79,8 +79,10 @@ The next investigation is the decoded container layout and the ownership of
 the suspected image block. The Splash decoded size is 430,858 bytes, the image
 read requests `0x5F4F0` (390,384) bytes, and their difference is `0x9E1A`.
 The 390,384 bytes beginning at decoded offset `0x9E1A` have high entropy and
-look like image data, but the offset has not been verified as the reader's
-position when the retail image callback runs. The object list starts at
+look like image data. Image-A metadata has a maximum `offset + size` of exactly
+`0x5F4F0`, the retail cache allocation size. This strongly supports the tail
+being the serialized image block, although its start has not been verified as
+the reader's position when the retail image callback runs. The object list starts at
 `0x14D5`; its first type-4/key-1 row enters the retail C03 collider callback
 and returns at `0x1594`. At that offset the bytes are `00 53 00 4B 05 FF`, and
 the next 6,626-vertex collider begins at `0x1643`. The generic property loop
@@ -130,6 +132,20 @@ the second collider. Keep all functional reader and sentinel handling as
 port-only backfills, replacing it with matching C when the decompilation covers
 those functions. Do not adjust GS texture interpretation while image data
 remains uninitialized.
+
+The US boot ELF's retail `func_00137FB0` disassembly confirms the mesh stream
+order used by the port backfill: float radius, unsigned 16-bit vertex count,
+12-byte input vertices, unsigned 16-bit face count, link-capacity count, then
+per-face three unsigned indices, float plus 12-byte face payload, unsigned
+byte edge count, and three unsigned 16-bit fields per edge. The mesh loop calls
+`func_00137B90`, whose instruction is `lbu`; the adjacent signed-byte helper
+`func_00137CC0` is not called there. The first Splash collider trace follows
+this layout through mesh/tree cursors `0x14DE`→`0x14E8`→`0x14EC`, then its
+second mesh/tree at `0x152A`→`0x1534`→`0x1538`. Its property terminator,
+nested zero-count record list, and callback return land at `0x1587`, `0x1594`,
+and `0x1594`, respectively. This validates the reader widths for the first
+collider; it does not explain why the following top-level row begins with
+`00 53 00 4B 05 FF`.
 
 Reproduce the focused startup trace with:
 
