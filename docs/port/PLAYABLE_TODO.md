@@ -134,14 +134,15 @@ the first playable gate, not proof that the whole game is complete.
 
 ## Immediate next session
 
-Work from the audited startup frontier. First recover `func_001E2398` from
-`file_1E08F8.cpp`, then `func_0018E5E8` from `file_18D8E0.cpp`; both are root
-functions currently missing from host C. Lower only the C++ constructs that
-block those units, and verify each changed call against the US assembly. Keep
-their render-thread and movie-thread behavior intact. Rebuild and check whether
-the missing frontier advances beyond these roots. Afterward, prioritize the
-remaining no-C functions reached from the selected Splash/menu path. Do not
-infer visual correctness from function coverage or raw submission counts.
+Work from the audited startup frontier. `func_0011A498`, called directly by
+`func_001B7968`, is now the closest missing game function on the startup
+frontier. Matching C exists in `file_112698.cpp`, but the unit is unreadable
+because of C++ constructor/destructor syntax in `Gc_259F38` and `RetValue`.
+Lower those constructs with their actual initialization/destruction effects
+and check the associated retail entries. Rebuild, then follow the frontier to
+the next missing call. After the reachable startup path is covered, prioritize
+the remaining no-C functions on the selected Splash/menu path. Do not infer
+visual correctness from function coverage or raw submission counts.
 
 ## Coverage audit result (2026-11-07)
 
@@ -234,3 +235,37 @@ translation from 1,329 to 1,480 functions and reducing unreadable units from
 zero problems. The remaining 51 units still need prioritization by actual
 startup/load/update/draw reachability; this coverage gain alone does not mean
 the game is playable.
+
+Hostgen can now compile `file_1E08F8.cpp`. Its port staging lowers the small
+`Ctx_1E0CD0::Pad` and `Sub_1E4EA8::SetOwner` methods to explicit-self C helpers,
+and represents constructor `func_001E4E38` with its retail `self` return.
+Soft-float overloads that share retail addresses are given distinct C names
+with the same assembler labels, preserving their separate source call types.
+The render-thread root `func_001E2398` is now translated from matching C.
+Coverage is 1,527 translated functions, with the same 59 selected-assembly
+translations, and unreadable units fell from 51 to 50. The three thread APIs it
+calls (`func_001F6A10`, `func_001F6A50`, `func_001F6A90`) have existing native
+implementations in `port/game/sly1-us/native/linux_threads.cpp`. The other
+startup root, `func_0018E5E8`, was still blocked by `file_18D8E0.cpp`'s C++
+movie sink classes at this stage. The build and repository check pass;
+visibility/playability has not been demonstrated.
+
+Hostgen now compiles the movie sink unit `file_18D8E0.cpp`, including matching C
+for root `func_0018E5E8` and the four methods named by its retail vtables. Port
+staging models the sink vptr as a 32-bit field, retains the ring fields at
+their retail offsets, and initializes the ring and stack DMA vptrs from the
+verified US vtable addresses. This keeps the C translation's virtual dispatch
+layout intact. Translation rose from 1,527 to 1,572 functions, and unreadable
+units fell from 50 to 49; the native launcher links and the repository check
+passes. The startup-root list no longer contains either `func_001E2398` or
+`func_0018E5E8`. The audit's next missing call is `func_0011A498` from
+`func_001B7968`; its matched C is in `file_112698.cpp`, an unreadable unit.
+This remains code-coverage progress, not proof of visible or playable output.
+
+A bounded 12-second native launch after this build no longer reports the two
+startup roots as no-C stubs, but its direct-render trace is still the same
+untextured 240-vertex draw with zero target/source/texture addresses and black
+vertex color. It uploads the font atlas and palette repeatedly without proving
+glyph selection. The immediate visual blocker remains the draw-state path;
+the next game-code blocker is still `func_0011A498` through the unreadable
+`file_112698.cpp` unit.

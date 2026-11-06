@@ -533,7 +533,7 @@ port playable. Bounds update and world registration remain missing; the port now
 
 ## Current native status (2026-11-07)
 
-The latest hostgen build reads 199 units, translates 1,480 functions, includes
+The first hostgen build recorded here reads 199 units, translates 1,480 functions, includes
 59 functions translated from selected retail assembly, has one stubbed
 function, and reports 3,396 functions without C. There are 51 unreadable C
 units. These numbers supersede the older 1,094-function snapshot earlier in
@@ -558,3 +558,27 @@ Recent hostability fixes for `0018C000` memory-card return values and
 repository. No matching decompilation file was changed, and neither fix is a
 functional game backfill. Preserve that separation when matching C becomes
 available upstream.
+
+The next rebuild translated `file_1E08F8.cpp`, including matching C for
+the render-thread root `func_001E2398`. Hostgen coverage rose from 1,480 to
+1,527 translated functions and unreadable units fell from 51 to 50; the native
+launcher links. Its thread calls are provided by the port's native
+`linux_threads.cpp` service. This still has not produced evidence of a readable
+menu. At that point the movie decode root `func_0018E5E8` remained no-C because
+`file_18D8E0.cpp` uses unsupported `class` and inheritance declarations.
+
+The movie sink staging now compiles `file_18D8E0.cpp` and provides matching C
+for `func_0018E5E8`, Ring::Put/Idle, and Dma::Put/Idle. Vptrs and the ring's
+field offsets are preserved from the US vtable records; the local DMA object
+gets its retail vptr before virtual dispatch. Current hostgen coverage is
+1,572 translated functions with 49 unreadable units. The next audited missing
+startup call is `func_0011A498` from `func_001B7968`; matching C is present in
+`file_112698.cpp`, which is still unreadable due to C++ constructor forms.
+
+A 12-second native launch with direct-render tracing after this rebuild
+started both thread roots without no-C warnings, but still repeated the same
+240-vertex untextured draw. The trace reports target/source/texture addresses
+as zero and the first vertex as black with alpha 128. The 512x512 PSMT4 font
+atlas and its 8x2 palette are uploaded repeatedly, but no glyph draw is
+identified. The latest run therefore provides no evidence of a readable menu;
+continue from the draw-state/texture path documented above.

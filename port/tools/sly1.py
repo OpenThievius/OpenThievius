@@ -293,6 +293,183 @@ def prepare_c_view(source, version):
             # paths in 0018C000. Their bodies use only explicit fields and
             # calls, so adding the record pointer as argument zero preserves
             # the target layout and gives C the same `this` value.
+            if cpp.stem == "file_1E08F8":
+                def lower_record_method(tag, method_pattern, helper_name,
+                                        helper_signature, fields=()):
+                    nonlocal text
+                    struct = re.search(r"struct\s+" + tag + r"\s*\{", text)
+                    if struct is None:
+                        raise ValueError(f"file_1E08F8: missing {tag}")
+                    method = re.search(method_pattern, text[struct.end():])
+                    if method is None:
+                        raise ValueError(f"file_1E08F8: missing {tag} method")
+                    start = struct.end() + method.start()
+                    body_open = struct.end() + method.end() - 1
+                    depth, pos = 1, body_open + 1
+                    while pos < len(text) and depth:
+                        if text[pos] == "{": depth += 1
+                        elif text[pos] == "}": depth -= 1
+                        pos += 1
+                    if depth:
+                        raise ValueError(f"file_1E08F8: unclosed {tag} method")
+                    body = text[body_open + 1:pos - 1]
+                    body = re.sub(r"\bthis\b", "self", body)
+                    for field in fields:
+                        body = re.sub(r"\b" + field + r"\b", "self->" + field, body)
+                    text = text[:start] + text[pos:]
+                    struct = re.search(r"struct\s+" + tag + r"\s*\{", text)
+                    depth, pos = 1, struct.end()
+                    while pos < len(text) and depth:
+                        if text[pos] == "{": depth += 1
+                        elif text[pos] == "}": depth -= 1
+                        pos += 1
+                    if depth:
+                        raise ValueError(f"file_1E08F8: unclosed {tag} record")
+                    if pos < len(text) and text[pos] == ";":
+                        pos += 1
+                    return_type, arguments = helper_signature.split("(", 1)
+                    helper = ("\nstatic " + return_type + " " + helper_name
+                              + "(" + arguments + " {" + body + "\n}\n")
+                    text = text[:pos] + helper + text[pos:]
+
+                lower_record_method(
+                    "Ctx_1E0CD0", r"void\s+Pad\s*\(u8\s+ch,\s*s32\s+count\)\s*\{",
+                    "Ctx_1E0CD0_Pad", "void(struct Ctx_1E0CD0* self, u8 ch, s32 count)")
+                if "ctx->Pad(pad, left)" not in text or "ctx->Pad(0x20, right)" not in text:
+                    raise ValueError("file_1E08F8: Ctx::Pad call sites changed")
+                text = text.replace("ctx->Pad(pad, left)",
+                                    "Ctx_1E0CD0_Pad(ctx, pad, left)", 1)
+                text = text.replace("ctx->Pad(0x20, right)",
+                                    "Ctx_1E0CD0_Pad(ctx, 0x20, right)", 1)
+
+                lower_record_method(
+                    "Sub_1E4EA8", r"void\s+SetOwner\s*\(void\*\s+o\)\s*\{",
+                    "Sub_1E4EA8_SetOwner",
+                    "void(struct Sub_1E4EA8* self, void* o)", fields=("owner",))
+                if "sub.SetOwner(&o30)" not in text:
+                    raise ValueError("file_1E08F8: Sub::SetOwner call site changed")
+                text = text.replace("sub.SetOwner(&o30)",
+                                    "Sub_1E4EA8_SetOwner(&sub, &o30)", 1)
+
+                ctor_decl = "    Ctor_1E4E38();"
+                if ctor_decl not in text:
+                    raise ValueError("file_1E08F8: constructor declaration changed")
+                text = text.replace(ctor_decl, "", 1)
+                ctor = re.search(
+                    r"Ctor_1E4E38::Ctor_1E4E38\s*\(\)\s*\{(?P<body>[^{}]*)\}",
+                    text,
+                )
+                if ctor is None:
+                    raise ValueError("file_1E08F8: constructor body changed")
+                body = re.sub(r"\b(f4|f8|fC|f10|body)\b", r"self->\1",
+                              ctor.group("body"))
+                body = re.sub(
+                    r"(func_001F5C0C\(self->body, 0, 0x20\);)",
+                    r"\1\n    return self;",
+                    body,
+                    count=1,
+                )
+                if "return self;" not in body:
+                    raise ValueError("file_1E08F8: constructor return shape changed")
+                text = (text[:ctor.start()] +
+                        "Ctor_1E4E38* func_001E4E38(Ctor_1E4E38* self) {" + body + "\n}" +
+                        text[ctor.end():])
+
+                double_decl = "double func_001FCDE0(double a, double b);"
+                int_decl = "s32 func_001FD410(double a);"
+                if double_decl not in text or int_decl not in text:
+                    raise ValueError("file_1E08F8: soft-float declarations changed")
+                text = text.replace(
+                    double_decl,
+                    'double func_001FCDE0__double(double a, double b) '
+                    '__asm__("func_001FCDE0");', 1)
+                text = text.replace(int_decl,
+                    's32 func_001FD410__double(double a) '
+                    '__asm__("func_001FD410");', 1)
+                text = text.replace("i = func_001FD410(l);",
+                                    "i = func_001FD410__double(l);", 1)
+                old_round = "func_001FCDE0(func_001FD868(p), 0.5)"
+                if old_round not in text:
+                    raise ValueError("file_1E08F8: double rounding call changed")
+                text = text.replace(old_round,
+                                    "func_001FCDE0__double(func_001FD868(p), 0.5)", 1)
+
+            if cpp.stem == "file_18D8E0":
+                prelude += (
+                    "typedef struct Sink_18E6C0 Sink_18E6C0;\n"
+                    "typedef struct Ring_18E6C0 Ring_18E6C0;\n"
+                    "typedef struct Dma_18E8C8 Dma_18E8C8;\n"
+                )
+                class_replacements = (
+                    (r"class\s+Sink_18E6C0\s*\{.*?\};",
+                     "struct Sink_18E6C0 { u32 vtable; };"),
+                    (r"class\s+Ring_18E6C0\s*:\s*public\s+Sink_18E6C0\s*\{.*?\};",
+                     "struct Ring_18E6C0 { u32 vtable; s32 f04; s32 f08; "
+                     "s32 f0C; s32 f10; s32 f14; s32 f18; s32 f1C; };"),
+                    (r"class\s+Dma_18E8C8\s*:\s*public\s+Sink_18E6C0\s*\{.*?\};",
+                     "struct Dma_18E8C8 { u32 vtable; };"),
+                )
+                for pattern, replacement in class_replacements:
+                    text, count = re.subn(pattern, replacement, text, count=1,
+                                          flags=re.DOTALL)
+                    if count != 1:
+                        raise ValueError("file_18D8E0: movie sink class shape changed")
+
+                def lower_qualified_method(pattern, signature, fields=()):
+                    nonlocal text
+                    method = re.search(pattern, text)
+                    if method is None:
+                        raise ValueError("file_18D8E0: movie sink method shape changed")
+                    body_open = method.end() - 1
+                    depth, pos = 1, body_open + 1
+                    while pos < len(text) and depth:
+                        if text[pos] == "{": depth += 1
+                        elif text[pos] == "}": depth -= 1
+                        pos += 1
+                    if depth:
+                        raise ValueError("file_18D8E0: unclosed movie sink method")
+                    body = re.sub(r"\bthis\b", "self", text[body_open + 1:pos - 1])
+                    for field in fields:
+                        body = re.sub(r"(?<![A-Za-z0-9_>.])\b" + field + r"\b",
+                                      "self->" + field, body)
+                    text = text[:method.start()] + signature + " {" + body + "}" + text[pos:]
+
+                lower_qualified_method(
+                    r"s32\s+Ring_18E6C0::Put\s*\(s32\s+count,\s*u8\*\s+dst\)\s*\{",
+                    "s32 func_0018E6C0(Ring_18E6C0* self, s32 count, u8* dst)",
+                    fields=("f04", "f08", "f0C", "f10", "f14", "f18", "f1C"))
+                lower_qualified_method(
+                    r"s32\s+Ring_18E6C0::Idle\s*\(\)\s*\{",
+                    "s32 func_0018E8C0(Ring_18E6C0* self)")
+                lower_qualified_method(
+                    r"s32\s+Dma_18E8C8::Put\s*\(s32\s+size,\s*u8\*\s+buf\)\s*\{",
+                    "s32 func_0018E8C8(Dma_18E8C8* self, s32 size, u8* buf)")
+                lower_qualified_method(
+                    r"s32\s+Dma_18E8C8::Idle\s*\(\)\s*\{",
+                    "s32 func_0018E938(Dma_18E8C8* self)")
+
+                dma_init = "        Dma_18E8C8 dma;"
+                if dma_init not in text:
+                    raise ValueError("file_18D8E0: DMA stack object site changed")
+                text = text.replace(dma_init,
+                                    dma_init + "\n        dma.vtable = 0x0024B598;", 1)
+                ring_setup = (
+                    "    SetIopVolumeChannel(8, 0x200);\n"
+                    "    r = OpenIopRing(0x6000, 0x400, 0, 2, 2);"
+                )
+                if ring_setup not in text:
+                    raise ValueError("file_18D8E0: ring sink setup changed")
+                text = text.replace(
+                    ring_setup,
+                    "    SetIopVolumeChannel(8, 0x200);\n"
+                    "    self->sub6C.vtable = 0x0024B5B8;\n"
+                    "    r = OpenIopRing(0x6000, 0x400, 0, 2, 2);",
+                    1,
+                )
+                ring_init = "        InitIopRingSink(&self->sub6C, 0x6000, r);"
+                if ring_init not in text:
+                    raise ValueError("file_18D8E0: ring sink initialization changed")
+
             if cpp.stem == "0018C000":
                 for tag, method, args, call in (
                     ("Pair_18CC20", "Set", "Key_18CC20* key", "pair.Set(key)"),
