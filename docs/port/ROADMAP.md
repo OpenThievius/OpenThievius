@@ -12,59 +12,50 @@ replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
 models as gameplay features.
 The [NTSC-U catalog extractor](ASSETS.md) now locates and extracts 46 named raw
 resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
-samples. The native LZ backfill now consumes the 150,849-byte Splash stream
-from the retail source fields, and its first 8 KiB begins with the same bytes
-as the independent offline decoder. A bounded loader-stage trace confirms the
-Splash parser reads a zero resource flag, a value of 1, and a plausible table
-count of 1491, then completes its callback. The earlier `0x6876bb00` report
-mistook overlapping compressed-header bytes for a parsed entry count; the
-defensive size guard is not taken by this run. Splash is catalog key `0x2`,
-not level resource `0x0100`. Startup constructs the type `0x6C` scene object,
-but the native window is still black.
+samples. The exact decomp stream-reader unit `00134000.cpp` is now host-readable and
+selected for the native build, including its LZ and buffered-byte readers. A
+port-only native ISO adapter reads the 150,849-byte Splash resource from the
+retail sector fields. A bounded run reaches the Splash metadata tables and
+submits menu geometry, but its image and palette buffers are zero-filled and the
+window remains black. Splash is catalog key `0x2`, not level resource `0x0100`.
 
 ## Current visual blocker (2026-11-06)
 
-The native C-only launcher reaches Sly's menu/frame path. A 20-second bounded
-run on 2026-11-06 reached two frames and accepted 1,420 GIF-chain submits with
-zero rejects. `OPENRAC_TRACE_DIRECT=1` now shows two title-menu draws and 372
-decoded vertices in later frames; the separate legacy guest GIF counter still
-reports zero. A captured 960x720 native frame is entirely black, and the
-512x512 PSMT4 upload at block `0x1400` contains 131,072 zero bytes. Font trace
-stage 19 shows its `0x5F4F0`-byte read starts after the Splash reader reaches
-EOF. The current visual blocker is therefore the resource parser's stream
-alignment and missing image payload, not absent menu draw commands. The first
-concrete alignment lead is the invalid next object type `0x5300` at decoded
-offset `0x1594`; a later collider reads a 65,535-face count and runs the reader
-to EOF. A port-only collision backfill covers post-load contact-table
-registration; it does not change this visual blocker. The earlier intermittent
-heap abort was traced with AddressSanitizer to a use-after-free in the semaphore map
-during `WaitSema` while another thread deleted a semaphore. The native kernel
-shim now gives waiters stable shared semaphore state and wakes them on delete.
-A 60-second AddressSanitizer run and a 20-second normal traced run survived
-without the abort. The channel-initialization backfill
-populates GIF at `0x1000A000` and VIF1 at `0x10009000`. The earlier
-135,632-byte chain dump contains a GIF IMAGE tag (`0x08000000`, 8,192 qwords);
-it is not a VIF opcode.
+A hostgen staging change now lowers the small C++ helpers in the decomp's
+`00134000.cpp` stream unit into C. The exact retail LZ refill, byte reader,
+stream setup/refill and scalar readers are now translated and selected by the
+native build; their prior port implementations have been moved to
+`hand/superseded_backfills/` and removed from the active backfill manifest.
+Hostgen currently reads 189 units and translates 600 functions (zero assembly
+translations, one stub, 4,263 functions without C).
 
-The DMA handoff is not the current blocker: channel 2 is sent through the
-DMAtag chain walker, and sampled submitted chains are accepted without a
-reject. The menu packet writer produces draw commands and the direct renderer
-decodes them, but the font image buffer remains zero-filled because the
-Splash reader has already reached EOF. Retail assembly confirms
-`func_00137FB0` treats `0xFFFF` as a positive 16-bit face count, so do not
-reinterpret that field as a signed sentinel. Resolve the earlier object-list
-alignment issue before changing GS texture conversion, CLUT, UV or shader
-behavior. Keep functional corrections in port-only backfills. See
-[SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the latest trace,
-commands, evidence, and contributor tasks. Do not route the menu call to the
-raw GIF-stream helper unless new evidence proves the source is not a DMA
-chain.
+The native sector adapter successfully reads the Splash resource from ISO
+sector 820372 (74 sectors). The exact reader now reproduces the C03 callback
+return at cursor `0x1594`; the following row still decodes as slot `0x5300`.
+A truncated property stream reaches EOF and had trapped the port parser in an
+infinite loop through an uninitialized scalar-reader result. A port-only EOF
+guard now lets frame setup continue. The image callback requests `0x5F4F0`
+bytes at EOF, leaving image and CLUT buffers zero-filled. The renderer receives
+menu draws (474–480 vertices), but the captured frame is still black. Next,
+resolve the object-list/resource alignment that leads to EOF before the image
+callback. Do not tune GS texture or shader state from the previous tail-copy
+experiment.
 
-The most recently host-generated build used the current upstream decomp
-snapshot `cf9ad46` (`OpenThievius/sly1-decomp`, PR #62, checked 2026-11-06):
-191 source units read, 587 functions
-translated, zero assembly functions, one C function stubbed, and 4,270
-functions without C. It includes seven port-owned overrides of matched C. The
+The port-only byte-copy helper `func_001F5A58` currently maps to host
+`memmove`, and `func_00140C28` / `func_00140CC8` map disc reads to the native
+ISO service. These are separate backfills because the first function remains
+assembly-only and the matching CD routines are in an unreadable `00140000.cpp`
+unit. The `0x5300` row is still present in the exact-source trace. Earlier
+second-collider offsets came from the prior port reader and need a fresh
+interpretation.
+The earlier semaphore use-after-free was fixed and bounded AddressSanitizer and
+normal traced runs survived without that abort.
+
+The host-generated build uses the current upstream decomp snapshot `cf9ad46`
+(`OpenThievius/sly1-decomp`, checked 2026-11-06): 189 source units read, 600
+functions translated, zero assembly functions, one C function stubbed, and
+4,263 functions without C. It includes seven port-owned overrides of matched C.
+The
 decompilation's source status is 4,720/4,806 US functions with C (92.17% code
 bytes); this is not host or gameplay coverage. Use
 [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for reproducible commands,
@@ -82,28 +73,42 @@ collision, audio, and saves.
 Upstream `sly1-decomp` has advanced to `cf9ad464696a197803f584980bff43ed62b6bf31`
 (PR #62, Nov 5); the read-only snapshot is at
 `/home/reaper/.cache/sly1-decomp-current`. Its status tool reports 4,720/4,806
-US functions with C and 92.17% code bytes. A fresh hostgen build reads 191
-units, translates 587 functions (none from assembly), stubs one function, and
-lists 4,270 without C. It also applies seven port-owned overrides of matched
+US functions with C and 92.17% code bytes. A fresh hostgen build reads 189
+units, translates 600 functions (none from assembly), stubs one function, and
+lists 4,263 without C. It also applies seven port-owned overrides of matched
 C. These generated-host counts are separate from the
 decompilation's matching-coverage report and do not establish gameplay
-coverage. The updates since the previous
-`a0fd295` snapshot include extensive name/header refactors and documentation;
-they do not change `config/us/c_status.tsv` or add new US C++ units, so the
-reported US matching coverage is unchanged and the current menu/graphics path
-gets no new matching implementation from these merges. The name and header
-improvements can still help port-side source reading and tracing. The current
-menu/graphics investigation depends on indexed texture conversion, UVs, and
-decoded GS/OpenGL state. Host staging remains in ignored `build/port/` paths and does
-not modify the decomp checkout. Generated-host function counts are separate
-from the decompilation's matching-coverage status and are not gameplay
-verification.
+coverage.
+
+### Latest bounded native run (2026-11-06)
+
+The host-readable exact stream unit is selected in the build. With separate
+port-only adapters for `func_001F5A58` and native sector reads, a 12-second
+launch reads sector 820372 (74 sectors) into guest address `0x002C3B00` and
+reaches the Splash metadata tables. The exact reader reproduces the C03
+callback return at cursor `0x1594`; the next row still decodes as slot `0x5300`.
+A truncated property stream reaches EOF and previously trapped the port parser
+in an infinite loop through an uninitialized scalar-reader result. A port-only
+EOF guard now lets frame setup continue. The image callback requests
+`0x5F4F0` bytes at EOF, leaving image and CLUT buffers zero-filled. The renderer
+receives menu draws (474–480 vertices), but the captured frame is still black.
+Next resolve the object-list/resource alignment that leads to EOF before the
+image callback.
+
+The updates since the previous `a0fd295` snapshot include extensive
+name/header refactors and documentation; matching coverage is unchanged. The
+name and header improvements helped make the `00134000.cpp` stream unit
+host-readable through port-side staging. Host staging remains in ignored
+`build/port/` paths and does not modify the decomp checkout. Generated-host
+function counts are separate from decompilation matching coverage and are not
+gameplay verification.
 
 The dated notes that follow are retained as implementation history; use the
 current visual blocker above for the live launcher state.
 
-The latest bounded startup run reads Splash from sector 820372 (74 sectors),
-decompresses it, and reaches parser stages 1–5. Port-only frame-context and
+An earlier bounded startup run, before exact `00134000.cpp` stream code was
+selected, read Splash from sector 820372 (74 sectors), decompressed it, and
+reached parser stages 1–5. Port-only frame-context and
 packet-buffer backfills now initialize and retire empty frames; intrusive-list
 helpers also match the decomp's append, reset, offset and empty-check behavior.
 The native semaphore bridge wakes the display workers. A five-second launch

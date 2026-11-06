@@ -2,12 +2,12 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. This document records the live native C-only
-launcher state, not a playable milestone. The launcher opens a window and the
-direct GIF renderer decodes menu text and textured quads. A guarded,
-port-only Splash-tail experiment now populates the image cache and GS atlas,
-but the captured frame is still mostly black with faint, unreadable lettering;
-the dumped atlas colors and glyphs are malformed. No emulator is used by this
-path.
+launcher state, not a playable milestone. The exact decomp stream-reader unit
+now builds from `00134000.cpp`; the former Splash-tail image-cache experiment
+is archived as a superseded port backfill. A bounded native run reads the
+Splash sectors and metadata tables, then submits menu geometry with zero-filled
+image and palette uploads. The window remains black. No emulator is used by
+this path.
 
 ## What runs today
 
@@ -35,12 +35,13 @@ VIF opcode. The port-only initializer now fills `D_00261F1C` from the channel
 table at `0x00279340`; traces show GIF channel 2 at `0x1000A000` and VIF1 at
 `0x10009000`.
 
-## Current resource investigation
+## Resource-reader investigation
 
 The Splash compressed resource is read from ISO sector `820372` for `150849`
-bytes. The native LZ backfill now carries back-reference bytes across its
-8 KiB output windows; an offline replay matches all `430858` decoded bytes in
-`resource_0002.decoded.bin`. The refill state is kept in reader field `+0x2C`
+bytes. The exact matched decomp LZ reader is now active; its previous port
+backfill is archived. The independent offline replay matches all `430858`
+decoded bytes in `resource_0002.decoded.bin`. The refill state is kept in
+reader field `+0x2C`
 so it does not overwrite the sector reader's `+0x38`/`+0x3C` bookkeeping.
 
 A bounded native run with `OPENRAC_DUMP_LZ_WINDOWS=1` captured the runtime LZ
@@ -175,41 +176,16 @@ forwards DIRECT data or XGKICK output to the GIF/GS parser. Its runtime API is
 listed in `port/game/sly1-us/hostgen.json` to avoid a colliding missing-function
 stub.
 
-## Current measured blocker
+## Prior measured graphics evidence (archived tail experiment)
 
-The newest bounded run uses an experimental copy in port-only
-`func_001378A0.c`: for the observed Splash image revision `0x3D6876BB` and
-cache size `0x5F4F0`, it copies decoded bytes `0x9E1A..0x6930A` into the image
-cache as the LZ windows are produced. The exact tail length matches both the
-cache allocation and the maximum Image-A metadata `offset + size`. Stage 88
-confirms that all `0x5F4F0` bytes were copied. The cache dump had 384,665
-nonzero bytes, and the 512x512 PSMT4 upload at DBP `0x1400` now begins with
-nonzero data (`0xffffffff` in the logged first word); its 16-entry palette
-upload is also nonzero. The atlas dump contains structured glyph-like marks,
-but its colors and layout are not yet readable, and the frame remains mostly
-black. This supports the tail as a useful image-data candidate; it does not
-prove the retail image callback should read from that decoded offset. The
-experiment leaves the retail stream cursor/parser untouched and is guarded by
-the observed revision and cache size. Keep it clearly marked as a temporary
-port backfill and remove or replace it when the container/object layout is
-understood or matching decompiled code becomes available.
-
-An earlier bounded run on 2026-11-06 accepted sampled channel-2 DMA chains,
-uploaded a 512x512 PSMT4 atlas and 16-entry palette, and decoded two menu draws
-with changing font positions. That trace used the mesh backfill's 16,384-face
-cap, which returned before the retail `0xFFFF` face loop; its draw counters do
-not describe the corrected reader path.
-
-The retail resource reader still reaches EOF inside the second collider's
-65,535-face block, before `func_001DBA38` can fill the image through its normal
-read. The port-only tail experiment fills the cache separately, so the menu
-path now receives nonzero image and palette uploads. Do not treat that as a
-playable or correctly parsed resource. The next visual blocker is interpreting
-the populated atlas: verify PSMT4 indices, CLUT order/alpha, TEX0/UV selection,
-and shader output against fresh framebuffer pixels, then resume the retail
-container alignment investigation. The trace reports
-`TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
-settings remain candidates for later inspection, not proven faults.
+Before the stream-unit staging fix, the port-only `func_001378A0.c`
+experiment copied decoded bytes `0x9E1A..0x6930A` into the image cache for the
+observed Splash revision and cache size. Stage 88 confirmed the `0x5F4F0`-byte
+copy, and a captured frame showed nonzero PSMT4/CLUT uploads with faint
+lettering. This did not establish the retail image block's decoded offset. The
+experiment is archived under `hand/superseded_backfills/`; matched
+`func_001378A0` from the decomp is active now. Those atlas and menu captures
+are historical and do not describe the current build.
 
 ## Decomp refresh and matched-C check (2026-11-06)
 
@@ -235,92 +211,75 @@ pulling in the unrelated unit errors. Their logic is still useful as a
 reference, and this is an actionable decomp/hostgen integration task rather
 than missing decomp source.
 
-The previous trace reaching decoded offset `0x1594` was produced while the
-port implementations were still compiled from the scanned `native_c/`
-directory, despite their manifest rows having been removed. It is not a
-matched-C comparison. A fresh build after restoring the manifest entry confirms
-the loader uses the port C again. The next loader investigation should compare
-these functions’ matching C against the backfills while preserving the retail
-reader semantics; do not force a row skip or count correction from the current
-`00 53 00 4B 05 FF` row (interpreted as slot `0x5300`) alone.
+The `func_00138278` / `func_001BAC30` callback unit barrier remains open; both
+port backfills stay active. The earlier `0x1594` / `0x5300` trace used the old
+stream backfill; the exact-reader run now independently reproduces that same
+callback cursor and following row, as recorded below.
 
-To reproduce and inspect the texture conversion, run from the repository root:
+## Exact stream-reader integration (2026-11-06)
+
+`port/tools/sly1.py` now lowers the local static helper methods in
+`00134000.cpp` to file-local C during disposable host staging, and drops one
+unused inline setter while preserving its record layout. The upstream decomp
+checkout remains read-only. This makes the entire matched stream-reader unit
+readable to hostgen: it currently contributes 24 exact functions, including
+`func_001378A0`, `func_00137A60`, `func_001377C0`, `func_00137820`,
+`func_00137B60`, and the scalar readers. The previous port implementations
+are retained in `hand/superseded_backfills/` and unregistered in
+`backfills.tsv`; hostgen reports no unreadable `00134000` unit.
+
+Two separate host adapters are active: `func_001F5A58` maps the still
+assembly-only byte-copy operation to `memmove`; `func_00140C28` and
+`func_00140CC8` synchronously read through the native ISO service. The latter
+functions have matching source in `00140000.cpp`, but that whole unit still
+fails C staging on C++ constructors/iterators. A traced native run confirms a
+successful read of sector 820372 (74 sectors) into `0x002C3B00`.
+
+With exact stream C selected, the C03 backfill returns at cursor `0x1594` and
+the next row is still `0x5300`. Later, a truncated property stream reaches
+`remaining=-1`; an uninitialized scalar-reader result previously kept the
+port parser in an infinite loop. A port-only EOF guard now stops that loop and
+lets frame setup continue. The image callback then runs at cursor
+`0x70000000`, `remaining=-1`, requests `0x5F4F0` bytes, and leaves the cache
+zero-filled. The renderer receives two menu draws (474–480 vertices), but the
+512x512 PSMT4 and CLUT uploads are zero and the captured frame remains black.
+The immediate blocker is the earlier resource/object stream alignment and the
+missing real image payload, not draw submission or shader state.
+
+To reproduce the current exact-stream startup trace, run from the repository root:
 
 ```sh
-OPENRAC_TRACE_DIRECT=1 OPENRAC_DUMP_TEXTURE=1400 timeout 12s \
+OPENRAC_TRACE_LOADER=1 OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_CD=1 \
+  OPENRAC_TRACE_DIRECT=1 timeout 12s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
 
-The dump writes `texture_1400_*.ppm` and matching `.pgm` alpha planes in the
-current directory. Inspect those alongside `OPENRAC_TRACE_DIRECT` output. The
-font/menu traces are in `/tmp/sly1-native-texture-trace.log` and
-`/tmp/sly1-native-draw-state.log` on this development machine; those temporary
-files are not repository artifacts.
-
-Additional opt-in diagnostics for a new run:
-
-```sh
-OPENRAC_TRACE_FONT=1 OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
-  OPENRAC_TRACE_DMA_PAYLOAD=1 \
-  OPENRAC_DUMP_FONT_RESOURCE=1 \
-  OPENRAC_DEBUG_T4_INDEX=all OPENRAC_DUMP_TEXTURE=1400 timeout 18s \
-  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
-  '/path/to/your/Sly 1 NTSC-U.iso'
-```
-
-The frame dump writes up to eight actual draw frames to
-`/tmp/sly1-native-frame-*.ppm`; the upload dump writes the assembled IMAGE
-payload to `/tmp/sly1-gs-upload-1400.bin`. `OPENRAC_DEBUG_DIRECT_FLAT=1`
-bypasses texture, depth, scissor and blend state to isolate geometry
-rasterization. `OPENRAC_DEBUG_T4_INDEX=all` visualizes all indices as grayscale;
-values `0` through `15` make one index transparent. The
-`OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` comparison treats upload bytes as an
-existing GS-local-memory image; it is not a default renderer mode.
-`OPENRAC_TRACE_DMA_PAYLOAD=1` logs large DMA payload source addresses, QWC,
-and their offset in the assembled stream to help locate the atlas's REF/REFS
-source range. `OPENRAC_DUMP_FONT_RESOURCE=1` writes the current image table's
-full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`. New image
-cache traces use stages 25–26 for the reader mode/change flag, image amount,
-revision and previous revision; stages 27–29 report the reader cursor before
-alignment, after 16-byte alignment, and after the requested payload read. The
-2026-11-06 run reports image amount `0x5F4F0`, revision `0x3D6876BB`, previous
-revision `0`, and `changed=1`. The later image callback starts with reader
-cursor `0x70000000`, `remaining=-1`; alignment and the payload read leave that
-state unchanged. This confirms that the normal image read does not advance; it
-does not prove that `0x9E1A` is the retail payload offset. That earlier trace
-predates the separate tail-copy experiment above. Reproduce with
-`OPENRAC_TRACE_FONT=1`; the diagnostics do not change reader behavior.
+The current trace should report a native read of sector 820372 (74 sectors) to
+`0x002C3B00`, the `0x1594` C03 callback return, and the image callback at EOF.
+It also reports menu draw packets with zero-filled PSMT4/CLUT uploads. The
+`/tmp/sly1-native-frame-*.png`, atlas, and draw-state files mentioned in older
+notes are from the archived tail-copy experiment and are not current-build
+evidence.
 
 ## Work needed next
 
-1. Inspect the populated atlas as GS data. Use
-   `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through `15`
-   to make one index transparent, and `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only
-   as a swizzled-memory comparison. Verify PSMT4 nibble order and 16-entry
-   CSM1 CLUT against GS transfer fields and texture samples. The current dump
-   is malformed, so preserve default conversion until evidence identifies the
-   discrepancy.
-2. Find why the retail resource parser exhausts the circular reader before
-   its image callback. Cache revision `0x3D6876BB` differs from initial
-   revision `0`, so retail marks the image changed and later attempts a fresh
-   read; however, the callback starts at EOF (`remaining=-1`) and reads no
-   bytes. Capture cumulative decompressed output and resource sub-block
-   boundaries through the second collider, then compare the retail callback
-   sequence. Do not force a cursor reset or skip based only on the `0x9E1A`
-   size arithmetic. Keep corrections in port-only backfills.
-3. Compare normal framebuffer captures with
-   `OPENRAC_DEBUG_DIRECT_FLAT=1`. Trace glyph UVs, positions, scissor, depth,
-   blend and alpha-test state through the DirectRenderer shader. Change the
-   smallest state that explains the captured pixels, then capture a readable
-   menu frame with the default renderer.
-4. Once the menu is readable, trace the title-to-level transition and identify
-   the missing Sly-specific scene/resource decode and draw path. OpenRAC's
-   renderer and host runtime are reusable; Ratchet world records and game
-   logic are not.
-5. Continue through title and level loading, controller input,
-   controllable Sly, collision, audio, and saves. A menu screenshot is useful
-   progress but is not a playable-state milestone.
+1. Compare the exact reader cursor and object type/key records around the
+   C03 return at `0x1594` and the following `0x5300` row against decoded Splash
+   section boundaries. Find the first field whose interpretation diverges and
+   keep any correction in an isolated port backfill.
+2. Check the matching C in the loader units that hostgen still rejects,
+   especially `00138000.cpp` and `001B8000.cpp`. Fix port-side staging barriers
+   where possible; keep active replacements under `native_c/` and comparisons
+   under `superseded_backfills/`.
+3. Resume renderer inspection only after the retail resource path produces a
+   valid image upload and actual draw packets. Then trace PSMT4 indices, CLUT,
+   UVs and blend state against framebuffer pixels.
+4. Continue through title-to-level transition, Sly-specific scene rendering,
+   controller input, movement/collision, audio and saves. A visible menu alone
+   is not a playable-state milestone.
+
+## Historical implementation notes (prior to exact stream integration)
 
 ## Collider contact-table pass (2026-11-06)
 
@@ -378,10 +337,11 @@ packet writer snapshots too, add `OPENRAC_DUMP_FONT_PACKETS=1`; these go to
 
 ## Port/decomp boundary
 
-All functional replacements used to reach this point belong under
-`port/game/sly1-us/hand/native_c/` and its registration tables. They are
-port-only backfills and must stay replaceable when matching C appears in
-`sly1-decomp`. Do not edit the decompilation checkout to make the port work.
+Active functional replacements belong under `port/game/sly1-us/hand/native_c/`
+and are registered in `backfills.tsv`. Superseded implementations remain under
+`hand/superseded_backfills/` for comparison and are not compiled. Keep every
+port-only change separate from matched decomp C; do not edit the decompilation
+checkout to make the port work.
 The runtime transport and renderer adapters belong under `port/runtime/` and
 `port/renderer/`; document any temporary guest-device behavior as such.
 
@@ -395,8 +355,8 @@ documented in [ASSETS.md](ASSETS.md). The current refreshed read-only decomp sna
 2026-11-06). `python3 port/tools/sly1.py status --source
 /home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
 functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
-report is `build/port/hostgen/us/report.md`: 191 units read, 587 functions
-translated to host C, one stub, and 4,270 without C, with seven port-owned
+report is `build/port/hostgen/us/report.md`: 189 units read, 600 functions
+translated to host C, one stub, and 4,263 without C, with seven port-owned
 overrides of matched C. These counts use different
 denominators and answer different questions; neither means the same amount of
 gameplay is ready. The snapshot is read-only and may lag GitHub if new decomp
