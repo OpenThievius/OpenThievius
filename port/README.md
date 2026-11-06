@@ -30,14 +30,15 @@ Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. It
 generates host C from matched Sly sources plus port-only backfills without
 translating retail MIPS assembly. The generated source snapshot is `cf9ad46`;
-the current hostgen report reads 195 units, translates 1,088 functions, leaves
-one C function stubbed, lists 3,800 functions without C, and applies seven
+the current hostgen report reads 196 units, translates 1,091 functions, leaves
+one C function stubbed, lists 3,799 functions without C, and applies seven
 port-owned overrides. Upstream `sly1-decomp` master was checked at `dd6f80b`:
 4,730/4,806 matching US functions (93.10% code) and 4,738/4,831 European
 functions (92.42% code). These are separate measures: host-C generation
 coverage does not indicate how much game logic builds or runs natively. The
-direct level-load probe populates world lists but still submits zero scene
-vertices; default startup reaches malformed menu text. The current graphics
+direct level-load probe runs the scene-batch path and populates world lists but
+still submits zero scene vertices; default startup reaches malformed menu
+text. The current graphics
 diagnosis and concrete next task are in
 [SLY_GRAPHICS_HANDOFF.md](../docs/port/SLY_GRAPHICS_HANDOFF.md).
 The separate freestanding host32 launcher is a startup diagnostic and does

@@ -28,11 +28,12 @@ list contains one object at `0xE20A57B0`, with flags `0x0AFFFF00`, high flags
 Sampled update callbacks are no-C `func_00125C90`; they see zero at `+0x28C`
 and `+0x298` and do not queue draw requests. Scene vertices remain zero.
 Retail `func_00184DE8` consumes the class-0x51 list for scene batch
-preparation, but remains assembly-only in decomp. The deferred frame dispatcher
-and request bucketer (`func_0019DC98` and `func_0019D4B0`) now have separate
-port-only C backfills. A bounded native run stays active with these installed,
-but the scene still submits zero vertices; the next work is the class-0x51
-preparer and missing `func_00125C90` object update path.
+preparation, but remains assembly-only in decomp. The function now has a
+retail-derived port backfill, as do the deferred frame dispatcher and request
+bucketer (`func_0019DC98` and `func_0019D4B0`). A bounded native run stays active
+with these installed. The sole class-0x51 object contributes zero VIF output,
+and the scene still submits zero vertices; the next work is missing
+`func_00125C90` object update logic and the resulting scene population.
 
 Upstream `sly1-decomp` master was checked at `dd6f80b` on 2026-11-06 (US
 4,730/4,806 functions, 93.10% code; Europe 4,738/4,831, 92.42% code). Its
@@ -418,10 +419,11 @@ documented in [ASSETS.md](ASSETS.md). The local read-only decomp snapshot is
 checked separately at `dd6f80b`. Upstream reports 4,730/4,806 matching US
 functions (93.10% code) and 4,738/4,831 Europe functions (92.42% code). Its
 new HUD compass function `func_001316E8` and placed-object link table do not
-replace current render backfills; `func_00161B10` and `func_00184DE8` remain
-assembly-only. The active hostgen report is
-`build/port/hostgen/us/report.md`: 195 units read, 1,088 functions translated
-to host C, one stub, and 3,800 without C, with seven port-owned overrides.
+replace current render backfills. `func_00161B10` and `func_00184DE8` still
+lack matching C in the decomp project; the latter has a separate port backfill.
+The active hostgen report is
+`build/port/hostgen/us/report.md`: 196 units read, 1,091 functions translated
+to host C, one stub, and 3,799 without C, with seven port-owned overrides.
 These measures have different denominators and do not establish gameplay
 readiness. The generated source is older than upstream master.
 

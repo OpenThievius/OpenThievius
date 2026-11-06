@@ -44,11 +44,13 @@ not enqueue deferred draw requests. The frame still submits zero scene
 vertices. Retail disassembly shows `func_00125C90` is a substantial camera,
 object-transform, and culling callback; its missing body is why sampled update
 nodes retain zero transform outputs. The deferred frame dispatcher and request
-bucketer (`func_0019DC98` and `func_0019D4B0`) now have separate port-only C
-backfills. `func_00184DE8`, which consumes the class-0x51 list to prepare scene
-batches, remains assembly-only and is still the next rendering backfill target.
-All functional replacements must remain under `hand/native_c/` until matching
-decomp C is available to the host build.
+bucketer (`func_0019DC98` and `func_0019D4B0`) have separate port-only C
+backfills. `func_00184DE8`, the assembly-only class-0x51 scene batch preparer,
+now has a retail-derived port backfill and survives the native frame path. Its
+single current scene object contributes zero VIF vectors, so the frame still
+submits zero scene vertices. The next gameplay/rendering target is the missing
+`func_00125C90` body. Keep all functional replacements under `hand/native_c/`
+until matching decomp C is available to the host build.
 
 Upstream `sly1-decomp` was checked directly on 2026-11-06 at master
 `dd6f80b` (US: 4,730/4,806 functions and 93.10% code; Europe: 4,738/4,831
@@ -63,8 +65,8 @@ A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
 exact stream-reader and other matched code to the native build. Port-only
 compatibility functions remain registered separately in `hand/backfills.tsv`.
-The generated host report reads 195 units and translates 1,088 functions
-(zero assembly translations, one stub, 3,800 functions without C), plus seven
+The generated host report reads 196 units and translates 1,091 functions
+(zero assembly translations, one stub, 3,799 functions without C), plus seven
 port-owned overrides of matched C. Its source snapshot is `cf9ad46`.
 
 The newest decomp source contains the matched screen-fade updater
@@ -156,8 +158,8 @@ interpretation.
 The earlier semaphore use-after-free was fixed and bounded AddressSanitizer and
 normal traced runs survived without that abort.
 
-The generated host source snapshot is `cf9ad46`; its current report reads 193
-units and translates 1,085 functions, with one C stub, 3,802 functions without
+The generated host source snapshot is `cf9ad46`; its current report reads 196
+units and translates 1,091 functions, with one C stub, 3,799 functions without
 C, and seven port-owned overrides of matched C. Upstream master is now
 `dd6f80b` (US: 4,730/4,806 functions and 93.10% code; Europe: 4,738/4,831 and
 92.42% code). These host-generation and decompilation counts use different
@@ -178,11 +180,11 @@ The latest direct upstream check is master `dd6f80b`; the generated host source
 still comes from `cf9ad46`. Current source coverage is US 4,730/4,806 functions
 (93.10% code) and Europe 4,738/4,831 (92.42% code). The latest merge adds
 matching HUD compass drawing (`func_001316E8`) and placed-object link data, but
-no C for current render blockers `func_00184DE8` or
-`func_00125C90`. The active hostgen report reads 195 units, translates 1,088
-functions, stubs one function, lists 3,800 without C, and applies seven
-port-owned overrides. These are separate measures from decomp coverage and do
-not establish gameplay readiness.
+no matching C for current render blocker `func_00125C90`; `func_00184DE8` now
+has a separate port-only backfill. The active hostgen report reads 196 units,
+translates 1,091 functions, stubs one function, lists 3,799 without C, and
+applies seven port-owned overrides. These are separate measures from decomp
+coverage and do not establish gameplay readiness.
 
 ### Earlier bounded native run (2026-11-06)
 

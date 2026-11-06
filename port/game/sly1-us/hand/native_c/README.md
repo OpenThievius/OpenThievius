@@ -63,6 +63,9 @@ retail-sized deferred draw requests. A native trace shows those requests are
 still absent because every sampled update entry calls the substantial missing
 `func_00125C90` camera/object-transform and culling routine. The retail
 deferred dispatcher and request bucketing functions `func_0019DC98` and
-`func_0019D4B0` now have separate port-only replacements; the class-0x51
-scene batch preparer `func_00184DE8` remains assembly-only. Remove these
-replacements when matching C is available to the host build.
+`func_0019D4B0` now have separate port-only replacements, along with a
+retail-derived `func_00184DE8` scene-batch backfill. That function survives a
+bounded frame run, but its only current class-0x51 object produces zero VIF
+vectors. The substantial missing `func_00125C90` callback still prevents the
+update path from populating its transform outputs. Remove each replacement
+when matching C is available to the host build.
