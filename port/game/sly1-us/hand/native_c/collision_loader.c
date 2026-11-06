@@ -7,7 +7,9 @@ void* func_0018D5C0(s32 size);
 void func_00152470(void* list, void* item);
 void func_00152600(void* list, void* item);
 void sly1_native_call_method(u32 address, u32 object);
+u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+void func_00125108(void* object);
 
 void func_00138278(void* stream, void* mesh, void* tree)
 {
@@ -53,6 +55,26 @@ void func_00138BE0(void* unused, void* collider, u32 mask)
     u8* root = (u8*)*(u32*)((u8*)collider + 0x50);
     if (root != 0)
         *(u32*)(root + 0x4B8) &= ~mask;
+}
+
+/* Port-only translation of the retail Collider post-load callback. */
+void func_001B89B8(void* collider)
+{
+    u8* self = (u8*)collider;
+    u32 root;
+    u32 world;
+    u32 root_vtable;
+    u32 root_update;
+
+    func_00125108(collider);
+    root = *(u32*)(self + 0x50);
+    root_vtable = *(u32*)root;
+    root_update = *(u32*)(root_vtable + 0xD8);
+    if (root_update != 0)
+        (void)sly1_native_call_regs4(root_update, root, 0, 0, 0);
+    world = *(u32*)(self + 0x14);
+    func_00138BE0((void*)world, collider, 7);
+    *(s32*)(world + 0x1AEC) = 0;
 }
 
 void func_001B7C40(void* collider, s32 enabled)

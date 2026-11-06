@@ -333,14 +333,11 @@ tables. The first object list count and row then decode at `0x14D5` as 36 and
 those generic readers, but does not validate the opaque table payloads or the
 world/property state that precedes them.
 
-The next comparison target is `func_001C1190` and `func_0011EC40`, which parse
-world script values and property records before the cursor stage at `0x49`.
-The port has separate implementations in `resource_value_parser.c`; compare
-each property reader against its retail class-specific path and inspect the
-bytes at each cursor boundary. The exact current decomp reference is
-`src/main/file_1C05D0.cpp` and `src/main/0011C000.cpp` in the adjacent
-`sly1-decomp` checkout. Keep fixes to those missing or replaced behaviors in
-this port repository until the matching decompilation owns them.
+A follow-up comparison against current retail C confirms the script-value and
+property readers consume the observed serialized widths through the `0x49`
+boundary. The relevant references are `src/main/file_1C05D0.cpp`,
+`src/main/value.cpp`, and `src/main/0011C000.cpp` in the adjacent
+`sly1-decomp` checkout. Keep any future replacements in this port repository.
 
 The 2026-11-06 follow-up checked the pre-list cursor readers against the
 current decomp checkout at `cf9ad464696a197803f584980bff43ed62b6bf31`.
@@ -352,9 +349,19 @@ reader consumes six bytes and returns at `0x158D` with record count zero.
 `func_00128C10` then consumes its four-byte zero flags,
 then the one-byte group count and two-byte empty child list end at `0x1594`.
 The next list row is the raw bytes `00 53 00 4B 05 FF` (type/slot `0x5300`,
-key `0x4B00`, flag `0xFF05`), so this is not a trace-formatting problem.
-`func_00162890` remains assembly-only in decomp, and its port backfill is the
-main unverified reader on this path; compare its complete disassembly with the
-backfill before changing record boundaries. The pre-list readers' matching
-widths narrow the lead but do not prove the parsed world data or object-list
-structure is correct.
+key `0x4B00`, flag `0xFF05`), so this is not a trace-formatting problem. For
+this first collider, assembly-only `func_00162890` has zero records, so its
+six-byte prefix is the whole stream consumption from that function and matches
+the backfill. The complete `func_001289C0` retail disassembly matches the
+observed field widths through the child list. No width mismatch is identified
+in this first-collider cursor trail; do not change row boundaries based only
+on the invalid-looking next row. Other record shapes in `func_00162890` remain
+unverified.
+
+
+The port now also has a small `func_001B89B8` replacement, translated from
+current decomp C and verified against its 80-byte retail disassembly. It
+recomputes the collider frame, updates the root, clears root state bits, and
+resets the world queue field. The latest bounded native run removes that
+no-C warning but does not change the Splash cursor or produce graphics; the
+next missing collider callback is `func_001B8960`.

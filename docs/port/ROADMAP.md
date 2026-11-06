@@ -611,6 +611,10 @@ collider, `func_001289C0` starts at decoded `0x1538`, reaches
 `0x158D` with zero records. The zero transform flags, empty group count, and
 empty child list then end at `0x1594`. The next six bytes really decode as
 `00 53 00 4B 05 FF`, which is not a valid retail object descriptor row.
-`func_00162890` remains assembly-only in decomp, so audit that port-only
-backfill and its caller/return contract next. This narrows the source-review
-lead; it does not yet establish a cause or a playable milestone.
+The `func_001289C0` disassembly and the empty-record `func_00162890` branch
+match the current port widths, so they do not establish a cause for the row
+boundary. Do not change the object-list cursor speculatively; inspect other
+object shapes and factory/callback semantics. A port-only `func_001B89B8`
+translation now matches its 80-byte retail body and removes one no-C callback,
+but the latest native run still reaches the same row boundary and remains
+black. This does not advance the playable milestone.
