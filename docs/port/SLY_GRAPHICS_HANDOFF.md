@@ -86,11 +86,14 @@ and returns at `0x1594`. At that offset the bytes are `00 53 00 4B 05 FF`, and
 the next 6,626-vertex collider begins at `0x1643`. The generic property loop
 and observed scalar widths agree with current retail C. The image callback
 uses a separately stored byte count, aligns the reader to 16 bytes, then reads
-that count; the run did not capture its header revision/count or the previous
-revision value. Capture those values and the cursor immediately before/after
-alignment, then compare with the current retail cache path before changing the
-cursor, face count, texture upload, or GS behavior. Keep functional
-corrections in `hand/native_c/` as port-only backfills. The earlier
+that count. New opt-in trace stages capture the header/cache state (25–26) and
+callback cursors before alignment, after alignment, and after the read
+(27–29). The reader cursor is a circular 8 KiB window address, not a
+decoded-resource file offset; correlate its refill state and cumulative output
+before assigning decoded offsets. Compare these values with retail cache
+control flow before changing the cursor, face count, texture upload, or GS
+behavior. Keep functional corrections in `hand/native_c/` as port-only
+backfills. The earlier
 9,542-record and `0x128BC` dimension claims were from a different,
 misattributed parser trace and should not guide fixes.
 
@@ -138,10 +141,11 @@ with changing font positions. That trace used the mesh backfill's 16,384-face
 cap, which returned before the retail `0xFFFF` face loop; its draw counters do
 not describe the corrected reader path.
 
-The latest native run reaches frame setup but reports zero submitted vertices.
-Its resource reader reaches EOF inside the second collider's 65,535-face
-block, before `func_001DBA38` can fill the `0x5F4F0`-byte image buffer. The atlas
-upload at block `0x1400` therefore still contains zero-filled data. The prior
+The latest native run reaches frame setup with title quads entering the direct
+renderer, but the captured framebuffer is black. Its resource reader reaches EOF
+inside the second collider's 65,535-face block, before `func_001DBA38` can fill
+the `0x5F4F0`-byte image buffer. The atlas upload at block `0x1400` therefore
+still contains zero-filled data. The prior
 dark/noisy framebuffer and texture-index captures came from the early-return
 reader path and are not evidence about the current retail-aligned parse. Do not
 change swizzle, CLUT, or shader behavior until the resource reader reaches and
@@ -187,17 +191,28 @@ existing GS-local-memory image; it is not a default renderer mode.
 `OPENRAC_TRACE_DMA_PAYLOAD=1` logs large DMA payload source addresses, QWC,
 and their offset in the assembled stream to help locate the atlas's REF/REFS
 source range. `OPENRAC_DUMP_FONT_RESOURCE=1` writes the current image table's
-full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
+full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`. New image
+cache traces use stages 25–26 for the reader mode/change flag, image amount,
+revision and previous revision; stages 27–29 report the reader cursor before
+alignment, after 16-byte alignment, and after the requested payload read. The
+2026-11-06 run reports image amount `0x5F4F0`, revision `0x3D6876BB`, previous
+revision `0`, and `changed=1`. The later image callback starts with reader
+cursor `0x70000000`, `remaining=-1`; alignment and the payload read leave that
+state unchanged, and the destination remains zero. This confirms that the image
+read does not advance; it does not prove that `0x9E1A` is the payload offset.
+Reproduce with `OPENRAC_TRACE_FONT=1`; the diagnostics do not change reader
+behavior.
 
 ## Work needed next
 
-1. Trace the retail image-cache callback with its header state. Capture the
-   image amount/revision read by `func_001DB928`, the cached revision, the
-   `func_001DBA38` entry cursor, its 16-byte aligned cursor, and final cursor.
-   The request length is `0x5F4F0`, and decoded EOF minus that length is
-   `0x9E1A`; this arithmetic suggests but does not prove a payload offset.
-   Compare against the unmodified retail control flow before changing any
-   reader behavior. Keep corrections in port-only backfills.
+1. Find why the resource parser exhausts the circular reader before its image
+   callback. The image trace shows cache revision `0x3D6876BB` differs from the
+   initial revision `0`, so retail marks the image changed and later attempts a
+   fresh read; however, the callback starts at the EOF sentinel (`remaining=-1`)
+   and reads no bytes. Capture cumulative decompressed output and resource
+   sub-block boundaries through the second collider, then compare the retail
+   callback sequence. Do not force a cursor reset or skip based only on the
+   `0x9E1A` size arithmetic. Keep corrections in port-only backfills.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.

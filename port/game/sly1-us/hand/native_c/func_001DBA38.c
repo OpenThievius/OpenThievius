@@ -21,8 +21,17 @@ void func_001DBA38(void* opaque) {
                            *(u32*)(reader + 0x14), *(u32*)(reader + 0x18),
                            *(u32*)(reader + 0x1c));
     D_00275728 = *(s32*)(reader + 0x14u);
+    sly1_native_trace_font(27, (u32)reader, *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1c), (u32)D_00275720,
+                           (u32)D_00275728);
     func_00137B60(reader, 0x10);
+    sly1_native_trace_font(28, (u32)reader, *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1c), (u32)D_00275720,
+                           (u32)D_00275728);
     func_00137A60(reader, D_00275720, (void*)(u32)D_00275718);
+    sly1_native_trace_font(29, (u32)reader, *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1c), (u32)D_00275720,
+                           (u32)D_00275728);
     const u32* payload = (const u32*)(u32)D_00275718;
     sly1_native_trace_font(7, (u32)D_00275718, (u32)D_00275720,
                            payload[0], payload[1], payload[2]);
