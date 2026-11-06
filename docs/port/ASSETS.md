@@ -255,11 +255,11 @@ and containing resource are established.
 
 On the supplied NTSC-U disc the LZ decoder produces 430,858 bytes from this
 150,849-byte compressed span. A capture of the retail decoder's first 8 KiB
-matches the corrected extractor byte-for-byte. The parser's captured 2,680-
-byte reader window also matches exactly at decoded offset 5,512. This validates
-token byte order, dictionary behavior and the observed output window; it does
-not yet verify the entire decoded file against retail output. The integrated
-catalog extraction run successfully decoded all 46 NTSC-U ranges, producing
+matches the corrected extractor byte-for-byte. The parser's captured
+2,680-byte reader window also matches exactly at decoded offset 5,512. A later bounded runtime capture compared all 430,858 decoded
+bytes against the extracted Splash stream with no mismatch. This validates the
+full output for the observed Splash request, in addition to token byte order
+and dictionary behavior. The integrated catalog extraction run successfully decoded all 46 NTSC-U ranges, producing
 285,281,013 bytes total (430,858–8,669,578 bytes per resource). That confirms
 the streams are accepted by the observed decoder, but not that the full outputs
 match a retail capture. The level/model formats and how the resources compose

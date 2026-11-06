@@ -86,27 +86,28 @@ that many nested entries. The port backfill now allows up to 8,192 entries.
 Retail disassembly shows that each nested entry reads five variable arrays
 sized from its count fields: `c0 * 12`, `c1 * 12`, `c2 * 4`, `c3 * 8`, and
 `c4 * 4` bytes. It then reads `refs * c0 * 4` bytes. If the root word count is
-nonzero, each of the next two 16-bit dimensions controls a `dimension * 12`
-byte read; each root word then has two `c4 * 2` byte reads. The auxiliary
-record path reads `c0 * 12`, `c1 * 4`, an item-count byte sequence, and
-`items * c0 * 4` bytes. Its optional dimensions each control a `dimension *
-12` byte read, followed by one `c0 * 2` byte read per root word. The port
-backfill now follows those sizes. The live trace's descriptor call consumes
+nonzero, each of the next two unsigned 16-bit dimensions controls a
+`dimension * 12` byte read. Each root word then has two `c4 * 2` byte reads.
+The auxiliary record path reads `c0 * 12`, `c1 * 4`, an item-count byte
+sequence, and `items * c0 * 4` bytes. Its optional unsigned dimensions each
+control a `dimension * 12` byte read, followed by one `c0 * 2` byte read per
+root word. The port backfill now follows those sizes. The live trace's descriptor call consumes
 one value before this parser, consistent with the retail `func_0011E680`
 read loop; descriptor cursor consumption is not currently the unexplained
 advance.
 
-The latest bounded trace parses nested entry 0 with the assembly-derived
-read sizes and reaches decoded offset `0x15D3F` at the end of its row arrays.
-Entry 1 begins in the `0xFF` fill and supplies `0xFF` for its count fields. Its
-reference count and first count produce a 260,100-byte payload; the reader
-consumes that payload, reads another `0xFFFF` dimension, then requests
-`dimension * 12` bytes and runs past the available decoded stream. This
-shows why the synthetic padded entry sequence exhausts the reader, but does
-not explain why retail enters the 7,999-entry loop on this resource. Keep the
-assembly-derived read sizes and investigate the surrounding resource boundary
-or record-count source before changing the renderer. No readable image has
-been confirmed yet.
+The outer word count is 65, so the optional-dimension path is active. The
+first nested entry's first dimension is `0xFFFF` at decoded offset `0x128BC`.
+Retail calls the unsigned 16-bit reader `func_00137BE0` here, so this is
+65,535 and the resulting `dimension * 12` read requests 786,420 bytes.
+That request consumes the rest of the 430,858-byte decoded Splash stream and
+leaves the reader at EOF before it can read the second dimension or the image
+resource. This explains why the image buffer remains zero-filled. The sizes
+match retail assembly; the unresolved question is why the resource contains
+this value at this parser boundary. Trace the earlier loader/context that
+supplies this stream and identify whether its cursor or resource selection is
+already wrong before `func_00162890` begins. No readable image has been
+confirmed yet.
 
 After the current backfill returns, the following callback reaches group
 count 191 and reads 65 floats per group through `0x70001E56`. It then reads a
