@@ -8,7 +8,7 @@
 
 void func_0019D410(void* request_pointer)
 {
-    const u32 request = (u32)request_pointer;
+    const void* request = request_pointer;
     const u32 cursor_address = 0x0026AC10u;
     u32 cursor = *(u32*)cursor_address;
     const u32 end = SLY1_DEFERRED_REQUEST_BASE +
@@ -19,6 +19,6 @@ void func_0019D410(void* request_pointer)
         return;
 
     *(u32*)cursor_address = cursor + SLY1_DEFERRED_REQUEST_SIZE;
-    __builtin_memcpy((void*)cursor, (const void*)request,
+    __builtin_memcpy((void*)(u64)cursor, request,
                      SLY1_DEFERRED_REQUEST_SIZE);
 }
