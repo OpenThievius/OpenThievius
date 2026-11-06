@@ -7,6 +7,7 @@ void* func_0018D5C0(s32 size);
 void func_00152470(void* list, void* item);
 void func_00152600(void* list, void* item);
 void sly1_native_call_method(u32 address, u32 object);
+void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 
 void func_00138278(void* stream, void* mesh, void* tree)
 {
@@ -15,6 +16,18 @@ void func_00138278(void* stream, void* mesh, void* tree)
     s32 count = func_00137BE0(stream);
     s32 count2 = func_00137BE0(stream);
     s32 i;
+
+    sly1_native_loader_stage(82, (u32)count, (u32)stream);
+    sly1_native_loader_stage(83, (u32)count2, (u32)stream);
+
+    /* The resource stream uses an all-ones pair for an absent tree. Treat it
+     * as empty instead of allocating/iterating 65,535 bogus nodes. */
+    if ((u16)count == 0xFFFFu && (u16)count2 == 0xFFFFu) {
+        *(s32*)(output + 0) = 0;
+        *(s32*)(output + 4) = 0;
+        *(u32*)(output + 8) = 0;
+        return;
+    }
 
     *(s32*)(output + 0) = count;
     *(s32*)(output + 4) = count2;

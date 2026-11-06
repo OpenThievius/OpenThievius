@@ -3,12 +3,28 @@
 #include "common.h"
 
 int openrac_guest_vif1_mmio_store32(u32 address, u32 value);
+void openrac_native_renderer_submit_dma_chain(u32 source);
+void openrac_native_renderer_trace_dma_call(u32 channel, u32 source);
 
 void func_00202A80(s32 dma, void* source) {
-    /* Let the native VIF1 path expand UNPACK and VU1 work before forwarding
-     * DIRECT GIF packets to the GS renderer. */
+    const u32 channel = (u32)dma;
+    const u32 address = (u32)source;
+    openrac_native_renderer_trace_dma_call(channel, address);
+
+    /* Sly's channel 2 writer emits GIF packets (including IMAGE tags), not a
+     * VIF stream. Hand that DMA chain to the native GIF renderer directly. */
+    if (channel == 0x1000A000u) {
+        *(u32*)0x1000E000u |= 1u;
+        *(u32*)0x1000A030u = address;
+        *(u32*)0x1000A020u = (*(u32*)0x1000A020u & ~0xDu) | 0x105u;
+        openrac_native_renderer_submit_dma_chain(address);
+        *(u32*)0x1000A020u &= ~0x100u;
+        return;
+    }
+
+    /* Other VIF1 submissions must pass through VIF/VU translation first. */
+    if (channel != 0x10009000u) return;
     *(u32*)0x1000E000u |= 1u;
-    *(u32*)0x10009030u = (u32)source;
-    (void)dma;
+    *(u32*)0x10009030u = address;
     (void)openrac_guest_vif1_mmio_store32(0x10009000u, 0x105u);
 }

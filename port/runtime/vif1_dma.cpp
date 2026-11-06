@@ -39,6 +39,15 @@ struct DmaAddress {
     bool scratchpad;
 };
 
+struct DmaSegment {
+    uint32_t tag_address;
+    uint32_t id;
+    uint32_t qwc;
+    uint32_t data_address;
+    size_t stream_offset;
+    size_t stream_size;
+};
+
 uint32_t encode_address(DmaAddress value) {
     if (!value.scratchpad && value.address >= GUEST_PORT &&
         value.address - GUEST_PORT < GUEST_PORT_SIZE)
@@ -101,7 +110,8 @@ bool append_tag_data(const uint8_t* tag, std::vector<uint8_t>* stream) {
     return true;
 }
 
-bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream) {
+bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream,
+                   std::vector<DmaSegment>* segments) {
     if ((chcr & 1u) == 0 || ((chcr >> 2) & 3u) != 1u)
         return false;
 
@@ -152,8 +162,12 @@ bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream) {
             break;
         }
 
+        const size_t stream_offset = stream->size();
         if ((chcr & (1u << 6)) != 0 && !append_tag_data(tag, stream)) return false;
         if (!append_span(payload, qwc, stream)) return false;
+        segments->push_back(DmaSegment{encode_address(tadr), id, qwc,
+                                      encode_address(data_address), stream_offset,
+                                      stream->size() - stream_offset});
         store_mmio(kVif1Chcr + 0x10u,
                    encode_address(DmaAddress{payload.address + qwc * 16u,
                                              payload.scratchpad}));
@@ -165,16 +179,18 @@ bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream) {
     return false;
 }
 
-bool execute_dma(uint32_t chcr, std::vector<uint8_t>* stream) {
+bool execute_dma(uint32_t chcr, std::vector<uint8_t>* stream,
+                 std::vector<DmaSegment>* segments) {
     if ((load_mmio(kDmacCtrl) & 1u) == 0 || (chcr & 1u) == 0) return false;
     const uint32_t mode = (chcr >> 2) & 3u;
-    if (mode == 1u) return execute_chain(chcr, stream);
+    if (mode == 1u) return execute_chain(chcr, stream, segments);
     if (mode != 0u) return false;
 
     const uint32_t madr = load_mmio(kVif1Chcr + 0x10u);
     const uint32_t qwc = load_mmio(kVif1Chcr + 0x20u) & 0xFFFFu;
     const DmaAddress source{madr & 0x7FFFFFFFu, (madr >> 31) != 0};
     if (!append_span(source, qwc, stream)) return false;
+    segments->push_back(DmaSegment{0, 0, qwc, madr, 0, stream->size()});
     store_mmio(kVif1Chcr + 0x10u,
                encode_address(DmaAddress{source.address + qwc * 16u, source.scratchpad}));
     store_mmio(kVif1Chcr + 0x20u, 0);
@@ -453,10 +469,11 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
 
     store_mmio(kVif1Chcr, value);
     std::vector<uint8_t> stream;
+    std::vector<DmaSegment> segments;
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
     VifTrace trace;
-    const bool dma_ok = execute_dma(value, &stream);
+    const bool dma_ok = execute_dma(value, &stream, &segments);
     const bool vif_ok = dma_ok && execute_vif_stream(stream, &direct_bytes, &unsupported,
                                                        &trace);
     const uint32_t status = load_mmio(kDmacStat);
@@ -534,6 +551,18 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
                 std::memcpy(&word, stream.data() + offset, sizeof(word));
                 openrac::log::warn("native VIF1 failure context offset={:#x} word={:#010x}",
                                    offset, word);
+            }
+            for (const DmaSegment& segment : segments) {
+                const size_t end = segment.stream_offset + segment.stream_size;
+                if ((trace.failure_offset >= segment.stream_offset &&
+                     trace.failure_offset < end) ||
+                    (segment.stream_offset <= trace.failure_offset + 32u &&
+                     end + 32u >= trace.failure_offset)) {
+                    openrac::log::warn(
+                        "native VIF1 failure segment tag={:#010x} id={} qwc={} data={:#010x} stream_offset={:#x} bytes={}",
+                        segment.tag_address, segment.id, segment.qwc,
+                        segment.data_address, segment.stream_offset, segment.stream_size);
+                }
             }
         }
     }

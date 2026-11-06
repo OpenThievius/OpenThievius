@@ -6,6 +6,7 @@
   "entry": "func_00100008",
   "host_functions": [
     "openrac_native_renderer_submit_dma_chain",
+    "openrac_native_renderer_trace_dma_call",
     "openrac_guest_ee_mmio_store32",
     "openrac_guest_vif1_mmio_store32",
     "sly1_native_display_kernel_call",

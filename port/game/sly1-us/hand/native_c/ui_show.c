@@ -3,6 +3,8 @@
 #include "common.h"
 
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_00194F00(void* object);
 void func_00194E60(void* object, s32 mode);
@@ -28,6 +30,11 @@ void func_001AA998(void* object, s32 mode) {
     u8* self = (u8*)object;
     s32 old_mode = *(s32*)(self + 0x250);
     s32 notify = 0;
+    u32 blend_bits, offset_bits;
+    __builtin_memcpy(&blend_bits, self + 0x23C, sizeof(blend_bits));
+    __builtin_memcpy(&offset_bits, self + 0x24C, sizeof(offset_bits));
+    sly1_native_trace_font(15, (u32)object, (u32)old_mode, (u32)mode,
+                           blend_bits, offset_bits);
     if (old_mode == mode) return;
 
     switch (mode) {

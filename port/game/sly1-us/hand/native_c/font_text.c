@@ -210,11 +210,30 @@ void func_0015C638(void* opaque, char* string,
 void func_0015C8B8(void* opaque, f32 sx, f32 sy) {
     FontTextFont* font = (FontTextFont*)opaque;
     f32* point = (f32*)((u8*)font + 0x10u + (u32)font->depth * 8u);
+    u32 sx_bits, sy_bits, stack_x_bits, stack_y_bits;
+    __builtin_memcpy(&sx_bits, &font->sx, sizeof(sx_bits));
+    __builtin_memcpy(&sy_bits, &font->sy, sizeof(sy_bits));
+    __builtin_memcpy(&stack_x_bits, &font->scale_stack[0], sizeof(stack_x_bits));
+    __builtin_memcpy(&stack_y_bits, &font->scale_stack[1], sizeof(stack_y_bits));
+    u32 sx_arg_bits, sy_arg_bits;
+    __builtin_memcpy(&sx_arg_bits, &sx, sizeof(sx_arg_bits));
+    __builtin_memcpy(&sy_arg_bits, &sy, sizeof(sy_arg_bits));
+    if (sx != 0.0f || sy != 0.0f) {
+        sly1_native_trace_font(11, (u32)font, sx_bits, sy_bits,
+                               stack_x_bits, stack_y_bits);
+        sly1_native_trace_font(12, (u32)font, (u32)font->depth,
+                               sx_arg_bits, sy_arg_bits, 0);
+    }
     point[0] = font->sx;
     point[1] = font->sx;
     ++font->depth;
     font->sx = *(f32*)((u8*)font + 0x10u) * sx;
     font->sy = *(f32*)((u8*)font + 0x14u) * sy;
+    __builtin_memcpy(&sx_bits, &font->sx, sizeof(sx_bits));
+    __builtin_memcpy(&sy_bits, &font->sy, sizeof(sy_bits));
+    if (font->sx != 0.0f || font->sy != 0.0f)
+        sly1_native_trace_font(13, (u32)font, sx_bits, sy_bits,
+                               (u32)font->depth, 0);
 }
 
 void func_0015C900(void* opaque) {
@@ -364,10 +383,10 @@ void func_0015D4E0(void* opaque, FontFrameItem* item, FontFrameRect* rect,
 
 s32 func_0015CAB8(void* opaque, void* packet) {
     FontTextFont* font = (FontTextFont*)opaque;
+    FontImageA* image_a = (FontImageA*)font->image_a;
+    FontImageB* image_b = (FontImageB*)font->image_b;
     s32 changed = (D_002622D8->flags & (u32)font->mask) == 0;
     if (changed) {
-        FontImageA* image_a = (FontImageA*)font->image_a;
-        FontImageB* image_b = (FontImageB*)font->image_b;
         func_00152D70(packet);
         func_00152B80(packet, font->f68, font->f6c);
         func_00152B80(packet, (s32)image_a->words[5], (s32)image_a->words[4]);
@@ -377,6 +396,18 @@ s32 func_0015CAB8(void* opaque, void* packet) {
         }
         func_00152B38(packet);
         D_002622D8->flags |= (u32)font->mask;
+    }
+    sly1_native_trace_font(4, (u32)font, font->image_a,
+                           (u32)image_a->words[4], image_a->words[5],
+                           (u32)changed);
+    if (image_b != 0)
+        sly1_native_trace_font(5, (u32)font, font->image_b,
+                               (u32)image_b->words[2], image_b->words[3],
+                               D_002622D8->flags);
+    if (image_a->words[4] != 0) {
+        const u32* pixels = (const u32*)(u32)image_a->words[4];
+        sly1_native_trace_font(6, (u32)pixels, pixels[0], pixels[1],
+                               pixels[2], pixels[3]);
     }
     return changed;
 }
@@ -507,9 +538,17 @@ void func_0015E318(void* opaque, FontTextLayout* layout, s32 flag,
             text->font_changed = 0;
         }
         u32 draw_method = font_vtable_method(font, 0x34u, 0x30u, &adjusted);
-        left += sly1_native_call_f32(draw_method, adjusted, (u32)value,
-                                     text->color_9c.packed, (u32)packet,
-                                     left, top);
+        f32 advance = sly1_native_call_f32(draw_method, adjusted, (u32)value,
+                                           text->color_9c.packed, (u32)packet,
+                                           left, top);
+        u32 advance_bits, left_bits, top_bits;
+        __builtin_memcpy(&advance_bits, &advance, sizeof(advance_bits));
+        __builtin_memcpy(&left_bits, &left, sizeof(left_bits));
+        __builtin_memcpy(&top_bits, &top, sizeof(top_bits));
+        if (advance != 0.0f)
+            sly1_native_trace_font(9, (u32)value, draw_method, advance_bits,
+                                   left_bits, top_bits);
+        left += advance;
     }
 
     FontTextFont* font = (FontTextFont*)text->font;
@@ -517,6 +556,9 @@ void func_0015E318(void* opaque, FontTextLayout* layout, s32 flag,
     u32 end_method = font_vtable_method(font, 0x3Cu, 0x38u, &adjusted);
     (void)sly1_native_call_regs4(end_method, adjusted, (u32)flag,
                                  (u32)packet, 0);
+    FontPacketWriter* writer = (FontPacketWriter*)packet;
+    sly1_native_trace_font(8, (u32)packet, writer->begin, writer->cursor,
+                           writer->last_tag, writer->register_count);
 }
 
 f32 func_0015CD18(f32 x, f32 y, void* opaque, s32 key, u32 color,
@@ -528,7 +570,19 @@ f32 func_0015CD18(f32 x, f32 y, void* opaque, s32 key, u32 color,
     __builtin_memcpy(&y_bits, &y, sizeof(y_bits));
     sly1_native_trace_font(3, (u32)key, (u32)opaque, (u32)glyph,
                            x_bits, y_bits);
-    if (glyph == 0) return (f32)font->advance * font->sx;
+    if (glyph == 0) {
+        f32 advance = (f32)font->advance * font->sx;
+        u32 sx_bits, sy_bits, advance_bits;
+        __builtin_memcpy(&sx_bits, &font->sx, sizeof(sx_bits));
+        __builtin_memcpy(&sy_bits, &font->sy, sizeof(sy_bits));
+        __builtin_memcpy(&advance_bits, &advance, sizeof(advance_bits));
+        if (font->sx != 0.0f || font->sy != 0.0f)
+            sly1_native_trace_font(10, (u32)font, (u32)key, sx_bits,
+                                   advance_bits, sy_bits);
+        return advance;
+    }
+    sly1_native_trace_font(16, (u32)key, glyph->u, glyph->v,
+                           glyph->width, (u32)font->height);
     s32 shift = (s32)((font->tex0 >> 30) & 0xFu);
     s32 texture_height = 1 << shift;
     f32 height = (f32)font->height * font->sy;
@@ -549,7 +603,15 @@ f32 func_0015CD18(f32 x, f32 y, void* opaque, s32 key, u32 color,
                       (s32)((bottom * 0.45454547f + 1936.0f) * 16.0f),
                       (u32)font->f40, 0);
     }
-    return (f32)(glyph->width + 1u) * font->sx;
+    f32 advance = (f32)(glyph->width + 1u) * font->sx;
+    u32 sx_bits, sy_bits, advance_bits;
+    __builtin_memcpy(&sx_bits, &font->sx, sizeof(sx_bits));
+    __builtin_memcpy(&sy_bits, &font->sy, sizeof(sy_bits));
+    __builtin_memcpy(&advance_bits, &advance, sizeof(advance_bits));
+    if (font->sx != 0.0f || font->sy != 0.0f)
+        sly1_native_trace_font(10, (u32)font, (u32)glyph->width, sx_bits,
+                               advance_bits, sy_bits);
+    return advance;
 }
 
 void func_00137228(FontTextLayout* layout, f32 x, f32 y) {

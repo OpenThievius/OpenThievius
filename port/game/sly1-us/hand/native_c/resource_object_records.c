@@ -105,6 +105,7 @@ void func_0011ECB8(void* world, void* parameter, void* reader) {
         sly1_native_loader_stage(28, *(u32*)((u8*)object + 0x18), (u32)reader);
         u32 vtable = *(u32*)object;
         u32 read_method = vtable != 0 ? *(u32*)(vtable + 14u * 4u) : 0;
+        sly1_native_loader_stage(34, read_method, (u32)reader);
         if (read_method != 0) {
             if (read_method == 0x0013B598u) {
                 /* This C03 reader callback forwards the incoming reader in
@@ -119,6 +120,7 @@ void func_0011ECB8(void* world, void* parameter, void* reader) {
                                        (u32)reader, 0, 0);
             }
         }
+        sly1_native_loader_stage(35, read_method, (u32)reader);
 
         s32 index = func_0011ECA0(key);
         if (index >= 0 && index < 31) {

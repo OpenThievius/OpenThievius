@@ -123,6 +123,13 @@ extern "C" uint32_t game_sly1_native_call_regs4(uint32_t address, uint32_t a0,
                                                   uint32_t a1, uint32_t a2,
                                                   uint32_t a3) {
     if (address == 0 || openrac_guest_function_name(address) == nullptr) return 0;
+    if (std::getenv("OPENRAC_TRACE_UI_CALLS") != nullptr &&
+        (address == 0x00194F80u || address == 0x001AB198u ||
+         address == 0x001AA790u || address == 0x0015E318u)) {
+        std::fprintf(stderr,
+                     "[native ui call] address=%#010x args=%#010x,%#010x,%#010x,%#010x\n",
+                     address, a0, a1, a2, a3);
+    }
     const uint64_t integer_registers[8] = {a0, a1, a2, a3};
     float float_registers[8]{};
     const uint32_t arguments[4] = {a0, a1, a2, a3};
@@ -188,11 +195,32 @@ extern "C" void game_sly1_native_temp_end(void) {
 extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                                                uint32_t reader) {
     if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
+    if (stage == 70u) {
+        static unsigned dump_index = 0;
+        if (dump_index < 2 && openrac_guest_base != nullptr) {
+            char path[64];
+            std::snprintf(path, sizeof(path), "/tmp/sly1-collision-window-%u.bin", dump_index++);
+            if (FILE* file = std::fopen(path, "wb")) {
+                std::fwrite(openrac_guest_base + 0x70000000u, 1, 0x2000u, file);
+                std::fclose(file);
+            }
+        }
+    }
     std::fprintf(stderr,
                  "[loader] stage=%u object=%#010x reader=%#010x cursor=%#010x remaining=%d\n",
                  stage, object, reader,
                  GREF(uint32_t, reader + 0x18u),
                  static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
+    if (stage >= 70u && stage <= 86u) {
+        std::fprintf(stderr,
+                     "[loader] state flags=%#x mode=%#x read=%#x pending=%#x "
+                     "source=%#x source_left=%#x control=%#x write=%#x magic=%#x\n",
+                     GREF(uint32_t, reader), GREF(uint32_t, reader + 4u),
+                     GREF(uint32_t, reader + 0x10u), GREF(uint32_t, reader + 0x14u),
+                     GREF(uint32_t, reader + 0x20u), GREF(uint32_t, reader + 0x24u),
+                     GREF(uint32_t, reader + 0x28u), GREF(uint32_t, reader + 0x3Cu),
+                     GREF(uint32_t, reader + 0x38u));
+    }
     if (stage == 17u) {
         uint8_t prefix[8]{};
         std::memcpy(prefix, openrac_guest_base + 0x70000000u, sizeof(prefix));

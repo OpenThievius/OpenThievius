@@ -18,6 +18,11 @@ void func_001289C0(void* collider, void* stream);
 void func_001B7C40(void* collider, s32 enabled);
 void func_00138F28(void* world, void* collider);
 void sly1_native_call_method(u32 address, u32 object);
+void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+
+static void trace_reader(u32 stage, void* object, void* reader) {
+    sly1_native_loader_stage(stage, (u32)object, (u32)reader);
+}
 
 static void copy_words(u8* destination, const u8* source, u32 count)
 {
@@ -52,14 +57,18 @@ void func_001BAC30(void* object, void* stream)
     mesh = self + 0x380;
     mesh_copy = self + 0x3A4;
     tree = self + 0x3F0;
+    trace_reader(70, object, stream);
     func_00137FB0(stream, mesh);
+    trace_reader(71, object, stream);
     *(f32*)(self + 0x3D0) = *(f32*)mesh;
     *(f32*)(self + 0x3CC) = *(f32*)mesh;
     if ((object_flags & ((u64)1 << 33)) != 0)
         copy_words(mesh_copy, mesh, 9);
     else
         func_00160EA0(mesh, 0, mesh_copy);
+    trace_reader(72, object, stream);
     func_00138278(stream, mesh_copy, tree);
+    trace_reader(73, object, stream);
 
     *(f32*)(self + 0x368) = func_00137DF8(stream);
     func_00137EB0(stream, self + 0x2F0);
@@ -67,6 +76,7 @@ void func_001BAC30(void* object, void* stream)
     func_001B9448(self, 1.0f);
 
     count = func_00137BE0(stream);
+    trace_reader(74, object, stream);
     *(s32*)(self + 0x3FC) = count;
     *(u32*)(self + 0x400) = (u32)func_0018D500(count * 8);
     for (i = 0; i < count; ++i) {
@@ -76,11 +86,13 @@ void func_001BAC30(void* object, void* stream)
     }
 
     count = func_00137C40(stream);
+    trace_reader(75, object, stream);
     *(u32*)(self + 0x404) = (u32)func_0018D500(count * 4);
     for (i = 0; i < count; ++i)
         ((s32*)*(u32*)(self + 0x404))[i] = func_00137D10(stream);
 
     count = func_00137C40(stream);
+    trace_reader(76, object, stream);
     *(s32*)(self + 0x408) = count;
     *(u32*)(self + 0x40C) = (u32)func_0018D500(count * 8);
     for (i = 0; i < count; ++i) {
@@ -99,13 +111,18 @@ void func_001BAC30(void* object, void* stream)
     mesh = self + 0x4E8;
     mesh_copy = self + 0x50C;
     tree = self + 0x530;
+    trace_reader(77, object, stream);
     func_00137FB0(stream, mesh);
+    trace_reader(78, object, stream);
     if ((object_flags & ((u64)1 << 33)) != 0)
         copy_words(mesh_copy, mesh, 9);
     else
         func_00160EA0(mesh, 0, mesh_copy);
+    trace_reader(79, object, stream);
     func_00138278(stream, mesh_copy, tree);
+    trace_reader(80, object, stream);
     func_001289C0(self, stream);
+    trace_reader(81, object, stream);
     func_001B7C40(self, 1);
     call_descriptor_method(self, 0x120);
     if (*(u32*)(self + 0x18) == 0) {

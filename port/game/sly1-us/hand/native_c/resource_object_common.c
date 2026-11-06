@@ -11,6 +11,7 @@ f32 func_00137DF8(void* reader);
 void func_00137E70(void* reader, void* destination);
 void func_00137E90(void* reader, void* destination);
 void func_00137EB0(void* reader, void* destination);
+void func_00137F08(void* reader, void* destination);
 void* func_0018D500(s32 size);
 void* func_0018D5C0(s32 size);
 void* func_0018D568(s32 size, void* source);
@@ -37,10 +38,16 @@ void func_00137B60(void* reader, s32 alignment) {
 
 void func_00162890(void* block, void* reader, void* object) {
     u8* bytes = (u8*)block;
+    static s32 trace_records;
+    extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
     *(s32*)(bytes + 0x50) = 0;
     const s32 first = func_00137B90(reader);
-    (void)func_00137B90(reader);
+    sly1_native_loader_stage(105, (u32)first, (u32)reader);
+    const s32 second = func_00137B90(reader);
+    sly1_native_loader_stage(106, (u32)second, (u32)reader);
     const s32 component_count = func_00137B90(reader);
+    sly1_native_loader_stage(107, (u32)component_count, (u32)reader);
+    (void)second;
     if (component_count < 0 || component_count > 4096) return;
     *(s32*)(bytes + 0x00) = component_count;
     *(u32*)(bytes + 0x04) = (u32)func_0018D5C0(component_count * 0x90);
@@ -49,6 +56,7 @@ void func_00162890(void* block, void* reader, void* object) {
         *(s16*)(*(u32*)(bytes + 0x08) + (u32)i * 2u) = (s16)func_00137D10(reader);
 
     const s32 word_count = func_00137B90(reader);
+    sly1_native_loader_stage(108, (u32)word_count, (u32)reader);
     if (word_count < 0 || word_count > 65535) return;
     *(s32*)(bytes + 0x40) = word_count;
     *(u32*)(bytes + 0x44) = (u32)func_0018D5C0(word_count * 4);
@@ -57,6 +65,7 @@ void func_00162890(void* block, void* reader, void* object) {
         word_count * 4, (void*)*(u32*)(bytes + 0x44));
 
     const s32 record_count = func_00137BE0(reader);
+    sly1_native_loader_stage(109, (u32)record_count, (u32)reader);
     if (record_count < 0 || record_count > 65535) return;
     *(s32*)(bytes + 0x0C) = record_count;
     *(u32*)(bytes + 0x10) = (u32)func_0018D5C0(record_count * 0x70);
@@ -66,17 +75,33 @@ void func_00162890(void* block, void* reader, void* object) {
     for (s32 i = 0; i < record_count; ++i) {
         u8* record = records + (u32)i * 0x70u;
         const s32 flags = func_00137BE0(reader);
+        if (trace_records < 4) {
+            sly1_native_loader_stage(110, (u32)flags, (u32)reader);
+            ++trace_records;
+        }
+        if (flags & 1) {
+            const s32 source_index = func_00137D10(reader);
+            if (source_index >= 0 && source_index < i)
+                __builtin_memcpy(record, records + (u32)source_index * 0x70u, 0x70u);
+            else
+                __builtin_memset(record, 0, 0x70u);
+            u32 vectors = (u32)func_0018D500(0x40);
+            if (vectors != 0) func_00137F08(reader, (void*)vectors);
+            else {
+                u8 scratch[64];
+                func_00137F08(reader, scratch);
+            }
+        } else {
+            *(u32*)(record + 0x1C) = 0x501502F9u;
+            *(u32*)(record + 0x20) = 0x44FA0000u;
+            *(u32*)(record + 0x24) = 0x7F7FFFFFu;
+            *(u32*)(record + 0x28) = (u32)first;
+            *(u32*)(record + 0x30) = 0;
+            *(u32*)(record + 0x38) = 0;
+            *(u32*)(record + 0x3C) = 0x3F800000u;
+            *(u32*)(record + 0x50) = 0x3F800000u;
+        }
         *(s32*)(record + 0x68) = flags;
-        if (flags & 0x101) return;
-
-        *(u32*)(record + 0x1C) = 0x501502F9u;
-        *(u32*)(record + 0x20) = 0x44FA0000u;
-        *(u32*)(record + 0x24) = 0x7F7FFFFFu;
-        *(u32*)(record + 0x28) = (u32)first;
-        *(u32*)(record + 0x30) = 0;
-        *(u32*)(record + 0x38) = 0;
-        *(u32*)(record + 0x3C) = 0x3F800000u;
-        *(u32*)(record + 0x50) = 0x3F800000u;
         if (flags & 0x002) *(s32*)(record + 0x00) = func_00137C40(reader);
         if (flags & 0x200) *(f32*)(record + 0x50) = func_00137DF8(reader);
         if (flags & 0x004) {
@@ -96,8 +121,8 @@ void func_00162890(void* block, void* reader, void* object) {
                 *(f32*)(record + 0x20) = value;
         }
         if (flags & 0x040) {
-            (void)func_00137BE0(reader);
-            sly1_discard(reader, 0x1C);
+            const s32 count = func_00137BE0(reader);
+            if (count > 0) sly1_discard(reader, 0x1C);
             ++*(s32*)(bytes + 0x50);
         }
         if (flags & 0x080) {
@@ -107,13 +132,37 @@ void func_00162890(void* block, void* reader, void* object) {
             func_00137E90(reader, (void*)(vectors + 0x10));
         }
 
-        func_00137A60(reader, 12, record);
+        if (flags & 0x100) {
+            u8 scratch[64];
+            u32 extra = (u32)func_0018D5C0(0x90);
+            (void)func_00137D10(reader);
+            s32 mode = func_00137CC0(reader);
+            if (mode != -1) {
+                (void)func_00137DF8(reader);
+                (void)func_00137DF8(reader);
+                (void)func_00137DF8(reader);
+                (void)func_00137DF8(reader);
+                if (extra != 0) func_00137F08(reader, (void*)(extra + 0x40));
+                else func_00137F08(reader, scratch);
+            }
+            (void)func_00137B90(reader);
+            (void)func_00137B90(reader);
+            (void)func_00137B90(reader);
+        } else {
+            *(u32*)(record + 0x54) = 0;
+        }
+
+        func_00137E70(reader, record);
         *(f32*)(record + 0x10) = func_00137DF8(reader);
         (void)func_00137D10(reader);
         *(s32*)(record + 0x34) = func_00137B90(reader);
         *(s32*)(record + 0x14) = func_00137B90(reader);
         *(s32*)(record + 0x2C) = func_00137B90(reader);
-        if (flags & 0x002) break;
+        if (flags & 1) {
+            /* Retail post-processes the referenced record, then starts the
+             * next one without reading the nested-record payload. */
+            continue;
+        }
 
         const s32 nested_count = func_00137BE0(reader);
         if (nested_count < 0 || nested_count > 16 || (word_count && nested_count)) return;

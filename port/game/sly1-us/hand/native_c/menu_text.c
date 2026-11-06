@@ -76,11 +76,20 @@ char* func_00193598(s32 index) {
 
 void func_00194F80(void* opaque) {
     u8* self = (u8*)opaque;
-    const s32 mode = *(s32*)(self + 0x250u);
-    const s32 page = *(s32*)(self + 0x260u);
+    s32 mode;
+    s32 page;
+    u32 font_address;
+    if (self == 0) return;
+    mode = *(s32*)(self + 0x250u);
+    page = *(s32*)(self + 0x260u);
+    font_address = *(u32*)(self + 4u);
+    sly1_native_trace_font(0, (u32)opaque, (u32)mode, (u32)page,
+                           font_address,
+                           page >= 0 && page < 33
+                               ? *(u32*)(MENU_TABLE_ADDRESS + (u32)page * 24u + 16u)
+                               : 0xFFFFFFFFu);
     if (mode == 0 || page < 0 || page >= 33) return;
 
-    u32 font_address = *(u32*)(self + 4u);
     if (font_address == 0) {
         /* Native startup can register fonts after the static UI constructors
          * have run. Bind the same default font when the menu first draws. */
@@ -92,6 +101,11 @@ void func_00194F80(void* opaque) {
     sly1_native_trace_font(1, (u32)opaque, (u32)mode, (u32)page,
                            font_address, (u32)menu->count);
     const f32 blend = *(f32*)(self + 0x23Cu);
+    const u32 blend_bits = *(u32*)(self + 0x23Cu);
+    const u32 title_scale_bits = *(u32*)((u8*)menu + 4u);
+    const u32 item_scale_bits = *(u32*)((u8*)menu + 8u);
+    sly1_native_trace_font(14, (u32)menu, blend_bits, title_scale_bits,
+                           item_scale_bits, (u32)mode);
     const f32 width = *(f32*)(self + 0x234u) * blend;
     const f32 height = *(f32*)(self + 0x238u) * blend;
     const f32 shown_x = *(f32*)(self + 0x224u);
