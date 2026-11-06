@@ -4,10 +4,14 @@
 Last checked: 2026-11-06. This document records the live native C-only
 launcher state, not a playable milestone. The exact decomp stream-reader unit
 now builds from `00134000.cpp`; the former Splash-tail image-cache experiment
-is archived as a superseded port backfill. A bounded native run reads the
-Splash sectors and metadata tables, then submits menu geometry with zero-filled
-image and palette uploads. The window remains black. No emulator is used by
-this path.
+is archived as a superseded port backfill. A port-only descriptor initializer
+fixed the Splash property cursor error: property `0x5B` now consumes its
+two-byte payload, and parsing continues at property `0x73`. A bounded run stays
+alive and submits draws, but a newer startup trace still has no GS framebuffer
+or texture state and the window remains black. The screen-fade updater
+`func_001EFD10` is present as matched C in the decomp source but its containing
+unit is not yet hostgen-readable, so the launcher still uses its port frame
+callback. No emulator is used by this path.
 
 ## What runs today
 
@@ -53,12 +57,15 @@ captured bytes may belong to subsequent output and are not evidence about the
 Splash resource. The optional dump writes `/tmp/sly1-lz-window-*.bin` and is
 enabled alongside `OPENRAC_TRACE_LOADER=1`.
 
-The current bounded trace supersedes the earlier `0x128BC` dimension and
-9,542-record diagnosis below this point in the investigation history. Retail
-LZ output still matches all 430,858 bytes of the extracted Splash resource.
-The live parser failure is now localized to a collision mesh in the object
-list, while the meaning and overlap of the decoded container sections remain
-unresolved:
+The earlier collider and image-tail analysis below predates the latest parser
+fix and is retained as history. Retail LZ output still matches all 430,858
+bytes of the extracted Splash resource. The current failure is after property
+parsing: metadata tables are read and the native path submits draw chains, but
+the captured GS state lacks framebuffer and texture registers. One fresh
+startup trace saw 287 accepted chains, zero transfer-register writes, and no
+vertices; a separate 10-second run recorded two draws with 372 vertices. These
+measurements are from different trace windows and do not establish visible
+output. The image and palette data remain unverified.
 
 * The second collider starts at decoded offset `0x1643`. Its mesh has 6,626
   12-byte vertices; face count `0xFFFF` follows at `0x14CE1`. The previous
@@ -187,15 +194,11 @@ experiment is archived under `hand/superseded_backfills/`; matched
 `func_001378A0` from the decomp is active now. Those atlas and menu captures
 are historical and do not describe the current build.
 
-## Decomp refresh and matched-C check (2026-11-06)
+## Decomp refresh and matched-C check (historical snapshot)
 
-The read-only checkout at `/home/reaper/.cache/sly1-decomp-current` was
-refreshed from upstream `master`; it remains at `cf9ad464696a197803f584980bff43ed62b6bf31`.
-The current status command reports 4,720/4,806 US functions with C (92.17%
-code bytes) and 86 without C. The open decomp PR refs inspected for this check
-resolve to `89c3b342d74694bf5ac77ffe81e0951ffac59e84`, which is already an
-ancestor of current `master`; their code is present in this snapshot, so there
-was no newer head to import. Relevant matching source includes
+The checkout has since advanced beyond the snapshot described here. See
+[ROADMAP.md](ROADMAP.md) for the current `af52bbb` status. Relevant matching
+source at the time included
 `func_001BAC30`, `func_00138278`, `func_0011ECB8`, and the animation/image/font
 table readers. The low-level mesh decoder `func_00137FB0` is still classified
 as assembly-only (`handwritten VU0 macro instruction`) in the source

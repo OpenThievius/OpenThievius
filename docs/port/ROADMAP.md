@@ -29,6 +29,13 @@ Hostgen currently reads 187 units and translates 1,060 functions (zero assembly
 translations, one stub, 3,809 functions without C), plus seven port-owned
 overrides of matched C.
 
+The newest decomp source contains the matched screen-fade updater
+`func_001EFD10` with its mode, timing and opacity logic. The current native
+hostgen path still reports this function as no-C because its containing
+`001EC000.cpp` unit has unrelated C++ helper constructs that staging cannot yet
+lower. This source is useful for a later hostgen staging fix, but it is not
+active in the launcher today. The port-only frame callback remains separate.
+
 The staging pass now also makes `00138000.cpp` and `001B8000.cpp` readable;
 the native build uses matching decomp C for `func_00138278` and
 `func_001BAC30`. It also compiles matching `func_00196410` from
@@ -112,14 +119,14 @@ function, and lists 3,809 without C. It also applies seven port-owned overrides
 of matched C. These generated-host counts are separate from decompilation
 matching coverage and do not establish gameplay coverage.
 
-### Latest bounded native run (2026-11-06)
+### Earlier bounded native run (2026-11-06)
 
-A focused native run reaches Splash property parsing. The first trace mismatch
-is property ID `0x5B` at cursor `0x1619`, followed by ID `0x7300` at `0x161C`;
-the decoded retail bytes are `5B 00 06 00 73 00 10 00`, so the next ID should
-be `0x73`. This cascades into an implausible record count (`0x2546`), a null
-callback, and a guest call-through-address fault. The window remains black and
-no image or palette uploads occur.
+This run predates the descriptor-table initialization fix below. It saw property
+ID `0x5B` at cursor `0x1619`, followed by `0x7300` at `0x161C`; the decoded
+retail bytes are `5B 00 06 00 73 00 10 00`, so the next ID should be `0x73`.
+That caused an implausible record count, a null callback, and a guest call-through
+fault. The later focused trace below verifies this specific parser failure is
+fixed. The black window remains unresolved.
 
 Decomp master `af52bbb` is current as of 2026-11-06: 4,721/4,806 US functions
 with C (92.20% code bytes); Europe has 4,730/4,831 (91.72%). `func_001B1438`
