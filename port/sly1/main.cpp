@@ -49,6 +49,16 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
         std::ofstream dump("/tmp/sly1-font-resource.bin", std::ios::binary);
         if (dump) dump.write(reinterpret_cast<const char*>(openrac_guest_base + a0), a1);
     }
+    if (stage == 8 && std::getenv("OPENRAC_DUMP_FONT_PACKETS") != nullptr &&
+        a1 <= a2 && a2 - a1 <= 0x10000u) {
+        static std::atomic<unsigned> packet_index{};
+        const unsigned packet = packet_index.fetch_add(1, std::memory_order_relaxed);
+        const std::string path = "/tmp/sly1-font-packet-" +
+                                 std::to_string(packet) + ".bin";
+        std::ofstream dump(path, std::ios::binary);
+        if (dump) dump.write(reinterpret_cast<const char*>(openrac_guest_base + a1),
+                             a2 - a1);
+    }
 }
 
 extern "C" void game_sly1_native_trace_resource_range(std::uint32_t sector,

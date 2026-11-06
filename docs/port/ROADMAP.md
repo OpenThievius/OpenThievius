@@ -26,11 +26,18 @@ but the native window is still black.
 
 The native C-only launcher reaches Sly's menu/frame path. A 20-second bounded
 run on 2026-11-06 reached two frames and accepted 1,420 GIF-chain submits with
-zero rejects, but still reported zero vertices and a black window. The font
-registry initializes, though Splash still provides no usable scene geometry.
-A port-only collision backfill covers post-load contact-table registration;
-it does not change this visual blocker. The earlier intermittent heap abort
-was traced with AddressSanitizer to a use-after-free in the semaphore map
+zero rejects. `OPENRAC_TRACE_DIRECT=1` now shows two title-menu draws and 372
+decoded vertices in later frames; the separate legacy guest GIF counter still
+reports zero. A captured 960x720 native frame is entirely black, and the
+512x512 PSMT4 upload at block `0x1400` contains 131,072 zero bytes. Font trace
+stage 19 shows its `0x5F4F0`-byte read starts after the Splash reader reaches
+EOF. The current visual blocker is therefore the resource parser's stream
+alignment and missing image payload, not absent menu draw commands. The first
+concrete alignment lead is the invalid next object type `0x5300` at decoded
+offset `0x1594`; a later collider reads a 65,535-face count and runs the reader
+to EOF. A port-only collision backfill covers post-load contact-table
+registration; it does not change this visual blocker. The earlier intermittent
+heap abort was traced with AddressSanitizer to a use-after-free in the semaphore map
 during `WaitSema` while another thread deleted a semaphore. The native kernel
 shim now gives waiters stable shared semaphore state and wakes them on delete.
 A 60-second AddressSanitizer run and a 20-second normal traced run survived
@@ -41,16 +48,16 @@ it is not a VIF opcode.
 
 The DMA handoff is not the current blocker: channel 2 is sent through the
 DMAtag chain walker, and sampled submitted chains are accepted without a
-reject. The latest native run enters frame setup but reports zero submitted
-menu vertices. The Splash reader reaches EOF in a second collider's 65,535-face
-block, before it can fill the font image buffer; the atlas upload is still
-zero-filled. Retail assembly confirms `func_00137FB0` treats `0xFFFF` as a
-positive 16-bit face count, so the current investigation is the stream refill
-and serialized object range. GS texture conversion, CLUT, UV and shader work
-must wait for valid image data. Keep functional corrections in port-only
-backfills. See [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the latest
-trace, commands, evidence, and contributor tasks. Do not route the menu call to
-the raw GIF-stream helper unless new evidence proves the source is not a DMA
+reject. The menu packet writer produces draw commands and the direct renderer
+decodes them, but the font image buffer remains zero-filled because the
+Splash reader has already reached EOF. Retail assembly confirms
+`func_00137FB0` treats `0xFFFF` as a positive 16-bit face count, so do not
+reinterpret that field as a signed sentinel. Resolve the earlier object-list
+alignment issue before changing GS texture conversion, CLUT, UV or shader
+behavior. Keep functional corrections in port-only backfills. See
+[SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the latest trace,
+commands, evidence, and contributor tasks. Do not route the menu call to the
+raw GIF-stream helper unless new evidence proves the source is not a DMA
 chain.
 
 The most recently host-generated build used the current upstream decomp

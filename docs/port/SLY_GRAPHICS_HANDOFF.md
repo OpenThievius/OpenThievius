@@ -2,10 +2,11 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. This document records the live native C-only
-launcher state, not a playable milestone. The launcher opens a window, but the
-current retail-aligned reader path reaches EOF during collision loading before
-the image payload is read; it submits no menu vertices and remains black. No
-emulator is used by this path.
+launcher state, not a playable milestone. The launcher opens a window and the
+direct GIF renderer decodes menu text and textured quads, but the captured
+frame is still black. Its menu atlas upload is zero-filled because the Splash
+reader reaches EOF before the image payload is read. No emulator is used by
+this path.
 
 ## What runs today
 
@@ -235,6 +236,31 @@ collider at `0x1643`. That collider's 6,626-vertex mesh still declares 65,535
 faces; its face read reaches decoded-stream EOF and the callback returns with
 no scene vertices submitted. This reproduces the existing resource-parser
 blocker without the earlier heap corruption. Trace: `/tmp/sly1-stable-loader-trace.log`.
+
+The current black frame is now traced one step farther. With
+`OPENRAC_TRACE_DIRECT=1`, the native renderer decodes two menu draws and 372
+vertices in a later frame; the legacy guest GIF counter still reports zero
+vertices because it observes the separate hardware-style path. A captured
+960x720 native frame contains only zero-valued pixels. The 512x512 PSMT4
+upload at GS block `0x1400` is 131,072 bytes and every byte is zero. Font trace
+stage 19 shows the image read beginning with the Splash reader already at
+`remaining=-1`; stage 7 records the attempted `0x5F4F0`-byte payload with zero
+leading words. This makes stream alignment/resource parsing the current visual
+blocker, rather than title callback dispatch or missing menu vertices. The
+first concrete alignment lead remains the invalid next object type `0x5300`
+at decoded offset `0x1594`.
+
+For a native renderer/frame capture, run:
+
+```sh
+OPENRAC_TRACE_DIRECT=1 OPENRAC_DUMP_NATIVE_FRAMES=1 timeout 8s \
+  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+Frames are written to `/tmp/sly1-native-frame-*.ppm`. To capture the menu
+packet writer snapshots too, add `OPENRAC_DUMP_FONT_PACKETS=1`; these go to
+`/tmp/sly1-font-packet-*.bin`.
 
 ## Port/decomp boundary
 
