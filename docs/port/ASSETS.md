@@ -341,3 +341,18 @@ bytes at each cursor boundary. The exact current decomp reference is
 `src/main/file_1C05D0.cpp` and `src/main/0011C000.cpp` in the adjacent
 `sly1-decomp` checkout. Keep fixes to those missing or replaced behaviors in
 this port repository until the matching decompilation owns them.
+
+The 2026-11-06 follow-up checked the pre-list cursor readers against the
+current decomp checkout at `cf9ad464696a197803f584980bff43ed62b6bf31`.
+`func_0011BA28`, `func_0011E680`, `func_0011ECB8`, the collider field readers,
+and `func_00128C10` agree on the observed serialized widths. In the captured
+first collider, `func_00162890` starts at `0x1538` and returns at `0x158D`
+with record count zero; `func_00128C10` consumes its four-byte zero flags,
+then the one-byte group count and two-byte empty child list end at `0x1594`.
+The next list row is the raw bytes `00 53 00 4B 05 FF` (type/slot `0x5300`,
+key `0x4B00`, flag `0xFF05`), so this is not a trace-formatting problem.
+`func_00162890` remains assembly-only in decomp, and its port backfill is the
+main unverified reader on this path; compare its complete disassembly with the
+backfill before changing record boundaries. The pre-list readers' matching
+widths narrow the lead but do not prove the parsed world data or object-list
+structure is correct.

@@ -601,3 +601,15 @@ were checked against current decomp C and match at this level. Next inspect
 `resource_value_parser.c`; do not infer that valid table boundaries imply
 valid world-property interpretation. This diagnostic narrows the next review
 target but does not advance visual output or playability.
+
+The latest source review compared the Splash pre-list readers against current
+decomp `cf9ad464696a197803f584980bff43ed62b6bf31`. Script-value/property
+parsing, object-list headers, collider prefix reads, and placed-object fields
+match their retail serialized widths in the captured path. For the first
+collider, the nested `func_00162890` backfill runs from decoded `0x1538` to
+`0x158D` with zero records; the zero transform flags, empty group count, and
+empty child list then end at `0x1594`. The next six bytes really decode as
+`00 53 00 4B 05 FF`, which is not a valid retail object descriptor row.
+`func_00162890` remains assembly-only in decomp, so audit that port-only
+backfill and its caller/return contract next. This narrows the source-review
+lead; it does not yet establish a cause or a playable milestone.
