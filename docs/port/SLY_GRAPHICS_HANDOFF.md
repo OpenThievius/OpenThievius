@@ -59,21 +59,16 @@ An earlier trace saw a partial image read at cursor `0xE830`; that predates the
 retail-sized nested reads and is not the current behavior. The LZ output still
 matches the extracted 430,858-byte stream byte-for-byte.
 
-The long cursor advance is in the second top-level object's nested
-`func_001463C0`/`func_001289C0` callback. It reads 191 groups of 65 floats,
-which consumes about 50 KiB. That loop agrees with the retail
-`func_001289C0` assembly, so it is not a safe place to trim bytes. The callback
-also calls `func_00162890`; that still-unmatched port backfill reads a record
-count of 9,542 and returns at cursor `0x70001AB1`, at record 4 (`flags=0x3F04`).
-The earlier trace labeled the rejected value `0x1F3F` as a nested count. The
-backfill now correctly skips the nested-count field for reused records (flag
-bit 0), as retail does, but record 4 has that bit clear and the same early
-return remains. The reused-record correction is therefore valid but does not
-fix this Splash cursor. The auxiliary-array path also follows retail for its
-`item_count * first_count * 4` payload and optional word-count arrays; startup
-still returns before reaching that path. Keep these functional corrections
-in port-only backfills and replace them with matching decompiled C when
-available.
+The cursor failure occurs inside the second top-level object's nested
+`func_001463C0`/`func_001289C0` callback, specifically in its
+`func_00162890` record parser. The callback first reads 9,542 records and
+reaches record 4 with flags `0x3F04`; that record's nested count is `0x1F3F`
+(7,999). An earlier trace blamed the subsequent group-curve loop, but the
+retail-sized nested parser now exhausts the stream before that loop. Keep the
+group-curve loop intact because it agrees with retail assembly. The reused-
+record fix (skipping the nested-count field when flag bit 0 is set) remains
+valid, but record 4 has that bit clear. Keep these functional corrections in
+port-only backfills and replace them with matching decompiled C when available.
 
 Stage markers around record 4 confirm its `0x100` path is cursor-exact so
 far: mode is `-18`, the conditional payload advances 64 bytes (four floats and
