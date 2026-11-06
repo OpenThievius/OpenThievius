@@ -155,7 +155,7 @@ method syntax. Prioritize correct inheritance/layout and cursor lowering;
 do not suppress layout assertions or rename fields without resolving accesses.
 The audit command is implemented; source hostability fixes remain pending.
 
-The first staging correction preserves C++ member hiding for Animation.id
+The staging correction preserves C++ member hiding for Animation.id
 and ObjectCycler.index by renaming only the inherited anonymous-C copy.
 The derived field keeps its name; base casts still address the original base
 layout. The rebuilt object units no longer report those duplicate fields or
@@ -173,3 +173,13 @@ signature disagreement and a local Frame_124CC0 inheritance declaration
 (with its consequent incomplete-type error). Coverage is still unchanged.
 Retail inspection confirms EnsureRangeRecord consumes an object pointer;
 fix its inconsistent callers/declarations together rather than adding casts.
+
+The placed-object unit is now hostable. Its second `func_001BFCD8`
+declaration and call use a distinct staged C name with the same assembler
+label, allowing hostgen to retain the two source-level signatures while
+mapping both to retail address `0x001BFCD8`. The local animation frame is
+lowered to its zero-offset base fields plus its original tail. Rebuilding
+increases translated coverage from 1,108 to 1,139 functions; unreadable units
+fall from 57 to 56. The native launcher links successfully. This establishes
+more real game code in the host build, but does not yet establish that these
+functions are reached in a playable run.

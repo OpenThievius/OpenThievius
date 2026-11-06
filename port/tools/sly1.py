@@ -297,6 +297,33 @@ def prepare_c_view(source, version):
                 r"((const Desc\2*)((BaseObject*)\1)->desc)",
                 text,
             )
+            if cpp.stem == "00124000":
+                # TargetBinding is the base subobject at offset zero. The
+                # anonymous C aggregate already contains its fields; lower
+                # this local derived record while retaining its retail size.
+                text = text.replace(
+                    "struct Frame_124CC0 : TargetBinding { u8 pad0[8]; f32 tmp; };",
+                    "struct Frame_124CC0 { s32 key; void* object; "
+                    "u8 pad0[8]; f32 tmp; };",
+                )
+                mixed_decl = (
+                    "void func_001BFCD8(s32 a0, f32 f12, f32 f13, f32 f14, "
+                    "f32 f15, f32 f16, void* a1, PlacedObject* a2, s32 a3, "
+                    "void* a4, s32 a5);"
+                )
+                mixed_alias = (
+                    "void func_001BFCD8__mixed(s32 a0, f32 f12, f32 f13, "
+                    "f32 f14, f32 f15, f32 f16, void* a1, PlacedObject* a2, "
+                    "s32 a3, void* a4, s32 a5) __asm__(\"func_001BFCD8\");"
+                )
+                if mixed_decl not in text:
+                    raise ValueError("00124000 sound call signature changed")
+                text = text.replace(mixed_decl, mixed_alias, 1)
+                sound_call = "StartSoundEffect(q->f00, q->f04, q->f08, q->f0C, q->f10, q->f20, &q->f1C, self, 0, q->b14, 0);"
+                if sound_call not in text:
+                    raise ValueError("00124000 mixed sound call changed")
+                text = text.replace(sound_call, sound_call.replace(
+                    "StartSoundEffect(", "func_001BFCD8__mixed("), 1)
             if cpp.stem == "file_1963D8":
                 text = text.replace(
                     "void* func_001925F0(void);",
