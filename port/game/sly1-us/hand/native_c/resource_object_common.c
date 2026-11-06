@@ -205,8 +205,25 @@ void func_00162890(void* block, void* reader, void* object) {
             sly1_discard(reader, c1 * 4u);
             const u32 items = (u32)func_00137B90(reader);
             for (u32 j = 0; j < items; ++j) (void)func_00137B90(reader);
-            sly1_discard(reader, items * 4u);
-            if (word_count) return;
+            /* Retail stores item_count * first_count 32-bit values. */
+            u32 payload_bytes = items * c0 * 4u;
+            sly1_discard(reader, payload_bytes);
+            if (word_count) {
+                const u32 first_dimension = (u32)func_00137BE0(reader);
+                payload_bytes *= first_dimension * 12u;
+                sly1_discard(reader, payload_bytes);
+
+                const u32 second_dimension = (u32)func_00137BE0(reader);
+                payload_bytes *= second_dimension * 12u;
+                sly1_discard(reader, payload_bytes);
+
+                /* The block word count selects two c0*2-byte arrays per row. */
+                const u32 row_bytes = c0 * 2u;
+                for (s32 row = 0; row < word_count; ++row) {
+                    sly1_discard(reader, row_bytes);
+                    sly1_discard(reader, row_bytes);
+                }
+            }
         }
     }
     (void)object;

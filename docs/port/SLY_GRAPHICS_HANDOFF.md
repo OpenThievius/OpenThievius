@@ -71,7 +71,11 @@ and rejects values above 16. Retail assembly has no matching cap and continues
 through the nested records. Removing that guard alone made the incomplete
 backfill consume to the decoded reader's end without recovering the image
 payload, so it is not a safe standalone fix. The backfill needs a faithful
-port-only implementation of the remaining record and auxiliary-array reads.
+port-only implementation of the remaining nested-record reads. The
+auxiliary-array path now follows the retail assembly for its
+`item_count * first_count * 4` payload and the optional word-count arrays.
+The bounded Splash trace still exits before this path, so that correction is
+not yet exercised by startup.
 The following 191-by-65 group-float loop is present in retail assembly, but
 the live trace reaches the decoded stream's `0xFF`-filled region beginning at
 `0xBFD0`; do not trim that loop until the preceding record parser and resource
