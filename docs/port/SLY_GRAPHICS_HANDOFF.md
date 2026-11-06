@@ -62,13 +62,12 @@ and glyph-advance path are therefore producing changing positions; the old
 
 The window is still black or shows only a dark, noisy menu shape. The current
 failure is downstream of basic packet routing and geometry creation. The
-2026-11-06 texture dump at block `0x1400` looks like noise rather than
-recognizable glyph cells. Its source bytes begin at the logged image pointer,
-so the transfer is not obviously offset at the start; however, the dump does
-not establish that the source data or host-side PSMT4 decode is correct. Trace
-the resource bytes through upload, PSMT4 address conversion, CLUT lookup, and
-UV sampling before adjusting blend state. Do not apply a PSMT8 swizzle: the
-packet reports PSMT4.
+2026-11-06 normal-color texture dump at block `0x1400` looks noisy rather than
+like a readable font. A diagnostic mask that makes PSMT4 index 15 transparent
+and all other indices white reveals structured glyph shapes. This shows the
+upload is not simply random data, but it does not prove the retail CLUT order,
+alpha treatment, or on-screen UV sampling is right. Do not add a PSMT8 swizzle:
+the packet reports PSMT4, and no swizzle is currently supported by the evidence.
 After checking the texture path, compare GS blend/test/framebuffer state
 against the pixel output. The trace reports `TCC=true`, modulate texturing,
 blending enabled, and GS alpha scale; these values are evidence to inspect,
@@ -91,16 +90,15 @@ files are not repository artifacts.
 
 ## Work needed next
 
-1. Rebuild and capture `OPENRAC_DUMP_TEXTURE=1400`; inspect the 512x512 decoded
-   RGB atlas and alpha plane. Confirm the 131,072 source bytes against the
-   runtime image pointer and resource record, then trace PSMT4 nibble ordering,
-   GS address conversion, 16-entry CLUT mapping, texture origin, UV ranges,
-   filtering and alpha interpretation. Establish whether corruption begins in
-   resource data, upload assembly or texture conversion.
-2. Compare the DirectRenderer shader's texture/blend/alpha-test behavior and
-   framebuffer coordinates with the captured menu draw. Make the smallest
-   renderer correction supported by the image and GS state, then capture a
-   readable menu frame.
+1. Compare the normal-color dump with the diagnostic PSMT4 index mask:
+   `OPENRAC_DEBUG_T4_INDEX=1 OPENRAC_DUMP_TEXTURE=1400`. Trace the 16-entry
+   CLUT through the image upload and TEX0 load, including CSM1 palette order,
+   alpha values, and texture color/alpha function. Keep the confirmed PSMT4
+   source nibble order and glyph atlas unless new evidence contradicts them.
+2. Trace the glyph UVs, screen positions, scissor, and framebuffer state into
+   the DirectRenderer shader. Compare the captured state with the rendered
+   pixels, then make the smallest supported correction and capture a readable
+   menu frame.
 3. Once the menu is readable, trace the title-to-level transition and identify
    the missing Sly-specific scene/resource decode and draw path. OpenRAC's
    renderer and host runtime are reusable; Ratchet world records and game
@@ -122,29 +120,44 @@ The runtime transport and renderer adapters belong under `port/runtime/` and
 
 No additional disc image, boot ELF, or other user-supplied file is blocking
 the current work on this machine. Contributors elsewhere need their own
-NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are documented in
-[ASSETS.md](ASSETS.md). The current refreshed read-only decomp snapshot is
-`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46`. Hostgen's latest
-generated report is `build/port/hostgen/us/report.md`.
+NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are
+documented in [ASSETS.md](ASSETS.md). The current refreshed read-only decomp snapshot is
+`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (PR #62; checked
+2026-11-06). `python3 port/tools/sly1.py status --source
+/home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
+functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
+report is `build/port/hostgen/us/report.md`: 189 units read, 573 functions
+translated to host C, one stub, and 4,278 without C. These counts use different
+denominators and answer different questions; neither means the same amount of
+gameplay is ready. The snapshot is read-only and may lag GitHub if new decomp
+commits land, so refresh it and rerun the status command before starting work
+on missing functions.
 
-The best immediate contribution is graphics debugging: inspect the dumped
-font atlas/alpha plane and trace how its indexed pixels, UVs and GS blend state
-become the dark noisy output. It needs comfort with PS2 GS texture formats,
-GIF packets, OpenGL shaders and image inspection. No additional game dump is
-needed on this development machine. A contributor on another machine needs a
-legally obtained NTSC-U `SCUS_971.98` ELF and matching Sly 1 disc image, plus
-the compiler/CMake/SDL/OpenGL dependencies described in the build instructions.
+The best immediate contribution is graphics debugging: trace one glyph from
+the uploaded PSMT4 nibble and CSM1 palette entry through TEX0/UV selection,
+alpha/blend state, the DirectRenderer shader and the framebuffer pixel. Record
+the packet fields and image captures that justify each change. This needs
+comfort with PS2 GS texture formats, GIF packets, OpenGL shaders and image
+inspection. No additional game dump is needed to continue this track on this
+development machine. A contributor on another machine needs a legally obtained
+NTSC-U `SCUS_971.98` ELF and matching Sly 1 disc image, plus the compiler, CMake,
+SDL2 and OpenGL development dependencies described in the build instructions.
 Start with
 `port/renderer/texture_pool.cpp`, `port/renderer/direct.cpp`,
 `port/renderer/shaders/direct.frag`, and `port/game/sly1-us/hand/native_c/`.
 The dump command above is reproducible; compare a fresh capture with the
-existing evidence before changing renderer behavior. For game-code work,
-inspect `build/port/hostgen/us/report.md`, find a missing function on the
-active boot/menu/level path, and check the refreshed decomp snapshot for
-matching C first. If it is still missing, implement it as a port-only C
-backfill and register it in `backfills.tsv`/hostgen inputs. Keep the decomp
-checkout read-only. When matching code arrives, let it replace the backfill
-through source precedence and retain only port-specific adaptation.
+existing evidence before changing renderer behavior. Game-code contributors
+can take a separate track: inspect `build/port/hostgen/us/report.md`, choose a
+missing function on the active boot/menu path, refresh/check the decomp snapshot
+for matching C, then implement only still-missing behavior as a port-only C
+backfill registered in `backfills.tsv` and hostgen inputs. Keep these functional
+replacements in `port/game/sly1-us/hand/native_c/`; do not edit
+`sly1-decomp`. The decomp repository has its own contribution and coordination
+rules, so coordinate there before working on matching sources. When matching
+C arrives, let source precedence replace the backfill and retain only
+port-specific adaptation. Keep graphics fixes in `port/renderer/` and runtime
+adapters in `port/runtime/` so they remain distinct from game-function
+backfills.
 `docs/port/ASSETS.md` covers ELF/ISO setup and one-time extraction.
 After a readable menu, work remains on Sly-specific level data and scene
 rendering, controller-to-pad integration, collision, audio, and saves.

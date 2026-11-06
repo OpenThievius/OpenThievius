@@ -43,8 +43,9 @@ for current trace commands, evidence, and contributor tasks. Do not route the
 menu call to the raw GIF-stream helper unless new evidence proves the source
 is not a DMA chain.
 
-The most recently host-generated build used decomp snapshot `cf9ad46`
-(`OpenThievius/sly1-decomp`, 2026-11-05): 189 source units read, 573 functions
+The most recently host-generated build used the current upstream decomp
+snapshot `cf9ad46` (`OpenThievius/sly1-decomp`, PR #62, checked 2026-11-06):
+189 source units read, 573 functions
 translated, zero assembly functions, one C function stubbed, and 4,278
 functions without C. The
 decompilation's source status is 4,720/4,806 US functions with C (92.17% code
