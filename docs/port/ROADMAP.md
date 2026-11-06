@@ -20,8 +20,26 @@ count of 1491, then completes its callback. The earlier `0x6876bb00` report
 mistook overlapping compressed-header bytes for a parsed entry count; the
 defensive size guard is not taken by this run. Splash is catalog key `0x2`,
 not level resource `0x0100`. Startup constructs the type `0x6C` scene object,
-but the native window is still black: `game_mode=0`, `world_registry_head=0`,
-and the renderer sees no vertices.
+but the native window is still black.
+
+## Current visual blocker (2026-11-06)
+
+The current native launcher reaches Sly's menu/frame path but remains black.
+The port-only `func_00202A80` backfill now routes channel starts through the
+VIF1 runtime handler, and the DMA collector can follow referenced data in the
+native port heap. A 12-second native launch reaches a 135,632-byte display
+stream, then the VIF parser stops at opcode `0x08` (`0x08000000`) at offset
+`0x54`. The renderer still reports zero vertices and draws. The failure may
+come from an incorrect chain/layout interpretation or an unsupported stream
+format; the opcode must not be skipped until the source layout is established.
+
+The latest host build succeeds, but that is not visual or playable
+verification. Use [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the
+exact launch/trace command, evidence and prioritized work. Older status notes
+below are dated research history and may describe earlier renderer paths.
+The next milestone is a visible frame produced from Sly's real draw stream;
+playability still requires the title/level path, input, collision, audio and
+saves after that.
 
 ## Current no-emulation build status
 

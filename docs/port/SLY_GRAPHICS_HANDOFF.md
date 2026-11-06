@@ -1,54 +1,106 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-# Sly graphics handoff for the native renderer
+# Sly 1 native graphics handoff
 
-The native launcher uses OpenRAC's SDL/OpenGL context and `DirectRenderer` for
-Sly's GIF channel 2 packets. Its port-only `func_00202A80` backfill walks the
-bounded DMA tag chain and queues the raw GIF payload for OpenRAC's GIF parser.
-A bounded native run accepts the four startup display packets (2,192 bytes in
-total) without a parser warning. The window is still black: these packets set
-display state, and the game has not loaded a scene object or level.
+Last checked: 2026-11-06. This document records the live native C-only
+launcher state, not a playable milestone. The launcher opens a window and
+reaches Sly's frame/menu work, but the rendered image is black. No emulator is
+used by this path.
 
-## Sly's observed display path
+## What runs today
 
-`D_00261F1C` is obtained from DMA channel index 2 in `func_00152810`, the GIF
-channel. The callback at `0x0018E558` is a persistent display worker. It waits
-on the semaphore stored in `D_00269A00`, submits one of two buffers through
-`0x001686E8`, then advances the display buffers. These routines are still
-missing matching C in the decompilation.
+Build and launch from the repository root:
 
-`0x001686E8` submits the GIF packet buffer through `0x00202A80` and waits for
-completion. The port-only backfill reads the DMA tag chain beginning at the
-supplied source address and appends each inline or referenced payload span.
-The DMA chain's QWC and tag IDs determine the byte spans. OpenRAC's
-`DirectRenderer` receives the assembled GIF packets directly; this boundary
-does not execute VIF or VU instructions.
+```sh
+cmake --build build/port --target port_native -j2
+build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
 
-Retail's `func_00202A80` stores the source address at descriptor offset `0x30`
-and sets the channel active. The port replacement performs that handoff
-synchronously, then clears the active bit so Sly's subsequent wait can return.
+The source ELF and ISO above are already present in the current development
+environment. The executable is a host-native launcher linked with SDL/OpenGL
+and OpenRAC renderer code; it is not PCSX2 or another emulator. The current
+experimental game path still uses guest-addressed memory and small EE DMA,
+VIF1, VU1 and GS compatibility services. Those services are a bridge for
+diagnosing Sly's draw stream, not the intended architecture for a finished
+port. The target design remains native game code, native platform services
+and Sly-specific draw-data adapters; see [DESIGN.md](DESIGN.md) and
+[OPENRAC_REUSE.md](OPENRAC_REUSE.md).
 
-## OpenRAC integration point
+The native backfill `func_00202A80` now sends VIF1 channel starts to
+`openrac_guest_vif1_mmio_store32`. That runtime collects bounded DMA chains,
+including references into the port heap at `0xE0000000`, interprets VIF
+commands, runs the existing VU1 instruction translator on MSCAL, and forwards
+DIRECT data or XGKICK output to the GIF/GS parser. The VIF1 handler is listed
+as a runtime-provided function in `port/game/sly1-us/hostgen.json`, so hostgen
+does not emit a colliding missing-function stub.
 
-OpenRAC's `DirectRenderer` consumes GIF packets directly. This is the correct
-path for Sly's GIF channel 2 output and avoids interpreting VIF/VU hardware for
-2D packets. It is not a complete renderer for Sly's world geometry: the game
-still needs a native draw-data adapter for its scene and object renderers.
-The direct renderer depends on OpenRAC's GL loader, shader, framebuffer,
-renderer state and texture pool; integrating `direct.cpp` alone would not
-provide a functioning renderer.
+## Current measured blocker
 
-The current adapter confirms the startup packets reach the GIF parser, but
-does not prove Sly's frame ordering, texture uploads, or display-buffer
-conventions match OpenRAC. The next blocker is earlier in the game: its frame
-loop remains in state 3 with no current scene object or active level. Once the
-title/scene loader advances, the 3D scene still needs a Sly-specific native
-data path.
+A bounded run on 2026-11-06 reaches the menu/frame path and submits a VIF1
+DMA chain. The first display chain contains 135,632 bytes. The collector now
+accepts the chain, including a REF tag at `0x002C3B10` to native port-heap data
+at `0xE0DF9340`. The VIF parser stops at byte offset `0x54` on word
+`0x08000000` (opcode `0x08`). That opcode is not one of the standard VIF
+commands listed by PS2SDK; the surrounding words at offsets `0x00`–`0x50`
+include `0x10004000` (FLUSHE) and `0x14081400` (MSCAL), followed by tag-like
+values and the start of texture bytes. Do not treat opcode `0x08` as a no-op
+without first establishing whether the stream was assembled or aligned
+correctly.
 
-## Port-only backfills
+The same run reports zero decoded vertices and zero renderer draws. GS display
+register writes occur, but no usable scene geometry reaches the SDL renderer.
+The four earlier 144-byte startup GIF transfers are display setup; they do
+not prove that the frame's draw stream is valid. The loaded menu font and
+resource state also do not prove that a visible texture upload or draw was
+submitted.
 
-Functional replacements live under
-[`port/game/sly1-us/hand/native_c/`](../../port/game/sly1-us/hand/native_c/),
-outside `sly1-decomp`. When matching C becomes available, the port backfill can
-be removed and the decompiled function used without rewriting the project.
-These replacements are compatibility code for the native port and are not
-counted as decompiled functions.
+To capture the failure and first words of the stream, run:
+
+```sh
+OPENRAC_VIF_TRACE=1 OPENRAC_STARTUP_TRACE=1 timeout 12s \
+  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+## Work needed next
+
+1. Establish the VIF input layout. Trace the caller and writer path around
+   `func_00152AE0`, `func_00152B80`, `func_00152D70`, `func_00161708` and
+   `func_00202A80` against the current NTSC-U decompilation and retail
+   behavior. Dump the DMA tags and the referenced `0xE0DF9340` block with
+   addresses and lengths. Determine whether the 135,632-byte buffer is one
+   VIF command stream, several streams that need stateful boundaries, or a
+   higher-level packet with nested data. Fix the collector or parser at the
+   source of any layout error; do not skip unknown bytes to force progress.
+2. Make VIF execution complete. Confirm the first MSCAL's microprogram entry,
+   VU1 data inputs, and XGKICK output. The evidence should show a complete
+   GIFtag ending in EOP arriving at `openrac_guest_gif_stream_write`, not only
+   an accepted DMA tag chain.
+3. Get a first visible frame. Confirm a texture/image transfer and at least
+   one nonempty draw in `DirectRenderer`; inspect a captured window image.
+   Current zero-vertex traces fail this check. Keep renderer limitations
+   explicit and add Sly-specific handling only after the emitted packet
+   format is known.
+4. Then continue from a visible title/menu into level loading, controller
+   input, a controllable Sly, collision, audio, and saves. A menu screenshot is
+   useful progress but does not satisfy the playable-state goal.
+
+## Port/decomp boundary
+
+All functional replacements used to reach this point belong under
+`port/game/sly1-us/hand/native_c/` and its registration tables. They are
+port-only backfills and must stay replaceable when matching C appears in
+`sly1-decomp`. Do not edit the decompilation checkout to make the port work.
+The runtime transport and renderer adapters belong under `port/runtime/` and
+`port/renderer/`; document any temporary guest-device behavior as such.
+
+## What a new contributor needs
+
+No additional disc image or boot ELF is needed in the current environment.
+The useful handoff is the repository at its current branch plus the trace
+command above. A graphics/runtime contributor should be comfortable reading
+PS2 DMA/VIF/VU packet layouts, tracing decompiled C and native C backfills,
+and debugging C++ renderer input. Work from the checked-in decomp snapshot
+and public PS2 documentation; keep copyrighted disc bytes and extracted data
+out of commits. The current unresolved question is the stream layout at
+`0x002C3B10` / `0xE0DF9340`, not missing user-provided files.

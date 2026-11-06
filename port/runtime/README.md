@@ -30,18 +30,24 @@ Each contract is implemented in the file named for it (section 14.3): `guest.cpp
 
 `gs_dma.cpp` is a Sly-specific runtime service. It handles GIF channel 2 CHCR
 stores, validates source-chain spans, updates the DMAC completion registers,
-and queues the GIF payload stream. `gs_stream.cpp` decodes the current
-color-only primitive subset into host screen-space vertices. `sdl_renderer.cpp`
-opens the native window and presents that geometry; textured GS state and
-rasterization are not implemented yet. The native port requires SDL3.
+and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
+extracts the small color-only primitive subset used by the diagnostic geometry
+path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
+`DirectRenderer` and texture pool. That renderer supports a broader packet
+subset, but the current Sly display stream has not produced a visible draw.
+The native port requires SDL3.
 
-`vif1_dma.cpp` handles VIF1 source-chain transfers, uploads MPG payloads to
-mapped VU1 micro memory, unpacks the observed vector formats to VU1 data memory,
-and routes DIRECT packets to the GIF stream reader. It completes the observed
-DMA channel instead of leaving CHCR busy. UNPACK write masks and fill cycles are
-not implemented, and MSCAL does not execute the microprogram. The VIF command
-and DMA tag formats follow the public
-[PS2Tek documentation](https://israpps.github.io/ps2tek/).
+`vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
+references, uploads MPG payloads to mapped VU1 micro memory, unpacks the
+observed vector formats to VU1 data memory, executes MSCAL through
+`vu1_native.cpp`, and routes DIRECT and XGKICK output to the GIF stream reader.
+It completes the observed DMA channel instead of leaving CHCR busy. UNPACK
+write masks and fill cycles are not implemented. The current Sly frame stream
+still stops at opcode `0x08` at byte offset `0x54` of a 135,632-byte transfer;
+see [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
+trace, known evidence and next investigation. The VIF command and DMA tag
+formats follow the public [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
+and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 
 `sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
 It takes two host Count samples and updates the matching extended-counter
