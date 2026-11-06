@@ -34,6 +34,21 @@ for translating the missing object update, but do not call it or change current
 native visuals yet. Next work remains `func_00125C90` and its draw callback
 chain.
 
+The caller chain is now mapped from the US retail disassembly and current
+hostgen report: `func_00125C90` invokes the placed-object m25 callback
+(`func_001261C0` in the common vtable), which invokes m26
+(`func_00126270`). The latter iterates placed-object parts, builds 0x80-byte
+deferred requests, and queues them through `func_0019D410` with callback
+`func_00166690`. `func_00126270` and `func_00166690` are still assembly stubs
+in the no-assembly host build; `func_001261C0` also remains a no-C stub,
+although its body is present in current decomp source. The upstream checkout has a nearby
+nonmatching C++ source for `func_00166690` (96.7% match, 5796 bytes vs. 5772
+retail, checked 2026-11-06), but hostgen does not currently include that source.
+Thus the remaining visible-scene gap is larger than the outer object transform:
+the m26 request builder and the mesh/VIF packet callback also need hostable
+port code. No claim of visual progress is made for the new `func_00125BF0`
+submission backfill until a native run shows requests or vertices increasing.
+
 An opt-in native probe now skips movie/title startup and synchronously loads
 catalog key `0x0100` (`A Stealthy Approach`) after the first startup resource.
 The parser completes and installs a second world, but scene vertices remain at
