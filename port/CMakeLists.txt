@@ -12,6 +12,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(OPENTHIEVIUS_SOURCE_SLY1 "${CMAKE_CURRENT_SOURCE_DIR}/../../sly1-decomp" CACHE PATH
     "Path to the sibling sly1-decomp checkout")
+set(OPENTHIEVIUS_ASM_SOURCE_SLY1 "${OPENTHIEVIUS_SOURCE_SLY1}" CACHE PATH
+    "Path to a checkout with the US retail assembly files")
 option(OPENRAC_NATIVE_FUNCTION_TRACE
     "Enable targeted startup state traces in the direct host32 build" OFF)
 set(SLY1_NATIVE_TRACE_ARGUMENTS)
@@ -35,9 +37,10 @@ add_executable(sly1_resource_inspect
 
 add_custom_target(port_hostgen
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/sly1.py hostgen
-            --asm off
+            --asm on --native-asm
+            --asm-source ${OPENTHIEVIUS_ASM_SOURCE_SLY1}
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
-    COMMENT "Generating host-side C from matched Sly 1 sources without retail assembly")
+    COMMENT "Generating matched C and selected retail assembly for the native launcher")
 
 add_custom_target(port_compile_decomp_host32
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_decomp_host32.py

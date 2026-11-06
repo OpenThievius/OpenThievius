@@ -1901,7 +1901,10 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         f.sig = Signature.of(ctype.parse(text))
     # A stub whose place has C under another spelling (func_0020C828 for FUN_0020c828) is that C
     # already: calls to it go there (Program.canonical).
-    stubs = [f for f in program.stubs() if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol]
+    selected = set(a.get("only", []))
+    stubs = [f for f in program.stubs()
+             if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol
+             and (not selected or f.symbol in selected)]
     found = {}
     for f in stubs:
         hit = tr.find(f)

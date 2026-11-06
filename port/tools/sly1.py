@@ -362,13 +362,13 @@ def prepare_c_view(source, version):
     return staged
 
 
-def run_hostgen(source, version, asm):
+def run_hostgen(source, version, asm, native_asm=False, asm_source=None):
     """Prepare and translate the available matched C into the ignored build tree."""
     if version != "us":
         raise ValueError("hostgen is configured for NTSC-U only")
     staged = prepare_c_view(source, version)
     config = ROOT / "port" / "game" / "sly1-us" / "hostgen.json"
-    output_name = version if asm == "off" else version + "-asm-research"
+    output_name = version if asm == "off" or native_asm else version + "-asm-research"
     out = ROOT / "build" / "port" / "hostgen" / output_name
     if asm == "off":
         out.mkdir(parents=True, exist_ok=True)
@@ -378,12 +378,23 @@ def run_hostgen(source, version, asm):
            "--game", str(config), "--source", str(staged), "--out", str(out), "--jobs", "1",
            "--asm", asm, "--allow-unreadable"]
     if asm == "on":
-        cmd += ["--asm-source", str(source)]
+        cmd += ["--asm-source", str(asm_source or source)]
         retail = source / "baserom" / version / "SCUS_971.98"
         if retail.is_file():
             cmd += ["--retail-exe", str(retail)]
     proc = subprocess.run(cmd, cwd=ROOT)
-    return proc.returncode
+    if proc.returncode != 0:
+        return proc.returncode
+    if asm == "on" and native_asm:
+        report = json.loads((out / "report.json").read_text())
+        required = set(json.loads(config.read_text()).get("asm", {}).get("only", []))
+        translated = set(report.get("from_assembly", {}))
+        missing = sorted(required - translated)
+        if missing:
+            print("error: selected retail assembly was not translated: " + ", ".join(missing)
+                  + "; set --asm-source to a checkout with asm/us/text.s", file=sys.stderr)
+            return 1
+    return 0
 
 
 def main(argv=None):
@@ -396,14 +407,17 @@ def main(argv=None):
     hp = sub.add_parser("hostgen", help="generate host-side C for matched NTSC-U sources")
     hp.add_argument("--source", help="sly1-decomp checkout (or OPENTHIEVIUS_SOURCE_SLY1)")
     hp.add_argument("--asm", choices=("off", "on"), default="off",
-                    help="translate unmatched retail assembly (default: off; native builds must not execute it)")
+                    help="translate unmatched retail assembly (default: off)")
+    hp.add_argument("--native-asm", action="store_true",
+                    help="put selected assembly translations in the native build output")
+    hp.add_argument("--asm-source", help="checkout with the US retail assembly files")
     args = parser.parse_args(argv)
     source = source_root(args.source)
     if args.command == "hostgen":
         if not (source / "config/us/functions.tsv").is_file():
             print("error: no sly1-decomp checkout at %s" % source, file=sys.stderr)
             return 1
-        return run_hostgen(source, "us", args.asm)
+        return run_hostgen(source, "us", args.asm, args.native_asm, args.asm_source)
     try:
         result = status(source, args.version)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:

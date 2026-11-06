@@ -64,6 +64,7 @@
       "asm/us"
     ],
     "extra_entries": ["func_00127478", "func_0018E5E8", "func_001B5F50"],
+    "only": ["func_00125C90", "func_00126270", "func_00166690"],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
     "syscalls": [2, 4, 16, 20, 21, 32, 33, 34, 35, 36, 41, 43, 47, 48, 50, 51, 55, 60, 61, 62, 64, 65,
