@@ -149,6 +149,16 @@ def prepare_c_view(source, version):
                 if body is None or base not in ready:
                     return match.group(0)
                 tag = re.search(r"struct\s+([A-Za-z_]\w*)$", match.group(1)).group(1)
+                # C++ permits these derived fields to hide inherited fields.
+                # Anonymous C aggregates expose both names in one scope. Rename
+                # only the inherited copy: derived accesses retain C++ lookup,
+                # and explicit base casts still use the unchanged base type.
+                # Storage and retail offsets must remain intact.
+                hidden_fields = {"Animation": ("id",),
+                                 "ObjectCycler": ("index",)}
+                for field in hidden_fields.get(tag, ()):
+                    body = re.sub(r"\b" + field + r"\b",
+                                  "sly_base_" + base + "_" + field, body)
                 flattened.add(tag)
                 changed = True
                 return match.group(1) + " {\n    struct {" + body + "\n    };"

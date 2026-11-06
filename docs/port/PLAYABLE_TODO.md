@@ -154,3 +154,13 @@ animation header. World unit 0019C000 retains a C++ cursor constructor and
 method syntax. Prioritize correct inheritance/layout and cursor lowering;
 do not suppress layout assertions or rename fields without resolving accesses.
 The audit command is implemented; source hostability fixes remain pending.
+
+The first staging correction preserves C++ member hiding for Animation.id
+and ObjectCycler.index by renaming only the inherited anonymous-C copy.
+The derived field keeps its name; base casts still address the original base
+layout. The rebuilt object units no longer report those duplicate fields or
+the associated layout failures. The full native build succeeds, but coverage
+remains 1,108 translated functions: independent call-signature and C++ method
+errors still exclude these units. Next address the static iterator helpers in
+00124000 and the EnsureRangeRecord signature in 00128000, with retail ABI
+verification rather than speculative casts.
