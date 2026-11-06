@@ -1,17 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-06. This document records the live native C-only
-launcher state, not a playable milestone. The exact decomp stream-reader unit
-now builds from `00134000.cpp`; the former Splash-tail image-cache experiment
-is archived as a superseded port backfill. A port-only descriptor initializer
-fixed the Splash property cursor error: property `0x5B` now consumes its
-two-byte payload, and parsing continues at property `0x73`. A bounded run stays
-alive and submits draws, but a newer startup trace still has no GS framebuffer
-or texture state and the window remains black. The screen-fade updater
-`func_001EFD10` is present as matched C in the decomp source but its containing
-unit is not yet hostgen-readable, so the launcher still uses its port frame
-callback. No emulator is used by this path.
+Last checked: 2026-11-06. The native launcher is still not playable: its window
+shows malformed, dark text fragments instead of the opening sequence or title
+screen. A user-provided PCSX2 recording shows the expected opening movie,
+Paris rooftop sequence, and Sly Raccoon title screen. That recording is a visual
+reference only; it is not part of the native launch path.
+
+The latest native trace reaches the menu text callback and submits two draws
+with 372–480 vertices. It uploads a 512x512 PSMT4 atlas at GS block `0x1400`
+and an 8x2 PSMCT32 palette at `0x1600`; both uploads contain nonzero data. The
+font uses 133 glyph records. The full atlas and palette upload payloads
+match the decoded Splash resource byte for byte at offsets `0x6160` and
+`0x5B50`, respectively, when correlated with the image-table offsets and
+image-cache read start. This makes missing/zero image data an obsolete
+explanation. A diagnostic run with `OPENRAC_DEBUG_T4_INDEX=all` replaced
+palette colors with index greyscale; the text stayed fragmented, so palette
+RGB values alone do not explain the corruption.
+
+The live trace enters menu object `0x26FF68` on page 0 (`Paused`) with eight
+items and calls `func_00194F80`, although the PCSX2 reference shows the opening
+movie/title path. The direct draw has a text draw with 480 vertices; its first
+text vertex uses UV `(0.533, 0.916)` and RGBA `(127,127,127,17)`. The current
+blocker is the unexpected menu state and malformed glyph geometry, UVs, or
+alpha/fade values; capture these together before changing rendering.
+
+Keep functional game-code replacements in
+`port/game/sly1-us/hand/native_c/`, separate from matched decompilation C.
+No emulator is used by the native launcher. Current build and launch commands
+are below.
 
 ## What runs today
 
@@ -24,22 +41,26 @@ build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
 ```
 
 The source ELF and ISO above are already present in the current development
-environment. The executable is a host-native launcher linked with SDL/OpenGL
-and OpenRAC renderer code; it is not PCSX2 or another emulator. The current
-experimental game path still uses guest-addressed memory and small EE DMA,
-VIF1, VU1 and GS compatibility services. Those services are a bridge for
-diagnosing Sly's draw stream, not the intended architecture for a finished
-port. The target design remains native game code, native platform services
-and Sly-specific draw-data adapters; see [DESIGN.md](DESIGN.md) and
+environment. The host-native launcher uses SDL/OpenGL and OpenRAC renderer
+code, with temporary guest-addressed EE DMA, VIF1, VU1 and GS services to run
+and diagnose Sly's draw path. Those compatibility services are not an emulator.
+The target design remains native game code, native platform services and
+Sly-specific draw-data adapters; see [DESIGN.md](DESIGN.md) and
 [OPENRAC_REUSE.md](OPENRAC_REUSE.md).
 
 The display path reaches port-only `func_00202A80`. The `0x08000000` word in
-the earlier chain dump begins a GIF IMAGE tag with 8,192 qwords; it is not a
-VIF opcode. The port-only initializer now fills `D_00261F1C` from the channel
-table at `0x00279340`; traces show GIF channel 2 at `0x1000A000` and VIF1 at
+an earlier chain dump begins a GIF IMAGE tag with 8,192 qwords; it is not a
+VIF opcode. The port-only initializer fills `D_00261F1C` from the channel table
+at `0x00279340`; traces show GIF channel 2 at `0x1000A000` and VIF1 at
 `0x10009000`.
 
-## Resource-reader investigation
+The renderer reports texture state `TBP=0x1400`, `TBW=8`, `PSMT4`, `TW=TH=9`,
+`CBP=0x1600`, `CPSM=PSMCT32`, with `TCC=1`, `TFX=MODULATE`. Font glyph UVs and
+the image/palette payloads are present. The grayscale-index diagnostic
+preserves the malformed layout, narrowing the current renderer investigation
+to glyph geometry/UVs and alpha/fade state, alongside the unexpected menu state.
+
+## Historical resource-reader investigation (superseded by the live trace)
 
 The Splash compressed resource is read from ISO sector `820372` for `150849`
 bytes. The exact matched decomp LZ reader is now active; its previous port
@@ -57,15 +78,11 @@ captured bytes may belong to subsequent output and are not evidence about the
 Splash resource. The optional dump writes `/tmp/sly1-lz-window-*.bin` and is
 enabled alongside `OPENRAC_TRACE_LOADER=1`.
 
-The earlier collider and image-tail analysis below predates the latest parser
-fix and is retained as history. Retail LZ output still matches all 430,858
-bytes of the extracted Splash resource. The current failure is after property
-parsing: metadata tables are read and the native path submits draw chains, but
-the captured GS state lacks framebuffer and texture registers. One fresh
-startup trace saw 287 accepted chains, zero transfer-register writes, and no
-vertices; a separate 10-second run recorded two draws with 372 vertices. These
-measurements are from different trace windows and do not establish visible
-output. The image and palette data remain unverified.
+The detailed parser and collider notes below record earlier investigations.
+Their claims that the image cache is zero-filled, the atlas is absent, and the
+renderer has no texture state are superseded by the current measurements above.
+Retain them only as historical debugging context, not as descriptions of the
+current build.
 
 * The second collider starts at decoded offset `0x1643`. Its mesh has 6,626
   12-byte vertices; face count `0xFFFF` follows at `0x14CE1`. The previous
@@ -213,7 +230,7 @@ group callback. A current bounded run advances past the old `0x5300` read,
 dispatches type `0x53` / key `0x054b`, and then finds a zero cursor in the
 nested reader; Splash image and CLUT data are still zero.
 
-## Exact stream-reader integration (2026-11-06)
+## Exact stream-reader integration (historical startup state)
 
 `port/tools/sly1.py` now lowers the local static helper methods in
 `00134000.cpp` to file-local C during disposable host staging, and drops one
@@ -232,16 +249,11 @@ functions have matching source in `00140000.cpp`, but that whole unit still
 fails C staging on C++ constructors/iterators. A traced native run confirms a
 successful read of sector 820372 (74 sectors) into `0x002C3B00`.
 
-With exact stream C selected, the C03 backfill returns at cursor `0x1594` and
-the next row is still `0x5300`. Later, a truncated property stream reaches
-`remaining=-1`; an uninitialized scalar-reader result previously kept the
-port parser in an infinite loop. A port-only EOF guard now stops that loop and
-lets frame setup continue. The image callback then runs at cursor
-`0x70000000`, `remaining=-1`, requests `0x5F4F0` bytes, and leaves the cache
-zero-filled. The renderer receives two menu draws (474–480 vertices), but the
-512x512 PSMT4 and CLUT uploads are zero and the captured frame remains black.
-The immediate blocker is the earlier resource/object stream alignment and the
-missing real image payload, not draw submission or shader state.
+At the time this trace was captured, the image callback ran at EOF and left the
+cache zero-filled. This is superseded: a later live trace reaches the font
+callback with populated image and palette data, and the two payloads match
+their expected decoded Splash ranges. Do not use the old zero-upload finding
+as the current rendering diagnosis.
 
 To reproduce the current exact-stream startup trace, run from the repository root:
 
@@ -252,29 +264,26 @@ OPENRAC_TRACE_LOADER=1 OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_CD=1 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
 
-The current trace should report a native read of sector 820372 (74 sectors) to
-`0x002C3B00`, the `0x1594` C03 callback return, and the image callback at EOF.
-It also reports menu draw packets with zero-filled PSMT4/CLUT uploads. The
-`/tmp/sly1-native-frame-*.png`, atlas, and draw-state files mentioned in older
-notes are from the archived tail-copy experiment and are not current-build
-evidence.
+The command captures the early loader and native draw path. Its historical
+EOF/zero-upload expectations above no longer apply; inspect the recent
+`OPENRAC_TRACE_DIRECT=1` and `OPENRAC_TRACE_FONT=1` output for current texture
+state and payload evidence.
 
 ## Work needed next
 
-1. Compare the exact reader cursor and object type/key records around the
-   C03 return at `0x1594` and the following `0x5300` row against decoded Splash
-   section boundaries. Find the first field whose interpretation diverges and
-   keep any correction in an isolated port backfill.
-2. Check the matching C in the loader units that hostgen still rejects,
-   especially `00138000.cpp` and `001B8000.cpp`. Fix port-side staging barriers
-   where possible; keep active replacements under `native_c/` and comparisons
-   under `superseded_backfills/`.
-3. Resume renderer inspection only after the retail resource path produces a
-   valid image upload and actual draw packets. Then trace PSMT4 indices, CLUT,
-   UVs and blend state against framebuffer pixels.
-4. Continue through title-to-level transition, Sly-specific scene rendering,
-   controller input, movement/collision, audio and saves. A visible menu alone
-   is not a playable-state milestone.
+1. Compare PSMT4 texels and PSMCT32 CLUT entries in the live atlas against the
+   PS2 GS's exact CSM1 indexing, alpha, and texture-coordinate behavior. Follow
+   a known glyph from its resource bytes through the native texture and final
+   framebuffer pixel; change only the port renderer/backfill layer supported
+   by that comparison.
+2. Trace why the native path selects a menu text object during startup while
+   PCSX2 shows the opening movie and title sequence. Identify the first Sly
+   state transition or resource callback that diverges, keeping functional
+   replacements in `native_c/` until matching decomp C exists.
+3. Reach the Sly Raccoon title screen natively, then start a new game and
+   render the first level. A readable text atlas or menu fragment is not a
+   playable-state milestone.
+4. Continue through controller input, movement/collision, audio and saves.
 
 ## Historical implementation notes (prior to exact stream integration)
 
