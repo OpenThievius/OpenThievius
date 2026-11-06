@@ -75,9 +75,11 @@ The host-generated build uses upstream decomp master `cf9ad46`
 (`OpenThievius/sly1-decomp`, checked 2026-11-06): 187 source units read, 1,060
 functions translated, zero assembly functions, one C function stubbed, and
 3,809 functions without C. It includes seven port-owned overrides of matched C.
-The
-decompilation's source status is 4,720/4,806 US functions with C (92.17% code
-bytes); this is not host or gameplay coverage. Use
+Master has C for 4,720/4,806 US functions (92.17% code bytes); the open
+`files97` branch has 4,721/4,806 (92.20%) after matching `func_001B1438`.
+That new match handles timed-object/link interactions and is useful for later
+gameplay, but it is outside the current Splash resource-loading and rendering
+path. This is decompilation coverage, not host or gameplay coverage. Use
 [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for reproducible commands,
 current evidence, contributor setup, and prioritized tasks. Older entries
 below are dated research history and may describe earlier renderer paths.
@@ -92,15 +94,18 @@ collision, audio, and saves.
 
 Upstream `sly1-decomp` master remains at
 `cf9ad464696a197803f584980bff43ed62b6bf31`; the read-only snapshot is at
-`/home/reaper/.cache/sly1-decomp-current`. The open `files95` branch adds
-near-miss/permuter work, including a 97.2% attempt for `func_00161B10`, but its
-source still says `INCLUDE_ASM` and it adds no matched C. Master reports
-4,720/4,806 US functions with C and 92.17% code bytes. Hostgen reads 187 units,
-translates 1,060 functions (none from assembly), stubs one function, and lists
-3,809 without C. It also applies seven port-owned overrides of matched
-C. These generated-host counts are separate from the
-decompilation's matching-coverage report and do not establish gameplay
-coverage.
+`/home/reaper/.cache/sly1-decomp-current`. The open `files97` branch is at
+`5bf2ab4460f0d3983879c4d9730c6146a8fdbe6f`. It adds exact US C for
+`func_001B1438`, raising coverage to 4,721/4,806 functions (92.20% code bytes),
+and includes permuter improvements such as a 98.2% near-match for
+`func_00203548`. `func_001B1438` handles timed-object/link interactions, useful
+for later gameplay but not the current Splash/startup path. No new match on
+that branch replaces an active Splash reader or its outstanding backfills.
+Master remains at 4,720/4,806 functions with C (92.17% code bytes). Hostgen
+reads 187 units, translates 1,060 functions (none from assembly), stubs one
+function, and lists 3,809 without C. It also applies seven port-owned overrides
+of matched C. These generated-host counts are separate from decompilation
+matching coverage and do not establish gameplay coverage.
 
 ### Latest bounded native run (2026-11-06)
 
@@ -123,9 +128,14 @@ or palette uploads occur.
 Stages 101–103 were group-lookup probes whose third argument is an owner
 object, not a reader; their zero cursor was a misleading trace interpretation.
 Current decomp `master` is
-`cf9ad464696a197803f584980bff43ed62b6bf31` (4,720/4,806 functions, 92.17% code
-bytes); `files95` adds near-miss permuter tooling but no additional matched C
-relevant to this startup path.
+`cf9ad464696a197803f584980bff43ed62b6bf31` (checked 2026-11-06; 4,720/4,806
+functions, 92.17% code bytes). The open `files97` branch is at
+`5bf2ab4460f0d3983879c4d9730c6146a8fdbe6f`; it adds exact US C for
+`func_001B1438`, raising that branch to 4,721/4,806 functions and 92.20% code
+bytes, plus substantial permuter work. The new function is a gameplay
+interaction callback and does not replace any current Splash/startup backfill.
+The branch is not merged into master, so the host build remains based on
+`cf9ad46`.
 
 The updates since the previous `a0fd295` snapshot include extensive
 name/header refactors and documentation; matching coverage is unchanged. The

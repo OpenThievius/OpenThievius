@@ -344,10 +344,15 @@ The runtime transport and renderer adapters belong under `port/runtime/` and
 No additional disc image, boot ELF, or other user-supplied file is blocking
 the current work on this machine. Contributors elsewhere need their own
 NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are
-documented in [ASSETS.md](ASSETS.md). The current refreshed read-only decomp snapshot is
-`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (master; checked
-2026-11-06). The open `files95` branch has near-miss progress but no newly
-matched C; `func_00161B10` remains assembly-only. `python3 port/tools/sly1.py status --source
+documented in [ASSETS.md](ASSETS.md). The current read-only decomp snapshot is
+`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (master; refreshed
+2026-11-06). Upstream master has not advanced. The open `files97` branch at
+`5bf2ab4` adds exact US C for `func_001B1438`, a timed-object/link interaction
+callback useful for later gameplay but outside the current Splash/startup
+path. It also includes permuter progress, including a 98.2% near-match for
+`func_00203548`; no new matched C there replaces the active Splash reader or
+its outstanding backfills. `func_00161B10` remains assembly-only. `python3
+port/tools/sly1.py status --source
 /home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
 functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
 report is `build/port/hostgen/us/report.md`: 187 units read, 1,060 functions
