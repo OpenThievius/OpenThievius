@@ -6,14 +6,21 @@
 #define SLY_LZ_DICTIONARY 0x70002000u
 #define SLY_LZ_OUTPUT 0x70000000u
 
+void func_00137820(void* self);
 void sly1_native_loader_stage(u32 stage, u32 value, u32 reader);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
 
 static s32 sly_lz_get_byte(u8** source, s32* source_remaining,
                            u8* reader) {
-    (void)reader;
-    if (*source_remaining <= 0) return -1;
+    if (*source_remaining <= 0) {
+        /* The retail reader refills its compressed source here. Decoder
+         * state lives at +0x2C, clear of the sector window's +0x38/+0x3C. */
+        func_00137820(reader);
+        *source = (u8*)(u32)*(u32*)(reader + 0x20);
+        *source_remaining = *(s32*)(reader + 0x24);
+        if (*source_remaining <= 0) return -1;
+    }
 
     --*source_remaining;
     return *(*source)++;
