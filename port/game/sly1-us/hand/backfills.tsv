@@ -232,6 +232,7 @@ func_0019D410	native_c/func_0019D410.c
 func_0019D4B0	native_c/func_0019D4B0.c
 func_0019D6C0	native_c/func_0019D6C0.c
 func_0019DC98	native_c/func_0019DC98.c
+func_00184DE8	native_c/func_00184DE8.c
 func_0016EC20	native_c/func_0016EC20.c
 func_0016EED0	native_c/pad_navigation.c
 func_0016EC98	native_c/pad_navigation.c
