@@ -22,13 +22,17 @@ visible in the native launcher.
 
 ## Current visual blocker (2026-11-06)
 
-The user-provided 63-second PCSX2 reference screencast (2026-11-06) shows the
-European 2.00 release booting through publisher credits and the Paris rooftop
-opening movie to the animated title screen with Start/Select prompts. It does
-not show selecting New Game or controlling Sly. Current native probes use the
-NTSC-U `SCUS_971.98` ELF and matching US disc, so use the video for sequence
-and feature reference rather than pixel comparison. The native target sequence
-is to reach that title scene, then transition to a controllable level.
+The user-provided PCSX2 reference screencast
+`Screencast_20261106_183929.webm` (2026-11-06) shows the European release
+booting through the credits, the Paris rooftop opening sequence, and the title
+screen. From about 48 seconds onward, the title logo and Start/Select prompts
+overlay an animated rooftop scene; Sly and the camera continue moving. The
+recording does not show selecting New Game or controlling Sly, so it confirms
+the title/attract presentation but not playable progress. Current native probes
+use the NTSC-U `SCUS_971.98` ELF and matching US disc; use the video for
+sequence and feature reference rather than pixel comparison. The native target
+sequence remains to reach that title scene, then transition to a controllable
+level.
 
 A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
