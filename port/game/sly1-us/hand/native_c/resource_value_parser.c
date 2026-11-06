@@ -118,9 +118,15 @@ void func_0011A080(void* output, void* input, s32 context) {
 
 void func_0011EC40(void* object, void* reader) {
     s32 id;
+    u8* stream = (u8*)reader;
     static u32 traced_properties;
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
-    while ((id = func_00137D10(reader)) >= 0) {
+    /* The matched scalar reader leaves its output untouched when a truncated
+     * native resource reaches EOF. Retail data should not take this path, but
+     * the port must stop before interpreting that stale stack value as an ID. */
+    while (*(s32*)(stream + 0x1Cu) >= 0) {
+        id = func_00137D10(reader);
+        if (*(s32*)(stream + 0x1Cu) < 0 || id < 0) break;
         if (traced_properties < 128) {
             sly1_native_loader_stage(135, (u32)id, (u32)reader);
             ++traced_properties;

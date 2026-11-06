@@ -195,6 +195,57 @@ def prepare_c_view(source, version):
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
                 for kind, tag in all_tags)
+            if cpp.stem == "00134000":
+                # This unit's local C++ helpers wrap the retail stream logic.
+                # Lower static methods into file-local C functions so hostgen
+                # can read the matched code without changing its behavior.
+                while True:
+                    method = re.search(
+                        r"struct\s+([A-Za-z_]\w*)\s*\{\s*"
+                        r"static\s+([A-Za-z_]\w*(?:\s*\*)?)\s+"
+                        r"([A-Za-z_]\w*)\s*\(([^{}]*)\)\s*\{",
+                        text,
+                    )
+                    if method is None:
+                        break
+                    depth = 1
+                    pos = method.end()
+                    while pos < len(text) and depth:
+                        if text[pos] == "{":
+                            depth += 1
+                        elif text[pos] == "}":
+                            depth -= 1
+                        pos += 1
+                    if depth:
+                        break
+                    body_end = pos
+                    tail = re.match(r"\s*};", text[pos:])
+                    if tail is not None:
+                        pos += tail.end()
+                    method_name = f"{method.group(1)}_{method.group(3)}"
+                    function = (
+                        f"static {method.group(2).strip()} {method_name}"
+                        f"({method.group(4)}) {{{text[method.end():body_end - 1]}}}"
+                    )
+                    text = text[:method.start()] + function + text[pos:]
+                    text = text.replace(
+                        f"{method.group(1)}::{method.group(3)}(",
+                        f"{method_name}(",
+                    )
+
+                # This setter is unused here; retain the record field layout.
+                state = re.search(r"struct\s+State_001365A8\s*\{", text)
+                if state is not None:
+                    close = text.find("};", state.end())
+                    if close != -1:
+                        body = text[state.end():close]
+                        body = re.sub(
+                            r"\s*void\s+set\s*\([^{}]*\)\s*\{.*?\}",
+                            "",
+                            body,
+                            flags=re.DOTALL,
+                        )
+                        text = text[:state.end()] + body + text[close:]
             text = re.sub(
                 r"([A-Za-z_]\w*)->root03\(\)",
                 r"((struct C03*)((struct C02*)\1)->root)",

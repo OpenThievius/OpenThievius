@@ -30,13 +30,7 @@ static void sly1_discard(void* reader, u32 size) {
     }
 }
 
-void func_00137B60(void* reader, s32 alignment) {
-    u8* bytes = (u8*)reader;
-    s32 head = *(s32*)(bytes + 0x18);
-    s32 aligned = (head + alignment - 1) & -alignment;
-    *(s32*)(bytes + 0x18) = aligned;
-    *(s32*)(bytes + 0x1C) -= aligned - head;
-}
+
 
 void func_00162890(void* block, void* reader, void* object) {
     u8* bytes = (u8*)block;
