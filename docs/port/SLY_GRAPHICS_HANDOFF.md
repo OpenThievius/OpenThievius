@@ -3,10 +3,11 @@
 
 Last checked: 2026-11-06. This document records the live native C-only
 launcher state, not a playable milestone. The launcher opens a window and the
-direct GIF renderer decodes menu text and textured quads, but the captured
-frame is still black. Its menu atlas upload is zero-filled because the Splash
-reader reaches EOF before the image payload is read. No emulator is used by
-this path.
+direct GIF renderer decodes menu text and textured quads. A guarded,
+port-only Splash-tail experiment now populates the image cache and GS atlas,
+but the captured frame is still mostly black with faint, unreadable lettering;
+the dumped atlas colors and glyphs are malformed. No emulator is used by this
+path.
 
 ## What runs today
 
@@ -176,23 +177,37 @@ stub.
 
 ## Current measured blocker
 
+The newest bounded run uses an experimental copy in port-only
+`func_001378A0.c`: for the observed Splash image revision `0x3D6876BB` and
+cache size `0x5F4F0`, it copies decoded bytes `0x9E1A..0x6930A` into the image
+cache as the LZ windows are produced. The exact tail length matches both the
+cache allocation and the maximum Image-A metadata `offset + size`. Stage 88
+confirms that all `0x5F4F0` bytes were copied. The cache dump had 384,665
+nonzero bytes, and the 512x512 PSMT4 upload at DBP `0x1400` now begins with
+nonzero data (`0xffffffff` in the logged first word); its 16-entry palette
+upload is also nonzero. The atlas dump contains structured glyph-like marks,
+but its colors and layout are not yet readable, and the frame remains mostly
+black. This supports the tail as a useful image-data candidate; it does not
+prove the retail image callback should read from that decoded offset. The
+experiment leaves the retail stream cursor/parser untouched and is guarded by
+the observed revision and cache size. Keep it clearly marked as a temporary
+port backfill and remove or replace it when the container/object layout is
+understood or matching decompiled code becomes available.
+
 An earlier bounded run on 2026-11-06 accepted sampled channel-2 DMA chains,
 uploaded a 512x512 PSMT4 atlas and 16-entry palette, and decoded two menu draws
 with changing font positions. That trace used the mesh backfill's 16,384-face
 cap, which returned before the retail `0xFFFF` face loop; its draw counters do
 not describe the corrected reader path.
 
-The latest native run reaches frame setup with title quads entering the direct
-renderer, but the captured framebuffer is black. Its resource reader reaches EOF
-inside the second collider's 65,535-face block, before `func_001DBA38` can fill
-the `0x5F4F0`-byte image buffer. The atlas upload at block `0x1400` therefore
-still contains zero-filled data. The prior
-dark/noisy framebuffer and texture-index captures came from the early-return
-reader path and are not evidence about the current retail-aligned parse. Do not
-change swizzle, CLUT, or shader behavior until the resource reader reaches and
-fills the image range. After that, resume checking PSMT4 indices, CLUT
-order/alpha, TEX0/UV selection, and shader output against fresh framebuffer
-pixels. The trace reports
+The retail resource reader still reaches EOF inside the second collider's
+65,535-face block, before `func_001DBA38` can fill the image through its normal
+read. The port-only tail experiment fills the cache separately, so the menu
+path now receives nonzero image and palette uploads. Do not treat that as a
+playable or correctly parsed resource. The next visual blocker is interpreting
+the populated atlas: verify PSMT4 indices, CLUT order/alpha, TEX0/UV selection,
+and shader output against fresh framebuffer pixels, then resume the retail
+container alignment investigation. The trace reports
 `TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
 settings remain candidates for later inspection, not proven faults.
 
@@ -239,28 +254,28 @@ alignment, after 16-byte alignment, and after the requested payload read. The
 2026-11-06 run reports image amount `0x5F4F0`, revision `0x3D6876BB`, previous
 revision `0`, and `changed=1`. The later image callback starts with reader
 cursor `0x70000000`, `remaining=-1`; alignment and the payload read leave that
-state unchanged, and the destination remains zero. This confirms that the image
-read does not advance; it does not prove that `0x9E1A` is the payload offset.
-Reproduce with `OPENRAC_TRACE_FONT=1`; the diagnostics do not change reader
-behavior.
+state unchanged. This confirms that the normal image read does not advance; it
+does not prove that `0x9E1A` is the retail payload offset. That earlier trace
+predates the separate tail-copy experiment above. Reproduce with
+`OPENRAC_TRACE_FONT=1`; the diagnostics do not change reader behavior.
 
 ## Work needed next
 
-1. Find why the resource parser exhausts the circular reader before its image
-   callback. The image trace shows cache revision `0x3D6876BB` differs from the
-   initial revision `0`, so retail marks the image changed and later attempts a
-   fresh read; however, the callback starts at the EOF sentinel (`remaining=-1`)
-   and reads no bytes. Capture cumulative decompressed output and resource
-   sub-block boundaries through the second collider, then compare the retail
-   callback sequence. Do not force a cursor reset or skip based only on the
-   `0x9E1A` size arithmetic. Keep corrections in port-only backfills.
-2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
-   `15` to make one index transparent, and
-   `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
-   Then verify the actual PSMT4 nibble order and 16-entry CSM1 CLUT against GS
-   transfer fields and texture samples. No tested form yet yields a readable
-   atlas, so preserve default conversion until evidence identifies the
+1. Inspect the populated atlas as GS data. Use
+   `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through `15`
+   to make one index transparent, and `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only
+   as a swizzled-memory comparison. Verify PSMT4 nibble order and 16-entry
+   CSM1 CLUT against GS transfer fields and texture samples. The current dump
+   is malformed, so preserve default conversion until evidence identifies the
    discrepancy.
+2. Find why the retail resource parser exhausts the circular reader before
+   its image callback. Cache revision `0x3D6876BB` differs from initial
+   revision `0`, so retail marks the image changed and later attempts a fresh
+   read; however, the callback starts at EOF (`remaining=-1`) and reads no
+   bytes. Capture cumulative decompressed output and resource sub-block
+   boundaries through the second collider, then compare the retail callback
+   sequence. Do not force a cursor reset or skip based only on the `0x9E1A`
+   size arithmetic. Keep corrections in port-only backfills.
 3. Compare normal framebuffer captures with
    `OPENRAC_DEBUG_DIRECT_FLAT=1`. Trace glyph UVs, positions, scissor, depth,
    blend and alpha-test state through the DirectRenderer shader. Change the
