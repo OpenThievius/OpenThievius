@@ -15,7 +15,7 @@ typedef char check_DeferredRequestNative[
 struct V24A0;
 extern struct V24A0 D_002622A8;
 
-extern void func_00184DE8(void);
+extern void func_00184DE8(void* world);
 extern s32 func_0019D4B0(s32 count, DeferredRequestNative* requests,
                          void** out);
 extern void func_00152D70(void* writer);
@@ -32,14 +32,15 @@ extern u8 D_002BDC20[];
 
 #define SLY1_DEFERRED_CAPACITY 0x412u
 
-void func_0019DC98(void) {
+void func_0019DC98(void* world, void* camera) {
     void* ordered[SLY1_DEFERRED_CAPACITY];
     DeferredRequestNative* requests = (DeferredRequestNative*)0x005E4700u;
     u32 cursor = *(u32*)0x0026AC10u;
     u32 first = 0x005E4700u;
     s32 count = 0;
 
-    func_00184DE8();
+    (void)camera;
+    func_00184DE8(world);
     if (cursor >= first && ((cursor - first) & 0x7Fu) == 0) {
         u32 pending = (cursor - first) >> 7;
         if (pending <= SLY1_DEFERRED_CAPACITY - 1u)
