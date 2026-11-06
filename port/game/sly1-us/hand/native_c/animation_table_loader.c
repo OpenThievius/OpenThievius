@@ -108,6 +108,9 @@ s32 func_001693A8(s32 mask);
 
 static void read_image_b_table(void* reader) {
     D_00274508 = func_00137BE0(reader);
+    sly1_native_trace_font(20, (u32)reader, D_00274508,
+                           *(u32*)((u8*)reader + 0x18),
+                           *(u32*)((u8*)reader + 0x1C), 0);
     D_0027450C = (ImageB*)func_0018D5C0(D_00274508 * (s32)sizeof(ImageB));
     D_00274514 = 0;
     for (s32 i = 0; i < D_00274508; ++i) {
@@ -123,6 +126,9 @@ static void read_image_b_table(void* reader) {
 
 static void read_image_a_table(void* reader) {
     D_00274500 = func_00137BE0(reader);
+    sly1_native_trace_font(21, (u32)reader, D_00274500,
+                           *(u32*)((u8*)reader + 0x18),
+                           *(u32*)((u8*)reader + 0x1C), 0);
     D_00274504 = (ImageA*)func_0018D5C0(D_00274500 * (s32)sizeof(ImageA));
     D_00274510 = 0;
     for (s32 i = 0; i < D_00274500; ++i) {
@@ -203,6 +209,9 @@ static void read_animation_element(void* reader, AnimElement* element) {
 
 static void read_font_table(void* reader) {
     D_00262260 = func_00137BE0(reader);
+    sly1_native_trace_font(22, (u32)reader, D_00262260,
+                           *(u32*)((u8*)reader + 0x18),
+                           *(u32*)((u8*)reader + 0x1C), 0);
     D_00262264 = (u8*)func_0018D5C0(D_00262260 * 0x88);
     for (s32 i = 0; i < D_00262260; ++i) {
         FontSource source;

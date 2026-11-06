@@ -97,6 +97,31 @@ backfills. The earlier
 9,542-record and `0x128BC` dimension claims were from a different,
 misattributed parser trace and should not guide fixes.
 
+The port-only animation/table reader now emits opt-in stage 20–22 records for
+the image-B, image-A, and font table counts, including the circular reader
+cursor and its remaining-byte field immediately after each count. These probes
+are intended to correlate the table boundaries with cumulative LZ output; the
+cursor itself is not a decoded-file offset. Source comparison against the
+refreshed `sly1-decomp` snapshot confirms retail `func_001B3040` calls
+`func_001B2BA8`, `func_001B2CF8`, reads animation and animator counts, then
+parses the font table. The port follows these table widths: image-B records are
+12 bytes, image-A records are 0x14 bytes, animator type zero has no payload,
+nonzero animator types consume 0x1C bytes, and font headers are 0x10 bytes
+followed by `glyph_count * 8` bytes. No table-width mismatch is established;
+the animator payload's type-specific fields remain simplified in the port but
+do not affect stream alignment. Keep any behavioral completion as a port-only
+backfill until matching C is available in the decomp project.
+
+A bounded native trace with `OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_LOADER=1`
+measured image-B count 63 at cursor `0x7000008D`, image-A count 61 at
+`0x70000383`, and font count 4 at `0x70000EDD`; all remaining-byte fields were
+positive. The reader reaches `0x700014D5` immediately after `func_001B3040`,
+where the object-list count 36 begins. Thus the preceding table reader reaches
+the expected serialized boundary; the first invalid-looking row still occurs
+inside object-list parsing, after the first collider callback returns at
+`0x1594`. This trace does not explain why that callback boundary disagrees with
+the following bytes.
+
 Retail `func_00162890` still supplies the useful reference for its nested
 record sizes: `c0 * 12`, `c1 * 12`, `c2 * 4`, `c3 * 8`, `c4 * 4`, followed by
 `refs * c0 * 4`; optional unsigned dimensions each consume `dimension * 12`.
