@@ -228,6 +228,14 @@ A 60-second AddressSanitizer launch and a 20-second normal traced launch
 survived without the abort. The renderer still reports zero vertices, so this
 fix stabilizes startup but does not resolve the visual blocker.
 
+A follow-up 12-second loader trace after the semaphore fix confirms the loader
+now consistently completes the first collider callback at decoded offset
+`0x1594`, consumes the following object records, then reaches the second
+collider at `0x1643`. That collider's 6,626-vertex mesh still declares 65,535
+faces; its face read reaches decoded-stream EOF and the callback returns with
+no scene vertices submitted. This reproduces the existing resource-parser
+blocker without the earlier heap corruption. Trace: `/tmp/sly1-stable-loader-trace.log`.
+
 ## Port/decomp boundary
 
 All functional replacements used to reach this point belong under
