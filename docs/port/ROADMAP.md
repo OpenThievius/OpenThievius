@@ -35,15 +35,15 @@ sequence remains to reach that title scene, then transition to a controllable
 level. Earlier native captures showed malformed text fragments; the latest
 default-startup capture appears entirely black.
 
-The latest native callback trace sharpens the blocker. The translated retail
-`func_00125C90` runs for sampled entries but exits at its first VU0 MAC check:
-the native value is `0x0F`, while retail continues only when it is `0xF0`.
-It therefore never reaches the sphere/frustum check, draw-list callback, or
-mesh packet path. At the sampled call boundary, node position `+0x140..+0x148`,
-radius `+0x2A8`, and camera fields `+0x40/+0x44` are zero. The next step is to
-trace camera/world setup and confirm whether these startup list entries should
-have valid transforms. Do not change the VU comparison or force MAC flags to
-make objects draw; that would hide the state/setup defect.
+The latest native callback trace sharpens the blocker. Translating the
+`func_00143648` camera constructor and its reachable assembly-only dependency
+closure makes sampled retail `func_00125C90` calls pass the first VU0 MAC gate
+with `0xF0`. The port-only `func_001453B0` sphere/frustum adapter then rejects
+the sampled point: node position `+0x140..+0x148` and radius `+0x2A8` are zero;
+camera `+0x40` is `0x4500D8D8` and `+0x44` is zero; the test point x is
+`0xC500D8D8`, y/z are zero. The next step is to establish why these update-list
+entries have zero placement/radius data and whether they are valid scene
+objects. Do not alter the culling comparison or force objects through it.
 
 The newest host build adds port-only screen-fade update/draw backfills
 (`func_001EFD10`, `func_001EFEE0`) based on current decomp C, and the
@@ -58,19 +58,20 @@ registration now populates 77 nodes in each of world lists `+0x54` and `+0x60`.
 The `+0x1BE8` class-0x51 ConeVolume list has one object at `0xE20A57B0`; its
 retail fields are flags `0x0AFFFF00`, flags-high `0x120`, mode `+0x2D0 == 0`,
 and value `+0x304 == 0`. Sampled update entries
-call no-C `func_00125C90` and likewise have zero `+0x28C`/`+0x298`, so they do
-not enqueue deferred draw requests. The frame still submits zero scene
-vertices. Retail disassembly shows `func_00125C90` is a substantial camera,
-object-transform, and culling callback; its missing body is why sampled update
-nodes retain zero transform outputs. The deferred frame dispatcher and request
-bucketer (`func_0019DC98` and `func_0019D4B0`) have separate port-only C
+call translated retail `func_00125C90` and have zero `+0x28C`/`+0x298`, so they
+do not enqueue deferred draw requests. The frame still submits zero scene
+vertices. Its initial VU gate now passes (`MAC=0xF0`), but its separate
+sphere/frustum check rejects sampled objects with zero position and radius.
+The deferred frame dispatcher and request bucketer (`func_0019DC98` and
+`func_0019D4B0`) have separate port-only C
 backfills. `func_00184DE8`, the assembly-only class-0x51 ConeVolume/VU
 preparer, now has a retail-derived port backfill and survives the native frame
 path. The current volume has mode/value zero and contributes no VIF vectors;
 this routine does not submit scene geometry. The frame still submits zero
-scene vertices. The next gameplay/rendering target is the missing
-`func_00125C90` body. Keep all functional replacements under `hand/native_c/`
-until matching decomp C is available to the host build.
+scene vertices. The next gameplay/rendering target is valid scene/camera state
+and the next callback after the sphere/frustum check. Keep all functional
+replacements under `hand/native_c/` until matching decomp C is available to
+the host build.
 
 Upstream `sly1-decomp` was checked directly on 2026-11-06 at master
 `dd6f80b` (US: 4,730/4,806 functions and 93.10% code; Europe: 4,738/4,831

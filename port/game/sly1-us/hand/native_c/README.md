@@ -89,9 +89,20 @@ in `backfills.tsv`; replace them when matching decomp C becomes hostable.
 `object_transform_primitives.c` restores scalar versions of the retail matrix
 builders, matrix multiply, placed-object transform setup, and camera sphere
 scale test, plus `func_00125BF0`, which submits the transformed object through
-the camera's dispatch callback. These port-only functions support the missing
-`func_00125C90` object-update callback and remain separate from the
-decompilation source.
+the camera's dispatch callback. `func_001453B0` receives its test point in a
+VU qword register in retail; this backfill reads the four saved `vf6` lanes
+while preserving the scalar radius in `$f12`. This is a port-only ABI adapter,
+not a change to the retail function or matching decomp C.
+
+The camera constructor `func_00143648` and its reachable assembly-only
+dependency closure are selected from the US retail assembly in `hostgen.json`.
+Together with the existing selected renderer callbacks, hostgen currently
+translates 56 assembly functions. This gets sampled `func_00125C90` calls past
+their initial VU MAC gate (`0xF0`); the next sphere/frustum test still rejects
+sampled entries whose node position and radius are zero. Camera updater
+`func_00143E40` remains a no-C stub after its translated version reached
+invalid indirect callbacks. Keep these assembly selections in the port build
+configuration and all functional C adapters in this directory.
 
 `object_update_callbacks.c` keeps the current decompilation C body for
 `func_001261C0` as a separate port backfill because hostgen still reports its

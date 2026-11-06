@@ -7,24 +7,23 @@ default-startup trace also remains visually empty after 5 seconds, but the
 native pad now reports active pressure mode (`f14=3`, `f18=4`) and the frame
 state stays at 3 instead of taking the no-controller transition to the pause
 menu. This removes one false startup state transition; it does not render the
-title scene. The
-user-provided 63-second PCSX2 recording shows publisher credits, a Paris
-rooftop sequence where Sly traverses rooftops and encounters a guard, then the
-animated title screen. The title screen has Sly moving across the rooftops
-under the game logo and the Start/Select prompts. The recording does not show
-the user controlling Sly or starting a new game. Treat it as a target sequence
-and feature reference, not evidence about the native build.
+title scene. The user-provided 63-second PCSX2 recording shows the European
+release (`Sly Raccoon`): publisher credits, the Paris rooftop opening sequence, and
+the animated title screen with Sly moving under the game logo and Start/Select
+prompts. It does not show the user starting a new game. The native build uses
+the US release, so use this as a sequence and feature reference rather than a
+pixel-identical target or evidence about the native build.
 
-The native launcher now compiles three selected functions directly from US
-retail assembly through hostgen's `asmc.py` translation path:
-`func_00125C90` (placed-object update/culling),
-`func_00126270` (placed-object part request builder), and
-`func_00166690` (mesh/VIF packet callback). The generated functions remain
-outside `sly1-decomp` and outside `hand/native_c/`; the decomp source remains
-the authority for matched C, while these assembly translations are a separate
-port build input. Hostgen reports all three translated from
-`asm/us/text.s`, with no stubs. The current matched C snapshot is upstream
-`dd6f80b`; because that checkout has no assembly dump, CMake accepts a
+The native launcher selects 56 functions directly from US retail assembly
+through hostgen's `asmc.py` translation path. This includes the
+`func_00143648` camera constructor and its reachable assembly-only dependency
+closure, plus `func_00125C90` (placed-object update/culling), `func_00126270`
+(placed-object part request builder), and `func_00166690` (mesh/VIF packet
+callback). The generated functions remain outside `sly1-decomp` and outside
+`hand/native_c/`; the decomp source remains the authority for matched C, while
+these assembly translations are a separate port build input. Hostgen reports
+56 functions translated from `asm/us/text.s`, with no stubs. The current
+matched C snapshot is upstream `dd6f80b`; because that checkout has no assembly dump, CMake accepts a
 separate `OPENTHIEVIUS_ASM_SOURCE_SLY1` path. The local build uses the
 existing US assembly dump in `/home/reaper/Code/sly1-decomp`.
 
@@ -40,16 +39,16 @@ backfill and selected the pause menu at five seconds. With the updated native
 pad mode, the latest trace remains in frame state 3 but reaches zero scene
 vertices after 5.8 seconds. The latest run invokes retail `func_00125C90`
 for at least eight placed-object entries, confirming that the world update
-callback is active. A port-only trace shows that `func_00125C90` exits at its
-first VU0 MAC check: native flags are `0x0F`, but retail continues only for
-`0xF0`. It therefore exits before `func_001453B0` sphere/frustum checks, its
-draw-list callback, mesh request builder `func_00126270`, or packet callback
-`func_00166690`. In sampled calls, node position words at `+0x140..+0x148`,
-radius at `+0x2A8`, and camera words at `+0x40/+0x44` are zero. This points the
-next investigation at camera/world transform setup or the validity of these
-startup entries; it does not yet establish a defect in the assembly
-translator. The direct-load probe still does not connect its loaded world to
-gameplay.
+callback is active. Translating the `func_00143648` camera constructor now
+lets sampled `func_00125C90` calls pass the first VU0 MAC gate (`0xF0`) and
+reach the port-only `func_001453B0` sphere/frustum adapter. The adapter rejects
+the sampled point: radius at node `+0x2A8` is zero, node position words at
+`+0x140..+0x148` are zero, camera word `+0x40` is `0x4500D8D8`, and `+0x44`
+is zero. The test point has x bits `0xC500D8D8` and y/z zero. This narrows
+the current problem to scene/camera inputs or startup list entries; it does not
+justify forcing the culling result. The direct-load probe still does not
+connect its loaded world to gameplay. Camera updater `func_00143E40` remains a
+no-C stub because translating it previously reached invalid indirect callbacks.
 
 The request queue `func_0019D410` now preserves its host stack pointer while
 copying the request into guest EE memory. Keep all functional C replacements
@@ -83,8 +82,9 @@ and RGBA `(127,127,127,17)`.
 The current trace uses `OPENRAC_STARTUP_TRACE=1 OPENRAC_TRACE_FONT=1` with the
 NTSC-U ELF and ISO. Port-only stages 30 and 37–42 capture the
 `func_00125C90` return, VU0 accumulator lanes, selected vector lanes, and
-sampled node/camera fields. Stage 30 reports MAC `0x0F`; these probes are
-diagnostic only and do not alter the retail branch or rendering.
+sampled node/camera fields. The MAC gate reports `0xF0`; the sphere test still
+rejects sampled objects with radius zero. These probes are diagnostic only and do not alter the retail
+branch or rendering.
 
 The screen-element constructor loop `func_001A9F78` exists in the current
 decomp source but its US status is still `no-c`, so hostgen emitted a no-op.

@@ -5,6 +5,7 @@
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
+u32 sly1_native_vu0_component(u32 index);
 
 typedef struct Matrix4 {
     f32 row[4][4];
@@ -94,18 +95,29 @@ void func_00188668(f32 output[4][4], const f32 matrix[4][4],
     *(Matrix4*)output = result;
 }
 
-/* Retail sphere/frustum scale calculation (func_001453B0). */
-s32 func_001453B0(const u8* camera, const f32 point[4], f32 radius,
-                  f32* scale) {
-    union { f32 value; u32 bits; } radius_value = {radius};
+/* Retail passes the test point in VU0/$a1 as a 128-bit register, not by
+ * pointer. Hostgen's ordinary C call boundary carries only its low half, so
+ * this port backfill reads the four live lanes left in vf6 by func_00125C90.
+ * The scalar sphere radius remains the ordinary f12 argument. Keep this
+ * adapter here until the host call bridge can express qword args. */
+s32 func_001453B0(const u8* camera, u64 point_low, f32 radius, f32* scale) {
+    union { u32 bits; f32 value; } point_x, point_y, point_z, point_w;
+    union { f32 value; u32 bits; } radius_value;
     union { f32 value; u32 bits; } scale_value;
-    f32 depth = point[3] * *(const f32*)(camera + 0xB0) + radius;
+    (void)point_low;
+    point_x.bits = sly1_native_vu0_component(24u);
+    point_y.bits = sly1_native_vu0_component(25u);
+    point_z.bits = sly1_native_vu0_component(26u);
+    point_w.bits = sly1_native_vu0_component(27u);
+    radius_value.value = radius;
+    f32 depth = point_w.value * *(const f32*)(camera + 0xB0)
+              + radius_value.value;
     f32 distance_squared = depth * depth;
-    f32 point_squared = point[0] * point[0]
-                      + point[1] * point[1]
-                      + point[2] * point[2];
+    f32 point_squared = point_x.value * point_x.value
+                      + point_y.value * point_y.value
+                      + point_z.value * point_z.value;
     if (distance_squared < point_squared) {
-        sly1_native_trace_font(30, (u32)camera, (u32)point,
+        sly1_native_trace_font(30, (u32)camera, point_x.bits,
                                radius_value.bits, 0, 0);
         return 0;
     }
@@ -119,7 +131,7 @@ s32 func_001453B0(const u8* camera, const f32 point[4], f32 radius,
         *scale = 1.0f;
     }
     scale_value.value = *scale;
-    sly1_native_trace_font(30, (u32)camera, (u32)point,
+    sly1_native_trace_font(30, (u32)camera, point_x.bits,
                            radius_value.bits, 1, scale_value.bits);
     return 1;
 }
