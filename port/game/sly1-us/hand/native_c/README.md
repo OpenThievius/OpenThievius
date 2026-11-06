@@ -46,3 +46,11 @@ disagreement: its local source declares a one-word record return while the
 canonical host prototype is a 32-bit scalar. The backfill stores the returned
 word into the same four-byte item slots. Remove it when the matching sources
 agree on the callable type.
+
+`func_001A9F78` runs the derived constructors for the 37 global screen
+elements after screen resources load. The decomp checkout has the matching
+loop in `001A8000.cpp`, but its US function status is still `no-c`, so hostgen
+emits a no-op. This backfill is kept separate and should be removed once the
+matching C is included in the host build. It fixes the pause menu's
+zero-initialized page, but startup still requests page 0 (`Paused`) at about
+five seconds; the missing title/scene startup path is the current blocker.

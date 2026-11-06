@@ -281,6 +281,7 @@ func_001E98E8	native_c/ui_state.c
 func_001E96F8	native_c/ui_state.c
 func_001E90E8	native_c/ui_state.c
 func_001A9FD0	native_c/ui_state.c
+func_001A9F78	native_c/func_001A9F78.c
 func_001AA1F0	native_c/ui_layout.c
 func_001AAAC8	native_c/ui_layout.c
 func_001AAB20	native_c/ui_layout.c

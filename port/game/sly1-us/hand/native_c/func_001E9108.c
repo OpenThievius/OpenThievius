@@ -14,6 +14,8 @@ extern void* D_002623C0;
 extern u8 D_0026FF68[];
 extern u8 D_0026F808[];
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_0016E118(s32 mask);
 void* func_001F4378(void* object);
@@ -104,6 +106,11 @@ void func_001E9108(void* frame_state) {
                 reset_scene = field_f32(D_00261858, 4) >= 5.0f;
             }
             if (reset_scene) {
+                sly1_native_trace_font(31, (u32)frame_state,
+                                       (u32)field_s32(state_data, 0x14),
+                                       field_u16(state_data, 0xAA),
+                                       *(u32*)((u8*)D_00261858 + 4),
+                                       D_00262C6C);
                 func_00194D30(D_0026FF68, 0, 0);
                 state = field_s32(frame_state, 4);
                 func_0016EC20(state_data, 0x800);

@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-06. The native launcher is still not playable: its window
-shows malformed, dark text fragments instead of the opening sequence or title
-screen. A user-provided PCSX2 recording shows the expected opening movie,
-Paris rooftop sequence, and Sly Raccoon title screen. That recording is a visual
+Last checked: 2026-11-06. The native launcher is still not playable: it does not
+reach the opening sequence or title screen and instead shows malformed, dark
+text fragments against a mostly black background. The user-provided PCSX2
+recording clearly shows the opening movie, Paris rooftop sequence, and Sly
+Raccoon title screen with Sly and the Start/Select prompts. It is a visual
 reference only; it is not part of the native launch path.
 
 The latest native trace reaches the menu text callback and submits two draws
@@ -18,12 +19,21 @@ explanation. A diagnostic run with `OPENRAC_DEBUG_T4_INDEX=all` replaced
 palette colors with index greyscale; the text stayed fragmented, so palette
 RGB values alone do not explain the corruption.
 
-The live trace enters menu object `0x26FF68` on page 0 (`Paused`) with eight
-items and calls `func_00194F80`, although the PCSX2 reference shows the opening
-movie/title path. The direct draw has a text draw with 480 vertices; its first
-text vertex uses UV `(0.533, 0.916)` and RGBA `(127,127,127,17)`. The current
-blocker is the unexpected menu state and malformed glyph geometry, UVs, or
-alpha/fade values; capture these together before changing rendering.
+The live trace confirms that screen-element constructors run and put menu
+object `0x26FF68` on its normal hidden page (`-1`). About five seconds later,
+the frame dispatcher `func_001E9108` requests a transition from page `-1` to
+page 0 in mode 0. Decomp data identifies page 0 as `Paused` with eight items.
+The trace shows pad-state `+0x14 == 1`, edge flags 0, and game time about 5.0
+seconds at that transition. The first menu draw then enters `func_00194F80` on
+page 0. This is a startup-state/scene-flow issue in addition to the malformed
+glyphs. The direct draw has a text draw with 480 vertices; its first text
+vertex uses UV `(0.533, 0.916)` and RGBA `(127,127,127,17)`.
+
+The screen-element constructor loop `func_001A9F78` exists in the current
+decomp source but its US status is still `no-c`, so hostgen emitted a no-op.
+The port now supplies that loop as a clearly separate backfill. Remove it when
+the matching C is included in the host build. Trace stages 31–33 record the
+reset condition, requested page transition, and pause-menu constructor.
 
 Keep functional game-code replacements in
 `port/game/sly1-us/hand/native_c/`, separate from matched decompilation C.

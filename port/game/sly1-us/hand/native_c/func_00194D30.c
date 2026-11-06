@@ -5,6 +5,8 @@
 extern u8 D_00275BC0[];
 extern void func_001E9498(void* stack, void* node);
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_001BE998(void);
 
@@ -45,6 +47,9 @@ void func_00194D30(void* object, s32 layer, s32 value) {
     }
 
     current = *(s32*)(bytes + (*(s32*)(bytes + 0x274) != 0 ? 0x278 : 0x260));
+    if (current != target)
+        sly1_native_trace_font(32, (u32)object, (u32)layer, (u32)current,
+                               (u32)target, (u32)*(s32*)(bytes + 0x250));
     menu_page_transition(object, current, target);
     mode = *(s32*)(bytes + 0x250);
 

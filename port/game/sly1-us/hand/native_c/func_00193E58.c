@@ -4,6 +4,8 @@
 
 extern u8 D_0026A210[];
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_00193E58(void* object) {
     u8* bytes = (u8*)object;
@@ -18,4 +20,8 @@ void func_00193E58(void* object) {
     *(s32*)(bytes + 0x26C) = -1;
     *(s32*)(bytes + 0x270) = -1;
     *(f32*)(bytes + 0x284) = 1.0f;
+    sly1_native_trace_font(33, (u32)object, *(u32*)bytes,
+                           (u32)*(s32*)(bytes + 0x260),
+                           (u32)*(s32*)(bytes + 0x27C),
+                           (u32)*(s32*)(bytes + 0x250));
 }
