@@ -11,6 +11,31 @@ extern u32 D_002C2A18;
 extern u32 D_002C2A1C;
 int sly1_native_pad_read(u32 port, u32 report, u32 size);
 
+static f32 axis_value(u8 value) {
+    f32 axis = ((f32)value - 128.0f) / 127.0f;
+    if (axis < -1.0f) return -1.0f;
+    if (axis > 1.0f) return 1.0f;
+    return axis;
+}
+
+static f32 magnitude(f32 x, f32 y) {
+    f32 ax = x < 0.0f ? -x : x;
+    f32 ay = y < 0.0f ? -y : y;
+    return ax > ay ? ax : ay;
+}
+
+static void clear_native_input(u8* self) {
+    *(u16*)(self + 0xA8) = 0;
+    *(u16*)(self + 0xAA) = 0;
+    *(u16*)(self + 0xAC) = 0;
+    *(f32*)(self + 0x40) = 0.0f;
+    *(f32*)(self + 0x44) = 0.0f;
+    *(f32*)(self + 0x48) = 0.0f;
+    *(f32*)(self + 0x74) = 0.0f;
+    *(f32*)(self + 0x78) = 0.0f;
+    *(f32*)(self + 0x7C) = 0.0f;
+}
+
 void* func_0018D4B0(s32 size) {
     if (size == 0) return 0;
     u32 result = D_002C2A14;
@@ -53,9 +78,27 @@ void func_0016E238(void* object) {
     u8* self = (u8*)object;
     if (*(s32*)(self + 0x14) == 0) return;
     u32 report = *(u32*)(self + 0x0C);
-    if (report == 0 || !sly1_native_pad_read(*(u32*)(self + 4), report, 32)) return;
+    if (report == 0 || !sly1_native_pad_read(*(u32*)(self + 4), report, 32)) {
+        *(s32*)(self + 0x14) = 1;
+        *(s32*)(self + 0x18) = 0;
+        clear_native_input(self);
+        return;
+    }
     u8* bytes = (u8*)report;
-    if (bytes[0] != 0) return;
+    if (bytes[0] != 0) {
+        *(s32*)(self + 0x14) = 1;
+        *(s32*)(self + 0x18) = 0;
+        clear_native_input(self);
+        return;
+    }
+
+    /* The SDL adapter supplies an already-negotiated pressure-mode report.
+     * Retail libpad advances these fields through modes 1/2 before reaching
+     * mode 3; the native service performs that negotiation on the host. */
+    if (*(s32*)(self + 0x14) != 3 || *(s32*)(self + 0x18) != 4) {
+        *(s32*)(self + 0x14) = 3;
+        *(s32*)(self + 0x18) = 4;
+    }
 
     u16 old_buttons = *(u16*)(self + 0xA8);
     u16 buttons = (u16)~((u16)bytes[2] << 8 | bytes[3]);
@@ -66,14 +109,17 @@ void func_0016E238(void* object) {
     *(f32*)(self + 0x20) = *(f32*)(D_00261858 + 0x10);
     if (buttons != 0) *(f32*)(self + 0x24) = *(f32*)(D_00261858 + 0x10);
 
-    /* Native input preserves Sly's button edges and clears unsupported
-     * analog-derived movement until the full pressure-mode routine is ported. */
-    *(f32*)(self + 0x40) = 0.0f;
-    *(f32*)(self + 0x44) = 0.0f;
-    *(f32*)(self + 0x48) = 0.0f;
-    *(f32*)(self + 0x74) = 0.0f;
-    *(f32*)(self + 0x78) = 0.0f;
-    *(f32*)(self + 0x7C) = 0.0f;
+    __builtin_memcpy(self + 0xAE, bytes + 8, 12);
+    f32 left_x = axis_value(bytes[6]);
+    f32 left_y = axis_value(bytes[7]);
+    f32 right_x = axis_value(bytes[4]);
+    f32 right_y = axis_value(bytes[5]);
+    *(f32*)(self + 0x40) = left_x;
+    *(f32*)(self + 0x44) = left_y;
+    *(f32*)(self + 0x48) = magnitude(left_x, left_y);
+    *(f32*)(self + 0x74) = right_x;
+    *(f32*)(self + 0x78) = right_y;
+    *(f32*)(self + 0x7C) = magnitude(right_x, right_y);
 }
 
 /* The platform pad service owns open/query behavior; no IOP padman task is
