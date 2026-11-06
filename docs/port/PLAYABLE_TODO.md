@@ -138,3 +138,19 @@ Start with items 1–3: baseline manifest, runtime boundary audit and excluded
 source-unit report. Then identify a real level object's ownership in item 4.
 Do not spend another session extending generic hardware behavior or collecting
 more zero-transform samples without identifying the sampled objects.
+
+## Coverage audit result (2026-11-07)
+
+Run `python3 port/tools/audit_hostgen.py build/port/hostgen/us/report.json
+--out build/port/hostgen/us/coverage-audit.json` as one command after hostgen.
+The JSON retains complete compiler diagnostics and the direct-call frontier;
+its categories overlap and do not establish indirect-call coverage.
+
+The existing report has 57 unreadable units: 16 report inherited-member
+collisions, 15 layout assertion failures, 11 call-signature mismatches and
+7 unlowered C++ members. Other errors also remain. Core object units
+00124000 and 00128000 encounter duplicate inherited `id` fields in the staged
+animation header. World unit 0019C000 retains a C++ cursor constructor and
+method syntax. Prioritize correct inheritance/layout and cursor lowering;
+do not suppress layout assertions or rename fields without resolving accesses.
+The audit command is implemented; source hostability fixes remain pending.
