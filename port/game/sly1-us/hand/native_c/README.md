@@ -60,6 +60,9 @@ five seconds; the missing title/scene startup path is the current blocker.
 port-only replacements raised the direct-load probe's world `+0x54` and
 `+0x60` lists from empty to 77 entries each. `func_0019D410` appends
 retail-sized deferred draw requests. A native trace shows those requests are
-still absent because every sampled update entry calls missing `func_00125C90`.
-The later deferred draw pass `func_0019DC98` also remains a no-C stub. Remove
-these replacements when matching C is available to the host build.
+still absent because every sampled update entry calls the substantial missing
+`func_00125C90` camera/object-transform and culling routine. The retail
+deferred dispatcher and request bucketing functions `func_0019DC98` and
+`func_0019D4B0` now have separate port-only replacements; the class-0x51
+scene batch preparer `func_00184DE8` remains assembly-only. Remove these
+replacements when matching C is available to the host build.
