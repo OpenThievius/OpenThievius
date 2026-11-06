@@ -2,9 +2,10 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. This document records the live native C-only
-launcher state, not a playable milestone. The launcher opens a window and
-reaches Sly's frame/menu work, but the rendered image is black. No emulator is
-used by this path.
+launcher state, not a playable milestone. The launcher opens a window,
+uploads Sly's font atlas and palette, and decodes menu geometry, but the
+resulting image is black or severely garbled. No emulator is used by this
+path.
 
 ## What runs today
 
@@ -49,36 +50,56 @@ stub.
 
 ## Current measured blocker
 
-A bounded run on 2026-11-06 opens the window but remains black; the renderer
-reports zero vertices and draws. An earlier font trace reached menu glyph
-lookups, with every call receiving the same screen X/Y. This suggests zero
-font scale/advance, a float-return bridge problem, or another layout issue,
-but it does not yet prove which one. The latest fresh run accepted all sampled
-GIF DMA chains, so packet routing itself is not the best-supported blocker.
-GS display-register writes and earlier startup transfers do not establish a
-visible frame. The first visual milestone remains one valid texture/image
-transfer and at least one nonempty draw with distinct screen coordinates.
+A bounded run on 2026-11-06 accepts sampled channel-2 DMA chains, uploads a
+512x512 PSMT8 font atlas at GS block `0x1400` and its 8x2 palette at `0x1600`,
+and decodes two draws per menu frame. The background draw has 6 vertices; the
+font draw varies from 372 to 480 vertices. Font positions change across
+frames and the fade alpha rises from its initial low value. The float return
+and glyph-advance path are therefore producing changing positions; the old
+“zero vertices/draws” and identical-coordinate diagnoses are obsolete.
 
-To capture the failure and first words of the stream, run:
+The window is still black or shows only a dark, noisy menu shape. The current
+failure is downstream of basic packet routing and geometry creation. The
+remaining graphics investigation is to compare the converted atlas against the
+GS upload: the 2026-11-06 dump at block `0x1400` looks like full-frame colored
+noise rather than recognizable glyph cells. Verify PSMT8 block/page swizzle,
+CLUT interpretation, upload addressing and UVs before adjusting blend state.
+Then compare GS blend/test/framebuffer state against the pixel output. The
+trace reports `TCC=true`, modulate texturing, blending enabled, and GS alpha
+scale; these values are evidence to inspect, not a proven fault. A valid
+texture upload and decoded geometry are present, but a readable menu has not
+been achieved.
+
+To reproduce and inspect the texture conversion, run from the repository root:
 
 ```sh
-OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_DMA_CALL=1 OPENRAC_STARTUP_TRACE=1 timeout 12s \
+OPENRAC_TRACE_DIRECT=1 OPENRAC_DUMP_TEXTURE=1400 timeout 12s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
 
+The dump writes `texture_1400_*.ppm` and matching `.pgm` alpha planes in the
+current directory. Inspect those alongside `OPENRAC_TRACE_DIRECT` output. The
+font/menu traces are in `/tmp/sly1-native-texture-trace.log` and
+`/tmp/sly1-native-draw-state.log` on this development machine; those temporary
+files are not repository artifacts.
+
 ## Work needed next
 
-1. Trace the font at `func_0015E318` and `func_0015CD18`: log font `sx/sy`,
-   glyph width, computed advance, and the return value received from
-   `sly1_native_call_f32`. Confirm whether each glyph's x position changes.
-2. If scale and advance are nonzero but coordinates do not move, inspect the
-   host call bridge's MIPS integer/FPU register mapping and float return path.
-   If coordinates are valid, decode the submitted DMA/GIF chain and identify
-   the first unsupported GS command or state. Verify tag/payload boundaries
-   only when a specific malformed boundary appears in the trace.
-3. Capture a window image after the fix and require at least one decoded
-   nondegenerate draw; then verify texture uploads and the complete menu frame.
+1. Set `OPENRAC_DUMP_TEXTURE=1400`; inspect the 512x512 decoded RGB atlas and
+   alpha plane. The current dump is noisy and has no clear glyph layout. Trace
+   PSMT8 page/block addressing and check the image upload source bytes, CLUT
+   entries, texture origin, UV ranges, filtering and alpha interpretation
+   against the GS packet. Establish whether corruption begins in upload
+   assembly or in texture-raster conversion.
+2. Compare the DirectRenderer shader's texture/blend/alpha-test behavior and
+   framebuffer coordinates with the captured menu draw. Make the smallest
+   renderer correction supported by the image and GS state, then capture a
+   readable menu frame.
+3. Once the menu is readable, trace the title-to-level transition and identify
+   the missing Sly-specific scene/resource decode and draw path. OpenRAC's
+   renderer and host runtime are reusable; Ratchet world records and game
+   logic are not.
 4. Continue through title and level loading, controller input,
    controllable Sly, collision, audio, and saves. A menu screenshot is useful
    progress but is not a playable-state milestone.
@@ -101,28 +122,31 @@ NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are doc
 `/home/reaper/.cache/sly1-decomp-current` at `cf9ad46`. Hostgen's latest
 generated report is `build/port/hostgen/us/report.md`.
 
-The best immediate contribution is the font scale/advance and host-call
-bridge trace described above. It needs comfort with MIPS o32 calling
-conventions, float arguments/returns, the V24A2 font layout, and native C
-backfills. Start with `port/game/sly1-us/hand/native_c/font_text.c`,
-`port/game/sly1-us/hand/native_c/menu_text.c`,
-`port/game/sly1-us/hand/native/sly1_native_worker.cpp`,
-`port/sly1/main.cpp`, and `port/renderer/direct.*`. A second useful track is
-to inspect `build/port/hostgen/us/report.md`, trace a function on the actual
-menu/boot/level path, and implement one missing function as a port-only C
-backfill. After the menu draws, contributors can work on Sly's scene records
-and level assets, controller-to-pad integration, collision, audio, and saves.
+The best immediate contribution is graphics debugging: inspect the dumped
+font atlas/alpha plane and trace how its indexed pixels, UVs and GS blend state
+become the dark noisy output. It needs comfort with PS2 GS texture formats,
+GIF packets, OpenGL shaders and image inspection. Start with
+`port/renderer/texture_pool.cpp`, `port/renderer/direct.cpp`,
+`port/renderer/shaders/direct.frag`, and `port/game/sly1-us/hand/native_c/`.
+The texture dump and run command above provide a reproducible starting point.
+A second track is to inspect `build/port/hostgen/us/report.md`, follow a
+missing function on the actual menu/boot/level path, and implement only the
+needed behavior as a port-only C backfill. Contributors need the NTSC-U
+`SCUS_971.98` ELF and Sly 1 ISO/BIN; these are already available on this
+machine, and `docs/port/ASSETS.md` covers setup and one-time extraction.
+After a readable menu, work remains on Sly-specific level data and scene
+rendering, controller-to-pad integration, collision, audio, and saves.
 To move toward playability, the project needs: (1) a verified visible menu
 frame; (2) a populated title/level path with Sly-specific scene rendering;
 (3) SDL controller state wired into the game's pad-library interface; and
 (4) working movement/collision, audio and save behavior. OpenRAC's generic
 host runtime is reusable; Ratchet-specific world records are not.
 
-To reproduce the current window and collect startup/renderer counters:
+To reproduce the current window and collect renderer counters:
 
 ```sh
 cmake --build build/port --target port_native -j2
-OPENRAC_STARTUP_TRACE=1 timeout 12s build/port/sly1_native \
+OPENRAC_TRACE_DIRECT=1 timeout 12s build/port/sly1_native \
   build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```

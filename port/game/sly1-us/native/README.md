@@ -10,10 +10,8 @@ Last checked: 2026-11-06. Upstream
 [`sly1-decomp`](https://github.com/OpenThievius/sly1-decomp) is at `cf9ad46`
 (PR #62); its NTSC-U status is 4,720/4,806 functions with C (92.17% code
 bytes). The latest C-only hostgen run against that snapshot read 189 units,
-translated 540 functions, stubbed one C function, and lists 4,308 functions
-without C. This does not describe the separate freestanding host32 build; the
-previous run reported 573/4,278, and that hostgen-count discrepancy remains
-unexplained.
+translated 573 functions, stubbed one C function, and lists 4,278 functions
+without C. This does not describe the separate freestanding host32 build.
 
 The host32 launcher and its EE/device behavior are an experimental startup
 diagnostic, not the target port architecture. The build counts and traces in
@@ -23,11 +21,12 @@ current black-screen diagnosis, and tasks that need contributors, see
 [`SLY_GRAPHICS_HANDOFF.md`](../../docs/port/SLY_GRAPHICS_HANDOFF.md) and
 [`ROADMAP.md`](../../docs/port/ROADMAP.md).
 
-Channel 2 currently sends DMA-tagged chains to the DMA-chain walker; sampled
-chains are accepted, but the renderer still has zero decoded vertices/draws.
-An earlier font trace showed identical glyph screen coordinates. Font
-scale/advance and the host float-call bridge are the leading unverified
-graphics lead; see the graphics handoff for evidence and next steps. Port-only
+Channel 2 sends DMA-tagged chains to the DMA-chain walker; sampled chains are
+accepted. Current traces show the 512x512 indexed font atlas and CLUT uploads,
+two decoded draws per frame, and changing glyph positions. The window remains
+black or garbled; indexed texture/CLUT conversion, UVs, blend state, and shader
+output are the current graphics investigation. See the graphics handoff for
+reproduction commands and next steps. Port-only
 functional backfills stay separate from matching decomp C/C++; when matching
 definitions become available and are hostable, remove the corresponding
 backfill.

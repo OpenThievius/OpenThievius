@@ -24,29 +24,28 @@ but the native window is still black.
 
 ## Current visual blocker (2026-11-06)
 
-The native C-only launcher reaches Sly's menu/frame path, calls menu drawing
-callbacks, and still displays a black window. The channel-initialization
-backfill now populates the expected channel addresses: GIF at `0x1000A000`
-and VIF1 at `0x10009000`. The earlier 135,632-byte chain dump contains a GIF
-IMAGE tag (`0x08000000`, 8,192 qwords); it is not a VIF opcode.
+The native C-only launcher reaches Sly's menu/frame path. The window remains
+black or shows a dark noisy menu shape. The channel-initialization backfill
+populates GIF at `0x1000A000` and VIF1 at `0x10009000`. The earlier
+135,632-byte chain dump contains a GIF IMAGE tag (`0x08000000`, 8,192 qwords);
+it is not a VIF opcode.
 
 The DMA handoff is not the current blocker: channel 2 is sent through the
-DMAtag chain walker, and the latest trace accepted every submitted chain
-(438/438 at the sampled point) without a reject. The menu callback and glyph
-lookup were observed in an earlier trace, but the renderer still reported
-zero vertices and draws. That trace also showed every glyph call at the same
-screen position, which points toward font scale/advance or the float-call
-bridge; it is a lead, not yet a confirmed root cause. A fresh bounded run after
-the latest host build again showed a black window and zero renderer vertices.
-The next task is to instrument the font object's scale, glyph width, C-side
-advance, and returned value from the host call bridge, then verify that the
-resulting GIF commands contain distinct, nondegenerate sprite coordinates.
-Do not route this call to the raw GIF-stream helper unless new evidence proves
-the source is not a DMA chain.
+DMAtag chain walker, and sampled submitted chains are accepted without a
+reject. Updated DirectRenderer traces show two draws in each menu frame (6
+background vertices and 372–480 font vertices). The font atlas and CLUT upload
+at GS blocks `0x1400` and `0x1600`; glyph coordinates change and fade alpha
+rises. This rules out the earlier zero-geometry and collapsed-font leads. The
+frame remains black or severely garbled, so the active investigation is
+indexed texture conversion/CLUT/UV handling and GS-to-OpenGL blend, test, and
+framebuffer behavior. See [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md)
+for current trace commands, evidence, and contributor tasks. Do not route the
+menu call to the raw GIF-stream helper unless new evidence proves the source
+is not a DMA chain.
 
 The most recently host-generated build used decomp snapshot `cf9ad46`
-(`OpenThievius/sly1-decomp`, 2026-11-05): 189 source units read, 540 functions
-translated, zero assembly functions, one C function stubbed, and 4,308
+(`OpenThievius/sly1-decomp`, 2026-11-05): 189 source units read, 573 functions
+translated, zero assembly functions, one C function stubbed, and 4,278
 functions without C. The
 decompilation's source status is 4,720/4,806 US functions with C (92.17% code
 bytes); this is not host or gameplay coverage. Use
@@ -66,17 +65,17 @@ Upstream `sly1-decomp` has advanced to `cf9ad464696a197803f584980bff43ed62b6bf31
 (PR #62, Nov 5); the read-only snapshot is at
 `/home/reaper/.cache/sly1-decomp-current`. Its status tool reports 4,720/4,806
 US functions with C and 92.17% code bytes. A fresh hostgen build reads 189
-units, translates 540 functions (none from assembly), stubs one function, and
-lists 4,308 without C. These generated-host counts differ from the previous
-573/4,278 run; the discrepancy remains to be reconciled and is not a change in
-the decompilation's matching-coverage report. The updates since the previous
+units, translates 573 functions (none from assembly), stubs one function, and
+lists 4,278 without C. These generated-host counts are separate from the
+decompilation's matching-coverage report and do not establish gameplay
+coverage. The updates since the previous
 `a0fd295` snapshot include extensive name/header refactors and documentation;
 they do not change `config/us/c_status.tsv` or add new US C++ units, so the
 reported US matching coverage is unchanged and the current menu/graphics path
 gets no new matching implementation from these merges. The name and header
 improvements can still help port-side source reading and tracing. The current
-menu/graphics investigation depends on font state, the float-call bridge and
-decoded GS state. Host staging remains in ignored `build/port/` paths and does
+menu/graphics investigation depends on indexed texture conversion, UVs, and
+decoded GS/OpenGL state. Host staging remains in ignored `build/port/` paths and does
 not modify the decomp checkout. Generated-host function counts are separate
 from the decompilation's matching-coverage status and are not gameplay
 verification.

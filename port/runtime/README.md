@@ -33,8 +33,10 @@ stores, validates source-chain spans, updates the DMAC completion registers,
 and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
 extracts the small color-only primitive subset used by the diagnostic geometry
 path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
-`DirectRenderer` and texture pool. That renderer supports a broader packet
-subset, but the current Sly display stream has not produced a visible draw.
+`DirectRenderer` and texture pool. The current Sly menu stream decodes two
+draws and uploads its indexed font atlas and palette, but the displayed result
+remains black or garbled; see the graphics handoff for the active texture and
+GS-state investigation.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
@@ -46,11 +48,11 @@ write masks and fill cycles are not implemented. The earlier 135,632-byte
 transfer was misread as a VIF stream: its `0x08` word at offset `0x54` begins a
 GIF IMAGE tag. The menu's channel-2 path submits a DMA-tagged chain through
 the DMA-chain walker; the latest bounded trace accepted all sampled chains,
-but the window remains black and the renderer sees no draws. Earlier font
-traces showed glyphs receiving identical screen coordinates, making font
-scale/advance or the host float-call bridge the current unverified lead. See
-[the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the trace,
-evidence and next investigation. The VIF command and DMA tag
+but the window remains black or garbled. Current traces show changing glyph
+positions and nonzero decoded draws, so font scale/advance and the float-call
+bridge are no longer the lead. Inspect the indexed atlas/CLUT conversion,
+UVs, blend state and shader output. See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md)
+for trace commands, evidence and next investigation. The VIF command and DMA tag
 formats follow the public [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
 and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 

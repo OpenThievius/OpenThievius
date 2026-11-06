@@ -56,11 +56,12 @@ the time of this audit). We have reused its source bridge, common/runtime
 foundation, audio output, basic DualShock 2 state, SDL/OpenGL window lifecycle
 and exact-rate frame pacer. The native launcher now also embeds OpenRAC's
 generic `DirectRenderer` and its texture/shader support. A port-only Sly
-backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Tracing shows
-the sampled channel-2 DMA chains are accepted, but no visible draw is
-verified. Earlier font traces show glyph calls with unchanged screen
-coordinates; font scale/advance and the host float-call bridge are the current
-unverified lead. The raw-stream parser is only for a genuinely raw GIF input.
+backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Current
+tracing shows accepted channel-2 DMA chains, uploaded font atlas/CLUT data, and
+two decoded menu draws with changing glyph positions. The rendered window is
+still black or garbled; indexed texture conversion, UVs and GS blend/state
+mapping are under investigation. The raw-stream parser is only for a genuinely
+raw GIF input.
 The launcher also still
 has experimental VIF/VU services for diagnostic work. The full
 keyboard/controller input system is not imported.
@@ -75,10 +76,10 @@ keyboard/controller input system is not imported.
 The DirectRenderer integration is compiled and linked into the C-only
 launcher. `func_00152810` initializes the expected channel addresses, and
 `func_00202A80` routes GIF channel 2 to the DMA-chain parser while VIF1 uses
-its own translator. The latest sampled run accepted every submitted chain
-with zero rejects, but the renderer still reports zero vertices/draws. This
-points the next investigation at font scale/advance, the host float-call ABI,
-or decoded GS state, rather than a proven raw-stream/DMAtag mismatch.
+its own translator. The latest sampled run accepts submitted chains and
+decodes two menu draws per frame. See
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for measured texture,
+geometry, and visual results.
 OpenRAC's world renderers remain R&C-specific and cannot draw Sly levels as-is.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
