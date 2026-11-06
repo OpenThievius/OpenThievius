@@ -158,26 +158,23 @@ The normal renderer produces a very dark, noisy menu shape. A direct
 framebuffer readback confirms the pixels are already dark/noisy before SDL
 swaps the window. An opt-in flat-color pass that bypasses texture, depth,
 scissor, and blend state draws the decoded menu geometry, so the vertex stream
-is rasterized. The remaining failure is in texture sampling or GS pixel/state
-interpretation, not in the final window presentation. The 512x512 PSMT4 upload
-at `0x1400` has near-uniform index counts and looks spatially noisy when all 16
-indices are visualized as grayscale. Reading the same bytes as an already
-swizzled GS-memory image also does not produce a recognizable atlas. These
-experiments do not establish which format/order Sly's source buffer uses; do
-not apply a swizzle based on them. A byte-for-byte check confirms the full
-131,072-byte PSMT4 payload captured at `0x1400` occurs at offset 96 in each
-assembled GIF packet stream. This verifies the upload parser preserves the
-transfer bytes; it does not identify the resource/source buffer layout before
-DMA. The DMA REF source is `0xE0C02330`; the port-only image table resolves this
-to ImageA record 0, offset `0x21D0` from resource buffer `0xE0C00160`, with
-length `0x20000`. Font 0 references that same record. This confirms the upload
-comes from the loaded resource's first image range; it does not yet establish
-whether the range is linear or arranged for GS. Next validate PSMT4 indices,
-CLUT order/alpha, TEX0/UV selection, and shader output against captured
-framebuffer pixels. The
-trace reports `TCC=true`,
-modulate texturing, blending enabled, and GS alpha scale; those are evidence
-to inspect, not proven faults.
+is rasterized. A fresh capture shows the atlas data is not valid yet, so the
+renderer is not the current blocker. With `OPENRAC_TRACE_FONT=1`, the resource
+reader is at `remaining = -1` immediately before `func_001DBA38` requests the
+`0x5F4F0`-byte image resource (`stage=19`); `func_00137A60` consequently leaves
+the destination untouched. The resulting `/tmp/sly1-font-resource.bin` is all
+zeroes. The GS upload at block `0x1400` is exactly those zeroes from ImageA
+record 0 at resource offset `0x21D0`, and the captured upload payload is
+preserved at offset 96 in each assembled GIF packet stream. Thus the source
+pointer mapping and DMA transfer are correct, but they point into an
+uninitialized image buffer because the reader has already exhausted its
+decoded input. Earlier index/swizzle comparisons used stale captures and are
+not evidence about the valid PSMT4 layout. Do not change swizzle, CLUT, or
+shader behavior until the resource reader reaches and fills the image range.
+After that, resume checking PSMT4 indices, CLUT order/alpha, TEX0/UV selection,
+and shader output against fresh framebuffer pixels. The trace reports
+`TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
+settings remain candidates for later inspection, not proven faults.
 
 To reproduce and inspect the texture conversion, run from the repository root:
 
@@ -196,7 +193,7 @@ files are not repository artifacts.
 Additional opt-in diagnostics for a new run:
 
 ```sh
-OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
+OPENRAC_TRACE_FONT=1 OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
   OPENRAC_TRACE_DMA_PAYLOAD=1 \
   OPENRAC_DUMP_FONT_RESOURCE=1 \
   OPENRAC_DEBUG_T4_INDEX=all OPENRAC_DUMP_TEXTURE=1400 timeout 18s \
@@ -219,11 +216,14 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Continue from the mapped ImageA record 0 range at resource offset `0x21D0`:
-   establish whether its bytes are a linear raster or prearranged data, then
-   verify nibble order and the resource's GS metadata before changing PSMT4
-   conversion. The DMA trace already confirms the exact range and payload
-   offset in the assembled GIF stream.
+1. Fix the Splash resource cursor overrun before investigating texture
+   interpretation. The image reader reaches `remaining = -1` before reading
+   the `0x5F4F0`-byte resource, so ImageA record 0 at offset `0x21D0` remains
+   zero-filled even though the DMA source address and packet payload offset
+   are correct. Trace the earlier `func_00162890` nested-record boundary and
+   identify where its 7,999-entry loop is meant to end; keep matching the
+   reader behavior to retail assembly and keep the fix in the port-only
+   backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
