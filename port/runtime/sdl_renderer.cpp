@@ -57,6 +57,7 @@ std::atomic<std::uint64_t> g_dma_bytes{0};
 std::atomic<unsigned> g_dma_reject_notices{0};
 
 std::uint32_t guest_address(std::uint32_t address) {
+    if (address >= GUEST_PORT && address - GUEST_PORT < GUEST_PORT_SIZE) return address;
 #if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
     if (address >= 0x70000000u && address < 0x70004000u) return address;
     if (address >= 0x20000000u && address < 0x22000000u) return address - 0x20000000u;
@@ -82,11 +83,14 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
         size <= static_cast<std::size_t>(0x02000000u - physical);
     const bool in_scratchpad = physical >= 0x70000000u && physical <= 0x70004000u &&
         size <= static_cast<std::size_t>(0x70004000u - physical);
+    const bool in_port = physical >= GUEST_PORT && physical <= GUEST_PORT + GUEST_PORT_SIZE &&
+        size <= static_cast<std::size_t>(GUEST_PORT + GUEST_PORT_SIZE - physical);
     const bool native_address =
         (physical >= 0x08000000u && physical < 0x10000000u) ||
         physical >= 0xf0000000u;
-    const bool in_native_storage = native_address &&
-        size <= static_cast<std::size_t>(0x100000000ull - physical);
+    const bool in_native_storage = in_port ||
+        (native_address &&
+         size <= static_cast<std::size_t>(0x100000000ull - physical));
     if (!in_ram && !in_scratchpad && !in_native_storage) return false;
     if (in_native_storage && size != 0) {
         const long page_size = ::sysconf(_SC_PAGESIZE);
@@ -105,6 +109,12 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
     out = reinterpret_cast<const std::uint8_t*>(physical);
     return true;
 #else
+    if (openrac_guest_base != nullptr && address >= GUEST_PORT &&
+        address - GUEST_PORT <= GUEST_PORT_SIZE &&
+        size <= static_cast<std::size_t>(GUEST_PORT_SIZE - (address - GUEST_PORT))) {
+        out = openrac_guest_base + address;
+        return true;
+    }
     const std::uint32_t physical = guest_address(address);
     if (!openrac_guest_base || physical > openrac_guest_ram_size
         || size > static_cast<std::size_t>(openrac_guest_ram_size - physical)) return false;
@@ -139,8 +149,12 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
         const std::size_t qwc = low & 0xffffu;
         const unsigned id = (low >> 28) & 7u;
         const std::uint32_t inline_data = tag_address + 16;
-        const std::uint32_t referenced = guest_address(
-            static_cast<std::uint32_t>(low >> 32) & 0x7fffffffu);
+        const std::uint32_t raw_reference = static_cast<std::uint32_t>(low >> 32);
+        // Port pointers use bit 31, which overlaps the DMAtag SPR flag.
+        const std::uint32_t referenced =
+            raw_reference >= GUEST_PORT && raw_reference - GUEST_PORT < GUEST_PORT_SIZE
+                ? raw_reference
+                : guest_address(raw_reference & 0x7fffffffu);
         std::uint32_t payload_address = inline_data;
         std::uint32_t next = inline_data;
         const std::size_t payload_size = qwc * 16;
