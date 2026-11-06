@@ -215,3 +215,17 @@ coverage work is to inspect the 52-unit audit for startup/load/update/draw
 callers and resolve the highest reachable whole-unit blocker with retail ABI
 evidence. Keep backfills in the port registry and staging layer, with a clear
 replacement condition for eventual decompiled C.
+
+The next whole-unit blocker, 00128000, had lost the `PlacedObject*` argument
+from four range-record setter signatures and had added an extra float argument
+to the staged `EnsureRangeRecord` call. Retail assembly for 001292E8,
+00129318, 00129348 and 00129378 passes the object in `a0`, preserves the float
+in `f12`, and calls 001291D0 with the object. Staging now restores that
+argument flow and the pointer-only helper signature. Its final C++ record
+method, `St_12B2F8::Set`, lowers to a file-local helper with an explicit record
+pointer and unchanged field offset. `00128000` now compiles, increasing
+translation from 1,329 to 1,480 functions and reducing unreadable units from
+52 to 51. The native launcher links, and `tests/check_repository.py` reports
+zero problems. The remaining 51 units still need prioritization by actual
+startup/load/update/draw reachability; this coverage gain alone does not mean
+the game is playable.

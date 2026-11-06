@@ -343,6 +343,52 @@ def prepare_c_view(source, version):
                     if count != 1:
                         raise ValueError(f"{cpp.stem}: could not stage {name} status return")
 
+            if cpp.stem == "00128000":
+                # The decomp has several range-record setters whose retail
+                # ABI takes the PlacedObject in a0 and a float in f12. Some
+                # reconstructed prototypes dropped `self` or accidentally
+                # added the float to EnsureRangeRecord itself. Repair only
+                # this staged unit; keep the upstream decomp source intact.
+                text = re.sub(
+                    r"void\*\s+func_001291D0\s*\([^{};]*\)\s*;",
+                    "void* func_001291D0(PlacedObject* self);",
+                    text,
+                )
+                for name in ("func_001292E8", "func_00129318",
+                             "func_00129348", "func_00129378"):
+                    text = re.sub(
+                        r"void\s+" + name + r"\s*\(\s*f32\s+x\s*\)",
+                        "void " + name + "(PlacedObject* self, f32 x)",
+                        text,
+                    )
+                text = text.replace("EnsureRangeRecord(self, x)",
+                                    "EnsureRangeRecord(self)")
+                text = text.replace("EnsureRangeRecord(x)",
+                                    "EnsureRangeRecord(self)")
+                method = re.search(
+                    r"struct\s+St_12B2F8\s*\{(?P<head>.*?)"
+                    r"s32\s+Set\s*\(s32\s+v\)\s*\{(?P<body>[^{}]*)\}\s*\};",
+                    text,
+                    flags=re.DOTALL,
+                )
+                if method is None:
+                    raise ValueError("00128000: St_12B2F8::Set shape changed")
+                body = re.sub(r"\bf13\b", "self->f13", method.group("body"))
+                replacement = (
+                    "struct St_12B2F8 {" + method.group("head") + "};\n"
+                    "static s32 St_12B2F8_Set(struct St_12B2F8* self, s32 v) {"
+                    + body + "\n}"
+                )
+                text = text[:method.start()] + replacement + text[method.end():]
+                for old, new in (
+                    ("st->Set(-1)", "St_12B2F8_Set(st, -1)"),
+                    ("((St_12B2F8*)self->f2C0)->Set(3)",
+                     "St_12B2F8_Set((St_12B2F8*)self->f2C0, 3)"),
+                ):
+                    if old not in text:
+                        raise ValueError("00128000: St_12B2F8::Set call site changed")
+                    text = text.replace(old, new, 1)
+
             if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
                 # This setter is unused here; retain the record field layout.
                 state = re.search(r"struct\s+State_001365A8\s*\{", text)
