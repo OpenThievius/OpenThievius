@@ -116,11 +116,18 @@ void func_0011A080(void* output, void* input, s32 context) {
     func_0011B060(value, 2);
 }
 
+void func_00109488(void);
+
 void func_0011EC40(void* object, void* reader) {
+    static u32 property_table_initialized;
     s32 id;
     u8* stream = (u8*)reader;
     static u32 traced_properties;
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+    if (!property_table_initialized) {
+        func_00109488();
+        property_table_initialized = 1;
+    }
     /* The matched scalar reader leaves its output untouched when a truncated
      * native resource reaches EOF. Retail data should not take this path, but
      * the port must stop before interpreting that stale stack value as an ID. */
