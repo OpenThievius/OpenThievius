@@ -37,27 +37,34 @@ assembly-only `func_00137FB0` mesh decoder and `func_001289C0` resource helper
 remain port-owned.
 
 The native sector adapter successfully reads the Splash resource from ISO
-sector 820372 (74 sectors). A current short trace reaches `func_0011EC40`
-while parsing the first child object. It reads property ID `0x5B` at cursor
-`0x1619`, but the next ID is `0x7300` at cursor `0x161C`; retail Splash bytes
-there are `5B 00 06 00 73 00 10 00`, so the next ID should be `0x73`. This
-is the first confirmed cursor mismatch for the current trace. Later parsing
-reports record count `0x2546`, a null callback, and a guest call-through-address
-fault; the native window remains black.
+sector 820372 (74 sectors). The first confirmed mismatch was property ID
+`0x5B`: the table was never initialized in the active 64-bit hostgen path, so
+`func_0011E680` returned without consuming the signed 16-bit payload. The next
+ID consequently appeared as `0x7300` instead of `0x73`.
+
+A port-only C backfill now initializes all 1,179 property descriptors from the
+sly1-decomp near-match, kept separately under `hand/native_c`; the initializer
+is called once from the shared property-stream reader. The port reader uses the
+retail callback field at descriptor `+0x18` for flag `0x100`. A focused native
+trace verified entry 91 as type `0x101F`, flags `0x120`, callback `0x0012A9C8`;
+property `0x5B` advances two bytes and the next property is `0x73`.
+
+A 10-second native run then stayed active and repeatedly submitted two draws
+with 372 decoded vertices, rather than faulting at the earlier null callback.
+This advances startup, but does not establish a visible image or playable game;
+the window still needs visual confirmation and the title/level, controller,
+collision, audio, and save paths remain incomplete. The next task is to trace
+this new post-property record path and determine why the submitted textures and
+frame are not yet confirmed visible.
 
 The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
 (US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;
-91.72% code bytes). It adds matching C for `func_001B1438`, but not for the
+91.72% code bytes). `func_001B1438` is a new matching function outside the
 Splash setup path. `func_00109488` remains ASM in `src/main/file_1000C8.cpp`;
-its `nonmatching/func_00109488.cpp` near-match documents the 1,179-entry
-property descriptor table and is useful for field meanings. The port already
-has a native-only table registry in `native/func_00109488.cpp`; do not add a
-second copy under `hand/native_c`. A recent discarded C experiment also showed
-that hostgen drops a standalone `p++` expression; use an assigned pointer
-increment if a C backfill needs one. That experiment was removed and did not
-fix the live trace. Next, inspect the active `func_0011E680` backfill and its
-retail dispatch table, then verify entry 91 and cursor movement before making
-rendering changes.
+its `nonmatching/func_00109488.cpp` near-match documents the descriptor values
+used for the port-only backfill. Hostgen drops discarded post-increment
+expressions, so backfill pointer steps must be assigned. Keep this functional C
+separate so it can be removed when matching decomp C becomes available.
 
 The port-only byte-copy helper `func_001F5A58` currently maps to host
 `memmove`, and `func_00140C28` / `func_00140CC8` map disc reads to the native
