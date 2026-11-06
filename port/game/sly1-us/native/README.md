@@ -6,39 +6,26 @@ only. These files are separate from `sly1-decomp/src`, are not matching
 sources, and never affect decompilation progress. The native host32 build
 compiles them into `build/port/host32/objects/port_native/` and maps their
 function names to retail addresses alongside compiled decomp functions. The
-The last fully compiled upstream snapshot was `a0fd295` (PR #54) from
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp). The
-separate checkout is now at `e1b39f1`, matching `origin/master` on 2026-11-05;
-the port's source-shape adapters need updating before that snapshot can be
-rebuilt. The host32 build compiles
-84 selected Sly C++ units, including recent matching functions `func_001A0BA0`,
-`func_00180398`, and `func_001F5CD0`. PR #54 adds readable button-code names
-and notes, but no new US function matches or function bodies relevant to
-startup. Against this snapshot, 84/84 Sly units and 82/82 port-native C++
-backfill objects compile. The combined object provides 3,852 of 4,806
-catalogued function addresses; its direct-call frontier resolves 699 of 752
-functions. The host32 linker lays address-named C globals out at their retail
-relative offsets, preserving adjacent objects used as larger structures, and
-keeps that range writable and aligned in the native ELF. The native startup
-bridges complete the two sound SIF bootstrap calls, suppress sound bank RPCs,
-and report the already-open disc as ready. Host staging pads the three
-undersized T217D backing arrays so native class initialization does not
-overwrite neighboring vtables. Port-only DMA channel lookups and waits carry
-startup beyond both DMA callbacks.
+Last checked: 2026-11-06. Upstream
+[`sly1-decomp`](https://github.com/OpenThievius/sly1-decomp) is at `cf9ad46`
+(PR #62); its NTSC-U status is 4,720/4,806 functions with C (92.17% code
+bytes). The latest C-only hostgen run against that snapshot read 189 units,
+translated 573 functions, stubbed one C function, and lists 4,278 functions
+without C. This does not describe the separate freestanding host32 build.
 
-The native GIF-DMA boundary now preserves the retail QWC size and submits raw
-GIF packets separately from DMAC tag chains. Native host-pointer spans are
-checked against mapped pages before the renderer reads them. A five-second
-SDL run on 2026-11-05 opened a window and accepted two 16-byte display packets,
-but remained black. The newer freestanding host32 diagnostic maps the US ELF
-and ISO, parses the common GLOBSET records, and enters nested scene objects.
-Its startup path now passes the position transforms and stops at the next
-unresolved retail call. The port is not playable yet. These runtime services
-and functional C backfills remain separate from matching C; the matching
-`func_001F8290` implementation remains untouched in the decomp's
-`nonmatching/` directory.
-Matching definitions discovered upstream replace the corresponding old port
-backfills.
+The host32 launcher and its EE/device behavior are an experimental startup
+diagnostic, not the target port architecture. The build counts and traces in
+the sections below are historical results from earlier decomp snapshots and
+must not be treated as current coverage. For the live native C-only path,
+current black-screen diagnosis, and tasks that need contributors, see
+[`SLY_GRAPHICS_HANDOFF.md`](../../docs/port/SLY_GRAPHICS_HANDOFF.md) and
+[`ROADMAP.md`](../../docs/port/ROADMAP.md).
+
+The current graphics mismatch is that the menu text writer produces a raw GIF
+packet buffer, while the port backfill sends it to the DMAtag-chain walker.
+The renderer still has zero decoded vertices/draws. Port-only functional
+backfills stay separate from matching decomp C/C++; when matching definitions
+become available and are hostable, remove the corresponding backfill.
 
 Run it with the extracted NTSC-U ELF and a cooked ISO or raw BIN:
 

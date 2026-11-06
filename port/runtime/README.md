@@ -42,10 +42,12 @@ references, uploads MPG payloads to mapped VU1 micro memory, unpacks the
 observed vector formats to VU1 data memory, executes MSCAL through
 `vu1_native.cpp`, and routes DIRECT and XGKICK output to the GIF stream reader.
 It completes the observed DMA channel instead of leaving CHCR busy. UNPACK
-write masks and fill cycles are not implemented. The current Sly frame stream
-still stops at opcode `0x08` at byte offset `0x54` of a 135,632-byte transfer;
-see [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
-trace, known evidence and next investigation. The VIF command and DMA tag
+write masks and fill cycles are not implemented. The earlier 135,632-byte
+transfer was misread as a VIF stream: its `0x08` word at offset `0x54` begins a
+GIF IMAGE tag. The current menu font path passes a raw GIF packet buffer to a
+DMA-chain walker, so the renderer still sees no draws. See [the graphics
+handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the trace, evidence and
+next investigation. The VIF command and DMA tag
 formats follow the public [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
 and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 

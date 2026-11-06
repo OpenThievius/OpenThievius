@@ -24,42 +24,59 @@ but the native window is still black.
 
 ## Current visual blocker (2026-11-06)
 
-The current native launcher reaches Sly's menu/frame path but remains black.
-A 135,632-byte display chain contains GIF channel data: the `0x08000000` word
-at offset `0x54` begins a GIF IMAGE tag with 8,192 qwords, so the earlier
-interpretation as an unsupported VIF opcode was incorrect. The port-only
-`func_00202A80` backfill now has separate GIF channel 2 and VIF1 routes, but
-the latest bounded run counts zero GIF renderer submissions. The next task is
-to trace the actual DMA channel argument and establish why the GIF route is
-not reached, then verify packet delivery. The renderer still reports zero
-vertices and draws, and the window remains black.
+The native C-only launcher reaches Sly's menu/frame path, calls menu drawing
+callbacks, and still displays a black window. The channel-initialization
+backfill now populates the expected channel addresses: GIF at `0x1000A000`
+and VIF1 at `0x10009000`. The earlier 135,632-byte chain dump contains a GIF
+IMAGE tag (`0x08000000`, 8,192 qwords); it is not a VIF opcode.
 
-The latest host build succeeds, but that is not visual or playable
-verification. Use [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the
-exact launch/trace command, contributor setup, evidence and prioritized work.
-Older status notes below are dated research history and may describe earlier
-renderer paths.
-The next milestone is a visible frame produced from Sly's real draw stream;
-playability still requires the title/level path, input, collision, audio and
-saves after that.
+The immediate bug is now narrower. The font/text packet writer advances its
+cursor and passes a nonempty buffer beginning with a GIFtag (about 992 bytes
+in the captured call). `func_00202A80` currently sends that pointer to the
+DMA-chain walker, which expects DMAtags and therefore misreads the raw GIF
+stream. The runtime already has a raw GIF submission helper, but it currently
+assumes a single image-style tag size and has not been wired to this caller;
+it does not calculate each tag's payload from FLG/NREG or continue through EOP.
+The next task is to submit the raw stream, parse complete GIF packets through
+EOP with bounded tag and payload handling, and confirm that the renderer
+receives valid texture uploads and draws. The latest traces still show zero decoded
+vertices/draws; no visible frame or playable state is verified.
+
+The most recently host-generated build used decomp snapshot `cf9ad46`
+(`OpenThievius/sly1-decomp`, 2026-11-05): 189 source units read, 573 functions
+translated, one C function stubbed, and 4,278 functions without C. The
+decompilation's source status is 4,720/4,806 US functions with C (92.17% code
+bytes); this is not host or gameplay coverage. Use
+[SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for reproducible commands,
+current evidence, contributor setup, and prioritized tasks. Older entries
+below are dated research history and may describe earlier renderer paths.
+
+The next milestone is a visible frame from Sly's real draw stream. Playability
+still requires a working title/level path, controller input, controllable Sly,
+collision, audio, and saves.
 
 ## Current no-emulation build status
 
-### Decomp synchronization (2026-11-05)
+### Decomp synchronization (2026-11-06)
 
-The separate working checkout remains untouched. The native build uses a
-read-only worktree at `/home/reaper/.cache/sly1-decomp-latest`, refreshed from
-[`OpenThievius/sly1-decomp`](https://github.com/OpenThievius/sly1-decomp)
-upstream at `a0fd295` (PR #54, Nov 5). The decomp report is matching coverage,
-not runtime or playable-game coverage. Host-only staging adaptations keep the
-PS2 source unchanged while compiling it for i386.
+Upstream `sly1-decomp` has advanced to `cf9ad464696a197803f584980bff43ed62b6bf31`
+(PR #62, Nov 5); the read-only snapshot is at
+`/home/reaper/.cache/sly1-decomp-current`. Its status tool reports 4,720/4,806
+US functions with C and 92.17% code bytes. The updates since the previous
+`a0fd295` snapshot include extensive name/header refactors and documentation;
+they do not change `config/us/c_status.tsv` or add new US C++ units, so the
+reported US matching coverage is unchanged and the current menu/graphics path
+gets no new matching implementation from these merges. The name and header
+improvements can still help port-side source reading and tracing. The current
+menu/graphics investigation depends on port-side channel setup and packet
+transport. A fresh hostgen run against `cf9ad46` read 189
+units, translated 573 functions, stubbed one function, and listed 4,278
+without C. This is generated-C coverage only, not a successful game build or
+visual verification. Host staging remains in ignored `build/port/` paths and
+does not modify the decomp checkout.
 
-Against `a0fd295`, all 84 selected Sly C++ units and 45 port-native backfills
-compile. The combiner reports 3,810 native definitions for 4,806 catalogued
-functions and 727/788 functions defined in the direct-call frontier (61
-missing). The build includes partially covered 0x4000 windows alongside
-whole-file units. Matching functions now take precedence over former
-port-only shadow backfills; platform service replacements remain separate.
+The dated notes that follow are retained as implementation history; use the
+current visual blocker above for the live launcher state.
 
 The latest bounded startup run reads Splash from sector 820372 (74 sectors),
 decompresses it, and reaches parser stages 1–5. Port-only frame-context and

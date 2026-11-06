@@ -55,11 +55,13 @@ I compared this checkout with OpenRAC commit
 the time of this audit). We have reused its source bridge, common/runtime
 foundation, audio output, basic DualShock 2 state, SDL/OpenGL window lifecycle
 and exact-rate frame pacer. The native launcher now also embeds OpenRAC's
-generic `DirectRenderer` and its texture/shader support. A port-only Sly DMA
-backfill walks VIF chains, accepts only streams containing supported VIF
-DIRECT commands, and queues them for native rendering. It does not use the
-experimental VIF/VU device path. The full keyboard/controller input system is
-not imported.
+generic `DirectRenderer` and its texture/shader support. A port-only Sly
+backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Tracing now
+shows that the menu font writer passes a raw GIF packet buffer, while the
+current call site hands it to a DMA-chain walker. The raw-stream parser is
+present but incomplete; no visible draw is verified. The launcher also still
+has experimental VIF/VU services for diagnostic work. The full
+keyboard/controller input system is not imported.
 
 | OpenRAC module | Reuse value for Sly | Work still needed here |
 |---|---|---|
@@ -69,20 +71,14 @@ not imported.
 | `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
 
 The DirectRenderer integration is compiled and linked into the C-only
-launcher. The port-only replacement for `func_00202A80` walks Sly's GIF
-channel 2 DMA tags, collects inline and referenced packet spans, and queues
-the raw GIF stream for OpenRAC's GIF parser. A bounded run accepts the four
-startup display packets (2,192 bytes total) without a parser warning. This
-verifies the initial packet boundary, not a visible Sly frame. OpenRAC's world
-renderers remain R&C-specific and cannot draw Sly levels as-is.
-
-The initial graphics path now reaches OpenRAC's GIF parser directly; it does
-not pass through the experimental VIF/VU execution runtime. The window remains
-black because the main loop is in frame state 3 with no active scene object or
-level. Sly's lower-level draw routine `func_00185D20` also has no matching C in
-the current decompilation checkout. Advancing the title/scene loader and
-providing a native adapter for Sly's 3D scene data are still required; the
-Ratchet-specific world renderers cannot supply those pieces as-is.
+launcher. The latest trace establishes that `func_00152810` initializes the
+expected channel addresses and that the menu text writer advances a raw GIF
+packet buffer. The current `func_00202A80` GIF branch still invokes the
+DMA-chain parser on that raw buffer; the stream parser only copies a first-tag
+payload and is not wired at this call site. Therefore the four startup display
+transfers are not evidence that menu rendering works. The window remains
+black with zero vertices/draws. OpenRAC's world renderers remain R&C-specific
+and cannot draw Sly levels as-is.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions

@@ -27,19 +27,19 @@ It is a planning/status tool, not a host build. The host build and its current
 limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
-default is `--asm off`, and generated files stay under `build/port/`. This
-generates host C from matched Sly sources plus port-only backfills. It does not
-translate retail MIPS assembly. The current report translates 1,654 functions
-and lists 3,116 catalogued functions without C; 12 of 68 source units remain
-unreadable to its C frontend. The SDL native launcher
-builds and opens a window, reaches Sly's display loop, initializes a 640x224
-GS display context, and submits GIF end-of-packet events. The renderer sees no
-visible vertices and the window remains black. The
-separate freestanding host32 launcher is a startup diagnostic and does not
-open a window. SDL keyboard/gamepad input now updates host-side DualShock
-reports, but the game's pad-library calls are not connected to them yet.
-Backfills are kept under `game/sly1-us/hand/native_c/`, outside
-`sly1-decomp`.
+default is `--asm off`, and generated files stay under `build/port/`. It
+generates host C from matched Sly sources plus port-only backfills without
+translating retail MIPS assembly. Against upstream decomp snapshot `cf9ad46`,
+the latest generation read 189 source units, translated 573 functions, left
+one C function stubbed, and lists 4,278 functions without C. This is host-C
+generation coverage, not a built or playable game. The most recent bounded
+native launch reaches menu/frame callbacks but still shows a black window and
+zero renderer vertices/draws. The current graphics diagnosis and the concrete
+next task are in [SLY_GRAPHICS_HANDOFF.md](../docs/port/SLY_GRAPHICS_HANDOFF.md).
+The separate freestanding host32 launcher is a startup diagnostic and does
+not open a window. SDL input updates host-side DualShock reports, but Sly's pad
+library is not connected to them yet. Functional backfills stay under
+`game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 
 `python3 port/tools/sly1.py hostgen --asm on` writes a separate
 `build/port/hostgen/us-asm-research/` tree. That mode translates retail MIPS
@@ -70,64 +70,21 @@ Port-side replacements are listed in `game/sly1-us/libraries.tsv`, with their
 native implementations in the runtime. The `extra_entries` list in
 `game/sly1-us/hostgen.json` identifies additional retail assembly entry points
 needed by the port. A matching entry supplied by the decompilation takes
-precedence over that list.
-The launcher now accepts Sly's `SetupThread` stack range and registers five
-interior constructor callbacks. Native ISO file lookup and reads, a CD-ready
-bootstrap hook, validated EE RAM DMA copies, interrupt registration, timer
-reads, and counting semaphores support more of startup. Guest worker threads
-run on host threads with their own guest stacks. SIF register reads and writes
-are stored in host memory, and the remote IOP RPC bind loop is bypassed when an
-ISO is present. Native startup publishes the SIF BOOTEND and CMDINIT flags
-(register 4, value 0x60000) and an opaque subaddress when the disc-backed IOP
-replacement starts. Native command handling completes the SIF command-init
-handshake and binds the two guest RPC clients. A retail-assembly translation
-for `func_001B93D8` preserves callback registers that its C placeholder lost.
-The latest bounded run reads the initial ISO sectors, passes the first sound
-service request using a silent fallback and reaches the display loop. The
-port-side VIF/VU1 path now tracks TOP/TOPS double buffering and executes integer
-loads from VU data memory correctly. It submits valid XGKICK packets from the
-first geometry path, then reaches a later XGKICK whose address points into
-non-tag data. The renderer still reports zero visible vertices, so the SDL
-window remains black.
-The native memory-card boundary answers the observed extended-server probe
-(`0x80000400`, RPC `0xFE`) with a zero result structure; retail's
-`func_002093F0` rejects the missing version field and returns `-0x78`. This
-does not implement card detection or saves. Guest threads continue issuing GIF
-work, but the color-only renderer does not yet draw the game's textures or
-produce a title screen. The native sound boundary completes RPC 77 as idle, so
-the game continues without audio playback. Textured rendering, Sly pad-library
-integration, real audio, saves, SIF DMA and remaining device services are not
-implemented.
-Hostgen translates the entry's BSS setup
-and observed boot syscalls (`SetupThread`, `SetupHeap`, `ExitThread`,
-`Exit`, `SetGsCrt`, `Copy`,
-`GetEntryAddress`, `FlushCache`, and `SetSyscall`). The
-`GetMemorySize` and `_InitTLB` boot calls are also handled for the 32 MiB guest
-RAM configuration; TLB writes are ignored because the runtime maps guest RAM
-directly. Guest worker threads run on host threads, and semaphores block and
-signal across them. OSD configuration currently defaults to English.
-Sly's CP0 timer read is backed by a monotonic 294.912 MHz host clock.
-The missing retail timer snapshot at `func_001430C8` is replaced in the port
-runtime and updates Sly's extended timer globals using two host clock samples.
-One startup VU busy poll reports idle. The port-side VU1 translator supports
-only a partial instruction set; the remaining microcode behavior is not yet
-implemented.
-The interrupt controller stores installed handlers and enable state; the
-renderer can raise those events through a host API, but no renderer events are
-wired yet. CP0 interrupt-status reads reflect the host interrupt-enable state.
-The startup path also saves and changes the GS interrupt mask through a
-software-backed guest register. The renderer, frame loop, remaining disc
-services and other required platform services are not implemented, so the
-port still cannot launch into gameplay.
+precedence over that list. Some launcher paths still contain guest-addressed
+EE/DMA/VIF/VU/GS compatibility services from the earlier startup experiment;
+they are diagnostic scaffolding, not the target gameplay architecture.
 
-What it will need, in order ([docs/port/ROADMAP.md](../docs/port/ROADMAP.md)):
-
-1. Resolve remaining boot RPCs and identify the transition from startup into
-   the title and frame paths.
-2. Implement the Sly renderer and host services for input, audio, files and
-   saves.
-3. Add asset extraction/conversion and platform packaging as their needs become
-   concrete.
+The current next task is to pass the menu font writer's raw GIF packet stream
+to the GIF parser. The caller currently treats that buffer as a DMA-tagged
+chain, so the renderer sees no vertices or draws. A graphics contributor
+should inspect `hand/native_c/func_00202A80.c`,
+`hand/native_c/display_packets.c`, `runtime/sdl_renderer.cpp`, and
+`renderer/direct.*`, then verify complete GIF packets, an image upload, a draw,
+and a visible screenshot. After the first visible frame, the port still needs
+the title/level transition, Sly pad-library integration, controllable character
+movement and collision, real audio, and saves. See the
+[roadmap](../docs/port/ROADMAP.md) and [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md)
+for status and starter tasks.
 
 OpenRAC's port design and its own authored code may be used with the credit
 required by [the sourcing policy](../docs/policy/SOURCING.md#openrac). Sly's
