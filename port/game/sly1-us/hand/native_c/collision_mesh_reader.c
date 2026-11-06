@@ -56,7 +56,9 @@ static void read_bytes(void* reader, void* destination, s32 size) {
 void func_00137FB0(void* reader, void* mesh) {
     u8* out = (u8*)mesh;
     const f32 radius = func_00137DF8(reader);
-    const s32 vertex_count = read_count(reader, 8192);
+    /* Retail's u16 count reader yields 0..65535. Keep the full range here;
+     * the native backfill must follow the assembly's signed-positive loops. */
+    const s32 vertex_count = read_count(reader, 65535);
 
     sly1_native_loader_stage(140, (u32)vertex_count, (u32)reader);
 
@@ -71,7 +73,9 @@ void func_00137FB0(void* reader, void* mesh) {
         if (stream_failed(reader)) return;
     }
 
-    const s32 face_count = read_count(reader, 16384);
+    /* In particular, retail does not treat 0xFFFF as an absent face block:
+     * it allocates the declared arrays and enters the face loop. */
+    const s32 face_count = read_count(reader, 65535);
     sly1_native_loader_stage(141, (u32)face_count, (u32)reader);
     *(s32*)(out + 0x0C) = face_count < 0 ? 0 : face_count;
     *(u32*)(out + 0x10) = face_count > 0
