@@ -318,6 +318,31 @@ def prepare_c_view(source, version):
                     text = text.replace(call, cname + "(&" + call.split(".")[0] + ", " +
                                         args.split()[-1].split("*")[-1] + ")")
 
+                # Retail routines return FinishMemoryCardCall's status in v0.
+                # The current C bodies discard that value and are declared
+                # void, but their callers consume it as a status code. Correct
+                # only the staged declarations/definitions to the verified
+                # retail return type.
+                for name in ("func_0018D328", "func_0018D2B0"):
+                    text = re.sub(r"\bvoid\s+(" + name + r"\s*\()",
+                                  r"s32 \1", text)
+                    body = re.compile(
+                        r"(s32\s+" + name + r"\s*\([^)]*\)\s*\{)(.*?)(\n\})",
+                        flags=re.DOTALL,
+                    )
+                    text, count = body.subn(
+                        lambda match: match.group(1) + re.sub(
+                            r"(\s*)FinishMemoryCardCall\(([^;]+)\);",
+                            r"\1return FinishMemoryCardCall(\2);",
+                            match.group(2),
+                            count=1,
+                        ) + match.group(3),
+                        text,
+                        count=1,
+                    )
+                    if count != 1:
+                        raise ValueError(f"{cpp.stem}: could not stage {name} status return")
+
             if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
                 # This setter is unused here; retain the record field layout.
                 state = re.search(r"struct\s+State_001365A8\s*\{", text)

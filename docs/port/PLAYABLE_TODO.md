@@ -201,3 +201,17 @@ six to two; both remaining errors are return-type disagreements for the
 memory-card write/close calls. Hostgen coverage has not increased yet, and the
 native build still links. Resolve those function declarations from retail
 call sites before claiming this unit recovered.
+
+The retail call sites and assembly show that `func_0018D328` and
+`func_0018D2B0` return the status in `v0`; their C bodies called
+`FinishMemoryCardCall` but discarded its result. The staging layer now corrects
+only these two signatures and returns in its disposable C view. The matching
+decompilation sources remain unchanged. `0018C000` now compiles, increasing
+hostgen translation from 1,284 to 1,329 functions and reducing unreadable units
+from 53 to 52. The native launcher compiles 212 generated C translation units
+and links. This is a host-coverage result only: it does not demonstrate that
+startup reaches these routines or that a scene is visible. The next useful
+coverage work is to inspect the 52-unit audit for startup/load/update/draw
+callers and resolve the highest reachable whole-unit blocker with retail ABI
+evidence. Keep backfills in the port registry and staging layer, with a clear
+replacement condition for eventual decompiled C.
