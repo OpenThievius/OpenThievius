@@ -211,6 +211,39 @@ container alignment investigation. The trace reports
 `TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
 settings remain candidates for later inspection, not proven faults.
 
+## Decomp refresh and matched-C check (2026-11-06)
+
+The read-only checkout at `/home/reaper/.cache/sly1-decomp-current` was
+refreshed from upstream `master`; it remains at `cf9ad464696a197803f584980bff43ed62b6bf31`.
+The current status command reports 4,720/4,806 US functions with C (92.17%
+code bytes) and 86 without C. The open decomp PR refs inspected for this check
+resolve to `89c3b342d74694bf5ac77ffe81e0951ffac59e84`, which is already an
+ancestor of current `master`; their code is present in this snapshot, so there
+was no newer head to import. Relevant matching source includes
+`func_001BAC30`, `func_00138278`, `func_0011ECB8`, and the animation/image/font
+table readers. The low-level mesh decoder `func_00137FB0` is still classified
+as assembly-only (`handwritten VU0 macro instruction`) in the source
+catalogue.
+
+The matching decomp C for `func_00138278` is in `00138000.cpp`, and for
+`func_001BAC30` in `001B8000.cpp`. Both full translation units currently fail
+hostgen because other functions in those units use incomplete C01/C02 types.
+A trial removal of the port backfill confirmed the consequence: hostgen emitted
+a no-op stub for `func_00138278`. Both functions therefore remain registered
+port-only backfills until we can compile the matching function bodies without
+pulling in the unrelated unit errors. Their logic is still useful as a
+reference, and this is an actionable decomp/hostgen integration task rather
+than missing decomp source.
+
+The previous trace reaching decoded offset `0x1594` was produced while the
+port implementations were still compiled from the scanned `native_c/`
+directory, despite their manifest rows having been removed. It is not a
+matched-C comparison. A fresh build after restoring the manifest entry confirms
+the loader uses the port C again. The next loader investigation should compare
+these functions’ matching C against the backfills while preserving the retail
+reader semantics; do not force a row skip or count correction from the current
+`00 53 00 4B 05 FF` row (interpreted as slot `0x5300`) alone.
+
 To reproduce and inspect the texture conversion, run from the repository root:
 
 ```sh

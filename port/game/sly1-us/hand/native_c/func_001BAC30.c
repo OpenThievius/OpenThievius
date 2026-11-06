@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Port-only collision mesh loader from the US retail class-0x03 method. */
+/* Port-only C03 loader backfill. Matching C exists in the decomp snapshot,
+ * but its full 001B8000 translation unit is currently unreadable by hostgen
+ * because of unrelated incomplete C01/C02 types. Keep this replacement
+ * isolated until the matched source can be compiled directly. */
 #include "common.h"
 
 s32 func_00137B90(void* stream);
