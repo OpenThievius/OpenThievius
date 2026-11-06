@@ -97,3 +97,12 @@ void func_00137EB0(void* self, u8* destination) {
     func_00137A60(self, 0xC, destination + 0x10);
     func_00137A60(self, 0xC, destination + 0x20);
 }
+
+/* Retail reads four packed XYZ vectors into a 16-byte-stride array. */
+void func_00137F08(void* self, u8* destination) {
+    for (s32 i = 0; i < 4; ++i) {
+        u8* vector = destination + (u32)i * 0x10u;
+        func_00137A60(self, 12, vector);
+        *(u32*)(vector + 12) = i == 3 ? 0x3F800000u : 0;
+    }
+}

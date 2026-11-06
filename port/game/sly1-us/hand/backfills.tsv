@@ -165,6 +165,7 @@ func_00137DF8	native_c/stream_reader_scalar.c
 func_00137E70	native_c/stream_reader_scalar.c
 func_00137E90	native_c/stream_reader_scalar.c
 func_00137EB0	native_c/stream_reader_scalar.c
+func_00137F08	native_c/stream_reader_scalar.c
 func_001E4EA8	native_c/func_001E4EA8.c
 func_001E4E80	native_c/func_001E4EA8.c
 func_001DCEA0	native_c/func_001DCEA0.c
