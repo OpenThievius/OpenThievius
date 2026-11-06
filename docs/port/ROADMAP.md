@@ -100,9 +100,14 @@ loaded level and bring up Sly's player/input/collision path.
 
 The latest world trace correctly resolves guest-port heap pointers: it counts
 25 entries at the world root and 24 entries in the `0x55` family list (classes
-`0x58` and `0x51`), while the actor/update lists are empty. This narrows the
-post-parse gap to object activation/registration or the later render path; it
-does not yet identify which missing callback is responsible.
+`0x58` and `0x51`). Port-only backfills for `func_00124050` and
+`func_001240F8` now walk object activation and register placed objects. A
+bounded native run then counted 77 entries in both world lists `+0x54` and
+`+0x60`, where both were empty before. The renderer still reports zero
+vertices, so this fixed list population but has not yet produced a visible
+scene. `func_0019DC98` remains a no-C frame callback and is the next render-path
+blocker to investigate. These functions remain separate from the matching
+decomp source and should be removed when that C is available to the host build.
 
 The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
 (US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;

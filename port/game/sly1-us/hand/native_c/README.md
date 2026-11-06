@@ -54,3 +54,10 @@ emits a no-op. This backfill is kept separate and should be removed once the
 matching C is included in the host build. It fixes the pause menu's
 zero-initialized page, but startup still requests page 0 (`Paused`) at about
 five seconds; the missing title/scene startup path is the current blocker.
+
+`func_00124050` walks placed-object children during activation, and
+`func_001240F8` registers active objects with the world update lists. Their
+port-only replacements raised the direct-load probe's world `+0x54` and
+`+0x60` lists from empty to 77 entries each. The scene still submits zero
+vertices; the missing `func_0019DC98` deferred draw pass is the next blocker.
+Remove these replacements when matching C is available to the host build.

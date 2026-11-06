@@ -148,6 +148,58 @@ std::array<std::uint32_t, 5> trace_world_list_classes(std::uint32_t world,
     return classes;
 }
 
+std::array<std::array<std::uint32_t, 7>, 12> trace_world_objects(std::uint32_t world) {
+    std::array<std::array<std::uint32_t, 7>, 12> objects{};
+    std::uint32_t list_address = 0;
+    if (!trace_guest_range(world + 0x48u, 12u, &list_address)) return objects;
+
+    std::uint32_t node = 0;
+    std::int32_t link_offset = 0;
+    std::memcpy(&node, openrac_guest_base + list_address, sizeof(node));
+    std::memcpy(&link_offset, openrac_guest_base + list_address + 8u,
+                sizeof(link_offset));
+    if (link_offset <= 0 || link_offset > 0x10000) return objects;
+
+    for (auto& fields : objects) {
+        std::uint32_t object_address = 0;
+        if (node == 0 || !trace_guest_range(node, 0x1Cu, &object_address)) break;
+        fields[0] = node;
+        std::memcpy(&fields[1], openrac_guest_base + object_address + 8u, 4u);
+        std::memcpy(&fields[2], openrac_guest_base + object_address + 0x14u, 4u);
+        std::memcpy(&fields[3], openrac_guest_base + object_address + 0x18u, 4u);
+
+        std::uint32_t descriptor = 0;
+        std::memcpy(&descriptor, openrac_guest_base + object_address, 4u);
+        std::uint32_t descriptor_address = 0;
+        if (trace_guest_range(descriptor, 0x24u, &descriptor_address)) {
+            std::memcpy(&fields[4], openrac_guest_base + descriptor_address + 4u, 4u);
+            std::memcpy(&fields[5], openrac_guest_base + descriptor_address + 0x20u, 4u);
+        }
+
+        std::uint32_t children_address = 0;
+        if (trace_guest_range(node + 0x34u, 12u, &children_address)) {
+            std::uint32_t child = 0;
+            std::int32_t child_offset = 0;
+            std::memcpy(&child, openrac_guest_base + children_address, 4u);
+            std::memcpy(&child_offset, openrac_guest_base + children_address + 8u, 4u);
+            while (child != 0 && child_offset > 0 && child_offset <= 0x10000 &&
+                   fields[6] < 0x1000u) {
+                std::uint32_t link_address = 0;
+                if (!trace_guest_range(child + static_cast<std::uint32_t>(child_offset),
+                                       4u, &link_address)) break;
+                std::memcpy(&child, openrac_guest_base + link_address, 4u);
+                ++fields[6];
+            }
+        }
+
+        std::uint32_t link_address = 0;
+        if (!trace_guest_range(node + static_cast<std::uint32_t>(link_offset), 4u,
+                               &link_address)) break;
+        std::memcpy(&node, openrac_guest_base + link_address, sizeof(node));
+    }
+    return objects;
+}
+
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \
     uint64_t name(                                                                               \
         uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
@@ -824,6 +876,14 @@ int main(int argc, char** argv) {
                 for (const std::uint32_t class_id :
                      trace_world_list_classes(current_object, 0x1C54u))
                     std::cerr << std::hex << class_id << ',';
+                std::cerr << " root_objects=";
+                for (const auto& fields : trace_world_objects(current_object)) {
+                    if (fields[0] == 0) break;
+                    std::cerr << '[' << std::hex << fields[0] << ':' << fields[1]
+                              << ',' << fields[2] << ',' << fields[3] << ','
+                              << fields[4] << ',' << fields[5] << ",children="
+                              << std::dec << fields[6] << std::hex << ']';
+                }
                 std::cerr
                           << " world_job_queue=0x" << std::hex
                           << world_job_queue[0] << ",0x" << world_job_queue[1]
