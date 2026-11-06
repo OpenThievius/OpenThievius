@@ -5,11 +5,16 @@
 #define SLY_LZ_WINDOW_SIZE 0x2000u
 #define SLY_LZ_DICTIONARY 0x70002000u
 #define SLY_LZ_OUTPUT 0x70000000u
+#define SLY_SPLASH_IMAGE_OFFSET 0x9E1Au
+#define SLY_SPLASH_IMAGE_SIZE 0x5F4F0u
 
 void func_00137820(void* self);
 void sly1_native_loader_stage(u32 stage, u32 value, u32 reader);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
+extern s32 D_00275718;
+extern s32 D_00275720;
+extern s32 D_00275724;
 
 static s32 sly_lz_get_byte(u8** source, s32* source_remaining,
                            u8* reader) {
@@ -27,6 +32,8 @@ static s32 sly_lz_get_byte(u8** source, s32* source_remaining,
 }
 
 void func_001378A0(void* self) {
+    static u8* tracked_reader;
+    static u32 decoded_offset;
     u8* reader = (u8*)self;
     u8* dictionary = (u8*)SLY_LZ_DICTIONARY;
     u8* output = (u8*)SLY_LZ_OUTPUT;
@@ -44,12 +51,18 @@ void func_001378A0(void* self) {
     source_remaining = *(s32*)(reader + 0x24);
     state = *(u32*)(reader + 0x2C);
     if ((state & 0x80000000u) == 0) {
+        tracked_reader = reader;
+        decoded_offset = 0;
         control = *(u32*)(reader + 0x28);
         write_position = 0;
         pending_count = 0;
         pending_read_position = 0;
         for (i = 0; i < SLY_LZ_WINDOW_SIZE; ++i) dictionary[i] = 0;
     } else {
+        if (tracked_reader != reader) {
+            tracked_reader = reader;
+            decoded_offset = 0;
+        }
         control = *(u32*)(reader + 0x28);
         write_position = state & (SLY_LZ_WINDOW_SIZE - 1u);
         pending_read_position = (state >> 13) & (SLY_LZ_WINDOW_SIZE - 1u);
@@ -107,6 +120,36 @@ void func_001378A0(void* self) {
 
         control >>= 1;
     }
+
+    /* Port-only experiment: the observed Splash image table requests exactly
+     * 0x5F4F0 bytes with this revision. Metadata offsets reach the same size,
+     * and that exact range is the 0x9E1A-byte tail of the decoded resource.
+     * Preserve the retail reader above; probe only whether that tail fills the
+     * otherwise EOF-bound cache. Remove when the object layout is understood.
+     */
+    if (D_00275720 == (s32)SLY_SPLASH_IMAGE_SIZE &&
+        (u32)D_00275724 == 0x3D6876BBu && D_00275718 != 0 &&
+        output_count != 0) {
+        u32 chunk_start = decoded_offset;
+        u32 chunk_end = chunk_start + output_count;
+        u32 image_start = SLY_SPLASH_IMAGE_OFFSET;
+        u32 image_end = image_start + SLY_SPLASH_IMAGE_SIZE;
+        u32 copy_start = chunk_start > image_start ? chunk_start : image_start;
+        u32 copy_end = chunk_end < image_end ? chunk_end : image_end;
+
+        if (copy_start < copy_end) {
+            u8* image = (u8*)(u32)D_00275718;
+            u32 source_offset = copy_start - chunk_start;
+            u32 image_offset = copy_start - image_start;
+            u32 copy_count = copy_end - copy_start;
+            for (i = 0; i < copy_count; ++i)
+                image[image_offset + i] = output[source_offset + i];
+            if (copy_end == image_end)
+                sly1_native_loader_stage(88, SLY_SPLASH_IMAGE_SIZE,
+                                         (u32)reader);
+        }
+    }
+    decoded_offset += output_count;
 
     *(u32*)(reader + 0x18) = SLY_LZ_OUTPUT;
     *(s32*)(reader + 0x1C) = (s32)output_count;
