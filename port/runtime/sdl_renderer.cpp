@@ -250,6 +250,16 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);
 }
 
+/* Receive the GIF stream after the native VIF1/VU1 path has expanded the
+ * display list. The direct renderer consumes ordered GIF bytes at present. */
+extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
+                                                           std::size_t size) {
+    if (source == nullptr || size == 0) return;
+    std::scoped_lock lock(g_packets_mutex);
+    g_packets.insert(g_packets.end(), static_cast<const std::uint8_t*>(source),
+                     static_cast<const std::uint8_t*>(source) + size);
+}
+
 extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_address) {
     constexpr std::size_t kMaxBytes = 16 * 1024 * 1024;
     g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);

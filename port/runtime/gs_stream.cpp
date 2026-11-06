@@ -13,6 +13,9 @@
 #include <mutex>
 #include <vector>
 
+extern "C" void openrac_native_renderer_append_gif_stream(const void*, size_t)
+    __attribute__((weak));
+
 namespace {
 struct GifParser {
     bool tag_loaded = false;
@@ -249,6 +252,8 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
 
 extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) {
     if (source == nullptr || size < 16u) return;
+    if (openrac_native_renderer_append_gif_stream != nullptr)
+        openrac_native_renderer_append_gif_stream(source, size);
     const auto* bytes = static_cast<const uint8_t*>(source);
     std::lock_guard lock(g_parser_mutex);
     size_t cursor = 0;

@@ -40,7 +40,16 @@ struct DmaAddress {
 };
 
 uint32_t encode_address(DmaAddress value) {
+    if (!value.scratchpad && value.address >= GUEST_PORT &&
+        value.address - GUEST_PORT < GUEST_PORT_SIZE)
+        return value.address;
     return (value.address & 0x7FFFFFFFu) | (value.scratchpad ? 0x80000000u : 0u);
+}
+
+DmaAddress decode_address(uint32_t address) {
+    if (address >= GUEST_PORT && address - GUEST_PORT < GUEST_PORT_SIZE)
+        return DmaAddress{address, false};
+    return DmaAddress{address & 0x7FFFFFFFu, (address >> 31) != 0};
 }
 
 uint32_t load_mmio(uint32_t address) {
@@ -59,6 +68,14 @@ bool guest_span(DmaAddress address, size_t size, const uint8_t** source) {
         if (address.address > GUEST_SCRATCHPAD_SIZE ||
             size > GUEST_SCRATCHPAD_SIZE - address.address) return false;
         *source = openrac_guest_base + GUEST_SCRATCHPAD + address.address;
+        return true;
+    }
+    /* Native backfills place packet data in the port heap. It has guest
+     * addresses in the reserved E0000000 range, outside PS2 RAM aliases. */
+    if (address.address >= GUEST_PORT &&
+        address.address - GUEST_PORT <= GUEST_PORT_SIZE &&
+        size <= GUEST_PORT_SIZE - (address.address - GUEST_PORT)) {
+        *source = openrac_guest_base + address.address;
         return true;
     }
     const uint32_t normalized = openrac_guest_ram_address(address.address);
@@ -89,7 +106,7 @@ bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream) {
         return false;
 
     const uint32_t tag_address = load_mmio(kVif1Chcr + 0x30u);
-    DmaAddress tadr{tag_address & 0x7FFFFFFFu, (tag_address >> 31) != 0};
+    DmaAddress tadr = decode_address(tag_address);
     std::array<DmaAddress, 2> return_addresses{};
     size_t depth = 0;
 
@@ -100,8 +117,7 @@ bool execute_chain(uint32_t chcr, std::vector<uint8_t>* stream) {
         std::memcpy(&low, tag, sizeof(low));
         const uint32_t qwc = static_cast<uint32_t>(low & 0xFFFFu);
         const uint32_t id = static_cast<uint32_t>((low >> 28) & 7u);
-        const DmaAddress data_address{static_cast<uint32_t>((low >> 32) & 0x7FFFFFFFu),
-                                      (low >> 63) != 0};
+        const DmaAddress data_address = decode_address(static_cast<uint32_t>(low >> 32));
         DmaAddress payload{tadr.address + 16u, tadr.scratchpad};
         DmaAddress next = payload;
         bool stop = false;
@@ -247,6 +263,8 @@ struct VifTrace {
     std::array<Program, 32> programs{};
     uint32_t mpg_total = 0;
     uint32_t mscal_total = 0;
+    size_t failure_offset = 0;
+    uint32_t failure_code = 0;
     size_t mpg_count = 0;
     size_t mscal_count = 0;
     size_t operand_count = 0;
@@ -281,6 +299,8 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
     while (cursor + sizeof(uint32_t) <= stream.size()) {
         uint32_t code = 0;
         std::memcpy(&code, stream.data() + cursor, sizeof(code));
+        trace->failure_offset = cursor;
+        trace->failure_code = code;
         cursor += sizeof(code);
         const uint32_t command = (code >> 24) & 0x7Fu;
         const uint32_t count = (code >> 16) & 0xFFu;
@@ -490,13 +510,32 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     } else {
         store_mmio(kDmacStat, (status & ~(1u << 1)) | (1u << 15));
         store_mmio(kVif1Chcr, value & ~0x100u);
-        openrac::log::warn("native VIF1 DMA rejected transfer: CHCR={:#010x} TADR={:#010x}",
-                           value, load_mmio(kVif1Chcr + 0x30u));
+        const uint32_t tadr = load_mmio(kVif1Chcr + 0x30u);
+        const DmaAddress address{tadr & 0x7FFFFFFFu, (tadr >> 31) != 0};
+        const uint8_t* tag = nullptr;
+        uint64_t low = 0;
+        uint64_t high = 0;
+        if (guest_span(address, 16, &tag)) {
+            std::memcpy(&low, tag, sizeof(low));
+            std::memcpy(&high, tag + 8, sizeof(high));
+        }
+        openrac::log::warn("native VIF1 DMA rejected transfer: CHCR={:#010x} CTRL={:#010x} TADR={:#010x} tag={:#018x}:{:#018x}",
+                           value, load_mmio(kDmacCtrl), tadr, high, low);
     }
 
     if (!vif_ok && !g_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
-        openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x}",
-                           unsupported);
+        openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={}",
+                           unsupported, trace.failure_code, trace.failure_offset, stream.size());
+        const char* trace_setting = std::getenv("OPENRAC_VIF_TRACE");
+        if (trace_setting != nullptr && trace_setting[0] != '\0' && trace_setting[0] != '0') {
+            for (size_t offset = 0; offset + sizeof(uint32_t) <= stream.size() &&
+                 offset < 0x80; offset += sizeof(uint32_t)) {
+                uint32_t word = 0;
+                std::memcpy(&word, stream.data() + offset, sizeof(word));
+                openrac::log::warn("native VIF1 failure context offset={:#x} word={:#010x}",
+                                   offset, word);
+            }
+        }
     }
     return 1;
 }
