@@ -37,16 +37,15 @@ handwritten C backfills. Set
 contain the assembly directory. The current build uses matched C from
 `dd6f80b` and the US retail assembly dump from a separate local checkout.
 
-The current hostgen report reads 199 units, translates 1,102 matched C
-functions and three assembly functions, stubs one C function, and lists 3,785
-functions without C. The direct level-load probe parses catalog key
-`0x0100` and installs its world, but the native game remains at the startup
-screen and scene geometry stays at zero. These are separate measures:
-decompilation coverage and translated-function counts do not establish
-gameplay readiness. The graphics handoff records the current evidence and
-next blocker. The SDL input path is not yet connected to Sly's pad library.
-Functional C backfills stay under `game/sly1-us/hand/native_c/`, outside
-`sly1-decomp`.
+The current hostgen report reads 199 units, translates 1,105 C functions and
+three assembly functions, stubs one C function, and lists 3,785 functions
+without C. The native SDL report adapter now places Sly's pad record in
+pressure mode; this prevents the no-controller pause transition, but startup
+still draws no title scene. The direct level-load probe parses catalog key
+`0x0100` and installs its world without entering gameplay. Decompilation
+coverage and translated-function counts do not establish gameplay readiness.
+The graphics handoff records the current evidence and next blocker. Functional
+C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 
 To translate the selected assembly functions into the native build output
 directly, hostgen also supports:

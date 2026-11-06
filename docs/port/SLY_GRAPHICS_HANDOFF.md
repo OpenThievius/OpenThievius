@@ -2,7 +2,12 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. The native launcher remains not playable: the
-bounded direct-level run still does not show Sly or level geometry. The
+bounded direct-level run still does not show Sly or level geometry. The latest
+default-startup trace also remains visually empty after 5 seconds, but the
+native pad now reports active pressure mode (`f14=3`, `f18=4`) and the frame
+state stays at 3 instead of taking the no-controller transition to the pause
+menu. This removes one false startup state transition; it does not render the
+title scene. The
 user-provided 63-second PCSX2 recording shows publisher credits, a Paris
 rooftop sequence where Sly traverses rooftops and encounters a guard, then the
 animated title screen. The title screen has Sly moving across the rooftops
@@ -26,14 +31,18 @@ existing US assembly dump in `/home/reaper/Code/sly1-decomp`.
 The native direct-load probe reads Splash, requests catalog key `0x0100`
 after Splash parse (loader stage 150), reads its resource at sector 867214,
 and completes the parser (stage 14) with world pointer `0xE103CF80`. That
-probe constructs the world but stays in the startup/menu flow. The targeted
+probe constructs the world but stays in the startup flow. The targeted
 direct-load trace did not observe `func_00125C90`, `func_00126270`, or
 `func_00166690` during its 10-second window, and scene geometry remains
-absent. A separate default-startup trace reaches menu text drawing and uploads
-the font atlas, though the text is fragmented and startup selects the pause
-menu. The loaded direct-load world is not connected to the active gameplay
-frame/state transition path; the generated object draw path cannot help until
-the game invokes it.
+absent. A prior default-startup trace reached menu text drawing and uploaded
+the font atlas, though the text was fragmented; that run used the old pad
+backfill and selected the pause menu at five seconds. With the updated native
+pad mode, the latest trace remains in frame state 3 but reaches zero scene
+vertices after 5.8 seconds. The latest run invokes retail `func_00125C90`
+for at least eight placed-object entries, confirming that the world update
+callback is active. It does not reach the mesh request builder
+`func_00126270` or packet callback `func_00166690` in the trace window. The
+direct-load probe still does not connect its loaded world to gameplay.
 
 The request queue `func_0019D410` now preserves its host stack pointer while
 copying the request into guest EE memory. Keep all functional C replacements
@@ -53,15 +62,16 @@ explanation. A diagnostic run with `OPENRAC_DEBUG_T4_INDEX=all` replaced
 palette colors with index greyscale; the text stayed fragmented, so palette
 RGB values alone do not explain the corruption.
 
-The live trace confirms that screen-element constructors run and put menu
-object `0x26FF68` on its normal hidden page (`-1`). About five seconds later,
-the frame dispatcher `func_001E9108` requests a transition from page `-1` to
-page 0 in mode 0. Decomp data identifies page 0 as `Paused` with eight items.
-The trace shows pad-state `+0x14 == 1`, edge flags 0, and game time about 5.0
-seconds at that transition. The first menu draw then enters `func_00194F80` on
-page 0. This is a startup-state/scene-flow issue in addition to the malformed
-glyphs. The direct draw has a text draw with 480 vertices; its first text
-vertex uses UV `(0.533, 0.916)` and RGBA `(127,127,127,17)`.
+The earlier pause-menu trace confirms that screen-element constructors run and
+put menu object `0x26FF68` on its normal hidden page (`-1`). With the old pad
+backfill, pad-state `+0x14 == 1` and edge flags 0; at game time 5.0 seconds,
+`func_001E9108` requested page 0, which decomp data identifies as `Paused`
+with eight items. The latest trace fixes that controller-state cause: the host
+adapter supplies an already-negotiated pressure report, so the port now sets
+pad mode 3/count 4. After 5 seconds the frame remains in state 3 and does not
+request the pause page. Visible title/menu geometry is still absent. The old
+direct text draw had 480 vertices; its first vertex used UV `(0.533, 0.916)`
+and RGBA `(127,127,127,17)`.
 
 The screen-element constructor loop `func_001A9F78` exists in the current
 decomp source but its US status is still `no-c`, so hostgen emitted a no-op.

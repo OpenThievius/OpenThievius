@@ -51,9 +51,11 @@ agree on the callable type.
 elements after screen resources load. The decomp checkout has the matching
 loop in `001A8000.cpp`, but its US function status is still `no-c`, so hostgen
 emits a no-op. This backfill is kept separate and should be removed once the
-matching C is included in the host build. It fixes the pause menu's
-zero-initialized page, but startup still requests page 0 (`Paused`) at about
-five seconds; the missing title/scene startup path is the current blocker.
+matching C is included in the host build. The native pad adapter now marks its
+valid SDL pressure-mode report as connected (`f14=3`, `f18=4`). That prevents
+`func_001E9108` from treating the controller as absent and forcing page 0
+(`Paused`) at five seconds. Startup remains in frame state 3, but the title
+scene still submits no sustained geometry.
 
 `screen_fade.c` backfills retail `func_001EFD10` and `func_001EFEE0` from the
 latest available decomp C, plus assembly-only `func_001F00F0`. Their containing
@@ -77,11 +79,12 @@ The native hostgen build now translates the exact US retail assembly for
 output, not copied into this C-backfill directory or the decomp checkout.
 Hostgen reports all three as translated from `asm/us/text.s`, with no stubs.
 The bounded direct-level probe parses key `0x0100` and installs a world, but
-the frame stays in the startup/menu flow: no object update or mesh callback
-was observed, and no scene geometry reaches the renderer. The new translated
-path therefore has not produced visual progress yet. Keep further functional
-C replacements here and register them in `backfills.tsv`; replace them when
-matching decomp C becomes hostable.
+does not connect it to gameplay. In default startup, the pad-state fix now
+lets the frame remain in state 3, and a trace reaches retail
+`func_00125C90` for placed-object updates. The mesh request builder and packet
+callback still do not run in the trace window, and no scene geometry reaches
+the renderer. Keep further functional C replacements here and register them
+in `backfills.tsv`; replace them when matching decomp C becomes hostable.
 
 `object_transform_primitives.c` restores scalar versions of the retail matrix
 builders, matrix multiply, placed-object transform setup, and camera sphere
