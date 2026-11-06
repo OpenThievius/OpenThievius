@@ -124,16 +124,22 @@ vtable offset `0x38`, invokes the reader's finalize method, and registers the
 job with the engine. It also configures the active resource ID, progress UI,
 and loader state before returning. The native C backfills currently establish
 the request and range fields, but do not yet reproduce this coordinator or
-worker lifecycle. In particular, the host CD sector service does not replace
-the stream worker: `func_00137490` owns the refill/read-window behavior that
-feeds the decompression reader.
+worker lifecycle. Retail `func_00137490` owns the asynchronous sector ring and
+refill/read-window behavior. The port's current coordinator instead reads the
+whole descriptor synchronously into `D_002C3B00`; the worker stub is reached
+only after those 150,849 bytes have been consumed. It is therefore not the
+cause of the current EOF inside the second collider.
 
 This makes `func_001E4EA8` a useful implementation target, but not a safe
 place to report a resource as complete. Its callback, job registration, and
 reader-finalization effects must either run through native Sly code or have
 behavioral port replacements before the Splash request can advance. The
-worker's retail assembly is available for analysis; no matching C definition
-exists in the decompilation for `func_00137490` or `func_001E4EA8`.
+current `sly1-decomp` checkout has matching C for `func_00137490` (but not for
+`func_001E4EA8`). Its ring-buffer implementation is a useful reference if the
+port returns to asynchronous sector reads. For the present synchronous path,
+the unresolved issue is why the parser requests a 65,535-face block after the
+descriptor's bytes are exhausted; verify the serialized collider boundary and
+the decoded-length/header semantics before adding more reader behavior.
 
 The retail callback chain narrows the missing work further. After setting the
 range, `func_001E4EA8` requests engine object type `0x6C` from

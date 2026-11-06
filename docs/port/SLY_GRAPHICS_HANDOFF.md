@@ -178,10 +178,13 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 ## Work needed next
 
 1. Explain the second collider's `0xFFFF` face count and EOF during its face
-   loop. Trace the native refill against retail `func_00137490`, compressed
-   source bounds and the serialized object range. Do not infer later property
-   or image boundaries until this read is accounted for. Keep any functional
-   correction in the port-only backfill.
+   loop. The current native path preloads the complete 150,849-byte descriptor;
+   the no-C `func_00137490` sector-ring worker is reached only after that
+   source is consumed, so it does not explain this EOF. Matching C for the
+   retail worker is available in the current `sly1-decomp` checkout. Verify
+   the collider's serialized boundary and the decoded-length/header semantics
+   before changing reader behavior. Keep any functional correction in the
+   port-only backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.

@@ -562,6 +562,20 @@ came from interpreting bytes overlapping the compressed header as a parser
 count. The next visible milestone is a rendered title menu, then identifying
 and loading the distinct level resource.
 
+The 2026-11-06 reader review corrects the next Splash lead. The native
+coordinator has already read the complete 150,849-byte descriptor into
+`D_002C3B00`; the missing port definition of `func_00137490` is the retail
+asynchronous sector-ring worker, and the current `sly1-decomp` checkout has
+matching C for it. The no-C stub is reached only after the synchronous source
+is consumed, so implementing that worker alone will not resolve the EOF. The
+native trace reaches a `0xFFFF` face count in the second collider and then
+exhausts the decoded stream. The offline decoder emits 430,858 bytes while the
+resource header begins with `0x5F4F0` (390,384); establish whether that header
+size limits a subresource or the whole decoded payload, and validate the
+collider record boundary before changing the reader again. Any resulting
+functional backfill stays in the port repository. The port remains not
+playable.
+
 The menu drawing boundary is deeper than `func_00194F80`: its text path calls
 `func_0015C8B8`, `func_0015DB28`, `func_0015DFF8`, `func_0015E1B0`,
 `func_0015E318`, and `func_0015C900`, all currently unresolved assembly in the
