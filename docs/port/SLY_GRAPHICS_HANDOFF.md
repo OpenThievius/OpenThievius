@@ -41,6 +41,15 @@ bytes. The native LZ backfill now carries back-reference bytes across its
 `resource_0002.decoded.bin`. The refill state is kept in reader field `+0x2C`
 so it does not overwrite the sector reader's `+0x38`/`+0x3C` bookkeeping.
 
+A bounded native run with `OPENRAC_DUMP_LZ_WINDOWS=1` captured the runtime LZ
+windows. The first 430,858 bytes match `resource_0002.decoded.bin` byte for
+byte, with no mismatch; this verifies the live decompressor output for the
+Splash stream, not just the offline replay. The trace wrote 55 8 KiB windows
+before timeout, so only the expected 430,858-byte prefix was compared; later
+captured bytes may belong to subsequent output and are not evidence about the
+Splash resource. The optional dump writes `/tmp/sly1-lz-window-*.bin` and is
+enabled alongside `OPENRAC_TRACE_LOADER=1`.
+
 This fixes a proven decoder defect, but the live font atlas is still wrong.
 The latest resource dump is `0x5F4F0` (390,384) bytes. Its first 371,418 bytes
 match the corrected Splash decode exactly at offset `0xE830`; the remaining
@@ -54,10 +63,13 @@ The long cursor advance is in the second top-level object's nested
 which consumes about 50 KiB. That loop agrees with the retail
 `func_001289C0` assembly, so it is not a safe place to trim bytes. The callback
 also calls `func_00162890`; that still-unmatched port backfill reads a record
-count of 9,542 but returns after roughly 1 KiB in this trace. The parsed group
-count and value count are the focus for the next resource-format audit. Keep
-any correction in port backfills until the matching C exists. Do not change GS
-texture interpretation based on the current bad atlas.
+count of 9,542 but returns after roughly 1 KiB in this trace. Since runtime LZ
+output now matches the complete extracted Splash stream, the remaining cursor
+discrepancy is in resource/container parsing or payload-size semantics rather
+than decompression. Audit the binary format and nested callback reads against
+retail behavior before changing parser counts. Keep any functional correction
+in port backfills until matching C exists. Do not change GS texture
+interpretation based on the current bad atlas.
 
 Reproduce the focused startup trace with:
 
@@ -66,6 +78,10 @@ OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_LOADER=1 timeout 12s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
+
+To also dump each runtime LZ output window for comparison with the extracted
+resource, add `OPENRAC_DUMP_LZ_WINDOWS=1` to that command. Remove stale
+`/tmp/sly1-lz-window-*.bin` files before capturing a fresh sequence.
 
 Channel 2 (`0x1000A000`) is a DMA chain and correctly goes through
 `openrac_native_renderer_submit_dma_chain`; it must not be treated as a raw

@@ -195,6 +195,17 @@ extern "C" void game_sly1_native_temp_end(void) {
 extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                                                uint32_t reader) {
     if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
+    if (stage == 87u && std::getenv("OPENRAC_DUMP_LZ_WINDOWS") != nullptr &&
+        openrac_guest_base != nullptr) {
+        static unsigned dump_index = 0;
+        char path[64];
+        std::snprintf(path, sizeof(path), "/tmp/sly1-lz-window-%03u.bin", dump_index++);
+        if (FILE* file = std::fopen(path, "wb")) {
+            const uint32_t byte_count = object > 0x2000u ? 0x2000u : object;
+            std::fwrite(openrac_guest_base + 0x70000000u, 1, byte_count, file);
+            std::fclose(file);
+        }
+    }
     if (stage == 70u) {
         static unsigned dump_index = 0;
         if (dump_index < 2 && openrac_guest_base != nullptr) {
