@@ -76,3 +76,8 @@ bounded frame run, but its only current class-0x51 ConeVolume has mode/value
 zero and produces no VIF vectors. The substantial missing `func_00125C90`
 callback still prevents the update path from populating its transform outputs.
 Remove each replacement when matching C is available to the host build.
+
+`object_transform_primitives.c` restores scalar versions of the retail matrix
+builders, matrix multiply, placed-object transform setup, and camera sphere
+scale test. These port-only helpers support the missing `func_00125C90`
+object-update callback and remain separate from the decompilation source.
