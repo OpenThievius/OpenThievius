@@ -22,23 +22,24 @@ The direct-load trace now reads world pointers through both EE RAM and the
 guest-port heap correctly. It sees 25 entries in the world root list and 24 in
 the `0x55` family list, with class IDs `0x58` and `0x51`. Activation and
 registration backfills populate 77 nodes in each of world lists `+0x54` and
-`+0x60`; this is confirmed by a bounded run. The `+0x1BE8` class-0x51 scene
-list contains one object at `0xE20A57B0`, with flags `0x0AFFFF00`, high flags
-`0x120`, and zero grouping fields at `+0x2D0`, `+0x304`, and `+0x308`.
+`+0x60`; this is confirmed by a bounded run. The `+0x1BE8` class-0x51
+ConeVolume list contains one object at `0xE20A57B0`, with flags `0x0AFFFF00`,
+high flags `0x120`, mode zero at `+0x2D0`, and value zero at `+0x304`.
 Sampled update callbacks are no-C `func_00125C90`; they see zero at `+0x28C`
 and `+0x298` and do not queue draw requests. Scene vertices remain zero.
-Retail `func_00184DE8` consumes the class-0x51 list for scene batch
-preparation, but remains assembly-only in decomp. The function now has a
-retail-derived port backfill, as do the deferred frame dispatcher and request
-bucketer (`func_0019DC98` and `func_0019D4B0`). A bounded native run stays active
-with these installed. The sole class-0x51 object contributes zero VIF output,
-and the scene still submits zero vertices; the next work is missing
-`func_00125C90` object update logic and the resulting scene population.
+Retail `func_00184DE8` processes the class-0x51 ConeVolume list into VU data;
+it remains assembly-only in decomp and now has a separate retail-derived port
+backfill. The deferred frame dispatcher and request bucketer
+(`func_0019DC98` and `func_0019D4B0`) also have port-only backfills. A bounded
+native run stays active with these installed. The sole volume has mode/value
+zero, so it contributes no VIF output vectors and no scene vertices; the next
+work is missing `func_00125C90` object update logic and the resulting scene
+population.
 
 Upstream `sly1-decomp` master was checked at `dd6f80b` on 2026-11-06 (US
 4,730/4,806 functions, 93.10% code; Europe 4,738/4,831, 92.42% code). Its
-latest changes add a HUD compass drawing function and placed-object link data,
-neither of which supplies the missing class-0x51 renderer or update callback.
+latest changes add a HUD compass drawing function and placed-object link data;
+they do not match `func_00125C90` or the class-0x51 ConeVolume processor.
 The generated host source is based on an older snapshot and does not yet
 include those unrelated changes.
 

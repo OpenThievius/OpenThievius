@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Port-only scene batch/VIF preparation, translated from NTSC-U retail code. */
+/* Port-only ConeVolume/VU preparation, translated from NTSC-U retail code. */
 #include "common.h"
 
-typedef struct SceneGroupNative {
+typedef struct ConeVolumeGroupNative {
     u32 first_object;
     s32 object_count;
     u32 key_flags;
     u16 kind;
     u16 output_index;
-} SceneGroupNative;
+} ConeVolumeGroupNative;
 
-typedef char check_SceneGroupNative[
-    sizeof(SceneGroupNative) == 0x10 ? 1 : -1];
+typedef char check_ConeVolumeGroupNative[
+    sizeof(ConeVolumeGroupNative) == 0x10 ? 1 : -1];
 
 extern void func_001EE318(void* writer);
 extern void func_00152980(void* writer, u32 qwords);
@@ -23,7 +23,7 @@ extern void func_00152AE0(void* writer, u32 dma_channel);
 extern void func_0018D608(void);
 extern void func_0018D6F0(void);
 
-static s32 compare_objects(u32 left, u32 right) {
+static s32 compare_cone_volumes(u32 left, u32 right) {
     s32 difference;
     difference = *(s32*)(left + 0x304u) - *(s32*)(right + 0x304u);
     if (difference != 0) return difference;
@@ -35,11 +35,12 @@ static s32 compare_objects(u32 left, u32 right) {
     return *(s32*)(left + 0x2D0u) - *(s32*)(right + 0x2D0u);
 }
 
-static void sort_scene_objects(u32* objects, u32 count) {
+static void sort_cone_volumes(u32* objects, u32 count) {
     for (u32 i = 1; i < count; ++i) {
         const u32 value = objects[i];
         u32 position = i;
-        while (position > 0 && compare_objects(objects[position - 1u], value) > 0) {
+        while (position > 0 &&
+               compare_cone_volumes(objects[position - 1u], value) > 0) {
             objects[position] = objects[position - 1u];
             --position;
         }
@@ -49,7 +50,7 @@ static void sort_scene_objects(u32* objects, u32 count) {
 
 void func_00184DE8(void* world_object) {
     u32* objects = (u32*)0x00264268u;
-    SceneGroupNative* groups = (SceneGroupNative*)0x00264670u;
+    ConeVolumeGroupNative* groups = (ConeVolumeGroupNative*)0x00264670u;
     const u32 world = (u32)world_object;
     u32 object = *(u32*)(world + 0x1BE8u);
     u32 object_count = 0;
@@ -65,7 +66,7 @@ void func_00184DE8(void* world_object) {
         objects[object_count++] = object;
         object = *(u32*)(object + 0x410u);
     }
-    sort_scene_objects(objects, object_count);
+    sort_cone_volumes(objects, object_count);
 
     *(s32*)0x00264668u = 0;
     *(s32*)0x00264264u = 0;
@@ -89,7 +90,7 @@ void func_00184DE8(void* world_object) {
             ++group_index;
         }
         if (group_index == group_count && group_count < 0x10u) {
-            SceneGroupNative* group = &groups[group_count++];
+            ConeVolumeGroupNative* group = &groups[group_count++];
             group->first_object = current;
             group->object_count = 1;
             group->key_flags = key_flags;

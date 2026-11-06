@@ -36,19 +36,20 @@ level.
 
 The latest bounded native level probe (2026-11-06) confirms that placed-object
 registration now populates 77 nodes in each of world lists `+0x54` and `+0x60`.
-The `+0x1BE8` class-0x51 scene list has one object at `0xE20A57B0`; its retail
-fields are flags `0x0AFFFF00`, flags-high `0x120`, and zero at `+0x2D0`,
-`+0x304`, `+0x308`, `+0x28C`, `+0x298`, and `+0x370`. Sampled update entries
+The `+0x1BE8` class-0x51 ConeVolume list has one object at `0xE20A57B0`; its
+retail fields are flags `0x0AFFFF00`, flags-high `0x120`, mode `+0x2D0 == 0`,
+and value `+0x304 == 0`. Sampled update entries
 call no-C `func_00125C90` and likewise have zero `+0x28C`/`+0x298`, so they do
 not enqueue deferred draw requests. The frame still submits zero scene
 vertices. Retail disassembly shows `func_00125C90` is a substantial camera,
 object-transform, and culling callback; its missing body is why sampled update
 nodes retain zero transform outputs. The deferred frame dispatcher and request
 bucketer (`func_0019DC98` and `func_0019D4B0`) have separate port-only C
-backfills. `func_00184DE8`, the assembly-only class-0x51 scene batch preparer,
-now has a retail-derived port backfill and survives the native frame path. Its
-single current scene object contributes zero VIF vectors, so the frame still
-submits zero scene vertices. The next gameplay/rendering target is the missing
+backfills. `func_00184DE8`, the assembly-only class-0x51 ConeVolume/VU
+preparer, now has a retail-derived port backfill and survives the native frame
+path. The current volume has mode/value zero and contributes no VIF vectors;
+this routine does not submit scene geometry. The frame still submits zero
+scene vertices. The next gameplay/rendering target is the missing
 `func_00125C90` body. Keep all functional replacements under `hand/native_c/`
 until matching decomp C is available to the host build.
 
