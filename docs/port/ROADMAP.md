@@ -40,14 +40,18 @@ The native sector adapter successfully reads the Splash resource from ISO
 sector 820372 (74 sectors). The exact reader reaches the C03 callback return at
 cursor `0x1594`. A port-only guarded one-byte pad skip then reads the next
 record as type `0x53`, key `0x054b`, and dispatches it through exact matched
-`func_00196410`; its child path reaches the exact value reader. This advances
-past the former `0x5300` misdecode, but the child reader still has an invalid
-cursor and the remaining records become implausible values. The image callback
-still requests `0x5F4F0` bytes at EOF, leaving image and CLUT buffers
-zero-filled. The renderer receives menu draws (474–480 vertices), but the
-captured frame remains black. Next trace nested reader setup and parent buffer
-bounds. Do not tune GS texture or shader state from the previous tail-copy
-experiment.
+`func_00196410`. The child path reaches port-only `func_00162890`, which reads
+a record count of `0x2546` and later a nested count of `0x1f3f`. Retail
+comparison corrected the `0x40` flag to call matched `func_001B4A10` and both
+optional nested array sizes to `refs * dimension * 12`. The latest bounded
+run then reaches flag `0x415f` and a null type-specific animator callback;
+before the first dimension it already reads `0xffff`, indicating earlier
+misalignment remains. The image callback still
+requests `0x5F4F0` bytes at EOF, leaving image and CLUT buffers zero-filled. The
+renderer receives menu draws (474–480 vertices), but the captured frame
+remains black. Re-run the native launch and capture logical source offsets
+across refills to verify the corrected parser branches. Do not
+tune GS texture or shader state from the previous tail-copy experiment.
 
 The port-only byte-copy helper `func_001F5A58` currently maps to host
 `memmove`, and `func_00140C28` / `func_00140CC8` map disc reads to the native
@@ -95,12 +99,21 @@ coverage.
 The latest 12-second native launch reads Splash from sector 820372 (74 sectors)
 into `0x002C3B00`, skips a single guarded pad byte at cursor `0x1594`, reads
 record type `0x53` / key `0x054b`, and dispatches exact matched
-`func_00196410`. Exact `func_00138278` and `func_001BAC30` are also generated
-from decomp C. The child parser continues, but a nested reader reports a zero
-cursor and its following values are implausible. The image callback still
-requests `0x5F4F0` bytes at EOF; image and palette uploads are zero-filled and
-the frame remains black. Next inspect how the group callback initializes its
-nested reader and validates the child data range.
+`func_00196410`. Exact `func_00138278`, `func_001BAC30`, and
+`func_001B4A10` are generated from decomp C. Retail comparison corrected the
+`0x40` record flag to call `func_001B4A10` and both optional nested array sizes
+to `refs * dimension * 12`. The 12-second run now enters record flag `0x415f`,
+then reports a call through address zero in the type-specific animator callback.
+It later reaches nested count `0x1f3f`, but the first dimension still decodes
+as `0xffff` and requests about 96 MiB; this confirms the cursor is already
+misaligned before that dimension, despite fixing its retail multiplier. The
+exact mismatch is still unresolved and no image or palette uploads occur.
+Stages 101–103 were group-lookup probes whose third argument is an owner
+object, not a reader; their zero cursor was a misleading trace interpretation.
+Current decomp `master` is
+`cf9ad464696a197803f584980bff43ed62b6bf31` (4,720/4,806 functions, 92.17% code
+bytes); `files95` adds near-miss permuter tooling but no additional matched C
+relevant to this startup path.
 
 The updates since the previous `a0fd295` snapshot include extensive
 name/header refactors and documentation; matching coverage is unchanged. The

@@ -356,7 +356,14 @@ the backfill. The complete `func_001289C0` retail disassembly matches the
 observed field widths through the child list. No width mismatch is identified
 in this first-collider cursor trail; do not change row boundaries based only
 on the invalid-looking next row. Other record shapes in `func_00162890` remain
-unverified.
+unverified. A 2026-11-06 retail comparison corrected the port-only
+`func_00162890` implementation's flag `0x40` path to call the matched
+`func_001B4A10` and corrected the two nested dimensions to consume
+`refs * dimension * 12` bytes. The next bounded native run reaches record flag
+`0x415f`, then a null type-specific animator callback; later the first nested
+dimension reads `0xffff` and requests about 96 MiB. Thus the multiplier now
+matches retail, but an earlier record cursor/field mismatch remains. These
+changes are isolated in the port backfill and do not alter decomp source.
 
 
 The port now also has a small `func_001B89B8` replacement, translated from
