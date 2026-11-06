@@ -282,3 +282,15 @@ boot ELF and ISO. Keep functional game-code replacements in
 `port/game/sly1-us/hand/native_c/` and register them in the backfill inventory,
 so matching implementations in `sly1-decomp` can replace them cleanly.
 Runtime/rendering changes belong in `port/runtime/` or `port/renderer/`.
+
+## Collider world-frame backfill (2026-11-06)
+
+`hand/native_c/collider_mesh_transform.c` now supplies port-only scalar C for
+retail `func_001B8960` and the VU transform body. It updates the placed-object
+world frame, transforms collision vertices, face normals, plane values, and
+per-face vectors for both collider meshes, and follows the retail mesh-field
+offsets. The native launcher builds and reaches the same Splash object-list
+cursor without the former `func_001B8960` no-C warning. This does not resolve
+the invalid-looking next row at `0x1594`, render scene geometry, or make the
+port playable. Bounds update and world registration remain missing; the port now translates
+`func_001B9680` to save the current world position at `+0x370`.

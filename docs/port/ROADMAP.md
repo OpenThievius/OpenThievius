@@ -618,3 +618,17 @@ object shapes and factory/callback semantics. A port-only `func_001B89B8`
 translation now matches its 80-byte retail body and removes one no-C callback,
 but the latest native run still reaches the same row boundary and remains
 black. This does not advance the playable milestone.
+
+The 2026-11-06 native collider pass adds a port-only scalar translation of
+`func_001B8960` and its retail VU mesh transform. It runs the existing
+`func_00125138` world-frame update, transforms vertex and face-normal arrays
+for both collider meshes, recomputes each face plane against the transformed
+vertex, and updates the per-face vectors. The mesh view follows the serialized
+`Mesh03` offsets (radius, vertex count/pointer, face count/pointer, link
+capacity/pointer, face vectors). The native build succeeds and the bounded
+Splash run no longer reports `func_001B8960` as a no-C stub; the cursor still
+reaches `0x1594`, and no geometry reaches the renderer. This is a collision
+state improvement, not visual or playable progress. Remaining collider gaps
+include the handwritten bounds callback `func_001B8540` and root registration
+`func_00138F28`. The port also translates `func_001B9680`, which copies the
+world position at `+0x140` to the previous-position field at `+0x370`.
