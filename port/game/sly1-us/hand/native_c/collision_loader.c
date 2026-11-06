@@ -20,9 +20,10 @@ void func_00138278(void* stream, void* mesh, void* tree)
     sly1_native_loader_stage(82, (u32)count, (u32)stream);
     sly1_native_loader_stage(83, (u32)count2, (u32)stream);
 
-    /* The resource stream uses an all-ones pair for an absent tree. Treat it
-     * as empty instead of allocating/iterating 65,535 bogus nodes. */
-    if ((u16)count == 0xFFFFu && (u16)count2 == 0xFFFFu) {
+    /* Port-only malformed/optional-tree guard. A leading all-ones count marks
+     * an absent tree in observed resource data; the following 16-bit field is
+     * still consumed above but is not required to repeat the sentinel. */
+    if ((u16)count == 0xFFFFu) {
         *(s32*)(output + 0) = 0;
         *(s32*)(output + 4) = 0;
         *(u32*)(output + 8) = 0;

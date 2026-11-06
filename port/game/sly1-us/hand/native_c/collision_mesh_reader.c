@@ -6,6 +6,7 @@ s32 func_00137B90(void* reader);
 s32 func_00137C40(void* reader);
 s32 func_00137BE0(void* reader);
 f32 func_00137DF8(void* reader);
+void sly1_native_loader_stage(u32 stage, u32 value, u32 reader);
 void func_00137E70(void* reader, void* destination);
 void* func_0018D5C0(u32 size);
 static s32 stream_failed(void* reader) {
@@ -20,6 +21,11 @@ static s32 read_u16(void* reader) {
     *(u32*)(bytes + 0x18) += 2u;
     *(s32*)(bytes + 0x1C) -= 2;
     return value;
+}
+
+static s32 read_count(void* reader, s32 limit) {
+    const s32 count = read_u16(reader);
+    return count >= 0 && count <= limit ? count : -1;
 }
 
 static u32 read_u32(void* reader) {
@@ -47,15 +53,12 @@ static void read_bytes(void* reader, void* destination, s32 size) {
     *(s32*)(bytes + 0x1C) = remaining - size;
 }
 
-static s32 read_count(void* reader, s32 limit) {
-    const s32 count = read_u16(reader);
-    return count >= 0 && count <= limit ? count : -1;
-}
-
 void func_00137FB0(void* reader, void* mesh) {
     u8* out = (u8*)mesh;
     const f32 radius = func_00137DF8(reader);
     const s32 vertex_count = read_count(reader, 8192);
+
+    sly1_native_loader_stage(140, (u32)vertex_count, (u32)reader);
 
     *(f32*)(out + 0x00) = radius;
     *(s32*)(out + 0x04) = vertex_count < 0 ? 0 : vertex_count;
@@ -69,6 +72,7 @@ void func_00137FB0(void* reader, void* mesh) {
     }
 
     const s32 face_count = read_count(reader, 16384);
+    sly1_native_loader_stage(141, (u32)face_count, (u32)reader);
     *(s32*)(out + 0x0C) = face_count < 0 ? 0 : face_count;
     *(u32*)(out + 0x10) = face_count > 0
         ? (u32)func_0018D5C0((u32)face_count * 0x20u) : 0;
@@ -79,6 +83,7 @@ void func_00137FB0(void* reader, void* mesh) {
 
     if (face_count < 0) return;
     const s32 link_capacity = read_count(reader, 65535);
+    sly1_native_loader_stage(142, (u32)link_capacity, (u32)reader);
     *(s32*)(out + 0x14) = link_capacity < 0 ? 0 : link_capacity;
     *(u32*)(out + 0x18) = link_capacity > 0
         ? (u32)func_0018D5C0((u32)link_capacity * 0x10u) : 0;

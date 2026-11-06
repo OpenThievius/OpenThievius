@@ -118,9 +118,18 @@ void func_0011A080(void* output, void* input, s32 context) {
 
 void func_0011EC40(void* object, void* reader) {
     s32 id;
+    static u32 traced_properties;
+    extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
     while ((id = func_00137D10(reader)) >= 0) {
+        if (traced_properties < 128) {
+            sly1_native_loader_stage(135, (u32)id, (u32)reader);
+            ++traced_properties;
+        }
         func_0011E680(object, (void*)(0x002505D8u + ((u32)id << 5)), reader);
+        if (traced_properties <= 128)
+            sly1_native_loader_stage(136, (u32)id, (u32)reader);
     }
+    sly1_native_loader_stage(137, (u32)id, (u32)reader);
 }
 void func_00138518(void* reader);
 s32 func_0011A630(void);
