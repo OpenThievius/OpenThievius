@@ -50,66 +50,40 @@ captured bytes may belong to subsequent output and are not evidence about the
 Splash resource. The optional dump writes `/tmp/sly1-lz-window-*.bin` and is
 enabled alongside `OPENRAC_TRACE_LOADER=1`.
 
-The latest resource callback attempts to read an image buffer of `0x5F4F0`
-bytes in `func_001DBA38`. The corrected `func_00162890` backfill reaches the
-unsigned dimension `0xFFFF` first and consumes the remainder of the decoded
-Splash stream with its 786,420-byte read. The current trace therefore enters
-`func_001DBA38` with the reader already at EOF and an all-zero image buffer.
-An earlier trace saw a partial image read at cursor `0xE830`; that predates the
-retail-sized nested reads and is not the current behavior. The LZ output still
-matches the extracted 430,858-byte stream byte-for-byte.
+The current bounded trace supersedes the earlier `0x128BC` dimension and
+9,542-record diagnosis below this point in the investigation history. Retail
+LZ output still matches all 430,858 bytes of the extracted Splash resource.
+The live parser failure is now localized to a later collision-object callback:
 
-The cursor failure occurs inside the second top-level object's nested
-`func_001463C0`/`func_001289C0` callback, specifically in its
-`func_00162890` record parser. The callback first reads 9,542 records and
-reaches record 4 with flags `0x3F04`; that record's nested count is `0x1F3F`
-(7,999). An earlier trace blamed the subsequent group-curve loop, but the
-retail-sized nested parser now exhausts the stream before that loop. Keep the
-group-curve loop intact because it agrees with retail assembly. The reused-
-record fix (skipping the nested-count field when flag bit 0 is set) remains
-valid, but record 4 has that bit clear. Keep these functional corrections in
-port-only backfills and replace them with matching decompiled C when available.
+* The callback reads 6,626 vertices, then sees face count `0xFFFF`. The port
+  mesh reader stops at this all-ones count to avoid an implausible 65,535-face
+  read. The subsequent tree reader sees `0xFFFF, 0xA84F`; its port-only guard
+  treats a leading `0xFFFF` as an absent tree. These guards are isolated under
+  `hand/native_c/` and do not change matching decomp C.
+* The common object reader then sees property ID `0x1555` at decoded offset
+  `0x54D72`. The initialized property table has 1,179 entries, so this ID is
+  outside the table. Its next property is the negative terminator. At
+  `0x54D82`, the nested parser reads `0xFF, 0xFF, 0xFF`, then interprets bytes
+  in the padded tail as word count `0xB9` and record count `0x583E` (22,590).
+  It drains the remaining stream while walking those records.
+* `func_001DBA38` then requests `0x5F4F0` bytes with the reader at EOF. The
+  destination begins zero-filled, and the first payload words remain zero.
 
-Stage markers around record 4 confirm its `0x100` path is cursor-exact so
-far: mode is `-18`, the conditional payload advances 64 bytes (four floats and
-`func_00137F08`), three words follow, and the common fields end at `0x70001AAF`.
-The next 16-bit value is `0x1F3F` (7,999). The launcher disc was identified
-by `tools/openthievius.py discs --full` as the matching US `SCUS_971.98`
-version, ruling out a US/PAL pairing error. Retail assembly allocates and loops
-that many nested entries. The port backfill now allows up to 8,192 entries.
-Retail disassembly shows that each nested entry reads five variable arrays
-sized from its count fields: `c0 * 12`, `c1 * 12`, `c2 * 4`, `c3 * 8`, and
-`c4 * 4` bytes. It then reads `refs * c0 * 4` bytes. If the root word count is
-nonzero, each of the next two unsigned 16-bit dimensions controls a
-`dimension * 12` byte read. Each root word then has two `c4 * 2` byte reads.
-The auxiliary record path reads `c0 * 12`, `c1 * 4`, an item-count byte
-sequence, and `items * c0 * 4` bytes. Its optional unsigned dimensions each
-control a `dimension * 12` byte read, followed by one `c0 * 2` byte read per
-root word. The port backfill now follows those sizes. The live trace's descriptor call consumes
-one value before this parser, consistent with the retail `func_0011E680`
-read loop; descriptor cursor consumption is not currently the unexplained
-advance.
+The decompressed bytes around `0x54D72` contain the invalid property ID and an
+all-`0xFF` region after it, so this is not evidence of a GS swizzle or texture
+upload fault. The remaining question is why the object callback has reached
+this padded part of Splash as if it were another object record. Trace the
+caller and serialized object boundary before changing image or renderer code.
+The earlier 9,542-record, `0x1F3F` nested-count, and `0x128BC` dimension claims
+were from a different, misattributed parser trace and should not guide fixes.
 
-The outer word count is 65, so the optional-dimension path is active. The
-first nested entry's first dimension is `0xFFFF` at decoded offset `0x128BC`.
-Retail calls the unsigned 16-bit reader `func_00137BE0` here, so this is
-65,535 and the resulting `dimension * 12` read requests 786,420 bytes.
-That request consumes the rest of the 430,858-byte decoded Splash stream and
-leaves the reader at EOF before it can read the second dimension or the image
-resource. This explains why the image buffer remains zero-filled. The sizes
-match retail assembly; the unresolved question is why the resource contains
-this value at this parser boundary. Trace the earlier loader/context that
-supplies this stream and identify whether its cursor or resource selection is
-already wrong before `func_00162890` begins. No readable image has been
-confirmed yet.
-
-After `func_00162890`, retail calls `func_00128C10`, its type-specific reader,
-then reads a group count and the group curves before calling
-`func_0011ECB8` directly. The port backfill's extra byte read after the group
-curves has been removed to match this assembly. Keep the retail group-float
-loop intact while tracing the nested-record boundary. Runtime LZ output matches the complete
-extracted Splash stream, so do not change GS texture interpretation based on
-the current bad atlas.
+Retail `func_00162890` still supplies the useful reference for its nested
+record sizes: `c0 * 12`, `c1 * 12`, `c2 * 4`, `c3 * 8`, `c4 * 4`, followed by
+`refs * c0 * 4`; optional unsigned dimensions each consume `dimension * 12`.
+Those sizes describe the function, but they are not the current black-screen
+cause. Keep all functional reader and sentinel handling as port-only
+backfills, replacing it with matching C when the decompilation covers those
+functions. Do not adjust GS texture interpretation from the invalid image.
 
 Reproduce the focused startup trace with:
 
@@ -154,21 +128,17 @@ The normal renderer produces a very dark, noisy menu shape. A direct
 framebuffer readback confirms the pixels are already dark/noisy before SDL
 swaps the window. An opt-in flat-color pass that bypasses texture, depth,
 scissor, and blend state draws the decoded menu geometry, so the vertex stream
-is rasterized. A fresh capture shows the atlas data is not valid yet, so the
-renderer is not the current blocker. With `OPENRAC_TRACE_FONT=1`, the resource
-reader is at `remaining = -1` immediately before `func_001DBA38` requests the
-`0x5F4F0`-byte image resource (`stage=19`); `func_00137A60` consequently leaves
-the destination untouched. The resulting `/tmp/sly1-font-resource.bin` is all
-zeroes. The GS upload at block `0x1400` is exactly those zeroes from ImageA
-record 0 at resource offset `0x21D0`, and the captured upload payload is
-preserved at offset 96 in each assembled GIF packet stream. Thus the source
-pointer mapping and DMA transfer are correct, but they point into an
-uninitialized image buffer because the reader has already exhausted its
-decoded input. Earlier index/swizzle comparisons used stale captures and are
-not evidence about the valid PSMT4 layout. Do not change swizzle, CLUT, or
-shader behavior until the resource reader reaches and fills the image range.
-After that, resume checking PSMT4 indices, CLUT order/alpha, TEX0/UV selection,
-and shader output against fresh framebuffer pixels. The trace reports
+is rasterized. The current reader trace explains why the atlas is invalid:
+after the malformed collision-object walk reaches the padded Splash tail,
+`func_001DBA38` requests `0x5F4F0` bytes at EOF and leaves its zero-filled
+destination untouched. The GS upload at block `0x1400` therefore reads an
+uninitialized image buffer. The source pointer mapping and DMA transfer were
+verified, but this does not validate the image contents. Earlier
+index/swizzle comparisons used stale or zero-filled captures and are not
+evidence about the valid PSMT4 layout. Do not change swizzle, CLUT, or shader
+behavior until the resource parser reaches and fills the image range. After
+that, resume checking PSMT4 indices, CLUT order/alpha, TEX0/UV selection, and
+shader output against fresh framebuffer pixels. The trace reports
 `TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
 settings remain candidates for later inspection, not proven faults.
 
@@ -212,14 +182,12 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Fix the Splash resource cursor overrun before investigating texture
-   interpretation. The image reader reaches `remaining = -1` before reading
-   the `0x5F4F0`-byte resource, so ImageA record 0 at offset `0x21D0` remains
-   zero-filled even though the DMA source address and packet payload offset
-   are correct. Trace the earlier `func_00162890` nested-record boundary and
-   identify where its 7,999-entry loop is meant to end; keep matching the
-   reader behavior to retail assembly and keep the fix in the port-only
-   backfill.
+1. Trace the caller and serialized object boundary that sends the second
+   collider into Splash's padded tail. It reads property ID `0x1555` outside
+   the 1,179-entry property table; `func_00162890` then interprets `0xFF`
+   padding as record counts and consumes the rest of the stream. Verify the
+   caller's object count/record boundary against retail assembly and resource
+   bytes. Keep any functional correction in the port-only backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.

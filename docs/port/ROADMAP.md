@@ -32,16 +32,16 @@ it is not a VIF opcode.
 
 The DMA handoff is not the current blocker: channel 2 is sent through the
 DMAtag chain walker, and sampled submitted chains are accepted without a
-reject. Updated DirectRenderer traces show two draws in each menu frame (6
-background vertices and 372–480 font vertices). The font atlas and CLUT upload
-at GS blocks `0x1400` and `0x1600`; glyph coordinates change and fade alpha
-rises. This rules out the earlier zero-geometry and collapsed-font leads. The
-frame remains black or severely garbled, so the active investigation is
-indexed texture conversion/CLUT/UV handling and GS-to-OpenGL blend, test, and
-framebuffer behavior. See [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md)
-for current trace commands, evidence, and contributor tasks. Do not route the
-menu call to the raw GIF-stream helper unless new evidence proves the source
-is not a DMA chain.
+reject. DirectRenderer traces show two draws in each menu frame (6 background
+vertices and 372–480 font vertices). However, the font atlas payload is still
+zero-filled: the Splash object parser reaches a padded `0xFF` tail, then asks
+for the image after the decoded stream is exhausted. This makes GS texture
+conversion, CLUT, UV and shader investigations premature. Trace the object
+callback and serialized boundary first; keep functional corrections in the
+port-only backfills. See [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md)
+for the latest trace, commands, evidence, and contributor tasks. Do not route
+the menu call to the raw GIF-stream helper unless new evidence proves the
+source is not a DMA chain.
 
 The most recently host-generated build used the current upstream decomp
 snapshot `cf9ad46` (`OpenThievius/sly1-decomp`, PR #62, checked 2026-11-06):
