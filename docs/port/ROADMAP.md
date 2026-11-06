@@ -30,7 +30,11 @@ with zero rejects, but still reported zero vertices and a black window. The
 font registry initializes, though the Splash image reader still does not
 provide usable scene geometry. A new port-only collision backfill now covers
 the post-load contact-table registration path; it does not change this visual
-blocker. The channel-initialization backfill
+blocker. A later focused 8-second run aborted with `double free or corruption
+(out)` during DMA-chain packet collection. The same abort reproduced with the
+collider backfill registrations temporarily removed, so it is not attributed
+to that change. The backtrace points into native packet-vector insertion; its
+cause remains open. The channel-initialization backfill
 populates GIF at `0x1000A000` and VIF1 at `0x10009000`. The earlier
 135,632-byte chain dump contains a GIF IMAGE tag (`0x08000000`, 8,192 qwords);
 it is not a VIF opcode.

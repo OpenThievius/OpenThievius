@@ -219,6 +219,14 @@ window, so this closes a missing collision callback path without resolving the
 current visual blocker. The remaining collider callback gap on this path is
 `func_001B8540`.
 
+A focused `OPENRAC_TRACE_LOADER=1` run and a separate untraced 8-second launch
+both later aborted with `double free or corruption (out)` while the native DMA
+chain collector appended packets. The backtrace ends in the packet vector's
+reallocation path. Temporarily removing all five contact-table backfill
+registrations and repeating the launch produced the same abort, so the
+collision pass is not the cause. The renderer/runtime heap corruption remains
+unresolved and may prevent reliable longer traces.
+
 ## Port/decomp boundary
 
 All functional replacements used to reach this point belong under
