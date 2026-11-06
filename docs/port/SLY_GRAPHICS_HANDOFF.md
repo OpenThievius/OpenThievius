@@ -80,23 +80,26 @@ Stage markers around record 4 confirm its `0x100` path is cursor-exact so
 far: mode is `-18`, the conditional payload advances 64 bytes (four floats and
 `func_00137F08`), three words follow, and the common fields end at `0x70001AAF`.
 The next 16-bit value is `0x1F3F` (7,999). Retail assembly allocates and loops
-that many nested entries. The port backfill now allows up to 8,192 entries and
-reads each entry's five count-sized arrays, reference list and payload, plus
-the word-count arrays. The dimensional byte sizes use the original
+that many nested entries. The port backfill now allows up to 8,192 entries. Assembly comparison shows
+the first array read in each nested entry uses the one-based nested index as
+its byte count; the remaining four reads use their decoded count fields. It
+then reads the reference list and payload, plus the word-count arrays. The
+first auxiliary payload likewise uses the nested count as its byte count.
+Dimensional byte sizes use the original
 `reference_count * first_count * 4` base independently for each dimension,
 matching retail's 32-bit arithmetic. Overflowed sizes are passed through a
 signed-size discard helper, so negative results are ignored as in the matching
 reader. The auxiliary-record dimensional arrays use the same rule.
 
-A bounded trace confirms the first nested entry advances from decoded offset
-`0x2C38` through its base payload, reads `0xFFFF` for both dimensions in the
-`0xFF`-filled region, and completes its per-row arrays at cursor `0x3A4` in the
-refilled window. Subsequent entries encounter more `0xFF` padding; the reader
-reaches `remaining=-1` during the 7,999-entry loop, which then continues with
-zero-valued fallback reads. This is not a validated full-resource parse and
-has not produced a readable image. The next task is to reconcile why retail's
-nested loop enters the padded region and whether the backfill's per-entry
-cursor still matches assembly there.
+A bounded trace confirms the first nested entry's count reads and payload
+sizes. It reaches the `0xFFFF` dimensions in the `0xFF`-filled region and
+completes its per-row arrays at decoded offset `0x17257`, still in that fill.
+Subsequent entries also parse padded bytes; the reader reaches
+`remaining=-1` during the 7,999-entry loop, which continues with zero-valued
+fallback reads. This is not a validated full-resource parse and has not
+produced a readable image. Continue comparing the remaining per-entry cursor
+operations with assembly and determine where the retail parser is expected to
+resume meaningful resource data.
 
 After the current backfill returns, the following callback reaches group
 count 191 and reads 65 floats per group through `0x70001E56`. It then reads a

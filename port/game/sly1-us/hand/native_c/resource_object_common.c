@@ -187,7 +187,8 @@ void func_00162890(void* block, void* reader, void* object) {
             if (n < 4) sly1_native_loader_stage(116, c0 | (c1 << 8) | (c2 << 16) | (c3 << 24), (u32)reader);
             if (n < 4) sly1_native_loader_stage(117, c4, (u32)reader);
             func_00137B60(reader, 4);
-            sly1_discard(reader, c0 * 12u);
+            /* Retail reads the one-based nested-record index byte count. */
+            sly1_discard(reader, (u32)(n + 1));
             sly1_discard(reader, c1 * 12u);
             sly1_discard(reader, c2 * 4u);
             sly1_discard(reader, c3 * 8u);
@@ -230,7 +231,8 @@ void func_00162890(void* block, void* reader, void* object) {
         for (s32 a = 0; a < auxiliary_count; ++a) {
             (void)func_0018D5C0(0x30);
             const u32 c0 = (u32)func_00137B90(reader);
-            sly1_discard(reader, c0 * 12u);
+            /* Retail's first auxiliary payload read uses the nested count. */
+            sly1_discard(reader, (u32)nested_count);
             const u32 c1 = (u32)func_00137B90(reader);
             sly1_discard(reader, c1 * 4u);
             const u32 items = (u32)func_00137B90(reader);
