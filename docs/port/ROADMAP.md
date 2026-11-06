@@ -25,18 +25,20 @@ but the native window is still black.
 ## Current visual blocker (2026-11-06)
 
 The current native launcher reaches Sly's menu/frame path but remains black.
-The port-only `func_00202A80` backfill now routes channel starts through the
-VIF1 runtime handler, and the DMA collector can follow referenced data in the
-native port heap. A 12-second native launch reaches a 135,632-byte display
-stream, then the VIF parser stops at opcode `0x08` (`0x08000000`) at offset
-`0x54`. The renderer still reports zero vertices and draws. The failure may
-come from an incorrect chain/layout interpretation or an unsupported stream
-format; the opcode must not be skipped until the source layout is established.
+A 135,632-byte display chain contains GIF channel data: the `0x08000000` word
+at offset `0x54` begins a GIF IMAGE tag with 8,192 qwords, so the earlier
+interpretation as an unsupported VIF opcode was incorrect. The port-only
+`func_00202A80` backfill now has separate GIF channel 2 and VIF1 routes, but
+the latest bounded run counts zero GIF renderer submissions. The next task is
+to trace the actual DMA channel argument and establish why the GIF route is
+not reached, then verify packet delivery. The renderer still reports zero
+vertices and draws, and the window remains black.
 
 The latest host build succeeds, but that is not visual or playable
 verification. Use [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for the
-exact launch/trace command, evidence and prioritized work. Older status notes
-below are dated research history and may describe earlier renderer paths.
+exact launch/trace command, contributor setup, evidence and prioritized work.
+Older status notes below are dated research history and may describe earlier
+renderer paths.
 The next milestone is a visible frame produced from Sly's real draw stream;
 playability still requires the title/level path, input, collision, audio and
 saves after that.
