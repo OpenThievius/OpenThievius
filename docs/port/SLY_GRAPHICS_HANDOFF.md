@@ -40,8 +40,9 @@ hostgen report: `func_00125C90` invokes the placed-object m25 callback
 (`func_00126270`). The latter iterates placed-object parts, builds 0x80-byte
 deferred requests, and queues them through `func_0019D410` with callback
 `func_00166690`. `func_00126270` and `func_00166690` are still assembly stubs
-in the no-assembly host build; `func_001261C0` also remains a no-C stub,
-although its body is present in current decomp source. The upstream checkout has a nearby
+in the no-assembly host build. The port now backfills `func_001261C0` from its
+current decomp C body, kept separately because hostgen reports its source unit
+as no-C. The upstream checkout has a nearby
 nonmatching C++ source for `func_00166690` (96.7% match, 5796 bytes vs. 5772
 retail, checked 2026-11-06), but hostgen does not currently include that source.
 Thus the remaining visible-scene gap is larger than the outer object transform:

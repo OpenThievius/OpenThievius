@@ -83,3 +83,9 @@ scale test, plus `func_00125BF0`, which submits the transformed object through
 the camera's dispatch callback. These port-only functions support the missing
 `func_00125C90` object-update callback and remain separate from the
 decompilation source.
+
+`object_update_callbacks.c` keeps the current decompilation C body for
+`func_001261C0` as a separate port backfill because hostgen still reports its
+source unit as no-C. It dispatches m2C, copies the optional four-vector object
+transform into the record, then dispatches m26. Remove it when the matching C
+unit becomes hostable.
