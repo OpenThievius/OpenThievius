@@ -226,7 +226,7 @@ def prepare_c_view(source, version):
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
                 for kind, tag in all_tags)
-            if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
+            if cpp.stem in {"00124000", "00134000", "00180000", "001DC000", "file_1963D8"}:
                 # These units use tiny C++ helper classes. Lower their static
                 # methods into file-local C functions in disposable staging.
                 while True:
@@ -250,8 +250,11 @@ def prepare_c_view(source, version):
                         break
                     body_end = pos
                     tail = re.match(r"\s*};", text[pos:])
-                    if tail is not None:
-                        pos += tail.end()
+                    if tail is None:
+                        # Only a complete, single-method helper can become a
+                        # free function. Keep multi-member classes intact.
+                        break
+                    pos += tail.end()
                     method_name = f"{method.group(1)}_{method.group(3)}"
                     function = (
                         f"static {method.group(2).strip()} {method_name}"

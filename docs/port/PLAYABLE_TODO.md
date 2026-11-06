@@ -164,3 +164,12 @@ remains 1,108 translated functions: independent call-signature and C++ method
 errors still exclude these units. Next address the static iterator helpers in
 00124000 and the EnsureRangeRecord signature in 00128000, with retail ABI
 verification rather than speculative casts.
+
+The 00124000 static iterator helpers now lower to file-local C functions,
+with their bodies and call sites preserved. The lowerer refuses to consume a
+class unless its sole method is followed by the class terminator. A full
+native rebuild succeeds; this unit now reports three errors: the sound-call
+signature disagreement and a local Frame_124CC0 inheritance declaration
+(with its consequent incomplete-type error). Coverage is still unchanged.
+Retail inspection confirms EnsureRangeRecord consumes an object pointer;
+fix its inconsistent callers/declarations together rather than adding casts.
