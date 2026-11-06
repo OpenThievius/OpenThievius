@@ -105,9 +105,13 @@ void func_001DCEA0(void* self, void* reader) {
     func_0011EC40(self, reader);
     sly1_native_loader_stage(3, (u32)object, (u32)reader);
     func_00138550(reader, object + 0x2310);
+    sly1_native_loader_stage(143, 0, (u32)reader);
     func_001384A0(reader, object + 0x2314);
+    sly1_native_loader_stage(144, 0, (u32)reader);
     func_00138550(reader, object + 0x1D74);
+    sly1_native_loader_stage(145, 0, (u32)reader);
     func_001B3040(reader);
+    sly1_native_loader_stage(146, 0, (u32)reader);
     sly1_native_trace_font(23, (u32)reader, *(u32*)(reader + 0x18),
                            *(u32*)(reader + 0x1C), *(u32*)(reader + 0x20),
                            *(u32*)(reader + 0x24));

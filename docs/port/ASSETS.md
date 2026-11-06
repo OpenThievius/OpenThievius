@@ -319,3 +319,25 @@ meaning and the rest of the container layout are not established. Treat it as
 a format lead, not a verified scene root. The next step is to trace the retail
 loader's use of this header field and correlate it with the resource-reader
 calls before assigning names or parsing it as geometry.
+
+A 2026-11-06 follow-up traced the Splash reader at each pre-list boundary:
+`func_00138550` consumes exactly `0x20` bytes per call, `func_001384A0`
+consumes a little-endian 16-bit length plus that many bytes, and
+`func_001B3040` consumes the animation/image tables before the object list.
+These port backfills match the current decomp C's stated field widths and
+sequence. In the observed run their cursor positions are `0x49` before the
+first optional block, `0x69` after it, `0x6B` after the buffered string,
+`0x8B` after the second optional block, and `0x14D5` after the animation
+tables. The first object list count and row then decode at `0x14D5` as 36 and
+(type 4, key 1, flag `0xFFFF`). This rules out a simple cursor-width error in
+those generic readers, but does not validate the opaque table payloads or the
+world/property state that precedes them.
+
+The next comparison target is `func_001C1190` and `func_0011EC40`, which parse
+world script values and property records before the cursor stage at `0x49`.
+The port has separate implementations in `resource_value_parser.c`; compare
+each property reader against its retail class-specific path and inspect the
+bytes at each cursor boundary. The exact current decomp reference is
+`src/main/file_1C05D0.cpp` and `src/main/0011C000.cpp` in the adjacent
+`sly1-decomp` checkout. Keep fixes to those missing or replaced behaviors in
+this port repository until the matching decompilation owns them.

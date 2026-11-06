@@ -591,3 +591,13 @@ C++ build does compile that unit, but its SDL launcher requires a 32-bit SDL3
 runtime that is not installed in this environment. A useful menu milestone
 therefore needs a native font/glyph rendering path and working menu callbacks,
 not only a backfill for the high-level draw function.
+
+The 2026-11-06 cursor follow-up adds stages after the optional world blocks,
+buffered string, and animation tables. It confirms the pre-list cursors at
+`0x49`, `0x69`, `0x6B`, `0x8B`, and `0x14D5`; the animation table ends where
+the 36-row object list begins. `resource_readers.c` and the table read widths
+were checked against current decomp C and match at this level. Next inspect
+`func_001C1190` script values and `func_0011EC40` property-specific reads in
+`resource_value_parser.c`; do not infer that valid table boundaries imply
+valid world-property interpretation. This diagnostic narrows the next review
+target but does not advance visual output or playability.
