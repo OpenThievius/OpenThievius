@@ -51,8 +51,10 @@ stub.
 ## Current measured blocker
 
 A bounded run on 2026-11-06 accepts sampled channel-2 DMA chains, uploads a
-512x512 PSMT8 font atlas at GS block `0x1400` and its 8x2 palette at `0x1600`,
-and decodes two draws per menu frame. The background draw has 6 vertices; the
+512x512 PSMT4 font atlas at GS block `0x1400` and its 8x2 palette at `0x1600`,
+and decodes two draws per menu frame. The atlas upload uses PSM `0x14` (PSMT4),
+with 131,072 bytes for 512x512 4-bit pixels; the CLUT uses PSM `0x00` and
+contains 16 entries. The background draw has 6 vertices; the
 font draw varies from 372 to 480 vertices. Font positions change across
 frames and the fade alpha rises from its initial low value. The float return
 and glyph-advance path are therefore producing changing positions; the old
@@ -60,15 +62,18 @@ and glyph-advance path are therefore producing changing positions; the old
 
 The window is still black or shows only a dark, noisy menu shape. The current
 failure is downstream of basic packet routing and geometry creation. The
-remaining graphics investigation is to compare the converted atlas against the
-GS upload: the 2026-11-06 dump at block `0x1400` looks like full-frame colored
-noise rather than recognizable glyph cells. Verify PSMT8 block/page swizzle,
-CLUT interpretation, upload addressing and UVs before adjusting blend state.
-Then compare GS blend/test/framebuffer state against the pixel output. The
-trace reports `TCC=true`, modulate texturing, blending enabled, and GS alpha
-scale; these values are evidence to inspect, not a proven fault. A valid
-texture upload and decoded geometry are present, but a readable menu has not
-been achieved.
+2026-11-06 texture dump at block `0x1400` looks like noise rather than
+recognizable glyph cells. Its source bytes begin at the logged image pointer,
+so the transfer is not obviously offset at the start; however, the dump does
+not establish that the source data or host-side PSMT4 decode is correct. Trace
+the resource bytes through upload, PSMT4 address conversion, CLUT lookup, and
+UV sampling before adjusting blend state. Do not apply a PSMT8 swizzle: the
+packet reports PSMT4.
+After checking the texture path, compare GS blend/test/framebuffer state
+against the pixel output. The trace reports `TCC=true`, modulate texturing,
+blending enabled, and GS alpha scale; these values are evidence to inspect,
+not a proven fault. The texture transfer and geometry are present, but correct
+texture contents and a readable menu have not been verified.
 
 To reproduce and inspect the texture conversion, run from the repository root:
 
@@ -86,12 +91,12 @@ files are not repository artifacts.
 
 ## Work needed next
 
-1. Set `OPENRAC_DUMP_TEXTURE=1400`; inspect the 512x512 decoded RGB atlas and
-   alpha plane. The current dump is noisy and has no clear glyph layout. Trace
-   PSMT8 page/block addressing and check the image upload source bytes, CLUT
-   entries, texture origin, UV ranges, filtering and alpha interpretation
-   against the GS packet. Establish whether corruption begins in upload
-   assembly or in texture-raster conversion.
+1. Rebuild and capture `OPENRAC_DUMP_TEXTURE=1400`; inspect the 512x512 decoded
+   RGB atlas and alpha plane. Confirm the 131,072 source bytes against the
+   runtime image pointer and resource record, then trace PSMT4 nibble ordering,
+   GS address conversion, 16-entry CLUT mapping, texture origin, UV ranges,
+   filtering and alpha interpretation. Establish whether corruption begins in
+   resource data, upload assembly or texture conversion.
 2. Compare the DirectRenderer shader's texture/blend/alpha-test behavior and
    framebuffer coordinates with the captured menu draw. Make the smallest
    renderer correction supported by the image and GS state, then capture a
@@ -125,15 +130,22 @@ generated report is `build/port/hostgen/us/report.md`.
 The best immediate contribution is graphics debugging: inspect the dumped
 font atlas/alpha plane and trace how its indexed pixels, UVs and GS blend state
 become the dark noisy output. It needs comfort with PS2 GS texture formats,
-GIF packets, OpenGL shaders and image inspection. Start with
+GIF packets, OpenGL shaders and image inspection. No additional game dump is
+needed on this development machine. A contributor on another machine needs a
+legally obtained NTSC-U `SCUS_971.98` ELF and matching Sly 1 disc image, plus
+the compiler/CMake/SDL/OpenGL dependencies described in the build instructions.
+Start with
 `port/renderer/texture_pool.cpp`, `port/renderer/direct.cpp`,
 `port/renderer/shaders/direct.frag`, and `port/game/sly1-us/hand/native_c/`.
-The texture dump and run command above provide a reproducible starting point.
-A second track is to inspect `build/port/hostgen/us/report.md`, follow a
-missing function on the actual menu/boot/level path, and implement only the
-needed behavior as a port-only C backfill. Contributors need the NTSC-U
-`SCUS_971.98` ELF and Sly 1 ISO/BIN; these are already available on this
-machine, and `docs/port/ASSETS.md` covers setup and one-time extraction.
+The dump command above is reproducible; compare a fresh capture with the
+existing evidence before changing renderer behavior. For game-code work,
+inspect `build/port/hostgen/us/report.md`, find a missing function on the
+active boot/menu/level path, and check the refreshed decomp snapshot for
+matching C first. If it is still missing, implement it as a port-only C
+backfill and register it in `backfills.tsv`/hostgen inputs. Keep the decomp
+checkout read-only. When matching code arrives, let it replace the backfill
+through source precedence and retain only port-specific adaptation.
+`docs/port/ASSETS.md` covers ELF/ISO setup and one-time extraction.
 After a readable menu, work remains on Sly-specific level data and scene
 rendering, controller-to-pad integration, collision, audio, and saves.
 To move toward playability, the project needs: (1) a verified visible menu
