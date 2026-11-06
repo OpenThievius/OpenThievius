@@ -85,6 +85,11 @@ func_00144270	native_c/func_00144270.c
 func_00144008	native_c/func_00144008.c
 func_001EEBB0	native_c/func_001EEBB0.c
 func_001389D0	native_c/func_001389D0.c
+func_00129DF8	native_c/collision_contact_tables.c
+func_001385A0	native_c/collision_contact_tables.c
+func_00138738	native_c/collision_contact_tables.c
+func_00138788	native_c/collision_contact_tables.c
+func_00138F28	native_c/collision_contact_tables.c
 func_00140D90	native_c/startup_loader.c
 func_001605E8	native_c/startup_loader.c
 func_00160CC8	native_c/startup_loader.c

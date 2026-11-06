@@ -12,6 +12,11 @@ launcher uses them; same-address C++ versions under `native/` only serve the
 freestanding host32 diagnostic and do not feed the SDL build. Remove both
 port-side versions when matching decompilation code becomes available.
 
+`collision_contact_tables.c` provides contact-pair flags, row-pool operations,
+the collider compatibility check, and retry-counter reset after a collider is
+loaded. These are port-only replacements for missing matching host C and can
+be removed as those functions become available.
+
 `func_0015EFE8` drains a completed frame's three intrusive lists and returns
 their nodes to their owning objects. `func_00152600` is the corresponding
 list unlink primitive. These keep the SDL frame-context cleanup separate from
