@@ -575,6 +575,35 @@ void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
         m_upload.data.end(), data.begin(), data.begin() + static_cast<std::ptrdiff_t>(take)
     );
     if (m_upload.data.size() >= m_upload_bytes) {
+        if (const char* dump = std::getenv("OPENRAC_DUMP_UPLOAD")) {
+            char* end = nullptr;
+            const unsigned long block = std::strtoul(dump, &end, 0);
+            if (end != dump && *end == '\0' && block == m_upload.dbp) {
+                char path[96];
+                std::snprintf(path, sizeof(path), "/tmp/sly1-gs-upload-%04lx.bin", block);
+                if (FILE* file = std::fopen(path, "wb")) {
+                    std::fwrite(m_upload.data.data(), 1, m_upload.data.size(), file);
+                    std::fclose(file);
+                    log::info("2D upload payload at {:#x} written to {}", block, path);
+                }
+            }
+        }
+        if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
+            static unsigned upload_traces = 0;
+            if (upload_traces < 16) {
+                const auto* bytes = m_upload.data.data();
+                log::info(
+                    "{}: image_upload={} dbp={:#x} dbw={} psm={:#x} xy={},{} size={}x{} bytes={} first={:02x}{:02x}{:02x}{:02x}",
+                    "native 2d", upload_traces, m_upload.dbp, m_upload.dbw,
+                    m_upload.dpsm, m_upload.x, m_upload.y, m_upload.width,
+                    m_upload.height, m_upload.data.size(),
+                    m_upload.data.size() > 0 ? bytes[0] : 0,
+                    m_upload.data.size() > 1 ? bytes[1] : 0,
+                    m_upload.data.size() > 2 ? bytes[2] : 0,
+                    m_upload.data.size() > 3 ? bytes[3] : 0);
+                ++upload_traces;
+            }
+        }
         if (g_dump_draws) {
             log::info(
                 "upload to block {:#x} width {} psm {:#x} at {},{} size {}x{}",
@@ -1215,6 +1244,20 @@ void GifInterpreter::ensure_draw() {
         }
         m_state = s;
         m_state_dirty = false;
+        if (s.textured && s.source == 0 && !s.frame_source && s.texture != 0 &&
+            std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
+            static unsigned texture_traces = 0;
+            if (texture_traces < 16) {
+                const Rgba8Image& image = m_textures.image(s.texture);
+                log::info(
+                    "{}: texture_state={} tbp={:#x} tbw={} psm={:#x} tw={} th={} cbp={:#x} csa={} cpsm={:#x} csm={} tcc={} tfx={} handle={:#x} image={}x{} alpha_scale={}",
+                    "native 2d", texture_traces, c.tex0.tbp0, c.tex0.tbw, c.tex0.psm,
+                    c.tex0.tw, c.tex0.th, c.tex0.cbp, c.tex0.csa, c.tex0.cpsm, c.tex0.csm, c.tex0.tcc,
+                    static_cast<int>(c.tex0.tfx), s.texture, image.width,
+                    image.height, static_cast<int>(m_textures.alpha_scale(s.texture)));
+                ++texture_traces;
+            }
+        }
     }
     // An off-screen target is one once something is drawn into it, not when FRAME merely names it:
     // the game sets FRAME to blocks it then uploads textures to (its register sets name a panel's
@@ -1691,11 +1734,36 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
         static unsigned trace_frames = 0;
-        if (trace_frames < 30) {
+        static unsigned trace_larger_frames = 0;
+        const auto vertex_count = m_interpreter->vertices().size();
+        const auto draw_count = m_interpreter->draws().size();
+        const bool larger_packet = packets.size() >= 512 || vertex_count != 0 ||
+                                   draw_count != 0 || !m_interpreter->error().empty();
+        if (trace_frames < 30 || (larger_packet && trace_larger_frames < 40)) {
             log::info("{}: packet_bytes={} decoded_vertices={} draws={} error={}", name(),
-                      packets.size(), m_interpreter->vertices().size(),
-                      m_interpreter->draws().size(), m_interpreter->error());
-            ++trace_frames;
+                      packets.size(), vertex_count, draw_count, m_interpreter->error());
+            static unsigned draw_traces = 0;
+            if (vertex_count != 0 && draw_traces < 8) {
+                const auto& vertices = m_interpreter->vertices();
+                const auto& decoded = m_interpreter->draws();
+                for (std::size_t i = 0; i < decoded.size() && i < 4; ++i) {
+                    const DirectDraw& draw = decoded[i];
+                    if (draw.count == 0 || draw.first >= vertices.size()) continue;
+                    const DirectVertex& vertex = vertices[draw.first];
+                    const DirectState& s = draw.state;
+                    log::info(
+                        "{}: draw={} first={} count={} target={:#x} source={:#x} texture={:#x} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} first_vertex=xy:{:.3f},{:.3f} stq:{:.3f},{:.3f},{:.3f} rgba:{},{},{},{}",
+                        name(), i, draw.first, draw.count, s.target, s.source, s.texture,
+                        s.textured, s.tcc, static_cast<int>(s.tfx), s.blend,
+                        s.alpha.a, s.alpha.b, s.alpha.c, s.alpha.d, s.alpha.fix,
+                        s.fbmsk, test_text(s.test), vertex.x, vertex.y, vertex.s,
+                        vertex.t, vertex.q, vertex.rgba[0], vertex.rgba[1],
+                        vertex.rgba[2], vertex.rgba[3]);
+                }
+                ++draw_traces;
+            }
+            if (trace_frames < 30) ++trace_frames;
+            else ++trace_larger_frames;
         }
     }
     const stats::Scope draws("2d draws");
@@ -1737,6 +1805,7 @@ void DirectRenderer::use_program(bool masked) {
 }
 
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    const bool flat_debug = std::getenv("OPENRAC_DEBUG_DIRECT_FLAT") != nullptr;
     // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
     // target. The program first: every uniform below is set for this draw.
     const bool masked = s.target == 0 && render_state.target.resolve_framebuffer != 0;
@@ -1756,8 +1825,8 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
     }
-    glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
-    if (s.textured) {
+    glUniform1i(m_uniforms.textured, s.textured && !flat_debug ? 1 : 0);
+    if (s.textured && !flat_debug) {
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
             glBindTexture(GL_TEXTURE_2D, g_frame_snapshot.texture);
@@ -1826,7 +1895,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         static_cast<float>((s.fog_colour >> 16) & 0xFF)
     );
 
-    if (s.blend) {
+    if (s.blend && !flat_debug) {
         const GlBlend b = translate_blend(s.alpha);
         if (!b.exact) {
             log::debug(
@@ -1849,7 +1918,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform1i(m_uniforms.source_scale, 0);
     }
 
-    if (!s.test.zte) {
+    if (flat_debug || !s.test.zte) {
         glDisable(GL_DEPTH_TEST);
     } else {
         glEnable(GL_DEPTH_TEST);
@@ -1883,8 +1952,12 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     }
     const auto y0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.y0) * sy));
     const auto y1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.y1 + 1) * sy));
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+    if (flat_debug) {
+        glDisable(GL_SCISSOR_TEST);
+    } else {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+    }
 }
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
@@ -1923,6 +1996,16 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
         return;
     }
     apply(s, render_state);
+
+    if (std::getenv("OPENRAC_DEBUG_DIRECT_FLAT") != nullptr) {
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_FALSE);
+        glUniform1i(m_uniforms.alpha_test, 0);
+        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        ++render_state.stats.draw_calls;
+        render_state.stats.triangles += d.count / 3;
+        return;
+    }
 
     // FRAME.FBMSK: a channel whose bits are all masked is not written.
     const GLboolean red = (s.fbmsk & 0x000000FFu) != 0x000000FFu ? GL_TRUE : GL_FALSE;

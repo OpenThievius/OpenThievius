@@ -60,19 +60,21 @@ frames and the fade alpha rises from its initial low value. The float return
 and glyph-advance path are therefore producing changing positions; the old
 “zero vertices/draws” and identical-coordinate diagnoses are obsolete.
 
-The window is still black or shows only a dark, noisy menu shape. The current
-failure is downstream of basic packet routing and geometry creation. The
-2026-11-06 normal-color texture dump at block `0x1400` looks noisy rather than
-like a readable font. A diagnostic mask that makes PSMT4 index 15 transparent
-and all other indices white reveals structured glyph shapes. This shows the
-upload is not simply random data, but it does not prove the retail CLUT order,
-alpha treatment, or on-screen UV sampling is right. Do not add a PSMT8 swizzle:
-the packet reports PSMT4, and no swizzle is currently supported by the evidence.
-After checking the texture path, compare GS blend/test/framebuffer state
-against the pixel output. The trace reports `TCC=true`, modulate texturing,
-blending enabled, and GS alpha scale; these values are evidence to inspect,
-not a proven fault. The texture transfer and geometry are present, but correct
-texture contents and a readable menu have not been verified.
+The normal renderer produces a very dark, noisy menu shape. A direct
+framebuffer readback confirms the pixels are already dark/noisy before SDL
+swaps the window. An opt-in flat-color pass that bypasses texture, depth,
+scissor, and blend state draws the decoded menu geometry, so the vertex stream
+is rasterized. The remaining failure is in texture sampling or GS pixel/state
+interpretation, not in the final window presentation. The 512x512 PSMT4 upload
+at `0x1400` has near-uniform index counts and looks spatially noisy when all 16
+indices are visualized as grayscale. Reading the same bytes as an already
+swizzled GS-memory image also does not produce a recognizable atlas. These
+experiments do not establish which format/order Sly's source buffer uses; do
+not apply a swizzle based on them. Trace the DMA REF source for the image data,
+then validate PSMT4 indices, CLUT order/alpha, TEX0/UV selection, and shader
+output against captured framebuffer pixels. The trace reports `TCC=true`,
+modulate texturing, blending enabled, and GS alpha scale; those are evidence
+to inspect, not proven faults.
 
 To reproduce and inspect the texture conversion, run from the repository root:
 
@@ -88,18 +90,43 @@ font/menu traces are in `/tmp/sly1-native-texture-trace.log` and
 `/tmp/sly1-native-draw-state.log` on this development machine; those temporary
 files are not repository artifacts.
 
+Additional opt-in diagnostics for a new run:
+
+```sh
+OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
+  OPENRAC_DEBUG_T4_INDEX=all OPENRAC_DUMP_TEXTURE=1400 timeout 18s \
+  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/path/to/your/Sly 1 NTSC-U.iso'
+```
+
+The frame dump writes up to eight actual draw frames to
+`/tmp/sly1-native-frame-*.ppm`; the upload dump writes the assembled IMAGE
+payload to `/tmp/sly1-gs-upload-1400.bin`. `OPENRAC_DEBUG_DIRECT_FLAT=1`
+bypasses texture, depth, scissor and blend state to isolate geometry
+rasterization. `OPENRAC_DEBUG_T4_INDEX=all` visualizes all indices as grayscale;
+values `0` through `15` make one index transparent. The
+`OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` comparison treats upload bytes as an
+existing GS-local-memory image; it is not a default renderer mode.
+
 ## Work needed next
 
-1. Compare the normal-color dump with the diagnostic PSMT4 index mask:
-   `OPENRAC_DEBUG_T4_INDEX=1 OPENRAC_DUMP_TEXTURE=1400`. Trace the 16-entry
-   CLUT through the image upload and TEX0 load, including CSM1 palette order,
-   alpha values, and texture color/alpha function. Keep the confirmed PSMT4
-   source nibble order and glyph atlas unless new evidence contradicts them.
-2. Trace the glyph UVs, screen positions, scissor, and framebuffer state into
-   the DirectRenderer shader. Compare the captured state with the rendered
-   pixels, then make the smallest supported correction and capture a readable
-   menu frame.
-3. Once the menu is readable, trace the title-to-level transition and identify
+1. Trace the DMA chain's REF/REFS payload addresses that supply the `0x1400`
+   IMAGE transfer. Compare the exact 131,072-byte assembled image payload to
+   the referenced guest-memory range and the resource record. Verify the source
+   before changing PSMT4 conversion.
+2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
+   `15` to make one index transparent, and
+   `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
+   Then verify the actual PSMT4 nibble order and 16-entry CSM1 CLUT against GS
+   transfer fields and texture samples. No tested form yet yields a readable
+   atlas, so preserve default conversion until evidence identifies the
+   discrepancy.
+3. Compare normal framebuffer captures with
+   `OPENRAC_DEBUG_DIRECT_FLAT=1`. Trace glyph UVs, positions, scissor, depth,
+   blend and alpha-test state through the DirectRenderer shader. Change the
+   smallest state that explains the captured pixels, then capture a readable
+   menu frame with the default renderer.
+4. Once the menu is readable, trace the title-to-level transition and identify
    the missing Sly-specific scene/resource decode and draw path. OpenRAC's
    renderer and host runtime are reusable; Ratchet world records and game
    logic are not.

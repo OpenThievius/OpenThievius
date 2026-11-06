@@ -7,6 +7,7 @@
 #include "../platform/window.h"
 #include "../platform/sly_input.h"
 #include "renderer/direct.h"
+#include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
 #include "renderer/texture_pool.h"
@@ -19,6 +20,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -250,6 +252,17 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);
 }
 
+extern "C" void openrac_native_renderer_trace_dma_call(std::uint32_t channel_address,
+                                                          std::uint32_t source_address) {
+    if (std::getenv("OPENRAC_TRACE_DMA_CALL") == nullptr) return;
+    static std::atomic<unsigned> trace_count{0};
+    const unsigned index = trace_count.fetch_add(1, std::memory_order_relaxed);
+    if (index < 64) {
+        std::fprintf(stderr, "[native dma call] #%u channel=%#010x source=%#010x\n",
+                     index + 1, channel_address, source_address);
+    }
+}
+
 /* Receive the GIF stream after the native VIF1/VU1 path has expanded the
  * display list. The direct renderer consumes ordered GIF bytes at present. */
 extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
@@ -388,12 +401,43 @@ extern "C" void openrac_native_window_present(void) {
     g_clear(0x00004000u);
     std::vector<std::uint8_t> packets;
     { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
+    if (packets.size() >= 512u && packets.size() <= 16u * 1024u * 1024u &&
+        std::getenv("OPENRAC_DUMP_NATIVE_PACKETS") != nullptr) {
+        static unsigned dump_index = 0;
+        if (dump_index < 16) {
+            char path[80];
+            std::snprintf(path, sizeof(path), "/tmp/sly1-native-render-packets-%02u.bin",
+                          dump_index++);
+            if (FILE* file = std::fopen(path, "wb")) {
+                std::fwrite(packets.data(), 1, packets.size(), file);
+                std::fclose(file);
+                std::fprintf(stderr, "[native packet dump] bytes=%zu path=%s\n",
+                             packets.size(), path);
+            }
+        }
+    }
     if (!packets.empty() && g_direct && g_textures) {
         openrac::renderer::FrameInput input;
         input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] = packets;
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
         g_textures->end_frame();
+        if (packets.size() >= 512u && std::getenv("OPENRAC_DUMP_NATIVE_FRAMES") != nullptr) {
+            static unsigned frame_dump = 0;
+            if (frame_dump < 8) {
+                const auto pixels = openrac::renderer::read_rgba(0, width, height);
+                char path[96];
+                std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);
+                if (FILE* file = std::fopen(path, "wb")) {
+                    std::fprintf(file, "P6 %d %d 255\n", width, height);
+                    for (std::size_t i = 0; i + 3 < pixels.size(); i += 4) {
+                        std::fwrite(pixels.data() + i, 1, 3, file);
+                    }
+                    std::fclose(file);
+                    std::fprintf(stderr, "[native frame dump] path=%s\n", path);
+                }
+            }
+        }
     }
     g_window->swap();
 }

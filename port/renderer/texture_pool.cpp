@@ -7,6 +7,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <format>
@@ -272,6 +273,25 @@ std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, cons
             }
         }
     }
+    if (tex0.psm == gs::kPsmt4 && std::getenv("OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE") != nullptr) {
+        // Diagnostic only: treat the uploaded bytes as an existing GS-local-memory image.
+        for (int y = 0; y < th; ++y) {
+            for (int x = 0; x < tw; ++x) {
+                const std::uint64_t source = swizzle::nibble_address(
+                    tex0.psm, x, y, 0, std::max<std::uint32_t>(up.dbw, 1));
+                if (source / 2 >= up.data.size()) continue;
+                const std::uint8_t byte = up.data[static_cast<std::size_t>(source / 2)];
+                const std::uint8_t pixel = static_cast<std::uint8_t>(
+                    (source & 1u) != 0 ? byte >> 4 : byte & 0x0F);
+                const std::size_t destination = static_cast<std::size_t>(y * tw + x);
+                if ((destination & 1u) != 0) {
+                    out[destination / 2] = static_cast<std::uint8_t>((out[destination / 2] & 0x0F) | (pixel << 4));
+                } else {
+                    out[destination / 2] = static_cast<std::uint8_t>((out[destination / 2] & 0xF0) | pixel);
+                }
+            }
+        }
+    }
     return out;
 }
 
@@ -382,6 +402,25 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const std::vector<std::uint8_t> raster = texture_raster(*stored, tex0);
     Rgba8Image image =
         convert(raster, tex0.psm, tex0.width(), tex0.height(), colours, texa, AlphaScale::Gs);
+    const char* debug_index = std::getenv("OPENRAC_DEBUG_T4_INDEX");
+    if (tex0.psm == gs::kPsmt4 && debug_index != nullptr) {
+        // Diagnostic only: `all` visualizes the raw index; a number makes that index transparent.
+        char* end = nullptr;
+        const long parsed = std::strtol(debug_index, &end, 0);
+        const bool visualize = std::strcmp(debug_index, "all") == 0;
+        const int transparent = end != debug_index && *end == '\0' && parsed >= 0 && parsed < 16
+                                    ? static_cast<int>(parsed)
+                                    : 15;
+        std::vector<std::uint32_t> indices;
+        indices.reserve(16);
+        for (int i = 0; i < 16; ++i) {
+            const std::uint8_t shade = static_cast<std::uint8_t>(i * 17);
+            indices.push_back(visualize ? rgba(shade, shade, shade, 255)
+                                        : rgba(255, 255, 255, 255));
+        }
+        if (!visualize) indices[static_cast<std::size_t>(transparent)] = rgba(0, 0, 0, 0);
+        image = convert(raster, tex0.psm, tex0.width(), tex0.height(), indices, texa, AlphaScale::Gs);
+    }
     if (image.pixels.empty()) {
         return 0;  // no texture the chip could sample (convert())
     }
