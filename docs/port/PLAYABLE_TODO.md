@@ -134,10 +134,14 @@ the first playable gate, not proof that the whole game is complete.
 
 ## Immediate next session
 
-Start with items 1–3: baseline manifest, runtime boundary audit and excluded
-source-unit report. Then identify a real level object's ownership in item 4.
-Do not spend another session extending generic hardware behavior or collecting
-more zero-transform samples without identifying the sampled objects.
+Work from the audited startup frontier. First recover `func_001E2398` from
+`file_1E08F8.cpp`, then `func_0018E5E8` from `file_18D8E0.cpp`; both are root
+functions currently missing from host C. Lower only the C++ constructs that
+block those units, and verify each changed call against the US assembly. Keep
+their render-thread and movie-thread behavior intact. Rebuild and check whether
+the missing frontier advances beyond these roots. Afterward, prioritize the
+remaining no-C functions reached from the selected Splash/menu path. Do not
+infer visual correctness from function coverage or raw submission counts.
 
 ## Coverage audit result (2026-11-07)
 
@@ -146,9 +150,10 @@ Run `python3 port/tools/audit_hostgen.py build/port/hostgen/us/report.json
 The JSON retains complete compiler diagnostics and the direct-call frontier;
 its categories overlap and do not establish indirect-call coverage.
 
-The existing report has 57 unreadable units: 16 report inherited-member
-collisions, 15 layout assertion failures, 11 call-signature mismatches and
-7 unlowered C++ members. Other errors also remain. Core object units
+The initial report at the time of this audit had 57 unreadable units: 16
+reported inherited-member collisions, 15 layout assertion failures, 11
+call-signature mismatches and 7 unlowered C++ members. This snapshot is
+historical; later coverage results are recorded below. Core object units
 00124000 and 00128000 encounter duplicate inherited `id` fields in the staged
 animation header. World unit 0019C000 retains a C++ cursor constructor and
 method syntax. Prioritize correct inheritance/layout and cursor lowering;
