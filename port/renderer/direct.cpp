@@ -7,6 +7,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <format>
 
@@ -1687,6 +1688,15 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     {
         const stats::Scope decode("2d decode");
         submit(packets);
+    }
+    if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
+        static unsigned trace_frames = 0;
+        if (trace_frames < 30) {
+            log::info("{}: packet_bytes={} decoded_vertices={} draws={} error={}", name(),
+                      packets.size(), m_interpreter->vertices().size(),
+                      m_interpreter->draws().size(), m_interpreter->error());
+            ++trace_frames;
+        }
     }
     const stats::Scope draws("2d draws");
     flush(state);

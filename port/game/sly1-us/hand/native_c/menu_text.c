@@ -52,6 +52,9 @@ extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
                                   u32 a3);
 extern s32 func_0015C188(s32 index);
 extern s32 func_0015C1C0(s32 index);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
+
 
 static void menu_layout(SlyTextLayout* out, f32 x, f32 y, f32 w, f32 h,
                         u32 color, s32 horizontal) {
@@ -86,6 +89,8 @@ void func_00194F80(void* opaque) {
     }
     SlyFontForMenu* font = (SlyFontForMenu*)font_address;
     SlyMenuText* menu = (SlyMenuText*)(MENU_TABLE_ADDRESS + (u32)page * 24u);
+    sly1_native_trace_font(1, (u32)opaque, (u32)mode, (u32)page,
+                           font_address, (u32)menu->count);
     const f32 blend = *(f32*)(self + 0x23Cu);
     const f32 width = *(f32*)(self + 0x234u) * blend;
     const f32 height = *(f32*)(self + 0x238u) * blend;

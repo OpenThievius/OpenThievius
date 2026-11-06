@@ -103,6 +103,7 @@ typedef struct FontFrameRect {
     f32 h;
 } FontFrameRect;
 
+
 extern u32 D_00262268[];
 extern s32 D_0026227C;
 extern s8 D_00262250[];
@@ -130,6 +131,8 @@ extern f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2,
                                 u32 a3, f32 f12, f32 f14);
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2,
                                   u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 typedef struct FontLegacyLayout {
     f32 x;
@@ -439,6 +442,11 @@ void func_0015E318(void* opaque, FontTextLayout* layout, s32 flag,
     f32 top;
     f32 left = 0.0f;
     s32 value;
+    u32 x_bits, y_bits;
+    __builtin_memcpy(&x_bits, &layout->x, sizeof(x_bits));
+    __builtin_memcpy(&y_bits, &layout->y, sizeof(y_bits));
+    sly1_native_trace_font(2, text->text_address, text->default_font,
+                           (u32)packet, x_bits, y_bits);
 
     func_0015DB80(text);
     while ((value = func_0015DBE0(text)) != 0) {
@@ -515,6 +523,11 @@ f32 func_0015CD18(f32 x, f32 y, void* opaque, s32 key, u32 color,
                   void* packet) {
     FontTextFont* font = (FontTextFont*)opaque;
     FontGlyph* glyph = func_0015DAB8(font, key);
+    u32 x_bits, y_bits;
+    __builtin_memcpy(&x_bits, &x, sizeof(x_bits));
+    __builtin_memcpy(&y_bits, &y, sizeof(y_bits));
+    sly1_native_trace_font(3, (u32)key, (u32)opaque, (u32)glyph,
+                           x_bits, y_bits);
     if (glyph == 0) return (f32)font->advance * font->sx;
     s32 shift = (s32)((font->tex0 >> 30) & 0xFu);
     s32 texture_height = 1 << shift;

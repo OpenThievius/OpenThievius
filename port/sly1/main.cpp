@@ -31,6 +31,17 @@ void sly1_native_start_worker(void);
 void sly1_native_start_loader(void);
 }
 
+extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a0,
+                                              std::uint32_t a1, std::uint32_t a2,
+                                              std::uint32_t a3, std::uint32_t a4) {
+    if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
+    static std::atomic<unsigned> traces{0};
+    const unsigned index = traces.fetch_add(1, std::memory_order_relaxed);
+    if (index >= 64) return;
+    std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
+              << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+}
+
 namespace {
 
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \
