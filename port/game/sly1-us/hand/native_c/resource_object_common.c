@@ -78,16 +78,12 @@ void func_00162890(void* block, void* reader, void* object) {
         }
         if (flags & 1) {
             const s32 source_index = func_00137D10(reader);
+            /* Retail reads only the index here, then copies a 0x70-byte
+             * record in memory. The referenced record has no stream payload. */
             if (source_index >= 0 && source_index < i)
                 __builtin_memcpy(record, records + (u32)source_index * 0x70u, 0x70u);
             else
                 __builtin_memset(record, 0, 0x70u);
-            u32 vectors = (u32)func_0018D500(0x40);
-            if (vectors != 0) func_00137F08(reader, (void*)vectors);
-            else {
-                u8 scratch[64];
-                func_00137F08(reader, scratch);
-            }
         } else {
             *(u32*)(record + 0x1C) = 0x501502F9u;
             *(u32*)(record + 0x20) = 0x44FA0000u;
