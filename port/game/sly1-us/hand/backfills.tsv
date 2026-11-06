@@ -182,7 +182,6 @@ func_00125108	native_c/scene_object_dispatch.c
 func_00182D00	native_c/scene_object_dispatch.c
 func_001DFD90	native_c/func_001DFD90.c
 func_00124DF8	native_c/func_00124DF8.c
-func_00196410	native_c/func_00196410.c
 func_001463C0	native_c/func_001463C0.c
 func_001B3040	native_c/animation_table_loader.c
 func_001607D0	native_c/func_001607D0.c
@@ -294,3 +293,5 @@ func_001AA8A8	native_c/ui_layout.c
 func_00161458	native_c/display_packets.c
 func_001615F0	native_c/display_packets.c
 func_0019DDA0	native_c/display_packets.c
+func_00137FB0	native_c/collision_mesh_reader.c
+func_001289C0	native_c/resource_object_common.c

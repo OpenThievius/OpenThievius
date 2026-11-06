@@ -157,6 +157,27 @@ def prepare_c_view(source, version):
         if not changed:
             break
 
+    screen_header = next(
+        (header for header in header_texts if header.name == "screen_element.h"), None
+    )
+    if screen_header is not None:
+        header_text = header_texts[screen_header]
+        declaration = re.search(r"struct T217D_0F0\s*\{", header_text)
+        if declaration is not None:
+            depth = 1
+            pos = declaration.end()
+            while pos < len(header_text) and depth:
+                if header_text[pos] == "{":
+                    depth += 1
+                elif header_text[pos] == "}":
+                    depth -= 1
+                pos += 1
+            body = header_text[declaration.start():pos]
+            body = re.sub(r"\bf32\s+scale\s*;", "f32 textScale;", body, count=1)
+            header_texts[screen_header] = (
+                header_text[:declaration.start()] + body + header_text[pos:]
+            )
+
     for header, header_text in header_texts.items():
         target = staged / "include" / header.relative_to(source_includes)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -195,10 +216,9 @@ def prepare_c_view(source, version):
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
                 for kind, tag in all_tags)
-            if cpp.stem == "00134000":
-                # This unit's local C++ helpers wrap the retail stream logic.
-                # Lower static methods into file-local C functions so hostgen
-                # can read the matched code without changing its behavior.
+            if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
+                # These units use tiny C++ helper classes. Lower their static
+                # methods into file-local C functions in disposable staging.
                 while True:
                     method = re.search(
                         r"struct\s+([A-Za-z_]\w*)\s*\{\s*"
@@ -264,10 +284,52 @@ def prepare_c_view(source, version):
                 r"((const Desc\2*)((BaseObject*)\1)->desc)",
                 text,
             )
+            if cpp.stem == "file_1963D8":
+                text = text.replace(
+                    "void* func_001925F0(void);",
+                    "void* func_001925F0(void*, f32);",
+                )
+            if cpp.stem == "00148000":
+                # SN's target ABI calls this 16-byte aggregate through an
+                # output pointer. The decomp's C++ return form makes the host
+                # frontend emit a different call convention, so lower just
+                # this definition to the equivalent target-style sret form
+                # in disposable staging. Matching decomp sources stay intact.
+                text = text.replace(
+                    "s32 func_001493C8(void* out, T2173_3B0* self);",
+                    "void func_001493C8(void* out, T2173_3B0* self);",
+                )
+                text = text.replace(
+                    "Quad_1493C8 func_001493C8(T2173_3B0* self)",
+                    "void func_001493C8(void* out, T2173_3B0* self)",
+                )
+                text = text.replace(
+                    "    return r;\n}",
+                    "    *(Quad_1493C8*)out = r;\n}\n",
+                    1,
+                )
             # One matched C unit uses a tiny local C++ iterator with a
             # constructor/destructor. Lower that iterator to its field layout
             # and initialize the fields at its sole call site; the host C
             # translation does not need its destructor bookkeeping.
+            if cpp.stem == "001DC000":
+                text = re.sub(
+                    r"s32 differs\(\)\s*\{\s*if \(this == 0\) return 0;\s*return a != b;\s*\}",
+                    "",
+                    text,
+                )
+                text = text.replace(
+                    "((Cur_11A338*)g_currentWorld->f2310)->differs()",
+                    "Cur_11A338_differs((Cur_11A338*)g_currentWorld->f2310)",
+                )
+                cursor_decl = re.search(r"struct Cur_11A338\s*\{.*?\};", text, flags=re.DOTALL)
+                if cursor_decl is not None:
+                    helper = (
+                        "\nstatic s32 Cur_11A338_differs(struct Cur_11A338* self) {\n"
+                        "    if (self == 0) return 0;\n"
+                        "    return self->a != self->b;\n}\n"
+                    )
+                    text = text[:cursor_decl.end()] + helper + text[cursor_decl.end():]
             if cpp.stem == "00138000":
                 text = re.sub(
                     r"struct Frame_13B610\s*\{.*?\n\};",

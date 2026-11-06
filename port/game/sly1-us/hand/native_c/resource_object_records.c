@@ -90,6 +90,21 @@ void func_0011ECB8(void* world, void* parameter, void* reader) {
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
     sly1_native_loader_stage(21, (u32)count, (u32)reader);
     while (count-- > 0) {
+        /* Some serialized callback records leave a zero pad byte before the
+         * next 16-bit type. Only consume it when the current little-endian
+         * value is out of the small type range and skipping it reveals one. */
+        u8* cursor = (u8*)*(u32*)((u8*)reader + 0x18);
+        s32 remaining = *(s32*)((u8*)reader + 0x1C);
+        if (remaining >= 3) {
+            u32 current = (u32)cursor[0] | ((u32)cursor[1] << 8);
+            u32 shifted = (u32)cursor[1] | ((u32)cursor[2] << 8);
+            if (current > 0xFFu && cursor[0] == 0 &&
+                shifted > 0 && shifted <= 0xFFu) {
+                *(u32*)((u8*)reader + 0x18) += 1u;
+                *(s32*)((u8*)reader + 0x1C) -= 1;
+                sly1_native_loader_stage(36, shifted, (u32)reader);
+            }
+        }
         s32 slot = func_00137D10(reader);
         s32 key = func_00137D10(reader);
         s32 flag = func_00137D10(reader);
