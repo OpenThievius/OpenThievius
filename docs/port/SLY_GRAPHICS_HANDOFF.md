@@ -177,14 +177,16 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Explain the second collider's `0xFFFF` face count and EOF during its face
-   loop. The current native path preloads the complete 150,849-byte descriptor;
-   the no-C `func_00137490` sector-ring worker is reached only after that
-   source is consumed, so it does not explain this EOF. Matching C for the
-   retail worker is available in the current `sly1-decomp` checkout. Verify
-   the collider's serialized boundary and the decoded-length/header semantics
-   before changing reader behavior. Keep any functional correction in the
-   port-only backfill.
+1. Find the earliest stream misalignment in Splash's object list. The trace
+   shows count 36 and a plausible first collider record (type 4, key 1), but
+   after its reader returns at decoded offset `0x1594`, the next record reads
+   type `0x5300`, outside the retail descriptor table. A later type-5 record
+   reaches the collider with 6,626 vertices and an all-ones face count at
+   decoded offset `0x14CE1`. The full descriptor is already preloaded and the
+   retail LZ window algorithm reproduces the decoded bytes, so do not patch
+   around the count yet. Compare the first object's actual stream consumption
+   with its retail method chain and check preceding world sections. Keep any
+   functional correction in the port-only backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.

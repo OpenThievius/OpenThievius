@@ -569,12 +569,18 @@ asynchronous sector-ring worker, and the current `sly1-decomp` checkout has
 matching C for it. The no-C stub is reached only after the synchronous source
 is consumed, so implementing that worker alone will not resolve the EOF. The
 native trace reaches a `0xFFFF` face count in the second collider and then
-exhausts the decoded stream. The offline decoder emits 430,858 bytes while the
-resource header begins with `0x5F4F0` (390,384); establish whether that header
-size limits a subresource or the whole decoded payload, and validate the
-collider record boundary before changing the reader again. Any resulting
-functional backfill stays in the port repository. The port remains not
-playable.
+exhausts the decoded stream. The earlier object-list transition is now the
+first suspicious point: a plausible type-4/key-1 collider returns at decoded
+offset `0x1594`, then the next record reads type `0x5300`, outside the retail
+descriptor table. A later type-5 record reaches the 6,626-vertex collider;
+its `0xFFFF` face count is present at decoded offset `0x14CE1`. A separate
+windowed translation of retail's LZ routine matches the offline decoder, so
+the bytes are not explained by a decoder mismatch. Compare the first object's
+stream consumption with its retail method chain and check the world sections
+before it. The offline decoder emits 430,858 bytes while the resource header
+begins with `0x5F4F0` (390,384); establish whether that header size limits a
+subresource or the whole decoded payload. Any resulting functional backfill
+stays in the port repository. The port remains not playable.
 
 The menu drawing boundary is deeper than `func_00194F80`: its text path calls
 `func_0015C8B8`, `func_0015DB28`, `func_0015DFF8`, `func_0015E1B0`,

@@ -141,6 +141,18 @@ the unresolved issue is why the parser requests a 65,535-face block after the
 descriptor's bytes are exhausted; verify the serialized collider boundary and
 the decoded-length/header semantics before adding more reader behavior.
 
+The current trace narrows the first suspicious cursor transition. The top-level
+object list begins with count 36 and a plausible first record (type 4, key 1,
+flag `0xFFFF`). Its collider reader returns at decoded offset `0x1594`; the
+next record then reads type `0x5300`, which is outside the retail descriptor
+table. A later type-5 record enters the collider reader and yields 6,626
+vertices, followed at decoded offset `0x14CE1` by face count `0xFFFF`. The
+decoded bytes match an independent windowed translation of retail's LZ logic,
+so these values are present in the decoded stream. The list transition after
+the first collider is now the earliest concrete alignment lead; establish
+whether the object payload or a preceding world section is being consumed
+incorrectly before treating the later count as a retail asset sentinel.
+
 The retail callback chain narrows the missing work further. After setting the
 range, `func_001E4EA8` requests engine object type `0x6C` from
 `func_0011E580`, then invokes the returned object's method at vtable offset
