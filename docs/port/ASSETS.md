@@ -346,8 +346,10 @@ The 2026-11-06 follow-up checked the pre-list cursor readers against the
 current decomp checkout at `cf9ad464696a197803f584980bff43ed62b6bf31`.
 `func_0011BA28`, `func_0011E680`, `func_0011ECB8`, the collider field readers,
 and `func_00128C10` agree on the observed serialized widths. In the captured
-first collider, `func_00162890` starts at `0x1538` and returns at `0x158D`
-with record count zero; `func_00128C10` consumes its four-byte zero flags,
+first collider, `func_001289C0` starts at `0x1538`; its preceding transform,
+property, and nested-object fields reach `func_00162890` at `0x1587`. That
+reader consumes six bytes and returns at `0x158D` with record count zero.
+`func_00128C10` then consumes its four-byte zero flags,
 then the one-byte group count and two-byte empty child list end at `0x1594`.
 The next list row is the raw bytes `00 53 00 4B 05 FF` (type/slot `0x5300`,
 key `0x4B00`, flag `0xFF05`), so this is not a trace-formatting problem.
