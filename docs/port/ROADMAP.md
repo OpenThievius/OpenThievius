@@ -626,15 +626,18 @@ match their retail serialized widths in the captured path. For the first
 collider, `func_001289C0` starts at decoded `0x1538`, reaches
 `func_00162890` at `0x1587`, and that nested reader consumes six bytes to
 `0x158D` with zero records. The zero transform flags, empty group count, and
-empty child list then end at `0x1594`. The next six bytes really decode as
-`00 53 00 4B 05 FF`, which is not a valid retail object descriptor row.
-The `func_001289C0` disassembly and the empty-record `func_00162890` branch
-match the current port widths, so they do not establish a cause for the row
-boundary. Do not change the object-list cursor speculatively; inspect other
-object shapes and factory/callback semantics. A port-only `func_001B89B8`
-translation now matches its 80-byte retail body and removes one no-C callback,
-but the latest native run still reaches the same row boundary and remains
-black. This does not advance the playable milestone.
+empty child list then end at `0x1594`. Its actual descriptor dispatch reaches
+the retail C03 reader `func_001BAC30`; that callback parses a zero-vertex,
+zero-face first mesh before returning at `0x1594`. The next bytes decode as
+`00 53 00 4B 05 FF`, and a later C03 starts at `0x1643` with 6,626 vertices.
+These facts alone do not establish a row-boundary error: the decoded file's
+first word is `0x5F4F0` (390,384), and the file is 430,858 bytes, leaving
+`0x9E1A` bytes after that declared length. A high-entropy 390,384-byte range
+starts at `0x9E1A`, but its identity as the image payload remains unverified.
+Map the decoded resource's section ownership and compare object construction
+against retail before adding a skip or changing geometry counts. Keep the
+`func_001B89B8` translation and other functional backfills port-only. The
+frame remains black and the port is not playable.
 
 The 2026-11-06 native collider pass adds a port-only scalar translation of
 `func_001B8960` and its retail VU mesh transform. It runs the existing

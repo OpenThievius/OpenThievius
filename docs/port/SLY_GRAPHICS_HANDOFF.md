@@ -55,7 +55,8 @@ The current bounded trace supersedes the earlier `0x128BC` dimension and
 9,542-record diagnosis below this point in the investigation history. Retail
 LZ output still matches all 430,858 bytes of the extracted Splash resource.
 The live parser failure is now localized to a collision mesh in the object
-list:
+list, while the meaning and overlap of the decoded container sections remain
+unresolved:
 
 * The second collider starts at decoded offset `0x1643`. Its mesh has 6,626
   12-byte vertices; face count `0xFFFF` follows at `0x14CE1`. The previous
@@ -70,14 +71,24 @@ list:
   the early return and is no longer current evidence.
 * The callback returns at EOF and frame setup continues, but
   `func_001DBA38` requests `0x5F4F0` image bytes with the stream already
-  exhausted. The destination remains zero-filled, and the renderer reports no
-  submitted menu vertices in this run.
+  exhausted. The destination remains zero-filled. Separate direct-renderer
+  tracing has recorded title quads entering the renderer, while the captured
+  framebuffer remains black.
 
-The next investigation is the stream/refill boundary and why the selected
-object declares 65,535 faces when the decoded Splash resource ends before that
-block can be read. Verify the retail worker's continuation and the object's
-serialized range before changing texture or GS behavior. Keep the count
-handling in `hand/native_c/`; it remains a port-only backfill. The earlier
+The next investigation is the decoded container layout and the ownership of
+the suspected image block. The Splash decoded size is 430,858 bytes, its first
+word is `0x5F4F0` (390,384), and `430858 - 390384 = 0x9E1A`. The 390,384 bytes
+beginning at decoded offset `0x9E1A` have high entropy and look like image data,
+but that offset has not been proven to be the serialized image payload. The
+object list starts at `0x14D5`; its first type-4/key-1 row enters the retail
+C03 collider callback and returns at `0x1594`. At that offset the bytes are
+`00 53 00 4B 05 FF`, and the next 6,626-vertex collider begins at `0x1643`.
+The generic property loop and observed scalar widths agree with current
+retail C. None of this yet identifies whether the offsets are overlapping
+sections, a mistaken payload length, or a port-only parser divergence. Compare
+retail resource construction and object callbacks against these byte ranges
+before changing the cursor, face count, texture upload, or GS behavior. Keep
+functional corrections in `hand/native_c/` as port-only backfills. The earlier
 9,542-record and `0x128BC` dimension claims were from a different,
 misattributed parser trace and should not guide fixes.
 
@@ -178,16 +189,13 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Find the earliest stream misalignment in Splash's object list. The trace
-   shows count 36 and a plausible first collider record (type 4, key 1), but
-   after its reader returns at decoded offset `0x1594`, the next record reads
-   type `0x5300`, outside the retail descriptor table. A later type-5 record
-   reaches the collider with 6,626 vertices and an all-ones face count at
-   decoded offset `0x14CE1`. The full descriptor is already preloaded and the
-   retail LZ window algorithm reproduces the decoded bytes, so do not patch
-   around the count yet. Compare the first object's actual stream consumption
-   with its retail method chain and check preceding world sections. Keep any
-   functional correction in the port-only backfill.
+1. Reconcile the Splash decoded sections and find the first parser divergence.
+   The first collider callback consumes `0x14DD`–`0x1594`; a later collider
+   starts at `0x1643`, and an apparent image-sized payload starts at `0x9E1A`.
+   The LZ output is verified, while the meaning and overlap of these ranges are
+   not. Trace the current retail parser and object construction against the
+   same offsets before changing functional code. Keep any correction in the
+   port-only backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
