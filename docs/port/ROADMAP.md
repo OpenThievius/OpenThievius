@@ -24,17 +24,17 @@ but the native window is still black.
 
 ## Current visual blocker (2026-11-06)
 
-The native C-only launcher reaches Sly's menu/frame path. A 10-second bounded
-run on 2026-11-06 reached two frames and sampled 588 accepted GIF-chain submits
-with zero rejects, but still reported zero vertices and a black window. The
-font registry initializes, though the Splash image reader still does not
-provide usable scene geometry. A new port-only collision backfill now covers
-the post-load contact-table registration path; it does not change this visual
-blocker. A later focused 8-second run aborted with `double free or corruption
-(out)` during DMA-chain packet collection. The same abort reproduced with the
-collider backfill registrations temporarily removed, so it is not attributed
-to that change. The backtrace points into native packet-vector insertion; its
-cause remains open. The channel-initialization backfill
+The native C-only launcher reaches Sly's menu/frame path. A 20-second bounded
+run on 2026-11-06 reached two frames and accepted 1,420 GIF-chain submits with
+zero rejects, but still reported zero vertices and a black window. The font
+registry initializes, though Splash still provides no usable scene geometry.
+A port-only collision backfill covers post-load contact-table registration;
+it does not change this visual blocker. The earlier intermittent heap abort
+was traced with AddressSanitizer to a use-after-free in the semaphore map
+during `WaitSema` while another thread deleted a semaphore. The native kernel
+shim now gives waiters stable shared semaphore state and wakes them on delete.
+A 60-second AddressSanitizer run and a 20-second normal traced run survived
+without the abort. The channel-initialization backfill
 populates GIF at `0x1000A000` and VIF1 at `0x10009000`. The earlier
 135,632-byte chain dump contains a GIF IMAGE tag (`0x08000000`, 8,192 qwords);
 it is not a VIF opcode.

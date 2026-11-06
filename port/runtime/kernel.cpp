@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <thread>
@@ -31,8 +32,13 @@ std::atomic<uint32_t> g_last_kernel_thread{1};
 std::atomic<uint32_t> g_sif_trace_get_count{0};
 std::atomic<uint32_t> g_sif_trace_set_count{0};
 std::mutex g_kernel_mutex;
-std::condition_variable g_semaphore_changed;
-struct Semaphore { int32_t count; int32_t max_count; };
+struct Semaphore {
+    std::mutex mutex;
+    std::condition_variable changed;
+    int32_t count = 0;
+    int32_t max_count = INT32_MAX;
+    bool deleted = false;
+};
 struct GuestThread {
     gaddr entry;
     gaddr stack;
@@ -59,7 +65,7 @@ struct EeThreadStatus {
 };
 static_assert(sizeof(EeThreadStatus) == 0x30);
 struct DmacHandler { gaddr entry; uint32_t id; };
-std::map<uint32_t, Semaphore> g_semaphores;
+std::map<uint32_t, std::shared_ptr<Semaphore>> g_semaphores;
 std::map<uint32_t, GuestThread> g_threads;
 std::map<uint32_t, DmacHandler> g_dmac_handlers;
 std::set<uint32_t> g_enabled_dmac;
@@ -68,6 +74,12 @@ std::map<uint32_t, uint32_t> g_interrupt_handlers;
 std::set<uint32_t> g_enabled_interrupts;
 uint64_t g_gs_imr = 0x7F00u;
 thread_local uint32_t g_current_thread_id = 1;
+
+std::shared_ptr<Semaphore> find_semaphore(uint32_t id) {
+    std::lock_guard lock(g_kernel_mutex);
+    const auto it = g_semaphores.find(id);
+    return it == g_semaphores.end() ? nullptr : it->second;
+}
 }
 
 /* The EE replacements for `di` and `ei` return the previous Status.IE bit,
@@ -420,56 +432,84 @@ extern "C" uint64_t openrac_guest_kernel_syscall(uint32_t service, uint64_t a0, 
         const int32_t maximum = static_cast<int32_t>(GREF(uint32_t, param + 4));
         const int32_t initial = static_cast<int32_t>(GREF(uint32_t, param + 8));
         const uint32_t id = g_next_id.fetch_add(1, std::memory_order_relaxed);
+        auto semaphore = std::make_shared<Semaphore>();
+        semaphore->count = initial;
+        semaphore->max_count = maximum > 0 ? maximum : INT32_MAX;
         std::lock_guard lock(g_kernel_mutex);
-        g_semaphores[id] = Semaphore{initial, maximum > 0 ? maximum : INT32_MAX};
+        g_semaphores[id] = std::move(semaphore);
         return id;
     }
     case 0x41: { // DeleteSema
-        std::lock_guard lock(g_kernel_mutex);
-        g_semaphores.erase(static_cast<uint32_t>(a0));
-        g_semaphore_changed.notify_all();
+        std::shared_ptr<Semaphore> semaphore;
+        {
+            std::lock_guard lock(g_kernel_mutex);
+            const auto it = g_semaphores.find(static_cast<uint32_t>(a0));
+            if (it != g_semaphores.end()) {
+                semaphore = std::move(it->second);
+                g_semaphores.erase(it);
+            }
+        }
+        if (semaphore) {
+            {
+                std::lock_guard lock(semaphore->mutex);
+                semaphore->deleted = true;
+            }
+            semaphore->changed.notify_all();
+        }
         return a0;
     }
     case 0x42:
     case 0x43: { // SignalSema / iSignalSema
+        auto semaphore = find_semaphore(static_cast<uint32_t>(a0));
+        if (!semaphore) return static_cast<uint64_t>(-1);
         {
-            std::lock_guard lock(g_kernel_mutex);
-            auto it = g_semaphores.find(static_cast<uint32_t>(a0));
-            if (it == g_semaphores.end()) return static_cast<uint64_t>(-1);
-            if (it->second.count < it->second.max_count) ++it->second.count;
+            std::lock_guard lock(semaphore->mutex);
+            if (semaphore->deleted) return static_cast<uint64_t>(-1);
+            if (semaphore->count < semaphore->max_count) ++semaphore->count;
         }
-        g_semaphore_changed.notify_one();
+        semaphore->changed.notify_one();
         return a0;
     }
     case 0x44: { // WaitSema: sleep the host thread until another guest thread signals it.
-        std::unique_lock lock(g_kernel_mutex);
         const uint32_t id = static_cast<uint32_t>(a0);
-        if (!g_semaphores.contains(id)) return static_cast<uint64_t>(-1);
-        if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
-            thread->second.status = 0x04u; // THS_WAIT
-            thread->second.wait_type = 2u; // TSW_SEMA
-            thread->second.wait_id = id;
+        auto semaphore = find_semaphore(id);
+        bool deleted = false;
+        if (!semaphore) return static_cast<uint64_t>(-1);
+        {
+            std::lock_guard lock(g_kernel_mutex);
+            if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
+                thread->second.status = 0x04u; // THS_WAIT
+                thread->second.wait_type = 2u; // TSW_SEMA
+                thread->second.wait_id = id;
+            }
         }
-        g_semaphore_changed.wait(lock, [id] {
-            const auto it = g_semaphores.find(id);
-            return it == g_semaphores.end() || it->second.count > 0;
-        });
-        const auto it = g_semaphores.find(id);
-        if (it == g_semaphores.end()) return static_cast<uint64_t>(-1);
-        --it->second.count;
-        if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
-            thread->second.status = 0x01u; // THS_RUN
-            thread->second.wait_type = 0;
-            thread->second.wait_id = 0;
+        {
+            std::unique_lock lock(semaphore->mutex);
+            semaphore->changed.wait(lock, [&] {
+                return semaphore->deleted || semaphore->count > 0;
+            });
+            deleted = semaphore->deleted;
+            if (!deleted) --semaphore->count;
         }
+        {
+            std::lock_guard lock(g_kernel_mutex);
+            if (auto thread = g_threads.find(g_current_thread_id); thread != g_threads.end()) {
+                thread->second.status = 0x01u; // THS_RUN
+                thread->second.wait_type = 0;
+                thread->second.wait_id = 0;
+            }
+        }
+        if (deleted) return static_cast<uint64_t>(-1);
         return a0;
     }
     case 0x45:
     case 0x46: { // PollSema / iPollSema
-        std::lock_guard lock(g_kernel_mutex);
-        auto it = g_semaphores.find(static_cast<uint32_t>(a0));
-        if (it == g_semaphores.end() || it->second.count <= 0) return static_cast<uint64_t>(-1);
-        --it->second.count;
+        auto semaphore = find_semaphore(static_cast<uint32_t>(a0));
+        if (!semaphore) return static_cast<uint64_t>(-1);
+        std::lock_guard lock(semaphore->mutex);
+        if (semaphore->deleted || semaphore->count <= 0)
+            return static_cast<uint64_t>(-1);
+        --semaphore->count;
         return a0;
     }
     case 0x3E: // EndOfHeap

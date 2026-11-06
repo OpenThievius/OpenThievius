@@ -219,13 +219,14 @@ window, so this closes a missing collision callback path without resolving the
 current visual blocker. The remaining collider callback gap on this path is
 `func_001B8540`.
 
-A focused `OPENRAC_TRACE_LOADER=1` run and a separate untraced 8-second launch
-both later aborted with `double free or corruption (out)` while the native DMA
-chain collector appended packets. The backtrace ends in the packet vector's
-reallocation path. Temporarily removing all five contact-table backfill
-registrations and repeating the launch produced the same abort, so the
-collision pass is not the cause. The renderer/runtime heap corruption remains
-unresolved and may prevent reliable longer traces.
+AddressSanitizer traced the intermittent `double free or corruption (out)` to
+a heap-use-after-free in the native kernel semaphore map: a guest thread was
+checking a map node while another thread deleted it. Semaphore records now
+use shared state with a per-semaphore mutex and condition variable; deletion
+removes the map entry, marks the shared record deleted, and wakes its waiters.
+A 60-second AddressSanitizer launch and a 20-second normal traced launch
+survived without the abort. The renderer still reports zero vertices, so this
+fix stabilizes startup but does not resolve the visual blocker.
 
 ## Port/decomp boundary
 
