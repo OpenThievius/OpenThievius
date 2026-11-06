@@ -226,46 +226,48 @@ def prepare_c_view(source, version):
             prelude = "#define bool _Bool\n" + "".join(
                 "typedef {0} {1} {1};\n".format(kind, tag)
                 for kind, tag in all_tags)
-            if cpp.stem in {"00124000", "00134000", "00180000", "001DC000", "file_1963D8"}:
-                # These units use tiny C++ helper classes. Lower their static
-                # methods into file-local C functions in disposable staging.
-                while True:
-                    method = re.search(
-                        r"struct\s+([A-Za-z_]\w*)\s*\{\s*"
-                        r"static\s+([A-Za-z_]\w*(?:\s*\*)?)\s+"
-                        r"([A-Za-z_]\w*)\s*\(([^{}]*)\)\s*\{",
-                        text,
-                    )
-                    if method is None:
-                        break
-                    depth = 1
-                    pos = method.end()
-                    while pos < len(text) and depth:
-                        if text[pos] == "{":
-                            depth += 1
-                        elif text[pos] == "}":
-                            depth -= 1
-                        pos += 1
-                    if depth:
-                        break
-                    body_end = pos
-                    tail = re.match(r"\s*};", text[pos:])
-                    if tail is None:
-                        # Only a complete, single-method helper can become a
-                        # free function. Keep multi-member classes intact.
-                        break
-                    pos += tail.end()
-                    method_name = f"{method.group(1)}_{method.group(3)}"
-                    function = (
-                        f"static {method.group(2).strip()} {method_name}"
-                        f"({method.group(4)}) {{{text[method.end():body_end - 1]}}}"
-                    )
-                    text = text[:method.start()] + function + text[pos:]
-                    text = text.replace(
-                        f"{method.group(1)}::{method.group(3)}(",
-                        f"{method_name}(",
-                    )
+            # Lower only complete one-method static helper structs. Their
+            # explicit arguments are already independent of `this`; the
+            # conservative grammar excludes methods, data fields and nested
+            # class state so their C storage/ABI is unchanged.
+            while True:
+                method = re.search(
+                    r"struct\s+([A-Za-z_]\w*)\s*\{\s*"
+                    r"static\s+([A-Za-z_]\w*(?:\s*\*)?)\s+"
+                    r"([A-Za-z_]\w*)\s*\(([^{}]*)\)\s*\{",
+                    text,
+                )
+                if method is None:
+                    break
+                depth = 1
+                pos = method.end()
+                while pos < len(text) and depth:
+                    if text[pos] == "{":
+                        depth += 1
+                    elif text[pos] == "}":
+                        depth -= 1
+                    pos += 1
+                if depth:
+                    break
+                body_end = pos
+                tail = re.match(r"\s*};", text[pos:])
+                if tail is None:
+                    # Only a complete, single-method helper can become a
+                    # free function. Keep multi-member classes intact.
+                    break
+                pos += tail.end()
+                method_name = f"{method.group(1)}_{method.group(3)}"
+                function = (
+                    f"static {method.group(2).strip()} {method_name}"
+                    f"({method.group(4)}) {{{text[method.end():body_end - 1]}}}"
+                )
+                text = text[:method.start()] + function + text[pos:]
+                text = text.replace(
+                    f"{method.group(1)}::{method.group(3)}(",
+                    f"{method_name}(",
+                )
 
+            if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
                 # This setter is unused here; retain the record field layout.
                 state = re.search(r"struct\s+State_001365A8\s*\{", text)
                 if state is not None:

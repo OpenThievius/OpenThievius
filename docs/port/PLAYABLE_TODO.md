@@ -183,3 +183,12 @@ increases translated coverage from 1,108 to 1,139 functions; unreadable units
 fall from 57 to 56. The native launcher links successfully. This establishes
 more real game code in the host build, but does not yet establish that these
 functions are reached in a playable run.
+
+Generalizing the conservative single-static-method helper lowering across all
+source units increased hostgen translation from 1,139 to 1,284 functions and
+reduced unreadable units from 56 to 53. The native launcher links and the
+repository check passes. This recovered functions from several unrelated
+units, but does not change the runtime playability status. The remaining
+constructor/method failures are non-static helpers, including constructors
+that initialize stack records. Lower those only with call-site/layout
+preservation; do not erase them from records as if they were static methods.
