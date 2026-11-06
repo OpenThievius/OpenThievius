@@ -55,6 +55,13 @@ matching C is included in the host build. It fixes the pause menu's
 zero-initialized page, but startup still requests page 0 (`Paused`) at about
 five seconds; the missing title/scene startup path is the current blocker.
 
+`screen_fade.c` backfills retail `func_001EFD10` and `func_001EFEE0` from the
+latest available decomp C, plus assembly-only `func_001F00F0`. Their containing
+decomp units cannot currently compile in hostgen, so these stay isolated in
+`backfills.tsv`. A bounded run with the functions built still captures a
+black frame; this does not establish that the fade was hiding valid scene
+draws. Remove these entries when matching decomp code is hostable.
+
 `func_00124050` walks placed-object children during activation, and
 `func_001240F8` registers active objects with the world update lists. Their
 port-only replacements raised the direct-load probe's world `+0x54` and

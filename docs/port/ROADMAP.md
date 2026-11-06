@@ -32,7 +32,16 @@ the title/attract presentation but not playable progress. Current native probes
 use the NTSC-U `SCUS_971.98` ELF and matching US disc; use the video for
 sequence and feature reference rather than pixel comparison. The native target
 sequence remains to reach that title scene, then transition to a controllable
-level.
+level. Earlier native captures showed malformed text fragments; the latest
+12-second default-startup capture appears entirely black.
+
+The newest host build adds port-only screen-fade update/draw backfills
+(`func_001EFD10`, `func_001EFEE0`) based on current decomp C, and the
+assembly-only queued-fade helper `func_001F00F0`. Hostgen cannot compile their
+containing decomp units yet. The launcher still captures an all-black frame;
+its renderer repeatedly receives a single untextured 240-vertex black draw per
+packet and no other visible title geometry. Thus the screen-fade code is restored, but there
+is no evidence yet that it explains the missing title or level scene.
 
 The latest bounded native level probe (2026-11-06) confirms that placed-object
 registration now populates 77 nodes in each of world lists `+0x54` and `+0x60`.
@@ -66,16 +75,16 @@ A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
 exact stream-reader and other matched code to the native build. Port-only
 compatibility functions remain registered separately in `hand/backfills.tsv`.
-The generated host report reads 196 units and translates 1,091 functions
-(zero assembly translations, one stub, 3,799 functions without C), plus seven
+The latest generated host report reads 197 units and translates 1,094 functions
+(zero assembly translations, one stub, 3,796 functions without C), plus seven
 port-owned overrides of matched C. Its source snapshot is `cf9ad46`.
 
 The newest decomp source contains the matched screen-fade updater
 `func_001EFD10` with its mode, timing and opacity logic. The current native
 hostgen path still reports this function as no-C because its containing
 `001EC000.cpp` unit has unrelated C++ helper constructs that staging cannot yet
-lower. This source is useful for a later hostgen staging fix, but it is not
-active in the launcher today. The port-only frame callback remains separate.
+lower. Until hostgen can compile it, the port builds separate backfills for
+`func_001EFD10` and `func_001EFEE0`; both remain replaceable by matching C.
 
 The staging pass now also makes `00138000.cpp` and `001B8000.cpp` readable;
 the native build uses matching decomp C for `func_00138278` and

@@ -2,8 +2,9 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. The native launcher is still not playable: its default
-path does not reach the opening movie or title screen and its visible output is
-malformed, dark text fragments against a mostly black background. The
+path does not reach the opening movie or title screen. Earlier captures showed
+malformed, dark text fragments; the latest 12-second default-startup capture
+appears fully black. The
 user-provided 63-second PCSX2 recording shows the publisher credits, Paris
 rooftop opening movie, and the animated Sly Raccoon title screen with Sly and
 the Start/Select prompts. Its PCSX2 game list identifies the European 2.00
@@ -11,6 +12,15 @@ disc (`Sly Raccoon (Europe) (En,Fr,De,Es,It)`); current native probes use the
 NTSC-U `SCUS_971.98` ELF and matching US disc. Treat the recording as a
 sequence and feature reference, not a pixel-matched target. It does not show
 selecting New Game or level control.
+
+The newest host build includes port-only screen-fade updater/drawer backfills
+(`func_001EFD10`, `func_001EFEE0`) based on the available decomp C, plus
+assembly-only `func_001F00F0`. They are isolated in
+`hand/native_c/screen_fade.c` because the containing decomp units still fail
+hostgen's C staging. A bounded native run remains black after these callbacks
+were built. The renderer repeatedly decodes one untextured 240-vertex black
+draw per packet; no other visible title geometry is present in that run. This does not
+show that fades caused the black frame.
 
 An opt-in native probe now skips movie/title startup and synchronously loads
 catalog key `0x0100` (`A Stealthy Approach`) after the first startup resource.
@@ -423,8 +433,8 @@ new HUD compass function `func_001316E8` and placed-object link table do not
 replace current render backfills. `func_00161B10` and `func_00184DE8` still
 lack matching C in the decomp project; the latter has a separate port backfill.
 The active hostgen report is
-`build/port/hostgen/us/report.md`: 196 units read, 1,091 functions translated
-to host C, one stub, and 3,799 without C, with seven port-owned overrides.
+`build/port/hostgen/us/report.md`: 197 units read, 1,094 functions translated
+to host C, one stub, and 3,796 without C, with seven port-owned overrides.
 These measures have different denominators and do not establish gameplay
 readiness. The generated source is older than upstream master.
 

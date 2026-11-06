@@ -101,6 +101,9 @@ func_00160070	native_c/startup_loader.c
 func_001EFFA0	native_c/loader_messages.c
 func_001F0428	native_c/loader_messages.c
 func_001F0220	native_c/loader_messages.c
+func_001F00F0	native_c/screen_fade.c
+func_001EFD10	native_c/screen_fade.c
+func_001EFEE0	native_c/screen_fade.c
 func_0018D800	native_c/func_0018D800.c
 func_0018D430	native_c/native_heap.c
 func_0018D500	native_c/native_heap.c
