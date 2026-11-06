@@ -50,15 +50,14 @@ captured bytes may belong to subsequent output and are not evidence about the
 Splash resource. The optional dump writes `/tmp/sly1-lz-window-*.bin` and is
 enabled alongside `OPENRAC_TRACE_LOADER=1`.
 
-This fixes a proven decoder defect, but the live font atlas is still wrong.
-The latest resource dump is `0x5F4F0` (390,384) bytes. Its first 371,418 bytes
-match the corrected Splash decode exactly at offset `0xE830`; the remaining
-18,966 bytes were not available from the decoded stream. If the declared
-`0x5F4F0`-byte buffer is the final suffix of the decoded stream, its expected
-start would be `0x9E1A`; that interpretation places the image-data read
-18,966 bytes later than expected. The suffix assumption still needs
-confirmation from the retail container format. The live cursor is `0xE821`
-before 16-byte alignment, then `0xE830` at the read.
+The latest resource callback attempts to read an image buffer of `0x5F4F0`
+bytes in `func_001DBA38`. The corrected `func_00162890` backfill reaches the
+unsigned dimension `0xFFFF` first and consumes the remainder of the decoded
+Splash stream with its 786,420-byte read. The current trace therefore enters
+`func_001DBA38` with the reader already at EOF and an all-zero image buffer.
+An earlier trace saw a partial image read at cursor `0xE830`; that predates the
+retail-sized nested reads and is not the current behavior. The LZ output still
+matches the extracted 430,858-byte stream byte-for-byte.
 
 The long cursor advance is in the second top-level object's nested
 `func_001463C0`/`func_001289C0` callback. It reads 191 groups of 65 floats,
@@ -109,12 +108,11 @@ supplies this stream and identify whether its cursor or resource selection is
 already wrong before `func_00162890` begins. No readable image has been
 confirmed yet.
 
-After the current backfill returns, the following callback reaches group
-count 191 and reads 65 floats per group through `0x70001E56`. It then reads a
-child-list count at `0x70001E59` with 423 bytes remaining. The child-list
-callback advances to `0x70001E5C` with 420 bytes remaining, then processes its
-relationship data. Keep the retail group-float loop intact while tracing the
-nested-record and child-list parsing. Runtime LZ output matches the complete
+After `func_00162890`, retail calls `func_00128C10`, its type-specific reader,
+then reads a group count and the group curves before calling
+`func_0011ECB8` directly. The port backfill's extra byte read after the group
+curves has been removed to match this assembly. Keep the retail group-float
+loop intact while tracing the nested-record boundary. Runtime LZ output matches the complete
 extracted Splash stream, so do not change GS texture interpretation based on
 the current bad atlas.
 

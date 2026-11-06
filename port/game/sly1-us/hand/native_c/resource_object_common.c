@@ -338,7 +338,5 @@ void func_001289C0(void* object, void* reader) {
             *(f32*)(values + (u32)n * 4u) = func_00137DF8(reader);
     }
     sly1_native_loader_stage(134, (u32)group_count, (u32)reader);
-    /* Retail has one byte after the group curves before the child list. */
-    (void)func_00137B90(reader);
     func_0011ECB8((void*)*(u32*)(self + 0x14), object, reader);
 }
