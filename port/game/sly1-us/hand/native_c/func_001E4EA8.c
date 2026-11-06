@@ -19,6 +19,7 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
 void func_001DCEA0(void* self, void* reader);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+void sly1_native_trace_resource_range(u32 sector, u32 byte_count);
 void func_001E4EA8(void* state);
 void func_00142ED0(f32 scale);
 void func_001F0220(void* state, s32 mode);
@@ -70,6 +71,7 @@ void func_001E4EA8(void* state) {
     range[0] = record[0] ^ record[5];
     range[1] = record[1] ^ record[7];
     if (range[1] == 0) return;
+    sly1_native_trace_resource_range(range[0], range[1]);
 
     /* Retail initializes a 0x24-byte callback record from these four words. */
     func_00193210(callback_data, &callback_word0, &callback_word1,

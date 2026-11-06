@@ -24,6 +24,8 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id);
 void sly1_native_call_method(u32 address, u32 object);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 void func_001C1190(void* object, void* reader);
 void func_0011EC40(void* object, void* reader);
 void func_00138550(void* reader, void* output);
@@ -106,10 +108,16 @@ void func_001DCEA0(void* self, void* reader) {
     func_001384A0(reader, object + 0x2314);
     func_00138550(reader, object + 0x1D74);
     func_001B3040(reader);
+    sly1_native_trace_font(23, (u32)reader, *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1C), *(u32*)(reader + 0x20),
+                           *(u32*)(reader + 0x24));
     /* Retail passes the world instance, a null factory parameter, and reader.
      * The previous port call passed the camera as owner and shifted the other
      * arguments, leaving every parsed object detached from the world lists. */
     func_0011ECB8(self, 0, reader);
+    sly1_native_trace_font(24, (u32)reader, *(u32*)(reader + 0x18),
+                           *(u32*)(reader + 0x1C), *(u32*)(reader + 0x20),
+                           *(u32*)(reader + 0x24));
     func_001DBA38(reader);
 
     if (*(s32*)(object + 0x1D70) >= 0)
