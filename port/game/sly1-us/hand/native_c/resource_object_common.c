@@ -137,6 +137,7 @@ void func_00162890(void* block, void* reader, void* object) {
             u32 extra = (u32)func_0018D5C0(0x90);
             (void)func_00137D10(reader);
             s32 mode = func_00137CC0(reader);
+            if (i == 4) sly1_native_loader_stage(111, (u32)mode, (u32)reader);
             if (mode != -1) {
                 (void)func_00137DF8(reader);
                 (void)func_00137DF8(reader);
@@ -145,9 +146,11 @@ void func_00162890(void* block, void* reader, void* object) {
                 if (extra != 0) func_00137F08(reader, (void*)(extra + 0x40));
                 else func_00137F08(reader, scratch);
             }
+            if (i == 4) sly1_native_loader_stage(112, (u32)mode, (u32)reader);
             (void)func_00137B90(reader);
             (void)func_00137B90(reader);
             (void)func_00137B90(reader);
+            if (i == 4) sly1_native_loader_stage(113, (u32)mode, (u32)reader);
         } else {
             *(u32*)(record + 0x54) = 0;
         }
@@ -158,6 +161,7 @@ void func_00162890(void* block, void* reader, void* object) {
         *(s32*)(record + 0x34) = func_00137B90(reader);
         *(s32*)(record + 0x14) = func_00137B90(reader);
         *(s32*)(record + 0x2C) = func_00137B90(reader);
+        if (i == 4) sly1_native_loader_stage(114, (u32)flags, (u32)reader);
         const s32 nested_count = flags & 1 ? 0 : func_00137BE0(reader);
         if (flags & 1) {
             /* Retail post-processes the referenced record, then starts the

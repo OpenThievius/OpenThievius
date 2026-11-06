@@ -76,18 +76,23 @@ still returns before reaching that path. Keep these functional corrections
 in port-only backfills and replace them with matching decompiled C when
 available.
 
-The next cursor comparison is the record-4 `0x100` flag path, which reads a
-mode-dependent payload through `func_00137CC0`, four floats and
-`func_00137F08` when the mode is not `-1`, then three words. A bounded run
-after the reused-record correction still reports `func_00162890` returning at
-`0x70001AB1`; the following callback reaches group count 191 and reads 65
-floats per group through `0x70001E56`. It then reads a child-list count at
-`0x70001E59` with 423 bytes remaining. The child-list callback advances to
-`0x70001E5C` with 420 bytes remaining before its tail later encounters a
-zero-remaining reader. Keep the retail group-float loop intact while tracing
-the preceding record and child-list parsing. Runtime LZ output matches the
-complete extracted Splash stream, so do not change GS texture interpretation
-based on the current bad atlas.
+Stage markers around record 4 confirm its `0x100` path is cursor-exact so
+far: mode is `-18`, the conditional payload advances 64 bytes (four floats and
+`func_00137F08`), three words follow, and the common fields end at `0x70001AAF`.
+The next 16-bit value is `0x1F3F` (7,999). Retail assembly allocates and loops
+that many nested entries, so the current `>16` backfill guard is only a safety
+stop, not evidence that the retail stream is malformed. The next task is to
+mirror and validate each nested entry and its optional arrays against assembly
+and the bounded decoded resource before removing that guard.
+
+After the current backfill returns, the following callback reaches group
+count 191 and reads 65 floats per group through `0x70001E56`. It then reads a
+child-list count at `0x70001E59` with 423 bytes remaining. The child-list
+callback advances to `0x70001E5C` with 420 bytes remaining, then processes its
+relationship data. Keep the retail group-float loop intact while tracing the
+nested-record and child-list parsing. Runtime LZ output matches the complete
+extracted Splash stream, so do not change GS texture interpretation based on
+the current bad atlas.
 
 Reproduce the focused startup trace with:
 
