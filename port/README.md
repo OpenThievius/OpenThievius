@@ -30,8 +30,11 @@ Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. It
 generates host C from matched Sly sources plus port-only backfills without
 translating retail MIPS assembly. Against upstream decomp snapshot `cf9ad46`,
-the latest generation read 189 source units, translated 573 functions, left
-one C function stubbed, and lists 4,278 functions without C. This is host-C
+the latest generation read 189 source units, translated 540 functions, left
+one C function stubbed, and lists 4,308 functions without C. This differs from
+the previous hostgen count (573/4,278) even though the decomp status remains
+4,720/4,806 matching US functions; that hostgen discrepancy still needs to be
+reconciled. These are host-C
 generation coverage, not a built or playable game. The most recent bounded
 native launch reaches menu/frame callbacks but still shows a black window and
 zero renderer vertices/draws. The current graphics diagnosis and the concrete
@@ -74,13 +77,15 @@ precedence over that list. Some launcher paths still contain guest-addressed
 EE/DMA/VIF/VU/GS compatibility services from the earlier startup experiment;
 they are diagnostic scaffolding, not the target gameplay architecture.
 
-The current next task is to pass the menu font writer's raw GIF packet stream
-to the GIF parser. The caller currently treats that buffer as a DMA-tagged
-chain, so the renderer sees no vertices or draws. A graphics contributor
-should inspect `hand/native_c/func_00202A80.c`,
-`hand/native_c/display_packets.c`, `runtime/sdl_renderer.cpp`, and
-`renderer/direct.*`, then verify complete GIF packets, an image upload, a draw,
-and a visible screenshot. After the first visible frame, the port still needs
+The current next task is to trace the menu font scale, glyph width, computed
+advance and float return through `sly1_native_call_f32`; channel 2 already
+reaches the DMA-chain walker and the sampled chains are accepted, while the
+renderer still reports zero vertices and draws. Start with
+`hand/native_c/font_text.c`, `hand/native_c/menu_text.c`,
+`hand/native/sly1_native_worker.cpp`, `sly1/main.cpp`, and `renderer/direct.*`.
+The concrete near-term need is someone comfortable with MIPS o32/FPU calling
+conventions and PS2 font/GIF packets to prove where glyph coordinates collapse.
+Once a menu draw is visible, the port still needs
 the title/level transition, Sly pad-library integration, controllable character
 movement and collision, real audio, and saves. See the
 [roadmap](../docs/port/ROADMAP.md) and [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md)

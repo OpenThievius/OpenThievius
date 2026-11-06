@@ -44,10 +44,13 @@ observed vector formats to VU1 data memory, executes MSCAL through
 It completes the observed DMA channel instead of leaving CHCR busy. UNPACK
 write masks and fill cycles are not implemented. The earlier 135,632-byte
 transfer was misread as a VIF stream: its `0x08` word at offset `0x54` begins a
-GIF IMAGE tag. The current menu font path passes a raw GIF packet buffer to a
-DMA-chain walker, so the renderer still sees no draws. See [the graphics
-handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the trace, evidence and
-next investigation. The VIF command and DMA tag
+GIF IMAGE tag. The menu's channel-2 path submits a DMA-tagged chain through
+the DMA-chain walker; the latest bounded trace accepted all sampled chains,
+but the window remains black and the renderer sees no draws. Earlier font
+traces showed glyphs receiving identical screen coordinates, making font
+scale/advance or the host float-call bridge the current unverified lead. See
+[the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the trace,
+evidence and next investigation. The VIF command and DMA tag
 formats follow the public [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
 and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 

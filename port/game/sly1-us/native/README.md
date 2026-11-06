@@ -10,8 +10,10 @@ Last checked: 2026-11-06. Upstream
 [`sly1-decomp`](https://github.com/OpenThievius/sly1-decomp) is at `cf9ad46`
 (PR #62); its NTSC-U status is 4,720/4,806 functions with C (92.17% code
 bytes). The latest C-only hostgen run against that snapshot read 189 units,
-translated 573 functions, stubbed one C function, and lists 4,278 functions
-without C. This does not describe the separate freestanding host32 build.
+translated 540 functions, stubbed one C function, and lists 4,308 functions
+without C. This does not describe the separate freestanding host32 build; the
+previous run reported 573/4,278, and that hostgen-count discrepancy remains
+unexplained.
 
 The host32 launcher and its EE/device behavior are an experimental startup
 diagnostic, not the target port architecture. The build counts and traces in
@@ -21,11 +23,14 @@ current black-screen diagnosis, and tasks that need contributors, see
 [`SLY_GRAPHICS_HANDOFF.md`](../../docs/port/SLY_GRAPHICS_HANDOFF.md) and
 [`ROADMAP.md`](../../docs/port/ROADMAP.md).
 
-The current graphics mismatch is that the menu text writer produces a raw GIF
-packet buffer, while the port backfill sends it to the DMAtag-chain walker.
-The renderer still has zero decoded vertices/draws. Port-only functional
-backfills stay separate from matching decomp C/C++; when matching definitions
-become available and are hostable, remove the corresponding backfill.
+Channel 2 currently sends DMA-tagged chains to the DMA-chain walker; sampled
+chains are accepted, but the renderer still has zero decoded vertices/draws.
+An earlier font trace showed identical glyph screen coordinates. Font
+scale/advance and the host float-call bridge are the leading unverified
+graphics lead; see the graphics handoff for evidence and next steps. Port-only
+functional backfills stay separate from matching decomp C/C++; when matching
+definitions become available and are hostable, remove the corresponding
+backfill.
 
 Run it with the extracted NTSC-U ELF and a cooked ISO or raw BIN:
 

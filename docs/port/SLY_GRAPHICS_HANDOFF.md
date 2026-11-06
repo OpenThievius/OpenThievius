@@ -32,15 +32,13 @@ VIF opcode. The port-only initializer now fills `D_00261F1C` from the channel
 table at `0x00279340`; traces show GIF channel 2 at `0x1000A000` and VIF1 at
 `0x10009000`.
 
-The current failing call is the font/text packet writer. It passes a raw GIF
-packet buffer beginning with a GIFtag (captured buffer length about 992 bytes),
-not a DMA-tagged chain. The `func_00202A80` backfill currently passes that
-pointer to `openrac_native_renderer_submit_dma_chain`, which parses the GIFtag
-as a DMAtag. The runtime has `openrac_native_renderer_submit_gif_stream`, but
-it currently assumes one image-style tag size, does not account for FLG/NREG,
-and does not continue through EOP. It is not called here. Keep the VIF1 route
-separate: VIF1 chains still go through the VIF/VU translation path before
-DIRECT or XGKICK GIF data reaches the renderer.
+Channel 2 (`0x1000A000`) is a DMA chain and correctly goes through
+`openrac_native_renderer_submit_dma_chain`; it must not be treated as a raw
+GIFtag stream. In the latest bounded trace, 438 of 438 submitted chains were
+accepted with zero rejects. Channel 1/VIF1 remains separate and goes through
+the VIF/VU translation path before DIRECT or XGKICK GIF data reaches the
+renderer. The raw GIF submission helper exists for genuinely raw streams, but
+there is no current evidence that the menu callback supplies one.
 
 The VIF1 runtime remains available for actual VIF1 work. It collects bounded
 DMA chains, including references into the port heap at `0xE0000000`, interprets
@@ -51,15 +49,15 @@ stub.
 
 ## Current measured blocker
 
-A bounded run on 2026-11-06 reaches menu/frame callbacks and produces a
-135,632-byte display chain. A separate font trace records a writer buffer at
-`0x002C3B00` advancing to `0x002C3CE0`, with the final tag near `0x002C3BE0`.
-This establishes that the writer produced a nonempty packet buffer. The
-channel trace shows the expected GIF and VIF1 addresses. Renderer counters
-still report zero decoded vertices and draws. GS display-register writes and
-the four earlier 144-byte startup transfers do not establish a visible frame.
-The first required renderer evidence is a complete EOP-terminated packet
-stream, a successful texture/image transfer, and at least one nonempty draw.
+A bounded run on 2026-11-06 opens the window but remains black; the renderer
+reports zero vertices and draws. An earlier font trace reached menu glyph
+lookups, with every call receiving the same screen X/Y. This suggests zero
+font scale/advance, a float-return bridge problem, or another layout issue,
+but it does not yet prove which one. The latest fresh run accepted all sampled
+GIF DMA chains, so packet routing itself is not the best-supported blocker.
+GS display-register writes and earlier startup transfers do not establish a
+visible frame. The first visual milestone remains one valid texture/image
+transfer and at least one nonempty draw with distinct screen coordinates.
 
 To capture the failure and first words of the stream, run:
 
@@ -71,20 +69,17 @@ OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_DMA_CALL=1 OPENRAC_STARTUP_TRACE=1 timeout 12
 
 ## Work needed next
 
-1. Fix the type mismatch at `func_00202A80`: route channel 2's raw GIF stream
-   to the GIF-stream API, remove the unused DMAC register writes on this
-   synchronous native path, and register the helper in `hostgen.json`. Keep
-   channel 1/VIF1 on the VIF runtime path. Confirm the source pointer is a
-   valid guest span and trace each channel/source pair.
-2. Extend GIF parsing to walk packed, reglist, image, and disabled tags through
-   EOP. Bound tag count and total bytes, reject truncated or invalid spans, and
-   preserve image payload bytes. Check multi-tag packet boundaries; a single
-single-tag size assumption is insufficient for packed text and image uploads.
-3. Run the native launcher and confirm accepted packet bytes, a texture/image
-   transfer, and at least one nonempty DirectRenderer draw. Inspect a captured
-   window image. If the parser accepts data but draws remain zero, inspect the
-   decoded GIF/GS commands and identify the first unsupported state or record.
-4. Only then continue through title and level loading, controller input,
+1. Trace the font at `func_0015E318` and `func_0015CD18`: log font `sx/sy`,
+   glyph width, computed advance, and the return value received from
+   `sly1_native_call_f32`. Confirm whether each glyph's x position changes.
+2. If scale and advance are nonzero but coordinates do not move, inspect the
+   host call bridge's MIPS integer/FPU register mapping and float return path.
+   If coordinates are valid, decode the submitted DMA/GIF chain and identify
+   the first unsupported GS command or state. Verify tag/payload boundaries
+   only when a specific malformed boundary appears in the trace.
+3. Capture a window image after the fix and require at least one decoded
+   nondegenerate draw; then verify texture uploads and the complete menu frame.
+4. Continue through title and level loading, controller input,
    controllable Sly, collision, audio, and saves. A menu screenshot is useful
    progress but is not a playable-state milestone.
 
@@ -99,25 +94,29 @@ The runtime transport and renderer adapters belong under `port/runtime/` and
 
 ## What a new contributor needs
 
-No additional disc image or boot ELF is needed on the current development
-machine. Contributors elsewhere need their own NTSC-U `SCUS_971.98` and disc
-image; setup and one-time asset extraction are documented in
+No additional disc image, boot ELF, or other user-supplied file is blocking
+the current work on this machine. Contributors elsewhere need their own
+NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are documented in
 [ASSETS.md](ASSETS.md). The current refreshed read-only decomp snapshot is
 `/home/reaper/.cache/sly1-decomp-current` at `cf9ad46`. Hostgen's latest
 generated report is `build/port/hostgen/us/report.md`.
 
-The most useful self-contained work is the raw GIF stream adapter and its
-verification. It needs comfort with GIFtag layout, PS2 GS image uploads,
-guest-memory bounds, C backfills, and the existing C++ DirectRenderer. Start
-with `port/game/sly1-us/hand/native_c/func_00202A80.c`,
-`port/game/sly1-us/hand/native_c/display_packets.c`,
-`port/runtime/sdl_renderer.cpp`, and `port/renderer/direct.*`; keep functional
-game-code replacements registered in `hand/backfills.tsv`. A second useful
-track is to work through the no-C frontier in `build/port/hostgen/us/report.md`
-and choose one reachable function to implement as a clearly documented
-port-only C backfill. A later rendering task is deriving Sly's scene draw data
-and asset formats for a Sly-specific renderer; OpenRAC's Ratchet-specific
-world-render records are not reusable for that.
+The best immediate contribution is the font scale/advance and host-call
+bridge trace described above. It needs comfort with MIPS o32 calling
+conventions, float arguments/returns, the V24A2 font layout, and native C
+backfills. Start with `port/game/sly1-us/hand/native_c/font_text.c`,
+`port/game/sly1-us/hand/native_c/menu_text.c`,
+`port/game/sly1-us/hand/native/sly1_native_worker.cpp`,
+`port/sly1/main.cpp`, and `port/renderer/direct.*`. A second useful track is
+to inspect `build/port/hostgen/us/report.md`, trace a function on the actual
+menu/boot/level path, and implement one missing function as a port-only C
+backfill. After the menu draws, contributors can work on Sly's scene records
+and level assets, controller-to-pad integration, collision, audio, and saves.
+To move toward playability, the project needs: (1) a verified visible menu
+frame; (2) a populated title/level path with Sly-specific scene rendering;
+(3) SDL controller state wired into the game's pad-library interface; and
+(4) working movement/collision, audio and save behavior. OpenRAC's generic
+host runtime is reusable; Ratchet-specific world records are not.
 
 To reproduce the current window and collect startup/renderer counters:
 

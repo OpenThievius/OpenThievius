@@ -56,10 +56,12 @@ the time of this audit). We have reused its source bridge, common/runtime
 foundation, audio output, basic DualShock 2 state, SDL/OpenGL window lifecycle
 and exact-rate frame pacer. The native launcher now also embeds OpenRAC's
 generic `DirectRenderer` and its texture/shader support. A port-only Sly
-backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Tracing now
-shows that the menu font writer passes a raw GIF packet buffer, while the
-current call site hands it to a DMA-chain walker. The raw-stream parser is
-present but incomplete; no visible draw is verified. The launcher also still
+backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Tracing shows
+the sampled channel-2 DMA chains are accepted, but no visible draw is
+verified. Earlier font traces show glyph calls with unchanged screen
+coordinates; font scale/advance and the host float-call bridge are the current
+unverified lead. The raw-stream parser is only for a genuinely raw GIF input.
+The launcher also still
 has experimental VIF/VU services for diagnostic work. The full
 keyboard/controller input system is not imported.
 
@@ -71,14 +73,13 @@ keyboard/controller input system is not imported.
 | `renderer/world/*`, `scene/*`, `assets/*`, `extract/*`, `game/rac1*`, `game/rac2*` | Low or none as game code: much of this is organized around R&C draw records, assets, loaders and behavior | Derive Sly's scene records, resource formats, and scene renderers independently |
 
 The DirectRenderer integration is compiled and linked into the C-only
-launcher. The latest trace establishes that `func_00152810` initializes the
-expected channel addresses and that the menu text writer advances a raw GIF
-packet buffer. The current `func_00202A80` GIF branch still invokes the
-DMA-chain parser on that raw buffer; the stream parser only copies a first-tag
-payload and is not wired at this call site. Therefore the four startup display
-transfers are not evidence that menu rendering works. The window remains
-black with zero vertices/draws. OpenRAC's world renderers remain R&C-specific
-and cannot draw Sly levels as-is.
+launcher. `func_00152810` initializes the expected channel addresses, and
+`func_00202A80` routes GIF channel 2 to the DMA-chain parser while VIF1 uses
+its own translator. The latest sampled run accepted every submitted chain
+with zero rejects, but the renderer still reports zero vertices/draws. This
+points the next investigation at font scale/advance, the host float-call ABI,
+or decoded GS state, rather than a proven raw-stream/DMAtag mismatch.
+OpenRAC's world renderers remain R&C-specific and cannot draw Sly levels as-is.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions
