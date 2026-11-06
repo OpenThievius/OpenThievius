@@ -530,3 +530,31 @@ cursor without the former `func_001B8960` no-C warning. This does not resolve
 the invalid-looking next row at `0x1594`, render scene geometry, or make the
 port playable. Bounds update and world registration remain missing; the port now translates
 `func_001B9680` to save the current world position at `+0x370`.
+
+## Current native status (2026-11-07)
+
+The latest hostgen build reads 199 units, translates 1,480 functions, includes
+59 functions translated from selected retail assembly, has one stubbed
+function, and reports 3,396 functions without C. There are 51 unreadable C
+units. These numbers supersede the older 1,094-function snapshot earlier in
+this handoff. The build compiles 212 generated C translation units and links
+`build/port/sly1_native`; the repository check reports zero problems.
+
+A 12-second native-only launch using the existing extracted US ELF and local
+ISO initialized SDL/OpenGL and reached repeated direct-render submissions.
+The direct trace saw a 240-vertex draw, but its state was untextured with
+target/source/texture addresses all zero; the first vertex was black with
+alpha 128. Separately, the native 2D path uploaded the 512x512 PSMT4 atlas and
+its 8x2 palette. Those uploads do not prove that a glyph was selected or
+rendered correctly. The launch emitted many warnings for missing game
+functions and still did not demonstrate a readable menu or a playable scene.
+The next graphics step remains tracing one glyph from atlas/palette data
+through UV selection, GS state and the final native framebuffer. In parallel,
+prioritize missing functions on the reachable startup/menu path; global
+hostgen totals do not establish reachability or readiness.
+
+Recent hostability fixes for `0018C000` memory-card return values and
+`00128000` range-record argument flow are staging-only changes in the port
+repository. No matching decompilation file was changed, and neither fix is a
+functional game backfill. Preserve that separation when matching C becomes
+available upstream.
