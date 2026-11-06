@@ -42,17 +42,27 @@ bytes. The native LZ backfill now carries back-reference bytes across its
 so it does not overwrite the sector reader's `+0x38`/`+0x3C` bookkeeping.
 
 This fixes a proven decoder defect, but the live font atlas is still wrong.
-The latest bounded native launch reaches active Sly UI objects and submits
-large GIF chains, while the window remains black/garbled. Cursor tracing shows
-the reader position advances substantially between the animation/font table
-reader and the subsequent image-payload reader. The next investigation is to
-identify which nested object record reader consumes that span incorrectly;
-do not change GS texture interpretation based on the current bad atlas.
+The latest resource dump is `0x5F4F0` (390,384) bytes. Its first 371,418 bytes
+match the corrected Splash decode exactly at offset `0xE830`; the remaining
+18,966 bytes were not available from the decoded stream. The declared buffer
+size and full decoded length imply an expected payload start at `0x9E1A`, so
+the parser reaches the image-data read 18,966 bytes too late. Its cursor is
+`0xE821` before 16-byte alignment, then `0xE830` at the read.
+
+The long cursor advance is in the second top-level object's nested
+`func_001463C0`/`func_001289C0` callback. It reads 191 groups of 65 floats,
+which consumes about 50 KiB. That loop agrees with the retail
+`func_001289C0` assembly, so it is not a safe place to trim bytes. The callback
+also calls `func_00162890`; that still-unmatched port backfill reads a record
+count of 9,542 but returns after roughly 1 KiB in this trace. The parsed group
+count and value count are the focus for the next resource-format audit. Keep
+any correction in port backfills until the matching C exists. Do not change GS
+texture interpretation based on the current bad atlas.
 
 Reproduce the focused startup trace with:
 
 ```sh
-OPENRAC_TRACE_FONT=1 OPENRAC_STARTUP_TRACE=1 timeout 12s \
+OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_LOADER=1 timeout 12s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```

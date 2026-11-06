@@ -75,7 +75,13 @@ void func_00196410(void* self, void* reader)
             if (child != 0) {
                 sly1_native_loader_stage(123, *(u32*)(child + 8), (u32)reader);
                 u32 child_descriptor = *(u32*)child;
+                sly1_native_loader_stage(
+                    124, child_descriptor != 0 ? *(u32*)(child_descriptor + 0x38) : 0,
+                    (u32)reader);
                 (void)call_method(child_descriptor, 0x38, child, (u32)reader);
+                sly1_native_loader_stage(
+                    125, child_descriptor != 0 ? *(u32*)(child_descriptor + 0x38) : 0,
+                    (u32)reader);
             }
             s32 link_id = func_00137D10(stream);
             sly1_native_loader_stage(104, (u32)link_id, (u32)reader);

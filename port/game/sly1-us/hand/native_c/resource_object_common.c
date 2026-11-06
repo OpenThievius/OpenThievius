@@ -242,6 +242,7 @@ void func_00128C10(void* object, void* reader) {
 
 void func_001289C0(void* object, void* reader) {
     u8* self = (u8*)object;
+    extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
     func_00137EB0(reader, self + 0xD0);
     func_00137E70(reader, self + 0x100);
     u64 flags = *(u64*)(self + 0x2C8);
@@ -263,15 +264,19 @@ void func_001289C0(void* object, void* reader) {
     if (*(f32*)(self + 0x84) == 3.402823466e+38f)
         *(f32*)(self + 0x84) = 2000.0f / *(f32*)(self + 0x80);
     func_0011EC40(object, reader);
+    sly1_native_loader_stage(130, (u32)object, (u32)reader);
     func_00162890(self + 0x22C, reader, object);
+    sly1_native_loader_stage(131, (u32)object, (u32)reader);
     func_00128C10(object, reader);
 
     const u32 descriptor = *(u32*)self;
     const u32 extra = *(u32*)(descriptor + 0x58);
     if (extra != 0)
         (void)sly1_native_call_regs4(extra, (u32)object, (u32)reader, 0, 0);
+    sly1_native_loader_stage(132, (u32)object, (u32)reader);
 
     const s32 group_count = func_00137B90(reader);
+    sly1_native_loader_stage(133, (u32)group_count, (u32)reader);
     if (group_count < 0 || group_count > 4096) return;
     *(s32*)(self + 0x2B8) = group_count;
     const u32 groups = (u32)func_0018D500(group_count * 8);
@@ -285,6 +290,7 @@ void func_001289C0(void* object, void* reader) {
         for (s32 n = 0; n < value_count; ++n)
             *(f32*)(values + (u32)n * 4u) = func_00137DF8(reader);
     }
+    sly1_native_loader_stage(134, (u32)group_count, (u32)reader);
     /* Retail has one byte after the group curves before the child list. */
     (void)func_00137B90(reader);
     func_0011ECB8((void*)*(u32*)(self + 0x14), object, reader);
