@@ -79,9 +79,11 @@ available.
 Stage markers around record 4 confirm its `0x100` path is cursor-exact so
 far: mode is `-18`, the conditional payload advances 64 bytes (four floats and
 `func_00137F08`), three words follow, and the common fields end at `0x70001AAF`.
-The next 16-bit value is `0x1F3F` (7,999). Retail assembly allocates and loops
-that many nested entries. The port backfill now allows up to 8,192 entries. Assembly comparison shows
-the first array read in each nested entry uses the one-based nested index as
+The next 16-bit value is `0x1F3F` (7,999). The launcher disc was identified
+by `tools/openthievius.py discs --full` as the matching US `SCUS_971.98`
+version, ruling out a US/PAL pairing error. Retail assembly allocates and loops
+that many nested entries. The port backfill now allows up to 8,192 entries.
+Assembly comparison shows that the first array read in each nested entry uses the one-based nested index as
 its byte count; the remaining four reads use their decoded count fields. It
 then reads the reference list and payload, plus the word-count arrays. The
 first auxiliary payload likewise uses the nested count as its byte count.
