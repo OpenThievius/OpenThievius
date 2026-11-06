@@ -364,9 +364,12 @@ unverified. A 2026-11-06 retail comparison corrected the port-only
 does not read an additional 48-byte payload. Removing that extra read moves
 the first record boundary from `0x1871` to `0x1841`. Its animator helper starts
 at `0x17c6`, reads type `0xc189`, and reaches a null type-specific callback.
-Later the first nested dimension still reads `0xffff` and requests about 96
-MiB. Thus known branch behavior now matches retail, but an earlier stream
-field or parent cursor remains wrong. These changes are isolated in the port
+A captured 8 KiB reader window matched to the extracted decoded stream maps the
+later group-table cursor `0x1b8a` to decoded offset `0x5b8a`; there it reads
+list count `0x3f3d` followed by slot `0x53ff`. The object stores 65 values per
+group, and retail consumes those values for each of the 65 groups, so this
+table's byte count matches assembly. The invalid animator field at `0x17c6`
+remains the first concrete mismatch. These changes are isolated in the port
 backfill and do not alter decomp source.
 
 

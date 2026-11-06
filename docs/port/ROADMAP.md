@@ -40,19 +40,25 @@ The native sector adapter successfully reads the Splash resource from ISO
 sector 820372 (74 sectors). The exact reader reaches the C03 callback return at
 cursor `0x1594`. A port-only guarded one-byte pad skip then reads the next
 record as type `0x53`, key `0x054b`, and dispatches it through exact matched
-`func_00196410`. The child path reaches port-only `func_00162890`, which reads
-a record count of `0x2546` and later a nested count of `0x1f3f`. Retail
+`func_00196410`. The child path reaches port-only `func_00162890` and reads a
+record count of `0x2546`. A prior trace, before correcting cloned-record input
+consumption, reached nested count `0x1f3f`; the latest trace instead follows
+the stream through the group table to its malformed following object list.
+Retail
 comparison corrected the `0x40` flag to call matched `func_001B4A10`, both
 optional nested array sizes to `refs * dimension * 12`, and the `0x1` record
 flag to read only its 16-bit source index before copying a prior 0x70-byte
 record in memory. Removing that extra 48-byte stream read moves the first
 record boundary from `0x1871` to `0x1841`; its animator helper starts at
 `0x17c6` and reads unsupported type `0xc189`, then dispatches through a null
-callback. An earlier stream field or parent cursor is still wrong. The image callback still
-requests `0x5F4F0` bytes at EOF, leaving image and CLUT buffers zero-filled. The
-renderer receives menu draws (474–480 vertices), but the captured frame
-remains black. Re-run the native launch and capture logical source offsets
-across refills to verify the corrected parser branches. Do not
+callback. A captured 8 KiB reader window matches the extracted decoded Splash
+bytes: after the group's 65-by-65 float table, cursor `0x1b8a` is decoded offset
+`0x5b8a`, where the next 16-bit count is `0x3f3d` and the first slot is
+`0x53ff`. The group table's 65 values per row match the retail caller, but this
+following object count/slot is not plausible. A 5-second native launch now
+terminates with a guest call-through-address-1 fault after the null animator
+callback and malformed nested object list. Earlier runs showed menu draws but
+zero-filled image and palette uploads and a black frame. Do not
 tune GS texture or shader state from the previous tail-copy experiment.
 
 The port-only byte-copy helper `func_001F5A58` currently maps to host
@@ -107,10 +113,13 @@ record type `0x53` / key `0x054b`, and dispatches exact matched
 `refs * dimension * 12`, and the `0x1` record flag to read only a 16-bit
 source index before copying a record in memory. The latest run advances the
 first record boundary from `0x1871` to `0x1841`, but its animator helper reads
-unsupported type `0xc189` at `0x17c6` and dispatches through a null callback.
-It later reaches nested count `0x1f3f`, but the first dimension reads `0xffff`
-and requests about 96 MiB. An earlier stream field or parent cursor is still
-misaligned; no image or palette uploads occur.
+unsupported type `0xc189` at decoded offset `0x17c6` and dispatches through a
+null callback. Window capture also maps the post-group-table reader cursor
+`0x1b8a` to decoded offset `0x5b8a`, where it reads count `0x3f3d` followed by
+slot `0x53ff`. The group table itself reads 65 values per each of 65 rows,
+matching the retail caller. The first unresolved field is still the invalid
+animator type; the following nested-object list is also implausible. No image
+or palette uploads occur.
 Stages 101–103 were group-lookup probes whose third argument is an owner
 object, not a reader; their zero cursor was a misleading trace interpretation.
 Current decomp `master` is
