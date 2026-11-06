@@ -1,85 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-06. The native launcher is still not playable: its default
-path does not reach the opening movie or title screen. Earlier captures showed
-malformed, dark text fragments; the latest 12-second default-startup capture
-appears fully black. The
-user-provided 63-second PCSX2 recording shows the publisher credits, Paris
-rooftop opening movie, and the animated Sly Raccoon title screen with Sly and
-the Start/Select prompts. Its PCSX2 game list identifies the European 2.00
-disc (`Sly Raccoon (Europe) (En,Fr,De,Es,It)`); current native probes use the
-NTSC-U `SCUS_971.98` ELF and matching US disc. Treat the recording as a
-sequence and feature reference, not a pixel-matched target. It does not show
-selecting New Game or level control.
+Last checked: 2026-11-06. The native launcher remains not playable: the
+bounded direct-level run still does not show Sly or level geometry. The
+user-provided 63-second PCSX2 recording shows publisher credits, a Paris
+rooftop sequence where Sly traverses rooftops and encounters a guard, then the
+animated title screen. The title screen has Sly moving across the rooftops
+under the game logo and the Start/Select prompts. The recording does not show
+the user controlling Sly or starting a new game. Treat it as a target sequence
+and feature reference, not evidence about the native build.
 
-The newest host build includes port-only screen-fade updater/drawer backfills
-(`func_001EFD10`, `func_001EFEE0`) based on the available decomp C, plus
-assembly-only `func_001F00F0`. They are isolated in
-`hand/native_c/screen_fade.c` because the containing decomp units still fail
-hostgen's C staging. A bounded native run remains black after these callbacks
-were built. The renderer repeatedly decodes one untextured 240-vertex black
-draw per packet; no other visible title geometry is present in that run. This does not
-show that fades caused the black frame.
+The native launcher now compiles three selected functions directly from US
+retail assembly through hostgen's `asmc.py` translation path:
+`func_00125C90` (placed-object update/culling),
+`func_00126270` (placed-object part request builder), and
+`func_00166690` (mesh/VIF packet callback). The generated functions remain
+outside `sly1-decomp` and outside `hand/native_c/`; the decomp source remains
+the authority for matched C, while these assembly translations are a separate
+port build input. Hostgen reports all three translated from
+`asm/us/text.s`, with no stubs. The current matched C snapshot is upstream
+`dd6f80b`; because that checkout has no assembly dump, CMake accepts a
+separate `OPENTHIEVIUS_ASM_SOURCE_SLY1` path. The local build uses the
+existing US assembly dump in `/home/reaper/Code/sly1-decomp`.
 
-Port-only scalar versions of `func_00125B70`, `func_001453B0`,
-`func_00188B08`, `func_00188B48`, `func_00188668`, and `func_00188C10` are now
-in `hand/native_c/object_transform_primitives.c`. They restore the placed-
-object transform setup, matrix construction/multiplication, and camera sphere
-scale calculation from current decomp C and the US retail instructions. The
-same file now also contains the retail-derived `func_00125BF0` callback that
-submits an object's transformed matrix through the camera dispatch vtable. The
-no-assembly host build compiles with these replacements. They are prerequisites
-for translating the missing object update, but do not call it or change current
-native visuals yet. Next work remains `func_00125C90` and its draw callback
-chain.
+The native direct-load probe reads Splash, requests catalog key `0x0100`
+after Splash parse (loader stage 150), reads its resource at sector 867214,
+and completes the parser (stage 14) with world pointer `0xE103CF80`. That
+probe constructs the world but stays in the startup/menu flow. The targeted
+direct-load trace did not observe `func_00125C90`, `func_00126270`, or
+`func_00166690` during its 10-second window, and scene geometry remains
+absent. A separate default-startup trace reaches menu text drawing and uploads
+the font atlas, though the text is fragmented and startup selects the pause
+menu. The loaded direct-load world is not connected to the active gameplay
+frame/state transition path; the generated object draw path cannot help until
+the game invokes it.
 
-The caller chain is now mapped from the US retail disassembly and current
-hostgen report: `func_00125C90` invokes the placed-object m25 callback
-(`func_001261C0` in the common vtable), which invokes m26
-(`func_00126270`). The latter iterates placed-object parts, builds 0x80-byte
-deferred requests, and queues them through `func_0019D410` with callback
-`func_00166690`. `func_00126270` and `func_00166690` are still assembly stubs
-in the no-assembly host build. The port now backfills `func_001261C0` from its
-current decomp C body, kept separately because hostgen reports its source unit
-as no-C. The upstream checkout has a nearby
-nonmatching C++ source for `func_00166690` (96.7% match, 5796 bytes vs. 5772
-retail, checked 2026-11-06), but hostgen does not currently include that source.
-Thus the remaining visible-scene gap is larger than the outer object transform:
-the m26 request builder and the mesh/VIF packet callback also need hostable
-port code. No claim of visual progress is made for the new `func_00125BF0`
-submission backfill until a native run shows requests or vertices increasing.
-
-An opt-in native probe now skips movie/title startup and synchronously loads
-catalog key `0x0100` (`A Stealthy Approach`) after the first startup resource.
-The parser completes and installs a second world, but scene vertices remain at
-zero and the window stays black. This isolates level parsing from title startup;
-it does not make the game playable.
-
-The direct-load trace now reads world pointers through both EE RAM and the
-guest-port heap correctly. It sees 25 entries in the world root list and 24 in
-the `0x55` family list, with class IDs `0x58` and `0x51`. Activation and
-registration backfills populate 77 nodes in each of world lists `+0x54` and
-`+0x60`; this is confirmed by a bounded run. The `+0x1BE8` class-0x51
-ConeVolume list contains one object at `0xE20A57B0`, with flags `0x0AFFFF00`,
-high flags `0x120`, mode zero at `+0x2D0`, and value zero at `+0x304`.
-Sampled update callbacks are no-C `func_00125C90`; they see zero at `+0x28C`
-and `+0x298` and do not queue draw requests. Scene vertices remain zero.
-Retail `func_00184DE8` processes the class-0x51 ConeVolume list into VU data;
-it remains assembly-only in decomp and now has a separate retail-derived port
-backfill. The deferred frame dispatcher and request bucketer
-(`func_0019DC98` and `func_0019D4B0`) also have port-only backfills. A bounded
-native run stays active with these installed. The sole volume has mode/value
-zero, so it contributes no VIF output vectors and no scene vertices; the next
-work is missing `func_00125C90` object update logic and the resulting scene
-population.
-
-Upstream `sly1-decomp` master was checked at `dd6f80b` on 2026-11-06 (US
-4,730/4,806 functions, 93.10% code; Europe 4,738/4,831, 92.42% code). Its
-latest changes add a HUD compass drawing function and placed-object link data;
-they do not match `func_00125C90` or the class-0x51 ConeVolume processor.
-The generated host source is based on an older snapshot and does not yet
-include those unrelated changes.
+The request queue `func_0019D410` now preserves its host stack pointer while
+copying the request into guest EE memory. Keep all functional C replacements
+under `port/game/sly1-us/hand/native_c/`, listed in `backfills.tsv`, so
+matching decomp C can replace them cleanly. The assembly translations are
+generated from the separate assembly source and are not copied into
+`sly1-decomp`.
 
 The latest native trace reaches the menu text callback and submits two draws
 with 372–480 vertices. It uploads a 512x512 PSMT4 atlas at GS block `0x1400`

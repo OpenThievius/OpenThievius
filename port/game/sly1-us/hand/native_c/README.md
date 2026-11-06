@@ -65,17 +65,23 @@ draws. Remove these entries when matching decomp code is hostable.
 `func_00124050` walks placed-object children during activation, and
 `func_001240F8` registers active objects with the world update lists. Their
 port-only replacements raised the direct-load probe's world `+0x54` and
-`+0x60` lists from empty to 77 entries each. `func_0019D410` appends
-retail-sized deferred draw requests. A native trace shows those requests are
-still absent because every sampled update entry calls the substantial missing
-`func_00125C90` camera/object-transform and culling routine. The retail
-deferred dispatcher and request bucketing functions `func_0019DC98` and
-`func_0019D4B0` now have separate port-only replacements, along with a
-retail-derived `func_00184DE8` ConeVolume/VU backfill. That function survives a
-bounded frame run, but its only current class-0x51 ConeVolume has mode/value
-zero and produces no VIF vectors. The substantial missing `func_00125C90`
-callback still prevents the update path from populating its transform outputs.
-Remove each replacement when matching C is available to the host build.
+`+0x60` lists from empty to 77 entries each. The retail deferred dispatcher
+and request bucketer (`func_0019DC98`, `func_0019D4B0`) and ConeVolume/VU
+processor (`func_00184DE8`) also have separate port-only C backfills.
+`func_0019D410` copies a 0x80-byte request from a host stack pointer into the
+fixed guest queue without truncating the host pointer.
+
+The native hostgen build now translates the exact US retail assembly for
+`func_00125C90`, `func_00126270`, and `func_00166690` using the existing
+`asmc.py` path. These generated routines are kept in the ignored hostgen
+output, not copied into this C-backfill directory or the decomp checkout.
+Hostgen reports all three as translated from `asm/us/text.s`, with no stubs.
+The bounded direct-level probe parses key `0x0100` and installs a world, but
+the frame stays in the startup/menu flow: no object update or mesh callback
+was observed, and no scene geometry reaches the renderer. The new translated
+path therefore has not produced visual progress yet. Keep further functional
+C replacements here and register them in `backfills.tsv`; replace them when
+matching decomp C becomes hostable.
 
 `object_transform_primitives.c` restores scalar versions of the retail matrix
 builders, matrix multiply, placed-object transform setup, and camera sphere

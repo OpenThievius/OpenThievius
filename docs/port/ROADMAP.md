@@ -186,15 +186,18 @@ collision, audio, and saves.
 
 ### Decomp synchronization (2026-11-06)
 
-The latest direct upstream check is master `dd6f80b`; the generated host source
-still comes from `cf9ad46`. Current source coverage is US 4,730/4,806 functions
-(93.10% code) and Europe 4,738/4,831 (92.42% code). The latest merge adds
-matching HUD compass drawing (`func_001316E8`) and placed-object link data, but
-no matching C for current render blocker `func_00125C90`; `func_00184DE8` now
-has a separate port-only backfill. The active hostgen report reads 196 units,
-translates 1,091 functions, stubs one function, lists 3,799 without C, and
-applies seven port-owned overrides. These are separate measures from decomp
-coverage and do not establish gameplay readiness.
+Upstream master `dd6f80b` is now the matched-C input for the native host
+build. Current source coverage is US 4,730/4,806 functions (93.10% code) and
+Europe 4,738/4,831 (92.42% code). The latest merge adds matching HUD compass
+drawing (`func_001316E8`) and placed-object link data, but no matching C for
+the object update/draw chain. The hostgen report reads 199 units, translates
+1,102 matched C functions plus three selected US retail assembly routines,
+stubs one C function, and lists 3,785 functions without C. The selected
+assembly translations are `func_00125C90`, `func_00126270`, and
+`func_00166690`; they are generated from `asm/us/text.s` without modifying
+the decomp checkout. The direct-level probe parses key `0x0100` and installs
+its world, but does not enter gameplay or produce scene geometry. These counts
+are separate measures from decomp coverage and do not establish readiness.
 
 ### Earlier bounded native run (2026-11-06)
 

@@ -26,50 +26,38 @@ python3 port/tools/sly1.py status --version eu --json
 It is a planning/status tool, not a host build. The host build and its current
 limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 
-Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
-default is `--asm off`, and generated files stay under `build/port/`. It
-generates host C from matched Sly sources plus port-only backfills without
-translating retail MIPS assembly. The generated source snapshot is `cf9ad46`;
-the current hostgen report reads 196 units, translates 1,091 functions, leaves
-one C function stubbed, lists 3,799 functions without C, and applies seven
-port-owned overrides. Upstream `sly1-decomp` master was checked at `dd6f80b`:
-4,730/4,806 matching US functions (93.10% code) and 4,738/4,831 European
-functions (92.42% code). These are separate measures: host-C generation
-coverage does not indicate how much game logic builds or runs natively. The
-direct level-load probe runs the scene-batch path and populates world lists but
-still submits zero scene vertices; default startup reaches malformed menu
-text. The current graphics
-diagnosis and concrete next task are in
-[SLY_GRAPHICS_HANDOFF.md](../docs/port/SLY_GRAPHICS_HANDOFF.md).
-The separate freestanding host32 launcher is a startup diagnostic and does
-not open a window. SDL input updates host-side DualShock reports, but Sly's pad
-library is not connected to them yet. Functional backfills stay under
-`game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
+Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
+standalone command defaults to `--asm off`. The native CMake launcher enables
+only the three retail assembly translations listed in
+`game/sly1-us/hostgen.json`: `func_00125C90`, `func_00126270`, and
+`func_00166690`. Those functions are generated from `asm/us/text.s` into
+the ignored build tree, separate from both matched decomp C and the port's
+handwritten C backfills. Set
+`OPENTHIEVIUS_ASM_SOURCE_SLY1` when the checkout used for matched C does not
+contain the assembly directory. The current build uses matched C from
+`dd6f80b` and the US retail assembly dump from a separate local checkout.
 
-`python3 port/tools/sly1.py hostgen --asm on` writes a separate
-`build/port/hostgen/us-asm-research/` tree. That mode translates retail MIPS
-instructions for bounded research only; it is not the playable path. The
-target architecture is compiled Sly game logic with native platform services
-and a Sly-specific renderer, reusing OpenRAC's generic host/runtime
-infrastructure where it fits. See [`OPENRAC_REUSE.md`](../docs/port/OPENRAC_REUSE.md).
+The current hostgen report reads 199 units, translates 1,102 matched C
+functions and three assembly functions, stubs one C function, and lists 3,785
+functions without C. The direct level-load probe parses catalog key
+`0x0100` and installs its world, but the native game remains at the startup
+screen and scene geometry stays at zero. These are separate measures:
+decompilation coverage and translated-function counts do not establish
+gameplay readiness. The graphics handoff records the current evidence and
+next blocker. The SDL input path is not yet connected to Sly's pad library.
+Functional C backfills stay under `game/sly1-us/hand/native_c/`, outside
+`sly1-decomp`.
 
-The reused guest runtime builds as `sly1_port_runtime`. To compile and link all
-generated game units into a local link-check executable, run:
+To translate the selected assembly functions into the native build output
+directly, hostgen also supports:
 
 ```sh
-cmake -S port -B build/port -DOPENTHIEVIUS_SOURCE_SLY1=/path/to/sly1-decomp
-cmake --build build/port --target port_compile_generated
-cmake --build build/port --target port_link_generated
-cmake --build build/port --target port_native
+python3 port/tools/sly1.py hostgen --asm on --native-asm   --source /path/to/sly1-decomp   --asm-source /path/to/sly1-decomp-with-asm
 ```
 
-The link check confirms that the generated C and shared runtime link together;
-it does not call the game entry. `port_native` builds
-`build/port/sly1_native` from the same no-assembly host output. The port-only
-boot entry reaches a backfilled frame loop, but does not yet reach gameplay.
-The optional
-`--asm on` research output is separate and must not be used as a gameplay
-dependency.
+Without `--native-asm`, `--asm on` writes a separate research output. In
+either mode the configured `asm.only` list limits translation to the three
+selected functions.
 
 Port-side replacements are listed in `game/sly1-us/libraries.tsv`, with their
 native implementations in the runtime. The `extra_entries` list in
