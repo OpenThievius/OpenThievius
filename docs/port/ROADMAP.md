@@ -15,11 +15,18 @@ resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
 samples. The exact decomp stream-reader unit `00134000.cpp` is now host-readable and
 selected for the native build, including its LZ and buffered-byte readers. A
 port-only native ISO adapter reads the 150,849-byte Splash resource from the
-retail sector fields. A bounded run reaches the Splash metadata tables and
-submits menu geometry, but its image and palette buffers are zero-filled and the
-window remains black. Splash is catalog key `0x2`, not level resource `0x0100`.
+retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
+Its font atlas and palette data are present and match the decoded Splash bytes,
+but the submitted text remains malformed and no normal title/gameplay path is
+visible in the native launcher.
 
 ## Current visual blocker (2026-11-06)
+
+The user-provided 63-second PCSX2 reference screencast (2026-11-06) shows the
+publisher credits, the Paris rooftop opening movie, and the animated title
+screen with Start/Select prompts. It does not show selecting New Game or
+controlling Sly. The native target sequence is now explicit: reach that title
+scene, then transition to a controllable level.
 
 A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
@@ -63,6 +70,27 @@ the window still needs visual confirmation and the title/level, controller,
 collision, audio, and save paths remain incomplete. The next task is to trace
 this new post-property record path and determine why the submitted textures and
 frame are not yet confirmed visible.
+
+### Direct level-load probe (2026-11-06)
+
+The native resource loader now performs the retail `func_001DB838` world reset
+before replacing an existing world. This C implementation is a port-only
+backfill, registered in `hand/backfills.tsv`, and must yield to matching C when
+that function is available in the host build. With `OPENRAC_BOOT_LEVEL=0x0100`,
+the native loader bypasses the missing movie/title flow after Splash and reads
+the catalogued `A Stealthy Approach` range (sector 867214, 4,911,835 bytes).
+The resource parser reaches stage 13 and installs a second world
+(`resource_level_index=1`, world `0xe103cf80`). The large synchronous sector
+read uses reserved upper EE RAM at `0x01000000` so it does not overwrite
+`D_002C3B00`, which also backs render-frame buffers. This scratch range is a
+development adapter and needs review before general multi-level use.
+
+The probe still produces zero scene vertices and the window remains black.
+Several level construction/update functions are still no-C stubs, so parser
+completion is not evidence of a valid rendered or controllable level. The
+direct-load option is disabled by default; unset `OPENRAC_BOOT_LEVEL` for the
+normal startup path. The next gameplay milestone is to populate/render the
+loaded level and bring up Sly's player/input/collision path.
 
 The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
 (US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;

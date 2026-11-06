@@ -1,12 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-06. The native launcher is still not playable: it does not
-reach the opening sequence or title screen and instead shows malformed, dark
-text fragments against a mostly black background. The user-provided PCSX2
-recording clearly shows the opening movie, Paris rooftop sequence, and Sly
-Raccoon title screen with Sly and the Start/Select prompts. It is a visual
-reference only; it is not part of the native launch path.
+Last checked: 2026-11-06. The native launcher is still not playable: its default
+path does not reach the opening movie or title screen and its visible output is
+malformed, dark text fragments against a mostly black background. The
+user-provided 63-second PCSX2 recording shows the publisher credits, Paris
+rooftop opening movie, and the animated Sly Raccoon title screen with Sly and
+the Start/Select prompts. It does not show selecting New Game or level control.
+
+An opt-in native probe now skips movie/title startup and synchronously loads
+catalog key `0x0100` (`A Stealthy Approach`) after the first startup resource.
+The parser completes and installs a second world, but scene vertices remain at
+zero and the window stays black. This isolates level parsing from title startup;
+it does not make the game playable.
 
 The latest native trace reaches the menu text callback and submits two draws
 with 372–480 vertices. It uploads a 512x512 PSMT4 atlas at GS block `0x1400`
@@ -49,6 +55,20 @@ cmake --build build/port --target port_native -j2
 build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
+
+To exercise the level loader before title/movie support exists:
+
+```sh
+OPENRAC_BOOT_LEVEL=0x0100 build/port/sly1_native \
+  build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+The opt-in loader uses a reserved upper EE-RAM range starting at `0x01000000`
+for resource reads larger than the renderer's shared `D_002C3B00` buffer. Treat
+this fixed scratch range as development-only until broader memory use is
+audited. `func_001DB838` world teardown is kept as a separate port-only
+backfill in `hand/native_c/` and can be replaced by matching decomp C later.
 
 The source ELF and ISO above are already present in the current development
 environment. The host-native launcher uses SDL/OpenGL and OpenRAC renderer
