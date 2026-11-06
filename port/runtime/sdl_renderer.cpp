@@ -202,6 +202,19 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             failure = "payload span";
             break;
         }
+        if (payload_size >= 4096u && std::getenv("OPENRAC_TRACE_DMA_PAYLOAD") != nullptr) {
+            static std::atomic<unsigned> payload_traces{0};
+            const unsigned index = payload_traces.fetch_add(1, std::memory_order_relaxed);
+            if (index < 64) {
+                std::fprintf(stderr,
+                             "[native dma payload] #%u tag=%#010x id=%u qwc=%zu raw_ref=%#010x source=%#010x bytes=%zu stream_offset=%zu first=%02x%02x%02x%02x\n",
+                             index + 1, tag_address, id, qwc, raw_reference, payload_address,
+                             payload_size, stream.size(), payload_size > 0 ? payload[0] : 0,
+                             payload_size > 1 ? payload[1] : 0,
+                             payload_size > 2 ? payload[2] : 0,
+                             payload_size > 3 ? payload[3] : 0);
+            }
+        }
         if (payload_size != 0) stream.insert(stream.end(), payload, payload + payload_size);
         if (stop) {
             ok = true;

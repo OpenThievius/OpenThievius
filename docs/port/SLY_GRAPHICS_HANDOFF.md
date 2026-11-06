@@ -74,8 +74,13 @@ not apply a swizzle based on them. A byte-for-byte check confirms the full
 131,072-byte PSMT4 payload captured at `0x1400` occurs at offset 96 in each
 assembled GIF packet stream. This verifies the upload parser preserves the
 transfer bytes; it does not identify the resource/source buffer layout before
-DMA. Trace the DMA REF source, then validate PSMT4 indices, CLUT order/alpha,
-TEX0/UV selection, and shader output against captured framebuffer pixels. The
+DMA. The DMA REF source is `0xE0C02330`; the port-only image table resolves this
+to ImageA record 0, offset `0x21D0` from resource buffer `0xE0C00160`, with
+length `0x20000`. Font 0 references that same record. This confirms the upload
+comes from the loaded resource's first image range; it does not yet establish
+whether the range is linear or arranged for GS. Next validate PSMT4 indices,
+CLUT order/alpha, TEX0/UV selection, and shader output against captured
+framebuffer pixels. The
 trace reports `TCC=true`,
 modulate texturing, blending enabled, and GS alpha scale; those are evidence
 to inspect, not proven faults.
@@ -98,6 +103,7 @@ Additional opt-in diagnostics for a new run:
 
 ```sh
 OPENRAC_DUMP_NATIVE_FRAMES=1 OPENRAC_DUMP_UPLOAD=0x1400 \
+  OPENRAC_TRACE_DMA_PAYLOAD=1 \
   OPENRAC_DEBUG_T4_INDEX=all OPENRAC_DUMP_TEXTURE=1400 timeout 18s \
   build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/path/to/your/Sly 1 NTSC-U.iso'
@@ -111,14 +117,17 @@ rasterization. `OPENRAC_DEBUG_T4_INDEX=all` visualizes all indices as grayscale;
 values `0` through `15` make one index transparent. The
 `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` comparison treats upload bytes as an
 existing GS-local-memory image; it is not a default renderer mode.
+`OPENRAC_TRACE_DMA_PAYLOAD=1` logs large DMA payload source addresses, QWC,
+and their offset in the assembled stream to help locate the atlas's REF/REFS
+source range.
 
 ## Work needed next
 
-1. Trace the DMA chain's REF/REFS payload addresses that supply the `0x1400`
-   IMAGE transfer. The assembled payload matches the packet stream exactly;
-   now compare those bytes to the referenced guest-memory range and resource
-   record to establish whether Sly uploads a linear raster or prearranged data.
-   Verify the source before changing PSMT4 conversion.
+1. Continue from the mapped ImageA record 0 range at resource offset `0x21D0`:
+   establish whether its bytes are a linear raster or prearranged data, then
+   verify nibble order and the resource's GS metadata before changing PSMT4
+   conversion. The DMA trace already confirms the exact range and payload
+   offset in the assembled GIF stream.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
@@ -135,7 +144,7 @@ existing GS-local-memory image; it is not a default renderer mode.
    the missing Sly-specific scene/resource decode and draw path. OpenRAC's
    renderer and host runtime are reusable; Ratchet world records and game
    logic are not.
-4. Continue through title and level loading, controller input,
+5. Continue through title and level loading, controller input,
    controllable Sly, collision, audio, and saves. A menu screenshot is useful
    progress but is not a playable-state milestone.
 

@@ -92,6 +92,8 @@ extern s32 D_00262268[5];
 extern s32 D_0026227C;
 extern u32 D_00275718;
 extern u8 D_002626D8[];
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 s32 func_00137BE0(void* reader);
 void func_00137A60(void* reader, s32 size, void* destination);
@@ -128,6 +130,9 @@ static void read_image_a_table(void* reader) {
         func_00137A60(reader, 0x14, entry);
         entry->f14 = (entry->f0c + 15u) >> 4;
         entry->f10 += (s32)D_00275718;
+        sly1_native_trace_font(17, (u32)i, D_00275718,
+                               entry->f10 - (s32)D_00275718,
+                               (u32)entry->f10, entry->f0c);
         if (entry->f4 & 0x10000000u) ++D_00274510;
     }
     s32 other = D_00274500 - D_00274510;
@@ -207,6 +212,9 @@ static void read_font_table(void* reader) {
         if (id >= 0 && id < 5) D_00262268[id] = (s32)font;
         u32 image_a = (u32)D_00274504 + source.image_a * sizeof(ImageA);
         u32 image_b = source.image_b == 0xffffu ? 0 : (u32)D_0027450C + source.image_b * sizeof(ImageB);
+        ImageA* image = (ImageA*)image_a;
+        sly1_native_trace_font(18, (u32)i, source.image_a, image_a,
+                               (u32)image->f10, image->f0c);
         *(s32*)(font + 0x00) = source.width;
         *(s32*)(font + 0x04) = source.advance;
         *(s32*)(font + 0x08) = source.height;
