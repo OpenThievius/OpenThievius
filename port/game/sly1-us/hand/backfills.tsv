@@ -143,7 +143,6 @@ func_0011A358	native_c/resource_value_parser.c
 func_0011A080	native_c/resource_value_parser.c
 func_0011EC40	native_c/resource_value_parser.c
 func_0011E680	native_c/resource_descriptors.c
-func_00137FB0	native_c/collision_mesh_reader.c
 func_00160E80	native_c/collision_mesh_copy.c
 func_00160EA0	native_c/collision_mesh_copy.c
 func_001897F0	native_c/collision_transform.c
@@ -151,7 +150,6 @@ func_001B9448	native_c/collision_transform.c
 func_00123ED0	native_c/resource_base_constructor.c
 func_00162890	native_c/resource_object_common.c
 func_00128C10	native_c/resource_object_common.c
-func_001289C0	native_c/resource_object_common.c
 func_001F5A58	native_c/func_001F5A58.c
 func_00140C28	native_c/func_00140C28.c
 func_00140CC8	native_c/func_00140CC8.c
@@ -202,8 +200,6 @@ func_002040E8	native_c/input_manager.c
 func_00194D30	native_c/func_00194D30.c
 func_001943E8	native_c/func_001943E8.c
 func_001B7968	native_c/func_001B7968.c
-func_001BAC30	native_c/func_001BAC30.c
-func_00138278	native_c/collision_loader.c
 func_00138BE0	native_c/collision_loader.c
 func_001B7C40	native_c/collision_loader.c
 func_001BB4A0	native_c/collision_loader.c

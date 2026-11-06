@@ -11,45 +11,6 @@ u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 void func_00125108(void* object);
 
-void func_00138278(void* stream, void* mesh, void* tree)
-{
-    u8* output = (u8*)tree;
-    u32 nodes;
-    s32 count = func_00137BE0(stream);
-    s32 count2 = func_00137BE0(stream);
-    s32 i;
-
-    sly1_native_loader_stage(82, (u32)count, (u32)stream);
-    sly1_native_loader_stage(83, (u32)count2, (u32)stream);
-
-    /* Port-only malformed/optional-tree guard. A leading all-ones count marks
-     * an absent tree in observed resource data; the following 16-bit field is
-     * still consumed above but is not required to repeat the sentinel. */
-    if ((u16)count == 0xFFFFu) {
-        *(s32*)(output + 0) = 0;
-        *(s32*)(output + 4) = 0;
-        *(u32*)(output + 8) = 0;
-        return;
-    }
-
-    *(s32*)(output + 0) = count;
-    *(s32*)(output + 4) = count2;
-    nodes = (u32)func_0018D5C0(count * 12);
-    *(u32*)(output + 8) = nodes;
-
-    for (i = 0; i < count; ++i) {
-        u8* node = (u8*)nodes + i * 12;
-        s32 face = func_00137BE0(stream);
-        s32 back = func_00137BE0(stream);
-        s32 front = func_00137BE0(stream);
-        *(u32*)(node + 0) = *(u32*)((u8*)mesh + 0x10) + ((u32)face << 5);
-        if (((u32)back & 0xFFFFu) != 0xFFFFu)
-            *(u32*)(node + 4) = nodes + (u32)back * 12u;
-        if (((u32)front & 0xFFFFu) != 0xFFFFu)
-            *(u32*)(node + 8) = nodes + (u32)front * 12u;
-    }
-}
-
 void func_00138BE0(void* unused, void* collider, u32 mask)
 {
     u8* root = (u8*)*(u32*)((u8*)collider + 0x50);

@@ -246,19 +246,22 @@ def prepare_c_view(source, version):
                             flags=re.DOTALL,
                         )
                         text = text[:state.end()] + body + text[close:]
+            # The readable class headers expose these as C++ accessors. Lower
+            # the two accessors that hostgen cannot parse to their declared
+            # fields directly; avoid synthetic incomplete C01/C02/C03 tags.
             text = re.sub(
                 r"([A-Za-z_]\w*)->root03\(\)",
-                r"((struct C03*)((struct C02*)\1)->root)",
+                r"((Collider*)((PlacedObject*)\1)->root)",
                 text,
             )
             text = re.sub(
                 r"([A-Za-z_]\w*(?:->[A-Za-z_]\w*)*)->desc(\d+)\(\)",
-                r"((const struct Desc\2*)((struct C01*)(\1))->desc)",
+                r"((const Desc\2*)((BaseObject*)(\1))->desc)",
                 text,
             )
             text = re.sub(
                 r"(\([^;{}]+\))->desc(\d+)\(\)",
-                r"((const struct Desc\2*)((struct C01*)\1)->desc)",
+                r"((const Desc\2*)((BaseObject*)\1)->desc)",
                 text,
             )
             # One matched C unit uses a tiny local C++ iterator with a
