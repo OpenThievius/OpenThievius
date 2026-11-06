@@ -187,6 +187,12 @@ func_0012AA28	native_c/func_0012AA28.c
 func_001DFD90	native_c/func_001DFD90.c
 func_00124DF8	native_c/func_00124DF8.c
 func_001463C0	native_c/func_001463C0.c
+func_00123ED0	native_c/scene_object_constructors.c
+func_00140FF8	native_c/scene_object_constructors.c
+func_00146340	native_c/scene_object_constructors.c
+func_00148D90	native_c/scene_object_constructors.c
+func_00125108	native_c/scene_object_dispatch.c
+func_00182D00	native_c/scene_object_dispatch.c
 func_001B3040	native_c/animation_table_loader.c
 func_001607D0	native_c/func_001607D0.c
 func_00142F10	native_c/func_00142F10.c
