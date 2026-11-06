@@ -17,6 +17,8 @@
     "sly1_native_call_regs4",
     "sly1_native_call_f32",
     "sly1_native_trace_font",
+    "sly1_native_vu0_mac",
+    "sly1_native_vu0_component",
     "sly1_native_trace_resource_range",
     "sly1_native_monotonic_ticks",
     "sly1_native_pad_read",

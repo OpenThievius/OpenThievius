@@ -3,6 +3,8 @@
 #include "common.h"
 
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+u32 sly1_native_vu0_mac(void);
+u32 sly1_native_vu0_component(u32 index);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
 extern void* func_0018D500(s32 size);
@@ -40,6 +42,17 @@ static void update_actor_list(u32 world, u32 frame_address, u32 list_offset,
             u32 method = *(u32*)(object + 0xA0u);
             sly1_native_trace_font(35, node_address, object, method,
                                    list_offset, argument);
+            if (method == 0x00125C90u) {
+                sly1_native_trace_font(41, node_address, argument,
+                                       *(u32*)(node_address + 0x140u),
+                                       *(u32*)(node_address + 0x144u),
+                                       *(u32*)(node_address + 0x148u));
+                sly1_native_trace_font(42, node_address,
+                                       *(u32*)(node_address + 0x80u),
+                                       *(u32*)(node_address + 0x2A8u),
+                                       *(u32*)(argument + 0x40u),
+                                       *(u32*)(argument + 0x44u));
+            }
             sly1_native_trace_font(36, node_address,
                                    *(u32*)(node_address + 0x2C8u),
                                    *(u32*)(node_address + 0x2CCu),
@@ -48,6 +61,18 @@ static void update_actor_list(u32 world, u32 frame_address, u32 list_offset,
             if (method != 0)
                 (void)sly1_native_call_regs4(method, node_address,
                                              argument, 0, 0);
+            if (method == 0x00125C90u)
+                sly1_native_trace_font(30, node_address, object, method,
+                                       sly1_native_vu0_mac(),
+                                       *(u32*)(node_address + 0x2C8u));
+            if (method == 0x00125C90u) {
+                u32 lane;
+                for (lane = 0; lane < 4; ++lane)
+                    sly1_native_trace_font(37 + lane, object, lane,
+                                           sly1_native_vu0_component(128 + lane),
+                                           sly1_native_vu0_component(24 + lane),
+                                           sly1_native_vu0_component(28 + lane));
+            }
         }
         node_address = *(u32*)frame[1];
         frame[1] = node_address + (u32)link;

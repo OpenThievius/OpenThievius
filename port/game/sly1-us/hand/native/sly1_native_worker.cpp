@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Port-only implementation of the worker-start callback at retail address 0x0018E5E8.
 #include "openrac/guest.h"
+#include "openrac/ee.h"
 #include "openrac/disc_image.h"
 #include "openrac/native_gs.h"
 #include "openrac/native_window.h"
@@ -64,6 +65,22 @@ extern "C" int game_sly1_native_pad_read(uint32_t port, uint32_t report,
     if (report == 0) return 0;
     return openrac_native_pad_read(static_cast<int>(port),
                                    reinterpret_cast<unsigned char*>(G(report)), size);
+}
+
+extern "C" uint32_t game_sly1_native_vu0_mac(void) {
+    return OPENRAC_VU0->mac;
+}
+
+extern "C" uint32_t game_sly1_native_vu0_component(uint32_t index) {
+    float value = 0.0f;
+    if (index < 128u) {
+        value = OPENRAC_VU0->vf[index / 4u][index % 4u];
+    } else if (index < 132u) {
+        value = OPENRAC_VU0->acc[index - 128u];
+    }
+    uint32_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
 }
 
 extern "C" void sly1_native_start_worker(void) {
