@@ -207,6 +207,18 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
    controllable Sly, collision, audio, and saves. A menu screenshot is useful
    progress but is not a playable-state milestone.
 
+## Collider contact-table pass (2026-11-06)
+
+`hand/native_c/collision_contact_tables.c` now supplies port-only
+implementations for the collider's contact-pair flag table, paired row pool,
+root retry-counter reset, and post-load compatibility scan. The functions are
+registered in `hand/backfills.tsv`; none of this code changes matching
+decompilation progress. The C-only launcher rebuild succeeds. A bounded
+10-second native launch still reports zero submitted vertices and a black
+window, so this closes a missing collision callback path without resolving the
+current visual blocker. The remaining collider callback gap on this path is
+`func_001B8540`.
+
 ## Port/decomp boundary
 
 All functional replacements used to reach this point belong under
@@ -226,8 +238,9 @@ documented in [ASSETS.md](ASSETS.md). The current refreshed read-only decomp sna
 2026-11-06). `python3 port/tools/sly1.py status --source
 /home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
 functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
-report is `build/port/hostgen/us/report.md`: 189 units read, 573 functions
-translated to host C, one stub, and 4,278 without C. These counts use different
+report is `build/port/hostgen/us/report.md`: 191 units read, 587 functions
+translated to host C, one stub, and 4,270 without C, with seven port-owned
+overrides of matched C. These counts use different
 denominators and answer different questions; neither means the same amount of
 gameplay is ready. The snapshot is read-only and may lag GitHub if new decomp
 commits land, so refresh it and rerun the status command before starting work

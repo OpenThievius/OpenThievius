@@ -24,8 +24,13 @@ but the native window is still black.
 
 ## Current visual blocker (2026-11-06)
 
-The native C-only launcher reaches Sly's menu/frame path. The window remains
-black or shows a dark noisy menu shape. The channel-initialization backfill
+The native C-only launcher reaches Sly's menu/frame path. A 10-second bounded
+run on 2026-11-06 reached two frames and sampled 588 accepted GIF-chain submits
+with zero rejects, but still reported zero vertices and a black window. The
+font registry initializes, though the Splash image reader still does not
+provide usable scene geometry. A new port-only collision backfill now covers
+the post-load contact-table registration path; it does not change this visual
+blocker. The channel-initialization backfill
 populates GIF at `0x1000A000` and VIF1 at `0x10009000`. The earlier
 135,632-byte chain dump contains a GIF IMAGE tag (`0x08000000`, 8,192 qwords);
 it is not a VIF opcode.
@@ -46,9 +51,9 @@ chain.
 
 The most recently host-generated build used the current upstream decomp
 snapshot `cf9ad46` (`OpenThievius/sly1-decomp`, PR #62, checked 2026-11-06):
-189 source units read, 573 functions
-translated, zero assembly functions, one C function stubbed, and 4,278
-functions without C. The
+191 source units read, 587 functions
+translated, zero assembly functions, one C function stubbed, and 4,270
+functions without C. It includes seven port-owned overrides of matched C. The
 decompilation's source status is 4,720/4,806 US functions with C (92.17% code
 bytes); this is not host or gameplay coverage. Use
 [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for reproducible commands,
@@ -66,9 +71,10 @@ collision, audio, and saves.
 Upstream `sly1-decomp` has advanced to `cf9ad464696a197803f584980bff43ed62b6bf31`
 (PR #62, Nov 5); the read-only snapshot is at
 `/home/reaper/.cache/sly1-decomp-current`. Its status tool reports 4,720/4,806
-US functions with C and 92.17% code bytes. A fresh hostgen build reads 189
-units, translates 573 functions (none from assembly), stubs one function, and
-lists 4,278 without C. These generated-host counts are separate from the
+US functions with C and 92.17% code bytes. A fresh hostgen build reads 191
+units, translates 587 functions (none from assembly), stubs one function, and
+lists 4,270 without C. It also applies seven port-owned overrides of matched
+C. These generated-host counts are separate from the
 decompilation's matching-coverage report and do not establish gameplay
 coverage. The updates since the previous
 `a0fd295` snapshot include extensive name/header refactors and documentation;
@@ -628,7 +634,9 @@ vertex, and updates the per-face vectors. The mesh view follows the serialized
 capacity/pointer, face vectors). The native build succeeds and the bounded
 Splash run no longer reports `func_001B8960` as a no-C stub; the cursor still
 reaches `0x1594`, and no geometry reaches the renderer. This is a collision
-state improvement, not visual or playable progress. Remaining collider gaps
-include the handwritten bounds callback `func_001B8540` and root registration
-`func_00138F28`. The port also translates `func_001B9680`, which copies the
+state improvement, not visual or playable progress. The remaining collider gap
+in this path is the handwritten bounds callback `func_001B8540`. A separate
+port-only backfill now covers root registration and contact-pair bookkeeping
+(`func_00129DF8`, `func_001385A0`, `func_00138738`, `func_00138788`, and
+`func_00138F28`). The port also translates `func_001B9680`, which copies the
 world position at `+0x140` to the previous-position field at `+0x370`.

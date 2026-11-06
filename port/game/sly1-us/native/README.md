@@ -9,9 +9,10 @@ function names to retail addresses alongside compiled decomp functions. The
 Last checked: 2026-11-06. Upstream
 [`sly1-decomp`](https://github.com/OpenThievius/sly1-decomp) is at `cf9ad46`
 (PR #62); its NTSC-U status is 4,720/4,806 functions with C (92.17% code
-bytes). The latest C-only hostgen run against that snapshot read 189 units,
-translated 573 functions, stubbed one C function, and lists 4,278 functions
-without C. This does not describe the separate freestanding host32 build.
+bytes). The latest C-only hostgen run against that snapshot read 191 units,
+translated 587 functions, stubbed one C function, and lists 4,270 functions
+without C. It includes seven port-owned overrides of matched C. This does not
+describe the separate freestanding host32 build.
 
 The host32 launcher and its EE/device behavior are an experimental startup
 diagnostic, not the target port architecture. The build counts and traces in
