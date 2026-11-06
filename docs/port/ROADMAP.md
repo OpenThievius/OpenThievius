@@ -44,6 +44,11 @@ camera `+0x40` is `0x4500D8D8` and `+0x44` is zero; the test point x is
 `0xC500D8D8`, y/z are zero. The next step is to establish why these update-list
 entries have zero placement/radius data and whether they are valid scene
 objects. Do not alter the culling comparison or force objects through it.
+The camera updater now runs from selected retail assembly as well. A port C
+declaration bug had passed the camera global's storage address instead of its
+stored object pointer; the corrected call sees one valid controller-stack
+entry and no longer reaches the former invalid callbacks. This still does not
+populate the sampled scene-object position/radius fields.
 
 The newest host build adds port-only screen-fade update/draw backfills
 (`func_001EFD10`, `func_001EFEE0`) based on current decomp C, and the

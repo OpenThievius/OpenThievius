@@ -96,12 +96,14 @@ not a change to the retail function or matching decomp C.
 
 The camera constructor `func_00143648` and its reachable assembly-only
 dependency closure are selected from the US retail assembly in `hostgen.json`.
-Together with the existing selected renderer callbacks, hostgen currently
-translates 56 assembly functions. This gets sampled `func_00125C90` calls past
-their initial VU MAC gate (`0xF0`); the next sphere/frustum test still rejects
-sampled entries whose node position and radius are zero. Camera updater
-`func_00143E40` remains a no-C stub after its translated version reached
-invalid indirect callbacks. Keep these assembly selections in the port build
+The camera updater `func_00143E40` and two more missing-C functions in its
+direct-call closure are now selected too; hostgen translates 59 assembly functions. A declaration bug
+in `world_update.c` passed the address of the camera global instead of its
+stored pointer. The corrected call sees the valid camera stack (one active
+controller at `+0x454`) and reaches its retail update callback without invalid
+callback errors. Sampled `func_00125C90` calls pass their initial VU MAC gate
+(`0xF0`), but the next sphere/frustum test still rejects sampled entries with
+zero node position and radius. Keep these assembly selections in the port build
 configuration and all functional C adapters in this directory.
 
 `object_update_callbacks.c` keeps the current decompilation C body for

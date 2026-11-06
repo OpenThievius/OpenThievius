@@ -3,7 +3,7 @@
 #include "common.h"
 
 extern u8 D_00261858[];
-extern u8 D_00261990[];
+extern u8* D_00261990;
 extern u32 D_0027B314;
 
 void func_001E9EE8(void* world, f32 step);
@@ -24,6 +24,48 @@ void func_001EA0A8(void* world, f32 step);
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2,
                          u32 a3, f32 f12, f32 f14);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
+
+static int guest_word_address(u32 address) {
+    return address < 0x02000000u
+        || (address >= 0xE0000000u && address < 0xE4000000u);
+}
+
+static u32 camera_trace_word(u32 address) {
+    return guest_word_address(address) ? *(u32*)address : 0xFFFFFFFFu;
+}
+
+static void trace_camera_update(u32 camera) {
+    static u32 samples;
+    u32 head;
+    u32 current;
+    u32 descriptor;
+    u32 callback;
+
+    if (samples++ >= 2u) return;
+    head = camera_trace_word(camera + 0x3D8u);
+    current = camera_trace_word(camera + 0x3DCu);
+    descriptor = camera_trace_word(camera);
+    sly1_native_trace_font(49, descriptor,
+                          camera_trace_word(descriptor + 0x14u),
+                          camera_trace_word(descriptor + 0x18u),
+                          camera_trace_word(camera + 0x3D0u),
+                          camera_trace_word(camera + 0x3DCu));
+    descriptor = camera_trace_word(current);
+    callback = camera_trace_word(descriptor + 0x124u);
+    sly1_native_trace_font(46, camera_trace_word(camera + 0x3D0u), head,
+                          current, camera_trace_word(camera + 0x2E0u),
+                          camera_trace_word(camera + 0x220u));
+    sly1_native_trace_font(47, current, descriptor, callback,
+                          camera_trace_word(current + 4u),
+                          camera_trace_word(current + 8u));
+    descriptor = camera_trace_word(head);
+    callback = camera_trace_word(descriptor + 0x10u);
+    sly1_native_trace_font(48, head, descriptor, callback,
+                          camera_trace_word(head + 4u),
+                          camera_trace_word(head + 8u));
+}
 
 struct NativeActorIterator {
     u32 link;
@@ -106,6 +148,7 @@ void func_001EA118(void* world) {
         func_0012E710((void*)actor);
     actor_iterator_end(&iterator);
 
+    trace_camera_update((u32)D_00261990);
     func_00143E40(D_00261990, 1, dt);
     func_001EA0A8(world, step);
 }

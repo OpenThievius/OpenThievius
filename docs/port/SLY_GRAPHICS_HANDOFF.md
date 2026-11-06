@@ -14,17 +14,18 @@ prompts. It does not show the user starting a new game. The native build uses
 the US release, so use this as a sequence and feature reference rather than a
 pixel-identical target or evidence about the native build.
 
-The native launcher selects 56 functions directly from US retail assembly
+The native launcher selects 59 functions directly from US retail assembly
 through hostgen's `asmc.py` translation path. This includes the
 `func_00143648` camera constructor and its reachable assembly-only dependency
-closure, plus `func_00125C90` (placed-object update/culling), `func_00126270`
-(placed-object part request builder), and `func_00166690` (mesh/VIF packet
-callback). The generated functions remain outside `sly1-decomp` and outside
+closure, camera update `func_00143E40` and two additional missing-C
+functions in its direct-call closure, plus `func_00125C90` (placed-object update/culling),
+`func_00126270` (placed-object part request builder), and `func_00166690`
+(mesh/VIF packet callback). The generated functions remain outside `sly1-decomp` and outside
 `hand/native_c/`; the decomp source remains the authority for matched C, while
 these assembly translations are a separate port build input. Hostgen reports
-56 functions translated from `asm/us/text.s`, with no stubs. The current
-matched C snapshot is upstream `dd6f80b`; because that checkout has no assembly dump, CMake accepts a
-separate `OPENTHIEVIUS_ASM_SOURCE_SLY1` path. The local build uses the
+59 functions translated from `asm/us/text.s`, with no stubs. The current
+matched C snapshot is upstream `dd6f80b`; because that checkout has no
+assembly dump, CMake accepts a separate `OPENTHIEVIUS_ASM_SOURCE_SLY1` path. The local build uses the
 existing US assembly dump in `/home/reaper/Code/sly1-decomp`.
 
 The native direct-load probe reads Splash, requests catalog key `0x0100`
@@ -46,9 +47,15 @@ the sampled point: radius at node `+0x2A8` is zero, node position words at
 `+0x140..+0x148` are zero, camera word `+0x40` is `0x4500D8D8`, and `+0x44`
 is zero. The test point has x bits `0xC500D8D8` and y/z zero. This narrows
 the current problem to scene/camera inputs or startup list entries; it does not
-justify forcing the culling result. The direct-load probe still does not
-connect its loaded world to gameplay. Camera updater `func_00143E40` remains a
-no-C stub because translating it previously reached invalid indirect callbacks.
+justify forcing the culling result. The direct-load probe still does not connect its loaded world to gameplay.
+A bad declaration in the port `world_update.c` treated the camera pointer
+global as an array and passed the global storage address to `func_00143E40`.
+Declaring it as the pointer it is fixes the camera argument: its retail stack
+now has one entry at `camera+0x454`, and the update callback resolves to
+`0x001493C0`. The retail updater and two more missing-C functions in its
+direct-call closure are now selected from assembly; a bounded native run reaches it without the former invalid callback
+errors. This fixes the camera update call path, but sampled object positions
+and radii remain zero, so the scene is still not rendered.
 
 The request queue `func_0019D410` now preserves its host stack pointer while
 copying the request into guest EE memory. Keep all functional C replacements
@@ -82,9 +89,10 @@ and RGBA `(127,127,127,17)`.
 The current trace uses `OPENRAC_STARTUP_TRACE=1 OPENRAC_TRACE_FONT=1` with the
 NTSC-U ELF and ISO. Port-only stages 30 and 37–42 capture the
 `func_00125C90` return, VU0 accumulator lanes, selected vector lanes, and
-sampled node/camera fields. The MAC gate reports `0xF0`; the sphere test still
-rejects sampled objects with radius zero. These probes are diagnostic only and do not alter the retail
-branch or rendering.
+sampled node/camera fields. Stages 46–49 record the camera stack and callback
+pointers. The MAC gate reports `0xF0`; the sphere test still rejects sampled
+objects with radius zero. These probes are diagnostic only and do not alter the
+retail branch or rendering.
 
 The screen-element constructor loop `func_001A9F78` exists in the current
 decomp source but its US status is still `no-c`, so hostgen emitted a no-op.
