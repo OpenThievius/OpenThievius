@@ -70,9 +70,13 @@ at `0x1400` has near-uniform index counts and looks spatially noisy when all 16
 indices are visualized as grayscale. Reading the same bytes as an already
 swizzled GS-memory image also does not produce a recognizable atlas. These
 experiments do not establish which format/order Sly's source buffer uses; do
-not apply a swizzle based on them. Trace the DMA REF source for the image data,
-then validate PSMT4 indices, CLUT order/alpha, TEX0/UV selection, and shader
-output against captured framebuffer pixels. The trace reports `TCC=true`,
+not apply a swizzle based on them. A byte-for-byte check confirms the full
+131,072-byte PSMT4 payload captured at `0x1400` occurs at offset 96 in each
+assembled GIF packet stream. This verifies the upload parser preserves the
+transfer bytes; it does not identify the resource/source buffer layout before
+DMA. Trace the DMA REF source, then validate PSMT4 indices, CLUT order/alpha,
+TEX0/UV selection, and shader output against captured framebuffer pixels. The
+trace reports `TCC=true`,
 modulate texturing, blending enabled, and GS alpha scale; those are evidence
 to inspect, not proven faults.
 
@@ -111,9 +115,10 @@ existing GS-local-memory image; it is not a default renderer mode.
 ## Work needed next
 
 1. Trace the DMA chain's REF/REFS payload addresses that supply the `0x1400`
-   IMAGE transfer. Compare the exact 131,072-byte assembled image payload to
-   the referenced guest-memory range and the resource record. Verify the source
-   before changing PSMT4 conversion.
+   IMAGE transfer. The assembled payload matches the packet stream exactly;
+   now compare those bytes to the referenced guest-memory range and resource
+   record to establish whether Sly uploads a linear raster or prearranged data.
+   Verify the source before changing PSMT4 conversion.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
