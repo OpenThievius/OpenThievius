@@ -68,6 +68,18 @@ extern "C" void game_sly1_native_trace_resource_range(std::uint32_t sector,
               << '\n';
 }
 
+extern "C" std::uint32_t game_sly1_native_boot_level_key() {
+    static const std::uint32_t key = [] {
+        const char* value = std::getenv("OPENRAC_BOOT_LEVEL");
+        if (value == nullptr || *value == '\0') return 0u;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(value, &end, 0);
+        if (end == value || *end != '\0' || parsed > 0xFFFFFFFFul) return 0u;
+        return static_cast<std::uint32_t>(parsed);
+    }();
+    return key;
+}
+
 namespace {
 
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \

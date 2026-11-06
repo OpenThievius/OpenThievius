@@ -3,6 +3,7 @@
 #include "common.h"
 
 extern u8 D_002C3B00[];
+extern u8 D_00247AF0[];
 extern void* D_00275710;
 extern u8 D_00275F80[];
 
@@ -21,6 +22,9 @@ void func_001DCEA0(void* self, void* reader);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
 void sly1_native_trace_resource_range(u32 sector, u32 byte_count);
 void func_001E4EA8(void* state);
+void func_001DB838(s32 has_world);
+void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d);
+u32 sly1_native_boot_level_key(void);
 void func_00142ED0(f32 scale);
 void func_001F0220(void* state, s32 mode);
 
@@ -39,10 +43,13 @@ void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
 }
 
 void func_001E4EA8(void* state) {
+    static s32 direct_level_attempted = 0;
     u8* request = (u8*)state;
     u32 record[8];
     u32 range[2];
     u32 sector_count;
+    u32 source_buffer;
+    u32 buffer_capacity;
     u32 callback_data[9] = {0};
     u32 callback_word0 = 0x00003F00u;
     u32 callback_word1 = 0x003F3F3Fu;
@@ -77,27 +84,37 @@ void func_001E4EA8(void* state) {
     func_00193210(callback_data, &callback_word0, &callback_word1,
                   &callback_word2, &callback_word3);
 
-    func_00137290(reader, 0x00340C00, (u32)D_002C3B00, 6);
+    sector_count = (range[1] + 0x7FFu) >> 11;
+    buffer_capacity = sector_count << 11;
+    if (buffer_capacity > 0x00C00000u) {
+        *(u32*)request = 0;
+        return;
+    }
+    /* D_002C3B00 also backs renderer frame buffers. Large synchronous reads
+     * use a reserved upper EE-RAM scratch range instead of overwriting them. */
+    source_buffer = buffer_capacity > 0x00340C00u ? 0x01000000u :
+                                                      (u32)D_002C3B00;
+    func_00137290(reader, (s32)buffer_capacity, source_buffer, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;
     if (func_001373B0(reader, (const s32*)range) == 0) {
         func_001373D0(reader);
         return;
     }
-    if (range[1] > 0x00340C00u) {
-        func_001373D0(reader);
-        return;
-    }
-    sector_count = (range[1] + 0x7FFu) >> 11;
     if (sly1_native_read_sectors(range[0], sector_count,
-                                 (u32)D_002C3B00) == 0) {
+                                 source_buffer) == 0) {
         func_001373D0(reader);
         return;
     }
 
+    /* Match retail transition ordering: retire the previous world before
+     * decoding and publishing its replacement. */
+    func_001DB838(D_00275710 != 0);
+    D_00275710 = 0;
+
     /* The native synchronous read replaces retail's async refill worker.
      * +0x20/+0x24 are the compressed source cursor and length; +0x18/+0x1C
      * stay empty so the first byte request runs the LZ window refill. */
-    *(u32*)(reader + 0x20) = (u32)D_002C3B00;
+    *(u32*)(reader + 0x20) = source_buffer;
     *(s32*)(reader + 0x24) = (s32)range[1];
 
     sly1_native_loader_stage(10, 0, (u32)reader);
@@ -124,4 +141,22 @@ void func_001E4EA8(void* state) {
     func_001373D0(reader);
     *(u32*)request = 0;
     sly1_native_loader_stage(14, (u32)object, (u32)reader);
+
+    /* Development-only shortcut from the first completed startup resource to
+     * a retail catalog level. This avoids waiting for movie/title systems that
+     * the native port has not implemented yet. */
+    if (!direct_level_attempted && object != 0) {
+        const u32 wanted = sly1_native_boot_level_key();
+        if (wanted != 0) {
+            direct_level_attempted = 1;
+            for (index = 0; index < 46; ++index) {
+                u8* entry = D_00247AF0 + (u32)index * 0x2Cu;
+                if (*(u32*)(entry + 0x20) == wanted) {
+                    sly1_native_loader_stage(150, wanted, (u32)entry);
+                    func_001E4E80((void*)0x00275AF0u, (s32)entry, 0, 0, 0);
+                    break;
+                }
+            }
+        }
+    }
 }
