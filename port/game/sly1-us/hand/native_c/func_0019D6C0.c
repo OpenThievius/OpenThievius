@@ -40,6 +40,11 @@ static void update_actor_list(u32 world, u32 frame_address, u32 list_offset,
             u32 method = *(u32*)(object + 0xA0u);
             sly1_native_trace_font(35, node_address, object, method,
                                    list_offset, argument);
+            sly1_native_trace_font(36, node_address,
+                                   *(u32*)(node_address + 0x2C8u),
+                                   *(u32*)(node_address + 0x2CCu),
+                                   *(u32*)(node_address + 0x28Cu),
+                                   *(u32*)(node_address + 0x298u));
             if (method != 0)
                 (void)sly1_native_call_regs4(method, node_address,
                                              argument, 0, 0);

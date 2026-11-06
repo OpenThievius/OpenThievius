@@ -20,9 +20,26 @@ it does not make the game playable.
 
 The direct-load trace now reads world pointers through both EE RAM and the
 guest-port heap correctly. It sees 25 entries in the world root list and 24 in
-the `0x55` family list, with class IDs `0x58` and `0x51`; actor/update lists
-remain empty. The parsed object tree therefore exists, but the current trace
-does not show actors registered for update or scene geometry submitted.
+the `0x55` family list, with class IDs `0x58` and `0x51`. Activation and
+registration backfills populate 77 nodes in each of world lists `+0x54` and
+`+0x60`; this is confirmed by a bounded run. The `+0x1BE8` class-0x51 scene
+list contains one object at `0xE20A57B0`, with flags `0x0AFFFF00`, high flags
+`0x120`, and zero grouping fields at `+0x2D0`, `+0x304`, and `+0x308`.
+Sampled update callbacks are no-C `func_00125C90`; they see zero at `+0x28C`
+and `+0x298` and do not queue draw requests. Scene vertices remain zero.
+Retail `func_00184DE8` consumes the class-0x51 list for scene batch
+preparation, but remains assembly-only in decomp. The deferred frame dispatcher
+and request bucketer (`func_0019DC98` and `func_0019D4B0`) now have separate
+port-only C backfills. A bounded native run stays active with these installed,
+but the scene still submits zero vertices; the next work is the class-0x51
+preparer and missing `func_00125C90` object update path.
+
+Upstream `sly1-decomp` master was checked at `dd6f80b` on 2026-11-06 (US
+4,730/4,806 functions, 93.10% code; Europe 4,738/4,831, 92.42% code). Its
+latest changes add a HUD compass drawing function and placed-object link data,
+neither of which supplies the missing class-0x51 renderer or update callback.
+The generated host source is based on an older snapshot and does not yet
+include those unrelated changes.
 
 The latest native trace reaches the menu text callback and submits two draws
 with 372–480 vertices. It uploads a 512x512 PSMT4 atlas at GS block `0x1400`
@@ -254,7 +271,7 @@ are historical and do not describe the current build.
 ## Decomp refresh and matched-C check (historical snapshot)
 
 The checkout has since advanced beyond the snapshot described here. See
-[ROADMAP.md](ROADMAP.md) for the current `af52bbb` status. Relevant matching
+[ROADMAP.md](ROADMAP.md) for the current `dd6f80b` upstream status. Relevant matching
 source at the time included
 `func_001BAC30`, `func_00138278`, `func_0011ECB8`, and the animation/image/font
 table readers. The low-level mesh decoder `func_00137FB0` is still classified
@@ -396,24 +413,17 @@ The runtime transport and renderer adapters belong under `port/runtime/` and
 No additional disc image, boot ELF, or other user-supplied file is blocking
 the current work on this machine. Contributors elsewhere need their own
 NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are
-documented in [ASSETS.md](ASSETS.md). The current read-only decomp snapshot is
-`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (master; refreshed
-2026-11-06). Upstream master has not advanced. The open `files97` branch at
-`5bf2ab4` adds exact US C for `func_001B1438`, a timed-object/link interaction
-callback useful for later gameplay but outside the current Splash/startup
-path. It also includes permuter progress, including a 98.2% near-match for
-`func_00203548`; no new matched C there replaces the active Splash reader or
-its outstanding backfills. `func_00161B10` remains assembly-only. `python3
-port/tools/sly1.py status --source
-/home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
-functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
-report is `build/port/hostgen/us/report.md`: 187 units read, 1,060 functions
-translated to host C, one stub, and 3,809 without C, with seven port-owned
-overrides of matched C. These counts use different
-denominators and answer different questions; neither means the same amount of
-gameplay is ready. The snapshot is read-only and may lag GitHub if new decomp
-commits land, so refresh it and rerun the status command before starting work
-on missing functions.
+documented in [ASSETS.md](ASSETS.md). The local read-only decomp snapshot is
+`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46`; upstream master was
+checked separately at `dd6f80b`. Upstream reports 4,730/4,806 matching US
+functions (93.10% code) and 4,738/4,831 Europe functions (92.42% code). Its
+new HUD compass function `func_001316E8` and placed-object link table do not
+replace current render backfills; `func_00161B10` and `func_00184DE8` remain
+assembly-only. The active hostgen report is
+`build/port/hostgen/us/report.md`: 195 units read, 1,088 functions translated
+to host C, one stub, and 3,800 without C, with seven port-owned overrides.
+These measures have different denominators and do not establish gameplay
+readiness. The generated source is older than upstream master.
 
 The best immediate contribution is graphics debugging: trace one glyph from
 the uploaded PSMT4 nibble and CSM1 palette entry through TEX0/UV selection,

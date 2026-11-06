@@ -37,10 +37,10 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 36> traces{};
+    static std::array<std::atomic<unsigned>, 37> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
-    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
+    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
     if (index >= limits[stage]) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
@@ -146,6 +146,29 @@ std::array<std::uint32_t, 5> trace_world_list_classes(std::uint32_t world,
         std::memcpy(&node, openrac_guest_base + link_address, sizeof(node));
     }
     return classes;
+}
+
+std::array<std::uint32_t, 9> trace_first_world_object_fields(
+    std::uint32_t world, std::uint32_t list_offset) {
+    std::array<std::uint32_t, 9> fields{};
+    std::uint32_t list_address = 0;
+    if (!trace_guest_range(world + list_offset, 12u, &list_address)) return fields;
+    std::uint32_t node = 0;
+    std::int32_t link_offset = 0;
+    std::memcpy(&node, openrac_guest_base + list_address, sizeof(node));
+    std::memcpy(&link_offset, openrac_guest_base + list_address + 8u,
+                sizeof(link_offset));
+    if (node == 0 || link_offset <= 0 || link_offset > 0x10000) return fields;
+    std::uint32_t object_address = 0;
+    if (!trace_guest_range(node, 0x374u, &object_address)) return fields;
+    fields[0] = node;
+    constexpr std::uint32_t offsets[] = {0x2C8u, 0x2CCu, 0x2D0u, 0x304u,
+                                         0x308u, 0x28Cu, 0x298u, 0x370u};
+    for (std::size_t i = 0; i < std::size(offsets); ++i)
+        std::memcpy(&fields[i + 1u],
+                    openrac_guest_base + object_address + offsets[i],
+                    sizeof(fields[i]));
+    return fields;
 }
 
 std::array<std::array<std::uint32_t, 7>, 12> trace_world_objects(std::uint32_t world) {
@@ -882,6 +905,8 @@ int main(int argc, char** argv) {
                           << trace_world_list_count(current_object, 0x78u) << ','
                           << trace_world_list_count(current_object, 0x1B7Cu) << ','
                           << trace_world_list_count(current_object, 0x1C54u)
+                          << " class51_objects="
+                          << trace_world_list_count(current_object, 0x1BE8u)
                           << " world_root_classes=";
                 for (const std::uint32_t class_id :
                      trace_world_list_classes(current_object, 0x48u))
@@ -890,6 +915,11 @@ int main(int argc, char** argv) {
                 for (const std::uint32_t class_id :
                      trace_world_list_classes(current_object, 0x1C54u))
                     std::cerr << std::hex << class_id << ',';
+                const auto class51_fields =
+                    trace_first_world_object_fields(current_object, 0x1BE8u);
+                std::cerr << " class51_first=";
+                for (const std::uint32_t field : class51_fields)
+                    std::cerr << std::hex << field << ',';
                 std::cerr << " root_objects=";
                 for (const auto& fields : trace_world_objects(current_object)) {
                     if (fields[0] == 0) break;

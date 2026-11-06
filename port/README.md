@@ -29,18 +29,17 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. It
 generates host C from matched Sly sources plus port-only backfills without
-translating retail MIPS assembly. Against upstream decomp master `cf9ad46`
-(`OpenThievius/sly1-decomp`, checked 2026-11-06; open `files95` adds near
-misses but no newly matched functions), the latest generation reads 187 source
-units and translates 1,060 functions,
-leaves one C function stubbed, and lists 3,809 functions without C. The decomp status
-is 4,720/4,806 matching US functions (92.17% code bytes; 86 functions remain
-without matching C). These are separate measures: host-C generation coverage
-does not indicate how much game logic builds or runs natively. The latest
-bounded native launch uploads a
-512x512 font atlas and decodes two menu draws (372–480 font vertices), but the
-window remains black or garbled. The current graphics diagnosis and concrete
-next task are in [SLY_GRAPHICS_HANDOFF.md](../docs/port/SLY_GRAPHICS_HANDOFF.md).
+translating retail MIPS assembly. The generated source snapshot is `cf9ad46`;
+the current hostgen report reads 195 units, translates 1,088 functions, leaves
+one C function stubbed, lists 3,800 functions without C, and applies seven
+port-owned overrides. Upstream `sly1-decomp` master was checked at `dd6f80b`:
+4,730/4,806 matching US functions (93.10% code) and 4,738/4,831 European
+functions (92.42% code). These are separate measures: host-C generation
+coverage does not indicate how much game logic builds or runs natively. The
+direct level-load probe populates world lists but still submits zero scene
+vertices; default startup reaches malformed menu text. The current graphics
+diagnosis and concrete next task are in
+[SLY_GRAPHICS_HANDOFF.md](../docs/port/SLY_GRAPHICS_HANDOFF.md).
 The separate freestanding host32 launcher is a startup diagnostic and does
 not open a window. SDL input updates host-side DualShock reports, but Sly's pad
 library is not connected to them yet. Functional backfills stay under

@@ -34,13 +34,38 @@ sequence and feature reference rather than pixel comparison. The native target
 sequence remains to reach that title scene, then transition to a controllable
 level.
 
+The latest bounded native level probe (2026-11-06) confirms that placed-object
+registration now populates 77 nodes in each of world lists `+0x54` and `+0x60`.
+The `+0x1BE8` class-0x51 scene list has one object at `0xE20A57B0`; its retail
+fields are flags `0x0AFFFF00`, flags-high `0x120`, and zero at `+0x2D0`,
+`+0x304`, `+0x308`, `+0x28C`, `+0x298`, and `+0x370`. Sampled update entries
+call no-C `func_00125C90` and likewise have zero `+0x28C`/`+0x298`, so they do
+not enqueue deferred draw requests. The frame still submits zero scene
+vertices. Retail disassembly shows `func_00125C90` is a substantial camera,
+object-transform, and culling callback; its missing body is why sampled update
+nodes retain zero transform outputs. The deferred frame dispatcher and request
+bucketer (`func_0019DC98` and `func_0019D4B0`) now have separate port-only C
+backfills. `func_00184DE8`, which consumes the class-0x51 list to prepare scene
+batches, remains assembly-only and is still the next rendering backfill target.
+All functional replacements must remain under `hand/native_c/` until matching
+decomp C is available to the host build.
+
+Upstream `sly1-decomp` was checked directly on 2026-11-06 at master
+`dd6f80b` (US: 4,730/4,806 functions and 93.10% code; Europe: 4,738/4,831
+functions and 92.42% code). The latest merge adds exact HUD compass drawing
+code in `func_001316E8` and a placed-object link table; neither is on the
+current level-render path. It does not provide C for `func_00184DE8`,
+`func_0019DC98`, or `func_00125C90`. The active generated host snapshot remains
+older than this upstream master, so the new unrelated match is documented but
+not claimed as compiled into the launcher.
+
 A hostgen staging path now lowers small C++ constructs in matched decomp units
 into temporary C without modifying the read-only decomp checkout. It exposes
 exact stream-reader and other matched code to the native build. Port-only
 compatibility functions remain registered separately in `hand/backfills.tsv`.
-Hostgen currently reads 187 units and translates 1,060 functions (zero assembly
-translations, one stub, 3,809 functions without C), plus seven port-owned
-overrides of matched C.
+The generated host report reads 195 units and translates 1,088 functions
+(zero assembly translations, one stub, 3,800 functions without C), plus seven
+port-owned overrides of matched C. Its source snapshot is `cf9ad46`.
 
 The newest decomp source contains the matched screen-fade updater
 `func_001EFD10` with its mode, timing and opacity logic. The current native
@@ -110,14 +135,12 @@ sample dispatches to `func_00125C90`, which remains a no-C host stub. This
 callback must run before the draw-request queue is populated. A port-only
 `func_0019D410` now appends retail-sized 0x80-byte requests, but the queue
 remains empty until the missing object-update callback is implemented.
-`func_0019DC98` is the subsequent no-C deferred draw pass. Keep these functions
-in the port backfill area and remove them when matching decomp C is available
-to the host build.
+`func_0019DC98` is the deferred draw pass; its current replacement is a
+port-only backfill, as is `func_0019D4B0`. Keep both separate and remove them
+when matching decomp C is available to the host build.
 
-The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
-(US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;
-91.72% code bytes). `func_001B1438` is a new matching function outside the
-Splash setup path. `func_00109488` remains ASM in `src/main/file_1000C8.cpp`;
+The older `af52bbb` snapshot added `func_001B1438`, outside the Splash setup
+path. `func_00109488` remains ASM in `src/main/file_1000C8.cpp`;
 its `nonmatching/func_00109488.cpp` near-match documents the descriptor values
 used for the port-only backfill. Hostgen drops discarded post-increment
 expressions, so backfill pointer steps must be assigned. Keep this functional C
@@ -133,15 +156,12 @@ interpretation.
 The earlier semaphore use-after-free was fixed and bounded AddressSanitizer and
 normal traced runs survived without that abort.
 
-The host-generated build uses upstream decomp master `af52bbb`
-(`OpenThievius/sly1-decomp`, checked 2026-11-06): 187 source units read, 1,060
-functions translated, zero assembly functions, one C function stubbed, and
-3,809 functions without C. It includes seven port-owned overrides of matched C.
-Master now has C for 4,721/4,806 US functions (92.20% code bytes), including
-`func_001B1438`.
-That new match handles timed-object/link interactions and is useful for later
-gameplay, but it is outside the current Splash resource-loading and rendering
-path. This is decompilation coverage, not host or gameplay coverage. Use
+The generated host source snapshot is `cf9ad46`; its current report reads 193
+units and translates 1,085 functions, with one C stub, 3,802 functions without
+C, and seven port-owned overrides of matched C. Upstream master is now
+`dd6f80b` (US: 4,730/4,806 functions and 93.10% code; Europe: 4,738/4,831 and
+92.42% code). These host-generation and decompilation counts use different
+denominators; neither establishes gameplay coverage. Use
 [SLY_GRAPHICS_HANDOFF.md](SLY_GRAPHICS_HANDOFF.md) for reproducible commands,
 current evidence, contributor setup, and prioritized tasks. Older entries
 below are dated research history and may describe earlier renderer paths.
@@ -154,20 +174,15 @@ collision, audio, and saves.
 
 ### Decomp synchronization (2026-11-06)
 
-Upstream `sly1-decomp` master is at
-`af52bbb` (`/home/reaper/.cache/sly1-decomp-current`). It includes the merge of
-`files97` commit `5bf2ab4`, which adds exact US C for `func_001B1438`, raising
-coverage to 4,721/4,806 functions (92.20% code bytes). The open `files97` branch
-remains at `5bf2ab4` and includes permuter improvements such as a 98.2%
-near-match for
-`func_00203548`. `func_001B1438` handles timed-object/link interactions, useful
-for later gameplay but not the current Splash/startup path. No new match on
-that branch replaces an active Splash reader or its outstanding backfills.
-Master is at 4,721/4,806 functions with C (92.20% code bytes). Hostgen
-reads 187 units, translates 1,060 functions (none from assembly), stubs one
-function, and lists 3,809 without C. It also applies seven port-owned overrides
-of matched C. These generated-host counts are separate from decompilation
-matching coverage and do not establish gameplay coverage.
+The latest direct upstream check is master `dd6f80b`; the generated host source
+still comes from `cf9ad46`. Current source coverage is US 4,730/4,806 functions
+(93.10% code) and Europe 4,738/4,831 (92.42% code). The latest merge adds
+matching HUD compass drawing (`func_001316E8`) and placed-object link data, but
+no C for current render blockers `func_00184DE8` or
+`func_00125C90`. The active hostgen report reads 195 units, translates 1,088
+functions, stubs one function, lists 3,800 without C, and applies seven
+port-owned overrides. These are separate measures from decomp coverage and do
+not establish gameplay readiness.
 
 ### Earlier bounded native run (2026-11-06)
 
@@ -178,9 +193,9 @@ That caused an implausible record count, a null callback, and a guest call-throu
 fault. The later focused trace below verifies this specific parser failure is
 fixed. The black window remains unresolved.
 
-Decomp master `af52bbb` is current as of 2026-11-06: 4,721/4,806 US functions
-with C (92.20% code bytes); Europe has 4,730/4,831 (91.72%). `func_001B1438`
-is newly matched but does not touch Splash startup. `func_00109488` remains ASM;
+At the time of this earlier probe, decomp master `af52bbb` had 4,721/4,806 US
+functions with C (92.20% code bytes); Europe had 4,730/4,831 (91.72%).
+`func_001B1438` did not touch Splash startup. `func_00109488` remains ASM;
 its near-match documents the 1,179-entry property table. The port has an existing
 native-only registry in `port/game/sly1-us/native/func_00109488.cpp`; a duplicate
 hand/native C experiment was removed. The active `func_0011E680` handler and
