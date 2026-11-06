@@ -33,7 +33,17 @@ use the NTSC-U `SCUS_971.98` ELF and matching US disc; use the video for
 sequence and feature reference rather than pixel comparison. The native target
 sequence remains to reach that title scene, then transition to a controllable
 level. Earlier native captures showed malformed text fragments; the latest
-12-second default-startup capture appears entirely black.
+default-startup capture appears entirely black.
+
+The latest native callback trace sharpens the blocker. The translated retail
+`func_00125C90` runs for sampled entries but exits at its first VU0 MAC check:
+the native value is `0x0F`, while retail continues only when it is `0xF0`.
+It therefore never reaches the sphere/frustum check, draw-list callback, or
+mesh packet path. At the sampled call boundary, node position `+0x140..+0x148`,
+radius `+0x2A8`, and camera fields `+0x40/+0x44` are zero. The next step is to
+trace camera/world setup and confirm whether these startup list entries should
+have valid transforms. Do not change the VU comparison or force MAC flags to
+make objects draw; that would hide the state/setup defect.
 
 The newest host build adds port-only screen-fade update/draw backfills
 (`func_001EFD10`, `func_001EFEE0`) based on current decomp C, and the
@@ -200,9 +210,10 @@ its world, but does not enter gameplay or produce scene geometry. The native
 pad adapter now reports an active pressure-mode pad, preventing the startup
 dispatcher from forcing the pause menu at five seconds; the title scene still
 produces no sustained geometry. The default startup trace reaches retail
-`func_00125C90` for placed-object updates, but not the mesh request builder or
-packet callback. These counts are separate measures from decomp coverage and
-do not establish readiness.
+`func_00125C90` for placed-object updates, but its VU0 MAC check rejects the
+sampled transforms before the mesh request builder or packet callback. These
+counts are separate measures from decomp coverage and do not establish
+readiness.
 
 ### Earlier bounded native run (2026-11-06)
 

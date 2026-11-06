@@ -40,9 +40,16 @@ backfill and selected the pause menu at five seconds. With the updated native
 pad mode, the latest trace remains in frame state 3 but reaches zero scene
 vertices after 5.8 seconds. The latest run invokes retail `func_00125C90`
 for at least eight placed-object entries, confirming that the world update
-callback is active. It does not reach the mesh request builder
-`func_00126270` or packet callback `func_00166690` in the trace window. The
-direct-load probe still does not connect its loaded world to gameplay.
+callback is active. A port-only trace shows that `func_00125C90` exits at its
+first VU0 MAC check: native flags are `0x0F`, but retail continues only for
+`0xF0`. It therefore exits before `func_001453B0` sphere/frustum checks, its
+draw-list callback, mesh request builder `func_00126270`, or packet callback
+`func_00166690`. In sampled calls, node position words at `+0x140..+0x148`,
+radius at `+0x2A8`, and camera words at `+0x40/+0x44` are zero. This points the
+next investigation at camera/world transform setup or the validity of these
+startup entries; it does not yet establish a defect in the assembly
+translator. The direct-load probe still does not connect its loaded world to
+gameplay.
 
 The request queue `func_0019D410` now preserves its host stack pointer while
 copying the request into guest EE memory. Keep all functional C replacements
@@ -72,6 +79,12 @@ pad mode 3/count 4. After 5 seconds the frame remains in state 3 and does not
 request the pause page. Visible title/menu geometry is still absent. The old
 direct text draw had 480 vertices; its first vertex used UV `(0.533, 0.916)`
 and RGBA `(127,127,127,17)`.
+
+The current trace uses `OPENRAC_STARTUP_TRACE=1 OPENRAC_TRACE_FONT=1` with the
+NTSC-U ELF and ISO. Port-only stages 30 and 37–42 capture the
+`func_00125C90` return, VU0 accumulator lanes, selected vector lanes, and
+sampled node/camera fields. Stage 30 reports MAC `0x0F`; these probes are
+diagnostic only and do not alter the retail branch or rendering.
 
 The screen-element constructor loop `func_001A9F78` exists in the current
 decomp source but its US status is still `no-c`, so hostgen emitted a no-op.
