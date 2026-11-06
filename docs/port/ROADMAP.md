@@ -37,29 +37,27 @@ assembly-only `func_00137FB0` mesh decoder and `func_001289C0` resource helper
 remain port-owned.
 
 The native sector adapter successfully reads the Splash resource from ISO
-sector 820372 (74 sectors). The exact reader reaches the C03 callback return at
-cursor `0x1594`. A port-only guarded one-byte pad skip then reads the next
-record as type `0x53`, key `0x054b`, and dispatches it through exact matched
-`func_00196410`. The child path reaches port-only `func_00162890` and reads a
-record count of `0x2546`. A prior trace, before correcting cloned-record input
-consumption, reached nested count `0x1f3f`; the latest trace instead follows
-the stream through the group table to its malformed following object list.
-Retail
-comparison corrected the `0x40` flag to call matched `func_001B4A10`, both
-optional nested array sizes to `refs * dimension * 12`, and the `0x1` record
-flag to read only its 16-bit source index before copying a prior 0x70-byte
-record in memory. Removing that extra 48-byte stream read moves the first
-record boundary from `0x1871` to `0x1841`; its animator helper starts at
-`0x17c6` and reads unsupported type `0xc189`, then dispatches through a null
-callback. A captured 8 KiB reader window matches the extracted decoded Splash
-bytes: after the group's 65-by-65 float table, cursor `0x1b8a` is decoded offset
-`0x5b8a`, where the next 16-bit count is `0x3f3d` and the first slot is
-`0x53ff`. The group table's 65 values per row match the retail caller, but this
-following object count/slot is not plausible. A 5-second native launch now
-terminates with a guest call-through-address-1 fault after the null animator
-callback and malformed nested object list. Earlier runs showed menu draws but
-zero-filled image and palette uploads and a black frame. Do not
-tune GS texture or shader state from the previous tail-copy experiment.
+sector 820372 (74 sectors). A current short trace reaches `func_0011EC40`
+while parsing the first child object. It reads property ID `0x5B` at cursor
+`0x1619`, but the next ID is `0x7300` at cursor `0x161C`; retail Splash bytes
+there are `5B 00 06 00 73 00 10 00`, so the next ID should be `0x73`. This
+is the first confirmed cursor mismatch for the current trace. Later parsing
+reports record count `0x2546`, a null callback, and a guest call-through-address
+fault; the native window remains black.
+
+The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
+(US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;
+91.72% code bytes). It adds matching C for `func_001B1438`, but not for the
+Splash setup path. `func_00109488` remains ASM in `src/main/file_1000C8.cpp`;
+its `nonmatching/func_00109488.cpp` near-match documents the 1,179-entry
+property descriptor table and is useful for field meanings. The port already
+has a native-only table registry in `native/func_00109488.cpp`; do not add a
+second copy under `hand/native_c`. A recent discarded C experiment also showed
+that hostgen drops a standalone `p++` expression; use an assigned pointer
+increment if a C backfill needs one. That experiment was removed and did not
+fix the live trace. Next, inspect the active `func_0011E680` backfill and its
+retail dispatch table, then verify entry 91 and cursor movement before making
+rendering changes.
 
 The port-only byte-copy helper `func_001F5A58` currently maps to host
 `memmove`, and `func_00140C28` / `func_00140CC8` map disc reads to the native
@@ -71,12 +69,12 @@ interpretation.
 The earlier semaphore use-after-free was fixed and bounded AddressSanitizer and
 normal traced runs survived without that abort.
 
-The host-generated build uses upstream decomp master `cf9ad46`
+The host-generated build uses upstream decomp master `af52bbb`
 (`OpenThievius/sly1-decomp`, checked 2026-11-06): 187 source units read, 1,060
 functions translated, zero assembly functions, one C function stubbed, and
 3,809 functions without C. It includes seven port-owned overrides of matched C.
-Master has C for 4,720/4,806 US functions (92.17% code bytes); the open
-`files97` branch has 4,721/4,806 (92.20%) after matching `func_001B1438`.
+Master now has C for 4,721/4,806 US functions (92.20% code bytes), including
+`func_001B1438`.
 That new match handles timed-object/link interactions and is useful for later
 gameplay, but it is outside the current Splash resource-loading and rendering
 path. This is decompilation coverage, not host or gameplay coverage. Use
@@ -92,16 +90,16 @@ collision, audio, and saves.
 
 ### Decomp synchronization (2026-11-06)
 
-Upstream `sly1-decomp` master remains at
-`cf9ad464696a197803f584980bff43ed62b6bf31`; the read-only snapshot is at
-`/home/reaper/.cache/sly1-decomp-current`. The open `files97` branch is at
-`5bf2ab4460f0d3983879c4d9730c6146a8fdbe6f`. It adds exact US C for
-`func_001B1438`, raising coverage to 4,721/4,806 functions (92.20% code bytes),
-and includes permuter improvements such as a 98.2% near-match for
+Upstream `sly1-decomp` master is at
+`af52bbb` (`/home/reaper/.cache/sly1-decomp-current`). It includes the merge of
+`files97` commit `5bf2ab4`, which adds exact US C for `func_001B1438`, raising
+coverage to 4,721/4,806 functions (92.20% code bytes). The open `files97` branch
+remains at `5bf2ab4` and includes permuter improvements such as a 98.2%
+near-match for
 `func_00203548`. `func_001B1438` handles timed-object/link interactions, useful
 for later gameplay but not the current Splash/startup path. No new match on
 that branch replaces an active Splash reader or its outstanding backfills.
-Master remains at 4,720/4,806 functions with C (92.17% code bytes). Hostgen
+Master is at 4,721/4,806 functions with C (92.20% code bytes). Hostgen
 reads 187 units, translates 1,060 functions (none from assembly), stubs one
 function, and lists 3,809 without C. It also applies seven port-owned overrides
 of matched C. These generated-host counts are separate from decompilation
@@ -109,33 +107,21 @@ matching coverage and do not establish gameplay coverage.
 
 ### Latest bounded native run (2026-11-06)
 
-The latest 12-second native launch reads Splash from sector 820372 (74 sectors)
-into `0x002C3B00`, skips a single guarded pad byte at cursor `0x1594`, reads
-record type `0x53` / key `0x054b`, and dispatches exact matched
-`func_00196410`. Exact `func_00138278`, `func_001BAC30`, and
-`func_001B4A10` are generated from decomp C. Retail comparison corrected the
-`0x40` record flag to call `func_001B4A10`, both optional nested array sizes to
-`refs * dimension * 12`, and the `0x1` record flag to read only a 16-bit
-source index before copying a record in memory. The latest run advances the
-first record boundary from `0x1871` to `0x1841`, but its animator helper reads
-unsupported type `0xc189` at decoded offset `0x17c6` and dispatches through a
-null callback. Window capture also maps the post-group-table reader cursor
-`0x1b8a` to decoded offset `0x5b8a`, where it reads count `0x3f3d` followed by
-slot `0x53ff`. The group table itself reads 65 values per each of 65 rows,
-matching the retail caller. The first unresolved field is still the invalid
-animator type; the following nested-object list is also implausible. No image
-or palette uploads occur.
-Stages 101–103 were group-lookup probes whose third argument is an owner
-object, not a reader; their zero cursor was a misleading trace interpretation.
-Current decomp `master` is
-`cf9ad464696a197803f584980bff43ed62b6bf31` (checked 2026-11-06; 4,720/4,806
-functions, 92.17% code bytes). The open `files97` branch is at
-`5bf2ab4460f0d3983879c4d9730c6146a8fdbe6f`; it adds exact US C for
-`func_001B1438`, raising that branch to 4,721/4,806 functions and 92.20% code
-bytes, plus substantial permuter work. The new function is a gameplay
-interaction callback and does not replace any current Splash/startup backfill.
-The branch is not merged into master, so the host build remains based on
-`cf9ad46`.
+A focused native run reaches Splash property parsing. The first trace mismatch
+is property ID `0x5B` at cursor `0x1619`, followed by ID `0x7300` at `0x161C`;
+the decoded retail bytes are `5B 00 06 00 73 00 10 00`, so the next ID should
+be `0x73`. This cascades into an implausible record count (`0x2546`), a null
+callback, and a guest call-through-address fault. The window remains black and
+no image or palette uploads occur.
+
+Decomp master `af52bbb` is current as of 2026-11-06: 4,721/4,806 US functions
+with C (92.20% code bytes); Europe has 4,730/4,831 (91.72%). `func_001B1438`
+is newly matched but does not touch Splash startup. `func_00109488` remains ASM;
+its near-match documents the 1,179-entry property table. The port has an existing
+native-only registry in `port/game/sly1-us/native/func_00109488.cpp`; a duplicate
+hand/native C experiment was removed. The active `func_0011E680` handler and
+its retail descriptor dispatch remain the next targets. Generated-host coverage
+is not gameplay coverage.
 
 The updates since the previous `a0fd295` snapshot include extensive
 name/header refactors and documentation; matching coverage is unchanged. The
