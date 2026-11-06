@@ -192,3 +192,12 @@ units, but does not change the runtime playability status. The remaining
 constructor/method failures are non-static helpers, including constructors
 that initialize stack records. Lower those only with call-site/layout
 preservation; do not erase them from records as if they were static methods.
+
+For source unit 0018C000, the staged lowering now converts the simple
+Pair_18CC20::Set, Key_18F198::Same and Pair_18F198::Set methods into C
+helpers with explicit object pointers and rewrites their call sites. Field
+accesses remain at their original offsets. The unit's diagnostics fell from
+six to two; both remaining errors are return-type disagreements for the
+memory-card write/close calls. Hostgen coverage has not increased yet, and the
+native build still links. Resolve those function declarations from retail
+call sites before claiming this unit recovered.

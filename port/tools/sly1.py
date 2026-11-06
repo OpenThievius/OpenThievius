@@ -167,6 +167,11 @@ def prepare_c_view(source, version):
         if not changed:
             break
 
+    staged_bases = struct_bodies("\n".join(header_texts.values()))
+    staged_bases.update(struct_bodies("\n".join(
+        path.read_text(encoding="utf-8") for directory in ("main", "lib")
+        for path in sorted((source / "src" / directory).glob("*.cpp")))))
+
     screen_header = next(
         (header for header in header_texts if header.name == "screen_element.h"), None
     )
@@ -214,6 +219,23 @@ def prepare_c_view(source, version):
         out_dir.mkdir()
         for cpp in sorted((source / "src" / directory).glob("*.cpp")):
             text = cpp.read_text(encoding="utf-8")
+            # Lower source-local single inheritance to an anonymous base
+            # aggregate, matching the header staging while preserving offsets.
+            # Resolve only bases whose full body is available in this source
+            # snapshot; leave unknown layouts untouched for Clang to reject.
+            for _ in range(8):
+                changed = False
+                def inline_source_base(match):
+                    nonlocal changed
+                    base = match.group(2)
+                    body = staged_bases.get(base)
+                    if body is None:
+                        return match.group(0)
+                    changed = True
+                    return match.group(1) + " {\n    struct {" + body + "\n    };"
+                text = inheritance.sub(inline_source_base, text)
+                if not changed:
+                    break
             # C++ permits a bare forward-declared tag in later casts, while C
             # requires its typedef name. Collect declarations as well as
             # definitions so those casts remain valid in the staged C view.
@@ -266,6 +288,35 @@ def prepare_c_view(source, version):
                     f"{method.group(1)}::{method.group(3)}(",
                     f"{method_name}(",
                 )
+
+            # Lower the two simple record methods used by the memory-card
+            # paths in 0018C000. Their bodies use only explicit fields and
+            # calls, so adding the record pointer as argument zero preserves
+            # the target layout and gives C the same `this` value.
+            if cpp.stem == "0018C000":
+                for tag, method, args, call in (
+                    ("Pair_18CC20", "Set", "Key_18CC20* key", "pair.Set(key)"),
+                    ("Key_18F198", "Same", "Key_18F198* b", "a->Same(b)"),
+                    ("Pair_18F198", "Set", "Key_18F198* key", "pair.Set(key)"),
+                ):
+                    pattern = (r"struct\s+" + tag + r"\s*\{(?P<head>.*?)"
+                               r"\bs32\s+" + method + r"\s*\([^{}]*\)\s*\{"
+                               r"(?P<body>.*?)\n\s*\}\s*\};")
+                    match = re.search(pattern, text, flags=re.DOTALL)
+                    if match is None:
+                        continue
+                    cname = tag + "_" + method
+                    body = match.group("body").replace("this", "self")
+                    if tag == "Pair_18CC20":
+                        body = re.sub(r"\b(first|second)\b", r"self->\1", body)
+                    elif tag == "Pair_18F198":
+                        body = re.sub(r"\bk\b", "self->k", body)
+                    replacement = ("struct " + tag + " {" + match.group("head") + "};\n"
+                                   "static s32 " + cname + "(struct " + tag + "* self, " + args +
+                                   ") {" + body + "\n}")
+                    text = text[:match.start()] + replacement + text[match.end():]
+                    text = text.replace(call, cname + "(&" + call.split(".")[0] + ", " +
+                                        args.split()[-1].split("*")[-1] + ")")
 
             if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
                 # This setter is unused here; retain the record field layout.
