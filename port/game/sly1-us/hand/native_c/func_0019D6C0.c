@@ -3,6 +3,8 @@
 #include "common.h"
 
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 extern void* func_0018D500(s32 size);
 
 /* D_0026AC10's retail cursor uses only its first word. Its known-zero padding
@@ -36,6 +38,8 @@ static void update_actor_list(u32 world, u32 frame_address, u32 list_offset,
         u32 object = *(u32*)node_address;
         if (object != 0) {
             u32 method = *(u32*)(object + 0xA0u);
+            sly1_native_trace_font(35, node_address, object, method,
+                                   list_offset, argument);
             if (method != 0)
                 (void)sly1_native_call_regs4(method, node_address,
                                              argument, 0, 0);

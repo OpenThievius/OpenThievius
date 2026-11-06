@@ -105,9 +105,14 @@ The latest world trace correctly resolves guest-port heap pointers: it counts
 bounded native run then counted 77 entries in both world lists `+0x54` and
 `+0x60`, where both were empty before. The renderer still reports zero
 vertices, so this fixed list population but has not yet produced a visible
-scene. `func_0019DC98` remains a no-C frame callback and is the next render-path
-blocker to investigate. These functions remain separate from the matching
-decomp source and should be removed when that C is available to the host build.
+scene. The frame trace now samples the 77-entry `+0x60` update list: each
+sample dispatches to `func_00125C90`, which remains a no-C host stub. This
+callback must run before the draw-request queue is populated. A port-only
+`func_0019D410` now appends retail-sized 0x80-byte requests, but the queue
+remains empty until the missing object-update callback is implemented.
+`func_0019DC98` is the subsequent no-C deferred draw pass. Keep these functions
+in the port backfill area and remove them when matching decomp C is available
+to the host build.
 
 The latest decomp checkout checked on 2026-11-06 is master `af52bbb`
 (US: 4,721/4,806 functions with C; 92.20% code bytes; Europe: 4,730/4,831;

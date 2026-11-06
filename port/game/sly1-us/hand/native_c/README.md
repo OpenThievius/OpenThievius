@@ -58,6 +58,8 @@ five seconds; the missing title/scene startup path is the current blocker.
 `func_00124050` walks placed-object children during activation, and
 `func_001240F8` registers active objects with the world update lists. Their
 port-only replacements raised the direct-load probe's world `+0x54` and
-`+0x60` lists from empty to 77 entries each. The scene still submits zero
-vertices; the missing `func_0019DC98` deferred draw pass is the next blocker.
-Remove these replacements when matching C is available to the host build.
+`+0x60` lists from empty to 77 entries each. `func_0019D410` appends
+retail-sized deferred draw requests. A native trace shows those requests are
+still absent because every sampled update entry calls missing `func_00125C90`.
+The later deferred draw pass `func_0019DC98` also remains a no-C stub. Remove
+these replacements when matching C is available to the host build.

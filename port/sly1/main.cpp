@@ -635,6 +635,7 @@ int main(int argc, char** argv) {
                 std::uint32_t menu_mode = 0;
                 std::uint32_t world_lists[7]{};
                 std::uint32_t world_job_queue[2]{};
+                std::uint32_t deferred_request_count = 0;
                 std::uint32_t frame_selector = 0;
                 std::int32_t scene_gate = 0;
                 std::uint32_t scene_pending = 0;
@@ -724,6 +725,19 @@ int main(int argc, char** argv) {
                 }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
                             sizeof(frame_selector));
+                std::uint32_t deferred_cursor = 0;
+                std::uint32_t deferred_cursor_address = 0;
+                if (trace_guest_range(0x0026AC10u, sizeof(deferred_cursor),
+                                      &deferred_cursor_address)) {
+                    std::memcpy(&deferred_cursor,
+                                openrac_guest_base + deferred_cursor_address,
+                                sizeof(deferred_cursor));
+                    if (deferred_cursor >= 0x005E4700u &&
+                        deferred_cursor <= 0x005E6700u) {
+                        deferred_request_count =
+                            (deferred_cursor - 0x005E4700u) / 0x80u;
+                    }
+                }
                 std::memcpy(&scene_gate, openrac_guest_base + 0x00275F84u,
                             sizeof(scene_gate));
                 std::memcpy(&frame_flags_a, openrac_guest_base + 0x00262D38u + 0xAAu,
@@ -887,7 +901,8 @@ int main(int argc, char** argv) {
                 std::cerr
                           << " world_job_queue=0x" << std::hex
                           << world_job_queue[0] << ",0x" << world_job_queue[1]
-                          << std::dec << " map_selection=0x" << std::hex << scene_pending << std::dec
+                          << std::dec << " deferred_requests=" << deferred_request_count
+                          << " map_selection=0x" << std::hex << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
                           << " pad_report=0x" << std::hex << pad_report << std::dec
                           << " pad_mode=" << pad_mode << " pad_state=" << pad_state
