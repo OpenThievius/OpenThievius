@@ -21,40 +21,48 @@ window remains black. Splash is catalog key `0x2`, not level resource `0x0100`.
 
 ## Current visual blocker (2026-11-06)
 
-A hostgen staging change now lowers the small C++ helpers in the decomp's
-`00134000.cpp` stream unit into C. The exact retail LZ refill, byte reader,
-stream setup/refill and scalar readers are now translated and selected by the
-native build; their prior port implementations have been moved to
-`hand/superseded_backfills/` and removed from the active backfill manifest.
-Hostgen currently reads 189 units and translates 600 functions (zero assembly
-translations, one stub, 4,263 functions without C).
+A hostgen staging path now lowers small C++ constructs in matched decomp units
+into temporary C without modifying the read-only decomp checkout. It exposes
+exact stream-reader and other matched code to the native build. Port-only
+compatibility functions remain registered separately in `hand/backfills.tsv`.
+Hostgen currently reads 187 units and translates 1,060 functions (zero assembly
+translations, one stub, 3,809 functions without C), plus seven port-owned
+overrides of matched C.
+
+The staging pass now also makes `00138000.cpp` and `001B8000.cpp` readable;
+the native build uses matching decomp C for `func_00138278` and
+`func_001BAC30`. It also compiles matching `func_00196410` from
+`file_1963D8.cpp`. The corresponding port backfills are not active; the
+assembly-only `func_00137FB0` mesh decoder and `func_001289C0` resource helper
+remain port-owned.
 
 The native sector adapter successfully reads the Splash resource from ISO
-sector 820372 (74 sectors). The exact reader now reproduces the C03 callback
-return at cursor `0x1594`; the following row still decodes as slot `0x5300`.
-A truncated property stream reaches EOF and had trapped the port parser in an
-infinite loop through an uninitialized scalar-reader result. A port-only EOF
-guard now lets frame setup continue. The image callback requests `0x5F4F0`
-bytes at EOF, leaving image and CLUT buffers zero-filled. The renderer receives
-menu draws (474–480 vertices), but the captured frame is still black. Next,
-resolve the object-list/resource alignment that leads to EOF before the image
-callback. Do not tune GS texture or shader state from the previous tail-copy
+sector 820372 (74 sectors). The exact reader reaches the C03 callback return at
+cursor `0x1594`. A port-only guarded one-byte pad skip then reads the next
+record as type `0x53`, key `0x054b`, and dispatches it through exact matched
+`func_00196410`; its child path reaches the exact value reader. This advances
+past the former `0x5300` misdecode, but the child reader still has an invalid
+cursor and the remaining records become implausible values. The image callback
+still requests `0x5F4F0` bytes at EOF, leaving image and CLUT buffers
+zero-filled. The renderer receives menu draws (474–480 vertices), but the
+captured frame remains black. Next trace nested reader setup and parent buffer
+bounds. Do not tune GS texture or shader state from the previous tail-copy
 experiment.
 
 The port-only byte-copy helper `func_001F5A58` currently maps to host
 `memmove`, and `func_00140C28` / `func_00140CC8` map disc reads to the native
 ISO service. These are separate backfills because the first function remains
 assembly-only and the matching CD routines are in an unreadable `00140000.cpp`
-unit. The `0x5300` row is still present in the exact-source trace. Earlier
+unit. Earlier
 second-collider offsets came from the prior port reader and need a fresh
 interpretation.
 The earlier semaphore use-after-free was fixed and bounded AddressSanitizer and
 normal traced runs survived without that abort.
 
-The host-generated build uses the current upstream decomp snapshot `cf9ad46`
-(`OpenThievius/sly1-decomp`, checked 2026-11-06): 189 source units read, 600
+The host-generated build uses upstream decomp master `cf9ad46`
+(`OpenThievius/sly1-decomp`, checked 2026-11-06): 187 source units read, 1,060
 functions translated, zero assembly functions, one C function stubbed, and
-4,263 functions without C. It includes seven port-owned overrides of matched C.
+3,809 functions without C. It includes seven port-owned overrides of matched C.
 The
 decompilation's source status is 4,720/4,806 US functions with C (92.17% code
 bytes); this is not host or gameplay coverage. Use
@@ -70,30 +78,29 @@ collision, audio, and saves.
 
 ### Decomp synchronization (2026-11-06)
 
-Upstream `sly1-decomp` has advanced to `cf9ad464696a197803f584980bff43ed62b6bf31`
-(PR #62, Nov 5); the read-only snapshot is at
-`/home/reaper/.cache/sly1-decomp-current`. Its status tool reports 4,720/4,806
-US functions with C and 92.17% code bytes. A fresh hostgen build reads 189
-units, translates 600 functions (none from assembly), stubs one function, and
-lists 4,263 without C. It also applies seven port-owned overrides of matched
+Upstream `sly1-decomp` master remains at
+`cf9ad464696a197803f584980bff43ed62b6bf31`; the read-only snapshot is at
+`/home/reaper/.cache/sly1-decomp-current`. The open `files95` branch adds
+near-miss/permuter work, including a 97.2% attempt for `func_00161B10`, but its
+source still says `INCLUDE_ASM` and it adds no matched C. Master reports
+4,720/4,806 US functions with C and 92.17% code bytes. Hostgen reads 187 units,
+translates 1,060 functions (none from assembly), stubs one function, and lists
+3,809 without C. It also applies seven port-owned overrides of matched
 C. These generated-host counts are separate from the
 decompilation's matching-coverage report and do not establish gameplay
 coverage.
 
 ### Latest bounded native run (2026-11-06)
 
-The host-readable exact stream unit is selected in the build. With separate
-port-only adapters for `func_001F5A58` and native sector reads, a 12-second
-launch reads sector 820372 (74 sectors) into guest address `0x002C3B00` and
-reaches the Splash metadata tables. The exact reader reproduces the C03
-callback return at cursor `0x1594`; the next row still decodes as slot `0x5300`.
-A truncated property stream reaches EOF and previously trapped the port parser
-in an infinite loop through an uninitialized scalar-reader result. A port-only
-EOF guard now lets frame setup continue. The image callback requests
-`0x5F4F0` bytes at EOF, leaving image and CLUT buffers zero-filled. The renderer
-receives menu draws (474–480 vertices), but the captured frame is still black.
-Next resolve the object-list/resource alignment that leads to EOF before the
-image callback.
+The latest 12-second native launch reads Splash from sector 820372 (74 sectors)
+into `0x002C3B00`, skips a single guarded pad byte at cursor `0x1594`, reads
+record type `0x53` / key `0x054b`, and dispatches exact matched
+`func_00196410`. Exact `func_00138278` and `func_001BAC30` are also generated
+from decomp C. The child parser continues, but a nested reader reports a zero
+cursor and its following values are implausible. The image callback still
+requests `0x5F4F0` bytes at EOF; image and palette uploads are zero-filled and
+the frame remains black. Next inspect how the group callback initializes its
+nested reader and validates the child data range.
 
 The updates since the previous `a0fd295` snapshot include extensive
 name/header refactors and documentation; matching coverage is unchanged. The

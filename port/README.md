@@ -29,10 +29,11 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; its
 default is `--asm off`, and generated files stay under `build/port/`. It
 generates host C from matched Sly sources plus port-only backfills without
-translating retail MIPS assembly. Against the latest available upstream decomp snapshot
-`cf9ad46` (PR #62),
-the latest generation read 189 source units, translated 573 functions, left
-one C function stubbed, and lists 4,278 functions without C. The decomp status
+translating retail MIPS assembly. Against upstream decomp master `cf9ad46`
+(`OpenThievius/sly1-decomp`, checked 2026-11-06; open `files95` adds near
+misses but no newly matched functions), the latest generation reads 187 source
+units and translates 1,060 functions,
+leaves one C function stubbed, and lists 3,809 functions without C. The decomp status
 is 4,720/4,806 matching US functions (92.17% code bytes; 86 functions remain
 without matching C). These are separate measures: host-C generation coverage
 does not indicate how much game logic builds or runs natively. The latest

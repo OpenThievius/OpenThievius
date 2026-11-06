@@ -201,20 +201,14 @@ table readers. The low-level mesh decoder `func_00137FB0` is still classified
 as assembly-only (`handwritten VU0 macro instruction`) in the source
 catalogue.
 
-The matching decomp C for `func_00138278` is in `00138000.cpp`, and for
-`func_001BAC30` in `001B8000.cpp`. Both full translation units currently fail
-hostgen because other functions in those units use incomplete C01/C02 types.
-A trial removal of the port backfill confirmed the consequence: hostgen emitted
-a no-op stub for `func_00138278`. Both functions therefore remain registered
-port-only backfills until we can compile the matching function bodies without
-pulling in the unrelated unit errors. Their logic is still useful as a
-reference, and this is an actionable decomp/hostgen integration task rather
-than missing decomp source.
-
-The `func_00138278` / `func_001BAC30` callback unit barrier remains open; both
-port backfills stay active. The earlier `0x1594` / `0x5300` trace used the old
-stream backfill; the exact-reader run now independently reproduces that same
-callback cursor and following row, as recorded below.
+Hostgen staging now reads both `00138000.cpp` and `001B8000.cpp`, and the native
+build uses their matching `func_00138278` and `func_001BAC30` bodies. The
+callback row parser `func_0011ECB8` remains a port-only backfill; the separate
+mesh decoder `func_00137FB0` is still assembly-only, and `func_001289C0`
+remains a port backfill. Exact matched `func_00196410` now handles the nested
+group callback. A current bounded run advances past the old `0x5300` read,
+dispatches type `0x53` / key `0x054b`, and then finds a zero cursor in the
+nested reader; Splash image and CLUT data are still zero.
 
 ## Exact stream-reader integration (2026-11-06)
 
@@ -351,12 +345,13 @@ No additional disc image, boot ELF, or other user-supplied file is blocking
 the current work on this machine. Contributors elsewhere need their own
 NTSC-U `SCUS_971.98` and disc image; setup and one-time asset extraction are
 documented in [ASSETS.md](ASSETS.md). The current refreshed read-only decomp snapshot is
-`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (PR #62; checked
-2026-11-06). `python3 port/tools/sly1.py status --source
+`/home/reaper/.cache/sly1-decomp-current` at `cf9ad46` (master; checked
+2026-11-06). The open `files95` branch has near-miss progress but no newly
+matched C; `func_00161B10` remains assembly-only. `python3 port/tools/sly1.py status --source
 /home/reaper/.cache/sly1-decomp-current` reports 4,720/4,806 matching US
 functions, 92.17% code bytes, and 86 without matching C. The latest hostgen
-report is `build/port/hostgen/us/report.md`: 189 units read, 600 functions
-translated to host C, one stub, and 4,263 without C, with seven port-owned
+report is `build/port/hostgen/us/report.md`: 187 units read, 1,060 functions
+translated to host C, one stub, and 3,809 without C, with seven port-owned
 overrides of matched C. These counts use different
 denominators and answer different questions; neither means the same amount of
 gameplay is ready. The snapshot is read-only and may lag GitHub if new decomp
