@@ -359,11 +359,15 @@ on the invalid-looking next row. Other record shapes in `func_00162890` remain
 unverified. A 2026-11-06 retail comparison corrected the port-only
 `func_00162890` implementation's flag `0x40` path to call the matched
 `func_001B4A10` and corrected the two nested dimensions to consume
-`refs * dimension * 12` bytes. The next bounded native run reaches record flag
-`0x415f`, then a null type-specific animator callback; later the first nested
-dimension reads `0xffff` and requests about 96 MiB. Thus the multiplier now
-matches retail, but an earlier record cursor/field mismatch remains. These
-changes are isolated in the port backfill and do not alter decomp source.
+`refs * dimension * 12` bytes. Assembly review also found that record flag
+`0x1` reads a 16-bit source index and copies an earlier record in memory; it
+does not read an additional 48-byte payload. Removing that extra read moves
+the first record boundary from `0x1871` to `0x1841`. Its animator helper starts
+at `0x17c6`, reads type `0xc189`, and reaches a null type-specific callback.
+Later the first nested dimension still reads `0xffff` and requests about 96
+MiB. Thus known branch behavior now matches retail, but an earlier stream
+field or parent cursor remains wrong. These changes are isolated in the port
+backfill and do not alter decomp source.
 
 
 The port now also has a small `func_001B89B8` replacement, translated from

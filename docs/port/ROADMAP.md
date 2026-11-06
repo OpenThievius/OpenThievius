@@ -42,11 +42,13 @@ cursor `0x1594`. A port-only guarded one-byte pad skip then reads the next
 record as type `0x53`, key `0x054b`, and dispatches it through exact matched
 `func_00196410`. The child path reaches port-only `func_00162890`, which reads
 a record count of `0x2546` and later a nested count of `0x1f3f`. Retail
-comparison corrected the `0x40` flag to call matched `func_001B4A10` and both
-optional nested array sizes to `refs * dimension * 12`. The latest bounded
-run then reaches flag `0x415f` and a null type-specific animator callback;
-before the first dimension it already reads `0xffff`, indicating earlier
-misalignment remains. The image callback still
+comparison corrected the `0x40` flag to call matched `func_001B4A10`, both
+optional nested array sizes to `refs * dimension * 12`, and the `0x1` record
+flag to read only its 16-bit source index before copying a prior 0x70-byte
+record in memory. Removing that extra 48-byte stream read moves the first
+record boundary from `0x1871` to `0x1841`; its animator helper starts at
+`0x17c6` and reads unsupported type `0xc189`, then dispatches through a null
+callback. An earlier stream field or parent cursor is still wrong. The image callback still
 requests `0x5F4F0` bytes at EOF, leaving image and CLUT buffers zero-filled. The
 renderer receives menu draws (474–480 vertices), but the captured frame
 remains black. Re-run the native launch and capture logical source offsets
@@ -101,13 +103,14 @@ into `0x002C3B00`, skips a single guarded pad byte at cursor `0x1594`, reads
 record type `0x53` / key `0x054b`, and dispatches exact matched
 `func_00196410`. Exact `func_00138278`, `func_001BAC30`, and
 `func_001B4A10` are generated from decomp C. Retail comparison corrected the
-`0x40` record flag to call `func_001B4A10` and both optional nested array sizes
-to `refs * dimension * 12`. The 12-second run now enters record flag `0x415f`,
-then reports a call through address zero in the type-specific animator callback.
-It later reaches nested count `0x1f3f`, but the first dimension still decodes
-as `0xffff` and requests about 96 MiB; this confirms the cursor is already
-misaligned before that dimension, despite fixing its retail multiplier. The
-exact mismatch is still unresolved and no image or palette uploads occur.
+`0x40` record flag to call `func_001B4A10`, both optional nested array sizes to
+`refs * dimension * 12`, and the `0x1` record flag to read only a 16-bit
+source index before copying a record in memory. The latest run advances the
+first record boundary from `0x1871` to `0x1841`, but its animator helper reads
+unsupported type `0xc189` at `0x17c6` and dispatches through a null callback.
+It later reaches nested count `0x1f3f`, but the first dimension reads `0xffff`
+and requests about 96 MiB. An earlier stream field or parent cursor is still
+misaligned; no image or palette uploads occur.
 Stages 101–103 were group-lookup probes whose third argument is an owner
 object, not a reader; their zero cursor was a misleading trace interpretation.
 Current decomp `master` is
