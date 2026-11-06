@@ -5,18 +5,16 @@
 s32 func_00137B90(void* reader);
 s32 func_00137C40(void* reader);
 s32 func_00137BE0(void* reader);
-s32 func_00137D10(void* reader);
 f32 func_00137DF8(void* reader);
 void func_00137E70(void* reader, void* destination);
 void* func_0018D5C0(u32 size);
-
 static s32 stream_failed(void* reader) {
     return *(s32*)((u8*)reader + 0x1C) < 0;
 }
 
 static s32 read_u16(void* reader) {
     u8* bytes = (u8*)reader;
-    if (*(s32*)(bytes + 0x1C) < 2) return func_00137D10(reader);
+    if (*(s32*)(bytes + 0x1C) < 2) return func_00137BE0(reader);
     const u8* cursor = (const u8*)*(u32*)(bytes + 0x18);
     const s32 value = (s32)cursor[0] | ((s32)cursor[1] << 8);
     *(u32*)(bytes + 0x18) += 2u;
@@ -110,6 +108,7 @@ void func_00137FB0(void* reader, void* mesh) {
             ((f32*)face)[1] = ny;
             ((f32*)face)[2] = nz;
             ((f32*)face)[3] = 0.0f;
+            *(f32*)(face + 0x10) = nx * va[0] + ny * va[1] + nz * va[2];
         }
         *(s16*)(face + 0x1E) = a;
 
@@ -124,20 +123,11 @@ void func_00137FB0(void* reader, void* mesh) {
         if (stream_failed(reader)) return;
         if (edge_count <= 0) continue;
 
-        u32 first = 0;
         u32 previous = 0;
         for (s32 edge = 0; edge < edge_count; ++edge) {
-            u8* reader_bytes = (u8*)reader;
-            s32 remaining = *(s32*)(reader_bytes + 0x1C);
-            s16 edge_index;
-            if (remaining >= 2) {
-                const u8* encoded = (const u8*)*(u32*)(reader_bytes + 0x18);
-                edge_index = (s16)((u16)encoded[0] | ((u16)encoded[1] << 8));
-                *(u32*)(reader_bytes + 0x18) += 2u;
-                *(s32*)(reader_bytes + 0x1C) = remaining - 2;
-            } else {
-                edge_index = (s16)func_00137D10(reader);
-            }
+            const s16 edge_index = (s16)func_00137BE0(reader);
+            const s16 edge_link = (s16)func_00137BE0(reader);
+            const s16 target_face = (s16)func_00137BE0(reader);
             if (stream_failed(reader)) return;
             if ((u32)(link_cursor - *(u32*)(out + 0x18)) >= (u32)link_capacity * 0x10u) {
                 /* Keep consuming the retail stream if malformed data exceeds
@@ -147,14 +137,18 @@ void func_00137FB0(void* reader, void* mesh) {
             u8* node = (u8*)link_cursor;
             link_cursor += 0x10u;
             *(s16*)(node + 0x00) = edge_index;
-            *(s16*)(node + 0x02) = (s16)edge;
+            *(s16*)(node + 0x02) = edge_link;
             *(s16*)(node + 0x04) = (s16)i;
-            *(s32*)(node + 0x08) = previous;
-            if (previous != 0) *(u32*)(previous + 0x0C) = link_cursor - 0x10u;
-            else first = link_cursor - 0x10u;
+            *(s16*)(node + 0x06) = target_face;
+            if (previous == 0) *(u32*)(face + 0x14) = link_cursor - 0x10u;
+            else *(u32*)(previous + 0x08) = link_cursor - 0x10u;
+            if (target_face >= 0 && target_face < face_count) {
+                u8* target = (u8*)*(u32*)(out + 0x10) +
+                    (u32)target_face * 0x20u;
+                *(u32*)(node + 0x0C) = *(u32*)(target + 0x18);
+                *(u32*)(target + 0x18) = link_cursor - 0x10u;
+            }
             previous = link_cursor - 0x10u;
         }
-        *(u32*)(face + 0x14) = first;
-        *(u32*)(face + 0x18) = previous;
     }
 }
