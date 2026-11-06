@@ -33,6 +33,30 @@ VIF opcode. The port-only initializer now fills `D_00261F1C` from the channel
 table at `0x00279340`; traces show GIF channel 2 at `0x1000A000` and VIF1 at
 `0x10009000`.
 
+## Current resource investigation
+
+The Splash compressed resource is read from ISO sector `820372` for `150849`
+bytes. The native LZ backfill now carries back-reference bytes across its
+8 KiB output windows; an offline replay matches all `430858` decoded bytes in
+`resource_0002.decoded.bin`. The refill state is kept in reader field `+0x2C`
+so it does not overwrite the sector reader's `+0x38`/`+0x3C` bookkeeping.
+
+This fixes a proven decoder defect, but the live font atlas is still wrong.
+The latest bounded native launch reaches active Sly UI objects and submits
+large GIF chains, while the window remains black/garbled. Cursor tracing shows
+the reader position advances substantially between the animation/font table
+reader and the subsequent image-payload reader. The next investigation is to
+identify which nested object record reader consumes that span incorrectly;
+do not change GS texture interpretation based on the current bad atlas.
+
+Reproduce the focused startup trace with:
+
+```sh
+OPENRAC_TRACE_FONT=1 OPENRAC_STARTUP_TRACE=1 timeout 12s \
+  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
 Channel 2 (`0x1000A000`) is a DMA chain and correctly goes through
 `openrac_native_renderer_submit_dma_chain`; it must not be treated as a raw
 GIFtag stream. In the latest bounded trace, 438 of 438 submitted chains were
