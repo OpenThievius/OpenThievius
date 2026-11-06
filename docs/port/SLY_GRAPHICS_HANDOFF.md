@@ -2,10 +2,10 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-06. This document records the live native C-only
-launcher state, not a playable milestone. The launcher opens a window,
-uploads Sly's font atlas and palette, and decodes menu geometry, but the
-resulting image is black or severely garbled. No emulator is used by this
-path.
+launcher state, not a playable milestone. The launcher opens a window, but the
+current retail-aligned reader path reaches EOF during collision loading before
+the image payload is read; it submits no menu vertices and remains black. No
+emulator is used by this path.
 
 ## What runs today
 
@@ -53,37 +53,41 @@ enabled alongside `OPENRAC_TRACE_LOADER=1`.
 The current bounded trace supersedes the earlier `0x128BC` dimension and
 9,542-record diagnosis below this point in the investigation history. Retail
 LZ output still matches all 430,858 bytes of the extracted Splash resource.
-The live parser failure is now localized to a later collision-object callback:
+The live parser failure is now localized to a collision mesh in the object
+list:
 
-* The callback reads 6,626 vertices, then sees face count `0xFFFF`. The port
-  mesh reader stops at this all-ones count to avoid an implausible 65,535-face
-  read. The subsequent tree reader sees `0xFFFF, 0xA84F`; its port-only guard
-  treats a leading `0xFFFF` as an absent tree. These guards are isolated under
-  `hand/native_c/` and do not change matching decomp C.
-* The common object reader then sees property ID `0x1555` at decoded offset
-  `0x54D72`. The initialized property table has 1,179 entries, so this ID is
-  outside the table. Its next property is the negative terminator. At
-  `0x54D82`, the nested parser reads `0xFF, 0xFF, 0xFF`, then interprets bytes
-  in the padded tail as word count `0xB9` and record count `0x583E` (22,590).
-  It drains the remaining stream while walking those records.
-* `func_001DBA38` then requests `0x5F4F0` bytes with the reader at EOF. The
-  destination begins zero-filled, and the first payload words remain zero.
+* The second collider starts at decoded offset `0x1643`. Its mesh has 6,626
+  12-byte vertices; face count `0xFFFF` follows at `0x14CE1`. The previous
+  port reader imposed a 16,384-face cap and returned early, which made later
+  property IDs and nested counts unreliable.
+* Retail `func_00137FB0` assembly treats that value as a positive unsigned
+  16-bit count: it allocates the face arrays and enters the face loop. The
+  port backfill now accepts the full 16-bit count and stops safely when the
+  decoded stream reports EOF. In the latest native run, EOF occurs while
+  parsing this face block, before the second mesh or common object properties
+  are reached. The previous `0x1555` property at `0x54D72` was an artifact of
+  the early return and is no longer current evidence.
+* The callback returns at EOF and frame setup continues, but
+  `func_001DBA38` requests `0x5F4F0` image bytes with the stream already
+  exhausted. The destination remains zero-filled, and the renderer reports no
+  submitted menu vertices in this run.
 
-The decompressed bytes around `0x54D72` contain the invalid property ID and an
-all-`0xFF` region after it, so this is not evidence of a GS swizzle or texture
-upload fault. The remaining question is why the object callback has reached
-this padded part of Splash as if it were another object record. Trace the
-caller and serialized object boundary before changing image or renderer code.
-The earlier 9,542-record, `0x1F3F` nested-count, and `0x128BC` dimension claims
-were from a different, misattributed parser trace and should not guide fixes.
+The next investigation is the stream/refill boundary and why the selected
+object declares 65,535 faces when the decoded Splash resource ends before that
+block can be read. Verify the retail worker's continuation and the object's
+serialized range before changing texture or GS behavior. Keep the count
+handling in `hand/native_c/`; it remains a port-only backfill. The earlier
+9,542-record and `0x128BC` dimension claims were from a different,
+misattributed parser trace and should not guide fixes.
 
 Retail `func_00162890` still supplies the useful reference for its nested
 record sizes: `c0 * 12`, `c1 * 12`, `c2 * 4`, `c3 * 8`, `c4 * 4`, followed by
 `refs * c0 * 4`; optional unsigned dimensions each consume `dimension * 12`.
-Those sizes describe the function, but they are not the current black-screen
-cause. Keep all functional reader and sentinel handling as port-only
-backfills, replacing it with matching C when the decompilation covers those
-functions. Do not adjust GS texture interpretation from the invalid image.
+Those sizes describe the function, but the current trace does not reach it for
+the second collider. Keep all functional reader and sentinel handling as
+port-only backfills, replacing it with matching C when the decompilation covers
+those functions. Do not adjust GS texture interpretation while image data
+remains uninitialized.
 
 Reproduce the focused startup trace with:
 
@@ -114,31 +118,22 @@ stub.
 
 ## Current measured blocker
 
-A bounded run on 2026-11-06 accepts sampled channel-2 DMA chains, uploads a
-512x512 PSMT4 font atlas at GS block `0x1400` and its 8x2 palette at `0x1600`,
-and decodes two draws per menu frame. The atlas upload uses PSM `0x14` (PSMT4),
-with 131,072 bytes for 512x512 4-bit pixels; the CLUT uses PSM `0x00` and
-contains 16 entries. The background draw has 6 vertices; the
-font draw varies from 372 to 480 vertices. Font positions change across
-frames and the fade alpha rises from its initial low value. The float return
-and glyph-advance path are therefore producing changing positions; the old
-“zero vertices/draws” and identical-coordinate diagnoses are obsolete.
+An earlier bounded run on 2026-11-06 accepted sampled channel-2 DMA chains,
+uploaded a 512x512 PSMT4 atlas and 16-entry palette, and decoded two menu draws
+with changing font positions. That trace used the mesh backfill's 16,384-face
+cap, which returned before the retail `0xFFFF` face loop; its draw counters do
+not describe the corrected reader path.
 
-The normal renderer produces a very dark, noisy menu shape. A direct
-framebuffer readback confirms the pixels are already dark/noisy before SDL
-swaps the window. An opt-in flat-color pass that bypasses texture, depth,
-scissor, and blend state draws the decoded menu geometry, so the vertex stream
-is rasterized. The current reader trace explains why the atlas is invalid:
-after the malformed collision-object walk reaches the padded Splash tail,
-`func_001DBA38` requests `0x5F4F0` bytes at EOF and leaves its zero-filled
-destination untouched. The GS upload at block `0x1400` therefore reads an
-uninitialized image buffer. The source pointer mapping and DMA transfer were
-verified, but this does not validate the image contents. Earlier
-index/swizzle comparisons used stale or zero-filled captures and are not
-evidence about the valid PSMT4 layout. Do not change swizzle, CLUT, or shader
-behavior until the resource parser reaches and fills the image range. After
-that, resume checking PSMT4 indices, CLUT order/alpha, TEX0/UV selection, and
-shader output against fresh framebuffer pixels. The trace reports
+The latest native run reaches frame setup but reports zero submitted vertices.
+Its resource reader reaches EOF inside the second collider's 65,535-face
+block, before `func_001DBA38` can fill the `0x5F4F0`-byte image buffer. The atlas
+upload at block `0x1400` therefore still contains zero-filled data. The prior
+dark/noisy framebuffer and texture-index captures came from the early-return
+reader path and are not evidence about the current retail-aligned parse. Do not
+change swizzle, CLUT, or shader behavior until the resource reader reaches and
+fills the image range. After that, resume checking PSMT4 indices, CLUT
+order/alpha, TEX0/UV selection, and shader output against fresh framebuffer
+pixels. The trace reports
 `TCC=true`, modulate texturing, blending enabled, and GS alpha scale; those
 settings remain candidates for later inspection, not proven faults.
 
@@ -182,12 +177,11 @@ full `0x5F4F0`-byte backing buffer to `/tmp/sly1-font-resource.bin`.
 
 ## Work needed next
 
-1. Trace the caller and serialized object boundary that sends the second
-   collider into Splash's padded tail. It reads property ID `0x1555` outside
-   the 1,179-entry property table; `func_00162890` then interprets `0xFF`
-   padding as record counts and consumes the rest of the stream. Verify the
-   caller's object count/record boundary against retail assembly and resource
-   bytes. Keep any functional correction in the port-only backfill.
+1. Explain the second collider's `0xFFFF` face count and EOF during its face
+   loop. Trace the native refill against retail `func_00137490`, compressed
+   source bounds and the serialized object range. Do not infer later property
+   or image boundaries until this read is accounted for. Keep any functional
+   correction in the port-only backfill.
 2. Use `OPENRAC_DEBUG_T4_INDEX=all` to visualize indices, values `0` through
    `15` to make one index transparent, and
    `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` only as a swizzled-memory comparison.
