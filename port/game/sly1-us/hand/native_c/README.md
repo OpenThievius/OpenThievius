@@ -111,3 +111,12 @@ configuration and all functional C adapters in this directory.
 source unit as no-C. It dispatches m2C, copies the optional four-vector object
 transform into the record, then dispatches m26. Remove it when the matching C
 unit becomes hostable.
+
+The opt-in startup trace now records the local translation and first basis
+qword for nodes entering `func_00125C90`, plus their virtual callback slots
+(stages 50–52 in `main.cpp`). The latest bounded run found eight identical
+entries with zero local translation, identity basis, and zero culling radius.
+The dispatcher arguments match retail `func_0019D6C0` assembly, so the next
+trace should establish whether these entries are supposed to inherit a parent
+transform or simply lack scene geometry. These stages only observe memory; they
+do not bypass culling or change rendering.
