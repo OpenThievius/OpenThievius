@@ -129,30 +129,32 @@ void func_00168F48(void* opaque, s32 dbp, void* writer) {
 void func_0015D998(void* font_opaque, void* allocator) {
     u8* font = (u8*)font_opaque;
     SlyFontImageA* image_a;
-    SlyFontFrame frame;
+    SlyFontFrame* frame;
     s32 address;
     if (font == 0 || allocator == 0) return;
     image_a = (SlyFontImageA*)(u32)*(u32*)(font + 0x54u);
     if (image_a == 0) return;
+    frame = (SlyFontFrame*)func_0018D5C0((s32)sizeof(SlyFontFrame));
+    if (frame == 0) return;
 
-    func_001611B8(&frame.writer);
+    func_001611B8(&frame->writer);
     address = func_00168D88(allocator, *(u16*)(image_a->source_header + 0x0Au));
     func_00168FB0(image_a, (u32)address);
     *(u64*)(font + 0x60u) = image_a->gs_bits;
-    func_001529C8(&frame.writer, 16, frame.packet);
-    func_00169088(image_a, (u32)address, &frame.writer);
-    func_00152A50(&frame.writer, (u32*)(font + 0x68u), 0,
+    func_001529C8(&frame->writer, 16, frame->packet);
+    func_00169088(image_a, (u32)address, &frame->writer);
+    func_00152A50(&frame->writer, (u32*)(font + 0x68u), 0,
                   (u32*)(font + 0x6Cu));
 
     if (*(u32*)(font + 0x58u) != 0) {
         SlyFontImageB* image_b = (SlyFontImageB*)(u32)*(u32*)(font + 0x58u);
-        func_001611B8(&frame.writer);
+        func_001611B8(&frame->writer);
         address = func_00168D88(allocator, image_b->qwords);
         func_00168E78(image_b, (u32)address);
         *(u64*)(font + 0x60u) |= image_b->gs_bits;
-        func_001529C8(&frame.writer, 16, frame.packet);
-        func_00168F48(image_b, address, &frame.writer);
-        func_00152A50(&frame.writer, (u32*)(font + 0x70u), 0,
+        func_001529C8(&frame->writer, 16, frame->packet);
+        func_00168F48(image_b, address, &frame->writer);
+        func_00152A50(&frame->writer, (u32*)(font + 0x70u), 0,
                       (u32*)(font + 0x74u));
     }
 }

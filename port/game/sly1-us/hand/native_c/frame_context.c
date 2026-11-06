@@ -49,6 +49,8 @@ void func_00152440(void* list);
 void func_001B5F28(void* list, void* node);
 void func_001529C8(void* packet, s32 capacity, void* buffer);
 void func_00152B38(void* packet);
+void func_0015EB20(void* packet, void* frame, s32 unused);
+void func_0015EBF0(void* packet, void* frame, s32 unused);
 void func_001F6C20(s32 channel);
 int openrac_lib_sly1_signal_sema(u32 semaphore);
 
@@ -120,16 +122,14 @@ void func_0015E9F0(void)
     func_00152B38(D_002622A8);
 }
 
-/* Retire an empty native frame and wake the retail display worker. The
- * matching object-list destructors are still assembly-only; keep queued
- * objects intact until their callbacks have a port implementation. */
+/* Finish both packet writers before handing the frame to the display worker. */
 void func_0015EC68(void)
 {
     NativeFrameContext* context = D_002622D8;
     if (context == 0) return;
-    if (D_002622E0.head != 0 || D_002622E0.tail != 0 ||
-        D_002622F0.head != 0 || D_002622F0.tail != 0 ||
-        D_00262300.head != 0 || D_00262300.tail != 0) return;
+
+    func_0015EB20(D_002622A8, (u8*)context + 8u, 0);
+    func_0015EBF0(D_00262280, context, 0);
 
     context->l20 = D_002622E0;
     context->l2C = D_002622F0;
@@ -137,4 +137,22 @@ void func_0015EC68(void)
     D_002622D8 = 0;
     D_002622D0 = 0;
     (void)openrac_lib_sly1_signal_sema((u32)D_002623B0);
+}
+
+extern s32 D_002622D4;
+extern s32 D_00274538;
+extern s32 D_00261F1C;
+void func_001B3488(s32 value);
+void func_00202A80(s32 dma, void* source);
+
+void func_0015ED50(void* frame)
+{
+    u8* bytes = (u8*)frame;
+    if (bytes == 0) return;
+    D_002622D4 = *(s32*)(bytes + 0x10u);
+    func_001B3488(*(s32*)(bytes + 0x44u));
+    if (*(s32*)(bytes + 0x1Cu) != 0 && D_00274538 != 0) {
+        *(volatile s32*)0x10003010u = 4;
+        func_00202A80(D_00261F1C, (void*)(u32)D_00274538);
+    }
 }

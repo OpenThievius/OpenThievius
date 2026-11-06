@@ -18,6 +18,142 @@ typedef struct SlyPacketWriter {
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 void* func_0018D568(s32 size, void* source);
 void func_00152D70(void* opaque);
+void func_001F6C20(s32 channel);
+void func_00202A80(s32 dma, void* source);
+void func_00161200(void* opaque);
+void func_001528C8(void* opaque);
+void func_001529C8(void* opaque, s32 qwords, void* buffer);
+void func_001611B8(void* opaque);
+void func_001613C0(void* opaque, s32 mode, s32 count, s32 format);
+void func_00161708(void* opaque, s32 address, u64 value);
+void func_00152B80(void* opaque, s32 low, s32 high);
+void func_00152D30(void* opaque);
+void func_001EE368(void* opaque, s32 target);
+void func_001EE7D0(void* opaque, s32 qwords, void* source, s32 flag);
+
+void func_001EE450(void* opaque) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    *(u32*)writer->cursor = 0x11000000u;
+    writer->cursor += 4u;
+}
+
+void func_001EE8D0(void* destination, void* source) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)source;
+    if (writer == 0) return;
+    const u32 bytes = writer->cursor - writer->begin;
+    func_001EE7D0(destination, (s32)(bytes >> 4), (void*)writer->begin, 0);
+}
+
+void func_001EE368(void* opaque, s32 target) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0 || target < 0 || target > 3) return;
+    u32 index = (writer->cursor & 0xCu) >> 2;
+    while (index != (u32)target) {
+        *(u32*)writer->cursor = 0;
+        writer->cursor += 4u;
+        index = (index + 1u) & 3u;
+    }
+}
+
+void func_001EE7D0(void* opaque, s32 qwords, void* source, s32 flag) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0 || source == 0 || qwords < 0) return;
+    func_001EE368(writer, 3);
+    *(u32*)writer->cursor = (u32)qwords | ((u32)flag << 31) | 0x50000000u;
+    writer->cursor += 4u;
+    const u32 bytes = (u32)qwords << 4;
+    __builtin_memcpy((void*)writer->cursor, source, bytes);
+    writer->cursor += bytes;
+}
+
+void func_00152CE0(void* opaque, s32 qwords, void* source) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0 || source == 0 || qwords < 0) return;
+    const u32 bytes = (u32)qwords << 4;
+    __builtin_memcpy((void*)writer->cursor, source, bytes);
+    writer->cursor += bytes;
+}
+
+extern s32 D_0026230C;
+void func_0015EAE0(void* opaque, u32 start, u32 end) {
+    if ((u32)D_0026230C == start) return;
+    D_0026230C = (s32)start;
+    if (end > start)
+        func_00152B80(opaque, (s32)((end - start + 15u) >> 4), (s32)start);
+}
+
+/* Retail closes the draw buffer, then records its QWC on the frame record. */
+void func_001529E0(void* opaque, u32* count, u8** begin) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    func_00152D70(writer);
+    if (count != 0)
+        *count = (writer->cursor - writer->begin) >> 4;
+    if (begin != 0) *begin = (u8*)writer->begin;
+    func_001528C8(writer);
+}
+
+/* Retail closes the current GIF tag and appends a DMA END tag. */
+void func_00152D30(void* opaque) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    u32 cursor;
+    if (writer == 0) return;
+    func_00152D70(writer);
+    cursor = writer->cursor;
+    writer->cursor = cursor + 16u;
+    *(u64*)cursor = 0x70000000u;
+    *(u64*)(cursor + 8u) = 0;
+}
+
+/* Port-only close/submit sequence used before the display worker wakes. */
+void func_0015EBF0(void* opaque, void* frame, s32 unused) {
+    (void)unused;
+    func_001613C0(opaque, 0, 1, 0xE);
+    func_00161708(opaque, 0x61, 0);
+    func_00161200(opaque);
+    func_00152D30(opaque);
+    func_001529E0(opaque, (u32*)frame, 0);
+}
+
+typedef struct SlyFramePacketStack {
+    u8 scratch[0x80];
+    u8 writer[0x30];
+} SlyFramePacketStack;
+
+extern u8 D_00212160[];
+extern u8 D_00215C50[];
+void* func_0018D5C0(s32 size);
+void func_001EE450(void* opaque);
+void func_001EE8D0(void* destination, void* source);
+void func_0015EAE0(void* opaque, u32 start, u32 end);
+
+void func_0015EB20(void* opaque, void* frame, s32 unused) {
+    SlyFramePacketStack* local =
+        (SlyFramePacketStack*)func_0018D5C0((s32)sizeof(SlyFramePacketStack));
+    (void)unused;
+    if (local == 0) return;
+    func_001611B8(local->writer);
+    func_001529C8(local->writer, 8, local->scratch);
+    func_001613C0(local->writer, 0, 1, 0xE);
+    func_00161708(local->writer, 0x61, 0);
+    func_00161200(local->writer);
+    func_001EE450(opaque);
+    func_001EE8D0(opaque, local->writer);
+    func_0015EAE0(opaque, (u32)D_00212160, (u32)D_00215C50);
+    func_00152D30(opaque);
+    func_001529E0(opaque, (u32*)((u8*)frame + 8u), 0);
+}
+
+/* Port-only replacement for retail's deferred GS packet submission. */
+void func_00152AE0(void* opaque, s32 dma) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0 || writer->begin == 0) return;
+    func_00152D70(writer);
+    func_001F6C20(0);
+    func_00202A80(dma, (void*)writer->begin);
+    writer->cursor = writer->begin;
+}
 
 static void packet_writer_close(SlyPacketWriter* writer, s32 flag) {
     s16 adjustment = *(s16*)(writer->vtable + 8u);

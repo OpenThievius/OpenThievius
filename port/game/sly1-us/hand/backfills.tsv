@@ -23,6 +23,12 @@ func_00202098	native_c/display_context.c
 func_00152D70	native_c/display_packets.c
 func_00152B38	native_c/display_packets.c
 func_00152B80	native_c/display_packets.c
+func_00152AE0	native_c/display_packets.c
+func_001529E0	native_c/display_packets.c
+func_00152D30	native_c/display_packets.c
+func_0015EBF0	native_c/display_packets.c
+func_0015EB20	native_c/display_packets.c
+func_0015ED50	native_c/frame_context.c
 func_00161278	native_c/display_packets.c
 func_001612E8	native_c/display_packets.c
 func_001613C0	native_c/display_packets.c
