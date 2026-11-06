@@ -110,6 +110,7 @@ func_00188B08	native_c/object_transform_primitives.c
 func_00188B48	native_c/object_transform_primitives.c
 func_00188668	native_c/object_transform_primitives.c
 func_00188C10	native_c/object_transform_primitives.c
+func_00125BF0	native_c/object_transform_primitives.c
 func_0018D800	native_c/func_0018D800.c
 func_0018D430	native_c/native_heap.c
 func_0018D500	native_c/native_heap.c

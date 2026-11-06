@@ -27,6 +27,8 @@ Port-only scalar versions of `func_00125B70`, `func_001453B0`,
 in `hand/native_c/object_transform_primitives.c`. They restore the placed-
 object transform setup, matrix construction/multiplication, and camera sphere
 scale calculation from current decomp C and the US retail instructions. The
+same file now also contains the retail-derived `func_00125BF0` callback that
+submits an object's transformed matrix through the camera dispatch vtable. The
 no-assembly host build compiles with these replacements. They are prerequisites
 for translating the missing object update, but do not call it or change current
 native visuals yet. Next work remains `func_00125C90` and its draw callback

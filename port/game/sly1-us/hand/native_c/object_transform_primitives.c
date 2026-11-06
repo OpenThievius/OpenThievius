@@ -2,6 +2,8 @@
 /* Port-only scalar versions of retail placed-object transform primitives. */
 #include "common.h"
 
+u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+
 typedef struct Matrix4 {
     f32 row[4][4];
 } Matrix4;
@@ -109,4 +111,29 @@ s32 func_001453B0(const u8* camera, const f32 point[4], f32 radius,
         *scale = 1.0f;
     }
     return 1;
+}
+
+/* Retail placed-object submit callback (func_00125BF0). */
+void func_00125BF0(void* object, void* camera, void* parent_transform) {
+    u8* self = (u8*)object;
+    TransformWithScale transform;
+    const f32 uniform_scale = *(const f32*)(self + 0x28C);
+    const f32 scale_w = *(const f32*)(self + 0x290);
+    const f32 scale[4] = { uniform_scale, uniform_scale, scale_w, 0.0f };
+    func_00125B70(object, parent_transform, &transform);
+
+    const f32 position[4] = {
+        transform.matrix.row[3][0], transform.matrix.row[3][1],
+        transform.matrix.row[3][2], transform.matrix.row[3][3]
+    };
+    func_00188C10(position, (const f32 (*)[4])0x002583D0u, scale,
+                  transform.matrix.row);
+
+    u32 context = *(u32*)(self + 0x14);
+    u32 dispatcher = context != 0 ? *(u32*)(context + 0x1D2C) : 0;
+    u32 vtable = dispatcher != 0 ? *(u32*)dispatcher : 0;
+    u32 submit = vtable != 0 ? *(u32*)(vtable + 0xA8) : 0;
+    if (submit != 0)
+        (void)sly1_native_call_regs4(submit, dispatcher, (u32)camera,
+                                     (u32)&transform, 0);
 }

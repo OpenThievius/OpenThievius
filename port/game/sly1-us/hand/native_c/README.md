@@ -79,5 +79,7 @@ Remove each replacement when matching C is available to the host build.
 
 `object_transform_primitives.c` restores scalar versions of the retail matrix
 builders, matrix multiply, placed-object transform setup, and camera sphere
-scale test. These port-only helpers support the missing `func_00125C90`
-object-update callback and remain separate from the decompilation source.
+scale test, plus `func_00125BF0`, which submits the transformed object through
+the camera's dispatch callback. These port-only functions support the missing
+`func_00125C90` object-update callback and remain separate from the
+decompilation source.
