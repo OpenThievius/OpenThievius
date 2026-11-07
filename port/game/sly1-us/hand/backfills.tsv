@@ -207,7 +207,6 @@ func_0016E238	native_c/input_manager.c
 func_002040E8	native_c/input_manager.c
 func_00194D30	native_c/func_00194D30.c
 func_001943E8	native_c/func_001943E8.c
-func_001B7968	native_c/func_001B7968.c
 func_00138BE0	native_c/collision_loader.c
 func_001B7C40	native_c/collision_loader.c
 func_001BB4A0	native_c/collision_loader.c

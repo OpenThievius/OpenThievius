@@ -1406,3 +1406,27 @@ with a bounded timeout. The native run is authorized; do not use an emulator.
 Update this handoff and commit/push a focused checkpoint after a confirmed
 change. Current visible result remains a black window with zero scene vertices,
 so the project is not yet at a graphics-ready or playable state.
+
+**Tree-pointer and record-loop follow-up (2026-11-07):** the collision
+constructor backfill at `func_001B7968` was present in the hand-backfill list,
+but hostgen kept its matched decomp C because this function has a decomp
+definition. It is now registered as a port-only matched-C override in
+`hand/overrides.tsv`, with its source under `hand/overrides_c/` so hostgen does
+not ingest it twice. A bounded direct-level trace shows the collider's
+`+0x2c` tree field is `0x18`; its owner is `0x0088d530`, parent is
+`0x010c7850`, and descriptor is `0x0021e180`. The tree walk then treated low
+RAM as a recursive tree and faulted at `0x08000000`. The override now skips
+the optional lookup when that field is outside mapped EE RAM. This is isolated
+port behavior; the decomp source remains unchanged. The rebuilt launcher
+passes that fault in a 15-second native run.
+
+The next reached defect is in the exact retail `func_0011ECB8` record loop:
+`func_0011E580` receives class `0x683e`, which is outside its valid descriptor
+table (`0..0x94`) and returns null; retail assembly then calls the object's
+vtable reader at `+0x38` without checking it. This indicates a malformed or
+misaligned record stream before the null dispatch. Trace the reader cursor and
+the record bytes at the first invalid class before adding a skip or changing
+payload consumption. Latest run: `/tmp/sly-native-invalid-tree-guard.log`.
+Build command: `cmake --build build/port --target port_native -j2` (succeeded;
+201 generated C units, 208 selected retail assembly functions, zero stubs).
+The window is still black and no graphics-ready state has been demonstrated.
