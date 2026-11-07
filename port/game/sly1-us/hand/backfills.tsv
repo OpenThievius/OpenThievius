@@ -224,12 +224,9 @@ func_001E9498	native_c/func_001E9498.c
 func_00193E58	native_c/func_00193E58.c
 func_001940E8	native_c/func_001940E8.c
 func_00194F00	native_c/ui_show.c
-func_00194F80	native_c/menu_text.c
 func_001AA268	native_c/screen_element_draw.c
 func_001AA790	native_c/screen_element_draw.c
 func_001AB198	native_c/screen_element_draw.c
-func_00193598	native_c/menu_text.c
-func_001936A0	native_c/func_001936A0.c
 func_00194E60	native_c/ui_show.c
 func_001AA8F0	native_c/ui_show.c
 func_001AA998	native_c/ui_show.c

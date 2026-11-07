@@ -1,20 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-07. The native launcher remains not playable. Its latest
-bounded direct-level run reads Splash and catalog key `0x0100` at sector
-867214, then completes loader stage 5 with active world `0x0088d530`. The exact
-US retail animation table loader, element parser and class lookups are now
-translated from assembly; animator records show supported types and valid
-objects/vtables. The active world still submits zero scene vertices, and the
-UI trace reports no fonts or visible text. The next graphics gate is the first
-real level mesh callback producing vertices, followed by its native renderer
-submission. The current build uses the local `sly1-decomp` checkout at
-`e1b39f1`, translates 2,044 C functions and 134 retail assembly functions,
-has zero stubs, and leaves 2,680 functions without C plus 12 unreadable units.
-Port-only C overrides remain under
-`hand/native_c/`; neither those nor generated assembly translations modify
-the decomp repository.
+Last checked: 2026-11-07. The native launcher remains not playable. It opens a
+window and runs the game frame loop, but the latest direct-level trace reaches
+loader stage 5 without any scene vertices; its UI trace has zero registered
+fonts and zero visible text. The active world is `0x0088d530`, but its root has
+no children and sampled objects have no mesh data. The graphics gap is
+therefore still before the first real scene draw, not just a display scaling or
+color issue. The next gate is to find the retail resource/transition path that
+creates and attaches renderable objects, then submit their geometry. Font
+registration is a separate title/UI blocker. The current build uses the local
+`sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
+counts. Port-only C overrides remain under `hand/native_c/` (with retired
+experiments under `hand/superseded_backfills/`); neither those nor generated
+assembly translations modify the decomp repository.
+
+The earlier fragmented menu captures were produced by a port-only forced menu
+page and handwritten menu renderer. Those overrides have now been retired:
+menu filtering and text rendering use exact US retail assembly, and matching
+decomp C is used where available. Standard startup remains at Splash with no
+fonts, text, or scene vertices. Do not count the old forced-page glyph
+fragments as current vanilla game graphics.
 
 The user-provided 63-second PCSX2 recording shows the European release
 (`Sly Raccoon`): publisher credits, the Paris rooftop opening sequence, and

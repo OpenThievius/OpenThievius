@@ -953,3 +953,21 @@ it again until its initialization path is established. Trace:
 `/tmp/sly-native-direct-level-color-callback.log` (current successful run).
 The current hostgen report has 2,044 C translations, 121 assembly
 translations, zero C stubs, and 2,693 functions without C.
+
+
+## Graphics distance checkpoint (2026-11-07)
+
+The native launcher reaches the game frame loop and can load the selected level
+record, but it has not produced an actual scene image: recent traces report
+zero scene vertices, no registered fonts, and no visible text. The earlier
+fragmented menu glyph captures came from a forced menu diagnostic and should
+not be treated as vanilla graphics progress. Exact US assembly now supplies
+menu filtering and text rendering where native startup had port-only overrides;
+matching decomp C is used for the function already available there.
+
+The next meaningful graphics milestone is one retail-created level object
+with valid mesh data reaching the renderer and producing nonzero vertices.
+The active world currently has no root children, while sampled update objects
+have no mesh pointer or radius, so adjusting texture colors or culling cannot
+produce a real scene. Font-table initialization is a parallel gate for title
+and menu graphics.
