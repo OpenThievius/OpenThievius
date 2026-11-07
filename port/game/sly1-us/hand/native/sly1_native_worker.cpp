@@ -218,6 +218,19 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                      object, reader, GREF(uint32_t, 0x002699A8u));
         return;
     }
+    if (stage == 162u) {
+        if (object == 0x0021B4D8u) {
+            const uint32_t descriptor = reader;
+            std::fprintf(stderr,
+                         "[loader] unresolved resource dispatch address=%#010x "
+                         "descriptor=%#010x fields=%08x/%08x/%08x/%08x/%08x/%08x\n",
+                         object, descriptor,
+                         GREF(uint32_t, descriptor), GREF(uint32_t, descriptor + 4u),
+                         GREF(uint32_t, descriptor + 8u), GREF(uint32_t, descriptor + 12u),
+                         GREF(uint32_t, descriptor + 20u), GREF(uint32_t, descriptor + 24u));
+        }
+        return;
+    }
     if (stage == 87u && std::getenv("OPENRAC_DUMP_LZ_WINDOWS") != nullptr &&
         openrac_guest_base != nullptr) {
         static unsigned dump_index = 0;

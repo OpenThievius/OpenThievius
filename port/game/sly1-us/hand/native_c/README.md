@@ -65,13 +65,22 @@ zero-fill behavior. The native loader trace reports rejected requests under
 `OPENRAC_TRACE_LOADER=1`. Remove these overrides when the native runtime can
 provide equivalent checked guest-heap bounds around the matching allocator.
 
-`resource_readers.c` overrides `func_00137C40` as a port-only safety guard:
-it keeps ordinary little-endian reads identical, but turns values above
-`0x100000` into zero after emitting loader stage 161. This currently prevents
-malformed stream counts from wrapping allocations and running translated
-loops past guest RAM. It is a diagnostic containment measure, not a fix for
-the stream desynchronization; remove it when the upstream reader is hostable
-and the resource parsing mismatch is corrected.
+`resource_descriptors.c` now explicitly overrides matched `func_0011E680`.
+The backfill had been present in `backfills.tsv` but hostgen selected the
+decomp definition until this override was added. With the port dispatcher
+active, the native trace no longer reports the prior `0x0021B4D8` missing-code
+call and the world loader reaches stage 5. Keep this port override separate;
+remove its override row when the matching implementation is hostable and
+validated against the same Splash resource.
+
+`resource_object_records.c` also explicitly overrides matched
+`func_0011ECB8`. Its port implementation records each serialized object
+record's slot, key, and callback, and handles the reader argument required by
+the retail `func_0013B598` path. It includes a narrowly conditioned one-byte
+alignment recovery for the observed Splash record encoding. Keep this
+heuristic marked as port-only and remove it when matching C is hostable and
+the asset layout has been validated; the stage trace should then be replaced
+with ordinary diagnostics or removed.
 
 `func_001A9F78` runs the derived constructors for the 37 global screen
 elements after screen resources load. The decomp checkout has the matching

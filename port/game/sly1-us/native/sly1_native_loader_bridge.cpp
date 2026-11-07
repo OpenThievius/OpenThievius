@@ -27,15 +27,6 @@ extern "C" void sly1_native_loader_stage(u32 stage, u32 object, u32 reader) {
                      object, reader, GREF(u32, 0x002699A8u));
         return;
     }
-    if (stage == 161u) {
-        if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
-        const u32 cursor = GREF(u32, reader + 0x18u);
-        std::fprintf(stderr,
-                     "[loader] rejected oversized stream count=%#010x "
-                     "reader=%#010x cursor=%#010x\n",
-                     object, reader, cursor);
-        return;
-    }
     if (std::getenv("OPENRAC_STARTUP_TRACE") == nullptr || reader == 0) return;
     const u32 cursor = GREF(u32, reader + 0x18u);
     const s32 remaining = GREF(s32, reader + 0x1Cu);

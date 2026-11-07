@@ -382,3 +382,61 @@ functions without C. The report includes assembly-selected functions among
 the translated total; see `build/port/hostgen/us/report.json` for per-function
 selection details. The native window remains black, so the playable gate is
 not met.
+
+## Follow-up: descriptor override and world-load completion (2026-11-07)
+
+Inspection of generated host code found that the port already contained a
+`func_0011E680` resource-descriptor backfill, but hostgen was still using the
+decomp definition because the function was absent from `overrides.tsv`. Adding
+the explicit port override activates the code and its scoped diagnostics. A
+new 12-second NTSC-U run no longer reports the earlier indirect call to
+`0x0021B4D8`; it reaches `func_001DCEA0` stage 5 after object initialization
+and then continues through frame setup. The invalid-count guard still contains
+malformed values. This establishes that world loading can complete under the
+current port substitutions, not that all objects were parsed correctly.
+
+The remaining black display is now downstream of world-load completion. The
+run still reports many missing-C functions in post-load and frame setup, and
+only submits the small initialization GIF chains in the observed window. Next
+trace the first active frame callback and its draw-list dispatch, then fill
+the highest-level missing callback with port-only C that matches retail call
+semantics. Do not treat successful stage 5 as a playable level. Latest trace:
+`/tmp/sly-native-dispatch-active.log`.
+
+## Follow-up: preserve raw reader values and inspect first frames (2026-11-07)
+
+After enabling the `func_0011E680` backfill, later runs no longer observed the
+`0x3F800000` and `0xC0000000` values that had driven the original runaway
+array loop. The broad `func_00137C40` guard was therefore removed: it had also
+rewritten unrelated high-bit words, including `0x80000000`, and could hide
+valid retail data. The `func_0018D500` heap-bounds check remains as a memory
+safety measure, but no generic reader now substitutes values.
+
+A 20-second traced run reached the active frame loop with the world present,
+four registered fonts, and menu object `0x26FF68` in transition. At 5.1 game
+seconds the trace counted 240 submitted vertices (120 visible) and over 1,400
+GIF-chain submissions, yet the window remained black; the samples had
+degenerate `0x80000000` vertex words. The live frame callback was
+`func_001AD970`, the display worker was `func_00202C38`, and the game held at
+frame state 5 with no visible text. This moves the next investigation to the
+actual frame draw data, display chain, and the numerous missing-C callbacks
+around `func_001AD970`, rather than loader completion. Latest trace:
+`/tmp/sly-native-postload-trace.log`.
+
+## Follow-up: activate the object-record parser backfill (2026-11-07)
+
+The unguarded launch confirms the reader override is no longer needed: without
+it, Splash initialization still reaches `func_001DCEA0` stage 5 and the active
+frame loop, with no `0x02000000` fault. It still reports a null indirect call
+from `func_0011ECB8` while parsing the first Splash object list. Inspection
+shows the port's instrumented `func_0011ECB8` parser was also only in
+`backfills.tsv`, while hostgen selected the decomp definition. The port now
+explicitly overrides it, and its forced `from_assembly` / `asm.only` selection
+has been removed from `hostgen.json`. The new build reports 1,834 translated
+functions and 90 assembly-selected. A 12-second launch now emits the port
+stages 21–35 with plausible first records (count 36, slot 4, key 1, flag -1),
+reaches world-loader stage 5, and reports no null or `0x0021B4D8` indirect
+call. The broad reader guard is absent; no guest-RAM fault occurs. Later
+serialized values still include out-of-range slots, so the record stream
+needs validation before treating its objects as correct. The window is still
+not a playable scene. Trace: `/tmp/sly-native-object-records-active.log`.

@@ -14,32 +14,6 @@ void* func_0018D568(s32 size, void* source) {
     return result;
 }
 
-/* Port-only safety backfill for corrupt stream counts. Retail returns the
- * raw word; native startup must not let an invalid asset count drive an
- * unbounded translated loop or wrap an allocation size. Keep the threshold
- * diagnostic and isolated here so matching decomp C can replace this later. */
-u32 func_00137C40(void* reader) {
-    u8* bytes = (u8*)reader;
-    s32 remaining = *(s32*)(bytes + 0x1C);
-    u32 value = 0;
-    if (remaining >= 4) {
-        const u8* cursor = (const u8*)*(u32*)(bytes + 0x18);
-        value = (u32)cursor[0] | ((u32)cursor[1] << 8) |
-                ((u32)cursor[2] << 16) | ((u32)cursor[3] << 24);
-        *(u32*)(bytes + 0x18) += 4u;
-        *(s32*)(bytes + 0x1C) = remaining - 4;
-    } else {
-        extern void func_00137A60(void*, s32, void*);
-        func_00137A60(reader, 4, &value);
-    }
-    if (value > 0x100000u) {
-        extern void sly1_native_loader_stage(u32, u32, u32);
-        sly1_native_loader_stage(161u, value, (u32)reader);
-        return 0;
-    }
-    return value;
-}
-
 void func_00138550(void* reader, void* output) {
     u32 range[8];
     func_00137A60(reader, 0x20, range);

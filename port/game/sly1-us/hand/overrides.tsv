@@ -8,4 +8,5 @@ func_0018D658	native_c/native_temp_arena.c
 func_0018D6F0	native_c/native_temp_arena.c
 func_0018D500	native_c/native_heap.c
 func_0018D5C0	native_c/native_heap.c
-func_00137C40	native_c/resource_readers.c
+func_0011E680	native_c/resource_descriptors.c
+func_0011ECB8	native_c/resource_object_records.c

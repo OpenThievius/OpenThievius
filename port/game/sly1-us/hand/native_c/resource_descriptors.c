@@ -94,6 +94,10 @@ static u32 read_value(void* reader, s32 type, ResourceValue* value) {
 static u32 descriptor_target(ResourceDescriptor* descriptor, void* object) {
     if ((descriptor->flags & 0x1000u) == 0) return (u32)object;
     if (descriptor->accessor == 0) return 0;
+    {
+        extern void sly1_native_loader_stage(u32, u32, u32);
+        sly1_native_loader_stage(162u, descriptor->accessor, (u32)descriptor);
+    }
     return sly1_native_call_regs4(descriptor->accessor, (u32)object, 1, 0, 0);
 }
 
@@ -112,6 +116,9 @@ void func_0011E680(void* object, ResourceDescriptor* descriptor, void* reader) {
         }
         func_0011B008(&result);
         if (descriptor->callback != 0) {
+            extern void sly1_native_loader_stage(u32, u32, u32);
+            sly1_native_loader_stage(162u, descriptor->callback,
+                                     (u32)descriptor);
             sly1_native_call_regs4(descriptor->callback, (u32)&result, (u32)object,
                                    (u32)count, (u32)values);
         }
@@ -170,6 +177,10 @@ void func_0011E680(void* object, ResourceDescriptor* descriptor, void* reader) {
         }
         if (method == 0) return;
         read_value(reader, descriptor->type, &value);
+        {
+            extern void sly1_native_loader_stage(u32, u32, u32);
+            sly1_native_loader_stage(162u, method, (u32)descriptor);
+        }
         sly1_native_call_regs4(method, target, value.payload, 0, 0);
         func_0011B060(&value, 0);
     }

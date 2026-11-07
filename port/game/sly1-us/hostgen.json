@@ -52,7 +52,6 @@
   "library_api": "native_libraries.tsv",
   "overrides": "hand/overrides.tsv",
   "from_assembly": [
-    "func_0011ECB8",
     "func_0013B598"
   ],
   "roots": [
@@ -75,7 +74,6 @@
       "func_001B5F50"
     ],
     "only": [
-      "func_0011ECB8",
       "func_00158B00",
       "func_00158B30",
       "func_00158DD8",
