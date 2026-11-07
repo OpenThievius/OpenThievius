@@ -1446,6 +1446,11 @@ show subsequent reads; this does not repair the stream. Later activation
 faults at `0x1689c3e0` through `func_00183350` and
 `func_00182ED8`, called from nested `func_0011ECB8` under
 `func_00196410`/`func_001DCEA0`. Reproduced in
-`/tmp/sly-native-record-final-check.log`; the byte capture is in that same
-log. The build succeeds with 207 retail
+`/tmp/sly-native-reader-callback-sequence.log`; the byte capture is in that
+same log. Reader-address tags show the same reader (`0x0064c4c0`) reaching a
+class-`0x53` callback at cursor `0x70001341`, then a nested class-`0x53`
+callback at `0x70000eb3`; the latter advances to `0x700016bf` immediately
+before the invalid record. This narrows the next trace to how
+`func_00196410`'s nested record path returns to its parent, but does not yet
+identify the missing or misread payload. The build succeeds with 207 retail
 assembly translations and zero stubs. No visible graphics are produced.

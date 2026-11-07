@@ -51,8 +51,8 @@ void func_0011ECB8(void* owner, void* parameter, void* reader)
                                              (u32)reader, 0, 0);
             } else {
                 cursor_before = *(u32*)((u8*)reader + 0x18u);
-                sly1_native_trace_font(81u, (u32)type, (u32)mode,
-                    (u32)listener_id, (u32)object, method);
+                sly1_native_trace_font(81u, (u32)reader, cursor_before,
+                    (u32)type, (u32)object, method);
                 (void)sly1_native_call_regs4(method, (u32)object,
                                              (u32)reader, 0, 0);
                 sly1_native_trace_font(82u, (u32)reader, cursor_before,
