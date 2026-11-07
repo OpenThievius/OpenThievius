@@ -32,8 +32,8 @@ view under `build/port/`. When matching C becomes available, remove the
 corresponding backfill and let the matching source take precedence. Keep any
 port-specific changes here so the decompilation can later replace them cleanly.
 
-These replacements cover the persistent frame loop, frame-state dispatcher,
-state-transition helper, frame callback setup, queued display worker, loader
+These replacements cover the persistent frame loop, state-transition helper,
+frame callback setup, queued display worker, loader
 request setup and worker, resource key and visual-state selection, resource
 owner lists, descriptor setup, aligned pools and listener records, executable
 checksum guard, packet-list finalization, display packet primitives, and
@@ -44,6 +44,10 @@ loader thread now runs and blocks on its request semaphore, while the display
 worker submits initialization GIF chains. The renderer still receives no
 visible scene geometry, and several called engine functions remain unresolved
 no-ops; this is startup progress, not a playable game.
+
+`func_001E9108` now uses the US retail assembly translation for the frame-state
+dispatcher. Its earlier C reconstruction is retained under `hand/reference_c/`
+for comparison, but is excluded from the active hostgen C set.
 
 `func_0011E580` is a port-only object-factory replacement listed in
 `overrides.tsv`. It reads the retail descriptor table and uses the native

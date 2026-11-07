@@ -266,6 +266,19 @@ which reached no-op or missing resource prevents entry into the title scene;
 do not treat rendering the frame-transfer rectangle as a scene. Evidence:
 `/tmp/sly-native-retail-11ecb8.log`, `/tmp/sly1-native-frame-00.ppm` through
 `/tmp/sly1-native-frame-07.ppm`.
+
+**Retail state-dispatcher check (2026-11-07):** the handwritten
+`func_001E9108` C backfill was moved to `hand/reference_c/` and the exact US
+assembly selected. This preserves the comparison source while the runtime
+executes vanilla instructions. The clean build now has 2,035 C functions,
+209 retail assembly functions, and zero stubs. A fresh bounded run still
+reports frame state 3/game mode 0, menu page `-1`, and zero visible text; its
+eight captured frames remain black. Thus the C dispatcher was not the only
+cause. The state data reaches the retail dispatcher with zero flags, and no
+pending movie/resource request is visible in the trace. Next inspect who
+initializes the state data and queues the initial title/intro request, plus
+the reached missing callbacks in that path. Trace:
+`/tmp/sly-native-retail-state-dispatch.log`.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
