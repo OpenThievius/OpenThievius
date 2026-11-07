@@ -10,6 +10,23 @@ run now completes Splash and the selected level resource through loader stage
 5, with active world `0x0088d530`. This supersedes the earlier empty-reader,
 heap-initialization, and child-parser faults below.
 
+**Fresh default-boot check (2026-11-07):** a 12-second native launch without
+`OPENRAC_BOOT_LEVEL` reads only the Splash range (sector 820372, 150849 bytes).
+It stays in frame state 3/game mode 0, keeps the menu page at `-1`, registers
+no fonts, and reports zero visible scene vertices. This means the direct-level
+probe is not the only blocker: normal startup also fails to transition from
+Splash into the intro/title flow. Next, trace the retail state/movie request
+that should follow Splash while separately preserving the level-resource probe
+for scene-object work. Trace: `/tmp/sly-native-default-graphics-check.log`.
+
+The first rejected VIF1 startup chain is reproducible from the US ELF itself:
+the static bytes at `0x00212110` contain the 48-byte CNT payload and opcode
+`0x40` at stream offset `0x14`, exactly matching the native VIF diagnostic.
+This rules out ISO-sector corruption as the source of that packet. Retail
+startup also has a VIF error-mask setup path, so do not treat the rejected
+opcode as the scene-rendering root cause until its intended error semantics
+are established. Trace: `/tmp/sly-native-default-vif-trace.log`.
+
 The port now uses exact retail assembly translations for the animation table
 loader (`func_001B3040`), its element parser and class lookup helpers. The
 previous reconstructed table parser was removed. Its remaining factory guard
