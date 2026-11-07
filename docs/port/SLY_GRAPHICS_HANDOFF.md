@@ -650,9 +650,14 @@ draw produces clearly rasterized gray rectangles in the same region, so the
 draw reaches the framebuffer and its geometry is not wholly off-screen. With
 `OPENRAC_DEBUG_T4_INDEX=all`, sampled atlas indices are nonzero, but the glyphs
 remain fragmented; replacing CLUT colors with grayscale does not fix the
-layout. `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` also made no visible difference.
-These diagnostics implicate indexed texel/UV interpretation, palette values,
-or the textured shader path; they do not identify which one is wrong.
+layout. `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` was inconclusive in the low-contrast
+RGB capture. Repeating the comparison in index-grayscale mode shows that
+applying the GS-local swizzle to the upload stream turns the glyph interiors
+into high-frequency noise, while ordinary linear upload retains recognizable
+letter fragments. The linear upload interpretation is therefore the better
+current hypothesis; do not apply the swizzle path as a fix. The remaining
+suspects are glyph/atlas correspondence, CLUT values and textured shader
+state; these diagnostics do not yet distinguish them.
 
 The raw 64-byte PSMCT32 CLUT upload at block `0x1600` is now captured as
 `/tmp/sly1-gs-upload-1600.bin`. Its initial little-endian words are
@@ -671,3 +676,14 @@ texture sample coordinates after perspective division. Then isolate the
 renderer with a controlled, non-game diagnostic texture to check alpha and T4
 lookup independently; keep any experiment behind a debug switch. The UI is not
 visible at present, so the port has not reached a playable state.
+
+The follow-up `OPENRAC_TRACE_FONT=1` trace now provides one concrete
+correlation: ASCII `P` is recorded at atlas `(u=273,v=43)`, size `16x41`, and
+drawn from logical screen position about `(313.2,246.4)`. Retail C flips its V
+range to GS coordinates `469..428`; the native vertex log reports normalized
+UV `(0.533,0.916)` at the top-left, matching that transform. This validates
+the packet's UV arithmetic against the matched decomp function, but does not
+yet prove the raw atlas texels at the resulting memory addresses form the
+expected glyph. The font layout helper itself matches `func_0015CD18` in the
+configured decomp snapshot, so keep it unchanged unless the atlas comparison
+shows a specific mismatch.

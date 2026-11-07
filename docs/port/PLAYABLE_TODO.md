@@ -535,13 +535,21 @@ small packets. The normal capture is still nearly black but contains faint
 dark-green glyph blocks. Flat debug mode displays gray rectangles in the same
 area, confirming rasterized geometry; `OPENRAC_DEBUG_T4_INDEX=all` makes the
 sampled indices visible but leaves the glyph layout fragmented. The T4 upload
-swizzle experiment did not visibly improve it. Therefore prioritize a
+swizzle experiment produces high-frequency noise in index-grayscale mode,
+while the linear interpretation retains recognizable glyph fragments.
+Therefore prioritize a
 single-glyph trace from font record through atlas address, CLUT entry and final
 shader sample. The raw 64-byte CLUT at `0x1600` contains low-green/low-alpha
 RGBA words and matches the decoded Splash bytes. Verify upload CSM/CSA and
 alpha interpretation against the retail packet before considering palette
 changes. Evidence, command and limits are in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md).
+
+The latest font trace anchors ASCII `P` at `(u=273,v=43)`, size `16x41`,
+logical screen `(313.2,246.4)`. Its emitted normalized top-left UV is
+`(0.533,0.916)`, exactly the retail helper's V flip. This supports leaving the
+matched font-layout behavior alone while atlas addressing/CLUT interpretation
+is investigated.
 
 Immediate graphics tasks:
 
