@@ -156,7 +156,6 @@ add_library(sly1_port_runtime STATIC
     runtime/sly1_bootstrap.cpp
     runtime/sly1_format.cpp
     game/sly1-us/hand/native/sly1_native_worker.cpp
-    game/sly1-us/native/func_001662A8.cpp
     runtime/vif1_dma.cpp
     runtime/vu1_native.cpp
     runtime/sdl_renderer.cpp

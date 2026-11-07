@@ -9,3 +9,7 @@ decompilation sources.
 
 `func_001E9108.c` is the earlier frame-state dispatcher reconstruction. The
 launcher now executes the translation of `asm/us/text.s` for that address.
+
+`func_001662A8.cpp` is an earlier scene-packet C prototype. The launcher now
+uses the US retail assembly translation at the same address; this C prototype
+is no longer compiled into the runtime.

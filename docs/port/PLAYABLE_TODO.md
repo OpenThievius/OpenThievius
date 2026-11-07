@@ -304,6 +304,28 @@ single-function addition rebuilt cleanly and removed its no-op warning. A new
 black. The assembly path is restored, but it has not yet produced a visible
 title or scene. Trace: `/tmp/sly-native-object-key-asm.log`. Current count:
 2,035 C functions / 215 US assembly functions / zero stubs.
+
+**Class-`0x4d` display-packet path (2026-11-07):** selected exact US assembly
+for `func_00139B70` and its missing packet helper `func_001612F8`. These
+functions build the GS packet used by the repeated class-`0x4d` objects. The
+native run remains stable and drains all 40 frame nodes with valid links, but
+the capture is still all black; frame state is 3/game mode 0, visible text and
+scene vertices are zero. GIF DMA chains are accepted, so remaining work is
+upstream of useful scene submissions or in interpreting their packet content.
+Trace: `/tmp/sly-native-class4d-gs-packet.log`. Current count: 2,035 C / 217
+US assembly / zero stubs.
+
+**Scene packet-builder translation (2026-11-07):** the runtime had also been
+resolving `func_001662A8` as a no-op even though its matching source still has
+`INCLUDE_ASM` and the US retail body is available. Selected that exact
+assembly. The older port C prototype is retained in `hand/reference_c/` but
+removed from the runtime build to avoid competing implementations. The
+15-second run stays stable and drains all 40 frame nodes, but still reports
+state 3/game mode 0, zero scene vertices/text, and black captured frames. The
+builder's presence alone is insufficient; establish whether a drawable scene
+record reaches it and whether its output is consumed. Trace:
+`/tmp/sly-native-scene-packet-asm.log`. Current count: 2,035 C / 218 US
+assembly / zero stubs.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
