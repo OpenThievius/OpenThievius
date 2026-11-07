@@ -1347,10 +1347,43 @@ address, consistent with the hidden-register ABI not surviving that call
 boundary. A port-only C backfill for `func_001EE5C8` now explicitly forwards
 all four arguments into selected exact retail assembly `func_001EE560`, then
 copies and advances the writer cursor. Hostgen accepted and generated this
-backfill after removing unsupported debug includes. It has not yet been
-validated in a fresh launcher run; the most recent run before that parser fix
-still used a generated stub, so its `0x3f800000` fault does not evaluate the
-backfill. Keep this C under `hand/native_c` and out of sly1-decomp. Next: run a
-clean `port_native` regeneration, check whether the helper call preserves the
-guest arguments and whether the table word changes, then trace cursor
-mutations if it remains wrong. No graphics are visible yet.
+backfill after removing unsupported debug includes. A fresh run confirms the
+backfill is called with plausible packet inputs and advances its temporary
+writer cursor, but startup still faults later; the backfill does not by itself
+fix graphics. Keep this C under `hand/native_c` and out of sly1-decomp.
+
+**Object-reader follow-up (2026-11-07):** the direct exact guest-store trace
+confirmed the row-239 writes described above. The new packet-helper ABI
+backfill was then exercised with bounded argument traces: `func_001EE5C8`
+passes type/count/flags to selected retail `func_001EE560`, and writer cursors
+advance through `0xe041...` with sizes consistent with the retail size table.
+The launcher still faulted at `0x6859E4DC`, so this repaired the call boundary
+but not the malformed object-reader path. A warning immediately before that
+fault showed `func_001E4C48` was still a no-op. Selecting its exact US assembly
+removed that fault and advanced level parsing, but exposed a later invalid
+list pointer at `0x40000004`.
+
+`func_001289C0` had also been running the port reconstruction in
+`hand/native_c/resource_object_common.c`; exact US assembly is now selected
+instead, with the reconstruction retained behind
+`SLY1_RETAIL_ASM_FUNC_001289C0`. A temporary trace of `func_001C1390` recorded
+lookups with IDs `0x3842`, `0x0000000a`, and `0xffffa162`, returning
+`0x301`, `0x9e9a54`, and null respectively. A separate store trace showed the
+next call to `func_0011A338` had `list == 0` and would write to
+`0x40000004`. The port now overrides that list helper to ignore a null list,
+while keeping the decomp implementation unchanged. This gets past that crash;
+the next clean run faults while traversing a linked-list node at
+`0x08000000`, through `func_0011A4D8` from the object-reader path. Trace the
+node-list owner and creation site next. No scene vertices or graphics are
+visible.
+
+Two existing port-only collision callback translations are now registered as
+matched-C overrides in `hand/overrides.tsv`: `func_001B89B8` and
+`func_001B7C40`. The retail C directly calls a nullable world method at vtable
+offset `+0xd8`; the overrides preserve their other state updates and skip that
+call when the method is absent. This removes one call-to-zero diagnostic and
+lets the loader continue further. They are isolated
+port C and do not alter sly1-decomp. The clean native build succeeds with 208
+retail assembly translations and zero hostgen stubs. The window remains black,
+with no visible scene vertices; next trace the `0x08000000` node through its
+owner and creator before another graphics change.

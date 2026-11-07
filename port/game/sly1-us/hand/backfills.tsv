@@ -305,5 +305,4 @@ func_00161458	native_c/display_packets.c
 func_001615F0	native_c/display_packets.c
 func_0019DDA0	native_c/display_packets.c
 func_00137FB0	native_c/collision_mesh_reader.c
-func_001289C0	native_c/resource_object_common.c
 func_001ACDA0	native_c/func_001ACDA0.c

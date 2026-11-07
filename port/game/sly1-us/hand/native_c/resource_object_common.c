@@ -301,6 +301,7 @@ static void trace_common_reader(void* object, void* reader, u32 phase) {
                            (u32)object, *(u32*)((u8*)object + 0x26Cu));
 }
 
+#ifndef SLY1_RETAIL_ASM_FUNC_001289C0
 void func_001289C0(void* object, void* reader) {
     u8* self = (u8*)object;
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
@@ -365,3 +366,4 @@ void func_001289C0(void* object, void* reader) {
     func_0011ECB8((void*)*(u32*)(self + 0x14), object, reader);
     trace_common_reader(object, reader, 7u);
 }
+#endif
