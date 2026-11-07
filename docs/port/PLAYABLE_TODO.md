@@ -51,6 +51,20 @@ transition and resource callbacks that create renderable level objects remain
 unknown. Trace that path, then verify a real mesh pointer reaches the draw
 queue.
 
+**Class ownership follow-up (2026-11-07):** the two classes in that update-list
+sample are now attributable. Class `0x1e` nodes are created by the world setup
+path (`func_001DCEA0`); class `0x51` nodes use descriptor `D_00217B60` and are
+ConeVolume instances created through `func_001E6188`. The opt-in registration
+trace records owner, parent, mesh, attachment, extra-data, and radius fields.
+For the direct-loaded level, all ten class-`0x1e` nodes and both class-`0x51`
+nodes are root registrations owned by world `0x0088d530`, with no parent and
+zero mesh/attachment/extra-data/radius values. These are world bookkeeping and
+culling-volume entries, not candidates to force through the scene renderer.
+This closes the immediate question about the sampled lists but does not find
+the level's renderable-object table. Continue from the level activation/resource
+object path rather than expanding these update-list callbacks. Diagnostic log:
+`/tmp/sly-native-class-owner-trace.log`.
+
 The old port-only `func_0011ECB8` override was removed after checking the exact
 US assembly. It reads per-object callback records; its count is not the scene
 object or mesh count. The speculative parser remains under `hand/superseded/`

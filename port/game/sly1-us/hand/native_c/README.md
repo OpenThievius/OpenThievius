@@ -160,3 +160,10 @@ The dispatcher arguments match retail `func_0019D6C0` assembly, so the next
 trace should establish whether these entries are supposed to inherit a parent
 transform or simply lack scene geometry. These stages only observe memory; they
 do not bypass culling or change rendering.
+
+Stages 55–56 also identify registrations for class `0x1e` and class `0x51`:
+owner, parent, mesh, placement attachments, extra-data and radius. The direct
+level trace confirms ten root class-`0x1e` world nodes and two class-`0x51`
+ConeVolumes, all owned by world `0x0088d530`; their mesh/attachment/extra-data
+and radius fields are zero. These diagnostic stages are gated by
+`OPENRAC_TRACE_FONT=1` and do not affect renderer state.

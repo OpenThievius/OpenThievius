@@ -8,6 +8,8 @@ f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2, u32 a3,
 void func_00152470(void* list, void* item);
 void func_0015F7D8(void* world, void* group);
 void func_00129DF8(void* actor);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_00143AF8(void* camera_pointer, void* item_pointer)
 {
@@ -36,6 +38,19 @@ void func_001240F8(void* self_pointer)
     world = *(u32*)(self + 0x14u);
     parent = *(u32*)(self + 0x18u);
     if (descriptor == 0 || world == 0) return;
+
+    /* Identify the two object classes currently mistaken for level meshes. */
+    {
+        u32 class_id = *(u32*)(descriptor + 4u);
+        if (class_id == 0x1Eu || class_id == 0x51u) {
+            sly1_native_trace_font(55, self, class_id, world, parent,
+                                   *(u32*)(self + 0x1F4u));
+            sly1_native_trace_font(56, self, *(u32*)(self + 0x1ECu),
+                                   *(u32*)(self + 0x1F0u),
+                                   *(u32*)(self + 0x224u),
+                                   *(u32*)(self + 0x2A8u));
+        }
+    }
 
     if (parent == 0) {
         *(u32*)(self + 0x50u) = self;
