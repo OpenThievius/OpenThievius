@@ -4,8 +4,8 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. The latest build translates 2,044 C
-functions and 132 functions from US retail assembly, has zero stubs, and
-reports 2,682 functions without C plus 12 unreadable units. A bounded native
+functions and 134 functions from US retail assembly, has zero stubs, and
+reports 2,680 functions without C plus 12 unreadable units. A bounded native
 run now completes Splash and the selected level resource through loader stage
 5, with active world `0x0088d530`. This supersedes the earlier empty-reader,
 heap-initialization, and child-parser faults below.
@@ -31,6 +31,14 @@ dependencies reached from them. A fresh 12-second direct-level run remains
 stable at stage 5 but still reports zero scene vertices, so these lifecycle
 callbacks were not the missing level-mesh path. Trace:
 `/tmp/sly-native-lifecycle-asm-closure.log`.
+
+Two more runtime-reached no-C leaf functions now use exact US retail assembly:
+`func_001363D0` (the child cleanup callback reached during level initialization)
+and `func_00160D98` (the retail constant-return helper used by startup code).
+Their no-op warnings are gone. The rebuilt native run still reaches level
+loader stage 5 with an active world and zero scene vertices, so these exact
+leaf fixes remove incorrect behavior but do not yet connect level data to a
+renderable object. Trace: `/tmp/sly-native-asm-cleanup-trace.log`.
 
 The menu glyph packet is known to be valid through texture lookup, but the
 displayed frame remains black/garbled. An earlier build reached child-object

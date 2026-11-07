@@ -10,8 +10,8 @@ objects/vtables. The active world still submits zero scene vertices, and the
 UI trace reports no fonts or visible text. The next graphics gate is the first
 real level mesh callback producing vertices, followed by its native renderer
 submission. The current build uses the local `sly1-decomp` checkout at
-`e1b39f1`, translates 2,044 C functions and 132 retail assembly functions,
-has zero stubs, and leaves 2,682 functions without C plus 12 unreadable units.
+`e1b39f1`, translates 2,044 C functions and 134 retail assembly functions,
+has zero stubs, and leaves 2,680 functions without C plus 12 unreadable units.
 Port-only C overrides remain under
 `hand/native_c/`; neither those nor generated assembly translations modify
 the decomp repository.
