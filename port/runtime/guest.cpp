@@ -316,6 +316,10 @@ void openrac_guest_trace_function_entry(gaddr address) {
             std::getenv("OPENRAC_TRACE_BOOT_QUEUE") != nullptr;
         if (trace_boot_queue) {
             static constexpr gaddr targets[] = {
+                0x0012D5D0u, // walk a resource's stream records
+                0x0018E4C0u, // queue an indexed display request
+                0x0018E4F0u, // queue an indexed request and set its pending bit
+                0x0018F0E8u, // enqueue a resource request
                 0x0018F148u, // drain queued resource requests
                 0x0018F198u, // process one queued resource request
                 0x0018F448u, // dispatch a resource request to its handler

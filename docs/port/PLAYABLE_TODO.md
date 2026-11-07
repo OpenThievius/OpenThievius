@@ -1806,3 +1806,17 @@ startup function/state that should request the intro, then connect its actual
 sector/size/channel inputs to the shared movie player if the call path supports
 it. Trace: `/tmp/sly-native-boot-queue.log`. No `sly1-decomp` files were
 changed. The native window remains black and the game is not playable.
+
+**Producer-side queue trace (2026-11-07):** The probe now also watches the
+resource enqueue functions `func_0018F0E8`, `func_0018E4C0`, and
+`func_0018E4F0`, plus observed caller `func_0012D5D0`. None ran in the default
+10-second launch; only the display-worker setup/entry ran, and only the Splash
+sector was read. Assembly shows `D_00269A00` is the linked resource-reader
+queue consumed by `func_0018F148`; its idleness is not evidence that a PSS
+movie request is absent. The actual US ELF contains the strings
+`PsIIlibmpeg 2420` and `PsIIlibipu 2400`, while the decomp source has no named
+movie caller. The next lead is to map those import stubs and their reachable
+call sites, then route the retail movie sector/size/channel to OpenRAC's native
+PSS player through a port-only bridge. Trace:
+`/tmp/sly-native-boot-queue-producers.log`. The decomp checkout remains at
+`e1b39f1` and is untouched; the native screen is still black.
