@@ -576,16 +576,23 @@ and catalog lookup. The build succeeds and the generated report records both
 overrides. This changes only the opt-in probe; ordinary startup remains on the
 retail request path.
 
-A fresh bounded native run with `OPENRAC_BOOT_LEVEL=0x0100` now reaches the
-level range at sector 867214 (4,911,835 bytes) and begins parsing it. It exits
-with a fault before completing the load: the trace reports a null guest call
-from `func_001B4A10` and a call to address `0x1` through the collider path
-(`func_001B89B8`), then accesses guest address `0xFFFFFFFF`. The first null
-call occurs after an animator type is read; identify that serialized type and
-its expected methods before deciding whether data alignment or a missing
-animator method table is responsible. For the collider call, inspect the
-`Desc03` callback field `m32` on the object passed to `func_001B89B8`; determine
-why it contains `0x1` before initializing or substituting anything.
+A fresh bounded native run with `OPENRAC_BOOT_LEVEL=0x0100` reaches the level
+range at sector 867214 (4,911,835 bytes) and begins parsing it. The trace then
+showed that `func_001EE930`, a value-list reader present in the decomp, was
+selected as a no-op because retail metadata classifies its address as
+assembly. A port-only backfill now implements its decomp-documented reads so
+the object stream advances. This is deliberately kept outside matched C.
+
+With that reader enabled, parsing advances into collider records and faults in
+the collision mesh path. The latest trace reports a mesh with 6 vertices,
+`0x880` faces and 22 links, with only about 5.8 KB left in the current stream;
+the face loop then reads beyond valid guest memory. Determine whether those
+counts come from a bad stream position/decode or a defect in the port-only mesh
+reader before changing counts or skipping geometry. Earlier animator and
+collider callback failures were observed in a run where the value-list reader
+was still a no-op; they are not the current first failure. The animator probe
+override remains behavior-equivalent to the decomp and logs serialized types
+when `OPENRAC_TRACE_LOADER` is enabled.
 
 Reproduce with:
 
@@ -595,5 +602,5 @@ timeout 12s build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
 
-The machine-local trace is `/tmp/sly-native-direct-level-override.log`. No
+The latest machine-local trace is `/tmp/sly-native-value-list-probe.log`. No
 scene geometry or playable level is established by reaching this parser path.

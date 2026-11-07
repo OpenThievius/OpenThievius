@@ -159,12 +159,13 @@ port-owned overrides, preserving the decomp checkout unchanged. With the
 override active, the native probe does read the stated ISO range and enter the
 level parser, but faults before the previously reported stage-13 completion.
 The current verified state is therefore earlier than the old paragraph
-claims. The new fault is a null animator method call from `func_001B4A10`, then
-a collider callback call to address `0x1` from `func_001B89B8`, followed by an
-access to `0xFFFFFFFF`. See
+claims. A port-only `func_001EE930` value-list reader now replaces the native
+no-op selected for that assembly-classified address, allowing the parser to
+advance into collision records. The current fault is in collider mesh parsing:
+the stream reports 6 vertices, `0x880` faces, and 22 links with about 5.8 KB
+remaining before reading beyond valid guest memory. See
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md#direct-level-probe-follow-up-2026-11-07)
-for the trace and investigation tasks. The level is not yet loaded or
-playable.
+for the trace and investigation tasks. The level is not yet loaded or playable.
 
 The latest world trace correctly resolves guest-port heap pointers: it counts
 25 entries at the world root and 24 entries in the `0x55` family list (classes

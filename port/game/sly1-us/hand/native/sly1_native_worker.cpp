@@ -218,6 +218,31 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                      object, reader, GREF(uint32_t, 0x002699A8u));
         return;
     }
+    if (stage == 171u) {
+        int32_t size = 0;
+        switch (object) {
+        case 1u: case 2u: size = 0x4C; break;
+        case 3u: case 4u: size = 0x38; break;
+        case 5u: size = 0x78; break;
+        case 6u: size = 0x44; break;
+        case 7u: size = 0x3C; break;
+        case 8u: size = 0x50; break;
+        default: break;
+        }
+        std::fprintf(stderr,
+                     "[animator] type=%u reader=%#010x cursor=%#010x remaining=%d size=%d\n",
+                     object, reader, GREF(uint32_t, reader + 0x18u),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
+                     size);
+        return;
+    }
+    if (stage == 172u) {
+        std::fprintf(stderr,
+                     "[animator] methods=%#010x object=%#010x load=%#010x bind=%#010x\n",
+                     object, reader, object != 0 ? GREF(uint32_t, object) : 0u,
+                     object != 0 ? GREF(uint32_t, object + 4u) : 0u);
+        return;
+    }
     if (stage == 162u) {
         if (object == 0x0021B4D8u) {
             const uint32_t descriptor = reader;

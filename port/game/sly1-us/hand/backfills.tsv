@@ -1,4 +1,5 @@
 # symbol	file
+func_001EE930	native_c/value_list_reader.c
 func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
