@@ -28,22 +28,25 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
 standalone command defaults to `--asm off`. The native CMake launcher enables
-only the three retail assembly translations listed in
-`game/sly1-us/hostgen.json`: `func_00125C90`, `func_00126270`, and
-`func_00166690`. Those functions are generated from `asm/us/text.s` into
-the ignored build tree, separate from both matched decomp C and the port's
+the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
+with matching C are skipped automatically; the current report translates 84
+remaining functions from retail instructions. Generated C stays in the
+ignored build tree, separate from both matched decomp C and the port's
 handwritten C backfills. Set
 `OPENTHIEVIUS_ASM_SOURCE_SLY1` when the checkout used for matched C does not
-contain the assembly directory. The current build uses matched C from
-`dd6f80b` and the US retail assembly dump from a separate local checkout.
+contain the assembly directory. The current build uses matched C and retail
+assembly from the local `sly1-decomp` checkout at `e1b39f1`.
 
-The current hostgen report reads 199 units, translates 1,105 C functions and
-three assembly functions, stubs one C function, and lists 3,785 functions
-without C. The native SDL report adapter now places Sly's pad record in
-pressure mode; this prevents the no-controller pause transition, but startup
-still draws no title scene. The direct level-load probe parses catalog key
-`0x0100` and installs its world without entering gameplay. Decompilation
-coverage and translated-function counts do not establish gameplay readiness.
+The latest hostgen run against `e1b39f1` reads 185 units and translates 2,051 C
+functions plus 84 retail-assembly functions. It lists 2,729 functions without
+C, has 12 unreadable units, and emits zero stubs. The build uses
+`--allow-unreadable`, so those units are omitted. Seven stream readers and two
+refill helpers from unreadable unit `00134000` are now translated from retail
+assembly. In a bounded native launch, the stream reader then consumed 8,184
+bytes, but allocation failed because the port allocator's current guest heap
+pointer was `0x160` and its configured limit was zero. The run faulted at host
+address `0x8`; it did not establish a level or playable state. See the updated
+[playable TODO](../docs/port/PLAYABLE_TODO.md) for the exact report and trace.
 The graphics handoff records the current evidence and next blocker. Functional
 C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 
@@ -55,8 +58,8 @@ python3 port/tools/sly1.py hostgen --asm on --native-asm   --source /path/to/sly
 ```
 
 Without `--native-asm`, `--asm on` writes a separate research output. In
-either mode the configured `asm.only` list limits translation to the three
-selected functions.
+either mode the configured `asm.only` list limits translation to the selected
+functions listed in `hostgen.json`.
 
 Port-side replacements are listed in `game/sly1-us/libraries.tsv`, with their
 native implementations in the runtime. The `extra_entries` list in

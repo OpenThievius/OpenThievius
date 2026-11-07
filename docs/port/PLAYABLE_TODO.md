@@ -1,11 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-Fresh repository review: 2026-11-07. The menu glyph packet is now known to be
-valid through texture lookup, but the displayed frame remains black/garbled.
-The direct level probe has advanced past the large object parser and now faults
-while reading or dispatching a child object. This document is an ordered work
-plan, not a claim of playable progress. Work is active on
+Fresh repository review: 2026-11-07. The current local decomp input is
+`e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that same
+checkout for its retail assembly. The native build now links against it, but
+the latest direct-level run does not reach `func_00162890`: it requests the
+Splash range, then repeatedly enters resource-reader stage 9 with an empty
+reader and faults at host address `0x8`. The generated report has 12 unreadable
+units because hostgen still stages without C++ compatibility for the current
+source. Runtime warnings also show no C for `func_00137290`, `func_001373B0`
+and `func_001373D0`; these are on the first resource-read path. Fix this
+build/reader boundary before using later object-parser traces as evidence.
+
+Retail-backed static translation of `func_00162890` succeeded in an isolated
+hostgen experiment. Its instruction stream confirms that nested-array sizes
+include the one-based entry index and that both dimension payloads multiply
+the full base payload byte count by the dimension and 12. The port-only C
+backfill now follows those formulas. The latest launcher run never reached the
+function, so this parser correction remains unvalidated at runtime.
+
+The menu glyph packet is known to be valid through texture lookup, but the
+displayed frame remains black/garbled. An earlier build reached child-object
+dispatch and faulted at `0xFFFFAC70`; that checkpoint used a different decomp
+snapshot and is superseded by the earlier-described current failure. This
+document is an ordered work plan, not a claim of playable progress. Work is
+active on
 wip/native-sly-port and stays in the port repo.
 
 ## Assessment
@@ -22,12 +41,10 @@ Evidence inspected:
   The latter maintains vector registers, flags, microcode memory and a program
   counter. Compiling this code for the host does not make hardware simulation
   satisfy the user's no-emulation requirement.
-- The configured C source is /tmp/sly1-decomp-current-check; assembly comes
-  from a different checkout. This is a fragile build baseline.
-- The current generated report lists 1,835 translated functions, 90
-  assembly-derived functions, 3 stubbed functions, 3,029 functions without C,
-  and 47 callers with omitted arguments filled with zero. Matching percentage
-  is therefore a poor measure of executable port coverage.
+- The current hostgen report reads 185 units, translates 2,051 C functions
+  and 71 from assembly, lists 2,742 functions without C, and has 12 unreadable
+  units. The build allows those units to be omitted, so it is not a sound
+  gameplay baseline yet.
 - README, ROADMAP and OPENRAC_REUSE give different snapshots and counts.
 - The direct-level loader constructs objects but does not establish gameplay.
   The first eight traced default-startup objects do not prove what is wrong
@@ -174,20 +191,24 @@ with the direct-level loader fault.
 
 ## Immediate next steps
 
-1. Instrument the direct-level child-object boundary: capture the first child
-   count, raw serialized bytes, decoded slot/key/flag, created object's type
-   descriptor, vtable and read method. The fault follows `func_00137D10` and
-   occurs before a useful child-object trace, so establish whether the reader
-   pointer/cursor or the helper call target is invalid first. Never hide a bad
-   callback by skipping it.
-2. Compare the native menu glyph path at each boundary: packet vertices,
+1. Make the latest decomp build trustworthy: fix the 12 unreadable units
+   needed by startup, remove `--allow-unreadable` as a silent gameplay build
+   mode, and identify which of `func_00137290`, `func_001373B0` and
+   `func_001373D0` have matching C versus assembly-only implementations. Add
+   any required functional replacements under `hand/native_c/` and register
+   them so they can be removed when matching source becomes hostable.
+2. Re-run the direct-level path until it reaches `func_00162890`. Compare its
+   reader cursor and captured object window against the decoded resource;
+   only then evaluate whether the assembly-derived nested-array sizes fix the
+   old child-object corruption or expose another stream mismatch.
+3. Compare the native menu glyph path at each boundary: packet vertices,
    sampled atlas texels, GL upload format, viewport/scissor, blend/depth state,
    and final framebuffer pixels. Fix the earliest boundary where valid glyph
    data stops producing visible pixels.
-3. Once direct-level object loading completes, identify a real mesh owner and
+4. Once direct-level object loading completes, identify a real mesh owner and
    trace its activation, transform, material, camera and draw request. Render
    recognizable level geometry before spending time on movement controls.
-4. Use the normal title-to-New-Game path after the direct-level diagnostic
+5. Use the normal title-to-New-Game path after the direct-level diagnostic
    works; wire input, collision, camera, audio and checkpoint behavior, then
    verify a short opening section with human input.
 
@@ -621,3 +642,42 @@ timeout 12s build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
 
 The latest machine-local trace is `/tmp/sly-native-value-list-probe.log`. No
 scene geometry or playable level is established by reaching this parser path.
+
+## Stream and heap follow-up (2026-11-07)
+
+The next blocker was earlier than the collider report above: unreadable unit
+`00134000` left the core buffered-reader functions as no-ops. The port build
+now translates `func_00137A60`, `func_00137B90`, `func_00137BE0`,
+`func_00137C40`, `func_00137CC0`, `func_00137D10`, `func_00137D78`,
+`func_00137820` and `func_001378A0` from the retail US assembly. They remain
+generated assembly fallbacks in the port build; no decomp source was changed.
+Hostgen now reports 2,051 C functions, 84 assembly translations, zero stubs,
+2,729 functions without C, and 12 unreadable units.
+
+After those translations, the startup reader consumed 8,184 bytes from the
+Splash resource. The next failure is allocator initialization: the port-only
+`func_0018D500` saw `D_002C2A1C = 0x160` and heap limit `0`, so allocations of
+390,384 and 9,056 bytes failed. The run then faulted at host address `0x8`.
+This confirms the no-op byte reader was one blocker, while the guest heap is
+now the first demonstrated blocker. The parser-size changes above remain
+unverified at runtime.
+
+Concrete next tasks:
+
+1. Trace the retail initialization path that should set `D_002C2A14`,
+   `D_002C2A18` and `D_002C2A1C`; determine why the native start reaches
+   `func_0018D500` with a bogus bump pointer before changing allocator policy.
+2. Check whether the missing initializers live in one of the 12 unreadable
+   units or are skipped by the native startup path. Prefer translating the
+   relevant retail functions or fixing startup wiring over inventing heap
+   bounds.
+3. Re-run the direct-level probe and verify a nonzero guest allocation,
+   advancing stream cursor, and parsed object count before returning to the
+   collider mesh count mismatch.
+4. Keep any required behavior backfill under `hand/native_c/` and registered
+   in the port backfill/override tables. Replace it with matching decomp C
+   when available; never fold it into generated or upstream decomp source.
+
+Latest bounded run log: `/tmp/sly-native-reader-asm-current2.log`. The native
+launcher remains non-playable; this run rendered no level or controllable
+character.

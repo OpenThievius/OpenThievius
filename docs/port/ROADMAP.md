@@ -891,3 +891,27 @@ to trace the first child-object read and its callback metadata, and to follow
 valid glyph vertices through GL upload, raster state and final framebuffer
 pixels. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md) for the ordered plan and
 acceptance gates.
+
+## Current source/build checkpoint (2026-11-07)
+
+The native build uses the local `sly1-decomp` checkout at `e1b39f1` for both C
+and retail assembly. Hostgen accommodates the current staging shapes and skips
+configured assembly fallbacks when matching C is available. The latest run
+generated 2,051 C functions and 84 retail-assembly functions, with zero stubs,
+2,729 functions without C and 12 unreadable units. The build still uses
+`--allow-unreadable`; those units are omitted from the executable.
+
+The port build now translates seven core stream readers and two refill helpers
+from unreadable unit `00134000` using the retail US assembly. A bounded native
+launch consumed 8,184 bytes from the Splash resource, then failed two
+allocations because the port-only allocator saw current guest pointer `0x160`
+and limit `0`. It faulted at host address `0x8`. The reader stall has
+advanced, but heap initialization is now the earliest demonstrated runtime
+blocker. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md) for trace and the ordered
+next tasks.
+
+The isolated retail-ELF analysis also corrected array multipliers in the
+port-only `func_00162890` backfill. Those parser sizes still need runtime
+validation because the active run has not reached that parser. All backfills
+remain separate from matched/generated decomp C. No level scene or
+controllable gameplay is established.
