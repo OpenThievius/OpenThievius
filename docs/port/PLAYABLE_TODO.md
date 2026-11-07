@@ -1719,3 +1719,28 @@ The next trace should capture the full nested element records and all
 `0x28`-byte subdata consumed by `func_001662A8`, then follow its generated GIF
 packet to learn why it carries no geometry. Latest log:
 `/tmp/sly-native-scene-nested-items.log`.
+
+**Default-start object registration recheck (2026-11-07):** A fresh native
+renderer trace found a stale hostgen configuration that disabled the port-only
+`func_001240F8` body: `hostgen.json` still defined
+`SLY1_RETAIL_ASM_FUNC_001240F8` although the function was no longer in
+`asm.only`, and `backfills.tsv` registered its source under the unrelated
+`func_00143AF8` name. The function is still missing matching C in the decomp,
+so it remains a port-only C backfill. Removing the stale define and registering
+it under `func_001240F8` rebuilt successfully (2,038 C functions, 218 assembly
+functions, zero generated stubs). The 8-second default native run no longer
+warns that `func_001240F8` is missing and now populates world update lists with
+13/13/11 entries; the earlier trace had those lists empty. This corrects the
+object-update path but does not make the screen visible.
+
+The same run reaches frame state 3 with game mode 0 and an advancing menu
+animation. Renderer diagnostics decode a recurring 240-vertex draw, but its
+state is untextured with black RGBA `(0,0,0,128)`; the captured 960x720 native
+frame is all black. The UI trace reports 37 objects, 30 font records, and zero
+visible text. The current visual lead is therefore the missing Splash/title
+asset or draw submission before the readable UI, not a lack of frame-loop
+activity. Latest evidence: `/tmp/sly-native-fixed-240f8.log`,
+`/tmp/sly-native-default-render.log`, and `/tmp/sly1-native-frame-07.ppm`.
+Continue tracing which guest function emits the recurring black draw and why
+the initialized fonts never produce a textured glyph. The port remains
+unplayable; no emulation was used.
