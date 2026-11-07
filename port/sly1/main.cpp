@@ -916,6 +916,7 @@ int main(int argc, char** argv) {
                 std::memcpy(&menu_mode, openrac_guest_base + 0x002701B8u,
                             sizeof(menu_mode));
                 std::uint32_t world_address = 0;
+                std::uint32_t special_scene_object = 0;
                 if (current_object != 0 &&
                     trace_guest_range(current_object, 0x1ED0u, &world_address)) {
                     std::memcpy(&world_lists[0], openrac_guest_base + world_address + 0x48u,
@@ -934,6 +935,9 @@ int main(int argc, char** argv) {
                                 sizeof(world_lists[6]));
                     std::memcpy(world_job_queue, openrac_guest_base + world_address + 0x1EC8u,
                                 sizeof(world_job_queue));
+                    std::memcpy(&special_scene_object,
+                                openrac_guest_base + world_address + 0x1EC4u,
+                                sizeof(special_scene_object));
                 }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
                             sizeof(frame_selector));
@@ -1086,6 +1090,8 @@ int main(int argc, char** argv) {
                           << " world_lists=" << world_lists[0] << ',' << world_lists[1]
                           << ',' << world_lists[2] << ',' << world_lists[3] << ','
                           << world_lists[4] << ',' << world_lists[5] << ',' << world_lists[6]
+                          << " special_scene_object=0x" << std::hex
+                          << special_scene_object
                           << " world_list_counts="
                           << trace_world_list_count(current_object, 0x48u) << ','
                           << trace_world_list_count(current_object, 0x54u) << ','
