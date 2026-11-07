@@ -19,8 +19,19 @@ void* func_001B4A10(void* reader)
     u32 params[7];
 
     if (type == 0) return 0;
+    /* Retail's type tables cover 1..8. A malformed or not-yet-understood
+     * record must still consume its fixed payload so the next record stays
+     * aligned, but it cannot safely construct an object with a null vtable. */
+    if (type < 1 || type > 8) {
+        func_00137A60(reader, 0x1C, params);
+        return 0;
+    }
     object = func_0018D5C0(func_001B4920(type));
     methods = func_001B4980(type);
+    if (object == 0 || methods == 0) {
+        func_00137A60(reader, 0x1C, params);
+        return 0;
+    }
     sly1_native_loader_stage(171u, (u32)type, (u32)reader);
     sly1_native_loader_stage(172u, (u32)methods, (u32)object);
     *(u32*)((u8*)object + 0x00) = (u32)methods;
