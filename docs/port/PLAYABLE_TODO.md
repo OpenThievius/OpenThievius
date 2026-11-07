@@ -4,13 +4,32 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. The latest hostgen run reads 185 units,
-translates 2,050 functions including 185 from US retail assembly, and reports
+translates 2,043 C functions plus 199 from US retail assembly, and reports
 zero stubs. A bounded native run completes Splash and the selected level
 resource through loader stage 5, with active world `0x0088d530`. The exact
 retail `func_001EE900` constructor now links the level's class-`0x86` object at
 `world+0x1ec4`; its exact transform helpers are also selected. The frame still
 reports zero scene vertices, frame state 3, and game mode 0. The port is not
 playable.
+
+**Retail object-reader closure (2026-11-07):** the latest US assembly
+allowlist also selects reached resource and object routines
+`func_001240F8`, `func_0011F850`, `func_0012BC38`, `func_00124868`,
+`func_001245A8`, `func_00164868`, `func_001587C8`, `func_00124A48`,
+`func_001D7040`, `func_0017FEC0`, `func_001F4500`, `func_001478F0`,
+`func_001AE820`, and `func_001F6B40`. `func_001240F8` previously used a
+port-only C reconstruction; its source remains guarded in `hand/native_c`,
+and it is removed from the backfill registry while retail assembly is active.
+These additions let default Splash startup reach the main update loop with
+five valid world root objects, including classes `0x8e` and `0x7d`, without a
+logged guest call fault in the last bounded run. The run reports frame state
+3, game mode 0, zero scene vertices, and 416 accepted GIF chains at its final
+trace; the window remains black. A direct `OPENRAC_BOOT_LEVEL=0x0100` probe
+still creates a root object with type `0xffffffff` and faults on unmapped
+address `0xFC000120`, so direct-level loading is not fixed by this default
+boot progress. Trace: `/tmp/sly-native-frame-callbacks.log` and
+`/tmp/sly-native-direct0100-reader-closure.log`. Latest hostgen coverage is
+in `build/port/hostgen/us/report.json`.
 
 **Reader-chain checkpoint (2026-11-07):** Exact US retail assembly is now
 selected for `func_001BAC30`, `func_00162890`, `func_001DCEA0`,

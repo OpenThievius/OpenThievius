@@ -25,6 +25,7 @@ void func_00143AF8(void* camera_pointer, void* item_pointer)
     }
 }
 
+#ifndef SLY1_RETAIL_ASM_FUNC_001240F8
 void func_001240F8(void* self_pointer)
 {
     u32 self = (u32)self_pointer;
@@ -142,3 +143,5 @@ void func_001240F8(void* self_pointer)
     (void)sly1_native_call_regs4(0x001837E0u, self, 4, 0, 0);
     func_00129DF8((void*)self);
 }
+
+#endif /* SLY1_RETAIL_ASM_FUNC_001240F8 */
