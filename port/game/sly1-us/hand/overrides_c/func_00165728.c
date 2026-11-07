@@ -64,6 +64,11 @@ void func_00165728(void* self_pointer, void* context_pointer)
         u8* subdata = self->subdata + (u32)i * 0x28u;
 
         if (trace_this_call) {
+            u32 nested_count = *(u32*)((u8*)entry + 0x58u);
+            u32 nested_items = *(u32*)((u8*)entry + 0x5Cu);
+            u32 extra_count = *(u32*)((u8*)entry + 0x60u);
+            u32 extra_items = *(u32*)((u8*)entry + 0x64u);
+
             sly1_native_trace_font(88u, (u32)entry,
                 *(u32*)((u8*)entry + 0x00), *(u32*)((u8*)entry + 0x04),
                 *(u32*)((u8*)entry + 0x08), *(u32*)((u8*)entry + 0x0Cu));
@@ -85,6 +90,28 @@ void func_00165728(void* self_pointer, void* context_pointer)
             sly1_native_trace_font(96u, (u32)subdata, *(u32*)subdata,
                 *(u32*)(subdata + 4u), *(u32*)(subdata + 8u),
                 *(u32*)(subdata + 0xCu));
+            if (nested_count <= 32u && nested_items >= 0x10000u &&
+                nested_items < 0x02000000u && nested_count <=
+                    (0x02000000u - nested_items) / 0x50u) {
+                u32 item;
+                for (item = 0; item < nested_count; ++item) {
+                    u32 address = nested_items + item * 0x50u;
+                    sly1_native_trace_font(97u, (u32)i, item, address,
+                        *(u32*)(address + 0x24u),
+                        *(u32*)(address + 0x28u));
+                }
+            }
+            if (extra_count <= 32u && extra_items >= 0x10000u &&
+                extra_items < 0x02000000u && extra_count <=
+                    (0x02000000u - extra_items) / 0x20u) {
+                u32 item;
+                for (item = 0; item < extra_count; ++item) {
+                    u32 address = extra_items + item * 0x20u;
+                    sly1_native_trace_font(98u, (u32)i, item, address,
+                        *(u32*)(address + 4u),
+                        *(u32*)(address + 8u));
+                }
+            }
         }
         if (object != 0) {
             u32 vtable = (u32)object->vtable;

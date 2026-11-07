@@ -1701,11 +1701,21 @@ with no visible text. The immediate graphics lead remains the data passed by
 at entry offsets `+0x58/+0x5c`, then the scene draw path that should submit
 actual primitives. Latest log: `/tmp/sly-native-scene-entry-64.log`.
 
-The font-trace helper now bounds-checks its stage-limit table; trace IDs
-90–96 no longer read beyond that table. Latest build succeeds with 2,037 C
+The font-trace helper now bounds-checks its stage-limit table and accepts the
+additional trace IDs through 98. Latest build succeeds with 2,037 C
 translations, 218 US assembly translations, zero stubs, and 202 generated C
 units linked. The work is on branch `wip/native-sly-port`. All backfills and
 diagnostic replacements are port-only; `/home/reaper/Code/sly1-decomp` is
 untouched. This is still not playable; continue with the scene-data/render
 submission path and preserve the default Splash-to-title transition as a
 separate blocker.
+
+**Scene element follow-up:** The group at `0x00847acc` has six entries. Its
+first non-skipped entry (`0x00847ce0`) has three nested elements at
+`0x00848070`; each element has zero at `+0x24` and `+0x28`, so it passes the
+retail `func_001662A8` early-skip checks. Other entries are generally skipped
+by the flag at `entry+0x28`. The group still produces no measured vertices.
+The next trace should capture the full nested element records and all
+`0x28`-byte subdata consumed by `func_001662A8`, then follow its generated GIF
+packet to learn why it carries no geometry. Latest log:
+`/tmp/sly-native-scene-nested-items.log`.
