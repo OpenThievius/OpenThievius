@@ -1273,3 +1273,27 @@ jumped from `0x70000d8f` to `0x70001790` and the bytes there are recorded in
 type-`0x0c` record that needs distinct handling or a stream/record alignment
 error at the ring refill. Compare the US retail field semantics and the
 decompressed bytes around that refill before changing the branch or data.
+
+**Restart checkpoint (2026-11-07):** follow-up traces rule out a direct
+out-of-bounds table lookup. At the fault, `func_00137D10` reads signed index
+`0xef` (239); the owning object reports `0x7aa` (1962) entries, and the row
+address resolves inside the table at `0x00cf5020`. That row and its neighbors
+all have tag `0x0c`; their `+4` words are float-looking values (`0x3f800000`
+and `0x3f42a305`), not mapped guest pointers. The flagged owner record is the
+240th record (`index 0xf0`, flags `0x203`), and the assembly selects the copy
+branch. The reader cursor crosses the scratchpad ring refill between
+`0x70000d8f` and `0x70001790`; inspect how the retail loader preserves record
+boundaries and handles tag `0x0c` across that refill. Do not mask the copy
+fault. Latest evidence is in `/tmp/sly-native-animation-bounds-trace.log`,
+`/tmp/sly-native-animation-neighbor-trace.log`, and
+`/tmp/sly-native-animation-flag-trace.log` (local runtime logs are not in Git).
+
+Current state: the animator-table allocation backfill is in
+`hand/native_c/func_001FD8A8.c`, registered in `backfills.tsv`; it is port-only
+and can be replaced when the decomp provides that function. Native build has
+advanced past the old small-offset animator pointer fault, but still exits on
+the invalid source read at `0x3f800000`. There are no visible game graphics
+yet. Continue with the `0x0c` record semantics and ring-refill alignment before
+attempting a workaround. Build target: `cmake --build build/port --target
+port_native -j2`. Work remains on branch `wip/native-sly-port`; decomp checkout
+was not modified.
