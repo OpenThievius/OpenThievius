@@ -33,6 +33,16 @@ black screen until a default-startup trace shows visible output or a state
 transition. See `RESTART_CHECKPOINT.md` for the immediate next steps. All
 functional C remains a port-only backfill.
 
+**Verification update:** the first default-startup run after restoring the
+service tail stayed at frame state `0,3,0` with `visible_text=0`. The service
+tail also called `func_00160CE8`, which hostgen emitted as a no-op despite its
+simple counter-reset body in the decomp source. A port-only `+4 = 0` backfill
+now removes that no-op, and the rebuilt launcher runs without its warning; an
+8-second default-startup trace still shows frame state `0,3,0` and no visible
+text. The service-tail issue is corrected, but the Splash-to-title transition
+remains blocked. See `PLAYABLE_TODO.md` and `RESTART_CHECKPOINT.md` for the
+updated evidence and next trace target.
+
 The previously missing `func_001DC9A0` is now selected from exact US retail
 assembly because the matching decomp C is still unavailable. Its 800-byte
 routine conditionally creates a class-`0x51`/subtype-`0x201` object and applies

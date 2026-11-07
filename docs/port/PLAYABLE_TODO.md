@@ -3,14 +3,25 @@
 
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
-for matched C and retail assembly. The latest hostgen run reads 185 units,
-translates 2,043 C functions plus 199 from US retail assembly, and reports
-zero stubs. A bounded native run completes Splash and the selected level
-resource through loader stage 5, with active world `0x0088d530`. The exact
-retail `func_001EE900` constructor now links the level's class-`0x86` object at
-`world+0x1ec4`; its exact transform helpers are also selected. The frame still
-reports zero scene vertices, frame state 3, and game mode 0. The port is not
-playable.
+for matched C and retail assembly. Current hostgen reports 192 units, 2,044
+translated C functions, 225 retail-assembly translations, and zero stubs. The
+native launcher runs through Splash and the main update loop, but remains at
+frame state `0,3,0`, game mode 0, and renders no visible text or gameplay
+scene. The port is not playable.
+
+**Latest normal-startup check (2026-11-07):** the retail
+`func_001E4EA8` service tail now runs on empty requests; exact US assembly is
+selected for `func_001C0070` and `func_001C06D8`. The service tail contained
+one more no-op, `func_00160CE8`: its decomp body resets a counter at `+4`, but
+hostgen still marks it no-C. A port-only backfill now performs that reset and
+is listed in `hand/backfills.tsv`. The regenerated hostgen report confirms
+2,044 C functions / 225 assembly functions / zero stubs, and the normal
+8-second native run no longer logs `func_00160CE8` as a no-op. This still does
+not advance startup: the run remains `sly_frame=0,3,0`, game mode 0, with
+`visible_text=0`. Thus the service-tail omission was real but not the main
+Splash-to-title blocker. Continue tracing the retail state transition and its
+request producer; do not infer that missing graphics are caused by the GS
+renderer from these results. Run log: `/tmp/sly-native-counter-reset-verified.log`.
 
 **Latest render-data follow-up (2026-11-07):** the US retail allowlist now
 includes `func_001DC9A0` (800 bytes; still unmatched in the decomp), increasing
