@@ -1310,20 +1310,18 @@ later row-lifecycle and renderer-write probes supersede the proposed ring
 refill and owner-row checks below. Latest runtime trace remains
 `/tmp/sly-native-animation-bounds-trace.log`.
 
-**Row lifecycle and suspected renderer-write trace (2026-11-07):** the
+**Row lifecycle and renderer-write trace (2026-11-07):** the
 `0x13290`-byte table starts with row 239 zeroed; nested parsing stores a valid
-auxiliary pointer (`0x00d18060`) at row `+4`. The copy for record 240 is
-correct. An earlier one-off trace appeared to show a later translated
-`func_00164868` call writing float `1.0` at `0x00cf4ffc`, row 239 `+4`, from a
-destination beginning at `0x00cf4fd0`. Treat that attribution as unconfirmed:
-a fresh instrumented run shows the caller passes writer object `0x0064c090`
-on its guest stack, with `begin=cursor` in the native temporary range
-`0xe041...` and `end` also in that range. `func_001EE5C8` returns that writer
-cursor, so this observed call writes outside the `0x00cf...` table. The earlier
-trace's `0x00cf4fd0` value was not the writer cursor and its stack-slot
-interpretation was incorrect. The actual source of the `0x3f800000` table
-word is unresolved; do not treat the renderer overwrite as proven or suppress
-the later invalid copy.
+auxiliary pointer (`0x00d18060`) at row `+4`. A fresh exact guest-store watch
+then confirmed the later writes to row 239 `+0/+4`: `func_00162890` stores the
+type `0x0c` and pointer `0x00d18060`, and `func_00164868` subsequently writes
+float `1.0` at `0x00cf4ff8` and `0x00cf4ffc`. The latter store occurs after a
+call to `openrac_ee_swc1` in the translated `func_00164868`; it is not an
+inference from the helper's entry snapshot. At entry, its writer object
+`0x0064c090` has `begin=cursor` and `end` in the native temporary range
+`0xe041...`; the path that changes the eventual store destination still needs
+to be traced within the routine/cursor helpers. Do not suppress the row copy
+or infer the final cause from the entry snapshot alone.
 
 `func_00164868` remains unmatched in sly1-decomp, so any eventual functional
 replacement C must stay port-only and replaceable. The port backfill for
@@ -1332,10 +1330,27 @@ replacement C must stay port-only and replaceable. The port backfill for
 arena uses `0xe0410000–0xe0420000` for guest thread 1; neither explains the
 table word. Next, instrument the exact stores to `0x00cf4ffc` and the
 `func_00164868` output cursor within the same run, with the guest PC and
-writer fields captured together. Reconcile the conflicting probes before
-changing parser or renderer behavior. Evidence: earlier
-`/tmp/sly-native-caller-origin-filtered.log`; fresh writer snapshots in
+writer fields captured together. Reconcile the cursor path before changing
+parser or renderer behavior. Evidence: earlier
+`/tmp/sly-native-row-write-watch.log`; earlier writer snapshots in
 `/tmp/sly-native-writer-fields2.log` and arena trace in
 `/tmp/sly-native-temp-arena-overlap.log` (local logs are not tracked). The
 native launcher still faults on source address `0x3f800000` and shows no game
 graphics.
+
+**Packet helper ABI follow-up (2026-11-07):** decomp C for `func_001EE5C8`
+calls `func_001EE560` with only the writer argument, while the retail assembly
+leaves `a1-a3` live as hidden inputs and uses them to construct a packet before
+returning size/cursor data. Selecting exact assembly for both routines through
+ordinary translated C produced a bad table value and an invalid source
+address, consistent with the hidden-register ABI not surviving that call
+boundary. A port-only C backfill for `func_001EE5C8` now explicitly forwards
+all four arguments into selected exact retail assembly `func_001EE560`, then
+copies and advances the writer cursor. Hostgen accepted and generated this
+backfill after removing unsupported debug includes. It has not yet been
+validated in a fresh launcher run; the most recent run before that parser fix
+still used a generated stub, so its `0x3f800000` fault does not evaluate the
+backfill. Keep this C under `hand/native_c` and out of sly1-decomp. Next: run a
+clean `port_native` regeneration, check whether the helper call preserves the
+guest arguments and whether the table word changes, then trace cursor
+mutations if it remains wrong. No graphics are visible yet.
