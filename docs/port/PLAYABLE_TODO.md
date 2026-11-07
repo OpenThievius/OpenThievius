@@ -1631,3 +1631,30 @@ record-path evidence; the latest list trace is
 207 retail assembly translations, zero stubs). The window remains black and
 the port is not playable. All code changes remain in this port repo; the
 decomp repo is untouched.
+
+**Restart checkpoint (2026-11-07, scene packet path):** The active branch is
+`wip/native-sly-port`, clean and pushed at `3962c6c` (`translate retail scene
+packet helpers`). The contradictory checkpoint above is historical; current
+work has progressed past its reader and frame-list faults. The native launcher
+now reaches the active world (`0x6abdd0`, state `3`, game mode `0`) without
+fault for a bounded 15-second run. Frame-list inserts/removals are balanced
+(40 each), all links are valid, and the frame worker sends the display
+transfer packet. Exact US assembly has replaced several reached no-op
+translations, including scene packet builder `func_001662A8` and helpers
+`func_001EE3B8` / `func_001EE668`; these are selected retail functions, not
+port backfills. The current build succeeds with 2,035 C translations, 220
+assembly translations, zero stubs, and 202 generated C units linked.
+
+Captured renderer frames remain fully black (one color, mean zero), the scene
+builder emits zero vertices, and no visible text or playable state has been
+reached. Latest bounded run: `/tmp/sly-native-scene-packet-helpers.log`; frame
+captures: `/tmp/sly1-native-frame-00.ppm` and siblings. The next focused lead
+is caller `func_00165728` in `src/main/00164000.cpp`: inspect its record count,
+entry pointers, and indirect callback path at runtime, then determine why its
+calls into `func_001662A8` produce no geometry. Decomp checkout remains at
+`e1b39f1` on master; the 51 definitions on
+`origin/codex/us-small-functions` do not cover the current scene path. Keep
+functional replacements in the port's `hand/native_c/` and retain displaced
+prototypes/backfills under `hand/reference_c/`. Native launcher runs are
+authorized; do not use an emulator or modify
+`/home/reaper/Code/sly1-decomp`.
