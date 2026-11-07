@@ -134,9 +134,27 @@ the first playable gate, not proof that the whole game is complete.
 
 ## Immediate next session
 
-Follow the remaining missing calls and runtime failures on the selected
-startup and menu path. Treat renderer traces and function coverage as
-diagnostics only; neither proves visual correctness or playability.
+1. Keep the exact Splash decoded resource and stream dump from the same run;
+   compare the `func_0011ECB8` input pointer and three-word record boundaries
+   against that resource. The chunk bytes already match, so do not spend time
+   changing LZ or CD input code without new contradictory evidence.
+2. Trace the first record's callback chain (`func_00183350` to descriptor
+   method 13 / `func_00158F10`) and determine how many bytes it consumes. Then
+   compare the retail assembly for `func_0011ECB8` and its caller in
+   `func_00196410`, both still 0%-matched, against the native cursor changes.
+3. The port factory `func_0011E580` is now selected by an explicit override;
+   hostgen reports eight overrides used, and its generated body comes from
+   `hand/native_c/func_0011E580.c`. A native launch still faults immediately
+   on the same malformed record path (call through address zero, then an
+   unmapped access at `0xAB1BABFD`). Diagnose the bad record/cursor rather than
+   relaxing the factory checks or skipping it.
+4. Once parsing advances past this record, return to the outstanding visual
+   blockers: the active world submits no recognizable level geometry, and
+   menu glyph layout remains fragmented. Treat any successful build or draw
+   count as instrumentation until the picture is recognizable.
+
+Treat renderer traces and function coverage as diagnostics only; neither
+proves visual correctness or playability.
 
 ## Coverage audit result (2026-11-07)
 
@@ -275,10 +293,25 @@ builds 212 generated C translation units and links. Coverage is 1,834
 translated functions, 59 assembly-derived, 3 stubbed, 3,056 without C, and 47
 unreadable units.
 
-The next native launch fails during object setup instead of reaching the
-previous black render window. `func_0011ECB8` calls translated
-`func_0011E580`, which loads an owner callback from `Owner_11E580+0x10`; that
-callback is zero. The runtime reports a call to code address zero, then an
-unmapped access at `0xDBBBC9E2`. Trace which owner-table initialization or
-object-construction step should populate the callback; do not mask the fault
-with a no-op guard. Until this path advances, the visual state is unresolved.
+The next native launch faults during object setup instead of reaching the
+previous black render window. Temporary traces show `func_0011ECB8` parsing a
+three-record list from EE scratchpad data. It accepts the first record
+(`type=0x7A`, `key=0x25D`) and then reads `type=0` where a second record begins.
+The bytes in the decompressed chunk match the decoded Splash resource exactly,
+so the unpacker and its input are not the discrepancy. Investigate the parser
+cursor and caller that supplies this list, focusing on the 0%-matched
+`func_0011ECB8` and `func_00196410`, plus the first record's callback contract.
+Do not suppress class zero or patch the descriptor table: that would hide a
+cursor or call-path error. The runtime later faults at `0xDBBBC9E2`; startup
+and the previous black/garbled rendering remain unresolved.
+
+The `func_0011E580` object-factory backfill existed in the port tree but was
+not selected: hostgen compiles the staged C files, then keeps the decomp
+definition for duplicate symbols unless the port lists a matched function in
+`hand/overrides.tsv`. It is now explicitly listed there. This makes the
+port-owned implementation active while preserving a one-row removal path when
+matching C becomes hostable. Verification: hostgen reports eight overrides
+used, the generated definition contains the port factory body, and the
+generated registry points `func_0011E580` at it. The next bounded native launch
+still faults on this malformed-record path, with a call through address zero
+from `func_0011ECB8` followed by an unmapped access at `0xAB1BABFD`.

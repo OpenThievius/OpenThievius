@@ -2,8 +2,12 @@
 # Port-only C backfills
 
 These C files provide functional replacements for Sly functions whose
-matching C is not available to the native host build. They belong to the
-port, not `sly1-decomp`, and do not count as matching decompilation progress.
+matching C is not available or not usable in the native host build. They
+belong to the port, not `sly1-decomp`, and do not count as matching
+decompilation progress. Functions replacing a matched definition must also be
+listed in `../overrides.tsv`; otherwise hostgen keeps the decomp definition
+when both are present. Entries in `backfills.tsv` cover functions supplied
+where matching C is absent.
 
 `func_00144008`, `func_001EEBB0`, and `func_001389D0` are port-only scalar
 translations of the retail camera basis update, tagged direction-list query,
@@ -40,6 +44,13 @@ loader thread now runs and blocks on its request semaphore, while the display
 worker submits initialization GIF chains. The renderer still receives no
 visible scene geometry, and several called engine functions remain unresolved
 no-ops; this is startup progress, not a playable game.
+
+`func_0011E580` is a port-only object-factory replacement listed in
+`overrides.tsv`. It reads the retail descriptor table and uses the native
+constructor dispatcher. Remove its override row when matching C for this
+function is hostable. Its invalid-class checks are not evidence that the
+resource parser is correct; the current startup trace shows the input bytes
+and cursor need investigation.
 
 `func_00154EE0` is a separate port-only override for a cross-file type
 disagreement: its local source declares a one-word record return while the

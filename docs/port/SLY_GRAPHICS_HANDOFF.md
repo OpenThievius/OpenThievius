@@ -590,10 +590,24 @@ recovering the pool helper's implicit `a0` argument and the `0011FFA8` wrapper
 return from US retail assembly. Overall hostgen output is 1,834 translated
 functions, 59 assembly-derived, 3 stubbed, 3,056 without C, and 47 unreadable
 units. The native launcher links, but its latest startup attempt faults before
-the earlier render trace: `func_0011ECB8` reaches `func_0011E580`, which calls
-the zero owner callback at `Owner_11E580+0x10`, followed by an unmapped access
-at `0xDBBBC9E2`. The next investigation is to find where the corresponding
-owner-table entry should be initialized and why it is zero. Do not insert a
-success-shaped callback or hide the fault with a guard until the expected
-retail behavior is understood. This result is a startup regression relative to
-the earlier black-window run, not visual progress.
+the earlier render trace. The latest temporary trace reads a three-record
+list in EE scratchpad: the first record is valid (`type=0x7A`, `key=0x25D`),
+and the next begins with `type=0`. The decompressed chunk matches the decoded
+Splash resource byte for byte, so the LZ output is not the cause. Investigate
+the parser cursor and call path into the 0%-matched `func_0011ECB8` and
+`func_00196410` before changing the descriptor table or adding a class-zero
+guard; also verify what the first record's handler consumes. The run later
+faults at `0xDBBBC9E2`, and the previous black/garbled render remains
+unresolved.
+
+The port-only `func_0011E580` factory was previously compiled as a duplicate
+unit but lost to the matched decomp definition in the generated registry. It
+is now explicitly selected through `hand/overrides.tsv`: hostgen reports eight
+overrides used, and the generated definition contains the factory body from
+`hand/native_c/func_0011E580.c`. A bounded native launch still faults on the
+bad record path: a call through address zero from `func_0011ECB8`, followed by
+an unmapped access at `0xAB1BABFD`. This does not justify skipping the record
+or weakening the factory checks. Next compare the first record handler's
+consumption (`func_00183350` to descriptor method 13 / `func_00158F10`) with
+the parser cursor and retail assembly for `func_0011ECB8` and its caller.
+Remove the override when matching C becomes hostable.
