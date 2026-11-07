@@ -1785,6 +1785,24 @@ lead. Trace who requests the opening PSS/movie and whether the native host's
 `openrac_game_play_movie` hook is reached, then inspect any unavailable retail
 functions in the decomp before adding isolated port backfills. Keep all such
 replacements in `hand/native_c` so later matching decomp code can replace them.
-The current diagnostics and `func_0016E118` assembly selection are uncommitted
-at this checkpoint; no decomp repository files were changed. This remains a
+The diagnostics and `func_0016E118` assembly selection were committed and
+pushed as `7f87c76`; no decomp repository files were changed. This remains a
 black screen and is not playable.
+
+**Startup queue trace correction (2026-11-07):** The previous checkpoint
+incorrectly called `func_0018E5E8` a movie sink. Retail assembly shows that it
+initializes the display worker, whose entry is `func_0018E558`; the trace
+confirms both run. A new `OPENRAC_TRACE_BOOT_QUEUE=1` probe watches those
+functions and the generic resource-request path (`func_0018F148`,
+`func_0018F198`, `func_0018F448`, `func_0018F7D0`, and the linked reader
+helpers). Over a 10-second default run, only the display-worker initializer
+and worker entry are reached from that set; Splash is still the only reported
+sector read (820372, 150849 bytes). This shows the generic queue is not where
+the missing intro request is currently visible; it does not prove there is no
+separate PSS path. The shared `openrac_game_play_movie` implementation is in
+OpenRAC's common program layer, but the Sly launcher does not currently link
+that layer or expose a Sly game-code bridge to it. Next identify the retail
+startup function/state that should request the intro, then connect its actual
+sector/size/channel inputs to the shared movie player if the call path supports
+it. Trace: `/tmp/sly-native-boot-queue.log`. No `sly1-decomp` files were
+changed. The native window remains black and the game is not playable.

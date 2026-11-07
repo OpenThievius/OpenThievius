@@ -311,6 +311,33 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 break;
             }
         }
+
+        static const bool trace_boot_queue =
+            std::getenv("OPENRAC_TRACE_BOOT_QUEUE") != nullptr;
+        if (trace_boot_queue) {
+            static constexpr gaddr targets[] = {
+                0x0018F148u, // drain queued resource requests
+                0x0018F198u, // process one queued resource request
+                0x0018F448u, // dispatch a resource request to its handler
+                0x0018F7D0u, // finish a resource request
+                0x0018E558u, // display worker entry
+                0x0018E5E8u, // initialize the display worker
+                0x0018E678u, // initialize a linked resource reader
+                0x0018E6A0u, // reset a linked resource reader
+                0x0018E6C0u, // advance a linked resource reader
+            };
+            static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
+            for (std::size_t i = 0; i < std::size(targets); ++i) {
+                if (address != targets[i]) continue;
+                const unsigned count = counts[i].fetch_add(1, std::memory_order_relaxed) + 1;
+                if (count <= 8) {
+                    std::fprintf(stderr,
+                                 "[boot queue] thread=%u address=%#010x count=%u\n",
+                                 thread_id, address, count);
+                }
+                break;
+            }
+        }
     }
 }
 
