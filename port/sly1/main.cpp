@@ -54,7 +54,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
         stage == 73 || stage == 74 || stage == 75 ||
         (stage >= 81 && stage <= 89) || stage == 58 || stage == 59 || stage == 60 ||
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57 ||
-        (stage >= 136u && stage <= 138u)) {
+        (stage >= 136u && stage <= 139u)) {
         limit = 256u;
     } else if (stage == 134u || stage == 135u) {
         limit = 128u;

@@ -123,6 +123,11 @@ void func_00165728(void* self_pointer, void* context_pointer)
                         *(u32*)((u8*)entry + 0x4Cu),
                         *(u32*)((u8*)entry + 0x50u),
                         *(u32*)((u8*)entry + 0x54u));
+                    sly1_native_trace_font(139u, (u32)entry,
+                        *(u32*)((u8*)entry + 0x28u),
+                        *(u32*)((u8*)entry + 0x38u),
+                        *(u32*)((u8*)entry + 0x58u),
+                        *(u32*)((u8*)entry + 0x5Cu));
                 }
                 for (item = 0; item < nested_count; ++item) {
                     u32 address = nested_items + item * 0x50u;
