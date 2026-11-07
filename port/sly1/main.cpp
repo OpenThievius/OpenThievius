@@ -61,6 +61,12 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
             if (dump) dump.write(
                 reinterpret_cast<const char*>(openrac_guest_base + offset), 0x100);
         }
+        if (trace_guest_range(GUEST_SCRATCHPAD, 0x2000u, &offset)) {
+            std::ofstream dump("/tmp/sly1-level-reader-ring.bin",
+                               std::ios::binary);
+            if (dump) dump.write(
+                reinterpret_cast<const char*>(openrac_guest_base + offset), 0x2000);
+        }
     }
     if (stage == 7 && std::getenv("OPENRAC_DUMP_FONT_RESOURCE") != nullptr &&
         a0 <= 0xffffffffu - a1) {
@@ -104,7 +110,13 @@ bool trace_guest_range(std::uint32_t address, std::size_t size,
                        std::uint32_t* offset_out) {
     std::uint64_t offset = address;
     std::uint64_t limit = openrac_guest_ram_size;
-    if (address >= GUEST_PORT &&
+    if (address >= GUEST_SCRATCHPAD &&
+        static_cast<std::uint64_t>(address) + size <=
+            static_cast<std::uint64_t>(GUEST_SCRATCHPAD) +
+                GUEST_SCRATCHPAD_SIZE) {
+        limit = static_cast<std::uint64_t>(GUEST_SCRATCHPAD) +
+                GUEST_SCRATCHPAD_SIZE;
+    } else if (address >= GUEST_PORT &&
         static_cast<std::uint64_t>(address) + size <=
             static_cast<std::uint64_t>(GUEST_PORT) + GUEST_PORT_SIZE) {
         limit = static_cast<std::uint64_t>(GUEST_PORT) + GUEST_PORT_SIZE;

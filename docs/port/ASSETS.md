@@ -165,15 +165,13 @@ type `0x6C` constructor is `func_001DB4C8`; its base constructor is
 helpers `func_001DC740` and `func_001DBA90` now compile in the native host
 build.
 
-This means a native loader backfill cannot safely replace `func_001E4EA8` with
-a raw sector read or mark the request complete after decompression. The
-The coordinator (`func_001E4EA8`) has a port-only backfill that reads the
+The coordinator (`func_001E4EA8`) has a port-only backfill that configures the
 range, constructs a type `0x6C` object, invokes its parser callback, and
 finalizes the reader. It does not yet reproduce the full progress/job
-bookkeeping. The native CD read fills the reader's backing ring; the compressed
-reader now uses the retail source cursor and control-byte sentinel. A bounded
-run matches the offline decoder's first 8 KiB. A later bounded run with loader
-stage tracing shows the parser reading flag `0`, value `1`, and table count
+bookkeeping. The compressed reader uses retail `func_00137490` for bounded
+sector refills through the port's synchronous disc adapter. A bounded Splash
+run matches the offline decoder's first 8 KiB. A later run with loader-stage
+tracing shows the parser reading flag `0`, value `1`, and table count
 `1491`, then reaching callback stages 1–5 at decoded offset `0x15af`. The
 defensive oversized-count branch in the port backfill is not taken. The prior
 `0x6876bb00` diagnosis was a misread of bytes overlapping the compressed
@@ -183,20 +181,16 @@ Port-only overrides for `func_0018D608`,
 `func_0018D658` and `func_0018D6F0` provide a thread-local packet arena in
 reserved guest-port memory. A bounded native run read sector 820372 for 74
 sectors, avoided the previous invalid allocation fault, and submitted 984
-accepted GIF chains over roughly 12 seconds. The display framebuffer remains
-unset and no scene is verified as loaded. Hostgen emits no-C stubs for several
-reader helpers because it cannot parse all of `00134000.cpp`; the missing C++
-member-function support and a conflicting inferred declaration are documented
-in the build report. The buffered reader is compiled but its complete refill
-path is not verified. A port-only `func_0011E580` backfill implements retail
-descriptor lookup, allocation, owner-list registration, and constructor
-dispatch through the native function map. The port-only `func_00137A60`
-backfill reproduces the buffered byte-reader loop that requests data from the
-stream worker; `func_0018D800` supplies its retail byte-copy operation. These
-Sly-specific behaviors
-live under `port/game/sly1-us/hand/native_c/`, separate from matching
-decompilation. The parser, reader refill and job lifecycle still need a
-working native implementation before this resource can be considered loaded.
+accepted GIF chains over roughly 12 seconds. Hostgen now translates the
+stream-reader C unit and selected retail assembly; the old `func_00137A60`
+backfill is superseded and unregistered. The live level reader now uses the
+retail ring-refill state without pre-reading the whole range or fabricating
+`+0x20/+0x24` cursor values. The loader reaches stage 5, but the framebuffer
+still shows no scene vertices and the renderable-object path remains unknown.
+A port-only `func_0011E580` backfill implements retail descriptor lookup,
+allocation, owner-list registration, and constructor dispatch through the
+native function map. All Sly-specific C backfills remain under
+`port/game/sly1-us/hand/native_c/`, separate from matching decompilation.
 
 The decoder is downstream of a separate buffered source reader. Retail
 `func_001378A0` requests compressed input through `func_00137820`; its refill
@@ -208,8 +202,8 @@ record array at offset 5,512 is not evidence about the disc index format.
 
 The range fields have a concrete setter: `func_00137328(reader, sector,
 byte_count)` stores the sector at `+0x48` and byte count at `+0x40`, while
-`func_001373B0` forwards a two-word pair to it. `func_001E4EA8` builds a memory
-reader over `D_002C3B00`, derives a range pair from the record in
+`func_001373B0` forwards a two-word pair to it. `func_001E4EA8` builds a
+ring-buffer reader, derives a range pair from the record in
 `D_00275AF0`, and passes it to that setter before invoking the reader's data
 callback. The polling loop in `func_0018578C` calls this routine while the
 global state is active. This establishes a deferred range-read path, but not

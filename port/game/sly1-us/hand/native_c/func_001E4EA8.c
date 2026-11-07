@@ -13,7 +13,6 @@ s32 func_001373B0(void* self, const s32* pair);
 void func_001373D0(void* self);
 void func_00160690(void* self, s32 value);
 void func_001DB928(s32 changed, void* reader);
-int sly1_native_read_sectors(u32 sector, u32 count, u32 destination);
 void* func_00193210(void* self, const u32* a, const u32* b, const u32* c,
                     const u32* d);
 void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
@@ -48,7 +47,7 @@ void func_001E4EA8(void* state) {
     u32 record[8];
     u32 range[2];
     u32 sector_count;
-    u32 source_buffer;
+    u32 ring_buffer;
     u32 buffer_capacity;
     u32 callback_data[9] = {0};
     u32 callback_word0 = 0x00003F00u;
@@ -90,32 +89,26 @@ void func_001E4EA8(void* state) {
         *(u32*)request = 0;
         return;
     }
-    /* D_002C3B00 also backs renderer frame buffers. Large synchronous reads
-     * use a reserved upper EE-RAM scratch range instead of overwriting them. */
-    source_buffer = buffer_capacity > 0x00340C00u ? 0x01000000u :
-                                                      (u32)D_002C3B00;
-    func_00137290(reader, (s32)buffer_capacity, source_buffer, 6);
+    /* D_002C3B00 also backs renderer frame buffers. Large reader rings use
+     * reserved upper EE RAM instead of overwriting those buffers. */
+    ring_buffer = buffer_capacity > 0x00340C00u ? 0x01000000u :
+                                                    (u32)D_002C3B00;
+    func_00137290(reader, (s32)buffer_capacity, ring_buffer, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;
     if (func_001373B0(reader, (const s32*)range) == 0) {
         func_001373D0(reader);
         return;
     }
-    if (sly1_native_read_sectors(range[0], sector_count,
-                                 source_buffer) == 0) {
-        func_001373D0(reader);
-        return;
-    }
-
     /* Match retail transition ordering: retire the previous world before
      * decoding and publishing its replacement. */
     func_001DB838(D_00275710 != 0);
     D_00275710 = 0;
 
-    /* The native synchronous read replaces retail's async refill worker.
-     * +0x20/+0x24 are the compressed source cursor and length; +0x18/+0x1C
-     * stay empty so the first byte request runs the LZ window refill. */
-    *(u32*)(reader + 0x20) = source_buffer;
-    *(s32*)(reader + 0x24) = (s32)range[1];
+    /* Preserve the retail reader state from func_00137328: +0x20 is the
+     * ring-buffer write cursor and +0x24 is the previous refill length.
+     * func_00137490 performs bounded sector reads into that ring when the
+     * byte reader needs data. Pre-reading the entire range and setting +0x24
+     * to its total length makes the refill path advance past the buffer. */
 
     sly1_native_loader_stage(10, 0, (u32)reader);
 

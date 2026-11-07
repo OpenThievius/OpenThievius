@@ -72,15 +72,24 @@ the level's renderable-object table. Continue from the level activation/resource
 object path rather than expanding these update-list callbacks. Diagnostic log:
 `/tmp/sly-native-class-owner-trace.log`.
 
-An opt-in reader-window dump at the pre-`func_0011ECB8` trace point records
-cursor `0x70000c9c` and `0x1364` bytes remaining. The EE alias for that cursor
-currently contains zero bytes, while the offline-decoded catalog file
-`resource_0100.bin` has nonzero data at file offset `0xc9c`. The reader window's
-origin has not been proven to equal the decoded file's origin, so this is a
-buffer/refill mapping lead rather than evidence that retail parsing is wrong.
-Next establish how `func_00137A60` fills the active window and whether it should
-match the offline decode. Dump: `/tmp/sly1-level-reader-window.bin`; trace:
-`/tmp/sly-native-reader-window.log`.
+The earlier reader-window comparison was invalid: `0x70000000` is EE
+scratchpad, but the dump helper normalized it as a main-RAM alias. The helper
+now reads the scratchpad mapping and captures both the cursor window and the
+full 8 KiB decoder ring. The latest level capture has cursor `0x70000c9c`,
+`0x1364` bytes remaining, and 1,171 nonzero bytes in the ring. No exact 8 KiB
+match was found in the offline-decoded resource, but the decoder's logical
+output offset and ring-history boundary have not been captured, so that result
+does not yet prove a decompression mismatch.
+
+The native level loader also no longer pre-reads the entire compressed range
+or overwrites reader fields `+0x20/+0x24`. Exact retail `func_00137490` now
+refills the configured ring through the port's synchronous sector adapter. A
+bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
+599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
+5 with zero scene vertices. This removes duplicate full-range I/O and keeps
+the retail ring state intact; it does not yet create a drawable level object.
+Trace: `/tmp/sly-native-reader-ring-trace.log`; dumps:
+`/tmp/sly1-level-reader-window.bin` and `/tmp/sly1-level-reader-ring.bin`.
 
 The old port-only `func_0011ECB8` override was removed after checking the exact
 US assembly. It reads per-object callback records; its count is not the scene
