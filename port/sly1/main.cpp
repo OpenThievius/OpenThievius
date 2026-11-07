@@ -21,6 +21,7 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -355,6 +356,7 @@ int main(int argc, char** argv) {
         trace_thread = std::thread([&trace_stop] {
             std::uint32_t previous_range_state[8]{};
             bool have_previous_range_state = false;
+            bool wrote_object_snapshot = false;
             auto last_full_trace = std::chrono::steady_clock::now() -
                 std::chrono::seconds(1);
             while (!trace_stop.load(std::memory_order_relaxed)) {
@@ -951,12 +953,61 @@ int main(int argc, char** argv) {
                 for (const std::uint32_t field : class51_fields)
                     std::cerr << std::hex << field << ',';
                 std::cerr << " root_objects=";
-                for (const auto& fields : trace_world_objects(current_object)) {
+                const auto root_object_fields = trace_world_objects(current_object);
+                for (const auto& fields : root_object_fields) {
                     if (fields[0] == 0) break;
                     std::cerr << '[' << std::hex << fields[0] << ':' << fields[1]
                               << ',' << fields[2] << ',' << fields[3] << ','
                               << fields[4] << ',' << fields[5] << ",children="
                               << std::dec << fields[6] << std::hex << ']';
+                }
+                const bool has_scene_object = std::any_of(
+                    root_object_fields.begin(), root_object_fields.end(),
+                    [](const auto& fields) { return fields[0] != 0 && fields[4] == 0x44u; });
+                if (!wrote_object_snapshot && has_scene_object &&
+                    std::getenv("OPENRAC_TRACE_OBJECTS") != nullptr) {
+                    wrote_object_snapshot = true;
+                    for (const auto& fields : root_object_fields) {
+                        if (fields[0] == 0) break;
+                        if (fields[4] != 0x44u) continue;
+                        std::uint32_t object_offset = 0;
+                        std::uint32_t descriptor_offset = 0;
+                        if (!trace_guest_range(fields[0], 0x20u, &object_offset))
+                            continue;
+                        std::uint32_t descriptor = 0;
+                        std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+                        if (!trace_guest_range(descriptor, 0x80u, &descriptor_offset))
+                            continue;
+                        std::uint32_t object_size = 0;
+                        std::memcpy(&object_size,
+                                    openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+                        std::cerr << "\n[object-snapshot] id=" << std::hex << fields[4]
+                                  << " object=" << fields[0] << " descriptor="
+                                  << descriptor << " size=" << object_size << '\n';
+                        const std::uint32_t descriptor_words = 0x80u / 4u;
+                        for (std::uint32_t i = 0; i < descriptor_words; ++i) {
+                            std::uint32_t value = 0;
+                            std::memcpy(&value,
+                                        openrac_guest_base + descriptor_offset + i * 4u, 4u);
+                            std::cerr << "  descriptor+" << std::setw(3) << std::setfill('0')
+                                      << std::hex << i * 4u << '=' << std::setw(8) << value;
+                            if ((i & 3u) == 3u) std::cerr << '\n';
+                        }
+                        const std::uint32_t object_bytes =
+                            std::min<std::uint32_t>(object_size, 0x600u);
+                        if (object_offset <= openrac_guest_ram_size &&
+                            object_bytes <= openrac_guest_ram_size - object_offset) {
+                            for (std::uint32_t i = 0; i < object_bytes / 4u; ++i) {
+                                std::uint32_t value = 0;
+                                std::memcpy(&value,
+                                            openrac_guest_base + object_offset + i * 4u, 4u);
+                                std::cerr << "  object+" << std::setw(3) << std::setfill('0')
+                                          << std::hex << i * 4u << '=' << std::setw(8) << value;
+                                if ((i & 3u) == 3u) std::cerr << '\n';
+                            }
+                        }
+                    }
+                    std::cerr << std::dec << std::setfill(' ');
                 }
                 std::cerr
                           << " world_job_queue=0x" << std::hex

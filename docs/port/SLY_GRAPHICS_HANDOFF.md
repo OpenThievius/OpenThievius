@@ -3,17 +3,22 @@
 
 Last checked: 2026-11-07. The native launcher remains not playable. It opens a
 window and runs the game frame loop, but the latest direct-level trace reaches
-loader stage 5 without any scene vertices; its UI trace has zero registered
-fonts and zero visible text. The active world is `0x0088d530`, but its root has
-no children and sampled objects have no mesh data. The graphics gap is
-therefore still before the first real scene draw, not just a display scaling or
-color issue. The next gate is to find the retail resource/transition path that
-creates and attaches renderable objects, then submit their geometry. Font
-registration is a separate title/UI blocker. The current build uses the local
+loader stage 5 without any scene vertices. This probe registers 22 fonts; the
+default boot still registers none and stays on Splash. A full snapshot of the
+direct-loaded world's two class `0x44` roots identifies them as collision
+objects: their mesh data at `+0x380` and render mesh copy at `+0x3A4` are zero.
+They cannot produce visible geometry. The port is past resource startup, but
+still before the first actual in-game image. The next gate is to find the
+title/level transition and the resource record path that creates a renderable
+object, then follow its mesh into the draw queue. The current build uses the local
 `sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
 counts. Port-only C overrides remain under `hand/native_c/` (with retired
 experiments under `hand/superseded_backfills/`); neither those nor generated
 assembly translations modify the decomp repository.
+
+Latest direct-level trace: `/tmp/sly-native-class44-full-snapshot.log`.
+Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
+are initialization traffic, not evidence of a rendered level.
 
 The earlier fragmented menu captures were produced by a port-only forced menu
 page and handwritten menu renderer. Those overrides have now been retired:
