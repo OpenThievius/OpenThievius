@@ -24,6 +24,8 @@ func_001E1F10	kernel	sly1_console_printf	host	Discard guest serial diagnostic ou
 func_001F6B50	kernel	sly1_signal_sema	host	Signal the guest semaphore from the native display callback	int(unsigned int)
 func_001F6B60	kernel	sly1_wait_sema	host	Block the native display worker until its guest semaphore is signalled	int(unsigned int)
 func_001F6B20	kernel	sly1_create_sema	host	Create a native semaphore from the guest SemaParam structure	int(unsigned int)
+func_001F6B40	kernel	sly1_isignal_sema	host	Signal a guest semaphore from a native guest worker	int(unsigned int)
+func_001F6A10	kernel	sly1_create_thread	host	Create a native guest worker from its EE ThreadParam block	int(unsigned int)
 func_001F6A20	kernel	sly1_start_thread	host	Start a guest worker thread on a native host thread	int(int,unsigned int)
 func_001F6970	kernel	sly1_dmac_add_handler	host	Register a guest handler for native DMA completion	int(unsigned int,unsigned int,unsigned int,unsigned int,unsigned int)
 func_001F6E78	kernel	sly1_dmac_enable	host	Enable the guest DMA completion callback	int(unsigned int)

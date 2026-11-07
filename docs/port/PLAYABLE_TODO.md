@@ -1838,3 +1838,24 @@ in `hand/native_c` until matching decomp C exists. The decomp checkout remains
 untouched. `/tmp/sly-native-boot-queue-producers.log` is transient evidence and
 may not survive a system restart; the findings needed to resume are recorded
 here. The game still displays only a black clear and is not playable.
+
+**Async startup worker checkpoint (2026-11-07):** Port-only C now initializes
+the missing startup async objects and starts their retail worker thread
+(`func_0018B5C0`, `func_0018BD58`, `func_0018B670`, `func_0018B600`). The native
+kernel bridge includes the retail `CreateThread` and `iSignalSema` services.
+The native build completed with 2,043 translated functions, 218 assembly
+functions, and zero generated stubs. A 15-second bounded launch now shows guest
+worker threads 14 and 15 entering `func_0018D0A0`; before this change no worker
+was active. That callback has no matching C and currently resolves to a no-op,
+so this is evidence of reaching the queue callback, not evidence that startup
+content is being processed. The run still reads only the Splash resource and
+reports frame state 3, `game_mode=0`, no load request, no movie, no scene gate,
+and no visible text. The display remains the intentional black clear.
+
+Next inspect retail `func_0018D0A0` and its caller `func_0018C028` to establish
+the callback's contract and dependencies. If it is necessary for startup and
+matching C is still unavailable, implement a retail-derived replacement only
+under `hand/native_c/` and register it in `backfills.tsv`. The recent changes
+are isolated port backfills and do not alter `sly1-decomp`. Last native log:
+`/tmp/sly-native-startup-worker-active.log` (transient; findings are recorded
+here). The game remains unplayable.

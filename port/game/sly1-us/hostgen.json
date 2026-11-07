@@ -392,7 +392,6 @@
       "func_001F6CD0": "int(void)",
       "func_001F6CE0": "int(int, int)",
       "func_001F6CF0": "int(int)",
-      "func_001F6A10": "int(void*)",
       "func_0013B598": "void(void*, void*)"
     }
   }

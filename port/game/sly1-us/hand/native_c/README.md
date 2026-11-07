@@ -32,6 +32,19 @@ view under `build/port/`. When matching C becomes available, remove the
 corresponding backfill and let the matching source take precedence. Keep any
 port-specific changes here so the decompilation can later replace them cleanly.
 
+`startup_async_state.c` is a port-only reconstruction of the async startup
+semaphore state and worker setup (`func_0018B5C0`, `func_0018BD58`,
+`func_0018B670`, and `func_0018B600`). The retail worker waits on its semaphore,
+calls the queued callback, records the result, and signals completion. These
+functions have no usable matching C in the native build yet. The SIF memory-card
+probe called by `func_0018B580` remains on the native unavailable-service path.
+Keep these replacements here so matching decomp C can replace them later.
+
+The native kernel bridge now maps the retail `CreateThread` and `iSignalSema`
+wrappers used by this path. A bounded startup trace confirms guest worker
+threads are created and enter `func_0018D0A0`; that callback currently has no
+usable C and is still a generated no-op. The window remains on the black clear.
+
 These replacements cover the persistent frame loop, state-transition helper,
 frame callback setup, queued display worker, loader
 request setup and worker, resource key and visual-state selection, resource

@@ -119,6 +119,10 @@ func_0018D800	native_c/func_0018D800.c
 func_0018D500	native_c/native_heap.c
 func_0018D5C0	native_c/native_heap.c
 func_0018D568	native_c/resource_readers.c
+func_0018B5C0	native_c/startup_async_state.c
+func_0018B600	native_c/startup_async_state.c
+func_0018B670	native_c/startup_async_state.c
+func_0018BD58	native_c/startup_async_state.c
 func_0011C128	native_c/resource_pool.c
 func_0011C288	native_c/resource_pool.c
 func_0011C1D8	native_c/resource_pool.c

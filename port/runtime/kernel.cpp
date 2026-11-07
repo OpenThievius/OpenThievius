@@ -152,6 +152,12 @@ extern "C" int openrac_lib_sly1_signal_sema(uint32_t semaphore) {
                                                          0, 0, 0, 0));
 }
 
+extern "C" int openrac_lib_sly1_isignal_sema(uint32_t semaphore) {
+    // Retail's 16-byte wrapper at func_001F6B40 issues the interrupt-safe variant.
+    return static_cast<int>(openrac_guest_kernel_syscall(0x42u, semaphore, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
 extern "C" int openrac_lib_sly1_wait_sema(uint32_t semaphore) {
     // Retail's 16-byte wrapper at func_001F6B60 issues WaitSema.
     return static_cast<int>(openrac_guest_kernel_syscall(0x44u, semaphore, 0, 0, 0,
@@ -160,6 +166,12 @@ extern "C" int openrac_lib_sly1_wait_sema(uint32_t semaphore) {
 
 extern "C" int openrac_lib_sly1_create_sema(uint32_t parameters) {
     return static_cast<int>(openrac_guest_kernel_syscall(0x40u, parameters, 0, 0, 0,
+                                                         0, 0, 0, 0));
+}
+
+extern "C" int openrac_lib_sly1_create_thread(uint32_t parameters) {
+    // Retail's 16-byte wrapper at func_001F6A10 issues CreateThread.
+    return static_cast<int>(openrac_guest_kernel_syscall(0x20u, parameters, 0, 0, 0,
                                                          0, 0, 0, 0));
 }
 
