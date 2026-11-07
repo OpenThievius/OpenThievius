@@ -247,6 +247,42 @@ path, not a timer that failed to advance. It remains unresolved whether this
 state should display an idle/title screen before input or only after a
 transition. The native output remains only the black clear.
 
+### Latest UI and vertex trace (2026-11-07)
+
+The current diagnostic build adds an opt-in `OPENRAC_TRACE_UI_CALLBACKS=1`
+snapshot in `port/sly1/main.cpp`. It lists all 37 retail UI objects once their
+world and font registry are initialized, including vtable update/draw targets,
+mode, and page. The latest native-only 12-second run reaches the UI loop and
+registers 30 fonts (four font registry entries), but reports `visible_text=0`;
+all listed UI objects have mode 0. The menu object at index 25 has page `-1`.
+Several text objects use update callback `func_001AB058`; other currently
+inactive callbacks include `func_001AE178` and `func_001E00B0`, which still
+show no-C warnings. This is a focused lead for checking retail callback
+activation and title setup, not evidence that the callbacks should be forced
+active.
+
+The same run briefly reports 240 vertices (117 classified visible) with
+bounds approximately `(0,-0.5)` to `(641,224.5)`, then later snapshots report
+zero vertices. The captured application window remained black, with no visible
+text. Treat this as transient full-screen-sized geometry, not confirmed Sly
+artwork; trace its producer and GS/framebuffer presentation before calling it
+a first graphics milestone. Run log:
+`/tmp/sly-native-ui-callbacks-ready.log` (may disappear on restart). The
+diagnostic flag is opt-in; regular launches do not print the inventory.
+
+### Resume after restart
+
+1. Check `git status --short --branch`; this checkpoint and trace instrumentation
+   should be committed and pushed before restart.
+2. Inspect UI callback index 25 and the first-frame 240-vertex submission in
+   retail US assembly. Establish who activates the title/menu objects and
+   whether the transient quad is only a clear/overlay.
+3. Use exact retail assembly for reached no-C callbacks only when the trace
+   supports it. Keep functional C replacements under `hand/native_c/` and
+   registered in `backfills.tsv`; do not change `sly1-decomp`.
+4. Rebuild with `cmake --build build/port --target port_native -j2`, then use
+   the authorized native launcher only. No emulator.
+
 Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
 latest queue and worker evidence is near the end of the latter. `/tmp` logs
 may disappear on restart. Build generated translations with:

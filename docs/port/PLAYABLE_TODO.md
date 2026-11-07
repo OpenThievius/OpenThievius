@@ -1975,3 +1975,17 @@ only the intentional black clear and has zero visible text. Trace:
 205 generated C units linked. Next determine the retail input-to-title/media
 transition and the expected idle display; keep all functional C backfills
 isolated from `sly1-decomp`.
+
+**UI callback and transient vertex trace (2026-11-07):** An opt-in
+`OPENRAC_TRACE_UI_CALLBACKS=1` snapshot now inventories all 37 initialized UI
+objects in `port/sly1/main.cpp`. At the captured startup point, 30 fonts are
+loaded and four font registry entries exist, but `visible_text=0`; all UI
+object modes are 0 and menu index 25 has page `-1`. Text-object update callback
+`func_001AB058` and callbacks `func_001AE178` / `func_001E00B0` appear in the
+inventory and remain no-C warnings where noted. Trace their retail activation
+path before selecting more code or changing state. The same run briefly
+reports 240 vertices (117 classified visible) across bounds roughly 641x225,
+then zero vertices on later snapshots. The actual window stayed black, so
+this is not confirmed game artwork. Trace the producer, framebuffer and
+presentation path. Log: `/tmp/sly-native-ui-callbacks-ready.log` (transient).
+See `RESTART_CHECKPOINT.md` for the restart sequence and detailed readings.

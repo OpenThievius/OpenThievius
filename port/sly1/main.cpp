@@ -586,6 +586,7 @@ int main(int argc, char** argv) {
             std::uint32_t previous_range_state[8]{};
             bool have_previous_range_state = false;
             bool wrote_object_snapshot = false;
+            bool wrote_ui_callback_snapshot = false;
             auto last_full_trace = std::chrono::steady_clock::now() -
                 std::chrono::seconds(1);
             while (!trace_stop.load(std::memory_order_relaxed)) {
@@ -1379,6 +1380,51 @@ int main(int argc, char** argv) {
                               << sample.item0_text_byte << std::dec;
                 }
                 std::cerr << '\n';
+                if (!wrote_ui_callback_snapshot && active_world != 0 && ui_font_count != 0 &&
+                    std::getenv("OPENRAC_TRACE_UI_CALLBACKS") != nullptr) {
+                    for (std::uint32_t i = 0; i < 37; ++i) {
+                        std::uint32_t object = 0;
+                        std::memcpy(&object, openrac_guest_base + 0x002486B0u + i * 4u,
+                                    sizeof(object));
+                        if (object == 0) continue;
+                        const std::uint32_t object_physical =
+                            openrac_guest_ram_address(object);
+                        if (object_physical > openrac_guest_ram_size ||
+                            0x264u > openrac_guest_ram_size - object_physical) continue;
+                        std::uint32_t vtable = 0;
+                        std::uint32_t mode = 0;
+                        std::uint32_t page = 0;
+                        std::memcpy(&vtable, openrac_guest_base + object_physical,
+                                    sizeof(vtable));
+                        std::memcpy(&mode, openrac_guest_base + object_physical + 0x250u,
+                                    sizeof(mode));
+                        std::memcpy(&page, openrac_guest_base + object_physical + 0x260u,
+                                    sizeof(page));
+                        std::uint32_t update = 0;
+                        std::uint32_t draw = 0;
+                        const std::uint32_t vtable_physical =
+                            openrac_guest_ram_address(vtable);
+                        if (vtable != 0 && vtable_physical <= openrac_guest_ram_size &&
+                            0x28u <= openrac_guest_ram_size - vtable_physical) {
+                            std::memcpy(&update, openrac_guest_base + vtable_physical + 8u,
+                                        sizeof(update));
+                            std::memcpy(&draw, openrac_guest_base + vtable_physical + 0x24u,
+                                        sizeof(draw));
+                        }
+                        std::cerr << "[ui callback] index=" << i << " object=0x"
+                                  << std::hex << object << " vtable=0x" << vtable
+                                  << " update=0x" << update << '(';
+                        if (update != 0) std::cerr << openrac_guest_function_name(update);
+                        else std::cerr << "none";
+                        std::cerr << ") draw=0x" << draw << '(';
+                        if (draw != 0) std::cerr << openrac_guest_function_name(draw);
+                        else std::cerr << "none";
+                        std::cerr
+                                  << ") mode=0x" << mode << " page=0x" << page
+                                  << std::dec << '\n';
+                    }
+                    wrote_ui_callback_snapshot = true;
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         });
