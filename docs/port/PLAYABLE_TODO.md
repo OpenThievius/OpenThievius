@@ -1220,3 +1220,19 @@ Next, trace the level resource's object records and deferred asset requests to
 find why visual-class instances are never created or attached; independently
 trace the default Splash-to-title transition, which also remains at frame state
 3/game mode 0.
+
+**Pending checkpoint before restart (2026-11-07):** exact US retail assembly
+has been enabled for the reached value conversion/owner-list helpers
+`func_001C1190`, `func_001C13E8`, `func_0011A080`, `func_0011A358`,
+`func_0011A630`, and `func_0011BA28`. Their former C backfills remain in
+`hand/native_c/resource_value_parser.c` behind build guards, but were removed
+from `backfills.tsv`, preserving them as port-only reference code. This
+selection builds, but has not yet had a fresh launcher run. The direct-level
+probe still faults in `func_0015C8B8` after `func_001AE510` requests key 2 via
+`func_0015C1C0`; a small isolated diagnostic backfill now traces that table
+lookup without overriding the larger font/text source file. Build and run that
+probe next, inspect the key-2 entry and fallback in `/tmp`, then trace the
+writer of `D_00262268` if it is still `0xFC000120`. Latest confirmed blocker
+remains no visible scene geometry: default boot is black, frame state 3,
+game mode 0, zero renderer vertices. Rebuild with
+`cmake --build build/port --target port_native -j2`; decomp checkout untouched.

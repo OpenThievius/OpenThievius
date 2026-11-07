@@ -44,7 +44,7 @@ func_00161768	native_c/display_packets.c
 func_001617E8	native_c/display_packets.c
 func_00161860	native_c/display_packets.c
 func_001618C0	native_c/display_packets.c
-func_0015C1C0	native_c/font_text.c
+func_0015C1C0	native_c/func_0015C1C0.c
 func_0015C200	native_c/font_text.c
 func_0015C260	native_c/font_text.c
 func_0015C8B8	native_c/font_text.c
@@ -126,9 +126,6 @@ func_0011A6A8	native_c/value_pool_setup.c
 func_0011A670	native_c/value_pool_setup.c
 func_0011A6B8	native_c/value_pool_setup.c
 func_0011BF70	native_c/value_pool_setup.c
-func_001C1190	native_c/resource_value_parser.c
-func_001C13E8	native_c/resource_value_parser.c
-func_0011BA28	native_c/resource_value_parser.c
 func_0011AF28	native_c/resource_value_parser.c
 func_0011C498	native_c/resource_value_parser.c
 func_0011B008	native_c/resource_value_parser.c
@@ -148,10 +145,7 @@ func_0011B7D0	native_c/resource_value_parser.c
 func_0011B818	native_c/resource_value_parser.c
 func_0011B860	native_c/resource_value_parser.c
 func_0011B8A8	native_c/resource_value_parser.c
-func_0011A630	native_c/resource_value_parser.c
 func_0011A6C0	native_c/resource_value_parser.c
-func_0011A358	native_c/resource_value_parser.c
-func_0011A080	native_c/resource_value_parser.c
 func_0011EC40	native_c/resource_value_parser.c
 func_0011E680	native_c/resource_descriptors.c
 func_00137E90	native_c/resource_stream_vector_readers.c

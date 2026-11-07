@@ -67,12 +67,14 @@ void func_0011B818(void* value, void* payload) { ((u32*)value)[0] = 0x19; ((u32*
 void func_0011B860(void* value, void* payload) { ((u32*)value)[0] = 0x1A; ((u32*)value)[1] = (u32)payload; }
 void func_0011B8A8(void* value, void* payload) { ((u32*)value)[0] = 0x20; ((u32*)value)[1] = (u32)payload; }
 
+#ifndef SLY1_RETAIL_ASM_FUNC_0011A630
 void* func_0011A630(void) {
     u32 owner = (u32)func_0011C240((void*)0x0025C270u);
     if (owner == 0) return 0;
     func_001F5C0C((u8*)owner, 0, 0x1C);
     return (void*)owner;
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_0011A630 */
 
 void func_0011A6C0(void* list, s32 value) {
     u32* words = (u32*)list;
@@ -84,6 +86,7 @@ void func_0011A6C0(void* list, s32 value) {
     words[0] = (u32)(count + 1);
 }
 
+#ifndef SLY1_RETAIL_ASM_FUNC_0011A358
 void* func_0011A358(void* output, s32 owner, s32 kind, void* body) {
     u32 node = (u32)func_0011C498();
     u32* value = (u32*)output;
@@ -98,7 +101,9 @@ void* func_0011A358(void* output, s32 owner, s32 kind, void* body) {
     value[1] = 0x22;
     return output;
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_0011A358 */
 
+#ifndef SLY1_RETAIL_ASM_FUNC_0011A080
 void func_0011A080(void* output, void* input, s32 context) {
     u8 value[16];
     s32 kind = *(s32*)input;
@@ -115,6 +120,7 @@ void func_0011A080(void* output, void* input, s32 context) {
     func_0011B018(output, value);
     func_0011B060(value, 2);
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_0011A080 */
 
 void func_00109488(void);
 
@@ -173,6 +179,7 @@ s32 func_00137D78(void* reader);
 f32 func_00137DF8(void* reader);
 s32 func_00137C40(void* reader);
 
+#ifndef SLY1_RETAIL_ASM_FUNC_0011BA28
 void* func_0011BA28(void* reader) {
     s32 encoded_tag = func_00137B90(reader);
     s32 kind;
@@ -249,12 +256,14 @@ void* func_0011BA28(void* reader) {
     *(u32*)(node + 8) = child_flag ? (u32)func_0011BA28(reader) : 0;
     return (void*)node;
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_0011BA28 */
 
 struct ResourcePair {
     s32 key;
     s32 value;
 };
 
+#ifndef SLY1_RETAIL_ASM_FUNC_001C13E8
 void func_001C13E8(void* output, s32 index, void* context) {
     u8 value[16];
     u8 pair[16];
@@ -273,7 +282,9 @@ void func_001C13E8(void* output, s32 index, void* context) {
     func_0011B018(output, value);
     func_0011B060(value, 2);
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_001C13E8 */
 
+#ifndef SLY1_RETAIL_ASM_FUNC_001C1190
 void func_001C1190(void* context, void* reader) {
     u8 empty[16];
     u8 value[16];
@@ -340,3 +351,4 @@ void func_001C1190(void* context, void* reader) {
     }
     func_0011B060(empty, 2);
 }
+#endif /* SLY1_RETAIL_ASM_FUNC_001C1190 */
