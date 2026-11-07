@@ -23,9 +23,11 @@ The first rejected VIF1 startup chain is reproducible from the US ELF itself:
 the static bytes at `0x00212110` contain the 48-byte CNT payload and opcode
 `0x40` at stream offset `0x14`, exactly matching the native VIF diagnostic.
 This rules out ISO-sector corruption as the source of that packet. Retail
-startup also has a VIF error-mask setup path, so do not treat the rejected
-opcode as the scene-rendering root cause until its intended error semantics
-are established. Trace: `/tmp/sly-native-default-vif-trace.log`.
+startup writes `2` to `VIF1_ERR`: that masks ME0 (DMA-tag mismatch), while ME1
+(invalid-command stall) is bit 2 and remains unmasked. The native parser's
+stop at opcode `0x40` is therefore consistent with an unmasked invalid VIF
+command; this packet still has not been tied to the missing scene callback.
+Trace: `/tmp/sly-native-default-vif-trace.log`.
 
 The port now uses exact retail assembly translations for the animation table
 loader (`func_001B3040`), its element parser and class lookup helpers. The
