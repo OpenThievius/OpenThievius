@@ -1820,3 +1820,21 @@ call sites, then route the retail movie sector/size/channel to OpenRAC's native
 PSS player through a port-only bridge. Trace:
 `/tmp/sly-native-boot-queue-producers.log`. The decomp checkout remains at
 `e1b39f1` and is untouched; the native screen is still black.
+
+**Restart handoff (2026-11-07):** The current working tree was clean at
+`786e811` (`wip/native-sly-port`), and that commit was already pushed to
+`origin`. No launcher or build process was active. A read-only inspection of
+the extracted US ELF confirmed it has a single main `PT_LOAD`, ordinary
+`.text`/`.data` plus `.DVP.overlay.*` sections, and the strings
+`PsIIlibmpeg 2420` / `PsIIlibipu 2400` in its data. The DVP overlay sections
+are not yet established as game-mode overlays. OpenRAC's Rac1 bridge reaches
+its shared native PSS player through `openrac_game_play_movie`, but the Sly
+target does not link that shared program layer or yet identify the retail
+movie call site. Continue by decoding the PS2 EE import-stub/library records
+in the Sly ELF and cross-referencing MPEG/IPU stubs against retail assembly;
+then determine whether the matching call path provides the PSS sector, size,
+and channel needed by the native movie player. Keep any substitute function
+in `hand/native_c` until matching decomp C exists. The decomp checkout remains
+untouched. `/tmp/sly-native-boot-queue-producers.log` is transient evidence and
+may not survive a system restart; the findings needed to resume are recorded
+here. The game still displays only a black clear and is not playable.
