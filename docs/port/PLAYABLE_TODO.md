@@ -1001,3 +1001,32 @@ The active world currently has no root children, while sampled update objects
 have no mesh pointer or radius, so adjusting texture colors or culling cannot
 produce a real scene. Font-table initialization is a parallel gate for title
 and menu graphics.
+
+## Resource-reader and default-start follow-up (2026-11-07)
+
+The native port now has a separate `func_001BAC30` backfill for the missing
+class-4 reader, plus port-only packed-vector readers `func_00137E90` and
+`func_00137F08`. A bounded run consumes that class-4 record through stage 134
+and continues to loader stage 5. A malformed nested frame link (`0xffff823f`)
+previously faulted object update; the existing `func_00125138` backfill now
+skips links outside guest EE RAM and records the values. These are port
+backfills only; replace them with matching decompilation if/when it becomes
+available.
+
+Do not read the class-`0x1e` and class-`0x51` entries from stages 55–56 as
+render meshes: their constructors and descriptors identify them as collision
+objects. The default-start trace also finds class-`0x4d` objects, but their
+resource pointer at `+0x380` is zero when they enter the world registration
+callback. During a 10-second default-start run, the frame loop stayed alive,
+but `vertices=0`, `image_tags=0`, `image_qwords=0`, `visible_text=0`, and
+`font_array=0`; the world root still had no renderable children. Trace:
+`/tmp/sly-native-class4d-objects.log` and `/tmp/sly-native-default-visual.log`.
+
+Next, trace the class-`0x4d` resource read/activation path from its factory
+record to the callback that should set `+0x380`; establish the serialized
+resource key and prove a valid mesh pointer before changing renderer behavior.
+Separately trace why the initialized font registry has count 4 and IDs
+`0, 88, 110, 198`, but its font-array and default-font pointers remain null.
+Verify each fix with a native startup trace that reports nonzero GS vertices or
+GIF image transfers, followed by a visible frame. The game is not playable
+yet.

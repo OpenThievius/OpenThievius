@@ -39,15 +39,17 @@ void func_001240F8(void* self_pointer)
     parent = *(u32*)(self + 0x18u);
     if (descriptor == 0 || world == 0) return;
 
-    /* Identify the two object classes currently mistaken for level meshes. */
+    /* Trace collision objects and candidate class-0x4D scene objects. */
     {
         u32 class_id = *(u32*)(descriptor + 4u);
-        if (class_id == 0x1Eu || class_id == 0x51u) {
+        if (class_id == 0x1Eu || class_id == 0x51u || class_id == 0x4Du) {
             sly1_native_trace_font(55, self, class_id, world, parent,
-                                   *(u32*)(self + 0x1F4u));
+                                   class_id == 0x4Du ? *(u32*)(self + 0x380u)
+                                                     : *(u32*)(self + 0x1F4u));
             sly1_native_trace_font(56, self, *(u32*)(self + 0x1ECu),
                                    *(u32*)(self + 0x1F0u),
-                                   *(u32*)(self + 0x224u),
+                                   class_id == 0x4Du ? *(u32*)(self + 0x594u)
+                                                     : *(u32*)(self + 0x224u),
                                    *(u32*)(self + 0x2A8u));
         }
     }
