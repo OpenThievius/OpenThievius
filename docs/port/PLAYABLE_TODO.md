@@ -1297,3 +1297,16 @@ yet. Continue with the `0x0c` record semantics and ring-refill alignment before
 attempting a workaround. Build target: `cmake --build build/port --target
 port_native -j2`. Work remains on branch `wip/native-sly-port`; decomp checkout
 was not modified.
+
+**Input-window comparison (2026-11-07):** the apparent cursor jump is not
+proof of ring misalignment. The 44-byte snapshot at reader cursor
+`0x70000d8f` exactly matches `build/port/extracted/decoded/resource_0100.bin`
+at file offset `0x192d8f`; the snapshot at `0x70001790` matches the same file
+at `0x193790`. Both file and guest cursor deltas are `0xa01`, so this is
+consistent with consuming the intervening serialized payload. The raw bytes
+are genuine extracted resource data, and the native reader reaches the
+matching sequence. Stop investigating this as a ring-refill fault. Next
+instrument the owner table row at allocation, after parsing record `0xef`, and
+immediately before `func_00165AE8` to find when the companion row's `+4` word
+becomes `0x3f800000`; that is the invalid source passed to `func_0018D568`.
+Latest runtime trace remains `/tmp/sly-native-animation-bounds-trace.log`.
