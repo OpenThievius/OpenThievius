@@ -68,6 +68,11 @@ matching chain root confirmed the retail
 call stack `func_001DCEA0 -> func_001B3450 -> func_001692B0 ->
 func_001686E8 -> func_00202A80 -> openrac_native_renderer_submit_dma_chain`.
 This is resource initialization; it does not explain the zero scene vertices.
+An entry-filtered breakpoint at `func_001662A8` for `0x00847ce0` also showed
+`func_00165728 -> func_00124A48 -> func_00146470 -> func_001DCEA0` as its
+caller chain. The command-buffer capture therefore belongs to resource
+initialization, not a per-frame scene draw. See
+`/tmp/sly-dump-render-entry.gdb` and `/tmp/sly-dump-render-entry.log`.
 
 The write-watch GDB script was `/tmp/sly-watch-mesh-first-write.gdb`; the read
 watch script and output are `/tmp/sly-watch-mesh-read.gdb` and

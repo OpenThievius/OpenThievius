@@ -81,6 +81,13 @@ openrac_native_renderer_submit_dma_chain`. These are resource uploads during
 level initialization, not the scene's vertex path; the renderer still submits
 zero scene vertices. Do not treat these payloads as mesh or palette tables.
 
+A targeted GDB breakpoint on `func_001662A8` for entry `0x00847ce0` showed
+the call stack `func_001662A8 -> func_00165728 -> func_00124A48 ->
+func_00146470 -> func_001DCEA0`. This confirms the observed command-buffer
+construction also occurs while the direct-level resource is being
+initialized. It is not evidence of a per-frame scene draw. Capture:
+`/tmp/sly-dump-render-entry.gdb` and `/tmp/sly-dump-render-entry.log`.
+
 Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
 are initialization traffic, not evidence of a rendered level.
