@@ -49,7 +49,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
     unsigned limit = limits[stage];
     if (stage == 73 || stage == 74 || stage == 75 ||
-        (stage >= 81 && stage <= 89) || stage == 59 || stage == 60 ||
+        (stage >= 81 && stage <= 89) || stage == 58 || stage == 59 || stage == 60 ||
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57) {
         limit = 256u;
     } else if (stage == 76 || stage == 78 || stage == 79 || stage == 80 ||
@@ -95,6 +95,18 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                       << link_offset << " next=" << next << " previous=" << previous
                       << std::dec << '\n';
         }
+    }
+    if (stage == 56u && a0 == 0x002622E0u) {
+        std::uint32_t link_address = 0, next = 0, previous = 0;
+        if (a2 <= 0x10000u &&
+            trace_guest_range(a1 + a2, 8u, &link_address)) {
+            std::memcpy(&next, openrac_guest_base + link_address, 4u);
+            std::memcpy(&previous, openrac_guest_base + link_address + 4u, 4u);
+        }
+        std::cerr << "[frame-list-insert] node=" << std::hex << a1
+                  << " head=" << a3 << " tail=" << a4 << " offset=" << a2
+                  << " next=" << next << " previous=" << previous << std::dec
+                  << '\n';
     }
     if (stage == 75u && a4 == 0x00A7F77Cu && a0 >= 0xEFu) {
         std::uint32_t offset = 0;

@@ -38,19 +38,6 @@ u32 func_00152460(NativeList* list, void* node)
     return (u32)node + (u32)list->offset;
 }
 
-void func_00152470(NativeList* list, void* node)
-{
-    NativeListLink* link = node_link(list, node);
-    if (list->tail == 0) {
-        list->head = node;
-    } else {
-        NativeListLink* tail_link = node_link(list, list->tail);
-        link->previous = list->tail;
-        tail_link->next = node;
-    }
-    list->tail = node;
-}
-
 void func_00152600(NativeList* list, void* node)
 {
     static u32 trace_count;

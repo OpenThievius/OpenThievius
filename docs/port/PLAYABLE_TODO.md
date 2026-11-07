@@ -218,6 +218,24 @@ does not yet prove a decompression mismatch.
 The native level loader also no longer pre-reads the entire compressed range
 or overwrites reader fields `+0x20/+0x24`. Exact retail `func_00137490` now
 refills the configured ring through the port's synchronous sector adapter. A
+
+**Restart checkpoint — frame-list corruption trace (2026-11-07):** the prior
+frame-queue hypothesis was disproven. Matched decomp `func_0015EC68` already
+copies and clears all three source queues correctly. Port-only trace
+reconstructions of `func_00139EC8` and list append `func_00152470` show the
+global frame list at `0x002622E0` has consistent head/tail and node `+0x630`
+links after every append and after the `func_001243E0` callback. Later,
+`func_00152600` removes the original node `0x0082f9b0` and sees corrupted
+next/previous values `0xbf343386` / `0xbef492b5`, faulting at
+`0xbef498e5`. The corruption therefore occurs after the transfer callbacks
+and before frame-context cleanup; its writer is still unidentified. Latest
+trace: `/tmp/sly-native-frame-head-chain.log` (failure near end). Current
+uncommitted code puts the two C diagnostics in port-only override/backfill
+files; it does not edit `sly1-decomp`. Next, inspect the calls between the
+last valid frame-list trace and `func_00152600`, identify the first bad write,
+then fix the underlying port fault. The latest build succeeded (2,040 C
+functions translated, 206 retail assembly functions, zero stubs); a bounded
+native launch still faults and shows no graphics. No emulator was used.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
