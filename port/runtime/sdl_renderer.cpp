@@ -263,6 +263,9 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     }
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);
+    // Native GIF DMA completes synchronously. Latch the GS SIGNAL interrupt
+    // before dispatching it to the game's registered callback.
+    openrac_guest_gs_signal_interrupt();
 }
 
 extern "C" void openrac_native_renderer_trace_dma_call(std::uint32_t channel_address,
@@ -313,14 +316,17 @@ extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_a
                                source_address, first_lo, first_hi, failure);
         return;
     }
-    std::scoped_lock lock(g_packets_mutex);
-    if (gif_size > kMaxBytes - g_packets.size()) {
-        g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
-        return;
+    {
+        std::scoped_lock lock(g_packets_mutex);
+        if (gif_size > kMaxBytes - g_packets.size()) {
+            g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+        g_packets.insert(g_packets.end(), gif, gif + gif_size);
     }
-    g_packets.insert(g_packets.end(), gif, gif + gif_size);
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
+    openrac_guest_gs_signal_interrupt();
 }
 
 extern "C" std::uint64_t openrac_native_renderer_dma_submit_count(void) {

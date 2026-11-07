@@ -1752,3 +1752,17 @@ Splash/movie texture or visible title text follows it. The active thread set
 remains the main loop, display worker, and UI worker; the frame worker does not
 stall. Log: `/tmp/sly-native-default-20s.log`. Trace the Splash/movie queue and
 title UI activation; extending the wait does not reveal the title screen.
+
+**GS SIGNAL handoff (2026-11-07):** The display worker was waiting on the GS
+signal callback `func_00168698`. An unfinished port experiment duplicated the
+retail interrupt syscalls; inspection found those already handled by the
+runtime kernel. The native renderer now sets the GS CSR.SIGNAL latch and raises
+INTC cause 0 through the existing guest interrupt registry after an accepted,
+synchronous GIF submission. The callback runs and `kernel_service=0x43`
+confirms it signals the display semaphore. The launcher builds and runs, but
+the screen remains on the intentional black clear: at 5.46 seconds,
+`game_mode=0`, `load_request=0`, and `visible_text=0`. The next blocker is title
+or Splash content activation, not this worker semaphore. Evidence:
+`/tmp/sly1-native-gs-csr.log`. This runtime signal model is port infrastructure;
+`func_00168698` remains an isolated port-only C backfill so matching decomp C
+can replace it later.

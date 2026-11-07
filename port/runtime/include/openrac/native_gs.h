@@ -37,6 +37,7 @@ uint64_t openrac_guest_gif_eop_count(void);
 uint64_t openrac_guest_gif_image_tag_count(void);
 uint64_t openrac_guest_gif_image_qword_count(void);
 void openrac_guest_gs_publish_frame(void);
+void openrac_guest_gs_signal_interrupt(void);
 size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination, size_t capacity);
 size_t openrac_guest_gs_published_vertex_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);

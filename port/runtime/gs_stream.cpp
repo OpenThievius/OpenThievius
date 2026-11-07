@@ -334,6 +334,20 @@ extern "C" void openrac_guest_gs_publish_frame(void) {
     g_parser.strip_vertex_count = 0;
 }
 
+extern "C" void openrac_guest_gs_signal_interrupt(void) {
+    if (openrac_guest_base == nullptr) return;
+
+    // The direct renderer consumes each accepted GIF submission synchronously.
+    // Mirror the GS CSR.SIGNAL latch before raising INTC cause 0 so the game's
+    // retail callback observes the event and releases its display semaphore.
+    constexpr uint32_t kGsCsr = GUEST_GS_REGS + 0x1000u;
+    uint64_t csr = 0;
+    std::memcpy(&csr, openrac_guest_base + kGsCsr, sizeof(csr));
+    csr |= 2u;
+    std::memcpy(openrac_guest_base + kGsCsr, &csr, sizeof(csr));
+    (void)openrac_guest_raise_interrupt(0);
+}
+
 extern "C" size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination,
                                                    size_t capacity) {
     if (destination == nullptr || capacity == 0) return 0;
