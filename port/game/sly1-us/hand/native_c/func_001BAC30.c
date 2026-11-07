@@ -18,9 +18,12 @@ void func_001289C0(void* object, void* reader);
 void func_001B7C40(void* object, s32 enabled);
 void func_00138F28(void* owner, void* object);
 void sly1_native_call_method(u32 address, u32 object);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 #define SLY1_MAX_RESOURCE_ARRAY_ITEMS 0x10000
 
+#ifndef SLY1_RETAIL_ASM_FUNC_001BAC30
 static s32 reader_failed(void* reader) {
     return *(s32*)((u8*)reader + 0x1Cu) < 0;
 }
@@ -41,10 +44,18 @@ static void copy_mesh_header(void* source, void* destination) {
     for (s32 i = 0; i < 9; ++i) out[i] = in[i];
 }
 
+static void trace_reader_phase(void* self, void* reader, u32 phase) {
+    sly1_native_trace_font(64u, 0xBAC30000u | phase,
+                           *(u32*)((u8*)reader + 0x18u),
+                           (u32)*(s32*)((u8*)reader + 0x1Cu),
+                           (u32)self, *(u32*)((u8*)self + 0x3B0u));
+}
+
 void func_001BAC30(void* self, void* reader) {
     u8* object = (u8*)self;
     u64 state = *(u64*)(object + 0x2C8u);
     const s32 selector = func_00137B90(reader) & 1;
+    trace_reader_phase(self, reader, 0u);
     state = (state & 0xFFFFFFFDFFFFFFFFull) | ((u64)(u32)selector << 32);
     *(u64*)(object + 0x2C8u) = state;
 
@@ -62,12 +73,18 @@ void func_001BAC30(void* self, void* reader) {
         func_00160EA0(object + 0x380u, 0, object + 0x3A4u);
     }
     func_00138278(reader, object + 0x3A4u, object + 0x3F0u);
-    if (reader_failed(reader)) return;
+    if (reader_failed(reader)) {
+        trace_reader_phase(self, reader, 1u);
+        return;
+    }
 
     *(f32*)(object + 0x368u) = func_00137DF8(reader);
     func_00137EB0(reader, object + 0x2F0u);
     func_00137E70(reader, object + 0x4D0u);
-    if (reader_failed(reader)) return;
+    if (reader_failed(reader)) {
+        trace_reader_phase(self, reader, 2u);
+        return;
+    }
     func_001B9448(self, 1.0f);
 
     {
@@ -82,6 +99,7 @@ void func_001BAC30(void* self, void* reader) {
             *(u32*)(record + 0x04u) = (u32)func_00137BE0(reader);
             if (reader_failed(reader)) return;
         }
+        trace_reader_phase(self, reader, 3u);
     }
 
     {
@@ -93,6 +111,7 @@ void func_001BAC30(void* self, void* reader) {
             *(s32*)((u8*)values + (u32)i * 4u) = func_00137D10(reader);
             if (reader_failed(reader)) return;
         }
+        trace_reader_phase(self, reader, 4u);
     }
 
     {
@@ -106,6 +125,7 @@ void func_001BAC30(void* self, void* reader) {
             *(s32*)(pair + 0x04u) = func_00137D10(reader);
             if (reader_failed(reader)) return;
         }
+        trace_reader_phase(self, reader, 5u);
     }
 
     {
@@ -123,6 +143,7 @@ void func_001BAC30(void* self, void* reader) {
             }
         }
     }
+    trace_reader_phase(self, reader, 6u);
 
     func_00137FB0(reader, object + 0x4E8u);
     if (reader_failed(reader)) return;
@@ -132,9 +153,14 @@ void func_001BAC30(void* self, void* reader) {
         func_00160EA0(object + 0x4E8u, 0, object + 0x50Cu);
     }
     func_00138278(reader, object + 0x50Cu, object + 0x530u);
-    if (reader_failed(reader)) return;
+    if (reader_failed(reader)) {
+        trace_reader_phase(self, reader, 9u);
+        return;
+    }
+    trace_reader_phase(self, reader, 9u);
 
     func_001289C0(self, reader);
+    trace_reader_phase(self, reader, 7u);
     func_001B7C40(self, 1);
     {
         const u32 descriptor = *(u32*)object;
@@ -145,4 +171,6 @@ void func_001BAC30(void* self, void* reader) {
         }
     }
     func_00138F28((void*)*(u32*)(object + 0x14u), self);
+    trace_reader_phase(self, reader, 8u);
 }
+#endif

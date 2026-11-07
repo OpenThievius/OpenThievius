@@ -60,6 +60,9 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
     if (constructor_address != 0) {
         sly1_native_call_constructor(constructor_address, (u32)object);
     }
+    sly1_native_trace_font(60u, (u32)type, (u32)object, descriptor_address,
+                           constructor_address,
+                           *(u32*)((u8*)descriptor + 14u * 4u));
     sly1_native_trace_font(57, (u32)type, (u32)object, (u32)owner,
                            (u32)parameter, (u32)mode);
     return object;

@@ -4,13 +4,30 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. The latest hostgen run reads 185 units,
-translates 2,050 functions including 177 from US retail assembly, and reports
+translates 2,050 functions including 185 from US retail assembly, and reports
 zero stubs. A bounded native run completes Splash and the selected level
 resource through loader stage 5, with active world `0x0088d530`. The exact
 retail `func_001EE900` constructor now links the level's class-`0x86` object at
 `world+0x1ec4`; its exact transform helpers are also selected. The frame still
 reports zero scene vertices, frame state 3, and game mode 0. The port is not
 playable.
+
+**Reader-chain checkpoint (2026-11-07):** Exact US retail assembly is now
+selected for `func_001BAC30`, `func_00162890`, `func_001DCEA0`,
+`func_00196410`, `func_001B9AE0`, `func_0012B870`, `func_0012B8C8`, and
+`func_0013B4C0`. The first three previously had port C backfills; their source
+files remain guarded in `hand/native_c`, while they are no longer registered
+in `backfills.tsv`, so the replacement code stays separate from retail
+behavior. Switching to exact readers moved the common object parser through a
+valid short record to cursor `0x70001595`, then later to `0x70001ee8`, rather
+than misreading a count and consuming the remainder of the Splash data. The
+next nested child-list path still faults at a call through zero after class
+`0x83`. The latest bounded run still reaches frame state 3/game mode 0 with
+zero scene vertices and two accepted GIF chains; it is not playable. Rebuild
+with `cmake --build build/port --target port_native -j2` after changing
+hostgen configuration; building only `sly1_native` does not regenerate
+translations. Trace: `/tmp/sly-native-restart-check.log`; generated coverage:
+`build/port/hostgen/us/report.json`.
 
 **VIF error-mask correction (2026-11-07):** commit `f8fa708` attempted to
 continue past the startup packet's unknown VIF opcode `0x40` when ME1 was

@@ -20,6 +20,8 @@ void func_0011EC40(void* object, void* reader);
 void func_0011ECB8(void* world, void* object, void* reader);
 void func_00162890(void* block, void* reader, void* object);
 s32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 static void sly1_discard(void* reader, u32 size) {
     /* Retail's read helper takes a signed size and ignores overflowed values. */
@@ -31,18 +33,23 @@ static void sly1_discard(void* reader, u32 size) {
     }
 }
 
-
-
+#ifndef SLY1_RETAIL_ASM_FUNC_00162890
 void func_00162890(void* block, void* reader, void* object) {
     u8* bytes = (u8*)block;
     static s32 trace_records;
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+#define TRACE_62890(phase, first_value, second_value) \
+    sly1_native_trace_font(63u, 0x62890000u | (phase), \
+        *(u32*)((u8*)reader + 0x18u), (u32)*(s32*)((u8*)reader + 0x1Cu), \
+        (u32)(first_value), (u32)(second_value))
+    TRACE_62890(0u, object, 0u);
     *(s32*)(bytes + 0x50) = 0;
     const s32 first = func_00137B90(reader);
     sly1_native_loader_stage(105, (u32)first, (u32)reader);
     const s32 second = func_00137B90(reader);
     sly1_native_loader_stage(106, (u32)second, (u32)reader);
     const s32 component_count = func_00137B90(reader);
+    TRACE_62890(1u, first, component_count);
     sly1_native_loader_stage(107, (u32)component_count, (u32)reader);
     (void)second;
     if (component_count < 0 || component_count > 4096) return;
@@ -53,6 +60,7 @@ void func_00162890(void* block, void* reader, void* object) {
         *(s32*)(*(u32*)(bytes + 0x08) + (u32)i * 4u) = func_00137D10(reader);
 
     const s32 word_count = func_00137B90(reader);
+    TRACE_62890(2u, component_count, word_count);
     sly1_native_loader_stage(108, (u32)word_count, (u32)reader);
     if (word_count < 0 || word_count > 65535) return;
     *(s32*)(bytes + 0x40) = word_count;
@@ -62,6 +70,7 @@ void func_00162890(void* block, void* reader, void* object) {
         word_count * 4, (void*)*(u32*)(bytes + 0x44));
 
     const s32 record_count = func_00137BE0(reader);
+    TRACE_62890(3u, word_count, record_count);
     sly1_native_loader_stage(109, (u32)record_count, (u32)reader);
     if (record_count < 0 || record_count > 65535) return;
     *(s32*)(bytes + 0x0C) = record_count;
@@ -217,6 +226,7 @@ void func_00162890(void* block, void* reader, void* object) {
             if ((n & 0xFF) == 0)
                 sly1_native_loader_stage(126, (u32)n, (u32)reader);
         }
+        if (i < 8) TRACE_62890(4u + (u32)i, record_count, nested_count);
 
         const s32 auxiliary_count = func_00137BE0(reader);
         if (auxiliary_count < 0 || auxiliary_count > 4096) return;
@@ -249,9 +259,12 @@ void func_00162890(void* block, void* reader, void* object) {
                     sly1_discard(reader, row_bytes);
             }
         }
+        if (i < 8) TRACE_62890(12u + (u32)i, record_count, auxiliary_count);
     }
     (void)object;
+#undef TRACE_62890
 }
+#endif
 
 void func_00128C10(void* object, void* reader) {
     u8* self = (u8*)object;
@@ -281,9 +294,17 @@ void func_00128C10(void* object, void* reader) {
     if (flags & 0x80) *(s32*)(extra + 0xA0) = func_00137B90(reader);
 }
 
+static void trace_common_reader(void* object, void* reader, u32 phase) {
+    sly1_native_trace_font(63u, 0x289C0000u | phase,
+                           *(u32*)((u8*)reader + 0x18u),
+                           (u32)*(s32*)((u8*)reader + 0x1Cu),
+                           (u32)object, *(u32*)((u8*)object + 0x26Cu));
+}
+
 void func_001289C0(void* object, void* reader) {
     u8* self = (u8*)object;
     extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+    trace_common_reader(object, reader, 0u);
     func_00137EB0(reader, self + 0xD0);
     func_00137E70(reader, self + 0x100);
     u64 flags = *(u64*)(self + 0x2C8);
@@ -293,6 +314,7 @@ void func_001289C0(void* object, void* reader) {
             ((u64)(func_00137B90(reader) & 3) << shift);
     }
     *(u64*)(self + 0x2C8) = flags;
+    trace_common_reader(object, reader, 1u);
     *(s32*)(self + 0x88) = func_00137C40(reader);
     *(f32*)(self + 0x80) = func_00137DF8(reader);
     *(f32*)(self + 0x84) = func_00137DF8(reader);
@@ -305,15 +327,19 @@ void func_001289C0(void* object, void* reader) {
     if (*(f32*)(self + 0x84) == 3.402823466e+38f)
         *(f32*)(self + 0x84) = 2000.0f / *(f32*)(self + 0x80);
     func_0011EC40(object, reader);
+    trace_common_reader(object, reader, 2u);
     sly1_native_loader_stage(130, (u32)object, (u32)reader);
     func_00162890(self + 0x22C, reader, object);
+    trace_common_reader(object, reader, 3u);
     sly1_native_loader_stage(131, (u32)object, (u32)reader);
     func_00128C10(object, reader);
+    trace_common_reader(object, reader, 4u);
 
     const u32 descriptor = *(u32*)self;
     const u32 extra = *(u32*)(descriptor + 0x58);
     if (extra != 0)
         (void)sly1_native_call_regs4(extra, (u32)object, (u32)reader, 0, 0);
+    trace_common_reader(object, reader, 5u);
     sly1_native_loader_stage(132, (u32)object, (u32)reader);
 
     const s32 group_count = func_00137B90(reader);
@@ -334,6 +360,8 @@ void func_001289C0(void* object, void* reader) {
         for (s32 n = 0; n < value_count; ++n)
             *(f32*)(values + (u32)n * 4u) = func_00137DF8(reader);
     }
+    trace_common_reader(object, reader, 6u);
     sly1_native_loader_stage(134, (u32)group_count, (u32)reader);
     func_0011ECB8((void*)*(u32*)(self + 0x14), object, reader);
+    trace_common_reader(object, reader, 7u);
 }
