@@ -45,7 +45,7 @@ Each pointed-to 32-byte block is nonzero. The first has words
 `03ffa51f 2dffa034 80ffb520 3eff9a67 40ffbcb5 80ffbf20 38ff9b52 41ffac95`;
 the second has `02ffa51f 2dff9c3e 3eff9969 17ffa420 41ffc2bb 80ffbf2b
 3cff9955 40ffad96`; the third has `02ffa51f 80ffa840 1eff9e3c 41ffac93
-0ffa61d 3dff9b67 0affa423 2effa789`. Their format has not been identified.
+0fffa61d 3dff9b67 0affa423 2effa789`. Their format has not been identified.
 
 The first `func_001662A8` output buffer at `0x0085c380` consists of eight
 qwords: `40000000`, `10000001`, `03000028 02000000`, `40000000`,
@@ -61,12 +61,21 @@ copy routine the arguments were destination `0x0064cae0`, size `0x0c00`, and
 the host-mapped source buffer; the watched block is exactly `0x0c00` bytes
 after that destination. `func_001DBA38` advances its reader by `0x10`, then
 reads `D_00275720` bytes into `D_00275718`. This confirms the watched bytes
-arrive through direct-level resource parsing. Two sample blocks also matched
-bytes in both the direct-level and Splash resource files in an offline search,
-suggesting shared packed data, but the files and exact offsets need to be
-rechecked before relying on that clue. Neither this nor the watchpoint
-identifies the block format or its consumer; do not assume these are mesh
-vertices.
+arrive through direct-level resource parsing. All three 32-byte blocks were
+confirmed byte-for-byte at decoded level resource offsets `0x4d0470`,
+`0x4d0670`, and `0x4d0870`, and at decoded Splash resource offsets `0xac00`,
+`0xae00`, and `0xb000`, respectively. Both sequences use a `0x200` stride.
+This establishes that the payload bytes are shared across those decoded
+resources, but not their format or use; do not assume these are mesh vertices.
+
+A read watchpoint armed at `func_001662A8` first stopped in the host renderer's
+DMA-chain gather (`openrac_native_renderer_submit_dma_chain`), copying a
+`0x200`-byte payload whose source was guest `0x0064d6e0`. The captured stack
+was `func_001B3450 -> func_001692B0 -> func_001686E8 -> func_00202A80` via the
+native DMA adapter. This is a DMA payload read, not evidence that
+`func_001662A8` interprets the bytes as vertices. Continue filtering reads by
+the retail caller and correlate the DMA tag that references the block before
+assigning a format.
 
 Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-07, after commit `7f8e91b`. Work in
+Updated: 2026-11-07, after commit `a115f82`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
@@ -11,7 +11,7 @@ is involved in the port work.
 
 ## State
 
-- Latest pushed commit at this update: `7f8e91b docs(sly1): refresh restart checkpoint`.
+- Latest pushed commit at this update: `a115f82 docs(sly1): preserve resource watchpoint findings`.
 - The checkout was clean and matched `origin/wip/native-sly-port` when this
   update was written.
 - The local decomp checkout `/home/reaper/Code/sly1-decomp` was fetched and
@@ -52,15 +52,24 @@ does not yet identify the block's format or the render-list consumer. The
 retail C for `func_001DBA38` is in
 `/home/reaper/Code/sly1-decomp/src/main/001D8000.cpp` around line 206: it reads
 `D_00275720` bytes into `D_00275718` after advancing the reader by `0x10`.
-Two of the three 32-byte samples also matched bytes in both the direct-level
-resource and Splash resource during an offline search; re-verify exact file
-offsets when the extracted resource files are available. This is a lead about
-shared packed data, not proof that the blocks are mesh vertices.
+All three 32-byte samples were confirmed in the decoded resources: level
+`0x0100` at `0x4d0470`, `0x4d0670`, `0x4d0870`, and Splash `0x0002` at
+`0xac00`, `0xae00`, `0xb000`. Each sequence has a `0x200` stride. This proves
+the payload repeats across the two resources but does not identify its format
+or show that it is mesh data.
 
-The GDB script used was `/tmp/sly-watch-mesh-first-write.gdb`; the concise
-register/backtrace output was printed in the session and was not saved to a
-separate log. The script derives guest base from native symbol address
-`0x724e90`. The source-level reader and current packet evidence are now
+A follow-up GDB read watchpoint first caught the host renderer copying a
+`0x200`-byte DMA payload starting at guest `0x0064d6e0`. Its stack was
+`func_001B3450 -> func_001692B0 -> func_001686E8 -> func_00202A80` and then
+the native `openrac_native_renderer_submit_dma_chain` adapter. This is the
+renderer gathering a DMA payload, not proof that `func_001662A8` consumes the
+bytes as geometry. Correlate the referencing DMA tag and retail caller before
+assigning a format.
+
+The write-watch GDB script was `/tmp/sly-watch-mesh-first-write.gdb`; the read
+watch script and output are `/tmp/sly-watch-mesh-read.gdb` and
+`/tmp/sly-watch-mesh-read.log`. Both derive guest base from native symbol
+address `0x724e90`. The source-level reader and current packet evidence are now
 preserved here and in `docs/port/SLY_GRAPHICS_HANDOFF.md`.
 
 Useful captures, if `/tmp` survives restart:
