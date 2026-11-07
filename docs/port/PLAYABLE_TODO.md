@@ -1022,11 +1022,29 @@ but `vertices=0`, `image_tags=0`, `image_qwords=0`, `visible_text=0`, and
 `font_array=0`; the world root still had no renderable children. Trace:
 `/tmp/sly-native-class4d-objects.log` and `/tmp/sly-native-default-visual.log`.
 
-Next, trace the class-`0x4d` resource read/activation path from its factory
-record to the callback that should set `+0x380`; establish the serialized
-resource key and prove a valid mesh pointer before changing renderer behavior.
-Separately trace why the initialized font registry has count 4 and IDs
-`0, 88, 110, 198`, but its font-array and default-font pointers remain null.
-Verify each fix with a native startup trace that reports nonzero GS vertices or
-GIF image transfers, followed by a visible frame. The game is not playable
-yet.
+The next investigation should follow the selected level's factory, reader, and
+owner-list path to find where its object records are lost. Separately trace why
+the font registry count and IDs are initialized while its font-array and
+default-font pointers remain null. Verify fixes with nonzero GS vertices or GIF
+image transfers and then a visible frame. The game is not playable yet.
+
+**Class-`0x4d` lead reassessment (2026-11-07):** the startup trace shows these
+objects owned by the global resource manager at `0x006abd50`, while the
+explicitly selected level (`OPENRAC_BOOT_LEVEL=0x0100`, resource index 1,
+record 0) has a separate world at `0x0088d530`. The class-`0x4d` objects have
+no class-specific read records in the trace; their null `+0x380` fields do not
+establish that the level mesh reader failed. Do not prioritize those objects
+as the level's renderables without a source-to-render ownership trace.
+
+Retail `func_0015F710` was another no-C stub in the list/activation path. The
+native host now translates its exact NTSC-U instructions. This replaces a
+no-op list traversal and removes its runtime warning; it changes neither the
+decomp checkout nor its C. Bounded default-start and forced-level runs both
+reach the frame loop, but still report only two base world-root objects, zero
+root children, and zero renderer vertices. The forced-level trace is
+`/tmp/sly-native-listfix-direct0100.log`; default startup is
+`/tmp/sly-native-listfix-5f710.log`. Continue from the selected level's
+factory/reader/owner-list path and establish where its expected object records
+are lost before changing rendering. The current build reports 2,050 generated
+C functions, 146 retail-assembly translations, and zero stubs; the decomp
+checkout remains clean and current at `e1b39f1`.
