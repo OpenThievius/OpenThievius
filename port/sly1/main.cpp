@@ -43,7 +43,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 160> traces{};
+    static std::array<std::atomic<unsigned>, 192> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
@@ -51,6 +51,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
         ? limits[stage] : 8u;
     if ((stage >= 90u && stage <= 110u) ||
         (stage >= 111u && stage <= 125u) ||
+        (stage >= 160u && stage <= 175u) ||
         stage == 73 || stage == 74 || stage == 75 ||
         (stage >= 81 && stage <= 89) || stage == 58 || stage == 59 || stage == 60 ||
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57 ||

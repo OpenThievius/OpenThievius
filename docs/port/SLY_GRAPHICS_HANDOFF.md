@@ -1,25 +1,58 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-07. The native launcher remains not playable. It opens a
-window and runs the game frame loop, but the latest direct-level trace reaches
-loader stage 5 without any scene vertices or visible text. This probe registers
-22 fonts; the default boot still stays on Splash. A full snapshot of the
-direct-loaded world's two class `0x44` roots identifies them as collision
-objects: their mesh data at `+0x380` and render mesh copy at `+0x3A4` are zero.
-They cannot produce visible geometry. The latest trace found a class-1
-descriptor with a valid reader callback (`func_001833D0`) and nonzero methods
-at slots 7 and 20. Slot 19 is null but checked by its caller. An indirect call
-still reaches address zero during the record path; its source is unresolved.
-Parsing still reaches stage 5, so this fault does not yet account for all
-missing scene objects. The port is past resource startup, but still before the
-first actual in-game image. First trace that null call, then find the title/level
-transition and the resource record path that creates a renderable object, and
-follow its mesh into the draw queue. The current build uses the local
+Last checked: 2026-11-07. The native launcher remains not playable. The latest
+direct-level trace reaches loader stage 5 but submits no scene vertices or
+visible text. It found a live, unskipped render-list entry at `0x00847ce0`
+with three primary records. Those records point through `0x00844450` to two
+non-null structures (`0x0083fc60` and `0x0083f4b0`); the latter references
+three nonzero 32-byte data blocks at `0x0064d6e0`, `0x0064d8e0`, and
+`0x0064dae0`. These are plausible packed mesh inputs, but their type and
+consumer are still unknown. Retail `func_001662A8` produces two 8-qword
+buffers for this entry, but both contain only DMA/VIF control tags and zero
+addresses; they do not reference those three data blocks. Other direct-level
+groups are still skipped by their resource flag. The next graphics step is to
+trace how the three packed blocks are owned and consumed, then connect that
+path to the render-list's zero address fields. A separate blocker remains:
+default startup still stays on Splash rather than reaching the intro/title
+flow. The current build uses the local
 `sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
 counts. Port-only C overrides remain under `hand/native_c/` (with retired
 experiments under `hand/superseded_backfills/`); neither those nor generated
 assembly translations modify the decomp repository.
+
+The previously missing `func_001DC9A0` is now selected from exact US retail
+assembly because the matching decomp C is still unavailable. Its 800-byte
+routine conditionally creates a class-`0x51`/subtype-`0x201` object and applies
+level effect parameters. It no longer runs as an empty generated stub, though
+the latest bounded run remains at frame state 3/game mode 0 with zero scene
+vertices. Trace: `/tmp/sly-native-direct0100-dc9a0-asm.log`.
+
+Pointer and packet captures: `/tmp/sly-native-direct0100-mesh-sections.log`
+and `/tmp/sly-native-direct0100-packet-dump.log`.
+
+The useful pointer values are preserved here so the lead survives deletion of
+temporary `/tmp` logs. The descriptor at `0x0083f4b0` contains three 24-byte
+records:
+
+```text
+01000000 00020080 0064d6e0 00000020 01300000 2003c040
+01000000 00020080 0064d8e0 00000020 01300000 2003c080
+01000000 00020080 0064dae0 00000020 01300000 2003c0c0
+```
+
+Each pointed-to 32-byte block is nonzero. The first has words
+`03ffa51f 2dffa034 80ffb520 3eff9a67 40ffbcb5 80ffbf20 38ff9b52 41ffac95`;
+the second has `02ffa51f 2dff9c3e 3eff9969 17ffa420 41ffc2bb 80ffbf2b
+3cff9955 40ffad96`; the third has `02ffa51f 80ffa840 1eff9e3c 41ffac93
+0ffa61d 3dff9b67 0affa423 2effa789`. Their format has not been identified.
+
+The first `func_001662A8` output buffer at `0x0085c380` consists of eight
+qwords: `40000000`, `10000001`, `03000028 02000000`, `40000000`,
+`10000001`, `03000214 02000000`, `40000000`, `60000000`. The second buffer
+at `0x0085c400` contains the two STCYCL command qwords in the opposite order.
+Neither buffer contains the pointers at `0x0064d6e0`–`0x0064dae0`; this packet
+builder has not connected the packed blocks to its DMA references.
 
 Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts

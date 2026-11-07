@@ -201,6 +201,56 @@ void func_00165728(void* self_pointer, void* context_pointer)
                                             *(u32*)(pointer + 0x38u));
                                     }
                                 }
+                                if (trace_scene_group && (u32)self == 0x00847ACCu &&
+                                    item == 0u && pointer_a >= 0x10000u &&
+                                    pointer_a <= 0x02000000u - 0x40u) {
+                                    u32 target_index;
+                                    u32 targets[2] = {
+                                        *(u32*)(pointer_a + 0x24u),
+                                        *(u32*)(pointer_a + 0x34u),
+                                    };
+                                    for (target_index = 0; target_index < 2u;
+                                         ++target_index) {
+                                        u32 target = targets[target_index];
+                                        u32 word;
+                                        if (target < 0x10000u ||
+                                            target > 0x02000000u - 0x40u)
+                                            continue;
+                                        sly1_native_trace_font(160u + target_index,
+                                            target, item, pointer_a, 0x40u, 0);
+                                        for (word = 0; word < 16u; word += 4u) {
+                                            sly1_native_trace_font(
+                                                162u + target_index * 4u + word / 4u,
+                                                target + word * 4u,
+                                                *(u32*)(target + word * 4u),
+                                                *(u32*)(target + (word + 1u) * 4u),
+                                                *(u32*)(target + (word + 2u) * 4u),
+                                                *(u32*)(target + (word + 3u) * 4u));
+                                        }
+                                        if (target_index == 1u) {
+                                            u32 section;
+                                            for (section = 0; section < 3u; ++section) {
+                                                u32 descriptor = target + section * 0x18u;
+                                                u32 data = *(u32*)(descriptor + 8u);
+                                                if (data >= 0x10000u &&
+                                                    data <= 0x02000000u - 0x20u) {
+                                                    sly1_native_trace_font(170u + section * 2u,
+                                                        data,
+                                                        *(u32*)data,
+                                                        *(u32*)(data + 4u),
+                                                        *(u32*)(data + 8u),
+                                                        *(u32*)(data + 0xCu));
+                                                    sly1_native_trace_font(171u + section * 2u,
+                                                        data + 0x10u,
+                                                        *(u32*)(data + 0x10u),
+                                                        *(u32*)(data + 0x14u),
+                                                        *(u32*)(data + 0x18u),
+                                                        *(u32*)(data + 0x1Cu));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 if (item == 0u && pointer_b >= 0x10000u &&
                                     pointer_b <= 0x02000000u - 8u) {
                                     u32 record_count = *(u32*)pointer_b;
@@ -309,6 +359,26 @@ void func_00165728(void* self_pointer, void* context_pointer)
             sly1_native_trace_font(138u, (u32)subdata,
                 *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu),
                 *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u));
+            if ((u32)self == 0x00847ACCu && i == 0) {
+                u32 pass;
+                sly1_native_trace_font(159u, (u32)subdata,
+                    *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu),
+                    *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u));
+                for (pass = 0; pass < 2u; ++pass) {
+                    u32 count = *(u32*)(subdata + 0x18u + pass * 4u);
+                    u32 buffer = *(u32*)(subdata + 0x20u + pass * 4u);
+                    u32 qword;
+                    if (count > 8u) count = 8u;
+                    if (buffer < 0x10000u || buffer > 0x02000000u - 0x80u)
+                        continue;
+                    for (qword = 0; qword < count; ++qword) {
+                        u32 address = buffer + qword * 0x10u;
+                        sly1_native_trace_font(143u + pass * 8u + qword,
+                            address, *(u32*)address, *(u32*)(address + 4u),
+                            *(u32*)(address + 8u), *(u32*)(address + 0xCu));
+                    }
+                }
+            }
         }
     }
 

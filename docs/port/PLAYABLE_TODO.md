@@ -12,6 +12,21 @@ retail `func_001EE900` constructor now links the level's class-`0x86` object at
 reports zero scene vertices, frame state 3, and game mode 0. The port is not
 playable.
 
+**Latest render-data follow-up (2026-11-07):** the US retail allowlist now
+includes `func_001DC9A0` (800 bytes; still unmatched in the decomp), increasing
+the generated assembly total to 222 while keeping zero stubs. A direct-level
+render-list entry at `0x00847ce0` has three primary records and is not skipped.
+The first record resolves through `0x00844450` to structures at `0x0083fc60`
+and `0x0083f4b0`; the latter references nonzero packed blocks at
+`0x0064d6e0`, `0x0064d8e0`, and `0x0064dae0`. Retail `func_001662A8` emits two
+8-qword command buffers but neither references those blocks; their mesh role
+and owner are unproven. Next trace the section descriptors' producer and
+consumer, and find why the render-list address fields are zero. The latest
+bounded launch still reports frame state 3/game mode 0 and zero scene vertices.
+Evidence: `/tmp/sly-native-direct0100-mesh-sections.log`,
+`/tmp/sly-native-direct0100-packet-dump.log`, and
+`/tmp/sly-native-direct0100-dc9a0-asm.log`.
+
 **Retail object-reader closure (2026-11-07):** the latest US assembly
 allowlist also selects reached resource and object routines
 `func_001240F8`, `func_0011F850`, `func_0012BC38`, `func_00124868`,
