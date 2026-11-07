@@ -251,6 +251,21 @@ The UI trace still reports zero visible text, and this does not establish that
 the game title or a playable scene is visible. Next, diagnose why ordinary
 startup remains at frame state 3/game mode 0 with menu page `-1`, then confirm
 visible title/scene output. Run log: `/tmp/sly-native-retail-15320-trace.log`.
+
+**Black-frame capture and object-reader assembly (2026-11-07):** renderer
+capture confirms the window is still black: all eight dumped 960x720 frames
+contain one color (black). Runtime diagnostics report frame state 3, game mode
+0, menu page `-1`, and zero visible text. The 240 submitted vertices are not
+evidence of visible graphics. `func_0011ECB8` was another reached no-op despite
+having US retail assembly; selecting that assembly removes its warning and
+keeps startup running, but does not change the black result. A 15-second trace
+drained all 40 queued frame nodes with valid links and no list fault. The
+current hostgen selection builds 2,040 C functions and 208 US assembly
+functions, zero stubs. Next trace the title/movie/state transition and identify
+which reached no-op or missing resource prevents entry into the title scene;
+do not treat rendering the frame-transfer rectangle as a scene. Evidence:
+`/tmp/sly-native-retail-11ecb8.log`, `/tmp/sly1-native-frame-00.ppm` through
+`/tmp/sly1-native-frame-07.ppm`.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
