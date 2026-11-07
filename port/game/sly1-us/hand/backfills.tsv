@@ -154,6 +154,7 @@ func_0011A358	native_c/resource_value_parser.c
 func_0011A080	native_c/resource_value_parser.c
 func_0011EC40	native_c/resource_value_parser.c
 func_0011E680	native_c/resource_descriptors.c
+func_001BAC30	native_c/func_001BAC30.c
 func_00109488	native_c/func_00109488.c
 func_00160E80	native_c/collision_mesh_copy.c
 func_00160EA0	native_c/collision_mesh_copy.c

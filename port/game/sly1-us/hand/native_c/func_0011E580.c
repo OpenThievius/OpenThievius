@@ -21,6 +21,9 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
     void* attachment;
     void* owner_list;
 
+    sly1_native_trace_font(59, (u32)type, (u32)owner, (u32)parameter,
+                           (u32)mode, (u32)listener_id);
+
     /* D_00247448 is the 149-entry retail descriptor table (through 0x94). */
     if (type < 0 || type >= 0x95 || (type != 0x6C && owner == 0)) return 0;
 

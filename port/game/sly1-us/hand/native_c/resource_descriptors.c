@@ -18,6 +18,7 @@ void func_0011B7D0(void* value, void* payload);
 void func_0011B818(void* value, void* payload);
 void func_0011B060(void* value, s32 mode);
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4);
 
 typedef struct ResourceDescriptor {
     s32 type;
@@ -103,6 +104,8 @@ static u32 descriptor_target(ResourceDescriptor* descriptor, void* object) {
 
 void func_0011E680(void* object, ResourceDescriptor* descriptor, void* reader) {
     const u32 flags = descriptor->flags;
+    sly1_native_trace_font(60u, (u32)object, (u32)descriptor, (u32)reader,
+                           (u32)descriptor->type, flags);
     if (flags & 0x400u) {
         ResourceValue values[32];
         ResourceValue result;

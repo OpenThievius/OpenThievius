@@ -86,6 +86,16 @@ scratchpad around animation-table parsing for inspection. Keep all of these
 diagnostics and heuristics port-only; validate the asset layout before
 replacing them with matched C.
 
+`func_001BAC30` is a port-only C reconstruction of the retail class-4 resource
+reader, kept in `backfills.tsv` because the decomp checkout has no C or ASM for
+it. Its retail body consumes collision meshes, transforms, and indexed arrays.
+The native trace showed that the prior no-op left the resource cursor inside
+this payload, so the next record was misread as factory type `0x6e1a` and a null
+virtual call followed. The current backfill aims to restore that stream
+consumption; validate its cursor against the retail reader before treating the
+loader as fixed. Remove this entry when matching decompilation becomes
+available.
+
 `func_001A9F78` runs the derived constructors for the 37 global screen
 elements after screen resources load. The decomp checkout has the matching
 loop in `001A8000.cpp`, but its US function status is still `no-c`, so hostgen
