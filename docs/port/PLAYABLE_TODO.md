@@ -1859,3 +1859,23 @@ under `hand/native_c/` and register it in `backfills.tsv`. The recent changes
 are isolated port backfills and do not alter `sly1-decomp`. Last native log:
 `/tmp/sly-native-startup-worker-active.log` (transient; findings are recorded
 here). The game remains unplayable.
+
+**Async callback assembly follow-up (2026-11-07):** The previous checkpoint
+identified `func_0018D0A0` as a generated no-op. Hostgen now translates exact
+NTSC-U retail assembly for that callback and the required helpers
+`func_0018BD00`, `func_00209CB8`, and `func_001F6B70` (`PollSema`). The native
+build reports 2,043 translated functions, 221 assembly translations, and zero
+stubs. A 15-second native run no longer reports `func_0018D0A0` as missing and
+shows auxiliary threads 14 and 15 at `func_001F6B70`. This confirms the worker
+path is running into its semaphore-poll path; it does not point to a movie or
+scene request. Splash is still the only resource read, `game_mode=0`,
+`load_request=0`, no movie or scene gate, and `visible_text=0`. The window
+continues to display the intentional black clear. Evidence:
+`/tmp/sly-native-callback-asm.log` (transient).
+
+Do not spend the next graphics pass extending this generic callback path. The
+current visual lead remains the renderable-object and scene packet path: trace
+the first valid mesh-owning object through activation and identify why the
+render submission contains no scene geometry. Separately, normal startup still
+does not request title/movie content. All assembly selections are in the port
+hostgen configuration; `sly1-decomp` remains untouched.

@@ -40,10 +40,13 @@ functions have no usable matching C in the native build yet. The SIF memory-card
 probe called by `func_0018B580` remains on the native unavailable-service path.
 Keep these replacements here so matching decomp C can replace them later.
 
-The native kernel bridge now maps the retail `CreateThread` and `iSignalSema`
-wrappers used by this path. A bounded startup trace confirms guest worker
-threads are created and enter `func_0018D0A0`; that callback currently has no
-usable C and is still a generated no-op. The window remains on the black clear.
+The native kernel bridge maps the retail `CreateThread` and `iSignalSema`
+wrappers used by this path. Matching C is still unavailable for
+`func_0018D0A0`, `func_0018BD00`, and `func_00209CB8`; hostgen now translates
+their exact NTSC-U retail assembly, along with the `PollSema` wrapper
+`func_001F6B70`. A bounded startup run reaches the auxiliary semaphore-poll
+threads without the earlier no-C warning. This removes no scene-rendering
+blocker: the window remains on the black clear.
 
 These replacements cover the persistent frame loop, state-transition helper,
 frame callback setup, queued display worker, loader
