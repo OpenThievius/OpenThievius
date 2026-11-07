@@ -1054,6 +1054,20 @@ this corrects a latent parser bug but does not explain the empty level.
 
 Exact NTSC-U translation is now selected for `func_001B8540`, a reached VU
 bounds routine; its no-C warning is gone, but the forced-level root and vertex
-counts remain unchanged. The current build reports 2,050 generated C
-functions, 147 retail-assembly translations, and zero stubs; the decomp
+counts remain unchanged. Exact NTSC-U translation is also enabled for
+`func_001B4688`, the resource-key table lookup called by `func_00139F80`.
+This removes another no-op stub, but the forced-level root and vertex counts
+remain unchanged. The current build reports 2,050 generated C functions, 148
+retail-assembly translations, and zero stubs; the decomp
 checkout remains clean and current at `e1b39f1`.
+
+The latest bounded direct-level trace is
+`/tmp/sly-native-direct0100-lookup-b4688.log`. It still has two base world-root
+objects, zero root children, zero vertices/image tags/image qwords, and
+`scene_gate=0` / `game_mode=0`. The next useful task is to inspect retail
+`func_0011B008` before changing its port-only implementation in
+`resource_value_parser.c`: the current backfill writes 16 bytes, while the
+nearby retail value-array path uses an 8-byte stride. Confirm the exact retail
+clear size and callers, then fix the backfill only if the assembly supports it.
+Keep all such compatibility/backfill code under `hand/native_c`; do not modify
+the sibling `sly1-decomp` checkout.

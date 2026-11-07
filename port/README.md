@@ -29,7 +29,7 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
 standalone command defaults to `--asm off`. The native CMake launcher enables
 the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
-with matching C are skipped automatically; the current report translates 147
+with matching C are skipped automatically; the current report translates 148
 functions from retail instructions. Generated C stays in the
 ignored build tree, separate from both matched decomp C and the port's
 handwritten C backfills. Set
@@ -38,7 +38,7 @@ contain the assembly directory. The current build uses matched C and retail
 assembly from the local `sly1-decomp` checkout at `e1b39f1`.
 
 The latest native hostgen run against `e1b39f1` reads 185 units and translates
-2,050 C functions plus 147 retail-assembly functions. It lists 2,665 functions
+2,050 C functions plus 148 retail-assembly functions. It lists 2,664 functions
 without C, has 12 unreadable units, and emits zero stubs. The build uses
 `--allow-unreadable`, so those units are omitted. Seven stream readers and two
 refill helpers from unreadable unit `00134000` are now translated from retail
