@@ -33,6 +33,14 @@ document is an ordered work plan, not a claim of playable progress. Work is
 active on
 wip/native-sly-port and stays in the port repo.
 
+A 2026-11-07 bounded trace widened the opt-in world-list callback sample from
+8 to 64 records. It captured all 12 entries: each dispatches through
+`func_00125C90`, and each sampled local basis is identity. No additional
+render callback appeared; sampled frames still report zero scene vertices.
+This rules out a trace cap hiding a different callback, but object ownership
+and the reason these entries do not submit geometry remain unknown. The
+diagnostic is enabled only with `OPENRAC_TRACE_FONT=1`.
+
 ## Assessment
 
 The project has useful extraction, host generation, platform and rendering
