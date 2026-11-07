@@ -177,7 +177,9 @@ void func_00138F28(void* world_ptr, void* collider_ptr)
             accepts = other != 0 && collider_accepts(collider, other);
             if (!accepts && other != 0)
                 accepts = collider_accepts(other, collider);
-            func_001385A0(world_ptr, (void*)(collider + 0x480),
+            /* Retail loads the table handle stored in the collider at +0x480;
+             * passing the field address makes the contact-matrix index invalid. */
+            func_001385A0(world_ptr, (void*)*(u32*)(collider + 0x480),
                           (void*)current, accepts ? 0 : 8,
                           accepts ? 8 : 0);
         }
