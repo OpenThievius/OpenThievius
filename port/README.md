@@ -37,8 +37,8 @@ handwritten C backfills. Set
 contain the assembly directory. The current build uses matched C and retail
 assembly from the local `sly1-decomp` checkout at `e1b39f1`.
 
-The latest hostgen run against `e1b39f1` reads 185 units and translates 2,043 C
-functions plus 109 retail-assembly functions. It lists 2,705 functions without
+The latest hostgen run against `e1b39f1` reads 185 units and translates 2,044 C
+functions plus 117 retail-assembly functions. It lists 2,697 functions without
 C, has 12 unreadable units, and emits zero stubs. The build uses
 `--allow-unreadable`, so those units are omitted. Seven stream readers and two
 refill helpers from unreadable unit `00134000` are now translated from retail

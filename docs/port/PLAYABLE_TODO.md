@@ -835,3 +835,23 @@ but do not yet reach the scene mesh path. The trace is
 `/tmp/sly-native-retail-init-path.log`; current hostgen coverage is 2,044 C
 functions, 114 retail assembly translations, 2,700 functions without C, and
 12 unreadable units. Decomp checkout remains unchanged at `e1b39f1`.
+
+## Native font-initialization follow-up (2026-11-07)
+
+The normal-startup trace showed 37 global UI objects but an empty font
+registry. Retail assembly for `func_001B40C8` clears and initializes the font
+and image registries and their supporting pools; hostgen had left this
+function as a no-op. The native build now selects this exact US retail
+translation. The same trace exposed `func_001B2DF8` as another reached no-C
+stub. Its retail routine reads the font-table count and calls `func_0015D8A8`
+for each font record, which writes entries into the font registry. Both are
+now selected from exact US retail assembly, along with `func_001B40C8`. The
+build reports 2,044 C functions, 117 assembly translations, zero stubs, 2,697
+functions without C, and 12 unreadable units.
+
+A fresh 12-second native startup run no longer reports `func_001B2DF8` as a
+no-op, confirming it runs, but still ends with font count 0, zero visible
+text, and zero scene vertices. The remaining font issue is in the table input
+or its count, or a later reset; trace that boundary before changing rendering.
+Trace: `/tmp/sly-native-font-parser-assembly.log`. The decomp checkout remains
+unchanged; all C compatibility code stays in the port backfill directory.
