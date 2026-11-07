@@ -1306,23 +1306,29 @@ at `0x193790`. Both file and guest cursor deltas are `0xa01`, so this is
 consistent with consuming the intervening serialized payload. The raw bytes
 are genuine extracted resource data, and the native reader reaches the
 matching sequence. Stop investigating this as a ring-refill fault. Next
-instrument the owner table row at allocation, after parsing record `0xef`, and
-immediately before `func_00165AE8` to find when the companion row's `+4` word
-becomes `0x3f800000`; that is the invalid source passed to `func_0018D568`.
-Latest runtime trace remains `/tmp/sly-native-animation-bounds-trace.log`.
+later row-lifecycle and renderer-write probes supersede the proposed ring
+refill and owner-row checks below. Latest runtime trace remains
+`/tmp/sly-native-animation-bounds-trace.log`.
 
-**Row lifecycle trace (2026-11-07):** additional probes now show the precise
-failure sequence. The table allocation is `0x13290` bytes and row 239 begins
-zeroed. Nested parsing later stores a valid auxiliary pointer (`0x00d18060`)
-in row 239 at `+4`. At the end of parsing record 239, that same word has
-become `0x3f800000` (float 1.0). Record 240 then copies the row correctly;
-`func_00165AE8` subsequently treats the float as a pointer and faults in
-`func_0018D568`. This rules out the row lookup, source-row copy, ring refill,
-and initial table allocation as the overwrite site. The next step is to trace
-writes during the remainder of record 239's nested/resource processing and
-identify the function that replaces the auxiliary pointer with parsed data.
-Keep any corrective C in the port's backfill/override layer and record the
-upstream function it can replace. Runtime probes are opt-in under
-`OPENRAC_TRACE_FONT=1`; local logs `/tmp/sly-native-row-mutation.log` and
-`/tmp/sly-native-row-writes.log` are not in Git. The launcher still faults
-before rendering any visible scene.
+**Row lifecycle and renderer-write trace (2026-11-07):** the `0x13290`-byte
+table starts with row 239 zeroed; nested parsing stores a valid auxiliary
+pointer (`0x00d18060`) at row `+4`. The copy for record 240 is correct. A
+later translated renderer call, `func_00164868`, overwrites the word with
+float `1.0` while writing a 12-byte-stride vector output. Its destination
+pointer starts at `0x00cf4fd0`, which lies inside the same 40-byte-row table;
+the write at `0x00cf4ffc` lands on row 239 `+4`. The routine loops over 84
+vectors (`0x54`), so the output range crosses several table rows. The
+`func_00165AE8` source-copy path then treats the overwritten float as a pointer
+and faults in `func_0018D568`.
+
+The invalid destination was already present in the callee's guest-stack
+scratch slot at `0x0064bf60` before the relevant call (`0x0064c040` caller SP).
+It was not the thread stack overlapping the table: the native worker thread
+was configured with stack `0x006056d0` and size `0x20000`. The immediate next
+task is to identify which preceding call seeds or reuses the `0x00cf4fd0`
+scratch pointer. `func_00164868` remains unmatched in sly1-decomp, so keep any
+future C replacement port-only and replaceable; do not suppress the invalid
+copy or edit the translated retail assembly as a fix. The focused local trace
+is `/tmp/sly-native-caller-origin-filtered.log`; earlier row probes are in
+`/tmp/sly-native-row-mutation.log` and `/tmp/sly-native-row-writes.log` (not
+tracked). The native launcher still exits before showing game graphics.
