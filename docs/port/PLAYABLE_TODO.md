@@ -1387,3 +1387,22 @@ port C and do not alter sly1-decomp. The clean native build succeeds with 208
 retail assembly translations and zero hostgen stubs. The window remains black,
 with no visible scene vertices; next trace the `0x08000000` node through its
 owner and creator before another graphics change.
+
+## Restart handoff (2026-11-07)
+
+Current branch: `wip/native-sly-port`, last pushed commit `310594e`. The
+working tree was clean when this handoff was written. To resume, first inspect
+`func_0011A6C0` and its caller `func_0011A4D8` in the decomp, then find where
+the relevant keyed-tree global (candidate `D_00259F38`) is initialized and
+populated. The last native run faults while `func_0011A4D8` follows a child
+pointer to `0x08000000`; verify the tree and child pointers at the call site
+before changing runtime behavior. Preserve any replacement C only in the port
+repo's `hand/native_c` and register it through `hand/overrides.tsv` or
+`hand/backfills.tsv`, as appropriate. Do not modify sly1-decomp.
+
+After diagnosis, rebuild with
+`cmake --build build/port --target port_native -j2` and run the native launcher
+with a bounded timeout. The native run is authorized; do not use an emulator.
+Update this handoff and commit/push a focused checkpoint after a confirmed
+change. Current visible result remains a black window with zero scene vertices,
+so the project is not yet at a graphics-ready or playable state.
