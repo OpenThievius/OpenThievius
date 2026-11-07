@@ -531,29 +531,46 @@ def prepare_c_view(source, version):
                 for old, new in (
                     ("Cell_11C3C8* func_0011C3C0(void);",
                      "Cell_11C3C8* func_0011C3C0(u8* base);"),
-                    ("s32 func_0011C3C8(void)\n{\n    return GetPoolEntryHeader()->value == 0;\n}",
-                     "s32 func_0011C3C8(u8* base)\n{\n    return GetPoolEntryHeader(base)->value == 0;\n}"),
+                    ("s32 func_0011C3C8(void)\n{\n    return func_0011C3C0()->value == 0;\n}",
+                     "s32 func_0011C3C8(u8* base)\n{\n    return func_0011C3C0(base)->value == 0;\n}"),
                 ):
                     if old not in text:
                         raise ValueError("0011C000: pool helper ABI shape changed")
                     text = text.replace(old, new, 1)
+
+                # Newer decomp snapshots also define the overloaded base
+                # helper later in this C++ unit. The C staging view has one
+                # symbol for both signatures, so give it the shared cell
+                # layout used by the corrected caller above.
+                old = (
+                    "struct Entry_11C3C0 { u8 pad[8]; };\n\n"
+                    "Entry_11C3C0* func_0011C3C0(u8* base)\n"
+                    "{\n    return (Entry_11C3C0*)(base - 8);\n}"
+                )
+                new = (
+                    "Cell_11C3C8* func_0011C3C0(u8* base)\n"
+                    "{\n    return (Cell_11C3C8*)(base - 8);\n}"
+                )
+                if old in text:
+                    text = text.replace(old, new, 1)
+                elif "Entry_11C3C0* func_0011C3C0(u8* base)" in text:
+                    raise ValueError("0011C000: overloaded pool helper definition changed")
 
                 # Retail 0011FFA8 tail-calls the void 0011F6B0 worker and
                 # returns its final v0. The worker's fixed three-iteration
                 # loop leaves v0=0 at return; the staged helper declaration
                 # incorrectly made this a void expression. Keep the wrapper's
                 # retail return value without changing the shared worker ABI.
-                old = (
-                    "void* func_0011FFA8(T2196_6E8* self, u32 a1, u32 a2, u32 a3, u32 a4)\n"
-                    "{\n    return func_0011F6B0(self->axis, a1, a2, &self->base, a3, a4);\n}"
+                pattern = re.compile(
+                    r"(void\*\s+func_0011FFA8\([^)]*\)\s*\{\s*)"
+                    r"return\s+func_0011F6B0\(([^;]+)\);\s*(\})"
                 )
-                new = (
-                    "void* func_0011FFA8(T2196_6E8* self, u32 a1, u32 a2, u32 a3, u32 a4)\n"
-                    "{\n    func_0011F6B0(self->axis, a1, a2, &self->base, a3, a4);\n    return 0;\n}"
+                text, count = pattern.subn(
+                    lambda m: m.group(1) + "func_0011F6B0(" + m.group(2)
+                    + ");\n    return 0;\n" + m.group(3), text, count=1
                 )
-                if old not in text:
+                if count != 1:
                     raise ValueError("0011C000: rotation wrapper ABI shape changed")
-                text = text.replace(old, new, 1)
 
             if cpp.stem == "0018C000":
                 for tag, method, args, call in (
@@ -633,23 +650,24 @@ def prepare_c_view(source, version):
                     text,
                     flags=re.DOTALL,
                 )
-                if method is None:
+                if method is not None:
+                    body = re.sub(r"\bf13\b", "self->f13", method.group("body"))
+                    replacement = (
+                        "struct St_12B2F8 {" + method.group("head") + "};\n"
+                        "static s32 St_12B2F8_Set(struct St_12B2F8* self, s32 v) {"
+                        + body + "\n}"
+                    )
+                    text = text[:method.start()] + replacement + text[method.end():]
+                    for old, new in (
+                        ("st->Set(-1)", "St_12B2F8_Set(st, -1)"),
+                        ("((St_12B2F8*)self->f2C0)->Set(3)",
+                         "St_12B2F8_Set((St_12B2F8*)self->f2C0, 3)"),
+                    ):
+                        if old not in text:
+                            raise ValueError("00128000: St_12B2F8::Set call site changed")
+                        text = text.replace(old, new, 1)
+                elif "St_12B2F8" in text:
                     raise ValueError("00128000: St_12B2F8::Set shape changed")
-                body = re.sub(r"\bf13\b", "self->f13", method.group("body"))
-                replacement = (
-                    "struct St_12B2F8 {" + method.group("head") + "};\n"
-                    "static s32 St_12B2F8_Set(struct St_12B2F8* self, s32 v) {"
-                    + body + "\n}"
-                )
-                text = text[:method.start()] + replacement + text[method.end():]
-                for old, new in (
-                    ("st->Set(-1)", "St_12B2F8_Set(st, -1)"),
-                    ("((St_12B2F8*)self->f2C0)->Set(3)",
-                     "St_12B2F8_Set((St_12B2F8*)self->f2C0, 3)"),
-                ):
-                    if old not in text:
-                        raise ValueError("00128000: St_12B2F8::Set call site changed")
-                    text = text.replace(old, new, 1)
 
             if cpp.stem in {"00134000", "00180000", "001DC000", "file_1963D8"}:
                 # This setter is unused here; retain the record field layout.
@@ -702,14 +720,15 @@ def prepare_c_view(source, version):
                     "f32 f14, f32 f15, f32 f16, void* a1, PlacedObject* a2, "
                     "s32 a3, void* a4, s32 a5) __asm__(\"func_001BFCD8\");"
                 )
-                if mixed_decl not in text:
-                    raise ValueError("00124000 sound call signature changed")
-                text = text.replace(mixed_decl, mixed_alias, 1)
                 sound_call = "StartSoundEffect(q->f00, q->f04, q->f08, q->f0C, q->f10, q->f20, &q->f1C, self, 0, q->b14, 0);"
-                if sound_call not in text:
-                    raise ValueError("00124000 mixed sound call changed")
-                text = text.replace(sound_call, sound_call.replace(
-                    "StartSoundEffect(", "func_001BFCD8__mixed("), 1)
+                if mixed_decl in text:
+                    text = text.replace(mixed_decl, mixed_alias, 1)
+                    if sound_call not in text:
+                        raise ValueError("00124000 mixed sound call changed")
+                    text = text.replace(sound_call, sound_call.replace(
+                        "StartSoundEffect(", "func_001BFCD8__mixed("), 1)
+                elif "StartSoundEffect(" in text:
+                    raise ValueError("00124000 sound call has an unrecognized ABI")
             if cpp.stem == "file_1963D8":
                 text = text.replace(
                     "void* func_001925F0(void);",
@@ -815,7 +834,12 @@ def run_hostgen(source, version, asm, native_asm=False, asm_source=None):
         report = json.loads((out / "report.json").read_text())
         required = set(json.loads(config.read_text()).get("asm", {}).get("only", []))
         translated = set(report.get("from_assembly", {}))
-        missing = sorted(required - translated)
+        # Keep the list useful as decomp C coverage grows: a configured
+        # assembly fallback is no longer required once hostgen finds matching
+        # C for that symbol. `without_c_places` is the report's authoritative
+        # set of functions still missing C.
+        still_missing_c = set(report.get("without_c_places", {}))
+        missing = sorted((required & still_missing_c) - translated)
         if missing:
             print("error: selected retail assembly was not translated: " + ", ".join(missing)
                   + "; set --asm-source to a checkout with asm/us/text.s", file=sys.stderr)
