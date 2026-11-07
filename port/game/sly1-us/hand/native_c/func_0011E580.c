@@ -8,6 +8,8 @@ void* func_001C1390(s32 listener_id, void* owner);
 void* func_00159F20(void* owner, s32 mode);
 void func_00152470(void* list, void* object);
 void sly1_native_call_constructor(u32 address, u32 object);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
                     s32 listener_id) {
@@ -55,5 +57,7 @@ void* func_0011E580(s32 type, void* owner, void* parameter, s32 mode,
     if (constructor_address != 0) {
         sly1_native_call_constructor(constructor_address, (u32)object);
     }
+    sly1_native_trace_font(57, (u32)type, (u32)object, (u32)owner,
+                           (u32)parameter, (u32)mode);
     return object;
 }

@@ -43,16 +43,72 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 57> traces{};
+    static std::array<std::atomic<unsigned>, 58> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
-    const unsigned limit = stage == 35 || (stage >= 50 && stage <= 53) ||
-        stage == 55 || stage == 56
-        ? 64u : limits[stage];
+    const unsigned limit = stage == 57 ? 256u :
+        (stage == 35 || (stage >= 50 && stage <= 53) ||
+         stage == 55 || stage == 56 ? 64u : limits[stage]);
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+    if (stage == 57 && a0 == 0x4Du &&
+        std::getenv("OPENRAC_TRACE_OBJECTS") != nullptr) {
+        static std::atomic<unsigned> class4d_snapshots{};
+        if (class4d_snapshots.fetch_add(1, std::memory_order_relaxed) < 2u) {
+            std::uint32_t object_offset = 0;
+            std::uint32_t descriptor_offset = 0;
+            if (trace_guest_range(a1, 4u, &object_offset)) {
+                std::uint32_t descriptor = 0;
+                std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+                if (trace_guest_range(descriptor, 0x10u, &descriptor_offset)) {
+                    std::uint32_t object_size = 0;
+                    std::memcpy(&object_size,
+                                openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+                    if (object_size <= 0x1000u &&
+                        trace_guest_range(a1, object_size, &object_offset)) {
+                        std::cerr << "[factory-object] class=4d object=" << std::hex
+                                  << a1 << " descriptor=" << descriptor << " size="
+                                  << object_size << '\n';
+                        for (std::uint32_t offset = 0; offset + 4u <= object_size;
+                             offset += 4u) {
+                            std::uint32_t value = 0;
+                            std::memcpy(&value,
+                                        openrac_guest_base + object_offset + offset, 4u);
+                            if (value != 0)
+                                std::cerr << "  +" << std::setw(3) << std::setfill('0')
+                                          << std::hex << offset << '=' << std::setw(8)
+                                          << value << '\n';
+                        }
+                        std::cerr << std::dec << std::setfill(' ');
+                    }
+                }
+            }
+        }
+    }
+    if (stage == 57 && a0 == 1u &&
+        std::getenv("OPENRAC_TRACE_OBJECTS") != nullptr) {
+        static std::atomic<unsigned> class1_snapshots{};
+        if (class1_snapshots.fetch_add(1, std::memory_order_relaxed) < 4u) {
+            std::uint32_t object_offset = 0;
+            std::uint32_t descriptor_offset = 0;
+            if (trace_guest_range(a1, 4u, &object_offset)) {
+                std::uint32_t descriptor = 0;
+                std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+                if (trace_guest_range(descriptor, 0x4Cu, &descriptor_offset)) {
+                    std::uint32_t size = 0, constructor = 0, reader = 0;
+                    std::memcpy(&size, openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+                    std::memcpy(&constructor, openrac_guest_base + descriptor_offset + 0x10u, 4u);
+                    std::memcpy(&reader, openrac_guest_base + descriptor_offset + 0x38u, 4u);
+                    std::cerr << "[factory-object] class=1 object=" << std::hex << a1
+                              << " descriptor=" << descriptor << " size=" << size
+                              << " constructor=" << constructor << " reader=" << reader
+                              << " owner=" << a2 << " mode=" << a4 << std::dec << '\n';
+                }
+            }
+        }
+    }
     if (stage == 23 && a2 <= 0x10000u &&
         std::getenv("OPENRAC_DUMP_LEVEL_WINDOW") != nullptr) {
         std::uint32_t offset = 0;
@@ -150,9 +206,9 @@ std::uint32_t trace_world_list_count(std::uint32_t world, std::uint32_t list_off
     return count;
 }
 
-std::array<std::uint32_t, 5> trace_world_list_classes(std::uint32_t world,
-                                                      std::uint32_t list_offset) {
-    std::array<std::uint32_t, 5> classes{};
+std::array<std::uint32_t, 32> trace_world_list_classes(std::uint32_t world,
+                                                       std::uint32_t list_offset) {
+    std::array<std::uint32_t, 32> classes{};
     std::uint32_t list_address = 0;
     if (!trace_guest_range(world + list_offset, 12u, &list_address)) return classes;
     std::uint32_t node = 0;
@@ -947,6 +1003,15 @@ int main(int argc, char** argv) {
                 for (const std::uint32_t class_id :
                      trace_world_list_classes(current_object, 0x1C54u))
                     std::cerr << std::hex << class_id << ',';
+                for (const std::uint32_t list_offset :
+                     {0x54u, 0x60u, 0x6Cu, 0x78u, 0x1B7Cu, 0x1C54u}) {
+                    std::cerr << " list_" << std::hex << list_offset << "_classes=";
+                    for (const std::uint32_t class_id :
+                         trace_world_list_classes(current_object, list_offset)) {
+                        if (class_id == 0) break;
+                        std::cerr << std::hex << class_id << ',';
+                    }
+                }
                 const auto class51_fields =
                     trace_first_world_object_fields(current_object, 0x1BE8u);
                 std::cerr << " class51_first=";
