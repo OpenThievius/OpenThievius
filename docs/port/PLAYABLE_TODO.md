@@ -1079,9 +1079,19 @@ With `OPENRAC_TRACE_FONT=1`, the trace brackets that exact retail callback-list
 parser: the selected level enters at cursor `0x70001854` with 1,964 bytes
 remaining and returns with cursor `0x70000000` / remaining `-1`. This routine
 is not the scene-object list parser, so its cursor reset does not explain the
-empty world by itself. Check whether the callback list intentionally consumes
-the rest of the resource or hits a reader/refill error, then continue tracing
-the first actual renderable object's creation and owner-list insertion. Do not
-replace exact retail callback assembly with a speculative object parser.
-Compatibility code remains under `hand/native_c`; the sibling
-`sly1-decomp` checkout is unchanged.
+empty world by itself. The same run records these factory requests with the
+selected world as owner: class `0x6d`, ten `0x1e`, forty `0x4d`, two `0x51`, one
+`0x86`, one `0x04`, and 110 class-0 records. The later world snapshot still
+shows only base root classes `0x6d` and `0x04`, zero root children, and update
+lists containing `0x1e`/`0x04`; the renderer has zero vertices and image
+transfers. Trace: `/tmp/sly-native-object-record-bracket.log`.
+
+This narrows the active gap to level asset/resource loading before scene
+submission: the current object factories are producing base, collision, and
+callback records, but no evidenced renderable class reaches a world list.
+Continue from the selected level's resource-key table and object factory
+records, identify which expected renderable class/resource is absent, then
+trace its reader/constructor/owner link. Do not treat `func_0011ECB8`'s
+callback-list count as a scene-object count or replace its exact retail
+assembly with a speculative parser. Compatibility code remains under
+`hand/native_c`; the sibling `sly1-decomp` checkout is unchanged.
