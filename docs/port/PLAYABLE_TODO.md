@@ -51,14 +51,10 @@ transition and resource callbacks that create renderable level objects remain
 unknown. Trace that path, then verify a real mesh pointer reaches the draw
 queue.
 
-The object-record override was not active in the preceding builds: hostgen
-combined its multi-function source file with the override copy and rejected a
-duplicated static helper, so the matched body won. `func_0011ECB8` now lives in
-its own port-only source file; the build reports 2,045 C and 108 retail
-assembly translations. A fresh direct-level run reaches this override, reads
-an object-record count of zero, completes loader stage 5, and still submits
-zero scene vertices. This is a better-defined checkpoint, but does not yet
-identify the mesh owner. The previously reported 6-vertex/0x880-face collision
+The old port-only `func_0011ECB8` override was removed after checking the exact
+US assembly. It reads per-object callback records; its count is not the scene
+object or mesh count. The speculative parser remains under `hand/superseded/`
+for trace history only. The previously reported 6-vertex/0x880-face collision
 record came from the earlier Splash resource (sector 820372), not the selected
 level resource (sector 867214); do not use it to diagnose the level mesh.
 
@@ -501,7 +497,11 @@ actual frame draw data, display chain, and the numerous missing-C callbacks
 around `func_001AD970`, rather than loader completion. Latest trace:
 `/tmp/sly-native-postload-trace.log`.
 
-## Follow-up: activate the object-record parser backfill (2026-11-07)
+## Historical: instrument the callback-list reader (2026-11-07; superseded)
+
+The investigation below predates the retail-assembly correction at the end of
+this document. `func_0011ECB8` was misidentified as an object-record parser;
+its count and alignment traces do not describe the level's scene-object list.
 
 The unguarded launch confirms the reader override is no longer needed: without
 it, Splash initialization still reaches `func_001DCEA0` stage 5 and the active
@@ -793,3 +793,33 @@ nonzero vertex stream, not merely an active world or populated update lists.
 Hostgen reports 2,043 C functions, 109 retail assembly translations, zero
 stubs, 2,705 functions without C and 12 unreadable units. The bounded trace is
 `/tmp/sly-native-retail-anim-loader4.log`.
+
+## Retail callback and DMA trace correction (2026-11-07)
+
+The old port-only `func_0011ECB8` parser is no longer in the active build. Exact
+US assembly confirms it reads per-object callback records; its zero count was
+not a scene-object or mesh count. The speculative parser and its unverified
+alignment heuristic are retained only under `hand/superseded/`. The native
+build now selects exact retail assembly for `func_0011ECB8`, `func_001AD970`,
+and `func_00202C38`; the last two were active runtime functions. Hostgen reports
+2,044 C translations, 111 assembly translations, zero stubs, 2,703 functions
+without C, and 12 unreadable units.
+
+A 10-second direct-level run reaches loader stage 5 and keeps world
+`0x0088d530` active, but still reports frame state 3, game mode 0, zero scene
+vertices, no registered fonts, and no visible text. The active world list
+counts are `1,c,c,a`; the root object has no children. This remains a black,
+non-playable frame.
+
+`OPENRAC_VIF_TRACE=1` captures a 48-byte VIF1 chain sourced from `0x00212110`.
+Its first DMA segment is an inline CNT tag with QWC 3, followed by END. The VIF
+stream contains opcode `0x40` at offset `0x14`. The [PS2SDK VIF command table](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
+does not define `0x40` as a command. Retail `func_002018E8` writes
+`VIF1_ERR=2`, leaving the invalid-command error unmasked according to the
+[EE User's Manual, VIF1_ERR](https://usermanual.wiki/Pdf/EEUsersManual.1748563585.pdf). Determine
+whether this is an intentional error probe or a malformed startup packet
+before changing native VIF behavior. It is a graphics-initialization lead, not
+proof that the level mesh path has been reached.
+
+Latest traces: `/tmp/sly-native-vif-failure-context.log` and
+`/tmp/sly-native-dmawait-retail.log`.

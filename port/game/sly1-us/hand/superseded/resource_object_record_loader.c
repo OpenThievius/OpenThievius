@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Port-only object-record parser, kept separate from matching decomp C. */
+/* Superseded speculative backfill; retained for history, never compiled. */
 #include "common.h"
 
 s32 func_00137D10(void* reader);

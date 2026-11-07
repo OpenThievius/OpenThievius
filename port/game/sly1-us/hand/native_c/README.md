@@ -73,15 +73,15 @@ call and the world loader reaches stage 5. Keep this port override separate;
 remove its override row when the matching implementation is hostable and
 validated against the same Splash resource.
 
-`resource_object_record_loader.c` explicitly overrides matched
-`func_0011ECB8`. Keep this override in its own source file: hostgen duplicates
-static helpers when an override shares a multi-function source with candidate
-backfills, which made it reject the override and select the matched body. Its
-port implementation records each serialized object
-record's slot, key, and callback, and handles the reader argument required by
-the retail `func_0013B598` path. It includes a narrowly conditioned one-byte
-alignment recovery based on an earlier Splash trace; the current bounded run
-does not exercise it because the selected level reports zero object records.
+`func_0011ECB8` now uses the configured NTSC-U retail assembly translation.
+The previous `resource_object_record_loader.c` backfill treated this callback
+list reader as a general object-record parser and added an unverified one-byte
+alignment heuristic. Retail assembly shows it only reads a callback count and,
+for each entry, a slot, key, and callback flag before invoking the object's
+virtual read callback. The old source remains outside the active backfill and
+override tables for reference; do not use its trace or zero count as evidence
+that the level has no scene geometry. The level mesh path is separate and is
+still unknown.
 Use `OPENRAC_DUMP_ANIMATION_WINDOW=1` with `OPENRAC_TRACE_LOADER=1` to dump the
 scratchpad around animation-table parsing for inspection. Keep all of these
 diagnostics and heuristics port-only; validate the asset layout before

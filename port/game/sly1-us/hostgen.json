@@ -198,10 +198,12 @@
       "func_0016B4A0",
       "func_001F1960",
       "func_001AD6A8",
+      "func_001AD970",
       "func_001B3040",
       "func_001B2F00",
       "func_001B4920",
-      "func_001B4980"
+      "func_001B4980",
+      "func_00202C38"
     ],
     "gp": "0x002832F0",
     "forward_unprototyped": true,

@@ -957,3 +957,25 @@ retail types and valid objects/vtables. The frame still has zero scene
 vertices, no registered fonts and no visible text. The next visual milestone
 is identifying and submitting the first actual level mesh; see
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
+
+## Retail callback and VIF trace correction (2026-11-07)
+
+The old port-only `func_0011ECB8` parser was removed from the active build and
+retained under `hand/superseded/`. Retail assembly proves it reads per-object
+callback records; its zero count was not a scene-object or mesh count. The
+native target now uses exact retail assembly for `func_0011ECB8`,
+`func_001AD970`, and `func_00202C38`. Hostgen reports 2,044 C translations,
+111 assembly translations, zero stubs, 2,703 functions without C, and 12
+unreadable units.
+
+A 10-second direct-level run still reaches stage 5 with active world
+`0x0088d530`, but reports zero scene vertices, zero registered fonts, zero
+visible text, frame state 3, and game mode 0. The startup trace also captures a
+48-byte inline VIF1 chain from `0x00212110`; opcode `0x40` at stream offset
+`0x14` is absent from the [PS2SDK VIF command table](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html).
+Retail startup writes `VIF1_ERR=2`, so the invalid-command mask appears unset.
+Confirm whether this packet intentionally exercises VIF error handling or is
+malformed before changing the native interpreter. This startup packet does not
+yet identify the missing level mesh producer. Traces:
+`/tmp/sly-native-vif-failure-context.log` and
+`/tmp/sly-native-dmawait-retail.log`.

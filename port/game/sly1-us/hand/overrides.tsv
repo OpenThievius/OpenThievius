@@ -9,7 +9,6 @@ func_0018D6F0	native_c/native_temp_arena.c
 func_0018D500	native_c/native_heap.c
 func_0018D5C0	native_c/native_heap.c
 func_0011E680	native_c/resource_descriptors.c
-func_0011ECB8	native_c/resource_object_record_loader.c
 func_001E4E80	native_c/func_001E4EA8.c
 func_001E4EA8	native_c/func_001E4EA8.c
 func_001B4A10	native_c/animator_loader_probe.c
