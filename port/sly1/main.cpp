@@ -1402,6 +1402,22 @@ int main(int argc, char** argv) {
                                     sizeof(page));
                         std::uint32_t update = 0;
                         std::uint32_t draw = 0;
+                        std::uint32_t state_264 = 0;
+                        std::uint32_t state_268 = 0;
+                        std::uint32_t state_26c = 0;
+                        std::uint32_t state_270 = 0;
+                        std::uint32_t state_274 = 0;
+                        std::uint32_t state_278 = 0;
+                        if (i == 17 &&
+                            object_physical <= openrac_guest_ram_size &&
+                            0x27Cu <= openrac_guest_ram_size - object_physical) {
+                            std::memcpy(&state_264, openrac_guest_base + object_physical + 0x264u, 4u);
+                            std::memcpy(&state_268, openrac_guest_base + object_physical + 0x268u, 4u);
+                            std::memcpy(&state_26c, openrac_guest_base + object_physical + 0x26Cu, 4u);
+                            std::memcpy(&state_270, openrac_guest_base + object_physical + 0x270u, 4u);
+                            std::memcpy(&state_274, openrac_guest_base + object_physical + 0x274u, 4u);
+                            std::memcpy(&state_278, openrac_guest_base + object_physical + 0x278u, 4u);
+                        }
                         const std::uint32_t vtable_physical =
                             openrac_guest_ram_address(vtable);
                         if (vtable != 0 && vtable_physical <= openrac_guest_ram_size &&
@@ -1421,7 +1437,16 @@ int main(int argc, char** argv) {
                         else std::cerr << "none";
                         std::cerr
                                   << ") mode=0x" << mode << " page=0x" << page
-                                  << std::dec << '\n';
+                                  << std::dec;
+                        if (i == 17) {
+                            std::cerr << " state264=0x" << std::hex << state_264
+                                      << " state268=0x" << state_268
+                                      << " state26c=0x" << state_26c
+                                      << " state270=0x" << state_270
+                                      << " state274=0x" << state_274
+                                      << " state278=0x" << state_278 << std::dec;
+                        }
+                        std::cerr << '\n';
                     }
                     wrote_ui_callback_snapshot = true;
                 }

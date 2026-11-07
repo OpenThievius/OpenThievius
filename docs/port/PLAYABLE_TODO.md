@@ -1989,3 +1989,18 @@ then zero vertices on later snapshots. The actual window stayed black, so
 this is not confirmed game artwork. Trace the producer, framebuffer and
 presentation path. Log: `/tmp/sly-native-ui-callbacks-ready.log` (transient).
 See `RESTART_CHECKPOINT.md` for the restart sequence and detailed readings.
+
+**Canonical decomp recheck (2026-11-08):** The configured checkout at
+`/home/reaper/Code/sly1-decomp` remains clean at `e1b39f1`, and its
+`ReaperOfVeriod` remote had no new commits. Canonical
+`OpenThievius/sly1-decomp` is at `cf97578`; the temporary read-only checkout is
+`/tmp/sly1-decomp-latest`. It adds `src/main/movie_player.cpp` with the Sly
+movie pipeline (`func_0018F198`, `func_0018F448`, and decode callbacks),
+`RunMainLoop` movie-queue draining plus `CreateMovieDecodeThread` in
+`src/main/main_loop.cpp`, and a message type 7 producer in
+`HandleStepSequenceMessage` (`src/main/file_14EE40.cpp`) that calls
+`QueueMovie`. The port still builds against the older configured checkout,
+so this C is not yet available to hostgen. On resume, sync that read-only
+input to canonical `cf97578`, then trace why the startup step sequence does
+not queue the opening movie after Splash. Do not change the decomp project or
+fake a movie queue event. The playable goal is paused.

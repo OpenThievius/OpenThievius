@@ -270,18 +270,53 @@ a first graphics milestone. Run log:
 `/tmp/sly-native-ui-callbacks-ready.log` (may disappear on restart). The
 diagnostic flag is opt-in; regular launches do not print the inventory.
 
+### Canonical decomp recheck (2026-11-08)
+
+The configured checkout `/home/reaper/Code/sly1-decomp` is clean at `e1b39f1`
+but its only remote is `ReaperOfVeriod/sly1-decomp`; fetching that remote showed
+no change. The canonical `OpenThievius/sly1-decomp` is now at `cf97578`
+(`Merge pull request #77 from OpenThievius/vu0-wave2`). It was inspected in a
+temporary read-only clone at `/tmp/sly1-decomp-latest`; neither that checkout
+nor the configured decomp working tree was changed by port work.
+
+The canonical source contains `src/main/movie_player.cpp`, including
+`func_0018F198` (`PlayMovie`), `func_0018F448` (`StartMovieStream`),
+sector-stream lookup, MPEG/IPU setup, and movie decode callbacks. Its
+`src/main/main_loop.cpp` drains queued movies with `PlayQueuedMovies` before
+world-load processing and again afterward; the startup initializer table also
+calls `CreateMovieDecodeThread`. In `src/main/file_14EE40.cpp`,
+`HandleStepSequenceMessage` sends message type 7 to
+`QueueMovie(g_moviePlayer, msg->f4.i)`. The concrete producer-side trace lead
+is to determine whether/where the startup step sequence posts type 7 and why
+the native run has no queued movie after Splash. These source files are absent
+from the older configured checkout, and the port build still consumes
+`/home/reaper/Code/sly1-decomp`; this C is therefore not yet used by the
+launcher. On resume, reconcile that checkout with canonical `cf97578` before
+making another movie-path port backfill.
+
+The user-provided 62-second PCSX2 capture shows the game go from launch black
+to the SCEE Presents card, animated opening, gameplay, and title prompt. The
+native state-object diagnostic narrows UI index 17 (`func_001E00B0` update /
+`func_001E0678` draw, object `0x0026e9f8`) to `+0x250=0`, `+0x260=0`,
+`+0x264=0`, `+0x268=0`, `+0x26c=0`, `+0x270=0`, `+0x274=0`,
+`+0x278=0x00218330`. At state 0, retail `func_001E00B0` returns when `+0x26c`
+is zero. This is a useful state lead, not proof this UI object itself starts
+the movie. Native log: `/tmp/sly-native-intro-state.log` (transient). The
+diagnostic build succeeded and the 12-second native run reached timeout
+without crashing; no emulator was used.
+
 ### Resume after restart
 
-1. Check `git status --short --branch`; this checkpoint and trace instrumentation
-   should be committed and pushed before restart.
-2. Inspect UI callback index 25 and the first-frame 240-vertex submission in
-   retail US assembly. Establish who activates the title/menu objects and
-   whether the transient quad is only a clear/overlay.
-3. Use exact retail assembly for reached no-C callbacks only when the trace
-   supports it. Keep functional C replacements under `hand/native_c/` and
-   registered in `backfills.tsv`; do not change `sly1-decomp`.
-4. Rebuild with `cmake --build build/port --target port_native -j2`, then use
-   the authorized native launcher only. No emulator.
+1. Check `git status --short --branch` and read this section before new probes.
+2. The playable goal is paused; wait for the user's resume before continuing
+   implementation or running another launcher session.
+3. On resume, reconcile the configured decomp checkout with canonical
+   `cf97578` without contributing changes to that repository. Then trace the
+   step-sequence message type 7 producer and movie queue in the native build;
+   do not synthesize a queue event.
+4. Keep functional port-only C under `hand/native_c/` and registered in
+   `backfills.tsv`; keep it separate from newly available matching decomp C.
+   No emulator.
 
 Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
 latest queue and worker evidence is near the end of the latter. `/tmp` logs
