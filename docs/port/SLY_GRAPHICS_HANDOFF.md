@@ -695,9 +695,17 @@ The exact retail animation table loader and its missing helpers are now used
 instead of the handwritten table-reader reconstruction. A bounded native run
 completes both Splash and selected-level loading through stage 5; the active
 world is `0x0088d530`, and animator records now have supported types and valid
-objects/vtables. This is progress in the loading path. The renderer still
+objects/vtables. The level's property table parses 62 entries, with group
+counts 193 and 10. These are resource-property records, not proof of scene
+geometry. The object-record parser then reads a count of zero at cursor
+`0x70000c9c`; the loader continues through stage 5, but the renderer still
 receives zero scene vertices, and the UI trace reports zero registered fonts
-and zero visible text. The current visual task is to identify a real level
-mesh owner and follow its callback to the native draw submission. Current
-coverage is 2,043 C functions plus 109 static retail-assembly translations;
-the 12-second trace is `/tmp/sly-native-retail-anim-loader4.log`.
+and zero visible text. The immediate blocker remains finding the serialized
+level geometry/object path and reaching its draw callback. Current generated
+coverage is 2,045 C functions plus 108 retail-assembly translations; the
+12-second diagnostic trace is `/tmp/sly-native-resource-link-trace.log`.
+
+The port-only resource-property backfill now has capped diagnostic stages
+151–154 to report its counts and first 24 returned resource pointers under
+`OPENRAC_TRACE_LOADER=1`. This diagnostic does not change decompilation source
+or retail behavior.

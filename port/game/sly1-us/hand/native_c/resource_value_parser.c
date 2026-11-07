@@ -284,17 +284,33 @@ void func_001C1190(void* context, void* reader) {
     s32 second_count;
     s32 index;
     s32 head;
+    static u32 trace_calls;
+    u32 trace_this_call = trace_calls < 4u;
+    extern void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+
+    /* Port-only diagnostics: correlate the resource key table with the
+     * stream cursor before deciding whether it can supply scene assets. */
+    if (trace_this_call) {
+        sly1_native_loader_stage(151, (u32)count, (u32)reader);
+        ++trace_calls;
+    }
 
     *(s32*)(self + 0x1EF0) = count;
     *(u32*)(self + 0x1EF4) = (u32)func_0018D500((u32)count << 3);
     first_count = func_00137C40(reader);
     second_count = func_00137C40(reader);
+    if (trace_this_call) {
+        sly1_native_loader_stage(152, (u32)first_count, (u32)reader);
+        sly1_native_loader_stage(153, (u32)second_count, (u32)reader);
+    }
 
     for (index = 0; index < count; ++index) {
         struct ResourcePair* entry =
             &((struct ResourcePair*)*(u32*)(self + 0x1EF4))[index];
         entry->key = (s32)func_0011BA28(reader);
         entry->value = 0;
+        if (trace_this_call && index < 24)
+            sly1_native_loader_stage(154, (u32)entry->key, (u32)reader);
         if (*(volatile s32*)0x00275714u != 0) {
             func_00138518(reader);
             func_00138518(reader);
