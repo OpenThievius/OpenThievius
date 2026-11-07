@@ -54,6 +54,20 @@ at `0x0085c400` contains the two STCYCL command qwords in the opposite order.
 Neither buffer contains the pointers at `0x0064d6e0`–`0x0064dae0`; this packet
 builder has not connected the packed blocks to its DMA references.
 
+A native GDB hardware watchpoint on guest `0x0064d6e0`, armed before the
+direct-level boot, fired during the reader copy path
+`func_001DCEA0 -> func_001DBA38 -> func_00137A60 -> func_0018D800`. At the
+copy routine the arguments were destination `0x0064cae0`, size `0x0c00`, and
+the host-mapped source buffer; the watched block is exactly `0x0c00` bytes
+after that destination. `func_001DBA38` advances its reader by `0x10`, then
+reads `D_00275720` bytes into `D_00275718`. This confirms the watched bytes
+arrive through direct-level resource parsing. Two sample blocks also matched
+bytes in both the direct-level and Splash resource files in an offline search,
+suggesting shared packed data, but the files and exact offsets need to be
+rechecked before relying on that clue. Neither this nor the watchpoint
+identifies the block format or its consumer; do not assume these are mesh
+vertices.
+
 Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
 are initialization traffic, not evidence of a rendered level.

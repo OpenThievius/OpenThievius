@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-07, after commit `c36f40b`. Work in
+Updated: 2026-11-07, after commit `7f8e91b`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
@@ -11,7 +11,7 @@ is involved in the port work.
 
 ## State
 
-- Latest pushed commit at this update: `c36f40b debug(sly1): trace packed render sections`.
+- Latest pushed commit at this update: `7f8e91b docs(sly1): refresh restart checkpoint`.
 - The checkout was clean and matched `origin/wip/native-sly-port` when this
   update was written.
 - The local decomp checkout `/home/reaper/Code/sly1-decomp` was fetched and
@@ -39,6 +39,30 @@ resume. Exact US assembly is also enabled for `func_001DC9A0`, the 800-byte
 level effect initializer that had been an empty no-C stub. The latest bounded
 run remains frame state 3/game mode 0 with zero scene vertices.
 
+### Latest producer-side evidence (2026-11-07)
+
+A native GDB hardware watchpoint was armed on guest EE address `0x0064d6e0`
+before direct-level startup (`OPENRAC_BOOT_LEVEL=0x0100`). It fired during
+`func_001DBA38`'s reader copy, through `func_001DCEA0` and
+`func_001DBA38 -> func_00137A60 -> func_0018D800`. At the copy routine,
+registers were `rdi=0x0064cae0`, `rsi=0x0c00`, `rdx=host-mapped guest buffer`,
+`rcx=0x0064d6e0`; the destination is exactly `0x0c00` bytes after the copy
+start. This ties the watched block to the direct-level resource reader, but
+does not yet identify the block's format or the render-list consumer. The
+retail C for `func_001DBA38` is in
+`/home/reaper/Code/sly1-decomp/src/main/001D8000.cpp` around line 206: it reads
+`D_00275720` bytes into `D_00275718` after advancing the reader by `0x10`.
+Two of the three 32-byte samples also matched bytes in both the direct-level
+resource and Splash resource during an offline search; re-verify exact file
+offsets when the extracted resource files are available. This is a lead about
+shared packed data, not proof that the blocks are mesh vertices.
+
+The GDB script used was `/tmp/sly-watch-mesh-first-write.gdb`; the concise
+register/backtrace output was printed in the session and was not saved to a
+separate log. The script derives guest base from native symbol address
+`0x724e90`. The source-level reader and current packet evidence are now
+preserved here and in `docs/port/SLY_GRAPHICS_HANDOFF.md`.
+
 Useful captures, if `/tmp` survives restart:
 `/tmp/sly-native-direct0100-mesh-sections.log`,
 `/tmp/sly-native-direct0100-packet-dump.log`,
@@ -51,7 +75,7 @@ startup, rendering, and decomp coverage findings.
 
 ## Resume here
 
-Trace the producer and consumer of the three packed blocks above and establish
+Trace the consumer of the three packed blocks above and establish
 why the unskipped render-list entry has zero DMA addresses. Do not force the
 skipped groups or synthesize packet data. Separately trace the normal
 Splash-to-title/New Game transition; normal startup still stays on Splash
