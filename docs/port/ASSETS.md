@@ -239,8 +239,11 @@ the entry with key `0x2`; resource labels are stored as pointers in the ELF.
 A static direct-call scan finds `func_001E4EA8` called from `func_00185758`;
 `func_00160918` is the separate startup submission of record `0x2` (Splash).
 Therefore the observed Splash read and nested-object parse do not establish how
-level resource `0x0100` uses its leading in-resource offset. That level header
-still needs to be connected to its own loader and reader calls.
+level resource `0x0100` composes its scene data. Its two-word header is now
+connected to the loader: `func_001DB928` reads the first word as an allocation
+size, passes it to `func_0018D500`, and stores the second word as the resource
+revision. The level's subsequent object-record parser reports zero records, so
+the scene data is likely reached through another table or resource path.
 
 Before the nested-record parser, `func_001289C0` calls `func_0011EC40`. That
 routine reads signed 16-bit property IDs until a negative sentinel and dispatches
@@ -308,17 +311,21 @@ This verifies catalog lookup, exact-length disc reads and decompression across
 the NTSC-U catalog; the decoded scene/container format and renderer inputs
 remain to be identified.
 
-## Container-format lead
+## Resource header fields
 
-Each of the 46 decoded catalog resources begins with a 32-bit little-endian
-value that is 16-byte aligned and falls within that resource's decoded byte
-range. For key `0x0100` the value is `0x00240cd0`; bytes at that offset begin
-with small little-endian fields followed by IEEE-754 float-looking values.
-This strongly suggests an in-resource offset or pointer, but its target's
-meaning and the rest of the container layout are not established. Treat it as
-a format lead, not a verified scene root. The next step is to trace the retail
-loader's use of this header field and correlate it with the resource-reader
-calls before assigning names or parsing it as geometry.
+Each decoded catalog resource begins with two little-endian 32-bit fields. The
+first is 16-byte aligned and no larger than the decoded resource for all 46
+catalog entries. More directly, the retail-backed `func_001DB928` reads this
+word as an allocation size and passes it to `func_0018D500`; it stores the
+second word as `D_00275724`, the resource revision used to decide whether the
+table must be rebuilt. For key `0x0100`, these fields are size `0x00240cd0`
+(2,359,504 bytes) and revision `0x3d687640`.
+
+The bytes at decoded offset `0x00240cd0` are therefore not evidence that the
+header contains a scene pointer. Their contents may still be part of the
+allocated table, but its format and relationship to level geometry remain
+unknown. Follow the allocation rooted at `D_00275718` through
+`func_001B3040` and its consumers before assigning the table a scene role.
 
 A 2026-11-06 follow-up traced the Splash reader at each pre-list boundary:
 `func_00138550` consumes exactly `0x20` bytes per call, `func_001384A0`

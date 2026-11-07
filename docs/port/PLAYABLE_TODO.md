@@ -52,6 +52,13 @@ identify the mesh owner. The previously reported 6-vertex/0x880-face collision
 record came from the earlier Splash resource (sector 820372), not the selected
 level resource (sector 867214); do not use it to diagnose the level mesh.
 
+The level resource header's first word is also no longer treated as a scene
+offset: `func_001DB928` passes it to `func_0018D500` as an allocation size and
+stores the second word as the resource revision. For key `0x0100` these are
+`0x00240cd0` and `0x3d687640`. The next format trace should follow the allocated
+table at `D_00275718` through its consumers; the current object-record list is
+empty, and the table's relation to scene geometry remains unproven.
+
 ## Assessment
 
 The project has useful extraction, host generation, platform and rendering
