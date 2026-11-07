@@ -4,7 +4,7 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. Current hostgen reports 192 units, 2,044
-translated C functions, 225 retail-assembly translations, and zero stubs. The
+translated C functions, 230 retail-assembly translations, and zero stubs. The
 native launcher runs through Splash and the main update loop, but remains at
 frame state `0,3,0`, game mode 0, and renders no visible text or gameplay
 scene. The port is not playable.
@@ -22,6 +22,17 @@ not advance startup: the run remains `sly_frame=0,3,0`, game mode 0, with
 Splash-to-title blocker. Continue tracing the retail state transition and its
 request producer; do not infer that missing graphics are caused by the GS
 renderer from these results. Run log: `/tmp/sly-native-counter-reset-verified.log`.
+
+The next trace-based closure selects exact US assembly for five more routines
+that logged as no-C calls during normal startup: `func_001E77C0`,
+`func_001E9C78`, `func_001E9EE8`, `func_001EA0A8`, and `func_001EAAE0`.
+Hostgen now translates 230 assembly functions with zero stubs. The native
+8-second run completes without crashing and no longer logs those five
+functions as no-ops, but still remains at frame state `0,3,0` with
+`visible_text=0`; these routines were real missing frame/update behavior but
+did not alone unlock Splash-to-title. The local decomp remote was fetched and
+is still at `e1b39f1`; there are no new commits to import. Run log:
+`/tmp/sly-native-ui-update-asm.log`.
 
 **Latest render-data follow-up (2026-11-07):** the US retail allowlist now
 includes `func_001DC9A0` (800 bytes; still unmatched in the decomp), increasing

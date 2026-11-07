@@ -43,6 +43,14 @@ text. The service-tail issue is corrected, but the Splash-to-title transition
 remains blocked. See `PLAYABLE_TODO.md` and `RESTART_CHECKPOINT.md` for the
 updated evidence and next trace target.
 
+Exact US assembly has since been enabled for five reached no-C frame/update
+routines (`func_001E77C0`, `func_001E9C78`, `func_001E9EE8`, `func_001EA0A8`,
+and `func_001EAAE0`). They now execute instead of no-op stubs, with no crash,
+but the follow-up default run still reports no visible text and frame state
+`0,3,0`. The decomp remote currently has no commits beyond local
+`e1b39f1`. The next investigation is the retail state transition and its movie
+or resource request producer, not those update helpers.
+
 The previously missing `func_001DC9A0` is now selected from exact US retail
 assembly because the matching decomp C is still unavailable. Its 800-byte
 routine conditionally creates a class-`0x51`/subtype-`0x201` object and applies

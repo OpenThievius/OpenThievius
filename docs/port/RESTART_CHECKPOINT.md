@@ -26,14 +26,25 @@ is involved in the port work.
   no `func_00160CE8` warning, but remains at `sly_frame=0,3,0`, game mode 0,
   and `visible_text=0`. This rules out the missing counter reset as the full
   startup fix. Log: `/tmp/sly-native-counter-reset-verified.log`.
+- The default-startup warning trace also showed five reached animation/update
+  functions had no C. Exact US assembly is now selected for
+  `func_001E77C0`, `func_001E9C78`, `func_001E9EE8`, `func_001EA0A8`, and
+  `func_001EAAE0`. Hostgen reports 230 assembly translations, zero stubs.
+  A fresh native run no longer treats these as no-ops, but stays at
+  `sly_frame=0,3,0`, `visible_text=0`; they are not sufficient to advance the
+  title transition. Log: `/tmp/sly-native-ui-update-asm.log`.
 - Exact assembly comparison remains: the assembly has a pre-reader
   `func_001430B8` timer call; the current backfill still has an older
   `func_00142ED0(1.0f)` after parsing. Recheck this sequencing against the
   retail body before treating this patch as complete.
 
 - Previous pushed baseline: `67afef0 fix(sly1): restore retail resource service tail`.
+- Decomp remote check: fetching `/home/reaper/Code/sly1-decomp` found no new
+  commits; local `master` and `origin/master` remain `e1b39f1`.
 - Next: trace the normal Splash-to-title transition/request producer and its
-  state selector callbacks. Keep the direct-level probe diagnostic-only.
+  state selector callbacks. The current trace shows movie keys are zero and
+  menu page is `-1`; establish whether startup waits on a movie completion or
+  an unissued resource request. Keep the direct-level probe diagnostic-only.
 
 ## Previous state
 
