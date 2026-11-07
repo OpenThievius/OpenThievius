@@ -3,8 +3,8 @@
 
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
-for matched C and retail assembly. The latest build translates 2,043 C
-functions and 109 functions from US retail assembly, has zero stubs, and
+for matched C and retail assembly. The latest build translates 2,045 C
+functions and 108 functions from US retail assembly, has zero stubs, and
 reports 2,705 functions without C plus 12 unreadable units. A bounded native
 run now completes Splash and the selected level resource through loader stage
 5, with active world `0x0088d530`. This supersedes the earlier empty-reader,
@@ -40,6 +40,17 @@ render callback appeared; sampled frames still report zero scene vertices.
 This rules out a trace cap hiding a different callback, but object ownership
 and the reason these entries do not submit geometry remain unknown. The
 diagnostic is enabled only with `OPENRAC_TRACE_FONT=1`.
+
+The object-record override was not active in the preceding builds: hostgen
+combined its multi-function source file with the override copy and rejected a
+duplicated static helper, so the matched body won. `func_0011ECB8` now lives in
+its own port-only source file; the build reports 2,045 C and 108 retail
+assembly translations. A fresh direct-level run reaches this override, reads
+an object-record count of zero, completes loader stage 5, and still submits
+zero scene vertices. This is a better-defined checkpoint, but does not yet
+identify the mesh owner. The previously reported 6-vertex/0x880-face collision
+record came from the earlier Splash resource (sector 820372), not the selected
+level resource (sector 867214); do not use it to diagnose the level mesh.
 
 ## Assessment
 
@@ -631,16 +642,14 @@ selected as a no-op because retail metadata classifies its address as
 assembly. A port-only backfill now implements its decomp-documented reads so
 the object stream advances. This is deliberately kept outside matched C.
 
-With that reader enabled, parsing advances into collider records and faults in
-the collision mesh path. The latest trace reports a mesh with 6 vertices,
-`0x880` faces and 22 links, with only about 5.8 KB left in the current stream;
-the face loop then reads beyond valid guest memory. Determine whether those
-counts come from a bad stream position/decode or a defect in the port-only mesh
-reader before changing counts or skipping geometry. Earlier animator and
-collider callback failures were observed in a run where the value-list reader
-was still a no-op; they are not the current first failure. The animator probe
-override remains behavior-equivalent to the decomp and logs serialized types
-when `OPENRAC_TRACE_LOADER` is enabled.
+An earlier trace of the Splash resource (sector 820372) reached the collider
+mesh path with 6 vertices, `0x880` faces and 22 links, then read beyond the
+valid stream. That malformed record is not evidence about the selected level
+resource: its range is sector 867214, and the current trace reaches object
+record count zero without entering the collision parser. Keep the Splash
+collision issue separate until it is reproduced with a valid, attributable
+mesh. The animator probe override remains behavior-equivalent to the decomp
+and logs serialized types when `OPENRAC_TRACE_LOADER` is enabled.
 
 Reproduce with:
 

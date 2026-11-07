@@ -6,6 +6,7 @@
 #include "openrac/native_gs.h"
 #include "openrac/native_window.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -309,6 +310,30 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                  GREF(uint32_t, reader + 0x18u),
                  static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
                  GREF(uint32_t, 0x002C2A1Cu), GREF(uint32_t, 0x002699A8u));
+    if ((stage == 145u || stage == 146u) &&
+        std::getenv("OPENRAC_DUMP_ANIMATION_WINDOW") != nullptr &&
+        openrac_guest_base != nullptr) {
+        static unsigned dump_index = 0;
+        char path[80];
+        std::snprintf(path, sizeof(path),
+                      "/tmp/sly1-animation-window-%u-%u.bin",
+                      dump_index++, stage);
+        const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+        const uint32_t start = cursor >= 0x40u ? cursor - 0x40u : cursor;
+        const uint32_t offset = start;
+        if (offset >= 0x70000000u && offset < 0x70004000u) {
+            const size_t size = std::min<size_t>(0x1000u,
+                0x70004000u - offset);
+            if (FILE* file = std::fopen(path, "wb")) {
+                std::fwrite(openrac_guest_base + offset, 1, size, file);
+                std::fclose(file);
+                std::fprintf(stderr,
+                             "[loader] dumped animation window stage=%u "
+                             "cursor=%#010x offset=%#010x bytes=%zu path=%s\n",
+                             stage, cursor, offset, size, path);
+            }
+        }
+    }
     if (direct_level_dump_active && (stage == 130u || stage == 131u) &&
         direct_level_window_index < 2u && openrac_guest_base != nullptr) {
         char path[64];

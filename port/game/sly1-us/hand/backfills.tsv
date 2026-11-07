@@ -188,7 +188,7 @@ func_00152810	native_c/func_00152810.c
 func_002018E8	native_c/func_002018E8.c
 func_001686E8	native_c/func_001686E8.c
 func_00202A80	native_c/func_00202A80.c
-func_0011ECB8	native_c/resource_object_records.c
+func_0011ECB8	native_c/resource_object_record_loader.c
 func_0012AA28	native_c/func_0012AA28.c
 func_00140FF8	native_c/scene_object_constructors.c
 func_00146340	native_c/scene_object_constructors.c

@@ -73,14 +73,19 @@ call and the world loader reaches stage 5. Keep this port override separate;
 remove its override row when the matching implementation is hostable and
 validated against the same Splash resource.
 
-`resource_object_records.c` also explicitly overrides matched
-`func_0011ECB8`. Its port implementation records each serialized object
+`resource_object_record_loader.c` explicitly overrides matched
+`func_0011ECB8`. Keep this override in its own source file: hostgen duplicates
+static helpers when an override shares a multi-function source with candidate
+backfills, which made it reject the override and select the matched body. Its
+port implementation records each serialized object
 record's slot, key, and callback, and handles the reader argument required by
 the retail `func_0013B598` path. It includes a narrowly conditioned one-byte
-alignment recovery for the observed Splash record encoding. Keep this
-heuristic marked as port-only and remove it when matching C is hostable and
-the asset layout has been validated; the stage trace should then be replaced
-with ordinary diagnostics or removed.
+alignment recovery based on an earlier Splash trace; the current bounded run
+does not exercise it because the selected level reports zero object records.
+Use `OPENRAC_DUMP_ANIMATION_WINDOW=1` with `OPENRAC_TRACE_LOADER=1` to dump the
+scratchpad around animation-table parsing for inspection. Keep all of these
+diagnostics and heuristics port-only; validate the asset layout before
+replacing them with matched C.
 
 `func_001A9F78` runs the derived constructors for the 37 global screen
 elements after screen resources load. The decomp checkout has the matching
