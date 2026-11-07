@@ -202,3 +202,50 @@ diagnostic only.
 No repository changes were pending at the restart checkpoint before this
 note. Rebuild with `cmake --build build/port --target port_native -j2`; native
 launcher runs are authorized. Do not run PCSX2 or another emulator.
+
+## Latest restart handoff (2026-11-07)
+
+This section supersedes earlier "resume here" notes where they conflict. The
+active branch is `wip/native-sly-port`, currently at pushed commit `dfd8d48`
+(`debug(sly1): correct startup thread trace labels`); the checkout was clean
+and no build or launcher process was active when this checkpoint was written.
+The decomp checkout `/home/reaper/Code/sly1-decomp` was fetched and remains at
+`e1b39f1`; it has no new code to consume. User asked for frequent commits and
+pushes. The game still opens to a black screen and is not playable.
+
+Recent runs have established that the black output is the intentional retail
+screen clear. Default startup reads only the Splash resource, sits at frame
+state `0,3,0` / game mode 0, never requests a level, and produces no visible
+text or scene vertices. Waiting longer does not advance it. Generic resource
+queue tracing found no enqueue/read request after Splash. The activated async
+worker path now enters exact retail `func_0018D0A0` and polls its semaphore;
+that generic callback is not the missing movie or scene request. The old
+`0x00269A04..0x00269A10` trace fields are worker-dispatch state, not proof of
+movie playback. The direct-level shortcut remains diagnostic only; its
+resource groups are legitimately skipped and it has not produced a playable
+scene. Do not force those flags or synthesize geometry.
+
+Best next focused investigation: decode the EE import-stub/library records in
+the extracted US ELF, then cross-reference its `PsIIlibmpeg 2420` and
+`PsIIlibipu 2400` imports and their retail assembly call sites. Establish the
+actual function that requests the opening PSS and whether it supplies the
+sector, byte count, and channel required by OpenRAC's shared
+`openrac_game_play_movie` implementation. Sly does not yet link that shared
+movie layer or have a verified retail movie caller. Do not infer a movie path
+from the worker-dispatch fields, and do not copy Rac1 function addresses into
+Sly. If the evidence identifies a missing retail function requiring functional
+C, keep it under `port/game/sly1-us/hand/native_c/` and register it in
+`hand/backfills.tsv`; never change `sly1-decomp` for the port backfill.
+
+Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
+latest queue and worker evidence is near the end of the latter. `/tmp` logs
+may disappear on restart. Build generated translations with:
+
+```sh
+cmake --build build/port --target port_native -j2
+```
+
+The native launcher accepts the extracted US ELF and disc image; the known
+paths are `build/port/extracted/boot/SCUS_971.98` and
+`/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso`.
+Native launches are authorized. Do not use PCSX2 or another emulator.
