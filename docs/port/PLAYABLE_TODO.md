@@ -1221,7 +1221,7 @@ find why visual-class instances are never created or attached; independently
 trace the default Splash-to-title transition, which also remains at frame state
 3/game mode 0.
 
-**Pending checkpoint before restart (2026-11-07):** exact US retail assembly
+**Earlier restart checkpoint (2026-11-07; superseded by the follow-ups below):** exact US retail assembly
 has been enabled for the reached value conversion/owner-list helpers
 `func_001C1190`, `func_001C13E8`, `func_0011A080`, `func_0011A358`,
 `func_0011A630`, and `func_0011BA28`. Their former C backfills remain in
@@ -1236,3 +1236,29 @@ writer of `D_00262268` if it is still `0xFC000120`. Latest confirmed blocker
 remains no visible scene geometry: default boot is black, frame state 3,
 game mode 0, zero renderer vertices. Rebuild with
 `cmake --build build/port --target port_native -j2`; decomp checkout untouched.
+
+**Animator allocation root cause (2026-11-07):** the key-2 lookup trace now
+shows `D_00262268[2] == 0x110`, and the fault occurs when retail
+`func_0015C8B8` dereferences that value as a trail object. The owner table is
+populated by retail `func_001B2DF8`, which asks `func_001FD8A8` for its backing
+array. That function had no C and ran as a zero-return stub, so its array base
+was null and later entries became small offsets (`0x88`, `0x110`, ...). The
+retail routine's live path simply returns `func_0018D758(size)`; a port-only
+backfill now implements that delegation through the native heap adapter.
+Rebuild and repeat the direct-level trace to verify the table contains mapped
+guest addresses and the loader advances past the former `0xFC000120` fault.
+The backfill is isolated in `hand/native_c/func_001FD8A8.c` for clean
+replacement when upstream C is available. Trace evidence:
+`/tmp/sly-native-key2-lookup-trace.log`.
+
+The follow-up run verifies that allocation fix: table index 2 now holds
+`0x00845230`, and the direct-level load advances past the previous trail
+dereference fault. It then stops in the exact retail `func_00162890` path via
+`func_00165AE8` / `func_0018D568`: a 0x90-byte copy is requested from
+`0x3f800000`, the IEEE-754 bits for `1.0`, which is not a mapped guest address.
+The copy backfill now has an opt-in trace for out-of-range source addresses,
+and its matched function is explicitly overridden so that diagnostic actually
+runs. Latest trace: `/tmp/sly-native-copy-source-trace.log`. Next trace the
+`func_00162890` record/flag fields that lead to this `func_00165AE8` call and
+find where the float is mistaken for a source pointer. Do not add a bounds
+skip or suppress the copy: that would hide the data-layout or reader error.
