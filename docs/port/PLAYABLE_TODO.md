@@ -449,28 +449,41 @@ fix” statements above. The latest hostgen report reads 199 units and translate
 stubs and 3,030 functions without C. These are generation counts, not reachable
 gameplay coverage.
 
-A normal 20-second native launch now reaches the active frame loop without the
-former null indirect-call and `0x02000000` write errors. A traced launch
-reports repeating 912-byte packets, each decoding to a 240-vertex untextured
-draw. Its first vertex has zero UVs and black RGBA; target, source and texture
-are all zero. Eight captured native framebuffer images are fully black. A
-separate 144-byte packet decodes to zero vertices. The latest default-startup
-trace did not reach the menu text callback. Earlier font traces showed glyph
-quad generation, but not a readable frame.
+A normal native launch reaches the active frame loop without the former null
+indirect-call and `0x02000000` write errors. A fresh traced launch reaches the
+Paused menu page, calls its draw callback (`0x194f80`), emits glyph records,
+and uploads the 512x512 PSMT4 atlas plus its 8x2 palette. This proves menu text
+generation and texture upload, not a visible menu: the user-visible output
+remains black or garbled. The existing PPM captures were taken before the
+136KB textured menu packets begin. The renderer also receives repeating
+912-byte packets,
+each decoding to a 240-vertex untextured draw whose first vertex has zero UVs
+and black RGBA; target, source and texture are all zero. Separate 144-byte
+packets decode to no vertices.
 
 The next tasks are:
 
-1. Trace the first object with real mesh data from its resource record through
-   parent/world transform, camera culling and draw callback. Sampled update
-   entries currently have zero translation and radius; prove their identity
-   and role before changing culling.
-2. Capture the repeated 912-byte packet's source chain and GIF state at its
-   producer. Establish why it makes a black untextured draw, and whether it is
-   only initialization traffic or the intended scene path. Do not change the
-   renderer based on vertex count alone.
-3. Trace the frame-state transition and menu-page callbacks until the current
-   startup reaches the title/menu draw. Verify a glyph reaches the framebuffer
-   before investing in deeper font or scene fixes.
+1. Isolate why the decoded textured glyph draw leaves no visible pixels.
+   `OPENRAC_TRACE_DIRECT=1` now shows a 136,512-byte frame packet with three
+   draws: the first glyph batch is 474 vertices (79 quads), textured with
+   atlas handle `0x3`, TCC enabled, modulation, and blending. Its first vertex
+   is at `(-0.021, 0.000)`, samples `(0.533, 0.916)`, and has RGBA
+   `(127,127,127,128)`. The atlas and CLUT uploads reach TBP `0x1400` and CBP
+   `0x1600`; both resolve successfully. Next compare draw/scissor/depth/blend
+   state with the resulting framebuffer and test the indexed atlas values at
+   these UVs. Do not replace the working path until a specific fault is
+   demonstrated.
+2. Correlate that glyph batch with the source DMA chain and the other two
+   draws in the same frame. The first two VIF1 transfers are 736-byte DIRECT
+   streams (transfer 1 also loads eight MPG blocks); the repeating worker
+   transfers likewise report 736 DIRECT bytes and no MSCAL. `OPENRAC_VIF_TRACE`
+   now accepts `OPENRAC_VIF_TRACE_LIMIT` to see later transfers. The renderer
+   accepts channel-2 chains and VIF-produced GIF bytes; do not conflate the
+   small repeating black packets with the later 136KB textured frame packet.
+3. Trace the first scene object with real mesh data from its resource record
+   through parent/world transform, camera culling and draw callback. Sampled
+   update entries currently have zero translation and radius; prove their
+   identity and role before changing culling.
 4. Refresh the decomp hostability audit and prioritize unreadable units only
    when their functions are on these observed paths. Check call signatures and
    omitted register arguments against retail assembly.
@@ -480,6 +493,12 @@ The next tasks are:
    20-second `MALLOC_CHECK_=3` run did not reproduce it. If it recurs, capture
    DMA source ranges and run a sanitizer build. Do not apply an allocator
    workaround without evidence.
+
+For a later framebuffer capture, `OPENRAC_DUMP_NATIVE_FRAME_SKIP=N` skips the
+first N eligible renderer packets before writing up to eight PPMs. The default
+is zero. The draw-state trace for this update is
+`/tmp/sly-native-direct-textured-draws.log`. Existing machine-local PPMs were
+captured before the glyph batch. No game data was committed.
 
 All functional game replacements remain in
 `port/game/sly1-us/hand/native_c/`, registered as backfills and removable when

@@ -492,7 +492,14 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
                 trace_index = g_traced_transfer_count.fetch_add(1,
                                                                std::memory_order_relaxed);
         }
-        if (trace_index < 2) {
+        uint32_t trace_limit = 2;
+        if (const char* setting = std::getenv("OPENRAC_VIF_TRACE_LIMIT")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed <= 1024u)
+                trace_limit = static_cast<uint32_t>(parsed);
+        }
+        if (trace_index < trace_limit) {
             openrac::log::info("native VIF1 DMA transfer={} bytes={} DIRECT_bytes={} MPG={} MSCAL={}",
                                transfer + 1, stream.size(), direct_bytes, trace.mpg_total,
                                trace.mscal_total);

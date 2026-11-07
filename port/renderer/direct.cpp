@@ -1739,18 +1739,32 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
         const auto draw_count = m_interpreter->draws().size();
         const bool larger_packet = packets.size() >= 512 || vertex_count != 0 ||
                                    draw_count != 0 || !m_interpreter->error().empty();
-        if (trace_frames < 30 || (larger_packet && trace_larger_frames < 40)) {
+        const bool has_textured_draw = std::any_of(
+            m_interpreter->draws().begin(), m_interpreter->draws().end(),
+            [](const DirectDraw& draw) { return draw.count != 0 && draw.state.textured; });
+        static unsigned textured_frame_traces = 0;
+        const bool trace_frame = trace_frames < 30 || (larger_packet && trace_larger_frames < 40)
+                                 || (has_textured_draw && textured_frame_traces < 32);
+        if (trace_frame) {
             log::info("{}: packet_bytes={} decoded_vertices={} draws={} error={}", name(),
                       packets.size(), vertex_count, draw_count, m_interpreter->error());
             static unsigned draw_traces = 0;
-            if (vertex_count != 0 && draw_traces < 8) {
+            static unsigned textured_draw_traces = 0;
+            if (vertex_count != 0) {
                 const auto& vertices = m_interpreter->vertices();
                 const auto& decoded = m_interpreter->draws();
-                for (std::size_t i = 0; i < decoded.size() && i < 4; ++i) {
+                for (std::size_t i = 0; i < decoded.size() && i < 8; ++i) {
                     const DirectDraw& draw = decoded[i];
                     if (draw.count == 0 || draw.first >= vertices.size()) continue;
                     const DirectVertex& vertex = vertices[draw.first];
                     const DirectState& s = draw.state;
+                    if (s.textured) {
+                        if (textured_draw_traces >= 32) continue;
+                        ++textured_draw_traces;
+                    } else {
+                        if (draw_traces >= 8) continue;
+                        ++draw_traces;
+                    }
                     log::info(
                         "{}: draw={} first={} count={} target={:#x} source={:#x} texture={:#x} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} first_vertex=xy:{:.3f},{:.3f} stq:{:.3f},{:.3f},{:.3f} rgba:{},{},{},{}",
                         name(), i, draw.first, draw.count, s.target, s.source, s.texture,
@@ -1760,9 +1774,9 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
                         vertex.t, vertex.q, vertex.rgba[0], vertex.rgba[1],
                         vertex.rgba[2], vertex.rgba[3]);
                 }
-                ++draw_traces;
             }
-            if (trace_frames < 30) ++trace_frames;
+            if (has_textured_draw) ++textured_frame_traces;
+            else if (trace_frames < 30) ++trace_frames;
             else ++trace_larger_frames;
         }
     }

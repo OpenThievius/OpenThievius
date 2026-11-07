@@ -811,20 +811,32 @@ world position at `+0x140` to the previous-position field at `+0x370`.
 The object-record override advances through initialization to the active frame
 loop without the earlier null indirect-call or `0x02000000` write errors. This
 does not establish that every Splash record is correct or that the world has
-renderable objects.
+renderable objects. A fresh native trace reaches the Paused menu page and its
+draw callback (`0x194f80`), emits glyph records, and uploads the font atlas and
+palette. The user-visible output remains black or garbled, so callback
+execution is not visual success.
 
 `OPENRAC_TRACE_DIRECT=1` shows a repeating 912-byte packet that decodes to one
 240-vertex, untextured draw. The first vertex has zero UVs and black RGBA; its
 target, source and texture are all zero. A separate 144-byte packet decodes to
-no vertices. Eight native framebuffer dumps are fully black. In the latest
-default-startup run, the menu text callback was not reached. Earlier runs that
-generated glyph quads still did not demonstrate readable text.
+no vertices. A new trace confirms menu text generation and atlas/palette
+upload, then decodes a 136KB frame packet with three draws. The glyph draw has
+474 vertices (79 quads), uses atlas texture handle `0x3`, and carries valid
+nonzero UVs and near-white vertex color. The atlas (TBP `0x1400`) and CLUT
+(CBP `0x1600`) both resolve. Existing PPM captures were taken before the
+136KB textured menu packets begin, so they do not show the glyph draws. The
+first two VIF1 transfers emit 736 DIRECT bytes each; transfer 1 also loads
+eight MPG blocks, and neither transfer contains MSCAL. Later worker transfers repeat
+the same DIRECT-only pattern. The next diagnosis is why a decoded textured
+glyph batch produces no visible pixels, comparing its atlas samples and
+scissor/depth/blend state with the framebuffer.
 
-The active investigation is now the producer and meaning of the repeated
-black packet, the first scene object with attributable mesh data and a valid
-world transform, and the normal frame-state/menu-page path. The sampled
-update-list entries remain zero-position, zero-radius objects; establish their
-class and role before changing culling. See the ordered tasks in
+The active investigation is now the final draw and framebuffer result for the
+decoded textured menu glyph batch, the first scene object with attributable
+mesh data and a valid world transform, and the meaning of the repeated black
+packet. The sampled update-list entries remain zero-position, zero-radius
+objects; establish their class and role before changing culling.
+See the ordered tasks in
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md). The function report is 1,834 translated
 functions (90 static assembly translations), 3 stubs, and 3,030 without C;
 coverage does not indicate which functions execute in the active draw path.

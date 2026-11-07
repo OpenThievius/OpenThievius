@@ -575,15 +575,12 @@ gets its retail vptr before virtual dispatch. Current hostgen coverage is
 startup call is `func_0011A498` from `func_001B7968`; matching C is present in
 `file_112698.cpp`, which is still unreadable due to C++ constructor forms.
 
-A 12-second native launch with direct-render tracing after this rebuild
-started both thread roots without no-C warnings, but still repeated the same
-240-vertex untextured draw. The trace reports target/source/texture addresses
-as zero and the first vertex as black with alpha 128. The 512x512 PSMT4 font
-atlas and its 8x2 palette are uploaded repeatedly, but no glyph draw is
-identified. The latest run therefore provides no evidence of a readable menu;
-continue from the draw-state/texture path documented above.
+A 12-second native launch from this earlier checkpoint started both thread
+roots without no-C warnings, but its trace was capped before later textured
+menu draws and therefore reported only the repeating 240-vertex untextured
+draw. The menu-draw checkpoint below supersedes that partial observation.
 
-## Latest native launch (2026-11-07)
+## Earlier native launch checkpoint (2026-11-07)
 
 The current hostgen report has 1,832 translated functions, 91 selected from
 assembly, 3 stubs, and 3,026 functions without C. `func_0013B598` is now
@@ -592,7 +589,7 @@ preserves the reader argument forwarded to `func_001BAC30` and removes the
 prior `0x0021B4D8` data-address dispatch from the trace. No decomp source was
 modified.
 
-The latest bounded native trace now faults during Splash object loading. It
+That bounded native trace faulted during Splash object loading. It
 records vertex count 0 and face count 0, then link capacity `0x3F80` at cursor
 `0x700008EE`; later `func_001BAC30` writes through guest address
 `0x02000000`. A null indirect call from `func_0011ECB8` also remains. The
@@ -600,3 +597,31 @@ window is still black and the game is not playable. Exact trace:
 `/tmp/sly-native-reader-trace.log` on the development machine. The immediate
 reader/allocator investigation and run command are in
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
+
+## Menu draw checkpoint (2026-11-07)
+
+A fresh native trace reaches the Paused menu draw callback at `0x194f80` and
+emits glyph records from the loaded font. The 512x512 PSMT4 atlas and 8x2
+palette upload to TBP `0x1400` and CBP `0x1600`; both resolve in the native
+texture pool. A 136,512-byte frame packet decodes to three draws. The glyph
+batch is draw 2: 474 vertices (79 quads), atlas texture handle `0x3`, TCC on,
+modulation and blending enabled. Its first vertex is at NDC `(-0.021, 0.000)`,
+UV `(0.533, 0.916)`, RGBA `(127,127,127,128)`. This shows that font geometry,
+indexed texture lookup, and GIF parsing all reach the renderer. It does not
+show that the pixels reach the display: the user-visible window remains black
+or garbled, and existing PPM captures were taken before the 136KB packet
+appeared.
+
+The VIF trace had previously hidden worker traffic after its first two
+transfers. `OPENRAC_VIF_TRACE_LIMIT` now raises that bounded limit (default 2).
+The first two transfers emit 736 DIRECT bytes; transfer 1 also loads eight MPG
+blocks. The later sampled worker transfers repeat the same 736-byte DIRECT
+pattern with no MSCAL. `OPENRAC_DUMP_NATIVE_FRAME_SKIP=N` can skip early
+renderer packets when capturing a later framebuffer. The relevant machine
+log is `/tmp/sly-native-direct-textured-draws.log`; do not check binary game
+data or frame dumps into the repository.
+
+Next, capture a framebuffer after a 136KB textured packet, then compare it with
+the captured vertices, scissor, depth, blend and sampled atlas texels. This is
+the current visual blocker; the older null-call and invalid-write symptoms are
+not present in this run.
