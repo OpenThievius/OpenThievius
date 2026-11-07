@@ -805,3 +805,38 @@ port-only backfill now covers root registration and contact-pair bookkeeping
 (`func_00129DF8`, `func_001385A0`, `func_00138738`, `func_00138788`, and
 `func_00138F28`). The port also translates `func_001B9680`, which copies the
 world position at `+0x140` to the previous-position field at `+0x370`.
+
+## Current visual checkpoint (2026-11-07)
+
+The object-record override advances through initialization to the active frame
+loop without the earlier null indirect-call or `0x02000000` write errors. This
+does not establish that every Splash record is correct or that the world has
+renderable objects.
+
+`OPENRAC_TRACE_DIRECT=1` shows a repeating 912-byte packet that decodes to one
+240-vertex, untextured draw. The first vertex has zero UVs and black RGBA; its
+target, source and texture are all zero. A separate 144-byte packet decodes to
+no vertices. Eight native framebuffer dumps are fully black. In the latest
+default-startup run, the menu text callback was not reached. Earlier runs that
+generated glyph quads still did not demonstrate readable text.
+
+The active investigation is now the producer and meaning of the repeated
+black packet, the first scene object with attributable mesh data and a valid
+world transform, and the normal frame-state/menu-page path. The sampled
+update-list entries remain zero-position, zero-radius objects; establish their
+class and role before changing culling. See the ordered tasks in
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md). The function report is 1,834 translated
+functions (90 static assembly translations), 3 stubs, and 3,030 without C;
+coverage does not indicate which functions execute in the active draw path.
+
+One font-traced launch aborted during DMA-chain vector reallocation. Its
+backtrace identifies where allocator corruption was detected, not its source.
+A later font/DMA trace and a 20-second `MALLOC_CHECK_=3` run did not reproduce
+the abort, so no allocator workaround is justified yet.
+
+The configured decomp source is `dd6f80b`; upstream master has advanced to
+`04f7f272` (149 commits ahead). Three newly exact matches in its US report are
+`func_0013E650` (4 bytes), `func_0018B670` (memory-card-only), and
+`func_001FFC08` (library code). None has been shown to unblock the active draw
+path. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md) for the source comparison and
+the ordered next tasks.

@@ -440,3 +440,68 @@ call. The broad reader guard is absent; no guest-RAM fault occurs. Later
 serialized values still include out-of-range slots, so the record stream
 needs validation before treating its objects as correct. The window is still
 not a playable scene. Trace: `/tmp/sly-native-object-records-active.log`.
+
+## Updated priorities (2026-11-07)
+
+The following results supersede the older startup-fault and “next loader
+fix” statements above. The latest hostgen report reads 199 units and translates
+1,834 functions, including 90 static assembly translations; it reports 3
+stubs and 3,030 functions without C. These are generation counts, not reachable
+gameplay coverage.
+
+A normal 20-second native launch now reaches the active frame loop without the
+former null indirect-call and `0x02000000` write errors. A traced launch
+reports repeating 912-byte packets, each decoding to a 240-vertex untextured
+draw. Its first vertex has zero UVs and black RGBA; target, source and texture
+are all zero. Eight captured native framebuffer images are fully black. A
+separate 144-byte packet decodes to zero vertices. The latest default-startup
+trace did not reach the menu text callback. Earlier font traces showed glyph
+quad generation, but not a readable frame.
+
+The next tasks are:
+
+1. Trace the first object with real mesh data from its resource record through
+   parent/world transform, camera culling and draw callback. Sampled update
+   entries currently have zero translation and radius; prove their identity
+   and role before changing culling.
+2. Capture the repeated 912-byte packet's source chain and GIF state at its
+   producer. Establish why it makes a black untextured draw, and whether it is
+   only initialization traffic or the intended scene path. Do not change the
+   renderer based on vertex count alone.
+3. Trace the frame-state transition and menu-page callbacks until the current
+   startup reaches the title/menu draw. Verify a glyph reaches the framebuffer
+   before investing in deeper font or scene fixes.
+4. Refresh the decomp hostability audit and prioritize unreadable units only
+   when their functions are on these observed paths. Check call signatures and
+   omitted register arguments against retail assembly.
+5. Reproduce the intermittent DMA allocator abort before fixing it. One
+   font-traced run aborted during vector reallocation in
+   `openrac_native_renderer_submit_dma_chain`; a later font/DMA trace and a
+   20-second `MALLOC_CHECK_=3` run did not reproduce it. If it recurs, capture
+   DMA source ranges and run a sanitizer build. Do not apply an allocator
+   workaround without evidence.
+
+All functional game replacements remain in
+`port/game/sly1-us/hand/native_c/`, registered as backfills and removable when
+matching C becomes hostable. Runtime and renderer corrections remain under
+their respective port directories. The next progress gate is a verified
+visible menu or scene image, not more global function coverage.
+
+## Decomp snapshot check (2026-11-07)
+
+The configured source checkout, `/tmp/sly1-decomp-current-check`, is at
+`dd6f80b` (2026-11-06). Upstream `master` is now
+[`04f7f272`](https://github.com/OpenThievius/sly1-decomp/commit/04f7f272552f4853fa251d9a12a75701546a2bd3),
+149 commits ahead of that source snapshot. Its NTSC-U report lists 4,723 of
+4,807 functions matched, 92.81% matched code bytes, and 92.24% matched data
+bytes. Those totals use a changed denominator from the earlier report and
+should not be compared as a simple regression/improvement.
+
+Comparing the upstream function reports identifies three newly exact matches
+since `dd6f80b`: `func_0013E650` (4 bytes), `func_0018B670` (176 bytes), and
+`func_001FFC08` (120 bytes). The decomp's name notes identify `func_0018B670`
+as a memory-card-only background job. `func_0013E650` is only a four-byte
+function. `func_001FFC08` is a library function, and its relevance to the
+active native frame path is not established. None currently displaces an
+active Sly backfill or explains the black frame. The port build still uses the
+older `dd6f80b` source snapshot; no decomp checkout was changed.
