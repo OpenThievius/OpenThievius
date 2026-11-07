@@ -132,7 +132,7 @@ the first playable gate, not proof that the whole game is complete.
 - [ ] Commit each coherent fix with its evidence and push regularly. Keep the
   WIP PR and contributor documentation aligned with the actual default build.
 
-## Latest native checkpoint (2026-11-07)
+## Earlier native checkpoint (2026-11-07; superseded below)
 
 The US native launcher now gets beyond the earlier malformed Splash object
 records. The port explicitly selects retail assembly for the loader methods

@@ -580,7 +580,7 @@ roots without no-C warnings, but its trace was capped before later textured
 menu draws and therefore reported only the repeating 240-vertex untextured
 draw. The menu-draw checkpoint below supersedes that partial observation.
 
-## Earlier native launch checkpoint (2026-11-07)
+## Earlier native launch checkpoint (2026-11-07; superseded below)
 
 The current hostgen report has 1,832 translated functions, 91 selected from
 assembly, 3 stubs, and 3,026 functions without C. `func_0013B598` is now
