@@ -32,6 +32,14 @@ void* func_0018D5C0(u32 size) {
     void* memory;
     if (size > 0x7FFFFFFFu) return 0;
     memory = func_0018D500((s32)size);
-    if (memory != 0) func_001F5C0C(memory, 0, (s32)size);
+    if (memory != 0) {
+        func_001F5C0C(memory, 0, (s32)size);
+        if (size == 0x13290u) {
+            u8* row = (u8*)memory + 239u * 0x28u;
+            extern void sly1_native_trace_font(u32, u32, u32, u32, u32, u32);
+            sly1_native_trace_font(79u, (u32)memory, size, (u32)row,
+                                  *(u32*)row, *(u32*)(row + 4u));
+        }
+    }
     return memory;
 }

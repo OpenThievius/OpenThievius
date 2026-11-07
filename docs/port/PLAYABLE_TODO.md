@@ -1310,3 +1310,19 @@ instrument the owner table row at allocation, after parsing record `0xef`, and
 immediately before `func_00165AE8` to find when the companion row's `+4` word
 becomes `0x3f800000`; that is the invalid source passed to `func_0018D568`.
 Latest runtime trace remains `/tmp/sly-native-animation-bounds-trace.log`.
+
+**Row lifecycle trace (2026-11-07):** additional probes now show the precise
+failure sequence. The table allocation is `0x13290` bytes and row 239 begins
+zeroed. Nested parsing later stores a valid auxiliary pointer (`0x00d18060`)
+in row 239 at `+4`. At the end of parsing record 239, that same word has
+become `0x3f800000` (float 1.0). Record 240 then copies the row correctly;
+`func_00165AE8` subsequently treats the float as a pointer and faults in
+`func_0018D568`. This rules out the row lookup, source-row copy, ring refill,
+and initial table allocation as the overwrite site. The next step is to trace
+writes during the remainder of record 239's nested/resource processing and
+identify the function that replaces the auxiliary pointer with parsed data.
+Keep any corrective C in the port's backfill/override layer and record the
+upstream function it can replace. Runtime probes are opt-in under
+`OPENRAC_TRACE_FONT=1`; local logs `/tmp/sly-native-row-mutation.log` and
+`/tmp/sly-native-row-writes.log` are not in Git. The launcher still faults
+before rendering any visible scene.
