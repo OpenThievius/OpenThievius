@@ -96,14 +96,20 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
             if (trace_guest_range(a1, 4u, &object_offset)) {
                 std::uint32_t descriptor = 0;
                 std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
-                if (trace_guest_range(descriptor, 0x4Cu, &descriptor_offset)) {
+                if (trace_guest_range(descriptor, 0x54u, &descriptor_offset)) {
                     std::uint32_t size = 0, constructor = 0, reader = 0;
+                    std::uint32_t method7 = 0, method19 = 0, method20 = 0;
                     std::memcpy(&size, openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
                     std::memcpy(&constructor, openrac_guest_base + descriptor_offset + 0x10u, 4u);
                     std::memcpy(&reader, openrac_guest_base + descriptor_offset + 0x38u, 4u);
+                    std::memcpy(&method7, openrac_guest_base + descriptor_offset + 0x1Cu, 4u);
+                    std::memcpy(&method19, openrac_guest_base + descriptor_offset + 0x4Cu, 4u);
+                    std::memcpy(&method20, openrac_guest_base + descriptor_offset + 0x50u, 4u);
                     std::cerr << "[factory-object] class=1 object=" << std::hex << a1
                               << " descriptor=" << descriptor << " size=" << size
                               << " constructor=" << constructor << " reader=" << reader
+                              << " method7=" << method7 << " method19=" << method19
+                              << " method20=" << method20
                               << " owner=" << a2 << " mode=" << a4 << std::dec << '\n';
                 }
             }

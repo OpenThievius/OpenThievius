@@ -7,12 +7,13 @@ loader stage 5 without any scene vertices or visible text. This probe registers
 22 fonts; the default boot still stays on Splash. A full snapshot of the
 direct-loaded world's two class `0x44` roots identifies them as collision
 objects: their mesh data at `+0x380` and render mesh copy at `+0x3A4` are zero.
-They cannot produce visible geometry. The latest trace also found a valid
-class-1 reader callback (`func_001833D0`), followed by an indirect call to
-address zero inside nested record parsing. Parsing still reaches stage 5, so
-this callback fault needs tracing but does not yet account for all missing
-scene objects. The port is past resource startup, but still before the first
-actual in-game image. First trace that null call, then find the title/level
+They cannot produce visible geometry. The latest trace found a class-1
+descriptor with a valid reader callback (`func_001833D0`) and nonzero methods
+at slots 7 and 20. Slot 19 is null but checked by its caller. An indirect call
+still reaches address zero during the record path; its source is unresolved.
+Parsing still reaches stage 5, so this fault does not yet account for all
+missing scene objects. The port is past resource startup, but still before the
+first actual in-game image. First trace that null call, then find the title/level
 transition and the resource record path that creates a renderable object, and
 follow its mesh into the draw queue. The current build uses the local
 `sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
@@ -20,7 +21,7 @@ counts. Port-only C overrides remain under `hand/native_c/` (with retired
 experiments under `hand/superseded_backfills/`); neither those nor generated
 assembly translations modify the decomp repository.
 
-Latest direct-level trace: `/tmp/sly-native-class1-callback.log`.
+Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
 are initialization traffic, not evidence of a rendered level.
 

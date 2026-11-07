@@ -16,14 +16,16 @@ heap-initialization, and child-parser faults below.
 direct-loaded world found two class `0x44` instances, but these are collision
 objects, not visible actors. Both have null mesh data at `+0x380` and a zeroed
 render mesh copy at `+0x3A4`; the world still submits zero scene vertices.
-The latest run also found a class-1 record reader at descriptor `0x00217418`
-(`func_001833D0`), but an indirect call reaches address zero while its nested
-record reader runs. Parsing continues through loader stage 5, so this is a
-confirmed defect to resolve, not proof that the world is fully initialized.
+The latest run found a class-1 descriptor at `0x00217418` with a valid
+`func_001833D0` record reader and populated method slots 7 and 20. Its method
+slot 19 is null, but the matched `func_00182ED8` checks that slot before use.
+An indirect call still reaches address zero during the record path, so its
+source remains unresolved. Parsing continues through loader stage 5; this is a
+confirmed defect to trace, not proof that the world is fully initialized.
 The port has not reached the first actual game image. Next trace the null call
-inside class-1 nested record parsing, then find the title/level transition and
+through class-1 nested record parsing, then find the title/level transition and
 the record path that creates renderable objects. Trace:
-`/tmp/sly-native-class1-callback.log`.
+`/tmp/sly-native-class1-vtable.log`.
 
 The resource descriptor reader `func_0011E680` now lives only in
 `hand/backfills.tsv` and `hand/native_c/resource_descriptors.c`; it is no longer
