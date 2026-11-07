@@ -735,8 +735,7 @@ int main(int argc, char** argv) {
                 std::uint32_t menu_count = 0;
                 std::uint32_t menu_glyphs = 0;
                 std::uint32_t menu_glyph_count = 0;
-                std::uint32_t movie_on = 0;
-                std::uint32_t movie_status = 0;
+                std::uint32_t thread_dispatch_fields[3]{};
                 std::uint32_t pending_resource = 0;
                 std::uint32_t resource_state_mode = 0;
                 std::uint32_t resource_state_busy = 0;
@@ -748,10 +747,9 @@ int main(int argc, char** argv) {
                             sizeof(menu_count));
                 std::memcpy(&menu_items, openrac_guest_base + 0x00269D64u,
                             sizeof(menu_items));
-                std::memcpy(&movie_on, openrac_guest_base + 0x00269A04u,
-                            sizeof(movie_on));
-                std::memcpy(&movie_status, openrac_guest_base + 0x00269A10u,
-                            sizeof(movie_status));
+                std::memcpy(thread_dispatch_fields,
+                            openrac_guest_base + 0x00269A04u,
+                            sizeof(thread_dispatch_fields));
                 std::memcpy(&pending_resource, openrac_guest_base + 0x00275AF0u,
                             sizeof(pending_resource));
                 std::memcpy(&resource_state_busy, openrac_guest_base + 0x00275F84u,
@@ -911,8 +909,6 @@ int main(int argc, char** argv) {
                 std::uint32_t resource_level = 0;
                 std::uint32_t resource_record = 0;
                 std::uint32_t resource_visual_state[8]{};
-                std::uint32_t movie_active_key = 0;
-                std::uint32_t movie_pending_key = 0;
                 std::int32_t resource_level_index = -1;
                 std::int32_t resource_record_index = -1;
                 std::int32_t resource_record_flags = 0;
@@ -964,10 +960,6 @@ int main(int argc, char** argv) {
                             sizeof(resource_record));
                 std::memcpy(resource_visual_state, openrac_guest_base + 0x00261EF4u,
                             sizeof(resource_visual_state));
-                std::memcpy(&movie_active_key, openrac_guest_base + 0x00269A04u,
-                            sizeof(movie_active_key));
-                std::memcpy(&movie_pending_key, openrac_guest_base + 0x00269A08u,
-                            sizeof(movie_pending_key));
                 const std::uint32_t resource_manager_physical =
                     openrac_guest_ram_address(resource_manager);
                 if (resource_manager != 0 && resource_manager_physical <= openrac_guest_ram_size &&
@@ -1151,7 +1143,10 @@ int main(int argc, char** argv) {
                           << ',' << menu_count << ',' << menu_items << ',' << menu_glyph_count
                           << ',' << menu_glyphs << std::dec
                           << " load_request=" << std::hex << pending_resource << std::dec
-                          << " movie=" << movie_on << ',' << movie_status
+                          << " thread_dispatch=0x" << std::hex
+                          << thread_dispatch_fields[0] << ",0x"
+                          << thread_dispatch_fields[1] << ",0x"
+                          << thread_dispatch_fields[2] << std::dec
                           << " resource_draw=" << resource_state_busy << ','
                           << resource_state_mode
                           << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
@@ -1167,8 +1162,6 @@ int main(int argc, char** argv) {
                 for (const std::uint32_t word : resource_visual_state)
                     std::cerr << std::hex << word << ',';
                 std::cerr << std::dec
-                          << " movie_keys=0x" << std::hex << movie_active_key << ",0x"
-                          << movie_pending_key << std::dec
                           << " resource_level_index=" << std::dec << resource_level_index
                           << " resource_record_index=" << resource_record_index
                           << " resource_record_flags=0x" << std::hex

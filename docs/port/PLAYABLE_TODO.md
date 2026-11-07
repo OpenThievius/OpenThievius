@@ -23,6 +23,18 @@ Splash-to-title blocker. Continue tracing the retail state transition and its
 request producer; do not infer that missing graphics are caused by the GS
 renderer from these results. Run log: `/tmp/sly-native-counter-reset-verified.log`.
 
+**Startup timing and trace-label correction (2026-11-07):** A 35-second
+native-only run advances guest time to about 17 seconds but still has
+`sly_frame=0,3,0`, `game_mode=0`, menu page `-1`, and `visible_text=0`; simply
+waiting does not reach the title. Static US assembly review also corrects the
+trace's former `movie`/`movie_keys` labels: addresses `0x00269A04..0x00269A10`
+are fields in a worker-dispatch structure. `func_0018E4F0` stores a pointer to
+the selected 32-byte thread entry at `+8` and signals its bit in the thread
+manager. These fields do not establish movie playback state. The new trace
+label is `thread_dispatch`. Keep PSS playback as an independent unresolved
+path until its retail call site is found. Log:
+`/tmp/sly-native-35s-state-transition.log`.
+
 The next trace-based closure selects exact US assembly for five more routines
 that logged as no-C calls during normal startup: `func_001E77C0`,
 `func_001E9C78`, `func_001E9EE8`, `func_001EA0A8`, and `func_001EAAE0`.
@@ -1888,7 +1900,7 @@ worker threads 14 and 15 entering `func_0018D0A0`; before this change no worker
 was active. That callback has no matching C and currently resolves to a no-op,
 so this is evidence of reaching the queue callback, not evidence that startup
 content is being processed. The run still reads only the Splash resource and
-reports frame state 3, `game_mode=0`, no load request, no movie, no scene gate,
+reports frame state 3, `game_mode=0`, no load request, no scene gate,
 and no visible text. The display remains the intentional black clear.
 
 Next inspect retail `func_0018D0A0` and its caller `func_0018C028` to establish
@@ -1908,7 +1920,7 @@ stubs. A 15-second native run no longer reports `func_0018D0A0` as missing and
 shows auxiliary threads 14 and 15 at `func_001F6B70`. This confirms the worker
 path is running into its semaphore-poll path; it does not point to a movie or
 scene request. Splash is still the only resource read, `game_mode=0`,
-`load_request=0`, no movie or scene gate, and `visible_text=0`. The window
+`load_request=0`, no scene gate, and `visible_text=0`. The window
 continues to display the intentional black clear. Evidence:
 `/tmp/sly-native-callback-asm.log` (transient).
 

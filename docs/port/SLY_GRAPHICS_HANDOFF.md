@@ -49,7 +49,12 @@ and `func_001EAAE0`). They now execute instead of no-op stubs, with no crash,
 but the follow-up default run still reports no visible text and frame state
 `0,3,0`. The decomp remote currently has no commits beyond local
 `e1b39f1`. The next investigation is the retail state transition and its movie
-or resource request producer, not those update helpers.
+or resource request producer, not those update helpers. A 35-second native
+run reached about 17 seconds of guest time and still showed no state change,
+menu, or visible text. The trace's previous `movie` labels were incorrect:
+`0x00269A04..0x00269A10` are worker-dispatch fields used around
+`func_0018E4F0`; their values say nothing about PSS playback. New traces call
+them `thread_dispatch`.
 
 The previously missing `func_001DC9A0` is now selected from exact US retail
 assembly because the matching decomp C is still unavailable. Its 800-byte

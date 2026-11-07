@@ -41,10 +41,15 @@ is involved in the port work.
 - Previous pushed baseline: `67afef0 fix(sly1): restore retail resource service tail`.
 - Decomp remote check: fetching `/home/reaper/Code/sly1-decomp` found no new
   commits; local `master` and `origin/master` remain `e1b39f1`.
+- A 35-second native-only launch advances guest time to about 17 seconds but
+  remains at frame state `0,3,0`, with menu page `-1` and no visible text.
+  This is not just a short startup delay. The trace's old `movie` fields were
+  mislabeled: `0x00269A04..0x00269A10` belong to the worker-dispatch structure
+  used by `func_0018E4F0`, not confirmed movie status. The trace now labels
+  them `thread_dispatch`.
 - Next: trace the normal Splash-to-title transition/request producer and its
-  state selector callbacks. The current trace shows movie keys are zero and
-  menu page is `-1`; establish whether startup waits on a movie completion or
-  an unissued resource request. Keep the direct-level probe diagnostic-only.
+  state selector callbacks, and separately identify whether a retail PSS
+  playback call exists. Keep the direct-level probe diagnostic-only.
 
 ## Previous state
 
