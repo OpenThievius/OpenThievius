@@ -7,6 +7,11 @@ f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2, u32 a3,
                          f32 f12, f32 f13);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4);
 
+static s32 valid_guest_object(u32 address)
+{
+    return address >= 0x00100000u && address < 0x02000000u;
+}
+
 static void copy_vectors(u32 destination, u32 source, u32 count)
 {
     for (u32 i = 0; i < count; ++i)
@@ -119,13 +124,21 @@ void func_00125138(void* object)
         const u32 first = *(u32*)(frame + 0x80u);
         const u32 second = *(u32*)(frame + 0x84u);
         sly1_native_trace_font(63u, self, frame, frame_flags, first, second);
-        if (first != 0) {
+        if (valid_guest_object(first)) {
             const u32 nested = *(u32*)(first + 0x224u);
-            if (nested != 0) *(s32*)(nested + 0x64u) = 1;
+            if (valid_guest_object(nested)) *(s32*)(nested + 0x64u) = 1;
+            else sly1_native_trace_font(64u, self, frame, frame_flags,
+                                        first, nested);
+        } else if (first != 0) {
+            sly1_native_trace_font(64u, self, frame, frame_flags, first, 0);
         }
-        if (second != 0) {
+        if (valid_guest_object(second)) {
             const u32 nested = *(u32*)(second + 0x224u);
-            if (nested != 0) *(s32*)(nested + 0x64u) = 1;
+            if (valid_guest_object(nested)) *(s32*)(nested + 0x64u) = 1;
+            else sly1_native_trace_font(64u, self, frame, frame_flags,
+                                        second, nested);
+        } else if (second != 0) {
+            sly1_native_trace_font(64u, self, frame, frame_flags, second, 0);
         }
     }
 }

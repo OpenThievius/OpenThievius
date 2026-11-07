@@ -102,12 +102,13 @@ resource parsing. The previous bounded trace showed both were no-op stubs, so
 they failed to consume those fields from the resource stream. These are
 port-only replacements and should be removed when matching C becomes hostable.
 With both readers active, the class-4 parse advances from cursor `0x700014d5`
-through `0x70001a1f`, beyond the earlier null-reader failure. Startup then
-faults in the object update path: frame `0x0092de30` has flags `0x0763e73f`,
-but its flagged nested-object link at `+0x84` is `0xffff823f`. The current
-`func_00125138` trace records the object, frame, and links at stages 62–63.
-This moves the immediate fault past stream consumption; scene rendering is
-still unverified.
+through `0x70001a1f`, then reaches stage 132 and finishes its 57 groups at stage
+134. Its frame has flags `0x0763e73f`, but the flagged nested-object link at
+`+0x84` is `0xffff823f`. The port-only `func_00125138` backfill now skips
+nested links outside guest EE RAM and logs them at stage 64, allowing startup
+to continue. A bounded run reaches loader stage 5 and stays alive, but GS
+published vertices remain 0 and image-transfer counts remain 0; visible scene
+rendering is still blocked. Stages 62–63 record the object, frame, and links.
 
 `func_001A9F78` runs the derived constructors for the 37 global screen
 elements after screen resources load. The decomp checkout has the matching
