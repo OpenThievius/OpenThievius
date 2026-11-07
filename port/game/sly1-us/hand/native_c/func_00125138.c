@@ -5,6 +5,7 @@
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
 f32 sly1_native_call_f32(u32 address, u32 a0, u32 a1, u32 a2, u32 a3,
                          f32 f12, f32 f13);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4);
 
 static void copy_vectors(u32 destination, u32 source, u32 count)
 {
@@ -60,6 +61,9 @@ void func_00125138(void* object)
     const u32 frame = *(u32*)(self + 0x224u);
     u32 frame_flags = 0;
 
+    sly1_native_trace_font(62u, self, parent, frame,
+                           *(u32*)(self + 0x284u), *(u32*)(self + 0x14u));
+
     if (frame != 0) frame_flags = *(u32*)(frame + 0xB0u);
     if (frame != 0 && (frame_flags & 0xCu) != 0) {
         const u32 position_base = (frame_flags & 4u) != 0 ? frame : parent;
@@ -114,6 +118,7 @@ void func_00125138(void* object)
     if (frame != 0 && (frame_flags & 0x8020u) == 0x8020u) {
         const u32 first = *(u32*)(frame + 0x80u);
         const u32 second = *(u32*)(frame + 0x84u);
+        sly1_native_trace_font(63u, self, frame, frame_flags, first, second);
         if (first != 0) {
             const u32 nested = *(u32*)(first + 0x224u);
             if (nested != 0) *(s32*)(nested + 0x64u) = 1;

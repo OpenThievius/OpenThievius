@@ -96,6 +96,19 @@ consumption; validate its cursor against the retail reader before treating the
 loader as fixed. Remove this entry when matching decompilation becomes
 available.
 
+`resource_stream_vector_readers.c` backfills `func_00137E90` and
+`func_00137F08`, the 16-byte-stride packed-vector readers used by class-4
+resource parsing. The previous bounded trace showed both were no-op stubs, so
+they failed to consume those fields from the resource stream. These are
+port-only replacements and should be removed when matching C becomes hostable.
+With both readers active, the class-4 parse advances from cursor `0x700014d5`
+through `0x70001a1f`, beyond the earlier null-reader failure. Startup then
+faults in the object update path: frame `0x0092de30` has flags `0x0763e73f`,
+but its flagged nested-object link at `+0x84` is `0xffff823f`. The current
+`func_00125138` trace records the object, frame, and links at stages 62–63.
+This moves the immediate fault past stream consumption; scene rendering is
+still unverified.
+
 `func_001A9F78` runs the derived constructors for the 37 global screen
 elements after screen resources load. The decomp checkout has the matching
 loop in `001A8000.cpp`, but its US function status is still `no-c`, so hostgen
