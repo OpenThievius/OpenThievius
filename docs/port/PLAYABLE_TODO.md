@@ -236,6 +236,21 @@ last valid frame-list trace and `func_00152600`, identify the first bad write,
 then fix the underlying port fault. The latest build succeeded (2,040 C
 functions translated, 206 retail assembly functions, zero stubs); a bounded
 native launch still faults and shows no graphics. No emulator was used.
+
+**Display worker correction (2026-11-07):** the frame worker was reaching
+`func_0015F320`, but hostgen had no implementation for it and supplied a
+no-op. Added the exact US retail assembly function to the assembly allowlist;
+the old unlinked handwritten C prototype was removed because it passed the
+wrong packet capacity and was not a safe substitute. Rebuilt successfully:
+190 C units, 2,040 C functions, 207 retail assembly functions, zero stubs.
+A 15-second native run completed its window without the previous list fault.
+The instrumented run inserted and drained 40 frame-list nodes; every recorded
+`+0x630` link was valid through cleanup. By the final trace, the renderer had
+accepted 1,461 GIF chains and submitted 240 vertices (117 inside the viewport).
+The UI trace still reports zero visible text, and this does not establish that
+the game title or a playable scene is visible. Next, diagnose why ordinary
+startup remains at frame state 3/game mode 0 with menu page `-1`, then confirm
+visible title/scene output. Run log: `/tmp/sly-native-retail-15320-trace.log`.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
