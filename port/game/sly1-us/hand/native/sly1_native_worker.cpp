@@ -333,6 +333,32 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                  GREF(uint32_t, reader + 0x18u),
                  static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
                  GREF(uint32_t, 0x002C2A1Cu), GREF(uint32_t, 0x002699A8u));
+    if (stage == 146u) {
+        const uint32_t count = GREF(uint32_t, 0x002744F8u);
+        const uint32_t table = GREF(uint32_t, 0x002744FCu);
+        const uint64_t bytes = static_cast<uint64_t>(count) * 40u;
+        std::fprintf(stderr,
+                     "[resource-key-table] count=%u table=%#010x bytes=%llu\n",
+                     count, table, static_cast<unsigned long long>(bytes));
+        if (count != 0u && count <= 4096u && table < openrac_guest_ram_size &&
+            bytes <= static_cast<uint64_t>(openrac_guest_ram_size - table)) {
+            const uint32_t shown = std::min(count, 1024u);
+            for (uint32_t i = 0; i < shown; ++i) {
+                const uint32_t entry = table + i * 40u;
+                std::fprintf(stderr,
+                             "[resource-key-table] row=%u key=%d type=%u "
+                             "payload=%#010x subcount=%u\n",
+                             i, static_cast<int16_t>(GREF(uint16_t, entry + 2u)),
+                             GREF(uint8_t, entry), GREF(uint32_t, entry + 0x24u),
+                             GREF(uint8_t, entry + 0x13u));
+            }
+            if (shown != count)
+                std::fprintf(stderr, "[resource-key-table] omitted=%u\n", count - shown);
+        } else if (count != 0u) {
+            std::fprintf(stderr,
+                         "[resource-key-table] entries outside guest RAM or count invalid\n");
+        }
+    }
     if ((stage == 145u || stage == 146u) &&
         std::getenv("OPENRAC_DUMP_ANIMATION_WINDOW") != nullptr &&
         openrac_guest_base != nullptr) {

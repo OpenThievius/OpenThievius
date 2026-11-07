@@ -328,6 +328,76 @@ std::array<std::array<std::uint32_t, 7>, 12> trace_world_objects(std::uint32_t w
     return objects;
 }
 
+void trace_world_class_resource_links(std::uint32_t world,
+                                      std::uint32_t class_id) {
+    if (std::getenv("OPENRAC_TRACE_OBJECTS") == nullptr || world == 0) return;
+    static std::array<std::uint32_t, 0x95> last_traced_world{};
+    if (class_id >= last_traced_world.size() ||
+        last_traced_world[class_id] == world) return;
+    last_traced_world[class_id] = world;
+
+    const std::uint32_t slot = world + 0x1884u + class_id * 4u;
+    std::uint32_t slot_address = 0;
+    if (!trace_guest_range(slot, 4u, &slot_address)) return;
+    std::uint32_t object = 0;
+    std::memcpy(&object, openrac_guest_base + slot_address, 4u);
+    std::cerr << "\n[owner-class-meshes] world=0x" << std::hex << world
+              << " class=0x" << class_id << " head=0x" << object << std::dec
+              << '\n';
+
+    for (unsigned index = 0; object != 0 && index < 128u; ++index) {
+        std::uint32_t object_address = 0;
+        if (!trace_guest_range(object, 4u, &object_address)) {
+            std::cerr << "[owner-class-meshes] invalid object=0x" << std::hex
+                      << object << std::dec << '\n';
+            break;
+        }
+        std::uint32_t descriptor = 0, next = 0;
+        std::memcpy(&descriptor, openrac_guest_base + object_address, 4u);
+        std::uint32_t descriptor_address = 0;
+        std::uint32_t type = 0xFFFFFFFFu;
+        std::uint32_t object_size = 0;
+        if (!trace_guest_range(descriptor, 0x10u, &descriptor_address)) break;
+        std::memcpy(&type, openrac_guest_base + descriptor_address + 4u, 4u);
+        std::memcpy(&object_size, openrac_guest_base + descriptor_address + 0x0Cu, 4u);
+        if (object_size < 0x39Cu || object_size > 0x10000u ||
+            !trace_guest_range(object, object_size, &object_address)) {
+            std::cerr << "[owner-class-meshes] i=" << index << " object=0x"
+                      << std::hex << object << " type=0x" << type
+                      << " size=0x" << object_size << " (no mesh header)\n";
+            break;
+        }
+        std::uint32_t radius_bits = 0;
+        std::uint32_t vertex_count = 0, vertices = 0, face_count = 0, faces = 0;
+        std::uint32_t link_capacity = 0, links = 0;
+        std::memcpy(&radius_bits, openrac_guest_base + object_address + 0x380u, 4u);
+        std::memcpy(&vertex_count, openrac_guest_base + object_address + 0x384u, 4u);
+        std::memcpy(&vertices, openrac_guest_base + object_address + 0x388u, 4u);
+        std::memcpy(&face_count, openrac_guest_base + object_address + 0x38Cu, 4u);
+        std::memcpy(&faces, openrac_guest_base + object_address + 0x390u, 4u);
+        std::memcpy(&link_capacity, openrac_guest_base + object_address + 0x394u, 4u);
+        std::memcpy(&links, openrac_guest_base + object_address + 0x398u, 4u);
+        std::memcpy(&next, openrac_guest_base + object_address + 0x24u, 4u);
+        std::cerr << "[owner-class-meshes] i=" << std::dec << index
+                  << " object=0x" << std::hex << object << " type=0x" << type
+                  << " size=0x" << object_size << " radius_bits=0x" << radius_bits
+                  << " vertices=" << std::dec << vertex_count << "@0x" << std::hex
+                  << vertices << " faces=" << std::dec << face_count << "@0x"
+                  << std::hex << faces << " link_capacity=" << std::dec << link_capacity
+                  << "@0x" << std::hex << links;
+        std::uint32_t vertex_address = 0;
+        if (vertex_count != 0 && vertex_count <= 0x100000u &&
+            trace_guest_range(vertices, 16u, &vertex_address)) {
+            float sample[4]{};
+            std::memcpy(sample, openrac_guest_base + vertex_address, sizeof(sample));
+            std::cerr << " first_vertex=" << std::dec << sample[0] << ',' << sample[1]
+                      << ',' << sample[2] << ',' << sample[3];
+        }
+        std::cerr << '\n';
+        object = next;
+    }
+}
+
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \
     uint64_t name(                                                                               \
         uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
@@ -1044,6 +1114,9 @@ int main(int argc, char** argv) {
                               << fields[4] << ',' << fields[5] << ",children="
                               << std::dec << fields[6] << std::hex << ']';
                 }
+                trace_world_class_resource_links(current_object, 0x04u);
+                trace_world_class_resource_links(current_object, 0x51u);
+                trace_world_class_resource_links(current_object, 0x4Du);
                 const bool has_scene_object = std::any_of(
                     root_object_fields.begin(), root_object_fields.end(),
                     [](const auto& fields) { return fields[0] != 0 && fields[4] == 0x44u; });

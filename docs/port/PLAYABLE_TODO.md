@@ -1095,3 +1095,26 @@ trace its reader/constructor/owner link. Do not treat `func_0011ECB8`'s
 callback-list count as a scene-object count or replace its exact retail
 assembly with a speculative parser. Compatibility code remains under
 `hand/native_c`; the sibling `sly1-decomp` checkout is unchanged.
+
+**Restart checkpoint (2026-11-07):** the current native run still reaches the
+frame loop with a black scene and zero renderer vertices. The latest investigation
+traces the resource-key table populated after loader stage 146 and walks the
+selected level's owner lists for classes `0x04`, `0x51`, and `0x4d`. Retail
+`func_001B4688` searches 40-byte table rows by signed key at `+2`; do not treat a
+zero payload at `+0x24` as proof of a missing mesh, since it depends on the
+record type. The class `0x04`, `0x51`, and `0x4d` reader-backed descriptors parse
+a mesh header at object `+0x380`: radius, vertex count/pointer, face
+count/pointer, and link capacity/pointer are at `+0x380..+0x398`. This differs
+from other class-specific uses of `+0x380`; follow each descriptor's read method.
+
+Uncommitted native-only diagnostics were added in `port/sly1/main.cpp` and
+`port/game/sly1-us/hand/native/sly1_native_worker.cpp`. The owner-list scan now
+validates descriptor size before reading mesh fields. Build checked with
+`cmake --build build/port --target port_native -j2`. Next: run with
+`OPENRAC_TRACE_OBJECTS=1` and `OPENRAC_TRACE_LOADER=1`, inspect the
+`[owner-class-meshes]` and `[resource-key-table]` lines, then follow a valid mesh
+pointer (or determine why its reader never populated one). Latest previous table
+trace: `/tmp/sly-native-resource-key-table-full.log`; previous reader-backed
+object trace: `/tmp/sly-native-reader-backed-objects.log`. These `/tmp` logs are
+local diagnostics and are not committed. All compatibility/backfill C remains
+under `hand/native_c`; no changes were made to the sibling decomp checkout.
