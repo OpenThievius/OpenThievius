@@ -1390,8 +1390,9 @@ owner and creator before another graphics change.
 
 ## Restart handoff (2026-11-07)
 
-Current branch: `wip/native-sly-port`, last pushed commit `310594e`. The
-working tree was clean when this handoff was written. To resume, first inspect
+Current branch: `wip/native-sly-port`; the original handoff checkpoint was
+`310594e` and the latest pushed fix is `68424ac`. The working tree was clean
+when this handoff was written. To resume, first inspect
 `func_0011A6C0` and its caller `func_0011A4D8` in the decomp, then find where
 the relevant keyed-tree global (candidate `D_00259F38`) is initialized and
 populated. The last native run faults while `func_0011A4D8` follows a child
@@ -1430,3 +1431,21 @@ payload consumption. Latest run: `/tmp/sly-native-invalid-tree-guard.log`.
 Build command: `cmake --build build/port --target port_native -j2` (succeeded;
 201 generated C units, 208 selected retail assembly functions, zero stubs).
 The window is still black and no graphics-ready state has been demonstrated.
+
+**Object-record cursor probe (2026-11-07):** `func_0011ECB8` is now a
+port-only C backfill selected in place of its retail assembly translation.
+It follows the retail count, three 16-bit fields, factory call, virtual reader,
+slot registration, and activation sequence, while opt-in tracing records the
+reader cursor around each reader callback. On the direct `0x0100` probe, a
+class-`0x53` reader at `func_00196410` advances the cursor from
+`0x70000eb3` to `0x700016bf`; the next object record is class `0x683e` at
+index 1 of 37. The 48-byte window at that point contains a mix of values and
+float-looking data, not another valid class record. The first invalid factory
+result still follows retail's no-op missing-call behavior so the trace can
+show subsequent reads; this does not repair the stream. Later activation
+faults at `0x1689c3e0` through `func_00183350` and
+`func_00182ED8`, called from nested `func_0011ECB8` under
+`func_00196410`/`func_001DCEA0`. Reproduced in
+`/tmp/sly-native-record-final-check.log`; the byte capture is in that same
+log. The build succeeds with 207 retail
+assembly translations and zero stubs. No visible graphics are produced.
