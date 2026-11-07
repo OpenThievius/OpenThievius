@@ -50,6 +50,9 @@ void func_00165728(void* self_pointer, void* context_pointer)
         (Sly1RenderContext_165728*)context_pointer;
     static u32 trace_calls;
     const s32 trace_this_call = trace_calls < 64u;
+    const s32 trace_scene_group = (u32)self == 0x00847ACCu ||
+                                 (u32)self == 0x0084990Cu ||
+                                 (u32)self == 0x00FE903Cu;
     s32 i;
 
     if (trace_this_call) {
@@ -94,6 +97,29 @@ void func_00165728(void* self_pointer, void* context_pointer)
                 nested_items < 0x02000000u && nested_count <=
                     (0x02000000u - nested_items) / 0x50u) {
                 u32 item;
+                if (trace_scene_group) {
+                    sly1_native_trace_font(111u, (u32)self, (u32)i,
+                        (u32)entry, (u32)subdata, nested_count);
+                    sly1_native_trace_font(117u, (u32)subdata,
+                        *(u32*)subdata, *(u32*)(subdata + 4u),
+                        *(u32*)(subdata + 8u), *(u32*)(subdata + 0xCu));
+                    sly1_native_trace_font(118u, (u32)subdata,
+                        *(u32*)(subdata + 0x10u), *(u32*)(subdata + 0x14u),
+                        *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu));
+                    sly1_native_trace_font(119u, (u32)subdata,
+                        *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u),
+                        0, 0);
+                    sly1_native_trace_font(120u, (u32)entry,
+                        *(u32*)((u8*)entry + 0x38u),
+                        *(u32*)((u8*)entry + 0x3Cu),
+                        *(u32*)((u8*)entry + 0x40u),
+                        *(u32*)((u8*)entry + 0x44u));
+                    sly1_native_trace_font(121u, (u32)entry,
+                        *(u32*)((u8*)entry + 0x48u),
+                        *(u32*)((u8*)entry + 0x4Cu),
+                        *(u32*)((u8*)entry + 0x50u),
+                        *(u32*)((u8*)entry + 0x54u));
+                }
                 for (item = 0; item < nested_count; ++item) {
                     u32 address = nested_items + item * 0x50u;
                     u32 word;
@@ -111,7 +137,7 @@ void func_00165728(void* self_pointer, void* context_pointer)
                     {
                         u32 payload = *(u32*)(address + 0x18u);
                         if (payload >= 0x10000u &&
-                            payload <= 0x02000000u - 0x10u) {
+                            payload <= 0x02000000u - 0x2Cu) {
                             sly1_native_trace_font(106u, (u32)i, item,
                                 address, payload, *(u32*)payload);
                             sly1_native_trace_font(107u,
@@ -120,7 +146,87 @@ void func_00165728(void* self_pointer, void* context_pointer)
                                 *(u32*)(payload + 0xCu),
                                 *(u32*)(payload + 0x10u),
                                 *(u32*)(payload + 0x14u));
+                        if (trace_scene_group) {
+                            sly1_native_trace_font(122u, item, payload,
+                                *(u32*)payload, *(u32*)(payload + 4u),
+                                *(u32*)(payload + 8u));
+                            sly1_native_trace_font(123u, item,
+                                *(u32*)(payload + 0xCu),
+                                *(u32*)(payload + 0x10u),
+                                *(u32*)(payload + 0x14u),
+                                *(u32*)(payload + 0x18u));
+                            sly1_native_trace_font(124u, item,
+                                *(u32*)(payload + 0x1Cu),
+                                *(u32*)(payload + 0x20u),
+                                *(u32*)(payload + 0x24u),
+                                *(u32*)(payload + 0x28u));
+                            {
+                                u32 pointer_a = *(u32*)(payload + 0x14u);
+                                u32 pointer_b = *(u32*)(payload + 0x1Cu);
+                                u32 pointers[2] = { pointer_a, pointer_b };
+                                u32 pointer_index;
+                                for (pointer_index = 0; pointer_index < 2u;
+                                     ++pointer_index) {
+                                    u32 pointer = pointers[pointer_index];
+                                    u32 stage = pointer_index == 0u ? 126u : 130u;
+                                    if (pointer >= 0x10000u &&
+                                        pointer <= 0x02000000u - 0x40u) {
+                                        sly1_native_trace_font(stage, item,
+                                            pointer, *(u32*)pointer,
+                                            *(u32*)(pointer + 4u),
+                                            *(u32*)(pointer + 8u));
+                                        sly1_native_trace_font(stage + 1u, item,
+                                            *(u32*)(pointer + 0xCu),
+                                            *(u32*)(pointer + 0x10u),
+                                            *(u32*)(pointer + 0x14u),
+                                            *(u32*)(pointer + 0x18u));
+                                        sly1_native_trace_font(stage + 2u, item,
+                                            *(u32*)(pointer + 0x1Cu),
+                                            *(u32*)(pointer + 0x20u),
+                                            *(u32*)(pointer + 0x24u),
+                                            *(u32*)(pointer + 0x28u));
+                                        sly1_native_trace_font(stage + 3u, item,
+                                            *(u32*)(pointer + 0x2Cu),
+                                            *(u32*)(pointer + 0x30u),
+                                            *(u32*)(pointer + 0x34u),
+                                            *(u32*)(pointer + 0x38u));
+                                    }
+                                }
+                                if (item == 0u && pointer_b >= 0x10000u &&
+                                    pointer_b <= 0x02000000u - 8u) {
+                                    u32 record_count = *(u32*)pointer_b;
+                                    u32 records = *(u32*)(pointer_b + 4u);
+                                    if (record_count <= 16u &&
+                                        records >= 0x10000u &&
+                                        records <= 0x02000000u -
+                                            record_count * 0x10u) {
+                                        u32 record;
+                                        for (record = 0; record < record_count;
+                                             ++record) {
+                                            u32 address = records + record * 0x10u;
+                                            sly1_native_trace_font(134u,
+                                                (u32)i, record, *(u32*)address,
+                                                *(u32*)(address + 4u),
+                                                *(u32*)(address + 8u));
+                                            sly1_native_trace_font(135u,
+                                                (u32)i, record,
+                                                *(u32*)(address + 0xCu),
+                                                address, records);
+                                        }
+                                    }
+                                }
+                            }
                         }
+                        }
+                    if (trace_scene_group) {
+                        for (word = 0; word < 0x50u / 4u; word += 4u) {
+                            sly1_native_trace_font(112u + word / 4u, item,
+                                *(u32*)(address + word * 4u),
+                                *(u32*)(address + (word + 1u) * 4u),
+                                *(u32*)(address + (word + 2u) * 4u),
+                                *(u32*)(address + (word + 3u) * 4u));
+                        }
+                    }
                     }
                 }
             }
@@ -168,8 +274,16 @@ void func_00165728(void* self_pointer, void* context_pointer)
                 sly1_native_trace_font(87u, (u32)i, (u32)entry,
                     (u32)object, vtable, callback);
             }
-            if (callback != 0)
+            if (callback != 0) {
                 (void)sly1_native_call_regs4(callback, (u32)object, 0, 0, 0);
+                if (trace_scene_group &&
+                    callback == 0x001B4AD0u) {
+                    sly1_native_trace_font(125u, (u32)i, (u32)object,
+                        *(u32*)((u8*)object + 0x0Cu),
+                        *(u32*)((u8*)object + 0x10u),
+                        *(u32*)((u8*)object + 0x14u));
+                }
+            }
         }
         func_001662A8(self, entry, subdata, context);
     }

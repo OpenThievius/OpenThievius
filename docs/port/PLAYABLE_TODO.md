@@ -1879,3 +1879,15 @@ the first valid mesh-owning object through activation and identify why the
 render submission contains no scene geometry. Separately, normal startup still
 does not request title/movie content. All assembly selections are in the port
 hostgen configuration; `sly1-decomp` remains untouched.
+
+**Selected-level render-record trace checkpoint (2026-11-07):** Expanded the
+opt-in render-list trace for the direct-level diagnostic to capture the first
+selected-level group (`0x00fe903c`), its nested 0x50-byte records, associated
+payload words/pointer targets, and the group callback result. The trace quotas
+now include these stages. The targeted native launcher has not yet been rerun
+with this expanded capture. Build succeeds: 2,043 translated C functions,
+221 exact assembly translations, zero stubs; 204 generated C units compile and
+link. Next rerun the documented `OPENRAC_BOOT_LEVEL=0x0100` command with
+`OPENRAC_TRACE_FONT=1`, inspect stages 111-135 for group `0x00fe903c`, and
+record whether the selected-level record contains nonzero render data. This is
+diagnostic instrumentation only; it does not claim to fix the black screen.
