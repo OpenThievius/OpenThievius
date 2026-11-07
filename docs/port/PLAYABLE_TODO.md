@@ -294,6 +294,16 @@ vertices/text, and all-black captured frames. Trace:
 The current hostgen build has 2,035 C functions and 214 US assembly functions,
 with zero stubs. It drains 40 frame-list nodes with valid links; this is more
 reliable startup, but still not visible graphics or playability.
+
+**Object-key callback restoration (2026-11-07):** added exact US assembly for
+the reached no-op `func_001837E0`, which performs resource-key lookup and
+queues a callback. Its direct callees were already available, so this
+single-function addition rebuilt cleanly and removed its no-op warning. A new
+15-second run remains in state 3/game mode 0 with zero visible text. It drains
+40 frame-list nodes cleanly, but both sampled native frames are still all
+black. The assembly path is restored, but it has not yet produced a visible
+title or scene. Trace: `/tmp/sly-native-object-key-asm.log`. Current count:
+2,035 C functions / 215 US assembly functions / zero stubs.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
