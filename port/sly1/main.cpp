@@ -47,8 +47,10 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
-    unsigned limit = limits[stage];
-    if (stage == 73 || stage == 74 || stage == 75 ||
+    unsigned limit = stage < sizeof(limits) / sizeof(limits[0])
+        ? limits[stage] : 8u;
+    if ((stage >= 90u && stage <= 96u) ||
+        stage == 73 || stage == 74 || stage == 75 ||
         (stage >= 81 && stage <= 89) || stage == 58 || stage == 59 || stage == 60 ||
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57) {
         limit = 256u;

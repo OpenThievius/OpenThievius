@@ -1676,3 +1676,36 @@ count, child array and list head, then identify the initializer that should
 populate them. Build succeeded; direct-run log:
 `/tmp/sly-native-sound-rpc34-36.log`. The selected-level parser does not
 complete, no graphics are visible, and the game is not playable.
+
+**Restart checkpoint (2026-11-07, direct-load scene entries):** The keyed-tree
+fault was from a collider initializer reading `+0x2c = 0x18`; the existing
+port-only `func_001B7968` guard rejects that non-pointer, so it is not the
+current stop. A port-only `func_0011ECB8` diagnostic backfill now records each
+record cursor and returns at the first impossible type instead of dispatching
+through a null descriptor. In the direct `0x0100` run, it sees count `0x25`,
+class `0x53` at cursor `0x70000ead`, and the next record becomes invalid type
+`0x683e` at index 1/cursor `0x700016bf` after the class callback consumes
+`0x80c` bytes. The malformed remainder is not yet explained. This guard lets
+startup continue to the active world; it is diagnostic and does not establish
+that all level objects loaded.
+
+The port-only tracing wrapper for matched `func_00165728` follows the decomp
+layout (entry stride `0x70`) and captures each list's entry count, nested
+element count/pointer, and callback. The bounded 10-second run remains active
+in world `0x0088d5b0`, frame state 3/game mode 0. The first lists have one
+entry; later entries have valid nested pointers and some use callback
+`0x001b4ad0`. Still, the renderer reports zero vertices, zero image tags,
+zero image qwords, three accepted GIF chains, and the screen remains black
+with no visible text. The immediate graphics lead remains the data passed by
+`func_00165728` into retail `func_001662A8`, especially the nested count/pointer
+at entry offsets `+0x58/+0x5c`, then the scene draw path that should submit
+actual primitives. Latest log: `/tmp/sly-native-scene-entry-64.log`.
+
+The font-trace helper now bounds-checks its stage-limit table; trace IDs
+90–96 no longer read beyond that table. Latest build succeeds with 2,037 C
+translations, 218 US assembly translations, zero stubs, and 202 generated C
+units linked. The work is on branch `wip/native-sly-port`. All backfills and
+diagnostic replacements are port-only; `/home/reaper/Code/sly1-decomp` is
+untouched. This is still not playable; continue with the scene-data/render
+submission path and preserve the default Splash-to-title transition as a
+separate blocker.

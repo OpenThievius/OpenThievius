@@ -16,6 +16,9 @@ void func_0011ECB8(void* owner, void* parameter, void* reader)
     s32 count = func_00137D10(reader);
     s32 i;
 
+    sly1_native_trace_font(83u, (u32)owner, (u32)reader, (u32)parameter,
+        (u32)count, *(u32*)((u8*)reader + 0x18u));
+
     if (count <= 0) return;
 
     for (i = 0; i < count; ++i) {
@@ -30,9 +33,15 @@ void func_0011ECB8(void* owner, void* parameter, void* reader)
         u32 cursor_before;
         s32 index;
 
+        sly1_native_trace_font(84u, (u32)i, (u32)count, record_cursor,
+            (u32)record_remaining, *(u32*)((u8*)reader + 0x20u));
+
         if ((u32)type > 0x94u) {
             sly1_native_trace_font(43u, record_cursor, (u32)type,
-                (u32)mode, (u32)listener_id, (u32)i, (u32)record_remaining);
+                (u32)mode, (u32)listener_id, (u32)i);
+            /* Keep a malformed stream from calling through a null descriptor
+             * method. The trace marks the first bad record and its cursor. */
+            return;
         }
         object = func_0011E580(type, owner, parameter, mode, listener_id);
         if (object == 0) {
@@ -72,5 +81,8 @@ void func_0011ECB8(void* owner, void* parameter, void* reader)
             *(u32*)((u8*)owner + 0x1CE8u + (u32)index * 4u) = (u32)object;
             func_00182ED8(object);
         }
+        sly1_native_trace_font(85u, (u32)i, (u32)type,
+            *(u32*)((u8*)reader + 0x18u),
+            (u32)*(s32*)((u8*)reader + 0x1Cu), (u32)object);
     }
 }

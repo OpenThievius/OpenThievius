@@ -140,6 +140,8 @@ void func_001240F8(void* self_pointer)
     if (method != 0)
         (void)sly1_native_call_regs4(method, self, 0, 0, 0);
 
+    sly1_native_trace_font(57, self, *(u32*)(descriptor + 4u),
+                           *(u32*)(self + 0x2Cu), world, parent);
     (void)sly1_native_call_regs4(0x001837E0u, self, 4, 0, 0);
     func_00129DF8((void*)self);
 }
