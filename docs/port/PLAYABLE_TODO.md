@@ -1332,3 +1332,20 @@ copy or edit the translated retail assembly as a fix. The focused local trace
 is `/tmp/sly-native-caller-origin-filtered.log`; earlier row probes are in
 `/tmp/sly-native-row-mutation.log` and `/tmp/sly-native-row-writes.log` (not
 tracked). The native launcher still exits before showing game graphics.
+
+**Allocator-origin follow-up:** tracing the scratch slot before every
+`func_00164868` call shows its values advance through a contiguous range of
+`0x00cf...` guest addresses, including `0x00cf4fd0`; this is structured
+allocation-like behavior, not random stack corruption. The per-thread native
+temporary arena is separately based at `0x00c00000` and cannot directly
+produce these addresses. A port-only override of `func_0018D4B0` in
+`native_c/input_manager.c` instead returns and advances `D_002C2A14`, making
+that backfill the leading origin to investigate. The same file resets that
+cursor in `func_0018D4B0` and uses it for controller buffers, so do not assume
+all `0x00cf...` results are renderer allocations. Next, trace every call to
+`func_0018D4B0` alongside the renderer scratch-slot writes and compare with
+retail `func_0018D4B0` / its initialization path. The current trace does not
+yet prove which allocation created `0x00cf4fd0`; do not change allocator
+policy or skip the renderer write until that link is established. The
+temporary instrumentation in `port/sly1/main.cpp` is not part of the intended
+change and should be reverted before the next checkpoint commit.
