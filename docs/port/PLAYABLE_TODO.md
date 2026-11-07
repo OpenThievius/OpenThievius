@@ -1766,3 +1766,25 @@ or Splash content activation, not this worker semaphore. Evidence:
 `/tmp/sly1-native-gs-csr.log`. This runtime signal model is port infrastructure;
 `func_00168698` remains an isolated port-only C backfill so matching decomp C
 can replace it later.
+
+**Default Splash/title path checkpoint (2026-11-07):** Added opt-in
+`OPENRAC_TRACE_MENU_PATH=1` entry tracing for the title-page population,
+retail menu draw, and text-layout/draw functions, plus state-data fields to the
+startup snapshot. A 10-second native run reports no entries into any of those
+menu/text functions. The game remains in frame state 3 with `game_mode=0`,
+`load_request=0`, no visible text, and pad state-data mode 3; the screen clear
+continues to be the only visible output. Selecting exact retail assembly for
+`func_0016E118` (a missing decomp C routine that clears transition bits and
+calls `func_0016E148`) builds successfully but does not change that path. Logs:
+`/tmp/sly-native-menu-path.log`, `/tmp/sly-native-menu-after-e118.log`.
+
+The port-only `func_001E4EA8` contains a development shortcut for
+`OPENRAC_BOOT_LEVEL` and explicitly notes that it bypasses the movie/title
+systems; this makes the default movie-to-title startup chain the next concrete
+lead. Trace who requests the opening PSS/movie and whether the native host's
+`openrac_game_play_movie` hook is reached, then inspect any unavailable retail
+functions in the decomp before adding isolated port backfills. Keep all such
+replacements in `hand/native_c` so later matching decomp code can replace them.
+The current diagnostics and `func_0016E118` assembly selection are uncommitted
+at this checkpoint; no decomp repository files were changed. This remains a
+black screen and is not playable.

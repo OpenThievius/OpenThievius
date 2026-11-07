@@ -916,6 +916,10 @@ int main(int argc, char** argv) {
                 std::uint32_t world_job_queue[2]{};
                 std::uint32_t deferred_request_count = 0;
                 std::uint32_t frame_selector = 0;
+                std::uint32_t state_data_address = 0;
+                std::int32_t state_data_mode = 0;
+                std::uint16_t state_data_flags = 0;
+                std::uint32_t state_transition_flags = 0;
                 std::int32_t scene_gate = 0;
                 std::uint32_t scene_pending = 0;
                 std::int32_t scene_pending_state = -1;
@@ -1008,6 +1012,16 @@ int main(int argc, char** argv) {
                 }
                 std::memcpy(&frame_selector, openrac_guest_base + 0x00262C68u,
                             sizeof(frame_selector));
+                state_data_address = (frame_selector & 4u) != 0
+                    ? 0x00262C70u : 0x00262D38u;
+                std::memcpy(&state_data_mode,
+                            openrac_guest_base + state_data_address + 0x14u,
+                            sizeof(state_data_mode));
+                std::memcpy(&state_data_flags,
+                            openrac_guest_base + state_data_address + 0xAAu,
+                            sizeof(state_data_flags));
+                std::memcpy(&state_transition_flags, openrac_guest_base + 0x00262C6Cu,
+                            sizeof(state_transition_flags));
                 std::uint32_t deferred_cursor = 0;
                 std::uint32_t deferred_cursor_address = 0;
                 if (trace_guest_range(0x0026AC10u, sizeof(deferred_cursor),
@@ -1256,6 +1270,10 @@ int main(int argc, char** argv) {
                           << std::dec << " deferred_requests=" << deferred_request_count
                           << " map_selection=0x" << std::hex << scene_pending << std::dec
                           << " state_selector=0x" << std::hex << frame_selector << std::dec
+                          << " state_data=0x" << std::hex << state_data_address
+                          << " mode=" << std::dec << state_data_mode
+                          << " flags=0x" << std::hex << state_data_flags
+                          << " transition_flags=0x" << state_transition_flags << std::dec
                           << " pad_report=0x" << std::hex << pad_report << std::dec
                           << " pad_mode=" << pad_mode << " pad_state=" << pad_state
                           << " pad_buttons=0x" << std::hex << pad_buttons

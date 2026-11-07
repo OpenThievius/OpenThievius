@@ -286,6 +286,31 @@ void openrac_guest_trace_function_entry(gaddr address) {
         const uint32_t thread_id = openrac_guest_current_thread_id();
         if (thread_id < g_last_called_by_thread.size())
             g_last_called_by_thread[thread_id].store(address, std::memory_order_relaxed);
+
+        static const bool trace_menu_path =
+            std::getenv("OPENRAC_TRACE_MENU_PATH") != nullptr;
+        if (trace_menu_path) {
+            static constexpr gaddr targets[] = {
+                0x001936A0u, // populate a title/menu page
+                0x00194F80u, // draw the retail menu object
+                0x0015DB28u, // prepare text layout
+                0x0015E318u, // draw text into a GIF packet
+                0x0015C638u, // emit glyphs
+                0x001AA790u, // draw a screen text element
+                0x001AB198u, // draw a caption element
+            };
+            static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
+            for (std::size_t i = 0; i < std::size(targets); ++i) {
+                if (address != targets[i]) continue;
+                const unsigned count = counts[i].fetch_add(1, std::memory_order_relaxed) + 1;
+                if (count <= 4) {
+                    std::fprintf(stderr,
+                                 "[menu path] thread=%u address=%#010x count=%u\n",
+                                 thread_id, address, count);
+                }
+                break;
+            }
+        }
     }
 }
 
