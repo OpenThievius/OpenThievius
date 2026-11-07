@@ -1101,20 +1101,36 @@ frame loop with a black scene and zero renderer vertices. The latest investigati
 traces the resource-key table populated after loader stage 146 and walks the
 selected level's owner lists for classes `0x04`, `0x51`, and `0x4d`. Retail
 `func_001B4688` searches 40-byte table rows by signed key at `+2`; do not treat a
-zero payload at `+0x24` as proof of a missing mesh, since it depends on the
+zero payload at `+0x24` as proof of a missing resource, since it depends on the
 record type. The class `0x04`, `0x51`, and `0x4d` reader-backed descriptors parse
 a mesh header at object `+0x380`: radius, vertex count/pointer, face
-count/pointer, and link capacity/pointer are at `+0x380..+0x398`. This differs
-from other class-specific uses of `+0x380`; follow each descriptor's read method.
+count/pointer, and link capacity/pointer are at `+0x380..+0x398`. The populated
+class-`0x04` data is collision geometry, not evidence of a renderable mesh;
+follow each descriptor's read method before interpreting these fields.
 
 Uncommitted native-only diagnostics were added in `port/sly1/main.cpp` and
 `port/game/sly1-us/hand/native/sly1_native_worker.cpp`. The owner-list scan now
 validates descriptor size before reading mesh fields. Build checked with
 `cmake --build build/port --target port_native -j2`. Next: run with
 `OPENRAC_TRACE_OBJECTS=1` and `OPENRAC_TRACE_LOADER=1`, inspect the
-`[owner-class-meshes]` and `[resource-key-table]` lines, then follow a valid mesh
-pointer (or determine why its reader never populated one). Latest previous table
+`[owner-class-object]` and `[resource-key-table]` lines, then identify which
+object data reaches the visual renderer. Latest previous table
 trace: `/tmp/sly-native-resource-key-table-full.log`; previous reader-backed
 object trace: `/tmp/sly-native-reader-backed-objects.log`. These `/tmp` logs are
 local diagnostics and are not committed. All compatibility/backfill C remains
 under `hand/native_c`; no changes were made to the sibling decomp checkout.
+
+**Owner-list correction (2026-11-07):** a bounded native trace now scans all
+149 class slots on the directly loaded level world, rather than sampling only
+classes `0x04`, `0x51`, and `0x4d`. Non-empty owner lists are classes `0x00`,
+`0x1e`, `0x04`, `0x4d`, `0x51`, `0x6c`, `0x6d`, and `0x86`. The class-`0x04`
+object does contain 10,110 vertices and 13,070 faces, but its descriptor
+callbacks are `func_001B8540` and `func_001B9680`; the latter is the collision
+previous-transform callback in the port-only `collider_mesh_transform.c`.
+Treat that geometry as collision data, not the missing visual scene. No visual
+object class appears in the world's owner lists, and the frame still reports
+zero submitted vertices. Trace: `/tmp/sly-native-all-owner-classes.log`.
+Next, trace the level resource's object records and deferred asset requests to
+find why visual-class instances are never created or attached; independently
+trace the default Splash-to-title transition, which also remains at frame state
+3/game mode 0.
