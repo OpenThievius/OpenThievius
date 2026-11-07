@@ -49,6 +49,7 @@ static void call_item_state(u32 callback, void* item, void* state_data) {
 }
 
 void func_001E9108(void* frame_state) {
+    static u32 state3_trace_count;
     void* state_data = (D_00262C68 & 4u) != 0 ? D_00262C70 : D_00262D38;
     s32 state = field_s32(frame_state, 4);
     f32 elapsed = field_f32(D_00261858, 0x10) - field_f32(frame_state, 8);
@@ -97,6 +98,15 @@ void func_001E9108(void* frame_state) {
             repeat_transition = 1;
             break;
         case 3: {
+            if (state3_trace_count < 16u) {
+                sly1_native_trace_font(54, (u32)state_data,
+                                       field_u16(state_data, 0xAA),
+                                       (u32)field_s32(state_data, 0x14),
+                                       (u32)state,
+                                       (D_00262C68 << 16) |
+                                           (D_00262C6C & 0xFFFFu));
+                ++state3_trace_count;
+            }
             if ((D_00262C6C & 2u) != 0 || field_s32(D_00275F80, 4) != 0) {
                 break;
             }
