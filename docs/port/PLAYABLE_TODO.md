@@ -823,3 +823,15 @@ proof that the level mesh path has been reached.
 
 Latest traces: `/tmp/sly-native-vif-failure-context.log` and
 `/tmp/sly-native-dmawait-retail.log`.
+
+## Retail world initialization follow-up (2026-11-07)
+
+Selected exact NTSC-U assembly for `func_00151D28`, `func_001BEB10`, and
+`func_001DCD28`, which the port-only level loader calls during resource setup
+and world traversal. A fresh 12-second direct-level run still reaches stage 5
+with world `0x0088d530`, but produces zero root children and zero renderer
+vertices, with no fonts or visible text. These translations remove no-C stubs
+but do not yet reach the scene mesh path. The trace is
+`/tmp/sly-native-retail-init-path.log`; current hostgen coverage is 2,044 C
+functions, 114 retail assembly translations, 2,700 functions without C, and
+12 unreadable units. Decomp checkout remains unchanged at `e1b39f1`.

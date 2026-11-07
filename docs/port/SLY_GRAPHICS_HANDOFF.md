@@ -10,7 +10,7 @@ objects/vtables. The active world still submits zero scene vertices, and the
 UI trace reports no fonts or visible text. The next graphics gate is the first
 real level mesh callback producing vertices, followed by its native renderer
 submission. The current build uses the local `sly1-decomp` checkout at
-`e1b39f1`, translates 2,045 C functions and 108 retail assembly functions,
+`e1b39f1`, translates 2,044 C functions and 114 retail assembly functions,
 and leaves 12 unreadable units. Port-only C overrides remain under
 `hand/native_c/`; neither those nor generated assembly translations modify
 the decomp repository.
@@ -723,3 +723,14 @@ geometry lead. The selected level's callback-record list still reads zero;
 that is only one field in its loader stream, not evidence that the complete
 resource contains no scene data. The next useful graphics trace is on the
 actual mesh-owning object/callback path, after level activation.
+
+## Retail world-initialization routines enabled (2026-11-07)
+
+The hostgen build now translates exact NTSC-U assembly for `func_00151D28`,
+`func_001BEB10`, and `func_001DCD28`, which the port-only level loader calls
+during resource setup and world traversal. This removes three no-C stubs from
+that path without changing `sly1-decomp`. A fresh 12-second direct-level run
+still reaches stage 5 with world `0x0088d530`, but reports zero root children,
+zero renderer vertices, zero registered fonts, and zero visible text. These
+retail routines alone do not establish the level object path. Trace:
+`/tmp/sly-native-retail-init-path.log`.
