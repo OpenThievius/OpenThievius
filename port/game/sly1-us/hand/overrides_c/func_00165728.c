@@ -96,9 +96,32 @@ void func_00165728(void* self_pointer, void* context_pointer)
                 u32 item;
                 for (item = 0; item < nested_count; ++item) {
                     u32 address = nested_items + item * 0x50u;
+                    u32 word;
                     sly1_native_trace_font(97u, (u32)i, item, address,
                         *(u32*)(address + 0x24u),
                         *(u32*)(address + 0x28u));
+                    for (word = 0; word < 0x50u / 4u; word += 5u) {
+                        sly1_native_trace_font(99u + word / 5u,
+                            *(u32*)(address + word * 4u),
+                            *(u32*)(address + (word + 1u) * 4u),
+                            *(u32*)(address + (word + 2u) * 4u),
+                            *(u32*)(address + (word + 3u) * 4u),
+                            *(u32*)(address + (word + 4u) * 4u));
+                    }
+                    {
+                        u32 payload = *(u32*)(address + 0x18u);
+                        if (payload >= 0x10000u &&
+                            payload <= 0x02000000u - 0x10u) {
+                            sly1_native_trace_font(106u, (u32)i, item,
+                                address, payload, *(u32*)payload);
+                            sly1_native_trace_font(107u,
+                                *(u32*)(payload + 4u),
+                                *(u32*)(payload + 8u),
+                                *(u32*)(payload + 0xCu),
+                                *(u32*)(payload + 0x10u),
+                                *(u32*)(payload + 0x14u));
+                        }
+                    }
                 }
             }
             if (extra_count <= 32u && extra_items >= 0x10000u &&
@@ -110,6 +133,31 @@ void func_00165728(void* self_pointer, void* context_pointer)
                     sly1_native_trace_font(98u, (u32)i, item, address,
                         *(u32*)(address + 4u),
                         *(u32*)(address + 8u));
+                }
+            }
+            sly1_native_trace_font(104u, *(u32*)subdata,
+                *(u32*)(subdata + 4u), *(u32*)(subdata + 8u),
+                *(u32*)(subdata + 0xCu), *(u32*)(subdata + 0x10u));
+            sly1_native_trace_font(105u, *(u32*)(subdata + 0x14u),
+                *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu),
+                *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u));
+            {
+                u32 payload = *(u32*)(subdata + 4u);
+                if (payload >= 0x10000u &&
+                    payload <= 0x02000000u - 0x30u) {
+                    sly1_native_trace_font(108u, payload,
+                        *(u32*)payload, *(u32*)(payload + 4u),
+                        *(u32*)(payload + 8u), *(u32*)(payload + 0xCu));
+                    sly1_native_trace_font(109u,
+                        *(u32*)(payload + 0x10u),
+                        *(u32*)(payload + 0x14u),
+                        *(u32*)(payload + 0x18u),
+                        *(u32*)(payload + 0x1Cu),
+                        *(u32*)(payload + 0x20u));
+                    sly1_native_trace_font(110u,
+                        *(u32*)(payload + 0x24u),
+                        *(u32*)(payload + 0x28u),
+                        *(u32*)(payload + 0x2Cu), 0, 0);
                 }
             }
         }
