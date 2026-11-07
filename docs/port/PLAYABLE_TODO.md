@@ -1064,10 +1064,24 @@ checkout remains clean and current at `e1b39f1`.
 The latest bounded direct-level trace is
 `/tmp/sly-native-direct0100-lookup-b4688.log`. It still has two base world-root
 objects, zero root children, zero vertices/image tags/image qwords, and
-`scene_gate=0` / `game_mode=0`. The next useful task is to inspect retail
-`func_0011B008` before changing its port-only implementation in
-`resource_value_parser.c`: the current backfill writes 16 bytes, while the
-nearby retail value-array path uses an 8-byte stride. Confirm the exact retail
-clear size and callers, then fix the backfill only if the assembly supports it.
-Keep all such compatibility/backfill code under `hand/native_c`; do not modify
-the sibling `sly1-decomp` checkout.
+`scene_gate=0` / `game_mode=0`. Retail inspection found that
+`func_0011B008` is a 4-byte tag initializer: its US ELF instructions set only
+the first word to `-1`, then return. The port backfill previously also zeroed
+three following words, clobbering the payload and potentially adjacent stack
+values. It now matches the retail write while remaining isolated under
+`hand/native_c`. The rebuilt native launcher ran the selected level for 12
+seconds; it still reports two base world-root objects, zero root children,
+zero vertices and no image transfers. The existing font count/IDs are
+unchanged from previous traces. Latest run:
+`/tmp/sly-native-1b008-tag-only.log`.
+
+With `OPENRAC_TRACE_FONT=1`, the trace brackets that exact retail callback-list
+parser: the selected level enters at cursor `0x70001854` with 1,964 bytes
+remaining and returns with cursor `0x70000000` / remaining `-1`. This routine
+is not the scene-object list parser, so its cursor reset does not explain the
+empty world by itself. Check whether the callback list intentionally consumes
+the rest of the resource or hits a reader/refill error, then continue tracing
+the first actual renderable object's creation and owner-list insertion. Do not
+replace exact retail callback assembly with a speculative object parser.
+Compatibility code remains under `hand/native_c`; the sibling
+`sly1-decomp` checkout is unchanged.

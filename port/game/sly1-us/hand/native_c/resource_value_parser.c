@@ -31,9 +31,9 @@ void* func_0011C498(void) {
 }
 
 void* func_0011B008(void* value) {
-    u32* words = (u32*)value;
-    words[0] = 0xFFFFFFFFu;
-    words[1] = words[2] = words[3] = 0;
+    /* Retail writes only the tag. The payload and following stack values are
+     * intentionally left untouched. */
+    *(u32*)value = 0xFFFFFFFFu;
     return value;
 }
 
