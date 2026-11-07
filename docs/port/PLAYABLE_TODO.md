@@ -142,52 +142,54 @@ static translations of known retail functions, not a runtime interpreter.
 Functional C backfills remain in the port registry and decomp source is
 untouched.
 
-The latest bounded launch built successfully, read Splash and its first level
-resource, created a 37-object world, and kept the native frame loop active for
-15 seconds. It still showed a black window. The trace reported zero scene
-vertices, zero visible text, and no completed scene draw. During startup it
-also reported an indirect call through null from `func_0011ECB8` and a call to
-data address `0x0021B4D8` while executing `func_0011E680`. `D_0021B4D8` is a
-class `0x3B` descriptor, not a function entry. Trace the stream record and
-descriptor table entry that supplied the callback before changing either
-parser. This moves the immediate investigation from the old stream-record
-boundary hypothesis to the descriptor callback and first real draw submission.
-The current hostgen snapshot is 1,833 translated functions, 90 selected from
-assembly, 3 stubs, and 3,026 functions without C; these counts do not represent
-runtime coverage.
+Current hostgen reports 1,832 translated functions, including 91 selected
+from retail assembly, 3 stubs, and 3,026 functions without C. It also reports
+99 calls that omit arguments and fill them with zero. These are build counts,
+not runtime coverage.
+
+Retail assembly confirms `func_0013B598` forwards incoming register `a1` as
+the stream to `func_001BAC30`, while its current decompilation signature omits
+that argument. The port now selects this static retail translation with
+signature `void(void*, void*)`, fixing that demonstrated ABI mismatch without
+editing `sly1-decomp`. The earlier dispatch through descriptor data
+`0x0021B4D8` no longer appears in the follow-up trace.
+
+The latest native launch still faults during Splash object loading. The trace
+reaches `func_001BAC30` through `func_0013B598`, but reports a null indirect
+call from `func_0011ECB8` and then a write through guest address `0x02000000`
+in `func_001BAC30`. Collision-reader stages show vertex count 0, face count 0,
+then link capacity `0x3F80` at reader cursor `0x700008EE`; this is the earliest
+concrete suspicious value. The launcher is not playable and remains visually
+black. Latest trace: `/tmp/sly-native-reader-trace.log` on the development
+machine.
 
 ## Immediate next steps
 
-1. Trace `func_0011E680` / `func_0011EC40` and the `0x0021B4D8` dispatch. Map
-   the record and descriptor that supply it, compare the `D_0021B4D8` class
-   `0x3B` method slots with the retail assembly, and explain the null callback.
-   Do not change descriptor data or skip the call without identifying its
-   source and intended operation.
-2. Trace the active `func_0018E558` worker and `func_0013B598` frame path from
-   the populated world lists to the renderer boundary. Capture the first
-   missing required function and the first draw request's mesh, material,
-   transform, and camera inputs. This is the direct path to explaining why
-   the window remains black.
-3. Prioritize each missing function by whether it blocks world activation,
-   player creation, update, or draw. Use matching decomp C where hostable;
-   select known retail assembly for static translation when available; add
-   functional C only as a documented port backfill with an upstream
-   replacement condition.
-4. After the first draw request reaches native rendering, fix one demonstrated
-   packet/scene-boundary mismatch and rerun. A nonzero vertex count or a
-   successful build is not sufficient; verify a recognizable level image,
-   then trace input to player movement and interaction.
+1. Compare the class `0x3F` collision record at reader cursor `0x700008EA`
+   with retail `func_00137FB0` and the serialized Splash bytes. Establish
+   whether zero vertex/face counts followed by link capacity `0x3F80` are
+   valid, and why `func_001BAC30` derives a write destination at
+   `0x02000000`. Fix only the demonstrated reader, allocator, or record-layout
+   mismatch. Keep functional replacements in the port backfill registry with
+   provenance and an upstream removal condition.
+2. Trace the remaining null indirect call from `func_0011ECB8` to its record,
+   descriptor slot, and intended method. Do not suppress it to keep startup
+   alive.
+3. After Splash loading completes without a fault, follow the active world
+   through update and native scene submission. Capture the first draw request's
+   mesh, material, transform, and camera inputs, then render one recognizable
+   level image before moving to input and player controls.
 
-The 15-second run command used for this checkpoint is:
+The bounded native trace command used for this checkpoint is:
 
 ```sh
-OPENRAC_STARTUP_TRACE=1 timeout 15s build/port/sly1_native \
+OPENRAC_TRACE_LOADER=1 OPENRAC_STARTUP_TRACE=1 timeout 10s build/port/sly1_native \
   build/port/extracted/boot/SCUS_971.98 \
   '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
 ```
 
 It runs the native launcher, not an emulator. The latest captured output is
-kept in `/tmp/sly-native-final-checkpoint.log` on the development machine
+kept in `/tmp/sly-native-reader-trace.log` on the development machine
 only.
 
 Treat renderer traces and function coverage as diagnostics only; neither

@@ -585,27 +585,18 @@ continue from the draw-state/texture path documented above.
 
 ## Latest native launch (2026-11-07)
 
-The retail assembly selections now include the `func_0011ECB8` object-list
-parser, the type `0x7A` payload reader `func_00158B30`, and the interior type
-`0x88` reader `func_001B5F50`. The stream proceeds beyond the earlier
-`type=0` / `0xAB1BABFD` fault. Static assembly selection also covers the
-animation curve factories and the currently required assembly-only curve
-methods. The build succeeds with 1,833 functions translated, 90 selected from
-assembly, and 3 stubs; `sly1-decomp` remains unchanged.
+The current hostgen report has 1,832 translated functions, 91 selected from
+assembly, 3 stubs, and 3,026 functions without C. `func_0013B598` is now
+selected from retail assembly with its verified two-argument signature; this
+preserves the reader argument forwarded to `func_001BAC30` and removes the
+prior `0x0021B4D8` data-address dispatch from the trace. No decomp source was
+modified.
 
-A 15-second native run with the US ELF and ISO reaches the live frame loop,
-creates a 37-object Splash world, and continues submitting small initialization
-GIF packets. It still renders a black window: trace counters stay at zero
-scene vertices and zero visible text. Startup reports a null indirect call
-from `func_0011ECB8` and a call to `0x0021B4D8` while executing
-`func_0011E680`; this is descriptor `D_0021B4D8` for class `0x3B`, not a known
-function entry. Trace the record and descriptor table entry supplying that
-callback, then follow live worker `func_0018E558` and frame path
-`func_0013B598` through the first scene draw request. Do not alter the
-descriptor or suppress the dispatch before establishing which record supplies
-it.
-
-The exact latest launch output was captured locally at
-`/tmp/sly-native-final-checkpoint.log`; it is not a repository artifact. The
-ordered tasks and reproducible command are in
+The latest bounded native trace now faults during Splash object loading. It
+records vertex count 0 and face count 0, then link capacity `0x3F80` at cursor
+`0x700008EE`; later `func_001BAC30` writes through guest address
+`0x02000000`. A null indirect call from `func_0011ECB8` also remains. The
+window is still black and the game is not playable. Exact trace:
+`/tmp/sly-native-reader-trace.log` on the development machine. The immediate
+reader/allocator investigation and run command are in
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).

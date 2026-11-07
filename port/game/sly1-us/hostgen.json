@@ -52,7 +52,8 @@
   "library_api": "native_libraries.tsv",
   "overrides": "hand/overrides.tsv",
   "from_assembly": [
-    "func_0011ECB8"
+    "func_0011ECB8",
+    "func_0013B598"
   ],
   "roots": [
     "func_00100008",
@@ -163,7 +164,8 @@
       "func_001201F0",
       "func_00120360",
       "func_00120418",
-      "func_00120110"
+      "func_00120110",
+      "func_0013B598"
     ],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
@@ -230,7 +232,8 @@
       "func_001F6CD0": "int(void)",
       "func_001F6CE0": "int(int, int)",
       "func_001F6CF0": "int(int)",
-      "func_001F6A10": "int(void*)"
+      "func_001F6A10": "int(void*)",
+      "func_0013B598": "void(void*, void*)"
     }
   }
 }
