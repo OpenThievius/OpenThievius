@@ -115,3 +115,38 @@ OPENRAC_BOOT_LEVEL=0x0100 build/port/sly1_native \
 ```
 
 The native window opening successfully is not a playable or visible milestone.
+
+### Restart note (2026-11-07)
+
+The latest corrected guest-memory dump is `/tmp/sly-dump-render-entry-guest.log`;
+the earlier `/tmp/sly-dump-render-entry.log` used host addresses incorrectly
+and should not be used. The corrected dump shows the real entry at
+`0x00847ce0`, nested records at `0x00848070` (stride `0x50`), and shared
+payload pointer `0x00840730` in each of its three nested records. The observed
+call remains in initialization:
+`func_001662A8 <- func_00165728 <- func_00124A48 <- func_00146470 <- func_001DCEA0`.
+
+Important code lead: `func_00165728` is currently selected from the port's
+`hand/overrides_c/func_00165728.c` via `hand/overrides.tsv`. That wrapper was
+written against the decomp C at `sly1-decomp/src/main/00164000.cpp`, but retail
+US assembly labels the 0xFC-byte function `nonmatching`. Therefore the
+wrapper's structure offsets and traversal are not yet established as retail
+behavior. Before chasing more packet data, compare the full retail assembly
+body (`asm/us/text.s`, around line 125800) against both the current wrapper and
+the decomp C. If the wrapper diverges, remove it from the active override and
+select exact retail assembly; retain any useful trace wrapper only as a
+disabled diagnostic/reference file. Keep any functional C repair in the
+port-only backfill area, never in `sly1-decomp`.
+
+Corrected dump highlights: entry `0x00847ce0` has three nested records at
+`0x00848070`, `0x008480c0`, and `0x00848110`; each record points at
+`0x00840730`. The entry's `+0x28` flag is zero, so retail
+`func_001662A8` proceeds for this entry. These records still have not been
+connected to per-frame geometry. After resolving the `func_00165728` assembly
+versus wrapper mismatch, resume tracing the actual retail render-list producer
+and its per-frame draw callback. The normal Splash-to-title transition is a
+separate unresolved route; direct-level mode remains diagnostic only.
+
+No repository changes were pending at the restart checkpoint before this
+note. Rebuild with `cmake --build build/port --target port_native -j2`; native
+launcher runs are authorized. Do not run PCSX2 or another emulator.
