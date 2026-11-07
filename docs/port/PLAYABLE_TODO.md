@@ -1333,19 +1333,17 @@ is `/tmp/sly-native-caller-origin-filtered.log`; earlier row probes are in
 `/tmp/sly-native-row-mutation.log` and `/tmp/sly-native-row-writes.log` (not
 tracked). The native launcher still exits before showing game graphics.
 
-**Allocator-origin follow-up:** tracing the scratch slot before every
-`func_00164868` call shows its values advance through a contiguous range of
-`0x00cf...` guest addresses, including `0x00cf4fd0`; this is structured
-allocation-like behavior, not random stack corruption. The per-thread native
-temporary arena is separately based at `0x00c00000` and cannot directly
-produce these addresses. A port-only override of `func_0018D4B0` in
-`native_c/input_manager.c` instead returns and advances `D_002C2A14`, making
-that backfill the leading origin to investigate. The same file resets that
-cursor in `func_0018D4B0` and uses it for controller buffers, so do not assume
-all `0x00cf...` results are renderer allocations. Next, trace every call to
-`func_0018D4B0` alongside the renderer scratch-slot writes and compare with
-retail `func_0018D4B0` / its initialization path. The current trace does not
-yet prove which allocation created `0x00cf4fd0`; do not change allocator
-policy or skip the renderer write until that link is established. The
-temporary instrumentation in `port/sly1/main.cpp` is not part of the intended
-change and should be reverted before the next checkpoint commit.
+**Writer-cursor follow-up:** the repeated `0x00cf...` destination values are
+structured writer cursor values. In `func_00164868`, the output pointer in
+the frame scratch slot is returned by `func_001EE5C8`, which reads the cursor
+at writer offset `+0x0c`. The per-thread native temporary arena was traced in
+a fresh run and uses `0xe0410000–0xe0420000` for guest thread 1, so it cannot
+overlap the `0x00cf...` table in this run. The port backfill for
+`func_0018D4B0` matches its now-available decomp C (16-byte aligned bump from
+`D_002C2A14`, mirrored to `D_002C2A18` and `D_002C2A1C`); this is not the
+origin of the destination pointer. Next, capture the writer object address
+and its `begin`, `end`, and `cursor` fields immediately before each relevant
+`func_001EE5C8` call in `func_00164868`, then trace where that writer was
+initialized. The current evidence does not identify why its cursor is in the
+animation table; do not change heap policy or suppress the renderer write.
+The follow-up trace is `/tmp/sly-native-temp-arena-overlap.log` (not tracked).
