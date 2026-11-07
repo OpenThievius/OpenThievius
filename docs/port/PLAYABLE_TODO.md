@@ -1658,3 +1658,21 @@ functional replacements in the port's `hand/native_c/` and retain displaced
 prototypes/backfills under `hand/reference_c/`. Native launcher runs are
 authorized; do not use an emulator or modify
 `/home/reaper/Code/sly1-decomp`.
+
+**Direct-load SIF continuation (2026-11-07):** The first fresh
+`OPENRAC_BOOT_LEVEL=0x0100` run reached resource sector 867214, then stalled
+in `func_0011D078` on sound-service RPC 52 (`send=0`, `recv=12`). Retail
+wrapper `func_0011E010` issues command `0x34` and discards its result. The
+native SIF boundary now completes that request with the existing idle sentinel.
+The next observed request was RPC 54 (`send=4`, word `1`, `recv=12`), issued
+by void wrapper `func_0011E110`; it now receives the same idle completion.
+This is limited to two sound commands with no consumed output. The successful
+bounded run then reads sector 867214 and reaches the selected level's object
+parser before faulting at guest address `0x08000000`. The symbolized path is
+`func_001DCEA0 -> func_0011ECB8 -> func_00196410 -> func_0011A4D8`, called
+from `func_001837E0` during owner registration. The next investigation is the
+keyed-tree root and child slots read by `func_0011A4D8`; trace its pointer,
+count, child array and list head, then identify the initializer that should
+populate them. Build succeeded; direct-run log:
+`/tmp/sly-native-sound-rpc34-36.log`. The selected-level parser does not
+complete, no graphics are visible, and the game is not playable.

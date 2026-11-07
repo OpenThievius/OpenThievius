@@ -156,6 +156,12 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
     const bool sound_queue = service == kSlySoundService && rpc_number == 0x4D &&
                              send_size >= 12 && send_size <= 0x1000 &&
                              receive_size == 12;
+    // func_0011E010 issues command 0x34 without a request payload, and
+    // func_0011E110 issues command 0x36 with one word. Both discard their
+    // results. Complete these sound controls as idle without an IOP peer.
+    const bool sound_control = service == kSlySoundService && receive_size == 12 &&
+                               ((rpc_number == 0x34 && send_size == 0) ||
+                                (rpc_number == 0x36 && send_size == 4));
     const bool memory_card_probe = service == kMemoryCardService && rpc_number == 0xFE &&
                                    send_size == 48 && receive_size == 12;
     if (memory_card_probe) {
@@ -169,15 +175,16 @@ int complete_rpc_call(uint32_t packet, uint32_t packet_size, uint32_t source,
                          rpc_number);
         return 1;
     }
-    if (sound_queue) {
+    if (sound_queue || sound_control) {
         // Retail's func_0011DE18 submits queued sound work through RPC 0x4D.
-        // With no native audio device, complete the queue poll as idle using
-        // the -1 sentinel accepted by func_0011D078's completion check.
+        // func_0011E010 also sends no-payload command 0x34. With no native
+        // audio device, complete both as idle using the -1 sentinel accepted
+        // by func_0011D078's completion check.
         const uint32_t idle[3] = {0xFFFFFFFFu, 0, 0xFFFFFFFFu};
         if (!complete_rpc_call_response(packet, client, receive_buffer, idle, 3)) return 0;
         const uint32_t reply = g_sound_idle_replies.fetch_add(1, std::memory_order_relaxed);
         if (reply < 8 && openrac_env_string("OPENRAC_TRACE_SIF") != nullptr)
-            std::fprintf(stderr, "[info] native sound queue RPC 77 completed as idle\n");
+            std::fprintf(stderr, "[info] native sound RPC %u completed as idle\n", rpc_number);
         return 1;
     }
     if (sound_init || sound_load) {
