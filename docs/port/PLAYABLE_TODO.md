@@ -1045,6 +1045,15 @@ root children, and zero renderer vertices. The forced-level trace is
 `/tmp/sly-native-listfix-direct0100.log`; default startup is
 `/tmp/sly-native-listfix-5f710.log`. Continue from the selected level's
 factory/reader/owner-list path and establish where its expected object records
-are lost before changing rendering. The current build reports 2,050 generated
-C functions, 146 retail-assembly translations, and zero stubs; the decomp
+are lost before changing rendering. A follow-up audit also found that the
+port-only `func_0011E680` callback-value array used a 16-byte C stride, while
+retail advances 8 bytes per value and places its result immediately after 32
+entries. The backfill now uses the retail 8-byte layout. The forced-level trace
+did not enter a descriptor callback and still has zero children/vertices, so
+this corrects a latent parser bug but does not explain the empty level.
+
+Exact NTSC-U translation is now selected for `func_001B8540`, a reached VU
+bounds routine; its no-C warning is gone, but the forced-level root and vertex
+counts remain unchanged. The current build reports 2,050 generated C
+functions, 147 retail-assembly translations, and zero stubs; the decomp
 checkout remains clean and current at `e1b39f1`.

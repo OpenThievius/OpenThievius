@@ -34,13 +34,13 @@ typedef struct ResourceDescriptor {
 typedef struct ResourceValue {
     s32 type;
     u32 payload;
-    u32 child;
-    u32 reserved;
 } ResourceValue;
+_Static_assert(sizeof(ResourceValue) == 8,
+               "retail descriptor callbacks consume 8-byte values");
 
 static u32 read_value(void* reader, s32 type, ResourceValue* value) {
     value->type = -1;
-    value->payload = value->child = value->reserved = 0;
+    value->payload = 0;
     switch (type) {
     case 0:
         func_0011B5F0(value, func_00137B90(reader));
