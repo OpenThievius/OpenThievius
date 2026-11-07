@@ -873,3 +873,16 @@ The native host build now translates their exact NTSC-U retail assembly; the
 decomp checkout is unchanged. The callbacks no longer emit stub warnings, but
 the level root still has no children and the renderer still reports zero
 vertices. Trace: `/tmp/sly-native-direct-level-anim-callbacks.log`.
+
+**Graphics-callback follow-up (2026-11-07):** exact US assembly is now also
+selected for `func_001B4330`, a color conversion helper reached by the level
+resource path. A 12-second direct-level run survives and remains at zero scene
+vertices. I also tried selecting `func_001B3510`, a text/packet routine, but
+the normal Splash load faults in its `func_001B29E0` / `func_001B2988` table
+lookup before the level loads. That selection has been removed. The missing
+prerequisite is the table state expected by this retail routine; do not enable
+it again until its initialization path is established. Trace:
+`/tmp/sly-native-direct-level-graphics-callbacks.log` (faulting attempt) and
+`/tmp/sly-native-direct-level-color-callback.log` (current successful run).
+The current hostgen report has 2,044 C translations, 121 assembly
+translations, zero C stubs, and 2,693 functions without C.
