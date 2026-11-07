@@ -31,6 +31,20 @@ boot progress. Trace: `/tmp/sly-native-frame-callbacks.log` and
 `/tmp/sly-native-direct0100-reader-closure.log`. Latest hostgen coverage is
 in `build/port/hostgen/us/report.json`.
 
+**Direct-loader closure experiment (2026-11-07):** adding another 37 reached
+functions with US assembly raised the allowlist to 236 and made the direct
+`0x0100` probe fault earlier in `func_00147AB0` while dispatching an unset
+resource callback. Adding 51 further startup functions raised it to 287 and
+left boot in the early kernel wait with no active world. Both expansions
+were reverted. The retained 199-function allowlist was rebuilt and a fresh
+default run again reached the update loop, with frame state 3 and zero scene
+vertices. Do not treat these broader static translations as safe merely
+because hostgen can translate them; restore them only after tracing the
+specific callback state they require. Experiment logs:
+`/tmp/sly-native-direct0100-callback-closure.log`,
+`/tmp/sly-native-direct0100-expanded-closure.log`, and
+`/tmp/sly-native-default-199-asm.log`.
+
 **Reader-chain checkpoint (2026-11-07):** Exact US retail assembly is now
 selected for `func_001BAC30`, `func_00162890`, `func_001DCEA0`,
 `func_00196410`, `func_001B9AE0`, `func_0012B870`, `func_0012B8C8`, and
