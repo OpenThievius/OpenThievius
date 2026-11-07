@@ -139,9 +139,16 @@ the first playable gate, not proof that the whole game is complete.
    against that resource. The chunk bytes already match, so do not spend time
    changing LZ or CD input code without new contradictory evidence.
 2. Trace the first record's callback chain (`func_00183350` to descriptor
-   method 13 / `func_00158F10`) and determine how many bytes it consumes. Then
-   compare the retail assembly for `func_0011ECB8` and its caller in
-   `func_00196410`, both still 0%-matched, against the native cursor changes.
+   method 13 / `func_00158F10`) and determine how many bytes it consumes.
+   Retail `func_0011ECB8` reads a 16-bit count, then three 16-bit values per
+   item, then calls vtable offset `0x38`. At Splash offset `0x3DA3`, the first
+   item is `03 00 7A 00 5D 02 FF FF`; zero words and float data follow. The
+   `0x7A` descriptor points through `func_00183350` to `func_00158F10`, whose
+   retail body only acts when its second argument is `2`; `func_0011ECB8`
+   passes the reader pointer there. This suggests the callback does not consume
+   the following payload, or the wrong object/list is reaching this parser.
+   Verify descriptor wiring and the caller in `func_00196410` (also 0%-matched)
+   against retail assembly before changing the record stride.
 3. The port factory `func_0011E580` is now selected by an explicit override;
    hostgen reports eight overrides used, and its generated body comes from
    `hand/native_c/func_0011E580.c`. A native launch still faults immediately

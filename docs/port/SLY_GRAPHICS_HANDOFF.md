@@ -611,3 +611,13 @@ or weakening the factory checks. Next compare the first record handler's
 consumption (`func_00183350` to descriptor method 13 / `func_00158F10`) with
 the parser cursor and retail assembly for `func_0011ECB8` and its caller.
 Remove the override when matching C becomes hostable.
+
+The retail `func_0011ECB8` assembly reads a 16-bit count, three 16-bit fields
+per row, and then invokes vtable offset `0x38`. Splash bytes at `0x3DA3` are
+`03 00 7A 00 5D 02 FF FF`, followed by zero words and float data. Descriptor
+`0x7A` routes the callback through `func_00183350` to `func_00158F10`; the
+retail `func_00158F10` only handles second argument `2`, but `func_0011ECB8`
+passes the stream pointer as that argument. It therefore appears not to
+consume the following payload. Confirm descriptor and caller context before
+changing record stride or adding a skip; both `func_0011ECB8` and
+`func_00196410` remain 0%-matched.
