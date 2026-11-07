@@ -1,40 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-07. The native launcher remains not playable: the
-bounded direct-level run still does not show Sly or level geometry. The latest
-default-startup trace also remains visually empty after 5 seconds, but the
-native pad now reports active pressure mode (`f14=3`, `f18=4`) and the frame
-state stays at 3 instead of taking the no-controller transition to the pause
-menu. This removes one false startup state transition; it does not render the
-title scene. The user-provided 63-second PCSX2 recording shows the European
-release (`Sly Raccoon`): publisher credits, the Paris rooftop opening sequence, and
+Last checked: 2026-11-07. The native launcher remains not playable. Its latest
+bounded direct-level run reads Splash and catalog key `0x0100` at sector
+867214, then completes loader stage 5 with active world `0x0088d530`. The exact
+US retail animation table loader, element parser and class lookups are now
+translated from assembly; animator records show supported types and valid
+objects/vtables. The active world still submits zero scene vertices, and the
+UI trace reports no fonts or visible text. The next graphics gate is the first
+real level mesh callback producing vertices, followed by its native renderer
+submission. The current build uses the local `sly1-decomp` checkout at
+`e1b39f1`, translates 2,043 C functions and 109 retail assembly functions,
+and leaves 12 unreadable units. Port-only C overrides remain under
+`hand/native_c/`; neither those nor generated assembly translations modify
+the decomp repository.
+
+The user-provided 63-second PCSX2 recording shows the European release
+(`Sly Raccoon`): publisher credits, the Paris rooftop opening sequence, and
 the animated title screen with Sly moving under the game logo and Start/Select
 prompts. It does not show the user starting a new game. The native build uses
-the US release, so use this as a sequence and feature reference rather than a
-pixel-identical target or evidence about the native build.
+the US release, so use the recording as a sequence and feature reference
+rather than a pixel-identical target or evidence about the native build.
 
-The native launcher selects 59 functions directly from US retail assembly
-through hostgen's `asmc.py` translation path. This includes the
-`func_00143648` camera constructor and its reachable assembly-only dependency
-closure, camera update `func_00143E40` and two additional missing-C
-functions in its direct-call closure, plus `func_00125C90` (placed-object update/culling),
-`func_00126270` (placed-object part request builder), and `func_00166690`
-(mesh/VIF packet callback). The generated functions remain outside `sly1-decomp` and outside
-`hand/native_c/`; the decomp source remains the authority for matched C, while
-these assembly translations are a separate port build input. Hostgen reports
-59 functions translated from `asm/us/text.s`, with no stubs. The current
-matched C snapshot is upstream `dd6f80b`; because that checkout has no
-assembly dump, CMake accepts a separate `OPENTHIEVIUS_ASM_SOURCE_SLY1` path. The local build uses the
-existing US assembly dump in `/home/reaper/Code/sly1-decomp`.
-
-The native direct-load probe reads Splash, requests catalog key `0x0100`
-after Splash parse (loader stage 150), reads its resource at sector 867214,
-and completes the parser (stage 14) with world pointer `0xE103CF80`. That
-probe constructs the world but stays in the startup flow. The targeted
-direct-load trace did not observe `func_00125C90`, `func_00126270`, or
-`func_00166690` during its 10-second window, and scene geometry remains
-absent. A prior default-startup trace reached menu text drawing and uploaded
+Earlier default-startup traces reached menu text drawing and uploaded
 the font atlas, though the text was fragmented; that run used the old pad
 backfill and selected the pause menu at five seconds. With the updated native
 pad mode, the latest trace remains in frame state 3 but reaches zero scene
@@ -531,7 +519,7 @@ the invalid-looking next row at `0x1594`, render scene geometry, or make the
 port playable. Bounds update and world registration remain missing; the port now translates
 `func_001B9680` to save the current world position at `+0x370`.
 
-## Current native status (2026-11-07)
+## Earlier native status (2026-11-07; superseded by animation-parser update)
 
 The first hostgen build recorded here reads 199 units, translates 1,480 functions, includes
 59 functions translated from selected retail assembly, has one stubbed
@@ -700,3 +688,16 @@ yet prove the raw atlas texels at the resulting memory addresses form the
 expected glyph. The font layout helper itself matches `func_0015CD18` in the
 configured decomp snapshot, so keep it unchanged unless the atlas comparison
 shows a specific mismatch.
+
+## Latest level-rendering checkpoint (2026-11-07)
+
+The exact retail animation table loader and its missing helpers are now used
+instead of the handwritten table-reader reconstruction. A bounded native run
+completes both Splash and selected-level loading through stage 5; the active
+world is `0x0088d530`, and animator records now have supported types and valid
+objects/vtables. This is progress in the loading path. The renderer still
+receives zero scene vertices, and the UI trace reports zero registered fonts
+and zero visible text. The current visual task is to identify a real level
+mesh owner and follow its callback to the native draw submission. Current
+coverage is 2,043 C functions plus 109 static retail-assembly translations;
+the 12-second trace is `/tmp/sly-native-retail-anim-loader4.log`.

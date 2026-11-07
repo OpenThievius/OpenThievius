@@ -2,15 +2,21 @@
 # Concrete plan for a playable native Sly 1
 
 Fresh repository review: 2026-11-07. The current local decomp input is
-`e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that same
-checkout for its retail assembly. The native build now links against it, but
-the latest direct-level run does not reach `func_00162890`: it requests the
-Splash range, then repeatedly enters resource-reader stage 9 with an empty
-reader and faults at host address `0x8`. The generated report has 12 unreadable
-units because hostgen still stages without C++ compatibility for the current
-source. Runtime warnings also show no C for `func_00137290`, `func_001373B0`
-and `func_001373D0`; these are on the first resource-read path. Fix this
-build/reader boundary before using later object-parser traces as evidence.
+`e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
+for matched C and retail assembly. The latest build translates 2,043 C
+functions and 109 functions from US retail assembly, has zero stubs, and
+reports 2,705 functions without C plus 12 unreadable units. A bounded native
+run now completes Splash and the selected level resource through loader stage
+5, with active world `0x0088d530`. This supersedes the earlier empty-reader,
+heap-initialization, and child-parser faults below.
+
+The port now uses exact retail assembly translations for the animation table
+loader (`func_001B3040`), its element parser and class lookup helpers. The
+previous reconstructed table parser was removed. Its remaining factory guard
+is a separate port-only override that skips unsupported animation types while
+consuming their fixed payload. `sly1-decomp` remains untouched. The level still
+produces zero scene vertices and the window is black; reaching stage 5 proves
+resource parsing/activation progress, not visible graphics or playability.
 
 Retail-backed static translation of `func_00162890` succeeded in an isolated
 hostgen experiment. Its instruction stream confirms that nested-array sizes
@@ -191,26 +197,22 @@ with the direct-level loader fault.
 
 ## Immediate next steps
 
-1. Make the latest decomp build trustworthy: fix the 12 unreadable units
-   needed by startup, remove `--allow-unreadable` as a silent gameplay build
-   mode, and identify which of `func_00137290`, `func_001373B0` and
-   `func_001373D0` have matching C versus assembly-only implementations. Add
-   any required functional replacements under `hand/native_c/` and register
-   them so they can be removed when matching source becomes hostable.
-2. Re-run the direct-level path until it reaches `func_00162890`. Compare its
-   reader cursor and captured object window against the decoded resource;
-   only then evaluate whether the assembly-derived nested-array sizes fix the
-   old child-object corruption or expose another stream mismatch.
-3. Compare the native menu glyph path at each boundary: packet vertices,
-   sampled atlas texels, GL upload format, viewport/scissor, blend/depth state,
-   and final framebuffer pixels. Fix the earliest boundary where valid glyph
-   data stops producing visible pixels.
-4. Once direct-level object loading completes, identify a real mesh owner and
-   trace its activation, transform, material, camera and draw request. Render
-   recognizable level geometry before spending time on movement controls.
-5. Use the normal title-to-New-Game path after the direct-level diagnostic
-   works; wire input, collision, camera, audio and checkpoint behavior, then
-   verify a short opening section with human input.
+1. Identify a level object in the active world lists that owns a mesh, then
+   trace its descriptor, constructor, activation callback, mesh vertex pointer
+   and render callback. Current runs show populated update lists but zero scene
+   vertices, so first establish which entries are actual renderables.
+2. Follow that object's render callback into the native scene submission path.
+   Capture the first nonzero vertex stream and its camera/material state, then
+   fix the earliest missing or invalid boundary before adding renderer
+   workarounds.
+3. Investigate the missing font registry as a separate UI path. The direct
+   level resource has no registered fonts in the latest trace; this does not
+   explain why the scene has zero vertices.
+4. Keep the direct-level shortcut as a diagnostic. Once geometry is visible,
+   restore the normal title-to-New-Game transition and verify movement,
+   collision, camera, input, audio and checkpoint behavior with human input.
+5. Close the 12 unreadable build units and audit omitted call arguments, but
+   prioritize functions proven reachable from the selected level's draw path.
 
 One additional retail-assembly comparison found and fixed a port-backfill
 layout error: `func_00162890` stores its component references as 32-bit values
@@ -736,3 +738,24 @@ Next tasks:
 All C compatibility code stays in `hand/native_c/` and the override table;
 retail assembly remains a configured native fallback. Neither changes
 `sly1-decomp`. The launcher is still not playable.
+
+## Retail animation-parser checkpoint (2026-11-07)
+
+The handwritten `animation_table_loader.c` guess was removed from the port
+backfill registry. Hostgen now translates the exact US retail assembly for
+`func_001B3040`, `func_001B2F00`, `func_001B4920` and `func_001B4980`; its table
+helpers `func_001B2BA8` and `func_001B2CF8` already have matching C. The
+port-only `animator_loader_probe.c` factory guard consumes the fixed 0x1C-byte
+record payload and skips unsupported types rather than calling a null vtable.
+All of this is port-side; the decomp checkout is unchanged.
+
+The latest 12-second native run reaches Splash stage 14 and the selected level
+stage 14, and keeps the level world active at `0x0088d530`. Animator records
+now show valid retail types 1, 4, 6, 7 and 8 with nonzero objects and vtables.
+The runtime remains black: the UI reports 37 global UI objects but zero fonts
+and zero visible text, while the renderer reports zero scene vertices. The
+next graphics milestone is the first attributable mesh callback producing a
+nonzero vertex stream, not merely an active world or populated update lists.
+Hostgen reports 2,043 C functions, 109 retail assembly translations, zero
+stubs, 2,705 functions without C and 12 unreadable units. The bounded trace is
+`/tmp/sly-native-retail-anim-loader4.log`.

@@ -939,3 +939,21 @@ resource cursor/allocation sizes against retail, then carry a real level mesh
 through native GS/OpenGL submission. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md)
 for the ordered tasks and reproducible command. These runtime findings do not
 establish a playable level.
+
+## Retail animation-parser update (2026-11-07)
+
+The exact US retail animation table loader, element parser and class lookup
+helpers are now selected from assembly: `func_001B3040`, `func_001B2F00`,
+`func_001B4920` and `func_001B4980`. This replaces the earlier reconstructed
+table parser; matching `func_001B2BA8` and `func_001B2CF8` C remains in use. A
+port-only `func_001B4A10` factory guard skips unsupported type IDs while
+consuming their fixed 0x1C-byte payload. No decomp source was edited.
+
+The current build reports 2,043 C functions, 109 retail assembly functions,
+zero stubs, 2,705 functions without C and 12 unreadable units across 185
+units. A 12-second native run reaches loader stage 5 for the direct level and
+keeps active world `0x0088d530` alive. Animator records now have supported
+retail types and valid objects/vtables. The frame still has zero scene
+vertices, no registered fonts and no visible text. The next visual milestone
+is identifying and submitting the first actual level mesh; see
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
