@@ -4,23 +4,26 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. The latest hostgen report reads 183 units,
-translates 2,043 C functions and 136 functions from US retail assembly, has
-zero failed C translations, and reports 2,679 functions without C plus 11
+translates 2,043 C functions and 143 functions from US retail assembly, has
+zero failed C translations, and reports 2,672 functions without C plus 11
 unreadable units. A bounded native
 run now completes Splash and the selected level resource through loader stage
-5, with active world `0x0088d530`. This supersedes the earlier empty-reader,
+5, with active world `0x0088d530`. It registers 22 fonts but submits zero scene
+vertices and displays no text. This supersedes the earlier empty-reader,
 heap-initialization, and child-parser faults below.
 
 **Latest graphics checkpoint (2026-11-07):** a full object snapshot of the
 direct-loaded world found two class `0x44` instances, but these are collision
 objects, not visible actors. Both have null mesh data at `+0x380` and a zeroed
 render mesh copy at `+0x3A4`; the world still submits zero scene vertices.
-The UI path registers 22 fonts in this direct-level probe, while default boot
-still registers none and remains on Splash. Thus the port is past resource
-startup but has not reached the first actual game image. The immediate work is
-to find the title/level transition and the resource record path that creates a
-renderable object; then trace its mesh through the draw queue. Trace:
-`/tmp/sly-native-class44-full-snapshot.log`.
+The latest run also found a class-1 record reader at descriptor `0x00217418`
+(`func_001833D0`), but an indirect call reaches address zero while its nested
+record reader runs. Parsing continues through loader stage 5, so this is a
+confirmed defect to resolve, not proof that the world is fully initialized.
+The port has not reached the first actual game image. Next trace the null call
+inside class-1 nested record parsing, then find the title/level transition and
+the record path that creates renderable objects. Trace:
+`/tmp/sly-native-class1-callback.log`.
 
 The resource descriptor reader `func_0011E680` now lives only in
 `hand/backfills.tsv` and `hand/native_c/resource_descriptors.c`; it is no longer
@@ -28,6 +31,12 @@ registered as a function override. This keeps the functional C backfill
 separate from matched decomp code so it can be replaced cleanly when that
 function is decompiled upstream. The collision-contact pointer correction is
 also port-only and follows the retail load of the table handle.
+
+The current change set selects seven additional functions from exact NTSC-U
+assembly: `func_00183350`, `func_00139DE8`, `func_001249A8`, `func_00124338`,
+`func_00127378`, `func_00139EC8`, and `func_001280C0`. They close reached
+constructor, activation, cleanup, message, and VU0 callbacks without changing
+the decompilation or adding functional replacement C.
 
 **Fresh default-boot check (2026-11-07):** a 12-second native launch without
 `OPENRAC_BOOT_LEVEL` reads only the Splash range (sector 820372, 150849 bytes).

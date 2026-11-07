@@ -65,13 +65,12 @@ zero-fill behavior. The native loader trace reports rejected requests under
 `OPENRAC_TRACE_LOADER=1`. Remove these overrides when the native runtime can
 provide equivalent checked guest-heap bounds around the matching allocator.
 
-`resource_descriptors.c` now explicitly overrides matched `func_0011E680`.
-The backfill had been present in `backfills.tsv` but hostgen selected the
-decomp definition until this override was added. With the port dispatcher
-active, the native trace no longer reports the prior `0x0021B4D8` missing-code
-call and the world loader reaches stage 5. Keep this port override separate;
-remove its override row when the matching implementation is hostable and
-validated against the same Splash resource.
+`resource_descriptors.c` provides port-only C for `func_0011E680` and is listed
+only in `backfills.tsv`, not `overrides.tsv`. Hostgen therefore compiles it as
+a backfill without claiming it replaces matched decompilation. This reader
+removes the prior `0x0021B4D8` missing-code call and lets the world loader reach
+stage 5. When matching C is hostable and validated against the same resources,
+remove the backfill registry entries and the port-only implementation.
 
 `func_0011ECB8` now uses the configured NTSC-U retail assembly translation.
 The previous `resource_object_record_loader.c` backfill treated this callback
