@@ -32,10 +32,18 @@ reaches five level groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`,
 `func_001662A8` returns before packet generation whenever that word is
 nonzero; the post-call output counts remain zero for all five groups. This is
 upstream of GS rendering and explains why the initialization GIF traffic does
-not contain level geometry. Next inspect all six flags in the last group and
-trace which retail setup path populates entry `+0x28`; do not clear the guard
-or force packet generation without establishing the field's meaning.
-Capture: `/tmp/sly-native-direct0100-render-groups-final.log`.
+not contain level geometry; the blocker is upstream of renderer submission.
+A native debugger watchpoint on the first
+entry showed the value being written by retail `func_00162890`, called from
+`func_001289C0` during `func_0011ECB8` resource-object parsing. The assembly
+stores the first byte read by `func_00137B90` at entry `+0x28`; the input byte
+is `1`. The final group has one outer entry with six primary records, not six
+outer entry flags. Treat the nonzero byte as resource data and preserve the
+retail skip. Next identify what resource object kinds actually produce
+renderable entries, or move to the normal title/gameplay transition; this
+direct-load probe does not establish a playable scene. Captures:
+`/tmp/sly-native-direct0100-render-groups-final.log`,
+`/tmp/sly-watch-entry-flag-detail.log`.
 
 The earlier fragmented menu captures were produced by a port-only forced menu
 page and handwritten menu renderer. Those overrides have now been retired:

@@ -1881,20 +1881,23 @@ does not request title/movie content. All assembly selections are in the port
 hostgen configuration; `sly1-decomp` remains untouched.
 
 **Selected-level render-record trace checkpoint (2026-11-07):** Expanded the
-opt-in render-list trace for the direct-level diagnostic to capture the first
-selected-level group (`0x00fe903c`), its nested 0x50-byte records, associated
-payload words/pointer targets, and the group callback result. The trace quotas
-now include these stages. The follow-up adds the other four selected-level
-groups and records packet-builder counts before and after `func_001662A8`.
-Build succeeds: 2,043 translated C functions, 221 exact assembly translations,
-zero stubs; 204 generated C units compile and link. A 12-second native direct
-level launch reaches five groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`,
-`0x00fe9c0c`, `0x00fe9ffc`) with primary counts 1, 1, 1, 1, and 6. For each
-group's first entry, `+0x28 == 1`. Retail assembly for `func_001662A8` checks
-entry `+0x28` and returns before generating packets when nonzero; the packet
-counts stay zero before and after the call for all five groups. The accepted
-GIF chains therefore remain initialization traffic. Next inspect all six
-entries in `0x00fe9ffc` and trace the retail setup path that writes `+0x28`.
-Do not bypass the retail guard until its field semantics are established.
-Log: `/tmp/sly-native-direct0100-render-groups-final.log`. This identifies an
-upstream scene-setup blocker; it does not fix the black screen.
+opt-in render-list trace across all five direct-level groups and records packet
+builder outputs before and after `func_001662A8`. Build succeeds: 2,043
+translated C functions, 221 exact assembly translations, zero stubs; 204
+generated C units compile and link. A 12-second native direct-level launch
+reaches groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`, `0x00fe9c0c`,
+`0x00fe9ffc`) with primary-record counts 1, 1, 1, 1, and 6. Each group has
+one outer entry; its `+0x28` word is 1. Retail `func_001662A8` returns on that
+nonzero field before packet generation, leaving all five packet output counts
+zero. The final group has six primary records, not six outer entries.
+
+A native GDB watchpoint on the first entry captured the write at guest address
+`0x00fe9108`. The call stack runs through retail `func_00162890` and
+`func_001289C0` during `func_0011ECB8` resource-object parsing. Assembly shows
+`func_00162890` copies the first byte returned by `func_00137B90` into entry
+`+0x28`; that byte is 1. This is parsed game data, not an unexplained host
+write, so preserve the retail skip. Next locate resource object kinds that
+produce renderable records or move onto the normal title/gameplay transition;
+the direct-level shortcut has not yielded a playable scene. Logs:
+`/tmp/sly-native-direct0100-render-groups-final.log`,
+`/tmp/sly-watch-entry-flag-detail.log`.
