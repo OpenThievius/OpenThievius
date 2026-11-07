@@ -1454,3 +1454,13 @@ before the invalid record. This narrows the next trace to how
 `func_00196410`'s nested record path returns to its parent, but does not yet
 identify the missing or misread payload. The build succeeds with 207 retail
 assembly translations and zero stubs. No visible graphics are produced.
+
+**Decomp remote check (2026-11-07):** the decomp checkout and
+`origin/master` are still at `e1b39f1`; no new master commit is available.
+The unmerged `origin/codex/us-small-functions` branch is at `8bf37ac` and
+contains 51 additional matched definitions across six source files. The other
+checked follow-up/wave branches have no changes ahead of master. None of the
+51 additions defines the current reader/activation path (`func_0011ECB8`,
+`func_00196410`, `func_00183350`, `func_00182ED8`, `func_001DCEA0`,
+`func_001B7968`, or `func_001B7A98`), so there is no upstream C replacement
+for this blocker yet. The decomp checkout remains untouched.
