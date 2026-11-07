@@ -1734,22 +1734,21 @@ warns that `func_001240F8` is missing and now populates world update lists with
 object-update path but does not make the screen visible.
 
 The same run reaches frame state 3 with game mode 0 and an advancing menu
-animation. Renderer diagnostics decode a recurring 240-vertex draw, but its
-state is untextured with black RGBA `(0,0,0,128)`; the captured 960x720 native
-frame is all black. The UI trace reports 37 objects, 30 font records, and zero
-visible text. The current visual lead is therefore the missing Splash/title
-asset or draw submission before the readable UI, not a lack of frame-loop
-activity. Latest evidence: `/tmp/sly-native-fixed-240f8.log`,
+animation. Renderer diagnostics decode a recurring 240-vertex draw with no
+texture and black RGBA `(0,0,0,128)`; the captured 960x720 native frame is all
+black. The UI trace reports 37 objects, 30 font records, and zero visible
+text. Inspection of the current decomp identifies this packet as the intended
+screen clear from `func_00168770`: it emits 40 quads across the 640x224 screen
+with the supplied color. The renderer is displaying that clear correctly;
+debug the missing content that should follow it (Splash/movie or title UI), not
+this black packet. Latest evidence: `/tmp/sly-native-fixed-240f8.log`,
 `/tmp/sly-native-default-render.log`, and `/tmp/sly1-native-frame-07.ppm`.
-Continue tracing which guest function emits the recurring black draw and why
-the initialized fonts never produce a textured glyph. The port remains
-unplayable; no emulation was used.
+The port remains unplayable; no emulation was used.
 
 A follow-up 20-second default native run reaches 9.48 seconds of guest menu
 time without a state transition: `game_mode` stays 0, `load_request` stays 0,
-`scene_gate` stays 0, and the same 240-vertex black untextured draw repeats.
-The active thread set remains the main loop, display worker, and UI worker;
-the frame worker does not stall. Log: `/tmp/sly-native-default-20s.log`.
-Prioritize identifying the guest function that writes this 240-vertex packet
-and tracing its source colors/texture state; extending the wait does not
-reveal the title screen.
+and `scene_gate` stays 0. The same intentional black clear repeats, but no
+Splash/movie texture or visible title text follows it. The active thread set
+remains the main loop, display worker, and UI worker; the frame worker does not
+stall. Log: `/tmp/sly-native-default-20s.log`. Trace the Splash/movie queue and
+title UI activation; extending the wait does not reveal the title screen.
