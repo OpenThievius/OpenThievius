@@ -324,8 +324,19 @@ removed from the runtime build to avoid competing implementations. The
 state 3/game mode 0, zero scene vertices/text, and black captured frames. The
 builder's presence alone is insufficient; establish whether a drawable scene
 record reaches it and whether its output is consumed. Trace:
-`/tmp/sly-native-scene-packet-asm.log`. Current count: 2,035 C / 218 US
+`/tmp/sly-native-scene-packet-asm.log`. At that checkpoint: 2,035 C / 218 US
 assembly / zero stubs.
+
+**Scene packet helper closure (2026-11-07):** exact US assembly for the
+scene-packet builder's no-op helpers `func_001EE3B8` and `func_001EE668` is
+now selected alongside `func_001662A8`. The 15-second run remains in the
+active-world loop, drains 40 frame nodes cleanly, and accepts its GIF chains,
+but reports zero visible text/scene vertices and produces all-black renderer
+captures. The packet-builder path is now present through its immediate helper
+calls; inspect the table counts/record pointers passed into `func_001662A8` and
+whether the loaded Splash data contains drawable records before adding more
+assembly. Trace: `/tmp/sly-native-scene-packet-helpers.log`. Current count:
+2,035 C / 220 US assembly / zero stubs.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps
