@@ -177,8 +177,9 @@ void func_00162890(void* block, void* reader, void* object) {
             if (n < 4) sly1_native_loader_stage(116, c0 | (c1 << 8) | (c2 << 16) | (c3 << 24), (u32)reader);
             if (n < 4) sly1_native_loader_stage(117, c4, (u32)reader);
             func_00137B60(reader, 4);
-            /* Retail sizes the first two variable arrays from their counts. */
-            sly1_discard(reader, c0 * 12u);
+            /* Retail scales the first array by this 1-based nested-entry
+             * index as well as c0 (func_00162890: mult s0, s6, 12). */
+            sly1_discard(reader, ((u32)n + 1u) * c0 * 12u);
             sly1_discard(reader, c1 * 12u);
             sly1_discard(reader, c2 * 4u);
             sly1_discard(reader, c3 * 8u);
@@ -195,12 +196,14 @@ void func_00162890(void* block, void* reader, void* object) {
             if (n < 4) sly1_native_loader_stage(122, base_payload_bytes, (u32)reader);
             if (word_count) {
                 const u32 first_dimension = (u32)func_00137BE0(reader);
-                const u32 first_dimension_bytes = refs * first_dimension * 12u;
+                /* Retail keeps the full base byte count in s0, then sizes
+                 * this payload as s0 * dimension * 12. */
+                const u32 first_dimension_bytes = base_payload_bytes * first_dimension * 12u;
                 if (n < 4) sly1_native_loader_stage(123, first_dimension_bytes, (u32)reader);
                 sly1_discard(reader, first_dimension_bytes);
 
                 const u32 second_dimension = (u32)func_00137BE0(reader);
-                const u32 second_dimension_bytes = refs * second_dimension * 12u;
+                const u32 second_dimension_bytes = base_payload_bytes * second_dimension * 12u;
                 if (n < 4) sly1_native_loader_stage(124, second_dimension_bytes, (u32)reader);
                 sly1_discard(reader, second_dimension_bytes);
 
@@ -223,8 +226,9 @@ void func_00162890(void* block, void* reader, void* object) {
         for (s32 a = 0; a < auxiliary_count; ++a) {
             (void)func_0018D5C0(0x30);
             const u32 c0 = (u32)func_00137B90(reader);
-            /* Retail sizes the first auxiliary array from its count. */
-            sly1_discard(reader, c0 * 12u);
+            /* The retail auxiliary reader reuses the parent's nested-entry
+             * count here (func_00162890 multiplies s0 * c0 * 12). */
+            sly1_discard(reader, (u32)nested_count * c0 * 12u);
             const u32 c1 = (u32)func_00137B90(reader);
             sly1_discard(reader, c1 * 4u);
             const u32 items = (u32)func_00137B90(reader);
@@ -234,10 +238,10 @@ void func_00162890(void* block, void* reader, void* object) {
             sly1_discard(reader, base_payload_bytes);
             if (word_count) {
                 const u32 first_dimension = (u32)func_00137BE0(reader);
-                sly1_discard(reader, first_dimension * 12u);
+                sly1_discard(reader, base_payload_bytes * first_dimension * 12u);
 
                 const u32 second_dimension = (u32)func_00137BE0(reader);
-                sly1_discard(reader, second_dimension * 12u);
+                sly1_discard(reader, base_payload_bytes * second_dimension * 12u);
 
                 /* Retail reads one c0*2-byte array for each block word. */
                 const u32 row_bytes = c0 * 2u;
