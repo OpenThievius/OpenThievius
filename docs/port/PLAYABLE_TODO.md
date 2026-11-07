@@ -1310,40 +1310,32 @@ later row-lifecycle and renderer-write probes supersede the proposed ring
 refill and owner-row checks below. Latest runtime trace remains
 `/tmp/sly-native-animation-bounds-trace.log`.
 
-**Row lifecycle and renderer-write trace (2026-11-07):** the `0x13290`-byte
-table starts with row 239 zeroed; nested parsing stores a valid auxiliary
-pointer (`0x00d18060`) at row `+4`. The copy for record 240 is correct. A
-later translated renderer call, `func_00164868`, overwrites the word with
-float `1.0` while writing a 12-byte-stride vector output. Its destination
-pointer starts at `0x00cf4fd0`, which lies inside the same 40-byte-row table;
-the write at `0x00cf4ffc` lands on row 239 `+4`. The routine loops over 84
-vectors (`0x54`), so the output range crosses several table rows. The
-`func_00165AE8` source-copy path then treats the overwritten float as a pointer
-and faults in `func_0018D568`.
+**Row lifecycle and suspected renderer-write trace (2026-11-07):** the
+`0x13290`-byte table starts with row 239 zeroed; nested parsing stores a valid
+auxiliary pointer (`0x00d18060`) at row `+4`. The copy for record 240 is
+correct. An earlier one-off trace appeared to show a later translated
+`func_00164868` call writing float `1.0` at `0x00cf4ffc`, row 239 `+4`, from a
+destination beginning at `0x00cf4fd0`. Treat that attribution as unconfirmed:
+a fresh instrumented run shows the caller passes writer object `0x0064c090`
+on its guest stack, with `begin=cursor` in the native temporary range
+`0xe041...` and `end` also in that range. `func_001EE5C8` returns that writer
+cursor, so this observed call writes outside the `0x00cf...` table. The earlier
+trace's `0x00cf4fd0` value was not the writer cursor and its stack-slot
+interpretation was incorrect. The actual source of the `0x3f800000` table
+word is unresolved; do not treat the renderer overwrite as proven or suppress
+the later invalid copy.
 
-The invalid destination was already present in the callee's guest-stack
-scratch slot at `0x0064bf60` before the relevant call (`0x0064c040` caller SP).
-It was not the thread stack overlapping the table: the native worker thread
-was configured with stack `0x006056d0` and size `0x20000`. The immediate next
-task is to identify which preceding call seeds or reuses the `0x00cf4fd0`
-scratch pointer. `func_00164868` remains unmatched in sly1-decomp, so keep any
-future C replacement port-only and replaceable; do not suppress the invalid
-copy or edit the translated retail assembly as a fix. The focused local trace
-is `/tmp/sly-native-caller-origin-filtered.log`; earlier row probes are in
-`/tmp/sly-native-row-mutation.log` and `/tmp/sly-native-row-writes.log` (not
-tracked). The native launcher still exits before showing game graphics.
-
-**Writer-cursor follow-up:** the repeated `0x00cf...` destination values are
-structured writer cursor values. In `func_00164868`, the output pointer in
-the frame scratch slot is returned by `func_001EE5C8`, which reads the cursor
-at writer offset `+0x0c`. The per-thread native temporary arena was traced in
-a fresh run and uses `0xe0410000–0xe0420000` for guest thread 1, so it cannot
-overlap the `0x00cf...` table in this run. The port backfill for
-`func_0018D4B0` matches its now-available decomp C (16-byte aligned bump from
-`D_002C2A14`, mirrored to `D_002C2A18` and `D_002C2A1C`); this is not the
-origin of the destination pointer. Next, capture the writer object address
-and its `begin`, `end`, and `cursor` fields immediately before each relevant
-`func_001EE5C8` call in `func_00164868`, then trace where that writer was
-initialized. The current evidence does not identify why its cursor is in the
-animation table; do not change heap policy or suppress the renderer write.
-The follow-up trace is `/tmp/sly-native-temp-arena-overlap.log` (not tracked).
+`func_00164868` remains unmatched in sly1-decomp, so any eventual functional
+replacement C must stay port-only and replaceable. The port backfill for
+`func_0018D4B0` matches the now-available decomp C (16-byte aligned bump from
+`D_002C2A14`, mirrored to `D_002C2A18` and `D_002C2A1C`), and the native temp
+arena uses `0xe0410000–0xe0420000` for guest thread 1; neither explains the
+table word. Next, instrument the exact stores to `0x00cf4ffc` and the
+`func_00164868` output cursor within the same run, with the guest PC and
+writer fields captured together. Reconcile the conflicting probes before
+changing parser or renderer behavior. Evidence: earlier
+`/tmp/sly-native-caller-origin-filtered.log`; fresh writer snapshots in
+`/tmp/sly-native-writer-fields2.log` and arena trace in
+`/tmp/sly-native-temp-arena-overlap.log` (local logs are not tracked). The
+native launcher still faults on source address `0x3f800000` and shows no game
+graphics.
