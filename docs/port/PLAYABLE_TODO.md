@@ -565,3 +565,35 @@ Immediate graphics tasks:
    level object with real mesh ownership and transform, then fix the first
    demonstrated missing callback or scene adapter. Do not treat the font fix
    as a playable milestone.
+
+## Direct-level probe follow-up (2026-11-07)
+
+The `OPENRAC_BOOT_LEVEL` path had not been running: its port C definitions for
+`func_001E4E80` and `func_001E4EA8` were listed as backfills, but hostgen chose
+the matching decomp definitions. They are now also in the explicit override
+registry, so the generated host file contains the native synchronous loader
+and catalog lookup. The build succeeds and the generated report records both
+overrides. This changes only the opt-in probe; ordinary startup remains on the
+retail request path.
+
+A fresh bounded native run with `OPENRAC_BOOT_LEVEL=0x0100` now reaches the
+level range at sector 867214 (4,911,835 bytes) and begins parsing it. It exits
+with a fault before completing the load: the trace reports a null guest call
+from `func_001B4A10` and a call to address `0x1` through the collider path
+(`func_001B89B8`), then accesses guest address `0xFFFFFFFF`. The first null
+call occurs after an animator type is read; identify that serialized type and
+its expected methods before deciding whether data alignment or a missing
+animator method table is responsible. For the collider call, inspect the
+`Desc03` callback field `m32` on the object passed to `func_001B89B8`; determine
+why it contains `0x1` before initializing or substituting anything.
+
+Reproduce with:
+
+```sh
+OPENRAC_BOOT_LEVEL=0x0100 OPENRAC_STARTUP_TRACE=1 OPENRAC_TRACE_LOADER=1 \
+timeout 12s build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+The machine-local trace is `/tmp/sly-native-direct-level-override.log`. No
+scene geometry or playable level is established by reaching this parser path.

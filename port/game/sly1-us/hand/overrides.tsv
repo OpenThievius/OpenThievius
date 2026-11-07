@@ -10,3 +10,5 @@ func_0018D500	native_c/native_heap.c
 func_0018D5C0	native_c/native_heap.c
 func_0011E680	native_c/resource_descriptors.c
 func_0011ECB8	native_c/resource_object_records.c
+func_001E4E80	native_c/func_001E4EA8.c
+func_001E4EA8	native_c/func_001E4EA8.c

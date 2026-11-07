@@ -151,6 +151,21 @@ direct-load option is disabled by default; unset `OPENRAC_BOOT_LEVEL` for the
 normal startup path. The next gameplay milestone is to populate/render the
 loaded level and bring up Sly's player/input/collision path.
 
+**Follow-up, 2026-11-07:** a fresh generated-code audit found that the
+`func_001E4E80` / `func_001E4EA8` native loader path above was not selected:
+those port C definitions were only fallback backfills, and hostgen used the
+matching C definitions instead. They are now registered as explicit
+port-owned overrides, preserving the decomp checkout unchanged. With the
+override active, the native probe does read the stated ISO range and enter the
+level parser, but faults before the previously reported stage-13 completion.
+The current verified state is therefore earlier than the old paragraph
+claims. The new fault is a null animator method call from `func_001B4A10`, then
+a collider callback call to address `0x1` from `func_001B89B8`, followed by an
+access to `0xFFFFFFFF`. See
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md#direct-level-probe-follow-up-2026-11-07)
+for the trace and investigation tasks. The level is not yet loaded or
+playable.
+
 The latest world trace correctly resolves guest-port heap pointers: it counts
 25 entries at the world root and 24 entries in the `0x55` family list (classes
 `0x58` and `0x51`). Port-only backfills for `func_00124050` and
