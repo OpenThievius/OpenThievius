@@ -868,3 +868,26 @@ The configured decomp source is `dd6f80b`; upstream master has advanced to
 `func_001FFC08` (library code). None has been shown to unblock the active draw
 path. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md) for the source comparison and
 the ordered next tasks.
+
+## Direct-level follow-up (2026-11-07)
+
+The native direct-level probe now completes the port backfill for
+`func_00162890` and the following `func_00128C10` read, then faults in the
+child-object path around `func_0011ECB8` / `func_00137D10` at guest address
+`0xFFFFAC70`. It has not reached gameplay. Captured entry/exit windows for the
+large object parser match the decoded level resource, so that parser's stream
+cursor is not yet the demonstrated fault source.
+
+Comparing the port backfill for `func_00162890` with retail MIPS exposed one
+memory-layout mismatch: component references are 32-bit entries, not packed
+16-bit entries. The backfill now writes at four-byte strides. A native rebuild
+succeeded; a direct-level launch still exits with the child-object fault, as
+expected since the correction does not alter stream consumption. The fix stays
+in the port repository and can be replaced when the decomp supplies this
+function.
+
+The black/garbled menu remains a separate graphics blocker. The next tasks are
+to trace the first child-object read and its callback metadata, and to follow
+valid glyph vertices through GL upload, raster state and final framebuffer
+pixels. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md) for the ordered plan and
+acceptance gates.
