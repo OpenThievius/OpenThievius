@@ -280,15 +280,20 @@ initializes the state data and queues the initial title/intro request, plus
 the reached missing callbacks in that path. Trace:
 `/tmp/sly-native-retail-state-dispatch.log`.
 
-**Resource-table assembly experiment (reverted, 2026-11-07):** adding exact
-US assembly for the reached no-C routines `func_0011D140`, `func_0011D968`,
-and `func_0011DB00` stopped startup before an active world was created. The
-loader thread remained in the early poll path at `func_0011D078`; that retail
-routine calls the still-missing `func_001F8480`. The
-three-function expansion was removed, and the stable configuration rebuilt
-successfully at 2,035 C functions / 209 assembly functions. Do not re-enable
-that cluster until the poll/completion dependency is understood and closed.
-Experiment trace: `/tmp/sly-native-resource-table-asm.log`.
+**Resource-table assembly experiment (2026-11-07):** enabling exact assembly
+for `func_0011D140`, `func_0011D968`, and `func_0011DB00` alone stopped startup
+before an active world was created. The loader thread remained in its early
+poll at `func_0011D078`. Adding exact assembly for that poll routine and its
+missing `func_001F8480` dependency restores the active-world loop. The
+dependency-closed set is retained. It removes those reached no-op warnings,
+but the bounded run still reports frame state 3/game mode 0, zero scene
+vertices/text, and all-black captured frames. Trace:
+`/tmp/sly-native-resource-poll-closure.log`; the standalone failure is at
+`/tmp/sly-native-resource-table-asm.log`.
+
+The current hostgen build has 2,035 C functions and 214 US assembly functions,
+with zero stubs. It drains 40 frame-list nodes with valid links; this is more
+reliable startup, but still not visible graphics or playability.
 bounded run reads Splash as two 37-sector chunks and level `0x0100` as four
 599-sector chunks plus a final 3-sector chunk, then still reaches loader stage
 5 with zero scene vertices. This removes duplicate full-range I/O and keeps

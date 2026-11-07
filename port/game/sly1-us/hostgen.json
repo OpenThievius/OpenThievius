@@ -90,7 +90,12 @@
     ],
     "only": [
       "func_0011ECB8",
+      "func_0011D078",
+      "func_0011D140",
+      "func_0011D968",
+      "func_0011DB00",
       "func_001E9108",
+      "func_001F8480",
       "func_0015D8A8",
       "func_0015F320",
       "func_0015F710",
