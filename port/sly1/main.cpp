@@ -47,14 +47,26 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
-    const unsigned limit = (stage == 70 || stage == 71 ? 24u :
+    const unsigned limit = (stage == 73 || stage == 74 || stage == 75 ? 256u :
+        (stage == 70 || stage == 71 || stage == 72 ? 24u :
         (stage == 59 || stage == 60 || stage == 61 || stage == 62 || stage == 63 || stage == 64) ? 256u :
         (stage == 57 ? 256u :
         (stage == 35 || (stage >= 50 && stage <= 53) ||
-         stage == 55 || stage == 56 ? 64u : limits[stage])));
+         stage == 55 || stage == 56 ? 64u : limits[stage]))));
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+    if (stage == 75u && a4 == 0x00A7F77Cu && a0 >= 0xEFu) {
+        std::uint32_t offset = 0;
+        if (trace_guest_range(a3, 64u, &offset)) {
+            std::cerr << "[animation-stream] index=" << std::hex << a0
+                      << " cursor=" << a3 << " bytes=";
+            for (unsigned i = 0; i < 64u; ++i)
+                std::cerr << std::setw(2) << std::setfill('0')
+                          << static_cast<unsigned>(openrac_guest_base[offset + i]);
+            std::cerr << std::dec << std::setfill(' ') << '\n';
+        }
+    }
     if ((stage == 60 || stage == 61) && a2 != 0) {
         std::uint32_t cursor_offset = 0;
         if (trace_guest_range(a2 + 0x18u, 4u, &cursor_offset)) {

@@ -1262,3 +1262,14 @@ runs. Latest trace: `/tmp/sly-native-copy-source-trace.log`. Next trace the
 `func_00162890` record/flag fields that lead to this `func_00165AE8` call and
 find where the float is mistaken for a source pointer. Do not add a bounds
 skip or suppress the copy: that would hide the data-layout or reader error.
+
+The focused follow-up identifies the owner record as `0x00a7f77c`, entry
+index `0xf0` (the 131st copy call). Its serialized flag is `0x203`, so the
+low-bit branch is genuinely selected; its corresponding 0x28-byte record has
+tag `0x0c`, then `0x3f800000` and other float fields. The preceding 130 entries
+share valid pointer `0x00d14ef0`. At the decision point, the reader cursor has
+jumped from `0x70000d8f` to `0x70001790` and the bytes there are recorded in
+`/tmp/sly-native-animation-flag-trace.log`. This points to either a valid
+type-`0x0c` record that needs distinct handling or a stream/record alignment
+error at the ring refill. Compare the US retail field semantics and the
+decompressed bytes around that refill before changing the branch or data.
