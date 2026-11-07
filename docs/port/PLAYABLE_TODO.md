@@ -855,3 +855,21 @@ text, and zero scene vertices. The remaining font issue is in the table input
 or its count, or a later reset; trace that boundary before changing rendering.
 Trace: `/tmp/sly-native-font-parser-assembly.log`. The decomp checkout remains
 unchanged; all C compatibility code stays in the port backfill directory.
+
+**Follow-up trace correction (2026-11-07):** `0x70000000` is the port's mapped
+resource window, not an invalid pointer. In a fresh normal start, the Splash
+resource enters `func_001B3040` at cursor `0x70000089` with 8,055 bytes left;
+its font-table reader is reached after the stream is exhausted. This does not
+establish a broken font pointer or prove that this Splash resource contains a
+font table. A direct level `0x0100` run has 4,964 bytes left after
+`func_001B3040` and 1,680 bytes after world setup, yet still reaches the frame
+loop with zero vertices. Treat missing Splash fonts as a separate UI issue;
+the first scene-graphics blocker remains ownership and activation of a
+renderable level object.
+
+That direct-level run also reached three resource animation callbacks that
+were still no-C stubs: `func_001B5060`, `func_001B5200`, and `func_001B5398`.
+The native host build now translates their exact NTSC-U retail assembly; the
+decomp checkout is unchanged. The callbacks no longer emit stub warnings, but
+the level root still has no children and the renderer still reports zero
+vertices. Trace: `/tmp/sly-native-direct-level-anim-callbacks.log`.
