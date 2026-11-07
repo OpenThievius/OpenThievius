@@ -18,7 +18,6 @@
 
 namespace {
 constexpr uint32_t kVif1Chcr = 0x10009000u;
-constexpr uint32_t kVif1Error = 0x10003C20u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
 constexpr uint32_t kVif1Cycle = 0x10003C40u;
@@ -438,10 +437,6 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         case 0x10: case 0x11: case 0x13:
             break;
         default:
-            // ME1 masks the invalid-command error and its stall. Retail Sly
-            // sets VIF1_ERR to 2 before a startup chain containing opcode
-            // 0x40; when masked, hardware advances to the next command.
-            if ((load_mmio(kVif1Error) & (1u << 2u)) != 0) break;
             *unsupported_command = command;
             return false;
         }

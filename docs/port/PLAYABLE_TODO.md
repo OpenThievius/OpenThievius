@@ -4,13 +4,40 @@
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. The latest hostgen run reads 185 units,
-translates 2,050 functions including 152 from US retail assembly, and reports
+translates 2,050 functions including 177 from US retail assembly, and reports
 zero stubs. A bounded native run completes Splash and the selected level
 resource through loader stage 5, with active world `0x0088d530`. The exact
 retail `func_001EE900` constructor now links the level's class-`0x86` object at
 `world+0x1ec4`; its exact transform helpers are also selected. The frame still
 reports zero scene vertices, frame state 3, and game mode 0. The port is not
 playable.
+
+**VIF error-mask correction (2026-11-07):** commit `f8fa708` attempted to
+continue past the startup packet's unknown VIF opcode `0x40` when ME1 was
+masked. Rechecking the retail write and the EE VIF1_ERR bit definitions shows
+that Sly writes `2`, which sets ME0 and does not set ME1 (bit 2). The captured
+packet therefore still takes the parser's unsupported-command path; the
+workaround did not activate and must not be treated as a graphics fix. The
+mask-based bypass has been removed. This packet remains a separate startup
+error-handling question, not evidence for the zero-vertex scene-rendering
+blocker. Trace: `/tmp/sly-native-vif-mask-fix.log`.
+
+Since the previous pushed checkpoint, the US assembly allowlist gained 27
+reached routines. These remove more missing-C warnings without adding
+port-only behavioral backfills. The latest native trace still shows active
+threads and accepted GIF chains, but zero scene vertices; default boot remains
+at frame state 3/game mode 0. The next graphics task remains identifying the
+retail title transition and the owner/class callbacks that produce visible
+scene submissions, rather than treating the first VIF error as the mesh path.
+
+The rebuilt default-boot trace also reports a call to guest address zero from
+retail `func_0011ECB8`. Its selected assembly unconditionally calls the
+record-created object's virtual reader at vtable offset `+0x38` immediately
+after the factory returns. The current trace does not identify which record or
+why that slot is empty; instrument the factory result and vtable slot at this
+dispatch before changing its behavior. The run still reports zero scene
+vertices, frame state 3, game mode 0, and no visible graphics. Trace:
+`/tmp/sly-native-vif-mask-corrected.log`.
 
 **Earlier graphics checkpoint (superseded by the owner-list trace below):** a full object snapshot of the
 direct-loaded world found two class `0x44` instances, but these are collision
