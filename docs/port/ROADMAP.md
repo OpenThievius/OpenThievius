@@ -958,11 +958,12 @@ vertices, no registered fonts and no visible text. The next visual milestone
 is identifying and submitting the first actual level mesh; see
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
 
-## Retail callback and VIF trace correction (2026-11-07)
+## Retail object-list and VIF trace correction (2026-11-07)
 
 The old port-only `func_0011ECB8` parser was removed from the active build and
-retained under `hand/superseded/`. Retail assembly proves it reads per-object
-callback records; its zero count was not a scene-object or mesh count. The
+retained under `hand/superseded/`. Retail assembly proves it reads counted
+object records (class slot, key, and flag) and invokes each object's virtual
+reader. `func_0011EC40` is the separate property/callback-ID reader. The
 native target now uses exact retail assembly for `func_0011ECB8`,
 `func_001AD970`, and `func_00202C38`. Hostgen reports 2,044 C translations,
 111 assembly translations, zero stubs, 2,703 functions without C, and 12
@@ -979,3 +980,26 @@ malformed before changing the native interpreter. This startup packet does not
 yet identify the missing level mesh producer. Traces:
 `/tmp/sly-native-vif-failure-context.log` and
 `/tmp/sly-native-dmawait-retail.log`.
+
+## Level object-list and scene callback follow-up (2026-11-07)
+
+The exact US assembly for `func_0011ECB8` reads a signed record count, then
+class slot, key, and flag for each entry, creates it through `func_0011E580`,
+and calls the object's virtual reader. A fresh direct-level trace brackets this
+list at cursor `0x70001854` / 1,964 bytes remaining and reaches the ring boundary
+on return. It creates 112 records: 110 type-0 entries, one type `0x86` (key 2),
+and one type `0x04` (key 1). The type-`0x04` instance loads collision geometry;
+the list contains no evident visual-object class. `func_0011EC40` is the
+separate property/callback-ID reader.
+
+The class-`0x86` constructor `func_001EE900` was a no-C stub despite being
+reached. The port now selects its exact NTSC-U instructions, which call
+`func_00182C18` and store the object at owner `+0x1EC4`. Exact assembly is also
+selected for its transform helpers `func_001EE9D0`, `func_001EEA40`, and
+`func_001EEB60`. A bounded native run confirms the special pointer is
+`0x00a7e540` and root classes include `0x86`; those no-C warnings are gone, but
+the frame still has zero scene vertices and game mode 0. Build and trace:
+`/tmp/sly-native-scene-callback-cluster.log`.
+
+The active gap is now upstream of visual object creation or the Splash-to-title
+state transition. Do not count collision mesh data as rendered geometry.

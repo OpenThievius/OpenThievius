@@ -3,16 +3,16 @@
 
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
-for matched C and retail assembly. The latest hostgen report reads 183 units,
-translates 2,043 C functions and 143 functions from US retail assembly, has
-zero failed C translations, and reports 2,672 functions without C plus 11
-unreadable units. A bounded native
-run now completes Splash and the selected level resource through loader stage
-5, with active world `0x0088d530`. It registers 22 fonts but submits zero scene
-vertices and displays no text. This supersedes the earlier empty-reader,
-heap-initialization, and child-parser faults below.
+for matched C and retail assembly. The latest hostgen run reads 185 units,
+translates 2,050 functions including 152 from US retail assembly, and reports
+zero stubs. A bounded native run completes Splash and the selected level
+resource through loader stage 5, with active world `0x0088d530`. The exact
+retail `func_001EE900` constructor now links the level's class-`0x86` object at
+`world+0x1ec4`; its exact transform helpers are also selected. The frame still
+reports zero scene vertices, frame state 3, and game mode 0. The port is not
+playable.
 
-**Latest graphics checkpoint (2026-11-07):** a full object snapshot of the
+**Earlier graphics checkpoint (superseded by the owner-list trace below):** a full object snapshot of the
 direct-loaded world found two class `0x44` instances, but these are collision
 objects, not visible actors. Both have null mesh data at `+0x380` and a zeroed
 render mesh copy at `+0x3A4`; the world still submits zero scene vertices.
@@ -149,9 +149,12 @@ Trace: `/tmp/sly-native-reader-ring-trace.log`; dumps:
 `/tmp/sly1-level-reader-window.bin` and `/tmp/sly1-level-reader-ring.bin`.
 
 The old port-only `func_0011ECB8` override was removed after checking the exact
-US assembly. It reads per-object callback records; its count is not the scene
-object or mesh count. The speculative parser remains under `hand/superseded/`
-for trace history only. The previously reported 6-vertex/0x880-face collision
+US assembly. That assembly reads a counted object list: each record supplies a
+class slot, key, and flag, then the factory creates the object and its virtual
+reader consumes its payload. `func_0011EC40` is the separate property/callback
+ID reader. The speculative object parser with its guessed alignment heuristic
+remains under `hand/superseded/` for trace history only. The previously reported
+6-vertex/0x880-face collision
 record came from the earlier Splash resource (sector 820372), not the selected
 level resource (sector 867214); do not use it to diagnose the level mesh.
 
@@ -510,7 +513,9 @@ three-record list from EE scratchpad data. It accepts the first record
 The bytes in the decompressed chunk match the decoded Splash resource exactly,
 so the unpacker and its input are not the discrepancy. Investigate the parser
 cursor and caller that supplies this list, focusing on the 0%-matched
-`func_0011ECB8` and `func_00196410`, plus the first record's callback contract.
+`func_0011ECB8` and `func_00196410`, plus the first object's virtual reader
+contract. Later exact-assembly inspection established that these are object
+records, not callback records; see the correction below.
 Do not suppress class zero or patch the descriptor table: that would hide a
 cursor or call-path error. The runtime later faults at `0xDBBBC9E2`; startup
 and the previous black/garbled rendering remain unresolved.
@@ -594,11 +599,13 @@ actual frame draw data, display chain, and the numerous missing-C callbacks
 around `func_001AD970`, rather than loader completion. Latest trace:
 `/tmp/sly-native-postload-trace.log`.
 
-## Historical: instrument the callback-list reader (2026-11-07; superseded)
+## Historical: mistaken callback-list interpretation (2026-11-07; superseded)
 
-The investigation below predates the retail-assembly correction at the end of
-this document. `func_0011ECB8` was misidentified as an object-record parser;
-its count and alignment traces do not describe the level's scene-object list.
+The investigation below contains the reversed interpretation: exact US
+assembly proves `func_0011ECB8` is the object-list reader, while
+`func_0011EC40` reads property/callback IDs until its negative sentinel. The
+`func_0011ECB8` stage-23/24 cursor bracket and its factory calls describe the
+object records, not a callback list. Keep the entries below as chronology only.
 
 The unguarded launch confirms the reader override is no longer needed: without
 it, Splash initialization still reaches `func_001DCEA0` stage 5 and the active
@@ -891,12 +898,14 @@ Hostgen reports 2,043 C functions, 109 retail assembly translations, zero
 stubs, 2,705 functions without C and 12 unreadable units. The bounded trace is
 `/tmp/sly-native-retail-anim-loader4.log`.
 
-## Retail callback and DMA trace correction (2026-11-07)
+## Retail object-list and DMA trace correction (2026-11-07)
 
 The old port-only `func_0011ECB8` parser is no longer in the active build. Exact
-US assembly confirms it reads per-object callback records; its zero count was
-not a scene-object or mesh count. The speculative parser and its unverified
-alignment heuristic are retained only under `hand/superseded/`. The native
+US assembly confirms it reads counted object records containing class slot,
+key, and flag, then invokes the object's virtual reader. Its count is an object
+record count. `func_0011EC40` is the separate property/callback-ID reader. The
+speculative parser and its unverified alignment heuristic are retained only
+under `hand/superseded/`. The native
 build now selects exact retail assembly for `func_0011ECB8`, `func_001AD970`,
 and `func_00202C38`; the last two were active runtime functions. Hostgen reports
 2,044 C translations, 111 assembly translations, zero stubs, 2,703 functions
@@ -1075,26 +1084,30 @@ zero vertices and no image transfers. The existing font count/IDs are
 unchanged from previous traces. Latest run:
 `/tmp/sly-native-1b008-tag-only.log`.
 
-With `OPENRAC_TRACE_FONT=1`, the trace brackets that exact retail callback-list
-parser: the selected level enters at cursor `0x70001854` with 1,964 bytes
-remaining and returns with cursor `0x70000000` / remaining `-1`. This routine
-is not the scene-object list parser, so its cursor reset does not explain the
-empty world by itself. The same run records these factory requests with the
-selected world as owner: class `0x6d`, ten `0x1e`, forty `0x4d`, two `0x51`, one
-`0x86`, one `0x04`, and 110 class-0 records. The later world snapshot still
-shows only base root classes `0x6d` and `0x04`, zero root children, and update
-lists containing `0x1e`/`0x04`; the renderer has zero vertices and image
-transfers. Trace: `/tmp/sly-native-object-record-bracket.log`.
+With `OPENRAC_TRACE_FONT=1`, the exact object-list parser enters at cursor
+`0x70001854` with 1,964 bytes remaining and returns at the ring boundary
+`0x70000000` / remaining `-1`. Factory trace stages 23–24 bracket that parser;
+the factories called between them prove it creates 112 objects: 110 type-0
+records, one type `0x86` (key 2), and one type `0x04` (key 1). The type-`0x04`
+object loads collision geometry; no visual class is in this record list. Earlier
+startup also creates ten type-`0x1e` and forty type-`0x4d` collision objects,
+plus two type-`0x51` objects. Trace:
+`/tmp/sly-native-level-factory-tuples.log`.
 
-This narrows the active gap to level asset/resource loading before scene
-submission: the current object factories are producing base, collision, and
-callback records, but no evidenced renderable class reaches a world list.
-Continue from the selected level's resource-key table and object factory
-records, identify which expected renderable class/resource is absent, then
-trace its reader/constructor/owner link. Do not treat `func_0011ECB8`'s
-callback-list count as a scene-object count or replace its exact retail
-assembly with a speculative parser. Compatibility code remains under
-`hand/native_c`; the sibling `sly1-decomp` checkout is unchanged.
+The class-`0x86` constructor was a reached no-C stub. The port now selects exact
+US retail assembly for `func_001EE900`, which calls `func_00182C18` and stores
+the object at owner `+0x1ec4`. Its transform helpers `func_001EE9D0`,
+`func_001EEA40`, and `func_001EEB60` are selected from the same retail assembly.
+A bounded run confirms `special_scene_object=0x00a7e540` and root classes
+`0x6d,0x86,0x04`, with the callback warnings gone; it still reports zero scene
+vertices and game mode 0. Trace: `/tmp/sly-native-scene-callback-cluster.log`.
+
+Next, find what resource or state transition should create the level's visual
+objects; do not infer them from collision meshes or the separate property list
+handled by `func_0011EC40`. The default Splash-to-title transition also remains
+stuck at frame state 3/game mode 0. All functional port-only replacements stay
+under `hand/native_c`; this change uses exact retail assembly and leaves the
+sibling decomp checkout unchanged.
 
 **Restart checkpoint (2026-11-07):** the current native run still reaches the
 frame loop with a black scene and zero renderer vertices. The latest investigation
@@ -1108,17 +1121,13 @@ count/pointer, and link capacity/pointer are at `+0x380..+0x398`. The populated
 class-`0x04` data is collision geometry, not evidence of a renderable mesh;
 follow each descriptor's read method before interpreting these fields.
 
-Uncommitted native-only diagnostics were added in `port/sly1/main.cpp` and
-`port/game/sly1-us/hand/native/sly1_native_worker.cpp`. The owner-list scan now
-validates descriptor size before reading mesh fields. Build checked with
-`cmake --build build/port --target port_native -j2`. Next: run with
-`OPENRAC_TRACE_OBJECTS=1` and `OPENRAC_TRACE_LOADER=1`, inspect the
-`[owner-class-object]` and `[resource-key-table]` lines, then identify which
-object data reaches the visual renderer. Latest previous table
-trace: `/tmp/sly-native-resource-key-table-full.log`; previous reader-backed
-object trace: `/tmp/sly-native-reader-backed-objects.log`. These `/tmp` logs are
-local diagnostics and are not committed. All compatibility/backfill C remains
-under `hand/native_c`; no changes were made to the sibling decomp checkout.
+Committed native-only diagnostics in `port/sly1/main.cpp` and
+`port/game/sly1-us/hand/native/sly1_native_worker.cpp` validate descriptor size
+before reading mesh fields and dump resource-key rows. Builds use
+`cmake --build build/port --target port_native -j2`. Trace logs remain local in
+`/tmp`; the latest traces are listed below. All compatibility/backfill C
+remains under `hand/native_c`; no changes were made to the sibling decomp
+checkout.
 
 **Owner-list correction (2026-11-07):** a bounded native trace now scans all
 149 class slots on the directly loaded level world, rather than sampling only
