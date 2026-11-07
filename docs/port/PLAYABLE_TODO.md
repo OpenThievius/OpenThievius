@@ -354,3 +354,31 @@ used, the generated definition contains the port factory body, and the
 generated registry points `func_0011E580` at it. The next bounded native launch
 still faults on this malformed-record path, with a call through address zero
 from `func_0011ECB8` followed by an unmapped access at `0xAB1BABFD`.
+
+## Latest native checkpoint (2026-11-07, supersedes the preceding fault details)
+
+The launcher no longer runs the Splash loader into an out-of-range write.
+Crash-register and reader diagnostics showed retail `func_001BAC30` receiving
+`0x3F800000` (the bit pattern for `1.0f`) as an array count, then attempting an
+allocation whose signed size wrapped. The checked heap backfill correctly
+rejected that request, but retail assembly continued its count-controlled
+loop and wrote through null. This is a stream-layout/cursor defect, not heap
+exhaustion.
+
+The port now has a temporary, explicitly registered `func_00137C40` safety
+backfill: normal reads remain unchanged, and values above `0x100000` are
+reported at loader stage 161 and returned as zero. In a 12-second native
+launch it contained four invalid values (`0x0FFFFFFF` at cursor `0x70000A16`,
+`0x0FFFFFFF` at `0x7000057A`, then `0x3F800000` and `0xC0000000` at
+`0x70000FF0` and `0x70000FF4`),
+prevented the prior guest-RAM fault, and let the loader continue into later
+objects. The run timed out while active; it did not reach a playable scene.
+The trace also reports an unresolved indirect call to `0x0021B4D8`. Treat the
+guard as containment only; fix the parser/call path and remove the override
+when matching `func_00137C40` is hostable. Trace: `/tmp/sly-native-guard-run.log`.
+
+Current generated hostgen summary is 1,833 translated functions and 3,028
+functions without C. The report includes assembly-selected functions among
+the translated total; see `build/port/hostgen/us/report.json` for per-function
+selection details. The native window remains black, so the playable gate is
+not met.

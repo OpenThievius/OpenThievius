@@ -212,6 +212,12 @@ extern "C" void game_sly1_native_temp_end(void) {
 extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                                                uint32_t reader) {
     if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
+    if (stage == 160u) {
+        std::fprintf(stderr,
+                     "[heap] exhausted request=%u current=%#010x limit=%#010x\n",
+                     object, reader, GREF(uint32_t, 0x002699A8u));
+        return;
+    }
     if (stage == 87u && std::getenv("OPENRAC_DUMP_LZ_WINDOWS") != nullptr &&
         openrac_guest_base != nullptr) {
         static unsigned dump_index = 0;
@@ -235,10 +241,29 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
         }
     }
     std::fprintf(stderr,
-                 "[loader] stage=%u object=%#010x reader=%#010x cursor=%#010x remaining=%d\n",
+                 "[loader] thread=%u stage=%u object=%#010x reader=%#010x "
+                 "cursor=%#010x remaining=%d heap=%#010x/%#010x\n",
+                 openrac_guest_current_thread_id(),
                  stage, object, reader,
                  GREF(uint32_t, reader + 0x18u),
-                 static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
+                 static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
+                 GREF(uint32_t, 0x002C2A1Cu), GREF(uint32_t, 0x002699A8u));
+    if (stage >= 140u && stage <= 142u) {
+        const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+        if (stage == 140u && cursor == 0x700008EAu &&
+            std::getenv("OPENRAC_DUMP_COLLISION_WINDOW") != nullptr) {
+            if (FILE* file = std::fopen("/tmp/sly1-collision-reader-window.bin", "wb")) {
+                std::fwrite(openrac_guest_base + 0x70000000u, 1, 0x2000u, file);
+                std::fclose(file);
+            }
+        }
+        std::fprintf(stderr, "[loader] collision bytes at %#010x:", cursor - 8u);
+        for (uint32_t i = 0; i < 24u; ++i) {
+            std::fprintf(stderr, " %02x",
+                         openrac_guest_base[cursor - 8u + i]);
+        }
+        std::fputc('\n', stderr);
+    }
     if (stage >= 70u && stage <= 86u) {
         std::fprintf(stderr,
                      "[loader] state flags=%#x mode=%#x read=%#x pending=%#x "

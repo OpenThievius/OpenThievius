@@ -6,3 +6,6 @@ func_00154EE0	native_c/func_00154EE0.c
 func_0018D608	native_c/native_temp_arena.c
 func_0018D658	native_c/native_temp_arena.c
 func_0018D6F0	native_c/native_temp_arena.c
+func_0018D500	native_c/native_heap.c
+func_0018D5C0	native_c/native_heap.c
+func_00137C40	native_c/resource_readers.c

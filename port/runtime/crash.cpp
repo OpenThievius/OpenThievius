@@ -268,6 +268,49 @@ void on_signal(int sig, siginfo_t* info, void* context) {
         return;
     }
 
+#if defined(__linux__) && defined(__x86_64__)
+    if (std::getenv("OPENRAC_CRASH_REGISTERS") != nullptr) {
+        const auto* uc = static_cast<const ucontext_t*>(context);
+        const auto& r = uc->uc_mcontext.gregs;
+        std::fprintf(stderr,
+                     "[crash registers] RIP=%#llx RAX=%#llx RBX=%#llx RCX=%#llx "
+                     "RDX=%#llx RSI=%#llx RDI=%#llx RBP=%#llx R8=%#llx R9=%#llx "
+                     "guest_base=%p\n",
+                     static_cast<unsigned long long>(r[REG_RIP]),
+                     static_cast<unsigned long long>(r[REG_RAX]),
+                     static_cast<unsigned long long>(r[REG_RBX]),
+                     static_cast<unsigned long long>(r[REG_RCX]),
+                     static_cast<unsigned long long>(r[REG_RDX]),
+                     static_cast<unsigned long long>(r[REG_RSI]),
+                     static_cast<unsigned long long>(r[REG_RDI]),
+                     static_cast<unsigned long long>(r[REG_RBP]),
+                     static_cast<unsigned long long>(r[REG_R8]),
+                     static_cast<unsigned long long>(r[REG_R9]),
+                     static_cast<void*>(openrac_guest_base));
+        const auto rbp = static_cast<std::uintptr_t>(r[REG_RBP]);
+        if (rbp != 0) {
+            const auto* locals = reinterpret_cast<const std::uint32_t*>(rbp - 0x30u);
+            const auto* args = reinterpret_cast<const std::uint32_t*>(rbp - 0x38u);
+            std::fprintf(stderr,
+                         "[crash frame] self=%#010x reader=%#010x\n",
+                         args[1], args[0]);
+            std::fprintf(stderr,
+                         "[crash locals] rbp-30..rbp-04=%08x %08x %08x %08x "
+                         "%08x %08x %08x %08x %08x %08x %08x %08x\n",
+                         locals[0], locals[1], locals[2], locals[3], locals[4], locals[5],
+                         locals[6], locals[7], locals[8], locals[9], locals[10], locals[11]);
+            const gaddr self = args[1];
+            if (self < openrac_guest_ram_size && self + 0x418u <= openrac_guest_ram_size) {
+            const auto* fields = reinterpret_cast<const std::uint32_t*>(openrac_guest_base + self + 0x3FCu);
+            std::fprintf(stderr,
+                         "[crash guest] self=%#010x fields[3fc..414]=%08x %08x %08x "
+                         "%08x %08x %08x\n",
+                         self, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]);
+            }
+        }
+    }
+#endif
+
     // The host functions on the way there are in the report's backtrace (the translated game code
     // is named after the game's).
     report(
