@@ -126,26 +126,36 @@ payload pointer `0x00840730` in each of its three nested records. The observed
 call remains in initialization:
 `func_001662A8 <- func_00165728 <- func_00124A48 <- func_00146470 <- func_001DCEA0`.
 
-Important code lead: `func_00165728` is currently selected from the port's
-`hand/overrides_c/func_00165728.c` via `hand/overrides.tsv`. That wrapper was
-written against the decomp C at `sly1-decomp/src/main/00164000.cpp`, but retail
-US assembly labels the 0xFC-byte function `nonmatching`. Therefore the
-wrapper's structure offsets and traversal are not yet established as retail
-behavior. Before chasing more packet data, compare the full retail assembly
-body (`asm/us/text.s`, around line 125800) against both the current wrapper and
-the decomp C. If the wrapper diverges, remove it from the active override and
-select exact retail assembly; retain any useful trace wrapper only as a
-disabled diagnostic/reference file. Keep any functional C repair in the
-port-only backfill area, never in `sly1-decomp`.
+That suspected override mismatch has now been checked. The full retail US
+assembly body (`asm/us/text.s`, around line 125800) uses the same entry stride
+(`0x70`), subdata stride (`0x28`), object callback at entry `+0x38`, nested
+call to `func_001662A8`, and linked-node offsets (`+0x4C`, `+0x80`) as the
+decomp C. No semantic discrepancy was found in the traversal. The former
+trace-heavy port wrapper has been moved to
+`hand/diagnostics/func_00165728_trace.c`; it is no longer registered as a live
+override. `hostgen.json` explicitly selects `func_00165728` from US retail
+assembly through `from_assembly` and `asm.only`. The generated report confirms
+`asm/us/text.s` as its source (223 functions selected from assembly).
+
+A 12-second native run using that exact assembly still stays at
+`sly_frame=0,3,0`, `game_mode=0`, and `vertices=0`, with three GIF chain
+submissions and two active guest threads (`func_001DC710` and
+`func_0015EE80`). This confirms the C wrapper was not the cause of the black
+screen. The bounded run was stopped by `timeout` (exit 124); there was no
+launcher crash. Its full trace is `/tmp/sly-native-165728-retail-asm.log`.
+Continue by tracing why the normal startup draw/frame path does not advance
+past this state and why it submits no per-frame scene or UI geometry. Keep any
+functional C repair in the port-only backfill area, never in `sly1-decomp`.
 
 Corrected dump highlights: entry `0x00847ce0` has three nested records at
 `0x00848070`, `0x008480c0`, and `0x00848110`; each record points at
 `0x00840730`. The entry's `+0x28` flag is zero, so retail
 `func_001662A8` proceeds for this entry. These records still have not been
-connected to per-frame geometry. After resolving the `func_00165728` assembly
-versus wrapper mismatch, resume tracing the actual retail render-list producer
-and its per-frame draw callback. The normal Splash-to-title transition is a
-separate unresolved route; direct-level mode remains diagnostic only.
+connected to per-frame geometry. The `func_00165728` selection mismatch is
+resolved; resume tracing the actual retail render-list producer and why the
+regular startup draw path does not submit geometry. The normal Splash-to-title
+transition is a separate unresolved route; direct-level mode remains
+diagnostic only.
 
 No repository changes were pending at the restart checkpoint before this
 note. Rebuild with `cmake --build build/port --target port_native -j2`; native

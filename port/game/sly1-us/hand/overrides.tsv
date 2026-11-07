@@ -15,7 +15,6 @@ func_001B89B8	native_c/collision_loader.c
 func_001B7C40	native_c/collision_loader.c
 func_001B7968	overrides_c/func_001B7968.c
 func_0011A498	overrides_c/func_0011A498.c
-func_00165728	overrides_c/func_00165728.c
 func_0011A338	native_c/list_append_safe.c
 func_001B4A10	native_c/animator_loader_probe.c
 func_001ACDA0	native_c/func_001ACDA0.c

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Port-only trace wrapper matching src/main/00164000.cpp. */
+/* Inactive port-only trace wrapper. Runtime uses the exact US assembly path. */
 #include "common.h"
 
 typedef void (*Sly1RenderObjectCallback_165728)(void* object);

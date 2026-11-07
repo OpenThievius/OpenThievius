@@ -842,3 +842,24 @@ still reaches stage 5 with world `0x0088d530`, but reports zero root children,
 zero renderer vertices, zero registered fonts, and zero visible text. These
 retail routines alone do not establish the level object path. Trace:
 `/tmp/sly-native-retail-init-path.log`.
+
+## Exact render-list traversal and current startup state (2026-11-07)
+
+The trace wrapper for `func_00165728` has been removed from active overrides
+and retained at `hand/diagnostics/func_00165728_trace.c`. Its retail US
+assembly (`asm/us/text.s`, 0xFC bytes) confirms the same entry stride `0x70`,
+subdata stride `0x28`, object callback at `entry+0x38`, nested call to
+`func_001662A8`, and linked-node offsets `self+0x4C` / `node+0x80` as the
+decomp C. There is no identified semantic mismatch in that traversal.
+`hostgen.json` now lists the function in both `from_assembly` and `asm.only`;
+hostgen's generated report confirms source `asm/us/text.s` and 223 total
+functions translated from assembly.
+
+A bounded 12-second native run with the exact assembly remains at
+`sly_frame=0,3,0`, game mode 0, and zero vertices. It submits three GIF chains
+and repeatedly reports guest threads `func_001DC710` and `func_0015EE80`.
+This rules out the former instrumented C override as the cause of the black
+screen. Capture: `/tmp/sly-native-165728-retail-asm.log`. Next, follow the
+regular startup/frame path from these threads and identify why no per-frame
+scene or UI geometry is submitted; keep the Splash-to-title transition as a
+separate route to trace.
