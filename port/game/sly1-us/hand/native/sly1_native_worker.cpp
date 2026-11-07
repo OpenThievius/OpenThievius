@@ -257,6 +257,29 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                      static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
         return;
     }
+    if (stage == 154u) {
+        uint32_t pending[16]{};
+        unsigned pending_count = 0;
+        pending[pending_count++] = object;
+        std::fprintf(stderr, "[resource-value] root=%#010x cursor=%#010x",
+                     object, GREF(uint32_t, reader + 0x18u));
+        for (unsigned depth = 0; pending_count != 0 && depth < 8u; ++depth) {
+            const uint32_t node = pending[--pending_count];
+            if (node == 0) continue;
+            const uint32_t type = GREF(uint32_t, node);
+            const uint32_t payload = GREF(uint32_t, node + 4u);
+            const uint32_t child = GREF(uint32_t, node + 8u);
+            std::fprintf(stderr,
+                         " d%u=%#010x:%#x/%#010x/%#010x",
+                         depth, node, type, payload, child);
+            if (child != 0 && pending_count < 16u)
+                pending[pending_count++] = child;
+            if (type == 0x1Eu && payload != 0 && pending_count < 16u)
+                pending[pending_count++] = payload;
+        }
+        std::fputc('\n', stderr);
+        return;
+    }
     if ((stage == 133u || stage == 134u) && openrac_guest_base != nullptr) {
         const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
         std::fprintf(stderr, "[loader-group] stage=%u value=%u cursor=%#010x next=",

@@ -709,3 +709,12 @@ The port-only resource-property backfill now has capped diagnostic stages
 151–154 to report its counts and first 24 returned resource pointers under
 `OPENRAC_TRACE_LOADER=1`. This diagnostic does not change decompilation source
 or retail behavior.
+
+A follow-up trace walks up to eight nodes from each of those first 24 values.
+The observed values begin with a type `0x1e` reference to a type `0x0f` node,
+then nested tagged nodes and scalar property values. The trace exposes no
+direct model or mesh key, so this generic property tree is not the current
+geometry lead. The selected level's callback-record list still reads zero;
+that is only one field in its loader stream, not evidence that the complete
+resource contains no scene data. The next useful graphics trace is on the
+actual mesh-owning object/callback path, after level activation.
