@@ -1744,3 +1744,12 @@ activity. Latest evidence: `/tmp/sly-native-fixed-240f8.log`,
 Continue tracing which guest function emits the recurring black draw and why
 the initialized fonts never produce a textured glyph. The port remains
 unplayable; no emulation was used.
+
+A follow-up 20-second default native run reaches 9.48 seconds of guest menu
+time without a state transition: `game_mode` stays 0, `load_request` stays 0,
+`scene_gate` stays 0, and the same 240-vertex black untextured draw repeats.
+The active thread set remains the main loop, display worker, and UI worker;
+the frame worker does not stall. Log: `/tmp/sly-native-default-20s.log`.
+Prioritize identifying the guest function that writes this 240-vertex packet
+and tracing its source colors/texture state; extending the wait does not
+reveal the title screen.
