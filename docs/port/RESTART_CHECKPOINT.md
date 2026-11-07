@@ -225,17 +225,27 @@ movie playback. The direct-level shortcut remains diagnostic only; its
 resource groups are legitimately skipped and it has not produced a playable
 scene. Do not force those flags or synthesize geometry.
 
-Best next focused investigation: decode the EE import-stub/library records in
-the extracted US ELF, then cross-reference its `PsIIlibmpeg 2420` and
-`PsIIlibipu 2400` imports and their retail assembly call sites. Establish the
-actual function that requests the opening PSS and whether it supplies the
-sector, byte count, and channel required by OpenRAC's shared
-`openrac_game_play_movie` implementation. Sly does not yet link that shared
-movie layer or have a verified retail movie caller. Do not infer a movie path
-from the worker-dispatch fields, and do not copy Rac1 function addresses into
-Sly. If the evidence identifies a missing retail function requiring functional
-C, keep it under `port/game/sly1-us/hand/native_c/` and register it in
-`hand/backfills.tsv`; never change `sly1-decomp` for the port backfill.
+The former import-table lead was incorrect. This ELF has no `.lib.stub` or
+other import-table section; `PsIIlibmpeg 2420` / `PsIIlibipu 2400` are data
+strings adjacent to codec tables, not import records. Sly's own retail code
+does contain the statically linked MPEG player: `func_0018F448` sets it up via
+`func_0020ADA0` and `func_0020AE40`, reached from the request processor
+`func_0018F198`. `func_0018F148` drains the request queue and `func_0018F0E8`
+enqueues requests. A current trace sees none of those queue/player calls after
+the one Splash read. Continue with the producer/state transition that should
+request media; use Sly retail assembly as evidence and do not transfer
+addresses or names from another game. If the evidence identifies a missing
+retail function requiring functional C, keep it under
+`port/game/sly1-us/hand/native_c/` and register it in `hand/backfills.tsv`;
+never change `sly1-decomp` for the port backfill.
+
+The main app state is `3`, its entry timestamp is `0`, and the app clock
+advances past `6.9` seconds. Retail state `3` does not auto-advance on elapsed
+time; it waits for input flags. Current input mode/state are `3/4`, with no
+pressed buttons or pending state flags. Thus the stable state is an input-wait
+path, not a timer that failed to advance. It remains unresolved whether this
+state should display an idle/title screen before input or only after a
+transition. The native output remains only the black clear.
 
 Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
 latest queue and worker evidence is near the end of the latter. `/tmp` logs

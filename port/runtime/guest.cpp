@@ -329,6 +329,9 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 0x0018E678u, // initialize a linked resource reader
                 0x0018E6A0u, // reset a linked resource reader
                 0x0018E6C0u, // advance a linked resource reader
+                0x001E9108u, // update the application state machine
+                0x001E96F8u, // commit an application state transition
+                0x001E98E8u, // update state transition timing
             };
             static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
             for (std::size_t i = 0; i < std::size(targets); ++i) {

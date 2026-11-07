@@ -1952,3 +1952,26 @@ produce renderable records or move onto the normal title/gameplay transition;
 the direct-level shortcut has not yielded a playable scene. Logs:
 `/tmp/sly-native-direct0100-render-groups-final.log`,
 `/tmp/sly-watch-entry-flag-detail.log`.
+
+**State-manager and MPEG-path correction (2026-11-07):** The extracted ELF
+has no `.lib.stub` or import-table section. The strings
+`PsIIlibmpeg 2420` / `PsIIlibipu 2400` at file offsets `0x17bf70` and
+`0x17c0b0` are adjacent to codec data, not import records. Sly's own US retail
+assembly contains the MPEG player setup path: `func_0018F448` calls
+`func_0020ADA0` and `func_0020AE40`; it is reached from request processing in
+`func_0018F198`, called by the queue drain `func_0018F148`. The frame loop
+drains that queue, but the trace saw no enqueue, request processing, or MPEG
+setup after the Splash read. The missing event is upstream of the decoder.
+
+A 15-second native trace now records fields from the app state object. State
+3 remains active while its timestamp stays 0 and the app clock advances past
+6.9 seconds. Retail state's case 3 waits on controller/input flags; it does
+not transition just because time passes. The input report is in mode/state
+3/4, with no buttons or transition flags set. That explains why the app stays
+in state 3 without a media request, but does not establish whether the idle
+state should already draw a title/attract screen. The renderer still submits
+only the intentional black clear and has zero visible text. Trace:
+`/tmp/sly-native-state-manager-trace.log`. The hostgen build completed with
+205 generated C units linked. Next determine the retail input-to-title/media
+transition and the expected idle display; keep all functional C backfills
+isolated from `sly1-decomp`.
