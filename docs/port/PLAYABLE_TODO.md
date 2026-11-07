@@ -1464,3 +1464,26 @@ checked follow-up/wave branches have no changes ahead of master. None of the
 `func_00196410`, `func_00183350`, `func_00182ED8`, `func_001DCEA0`,
 `func_001B7968`, or `func_001B7A98`), so there is no upstream C replacement
 for this blocker yet. The decomp checkout remains untouched.
+
+**Restart checkpoint (2026-11-07):** This is the current handoff and
+supersedes the earlier `func_0011A6C0` tree-pointer handoff above. The working
+tree was clean at checkpoint. Branch `wip/native-sly-port` was pushed through
+`059a53e`. The `func_001B7968` tree-pointer fault is fixed by a port-only
+override, and the record loop is now a port-only C backfill at
+`port/game/sly1-us/hand/native_c/resource_object_record_loop.c`; neither change
+touches the decomp repo. The next unresolved issue is the parent reader path:
+`func_00196410` invokes nested record loading, then the shared reader cursor
+appears to land inside float-like payload before `func_0011ECB8` reads class
+`0x683e` at object index 1/37. Follow the nested calls and cursor ownership
+through `func_00196410`, `func_0011ECB8`, `func_001DCEA0`, `func_00183350`, and
+`func_00182ED8`; establish which call is expected to consume the bytes before
+changing record handling. Relevant trace: `/tmp/sly-native-reader-callback-sequence.log`.
+Latest build succeeded with 202 generated C units linked, 207 retail assembly
+translations, and zero hostgen stubs. The bounded native direct-level run
+still exits with SIGSEGV at guest `0x1689c3e0`; no graphics are visible and
+the game is not playable. Decomp remains at `e1b39f1` on master; the 51 extra
+definitions in `origin/codex/us-small-functions` do not cover this call path.
+Resume by checking the trace and exact translated/decomp assembly for the
+listed readers, then make one evidence-backed port-only correction, rebuild,
+and run the native launcher with a bounded timeout. Native launcher runs are
+authorized; do not use an emulator or edit `/home/reaper/Code/sly1-decomp`.
