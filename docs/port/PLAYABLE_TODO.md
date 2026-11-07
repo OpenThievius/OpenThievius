@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-Fresh repository review: 2026-11-07, updated through ceee514. A textured menu
-frame capture on the same date narrowed the visual blocker further; the direct
-level probe now also reaches collision mesh parsing, where it faults (details
-below).
-This is a work plan, not a claim of playable progress. Work is active on
+Fresh repository review: 2026-11-07. The menu glyph packet is now known to be
+valid through texture lookup, but the displayed frame remains black/garbled.
+The direct level probe has advanced past the large object parser and now faults
+while reading or dispatching a child object. This document is an ordered work
+plan, not a claim of playable progress. Work is active on
 wip/native-sly-port and stays in the port repo.
 
 ## Assessment
@@ -157,31 +157,47 @@ signature `void(void*, void*)`, fixing that demonstrated ABI mismatch without
 editing `sly1-decomp`. The earlier dispatch through descriptor data
 `0x0021B4D8` no longer appears in the follow-up trace.
 
-The latest native launch still faults during Splash object loading. The trace
-reaches `func_001BAC30` through `func_0013B598`, but reports a null indirect
-call from `func_0011ECB8` and then a write through guest address `0x02000000`
-in `func_001BAC30`. Collision-reader stages show vertex count 0, face count 0,
-then link capacity `0x3F80` at reader cursor `0x700008EE`; this is the earliest
-concrete suspicious value. The launcher is not playable and remains visually
-black. Latest trace: `/tmp/sly-native-reader-trace.log` on the development
-machine.
+That earlier Splash fault was fixed sufficiently for the loader to reach the
+frame loop and menu callback. The direct-level probe is a separate diagnostic
+path: the current trace completes `func_00162890` and `func_00128C10`, then
+faults during the child-object read path (`func_0011ECB8` / `func_00137D10`)
+near reader cursor `0x70000641`, with guest address `0xFFFFAC70`. The full
+object parser input window matches the extracted decoded resource at both
+entry and exit, so that parser's stream cursor is not presently the first
+demonstrated mismatch. The launcher remains black/garbled and is not playable.
+
+The current menu evidence narrows the independent graphics issue: 79 textured
+glyph quads decode with valid nonzero UVs, atlas handle `0x3`, and a resolvable
+atlas/CLUT, but no recognizable pixels reach the visible window. This points
+to the native draw/framebuffer path after packet decoding. Do not conflate that
+with the direct-level loader fault.
 
 ## Immediate next steps
 
-1. Compare the class `0x3F` collision record at reader cursor `0x700008EA`
-   with retail `func_00137FB0` and the serialized Splash bytes. Establish
-   whether zero vertex/face counts followed by link capacity `0x3F80` are
-   valid, and why `func_001BAC30` derives a write destination at
-   `0x02000000`. Fix only the demonstrated reader, allocator, or record-layout
-   mismatch. Keep functional replacements in the port backfill registry with
-   provenance and an upstream removal condition.
-2. Trace the remaining null indirect call from `func_0011ECB8` to its record,
-   descriptor slot, and intended method. Do not suppress it to keep startup
-   alive.
-3. After Splash loading completes without a fault, follow the active world
-   through update and native scene submission. Capture the first draw request's
-   mesh, material, transform, and camera inputs, then render one recognizable
-   level image before moving to input and player controls.
+1. Instrument the direct-level child-object boundary: capture the first child
+   count, raw serialized bytes, decoded slot/key/flag, created object's type
+   descriptor, vtable and read method. The fault follows `func_00137D10` and
+   occurs before a useful child-object trace, so establish whether the reader
+   pointer/cursor or the helper call target is invalid first. Never hide a bad
+   callback by skipping it.
+2. Compare the native menu glyph path at each boundary: packet vertices,
+   sampled atlas texels, GL upload format, viewport/scissor, blend/depth state,
+   and final framebuffer pixels. Fix the earliest boundary where valid glyph
+   data stops producing visible pixels.
+3. Once direct-level object loading completes, identify a real mesh owner and
+   trace its activation, transform, material, camera and draw request. Render
+   recognizable level geometry before spending time on movement controls.
+4. Use the normal title-to-New-Game path after the direct-level diagnostic
+   works; wire input, collision, camera, audio and checkpoint behavior, then
+   verify a short opening section with human input.
+
+One additional retail-assembly comparison found and fixed a port-backfill
+layout error: `func_00162890` stores its component references as 32-bit values
+at four-byte strides. The C backfill had been writing 16-bit values at two-byte
+strides despite allocating the correct 4-byte-per-entry array. This does not
+change how many bytes the reader consumes, so it is a memory/layout correction,
+not yet a fix for the child-read fault. Keep it in the port backfill so it can
+be replaced cleanly when the decomp supplies that function.
 
 The bounded native trace command used for this checkpoint is:
 

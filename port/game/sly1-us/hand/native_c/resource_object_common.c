@@ -50,7 +50,7 @@ void func_00162890(void* block, void* reader, void* object) {
     *(u32*)(bytes + 0x04) = (u32)func_0018D5C0(component_count * 0x90);
     *(u32*)(bytes + 0x08) = (u32)func_0018D5C0(component_count * 4);
     for (s32 i = 0; i < component_count; ++i)
-        *(s16*)(*(u32*)(bytes + 0x08) + (u32)i * 2u) = (s16)func_00137D10(reader);
+        *(s32*)(*(u32*)(bytes + 0x08) + (u32)i * 4u) = func_00137D10(reader);
 
     const s32 word_count = func_00137B90(reader);
     sly1_native_loader_stage(108, (u32)word_count, (u32)reader);
@@ -319,8 +319,11 @@ void func_001289C0(void* object, void* reader) {
     const u32 groups = (u32)func_0018D500(group_count * 8);
     *(u32*)(self + 0x2BC) = groups;
     for (s32 i = 0; i < group_count; ++i) {
-        *(s32*)(groups + (u32)i * 8u) = func_00137D10(reader);
         const s32 value_count = *(s32*)(self + 0x26C);
+        sly1_native_loader_stage(173u,
+            ((u32)(value_count & 0xFFFF) << 16) | (u32)(i & 0xFFFF),
+            (u32)reader);
+        *(s32*)(groups + (u32)i * 8u) = func_00137D10(reader);
         if (value_count < 0 || value_count > 65536) return;
         const u32 values = (u32)func_0018D500(value_count * 4);
         *(u32*)(groups + (u32)i * 8u + 4) = values;

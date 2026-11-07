@@ -211,7 +211,12 @@ extern "C" void game_sly1_native_temp_end(void) {
 
 extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                                                uint32_t reader) {
+    static bool direct_level_dump_active = false;
+    static unsigned direct_level_window_index = 0;
     if (std::getenv("OPENRAC_TRACE_LOADER") == nullptr) return;
+    if (stage == 150u && object == 0x0100u &&
+        std::getenv("OPENRAC_DUMP_OBJECT_WINDOWS") != nullptr)
+        direct_level_dump_active = true;
     if (stage == 160u) {
         std::fprintf(stderr,
                      "[heap] exhausted request=%u current=%#010x limit=%#010x\n",
@@ -241,6 +246,24 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                      "[animator] methods=%#010x object=%#010x load=%#010x bind=%#010x\n",
                      object, reader, object != 0 ? GREF(uint32_t, object) : 0u,
                      object != 0 ? GREF(uint32_t, object + 4u) : 0u);
+        return;
+    }
+    if (stage == 173u) {
+        std::fprintf(stderr,
+                     "[loader-group] index=%u value_count=%u reader=%#010x cursor=%#010x remaining=%d\n",
+                     object & 0xFFFFu, object >> 16, reader,
+                     GREF(uint32_t, reader + 0x18u),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)));
+        return;
+    }
+    if ((stage == 133u || stage == 134u) && openrac_guest_base != nullptr) {
+        const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+        std::fprintf(stderr, "[loader-group] stage=%u value=%u cursor=%#010x next=",
+                     stage, object, cursor);
+        for (uint32_t i = 0; i < 16u; ++i)
+            std::fprintf(stderr, "%s%02x", i == 0 ? "" : " ",
+                         openrac_guest_base[cursor + i]);
+        std::fputc('\n', stderr);
         return;
     }
     if (stage == 162u) {
@@ -286,6 +309,19 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
                  GREF(uint32_t, reader + 0x18u),
                  static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
                  GREF(uint32_t, 0x002C2A1Cu), GREF(uint32_t, 0x002699A8u));
+    if (direct_level_dump_active && (stage == 130u || stage == 131u) &&
+        direct_level_window_index < 2u && openrac_guest_base != nullptr) {
+        char path[64];
+        std::snprintf(path, sizeof(path), "/tmp/sly1-direct-object-%u.bin",
+                      direct_level_window_index++);
+        if (FILE* file = std::fopen(path, "wb")) {
+            std::fwrite(openrac_guest_base + 0x70000000u, 1, 0x2000u, file);
+            std::fclose(file);
+            std::fprintf(stderr,
+                         "[loader-group] dumped stage=%u reader=%#010x cursor=%#010x to %s\n",
+                         stage, reader, GREF(uint32_t, reader + 0x18u), path);
+        }
+    }
     if (stage >= 140u && stage <= 142u) {
         const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
         if (stage == 140u && cursor == 0x700008EAu &&
