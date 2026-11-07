@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-Fresh repository review: 2026-11-07, starting at 1e17ead. A textured menu
-frame capture on the same date narrowed the visual blocker further; see the
-graphics handoff checkpoint below.
+Fresh repository review: 2026-11-07, updated through ceee514. A textured menu
+frame capture on the same date narrowed the visual blocker further; the direct
+level probe now also reaches collision mesh parsing, where it faults (details
+below).
 This is a work plan, not a claim of playable progress. Work is active on
 wip/native-sly-port and stays in the port repo.
 
@@ -23,8 +24,8 @@ Evidence inspected:
   satisfy the user's no-emulation requirement.
 - The configured C source is /tmp/sly1-decomp-current-check; assembly comes
   from a different checkout. This is a fragile build baseline.
-- The current generated report lists 1,833 translated functions, 90
-  assembly-derived functions, 3 stubbed functions, 3,026 functions without C,
+- The current generated report lists 1,835 translated functions, 90
+  assembly-derived functions, 3 stubbed functions, 3,029 functions without C,
   and 47 callers with omitted arguments filled with zero. Matching percentage
   is therefore a poor measure of executable port coverage.
 - README, ROADMAP and OPENRAC_REUSE give different snapshots and counts.
