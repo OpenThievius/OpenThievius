@@ -21,8 +21,8 @@ Evidence inspected:
   satisfy the user's no-emulation requirement.
 - The configured C source is /tmp/sly1-decomp-current-check; assembly comes
   from a different checkout. This is a fragile build baseline.
-- The current generated report lists 1,834 translated functions, 59
-  assembly-derived functions, 3 stubbed functions, 3,056 functions without C,
+- The current generated report lists 1,833 translated functions, 90
+  assembly-derived functions, 3 stubbed functions, 3,026 functions without C,
   and 47 callers with omitted arguments filled with zero. Matching percentage
   is therefore a poor measure of executable port coverage.
 - README, ROADMAP and OPENRAC_REUSE give different snapshots and counts.
@@ -132,33 +132,63 @@ the first playable gate, not proof that the whole game is complete.
 - [ ] Commit each coherent fix with its evidence and push regularly. Keep the
   WIP PR and contributor documentation aligned with the actual default build.
 
-## Immediate next session
+## Latest native checkpoint (2026-11-07)
 
-1. Keep the exact Splash decoded resource and stream dump from the same run;
-   compare the `func_0011ECB8` input pointer and three-word record boundaries
-   against that resource. The chunk bytes already match, so do not spend time
-   changing LZ or CD input code without new contradictory evidence.
-2. Trace the first record's callback chain (`func_00183350` to descriptor
-   method 13 / `func_00158F10`) and determine how many bytes it consumes.
-   Retail `func_0011ECB8` reads a 16-bit count, then three 16-bit values per
-   item, then calls vtable offset `0x38`. At Splash offset `0x3DA3`, the first
-   item is `03 00 7A 00 5D 02 FF FF`; zero words and float data follow. The
-   `0x7A` descriptor points through `func_00183350` to `func_00158F10`, whose
-   retail body only acts when its second argument is `2`; `func_0011ECB8`
-   passes the reader pointer there. This suggests the callback does not consume
-   the following payload, or the wrong object/list is reaching this parser.
-   Verify descriptor wiring and the caller in `func_00196410` (also 0%-matched)
-   against retail assembly before changing the record stride.
-3. The port factory `func_0011E580` is now selected by an explicit override;
-   hostgen reports eight overrides used, and its generated body comes from
-   `hand/native_c/func_0011E580.c`. A native launch still faults immediately
-   on the same malformed record path (call through address zero, then an
-   unmapped access at `0xAB1BABFD`). Diagnose the bad record/cursor rather than
-   relaxing the factory checks or skipping it.
-4. Once parsing advances past this record, return to the outstanding visual
-   blockers: the active world submits no recognizable level geometry, and
-   menu glyph layout remains fragmented. Treat any successful build or draw
-   count as instrumentation until the picture is recognizable.
+The US native launcher now gets beyond the earlier malformed Splash object
+records. The port explicitly selects retail assembly for the loader methods
+`func_0011ECB8`, `func_00158B30`, and `func_001B5F50`, and for the animation
+curve factories and missing readers needed by `func_0012B8C8`. These are
+static translations of known retail functions, not a runtime interpreter.
+Functional C backfills remain in the port registry and decomp source is
+untouched.
+
+The latest bounded launch built successfully, read Splash and its first level
+resource, created a 37-object world, and kept the native frame loop active for
+15 seconds. It still showed a black window. The trace reported zero scene
+vertices, zero visible text, and no completed scene draw. During startup it
+also reported an indirect call through null from `func_0011ECB8` and a call to
+data address `0x0021B4D8` while executing `func_0011E680`. `D_0021B4D8` is a
+class `0x3B` descriptor, not a function entry. Trace the stream record and
+descriptor table entry that supplied the callback before changing either
+parser. This moves the immediate investigation from the old stream-record
+boundary hypothesis to the descriptor callback and first real draw submission.
+The current hostgen snapshot is 1,833 translated functions, 90 selected from
+assembly, 3 stubs, and 3,026 functions without C; these counts do not represent
+runtime coverage.
+
+## Immediate next steps
+
+1. Trace `func_0011E680` / `func_0011EC40` and the `0x0021B4D8` dispatch. Map
+   the record and descriptor that supply it, compare the `D_0021B4D8` class
+   `0x3B` method slots with the retail assembly, and explain the null callback.
+   Do not change descriptor data or skip the call without identifying its
+   source and intended operation.
+2. Trace the active `func_0018E558` worker and `func_0013B598` frame path from
+   the populated world lists to the renderer boundary. Capture the first
+   missing required function and the first draw request's mesh, material,
+   transform, and camera inputs. This is the direct path to explaining why
+   the window remains black.
+3. Prioritize each missing function by whether it blocks world activation,
+   player creation, update, or draw. Use matching decomp C where hostable;
+   select known retail assembly for static translation when available; add
+   functional C only as a documented port backfill with an upstream
+   replacement condition.
+4. After the first draw request reaches native rendering, fix one demonstrated
+   packet/scene-boundary mismatch and rerun. A nonzero vertex count or a
+   successful build is not sufficient; verify a recognizable level image,
+   then trace input to player movement and interaction.
+
+The 15-second run command used for this checkpoint is:
+
+```sh
+OPENRAC_STARTUP_TRACE=1 timeout 15s build/port/sly1_native \
+  build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+It runs the native launcher, not an emulator. The latest captured output is
+kept in `/tmp/sly-native-final-checkpoint.log` on the development machine
+only.
 
 Treat renderer traces and function coverage as diagnostics only; neither
 proves visual correctness or playability.

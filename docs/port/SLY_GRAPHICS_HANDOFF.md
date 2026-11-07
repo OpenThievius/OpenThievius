@@ -585,39 +585,27 @@ continue from the draw-state/texture path documented above.
 
 ## Latest native launch (2026-11-07)
 
-Host staging now compiles another matching source unit, `0011C000`, after
-recovering the pool helper's implicit `a0` argument and the `0011FFA8` wrapper
-return from US retail assembly. Overall hostgen output is 1,834 translated
-functions, 59 assembly-derived, 3 stubbed, 3,056 without C, and 47 unreadable
-units. The native launcher links, but its latest startup attempt faults before
-the earlier render trace. The latest temporary trace reads a three-record
-list in EE scratchpad: the first record is valid (`type=0x7A`, `key=0x25D`),
-and the next begins with `type=0`. The decompressed chunk matches the decoded
-Splash resource byte for byte, so the LZ output is not the cause. Investigate
-the parser cursor and call path into the 0%-matched `func_0011ECB8` and
-`func_00196410` before changing the descriptor table or adding a class-zero
-guard; also verify what the first record's handler consumes. The run later
-faults at `0xDBBBC9E2`, and the previous black/garbled render remains
-unresolved.
+The retail assembly selections now include the `func_0011ECB8` object-list
+parser, the type `0x7A` payload reader `func_00158B30`, and the interior type
+`0x88` reader `func_001B5F50`. The stream proceeds beyond the earlier
+`type=0` / `0xAB1BABFD` fault. Static assembly selection also covers the
+animation curve factories and the currently required assembly-only curve
+methods. The build succeeds with 1,833 functions translated, 90 selected from
+assembly, and 3 stubs; `sly1-decomp` remains unchanged.
 
-The port-only `func_0011E580` factory was previously compiled as a duplicate
-unit but lost to the matched decomp definition in the generated registry. It
-is now explicitly selected through `hand/overrides.tsv`: hostgen reports eight
-overrides used, and the generated definition contains the factory body from
-`hand/native_c/func_0011E580.c`. A bounded native launch still faults on the
-bad record path: a call through address zero from `func_0011ECB8`, followed by
-an unmapped access at `0xAB1BABFD`. This does not justify skipping the record
-or weakening the factory checks. Next compare the first record handler's
-consumption (`func_00183350` to descriptor method 13 / `func_00158F10`) with
-the parser cursor and retail assembly for `func_0011ECB8` and its caller.
-Remove the override when matching C becomes hostable.
+A 15-second native run with the US ELF and ISO reaches the live frame loop,
+creates a 37-object Splash world, and continues submitting small initialization
+GIF packets. It still renders a black window: trace counters stay at zero
+scene vertices and zero visible text. Startup reports a null indirect call
+from `func_0011ECB8` and a call to `0x0021B4D8` while executing
+`func_0011E680`; this is descriptor `D_0021B4D8` for class `0x3B`, not a known
+function entry. Trace the record and descriptor table entry supplying that
+callback, then follow live worker `func_0018E558` and frame path
+`func_0013B598` through the first scene draw request. Do not alter the
+descriptor or suppress the dispatch before establishing which record supplies
+it.
 
-The retail `func_0011ECB8` assembly reads a 16-bit count, three 16-bit fields
-per row, and then invokes vtable offset `0x38`. Splash bytes at `0x3DA3` are
-`03 00 7A 00 5D 02 FF FF`, followed by zero words and float data. Descriptor
-`0x7A` routes the callback through `func_00183350` to `func_00158F10`; the
-retail `func_00158F10` only handles second argument `2`, but `func_0011ECB8`
-passes the stream pointer as that argument. It therefore appears not to
-consume the following payload. Confirm descriptor and caller context before
-changing record stride or adding a skip; both `func_0011ECB8` and
-`func_00196410` remain 0%-matched.
+The exact latest launch output was captured locally at
+`/tmp/sly-native-final-checkpoint.log`; it is not a repository artifact. The
+ordered tasks and reproducible command are in
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
