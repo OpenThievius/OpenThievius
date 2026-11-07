@@ -52,7 +52,11 @@ void func_00165728(void* self_pointer, void* context_pointer)
     const s32 trace_this_call = trace_calls < 64u;
     const s32 trace_scene_group = (u32)self == 0x00847ACCu ||
                                  (u32)self == 0x0084990Cu ||
-                                 (u32)self == 0x00FE903Cu;
+                                 (u32)self == 0x00FE903Cu ||
+                                 (u32)self == 0x00FE942Cu ||
+                                 (u32)self == 0x00FE981Cu ||
+                                 (u32)self == 0x00FE9C0Cu ||
+                                 (u32)self == 0x00FE9FFCu;
     s32 i;
 
     if (trace_this_call) {
@@ -285,7 +289,22 @@ void func_00165728(void* self_pointer, void* context_pointer)
                 }
             }
         }
+        if (trace_scene_group) {
+            sly1_native_trace_font(136u, (u32)self,
+                *(u32*)((u8*)self + 0x40u),
+                *(u32*)((u8*)entry + 0x58u),
+                *(u32*)((u8*)entry + 0x5Cu),
+                *(u32*)((u8*)entry + 0x60u));
+            sly1_native_trace_font(137u, (u32)subdata,
+                *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu),
+                *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u));
+        }
         func_001662A8(self, entry, subdata, context);
+        if (trace_scene_group) {
+            sly1_native_trace_font(138u, (u32)subdata,
+                *(u32*)(subdata + 0x18u), *(u32*)(subdata + 0x1Cu),
+                *(u32*)(subdata + 0x20u), *(u32*)(subdata + 0x24u));
+        }
     }
 
     {

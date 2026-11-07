@@ -25,6 +25,18 @@ Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
 are initialization traffic, not evidence of a rendered level.
 
+The latest direct-level render-list capture narrows that result further. It
+reaches five level groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`,
+`0x00fe9c0c`, `0x00fe9ffc`). Their primary-record counts are 1, 1, 1, 1, and
+6. In each group's first entry, the word at `+0x28` is 1. Retail assembly for
+`func_001662A8` returns before packet generation whenever that word is
+nonzero; the post-call output counts remain zero for all five groups. This is
+upstream of GS rendering and explains why the initialization GIF traffic does
+not contain level geometry. Next inspect all six flags in the last group and
+trace which retail setup path populates entry `+0x28`; do not clear the guard
+or force packet generation without establishing the field's meaning.
+Capture: `/tmp/sly-native-direct0100-render-groups-final.log`.
+
 The earlier fragmented menu captures were produced by a port-only forced menu
 page and handwritten menu renderer. Those overrides have now been retired:
 menu filtering and text rendering use exact US retail assembly, and matching

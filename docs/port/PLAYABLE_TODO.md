@@ -1884,10 +1884,17 @@ hostgen configuration; `sly1-decomp` remains untouched.
 opt-in render-list trace for the direct-level diagnostic to capture the first
 selected-level group (`0x00fe903c`), its nested 0x50-byte records, associated
 payload words/pointer targets, and the group callback result. The trace quotas
-now include these stages. The targeted native launcher has not yet been rerun
-with this expanded capture. Build succeeds: 2,043 translated C functions,
-221 exact assembly translations, zero stubs; 204 generated C units compile and
-link. Next rerun the documented `OPENRAC_BOOT_LEVEL=0x0100` command with
-`OPENRAC_TRACE_FONT=1`, inspect stages 111-135 for group `0x00fe903c`, and
-record whether the selected-level record contains nonzero render data. This is
-diagnostic instrumentation only; it does not claim to fix the black screen.
+now include these stages. The follow-up adds the other four selected-level
+groups and records packet-builder counts before and after `func_001662A8`.
+Build succeeds: 2,043 translated C functions, 221 exact assembly translations,
+zero stubs; 204 generated C units compile and link. A 12-second native direct
+level launch reaches five groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`,
+`0x00fe9c0c`, `0x00fe9ffc`) with primary counts 1, 1, 1, 1, and 6. For each
+group's first entry, `+0x28 == 1`. Retail assembly for `func_001662A8` checks
+entry `+0x28` and returns before generating packets when nonzero; the packet
+counts stay zero before and after the call for all five groups. The accepted
+GIF chains therefore remain initialization traffic. Next inspect all six
+entries in `0x00fe9ffc` and trace the retail setup path that writes `+0x28`.
+Do not bypass the retail guard until its field semantics are established.
+Log: `/tmp/sly-native-direct0100-render-groups-final.log`. This identifies an
+upstream scene-setup blocker; it does not fix the black screen.
