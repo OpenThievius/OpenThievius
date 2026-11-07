@@ -202,6 +202,33 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             failure = "payload span";
             break;
         }
+        static const std::uint32_t trace_target = [] {
+            const char* value = std::getenv("OPENRAC_TRACE_DMA_TARGET");
+            if (value == nullptr || *value == '\0') return 0u;
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(value, &end, 0);
+            if (end == value || *end != '\0' || parsed > UINT32_MAX) return 0u;
+            return static_cast<std::uint32_t>(parsed);
+        }();
+        if (trace_target != 0 && payload_size != 0 && trace_target >= payload_address &&
+            trace_target - payload_address < payload_size) {
+            const std::size_t target_offset = trace_target - payload_address;
+            const std::uint8_t* target = payload + target_offset;
+            const std::size_t preceding_size = std::min<std::size_t>(stream.size(), 80);
+            std::array<char, 161> preceding{};
+            for (std::size_t i = 0; i < preceding_size; ++i) {
+                std::snprintf(preceding.data() + i * 2, preceding.size() - i * 2,
+                              "%02x", stream[stream.size() - preceding_size + i]);
+            }
+            std::fprintf(stderr,
+                         "[native dma target] chain=%#010x tag=%#010x id=%u qwc=%zu raw_ref=%#010x payload=%#010x bytes=%zu stream_offset=%zu target=%#010x target_offset=%zu bytes_at_target=%02x%02x%02x%02x preceding=%s\n",
+                         source_address, tag_address, id, qwc, raw_reference,
+                         payload_address, payload_size, stream.size(), trace_target,
+                         target_offset, target[0], target_offset + 1 < payload_size ? target[1] : 0,
+                         target_offset + 2 < payload_size ? target[2] : 0,
+                         target_offset + 3 < payload_size ? target[3] : 0,
+                         preceding.data());
+        }
         if (payload_size >= 4096u && std::getenv("OPENRAC_TRACE_DMA_PAYLOAD") != nullptr) {
             static std::atomic<unsigned> payload_traces{0};
             const unsigned index = payload_traces.fetch_add(1, std::memory_order_relaxed);

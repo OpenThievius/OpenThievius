@@ -31,9 +31,9 @@ groups (`0x00fe903c`, `0x00fe942c`, `0x00fe981c`, `0x00fe9c0c`,
 `0x00fe9ffc`) remain skipped by their resource flag; preserve that retail
 behavior. A separate render list has an unskipped entry at `0x00847ce0` with
 three primary records. Their descriptor at `0x0083f4b0` points to three
-nonzero 32-byte blocks at `0x0064d6e0`, `0x0064d8e0`, and `0x0064dae0`, but
-the retail packet builder outputs only command tags and zero DMA addresses.
-The exact pointer chain and sample bytes are now written in
+512-byte GS image payloads at `0x0064d6e0`, `0x0064d8e0`, and `0x0064dae0`.
+Retail `func_001662A8` still outputs command tags and zero scene geometry
+addresses. The exact pointer chain and transfer evidence are written in
 `docs/port/SLY_GRAPHICS_HANDOFF.md`, so `/tmp` captures are not required to
 resume. Exact US assembly is also enabled for `func_001DC9A0`, the 800-byte
 level effect initializer that had been an empty no-C stub. The latest bounded
@@ -47,29 +47,37 @@ before direct-level startup (`OPENRAC_BOOT_LEVEL=0x0100`). It fired during
 `func_001DBA38 -> func_00137A60 -> func_0018D800`. At the copy routine,
 registers were `rdi=0x0064cae0`, `rsi=0x0c00`, `rdx=host-mapped guest buffer`,
 `rcx=0x0064d6e0`; the destination is exactly `0x0c00` bytes after the copy
-start. This ties the watched block to the direct-level resource reader, but
-does not yet identify the block's format or the render-list consumer. The
+start. This ties the watched image payload to the direct-level resource
+reader; the later DMA trace identifies its format, but not the render-list
+consumer. The
 retail C for `func_001DBA38` is in
 `/home/reaper/Code/sly1-decomp/src/main/001D8000.cpp` around line 206: it reads
 `D_00275720` bytes into `D_00275718` after advancing the reader by `0x10`.
-All three 32-byte samples were confirmed in the decoded resources: level
+All three 512-byte payloads were confirmed in the decoded resources: level
 `0x0100` at `0x4d0470`, `0x4d0670`, `0x4d0870`, and Splash `0x0002` at
-`0xac00`, `0xae00`, `0xb000`. Each sequence has a `0x200` stride. This proves
-the payload repeats across the two resources but does not identify its format
-or show that it is mesh data.
+`0xac00`, `0xae00`, `0xb000`. Each sequence has a `0x200` stride. The image
+payloads are shared across the two resources.
 
-A follow-up GDB read watchpoint first caught the host renderer copying a
-`0x200`-byte DMA payload starting at guest `0x0064d6e0`. Its stack was
-`func_001B3450 -> func_001692B0 -> func_001686E8 -> func_00202A80` and then
-the native `openrac_native_renderer_submit_dma_chain` adapter. This is the
-renderer gathering a DMA payload, not proof that `func_001662A8` consumes the
-bytes as geometry. Correlate the referencing DMA tag and retail caller before
-assigning a format.
+Filtered native traces confirm all three are PSMCT32 image uploads in GIF DMA
+chain `0xe0418ac0`: REFS tags at stream offsets 704 (`0x64d6e0`, tag
+`0xe0418bb0`), 1312 (`0x64d8e0`, tag `0xe0418c30`), and 1920 (`0x64dae0`, tag
+`0xe0418cb0`), each QWC 32. Each preceding GIF setup sets `TRXREG=(16,8)` and
+`TRXDIR=0` (host-to-local), then uses a GIF IMAGE tag for 32 qwords. These are
+16x8 image uploads, not mesh geometry. A conditional GDB breakpoint at the
+matching chain root confirmed the retail
+call stack `func_001DCEA0 -> func_001B3450 -> func_001692B0 ->
+func_001686E8 -> func_00202A80 -> openrac_native_renderer_submit_dma_chain`.
+This is resource initialization; it does not explain the zero scene vertices.
 
 The write-watch GDB script was `/tmp/sly-watch-mesh-first-write.gdb`; the read
 watch script and output are `/tmp/sly-watch-mesh-read.gdb` and
 `/tmp/sly-watch-mesh-read.log`. Both derive guest base from native symbol
-address `0x724e90`. The source-level reader and current packet evidence are now
+address `0x724e90`. The DMA target traces are
+`/tmp/sly-native-dma-target-context.log`,
+`/tmp/sly-native-dma-target-64d8e0.log`, and
+`/tmp/sly-native-dma-target-64dae0.log`; the conditional stack trace is
+`/tmp/sly-watch-mesh-chain.gdb` and `/tmp/sly-watch-mesh-chain.log`. The
+source-level reader and current packet evidence are now
 preserved here and in `docs/port/SLY_GRAPHICS_HANDOFF.md`.
 
 Useful captures, if `/tmp` survives restart:
@@ -84,9 +92,10 @@ startup, rendering, and decomp coverage findings.
 
 ## Resume here
 
-Trace the consumer of the three packed blocks above and establish
-why the unskipped render-list entry has zero DMA addresses. Do not force the
-skipped groups or synthesize packet data. Separately trace the normal
+Trace the renderable-object list and retail draw callback that should populate
+the scene geometry address fields; the three image transfers above are not
+the missing mesh path. Do not force the skipped groups or synthesize packet
+data. Separately trace the normal
 Splash-to-title/New Game transition; normal startup still stays on Splash
 (frame state 3/game mode 0) and does not reach the opening sequence or title.
 Keep the direct-level probe diagnostic-only. Keep all functional C replacements

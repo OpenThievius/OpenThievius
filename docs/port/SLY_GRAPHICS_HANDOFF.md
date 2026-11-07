@@ -6,14 +6,13 @@ direct-level trace reaches loader stage 5 but submits no scene vertices or
 visible text. It found a live, unskipped render-list entry at `0x00847ce0`
 with three primary records. Those records point through `0x00844450` to two
 non-null structures (`0x0083fc60` and `0x0083f4b0`); the latter references
-three nonzero 32-byte data blocks at `0x0064d6e0`, `0x0064d8e0`, and
-`0x0064dae0`. These are plausible packed mesh inputs, but their type and
-consumer are still unknown. Retail `func_001662A8` produces two 8-qword
+three 512-byte payloads at `0x0064d6e0`, `0x0064d8e0`, and `0x0064dae0`.
+These are GS image-upload data, not mesh vertices. Retail `func_001662A8`
+produces two 8-qword
 buffers for this entry, but both contain only DMA/VIF control tags and zero
-addresses; they do not reference those three data blocks. Other direct-level
-groups are still skipped by their resource flag. The next graphics step is to
-trace how the three packed blocks are owned and consumed, then connect that
-path to the render-list's zero address fields. A separate blocker remains:
+addresses; they do not reference those image payloads. Other direct-level
+groups are still skipped by their resource flag. The scene draw list still
+has zero geometry submissions. A separate blocker remains:
 default startup still stays on Splash rather than reaching the intro/title
 flow. The current build uses the local
 `sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
@@ -41,7 +40,7 @@ records:
 01000000 00020080 0064dae0 00000020 01300000 2003c0c0
 ```
 
-Each pointed-to 32-byte block is nonzero. The first has words
+The first 32 bytes of each pointed-to payload are nonzero. The first has words
 `03ffa51f 2dffa034 80ffb520 3eff9a67 40ffbcb5 80ffbf20 38ff9b52 41ffac95`;
 the second has `02ffa51f 2dff9c3e 3eff9969 17ffa420 41ffc2bb 80ffbf2b
 3cff9955 40ffad96`; the third has `02ffa51f 80ffa840 1eff9e3c 41ffac93
@@ -51,8 +50,9 @@ The first `func_001662A8` output buffer at `0x0085c380` consists of eight
 qwords: `40000000`, `10000001`, `03000028 02000000`, `40000000`,
 `10000001`, `03000214 02000000`, `40000000`, `60000000`. The second buffer
 at `0x0085c400` contains the two STCYCL command qwords in the opposite order.
-Neither buffer contains the pointers at `0x0064d6e0`–`0x0064dae0`; this packet
-builder has not connected the packed blocks to its DMA references.
+Neither buffer contains the pointers at `0x0064d6e0`–`0x0064dae0`; this scene
+packet builder has not connected the image data to scene geometry. A separate
+resource-initialization GIF chain transfers these payloads as images below.
 
 A native GDB hardware watchpoint on guest `0x0064d6e0`, armed before the
 direct-level boot, fired during the reader copy path
@@ -61,21 +61,25 @@ copy routine the arguments were destination `0x0064cae0`, size `0x0c00`, and
 the host-mapped source buffer; the watched block is exactly `0x0c00` bytes
 after that destination. `func_001DBA38` advances its reader by `0x10`, then
 reads `D_00275720` bytes into `D_00275718`. This confirms the watched bytes
-arrive through direct-level resource parsing. All three 32-byte blocks were
-confirmed byte-for-byte at decoded level resource offsets `0x4d0470`,
+arrive through direct-level resource parsing. The three 512-byte payloads
+were confirmed byte-for-byte at decoded level resource offsets `0x4d0470`,
 `0x4d0670`, and `0x4d0870`, and at decoded Splash resource offsets `0xac00`,
 `0xae00`, and `0xb000`, respectively. Both sequences use a `0x200` stride.
-This establishes that the payload bytes are shared across those decoded
-resources, but not their format or use; do not assume these are mesh vertices.
+This establishes that the same image data is present in both decoded
+resources.
 
-A read watchpoint armed at `func_001662A8` first stopped in the host renderer's
-DMA-chain gather (`openrac_native_renderer_submit_dma_chain`), copying a
-`0x200`-byte payload whose source was guest `0x0064d6e0`. The captured stack
-was `func_001B3450 -> func_001692B0 -> func_001686E8 -> func_00202A80` via the
-native DMA adapter. This is a DMA payload read, not evidence that
-`func_001662A8` interprets the bytes as vertices. Continue filtering reads by
-the retail caller and correlate the DMA tag that references the block before
-assigning a format.
+Filtered native traces with `OPENRAC_TRACE_DMA_TARGET` confirm all three are
+image uploads in one GIF DMA chain rooted at `0xe0418ac0`. Each is a REFS tag
+with QWC 32, followed by a GIF IMAGE payload of 512 bytes. Their payloads begin
+at GIF stream offsets 704 (`0x64d6e0`, tag `0xe0418bb0`), 1312 (`0x64d8e0`, tag
+`0xe0418c30`), and 1920 (`0x64dae0`, tag `0xe0418cb0`). Before each payload,
+GS transfer setup sets `TRXREG` to width 16, height 8 and `TRXDIR` to
+host-to-local. The image data is PSMCT32, so each transfer is a 16x8 image.
+GDB confirms the retail call path is `func_001DCEA0 -> func_001B3450 ->
+func_001692B0 -> func_001686E8 -> func_00202A80 ->
+openrac_native_renderer_submit_dma_chain`. These are resource uploads during
+level initialization, not the scene's vertex path; the renderer still submits
+zero scene vertices. Do not treat these payloads as mesh or palette tables.
 
 Latest direct-level trace: `/tmp/sly-native-class1-vtable.log`.
 Renderer traces show accepted GIF chains but `vertices=0`; those packet counts
@@ -370,6 +374,10 @@ OPENRAC_TRACE_FONT=1 OPENRAC_TRACE_LOADER=1 timeout 12s \
 To also dump each runtime LZ output window for comparison with the extracted
 resource, add `OPENRAC_DUMP_LZ_WINDOWS=1` to that command. Remove stale
 `/tmp/sly1-lz-window-*.bin` files before capturing a fresh sequence.
+
+Set `OPENRAC_TRACE_DMA_TARGET` to a guest address to log the GIF DMA tag,
+payload offset, and preceding 80 bytes when a chain transfers that address.
+This was used to identify the shared 16x8 PSMCT32 resource images above.
 
 Channel 2 (`0x1000A000`) is a DMA chain and correctly goes through
 `openrac_native_renderer_submit_dma_chain`; it must not be treated as a raw
