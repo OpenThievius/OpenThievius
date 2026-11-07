@@ -536,10 +536,10 @@ dark-green glyph blocks. Flat debug mode displays gray rectangles in the same
 area, confirming rasterized geometry; `OPENRAC_DEBUG_T4_INDEX=all` makes the
 sampled indices visible but leaves the glyph layout fragmented. The T4 upload
 swizzle experiment and a diagnostic whole-texture V flip both produce
-high-frequency noise in index-grayscale mode, while the linear interpretation
-retains recognizable glyph fragments. Therefore preserve the unflipped linear
-path while investigating within-image addressing. The raw 64-byte CLUT at
-`0x1600` contains low-green/low-alpha
+high-frequency noise in index-grayscale mode, while reversing the low/high
+nibble order changes pixels but does not repair the fragmented menu. Preserve
+the unflipped linear path while investigating within-image addressing. The raw
+64-byte CLUT at `0x1600` contains low-green/low-alpha
 RGBA words and matches the decoded Splash bytes. Verify upload CSM/CSA and
 alpha interpretation against the retail packet before considering palette
 changes. Evidence, command and limits are in

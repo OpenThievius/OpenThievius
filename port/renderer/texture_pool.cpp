@@ -310,6 +310,12 @@ std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, cons
         }
         out.swap(flipped);
     }
+    if (tex0.psm == gs::kPsmt4 && std::getenv("OPENRAC_DEBUG_T4_SWAP_NIBBLES") != nullptr) {
+        // Diagnostic only: test the other possible pixel order within each packed byte.
+        for (std::uint8_t& byte : out) {
+            byte = static_cast<std::uint8_t>((byte << 4) | (byte >> 4));
+        }
+    }
     return out;
 }
 

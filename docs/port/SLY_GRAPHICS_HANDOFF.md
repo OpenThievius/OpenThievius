@@ -666,6 +666,12 @@ This rejects a simple whole-texture vertical flip as the repair; it does not
 rule out an address/stride error within the upload or a different sampler
 convention.
 
+`OPENRAC_DEBUG_T4_SWAP_NIBBLES=1` reverses the low/high pixel order in each
+uploaded byte. It changes the text pixels but leaves the same fragmented menu
+layout in the index-grayscale capture, so nibble order alone is not the fix.
+All three layout probes are opt-in renderer diagnostics and do not change the
+default image path.
+
 The raw 64-byte PSMCT32 CLUT upload at block `0x1600` is now captured as
 `/tmp/sly1-gs-upload-1600.bin`. Its initial little-endian words are
 `0x001b001f`, `0x001c001f`, `0x0010001d`, and `0x001c0010`; interpreted as
