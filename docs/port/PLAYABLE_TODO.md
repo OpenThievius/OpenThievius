@@ -535,11 +535,11 @@ small packets. The normal capture is still nearly black but contains faint
 dark-green glyph blocks. Flat debug mode displays gray rectangles in the same
 area, confirming rasterized geometry; `OPENRAC_DEBUG_T4_INDEX=all` makes the
 sampled indices visible but leaves the glyph layout fragmented. The T4 upload
-swizzle experiment produces high-frequency noise in index-grayscale mode,
-while the linear interpretation retains recognizable glyph fragments.
-Therefore prioritize a
-single-glyph trace from font record through atlas address, CLUT entry and final
-shader sample. The raw 64-byte CLUT at `0x1600` contains low-green/low-alpha
+swizzle experiment and a diagnostic whole-texture V flip both produce
+high-frequency noise in index-grayscale mode, while the linear interpretation
+retains recognizable glyph fragments. Therefore preserve the unflipped linear
+path while investigating within-image addressing. The raw 64-byte CLUT at
+`0x1600` contains low-green/low-alpha
 RGBA words and matches the decoded Splash bytes. Verify upload CSM/CSA and
 alpha interpretation against the retail packet before considering palette
 changes. Evidence, command and limits are in
@@ -553,9 +553,9 @@ is investigated.
 
 Immediate graphics tasks:
 
-1. Trace one known glyph's source `u/v`, width/height, packed UVs and emitted
-   vertices. Calculate the expected texel indices after the native renderer's
-   STQ normalization and compare the underlying T4 nibbles at those texels.
+1. Compare the known `P` glyph record and screen quad to the raw T4 pixels at
+   its transformed UV rectangle. Explain the text fragments that remain in
+   the linear index capture before changing atlas addressing.
 2. Decode the font CLUT upload tag and its TEX0/TEXCLUT state, proving the
    16-entry ordering and alpha scaling independently of the image dump.
 3. Add a renderer-only synthetic T4 texture/CLUT case behind a debug switch

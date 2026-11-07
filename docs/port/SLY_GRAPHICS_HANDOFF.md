@@ -659,6 +659,13 @@ current hypothesis; do not apply the swizzle path as a fix. The remaining
 suspects are glyph/atlas correspondence, CLUT values and textured shader
 state; these diagnostics do not yet distinguish them.
 
+The diagnostic-only `OPENRAC_DEBUG_T4_FLIP_V=1` option reverses converted T4
+rows before palette lookup. Its index-grayscale capture also turns the text
+into dense noise, so the existing unflipped row order is better supported.
+This rejects a simple whole-texture vertical flip as the repair; it does not
+rule out an address/stride error within the upload or a different sampler
+convention.
+
 The raw 64-byte PSMCT32 CLUT upload at block `0x1600` is now captured as
 `/tmp/sly1-gs-upload-1600.bin`. Its initial little-endian words are
 `0x001b001f`, `0x001c001f`, `0x0010001d`, and `0x001c0010`; interpreted as

@@ -292,6 +292,24 @@ std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, cons
             }
         }
     }
+    if (tex0.psm == gs::kPsmt4 && std::getenv("OPENRAC_DEBUG_T4_FLIP_V") != nullptr) {
+        // Diagnostic only: test whether the upload's row origin differs from GL's texture origin.
+        std::vector<std::uint8_t> flipped(out.size());
+        for (int y = 0; y < th; ++y) {
+            for (int x = 0; x < tw; ++x) {
+                const std::size_t source = static_cast<std::size_t>(y * tw + x);
+                const std::size_t destination = static_cast<std::size_t>((th - 1 - y) * tw + x);
+                const std::uint8_t byte = out[source / 2];
+                const std::uint8_t index = static_cast<std::uint8_t>(
+                    (source & 1u) != 0 ? byte >> 4 : byte & 0x0F);
+                std::uint8_t& target = flipped[destination / 2];
+                target = static_cast<std::uint8_t>((destination & 1u) != 0
+                    ? (target & 0x0Fu) | (index << 4)
+                    : (target & 0xF0u) | index);
+            }
+        }
+        out.swap(flipped);
+    }
     return out;
 }
 
