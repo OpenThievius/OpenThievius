@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-Fresh repository review: 2026-11-07, starting at af2142a.
-This is a work plan, not a claim of playable progress. Implementation remains
-paused until resumed. Work stays on wip/native-sly-port and in the port repo.
+Fresh repository review: 2026-11-07, starting at 1e17ead.
+This is a work plan, not a claim of playable progress. Work is active on
+wip/native-sly-port and stays in the port repo.
 
 ## Assessment
 
@@ -21,10 +21,10 @@ Evidence inspected:
   satisfy the user's no-emulation requirement.
 - The configured C source is /tmp/sly1-decomp-current-check; assembly comes
   from a different checkout. This is a fragile build baseline.
-- The generated report lists 1,108 translated functions, 59 assembly-derived
-  functions, one failed C translation, 3,729 functions without C, and 47
-  callers with omitted arguments filled with zero. Matching percentage is
-  therefore a poor measure of executable port coverage.
+- The current generated report lists 1,834 translated functions, 59
+  assembly-derived functions, 3 stubbed functions, 3,056 functions without C,
+  and 47 callers with omitted arguments filled with zero. Matching percentage
+  is therefore a poor measure of executable port coverage.
 - README, ROADMAP and OPENRAC_REUSE give different snapshots and counts.
 - The direct-level loader constructs objects but does not establish gameplay.
   The first eight traced default-startup objects do not prove what is wrong
@@ -134,15 +134,9 @@ the first playable gate, not proof that the whole game is complete.
 
 ## Immediate next session
 
-Work from the audited startup frontier. `func_0011A498`, called directly by
-`func_001B7968`, is now the closest missing game function on the startup
-frontier. Matching C exists in `file_112698.cpp`, but the unit is unreadable
-because of C++ constructor/destructor syntax in `Gc_259F38` and `RetValue`.
-Lower those constructs with their actual initialization/destruction effects
-and check the associated retail entries. Rebuild, then follow the frontier to
-the next missing call. After the reachable startup path is covered, prioritize
-the remaining no-C functions on the selected Splash/menu path. Do not infer
-visual correctness from function coverage or raw submission counts.
+Follow the remaining missing calls and runtime failures on the selected
+startup and menu path. Treat renderer traces and function coverage as
+diagnostics only; neither proves visual correctness or playability.
 
 ## Coverage audit result (2026-11-07)
 
@@ -269,3 +263,22 @@ vertex color. It uploads the font atlas and palette repeatedly without proving
 glyph selection. The immediate visual blocker remains the draw-state path;
 the next game-code blocker is still `func_0011A498` through the unreadable
 `file_112698.cpp` unit.
+
+## Latest build and startup failure (2026-11-07)
+
+Port staging now lowers the `Gc_259F38` constructor/destructor and `RetValue`
+aggregate returns in `file_112698.cpp`. It also corrects the hidden `a0`
+argument on the 0011C3C0 pool helper and its 0011C3C8 caller, based on US
+retail assembly. The 0011FFA8 staging wrapper calls its void worker and returns
+the verified terminal `v0=0`. No decomp source was modified. The native target
+builds 212 generated C translation units and links. Coverage is 1,834
+translated functions, 59 assembly-derived, 3 stubbed, 3,056 without C, and 47
+unreadable units.
+
+The next native launch fails during object setup instead of reaching the
+previous black render window. `func_0011ECB8` calls translated
+`func_0011E580`, which loads an owner callback from `Owner_11E580+0x10`; that
+callback is zero. The runtime reports a call to code address zero, then an
+unmapped access at `0xDBBBC9E2`. Trace which owner-table initialization or
+object-construction step should populate the callback; do not mask the fault
+with a no-op guard. Until this path advances, the visual state is unresolved.

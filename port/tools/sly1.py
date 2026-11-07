@@ -470,6 +470,91 @@ def prepare_c_view(source, version):
                 if ring_init not in text:
                     raise ValueError("file_18D8E0: ring sink initialization changed")
 
+            if cpp.stem == "file_112698":
+                for declaration in ("    Gc_259F38();", "    ~Gc_259F38();"):
+                    if declaration not in text:
+                        raise ValueError("file_112698: collector declaration changed")
+                    text = text.replace(declaration, "", 1)
+                ctor = "Gc_259F38::Gc_259F38()\n{\n}\n"
+                dtor = "Gc_259F38::~Gc_259F38()\n{\n}\n"
+                if ctor not in text or dtor not in text:
+                    raise ValueError("file_112698: collector constructor shape changed")
+                text = text.replace(
+                    ctor,
+                    "Gc_259F38* func_0011A678(Gc_259F38* self) { return self; }\n",
+                    1,
+                )
+                text = text.replace(
+                    dtor,
+                    "void func_0011A680(Gc_259F38* self, s32 deleting) { "
+                    "if (deleting & 1) func_0018D778(self); }\n",
+                    1,
+                )
+                ret_methods = (
+                    "    RetValue() { func_0011B008(this); }\n"
+                    "    RetValue(const RetValue& o) { func_0011B018(this, &o); }\n"
+                    "    ~RetValue() { func_0011B060(this, 2); }"
+                )
+                if ret_methods not in text:
+                    raise ValueError("file_112698: RetValue method shape changed")
+                text = text.replace(ret_methods, "", 1)
+                for name, old, new in (
+                    ("func_00118198",
+                     "RetValue func_00118198(s32 id, s32 count, ScriptValue* args, R11A630* scope)",
+                     "ScriptValue* func_00118198(ScriptValue* ret, s32 id, s32 count, ScriptValue* args, R11A630* scope)"),
+                    ("func_00119218",
+                     "RetValue func_00119218(R11B008Node* expr, R11A630* scope)",
+                     "ScriptValue* func_00119218(ScriptValue* ret, R11B008Node* expr, R11A630* scope)"),
+                ):
+                    if old not in text:
+                        raise ValueError(f"file_112698: {name} return signature changed")
+                    text = text.replace(old, new, 1)
+                for old, new in (("RetValue l0;", "ScriptValue l0;\n    func_0011B008(&l0);"),
+                                 ("RetValue L;", "ScriptValue L;\n    func_0011B008(&L);")):
+                    if old not in text:
+                        raise ValueError("file_112698: RetValue local changed")
+                    text = text.replace(old, new, 1)
+                for local in ("l0", "L"):
+                    pattern = re.compile(r"^(\s*)return " + local + r";$", re.MULTILINE)
+                    replacement = ("\\1func_0011B018(ret, &" + local + ");\n"
+                                   "\\1func_0011B060(&" + local + ", 2);\n"
+                                   "\\1return ret;")
+                    text, count = pattern.subn(replacement, text)
+                    if count != 2:
+                        raise ValueError(f"file_112698: expected two {local} value returns")
+
+            if cpp.stem == "0011C000":
+                # The retail pool helpers pass their incoming a0 through the
+                # leaf at 0011C3C0. The checked-in C view dropped that implicit
+                # argument from both the helper declaration and its 0011C3C8
+                # caller. Restore the verified retail ABI in this staged copy.
+                for old, new in (
+                    ("Cell_11C3C8* func_0011C3C0(void);",
+                     "Cell_11C3C8* func_0011C3C0(u8* base);"),
+                    ("s32 func_0011C3C8(void)\n{\n    return GetPoolEntryHeader()->value == 0;\n}",
+                     "s32 func_0011C3C8(u8* base)\n{\n    return GetPoolEntryHeader(base)->value == 0;\n}"),
+                ):
+                    if old not in text:
+                        raise ValueError("0011C000: pool helper ABI shape changed")
+                    text = text.replace(old, new, 1)
+
+                # Retail 0011FFA8 tail-calls the void 0011F6B0 worker and
+                # returns its final v0. The worker's fixed three-iteration
+                # loop leaves v0=0 at return; the staged helper declaration
+                # incorrectly made this a void expression. Keep the wrapper's
+                # retail return value without changing the shared worker ABI.
+                old = (
+                    "void* func_0011FFA8(T2196_6E8* self, u32 a1, u32 a2, u32 a3, u32 a4)\n"
+                    "{\n    return func_0011F6B0(self->axis, a1, a2, &self->base, a3, a4);\n}"
+                )
+                new = (
+                    "void* func_0011FFA8(T2196_6E8* self, u32 a1, u32 a2, u32 a3, u32 a4)\n"
+                    "{\n    func_0011F6B0(self->axis, a1, a2, &self->base, a3, a4);\n    return 0;\n}"
+                )
+                if old not in text:
+                    raise ValueError("0011C000: rotation wrapper ABI shape changed")
+                text = text.replace(old, new, 1)
+
             if cpp.stem == "0018C000":
                 for tag, method, args, call in (
                     ("Pair_18CC20", "Set", "Key_18CC20* key", "pair.Set(key)"),

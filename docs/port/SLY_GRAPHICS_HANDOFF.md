@@ -582,3 +582,18 @@ as zero and the first vertex as black with alpha 128. The 512x512 PSMT4 font
 atlas and its 8x2 palette are uploaded repeatedly, but no glyph draw is
 identified. The latest run therefore provides no evidence of a readable menu;
 continue from the draw-state/texture path documented above.
+
+## Latest native launch (2026-11-07)
+
+Host staging now compiles another matching source unit, `0011C000`, after
+recovering the pool helper's implicit `a0` argument and the `0011FFA8` wrapper
+return from US retail assembly. Overall hostgen output is 1,834 translated
+functions, 59 assembly-derived, 3 stubbed, 3,056 without C, and 47 unreadable
+units. The native launcher links, but its latest startup attempt faults before
+the earlier render trace: `func_0011ECB8` reaches `func_0011E580`, which calls
+the zero owner callback at `Owner_11E580+0x10`, followed by an unmapped access
+at `0xDBBBC9E2`. The next investigation is to find where the corresponding
+owner-table entry should be initialized and why it is zero. Do not insert a
+success-shaped callback or hide the fault with a guard until the expected
+retail behavior is understood. This result is a startup regression relative to
+the earlier black-window run, not visual progress.
