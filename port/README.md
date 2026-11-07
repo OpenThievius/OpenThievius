@@ -29,7 +29,7 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
 standalone command defaults to `--asm off`. The native CMake launcher enables
 the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
-with matching C are skipped automatically; the current report translates 84
+with matching C are skipped automatically; the current report translates 105
 remaining functions from retail instructions. Generated C stays in the
 ignored build tree, separate from both matched decomp C and the port's
 handwritten C backfills. Set
@@ -37,15 +37,17 @@ handwritten C backfills. Set
 contain the assembly directory. The current build uses matched C and retail
 assembly from the local `sly1-decomp` checkout at `e1b39f1`.
 
-The latest hostgen run against `e1b39f1` reads 185 units and translates 2,051 C
-functions plus 84 retail-assembly functions. It lists 2,729 functions without
+The latest hostgen run against `e1b39f1` reads 186 units and translates 2,051 C
+functions plus 105 retail-assembly functions. It lists 2,708 functions without
 C, has 12 unreadable units, and emits zero stubs. The build uses
 `--allow-unreadable`, so those units are omitted. Seven stream readers and two
 refill helpers from unreadable unit `00134000` are now translated from retail
-assembly. In a bounded native launch, the stream reader then consumed 8,184
-bytes, but allocation failed because the port allocator's current guest heap
-pointer was `0x160` and its configured limit was zero. The run faulted at host
-address `0x8`; it did not establish a level or playable state. See the updated
+assembly. The retail heap initializer is also translated, and the bounded
+native launcher now reaches the selected level range at sector 867214. It
+advances the resource reader through stages 3–5 with valid allocations, then
+waits in the black frame with no fonts or visible mesh. A null font callback
+is still reported; the first scene parser and renderer blockers remain. See
+the updated
 [playable TODO](../docs/port/PLAYABLE_TODO.md) for the exact report and trace.
 The graphics handoff records the current evidence and next blocker. Functional
 C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.

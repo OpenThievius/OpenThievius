@@ -915,3 +915,27 @@ port-only `func_00162890` backfill. Those parser sizes still need runtime
 validation because the active run has not reached that parser. All backfills
 remain separate from matched/generated decomp C. No level scene or
 controllable gameplay is established.
+
+## Native level-resource follow-up (2026-11-07)
+
+The missing allocator setup was retail `func_0018D430`, which now runs from
+US assembly. It initializes the heap at the aligned loaded-image end through
+`0x02000000`; guest allocations now succeed. The latest hostgen report has
+2,051 C functions, 105 assembly translations, zero stubs, 2,708 without C, and
+12 unreadable units.
+
+The bounded direct-level launch reaches sector 867214 and advances through
+loader stages 3–5 with active world `0x0088d530`. It remains a black, non-
+playable frame: the UI reports zero registered fonts and no visible text, and
+no scene mesh reaches the renderer. `func_0016BA40` reports a null font-vtable
+callback. A port-only `func_001ACDA0` override skips that callback only while
+font slot 0 is absent. Enabling retail assembly `func_001B3510` instead causes
+an invalid guest-address fault (`0x0C1AE80F`) and remains disabled pending
+input-data analysis. Latest bounded trace:
+`/tmp/sly-native-stable-probe.log`.
+
+The immediate work is to trace font registry population and validate the
+resource cursor/allocation sizes against retail, then carry a real level mesh
+through native GS/OpenGL submission. See [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md)
+for the ordered tasks and reproducible command. These runtime findings do not
+establish a playable level.

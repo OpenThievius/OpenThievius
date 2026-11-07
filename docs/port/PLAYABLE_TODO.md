@@ -681,3 +681,58 @@ Concrete next tasks:
 Latest bounded run log: `/tmp/sly-native-reader-asm-current2.log`. The native
 launcher remains non-playable; this run rendered no level or controllable
 character.
+
+## Heap initialization and level-resource progress (2026-11-07)
+
+Retail `func_0018D430` was the missing heap initializer. Its US assembly aligns
+the loaded-image end to get the heap base, sets the limit to `0x02000000`, and
+initializes `D_002C2A14`, `D_002C2A18` and `D_002C2A1C`. The port build now uses
+that assembly fallback, so allocator requests succeed and the configured
+direct-level probe reaches sector 867214 (4,911,835 compressed bytes).
+
+The current build uses 2,051 matched C functions, 105 retail assembly
+translations, zero stubs, 2,708 functions without C, and 12 unreadable units.
+Additional retail translations cover the missing float/resource readers and
+the level callback path. The latest 12-second native run stays alive through
+the timeout and advances the selected level resource through loader stages
+3–5. It constructs an active world, but reports no registered fonts, no
+visible text, and no rendered scene mesh. The trace also reports a null font
+vtable call in `func_0016BA40`; it is nonfatal in this run. A port-only
+`func_001ACDA0` guard skips its retail font callback only while font slot 0 or
+its vtable is absent. With a valid font, it follows the original decomp logic.
+
+An experiment enabling retail assembly `func_001B3510` faults on guest address
+`0x0C1AE80F` from the level callback path. That function remains unselected
+until its invalid input is explained. The complex animation renderer is not
+considered working. The complete direct-level trace is
+`/tmp/sly-native-stable-probe.log`; the launcher command is:
+
+```sh
+OPENRAC_BOOT_LEVEL=0x0100 OPENRAC_STARTUP_TRACE=1 OPENRAC_TRACE_LOADER=1 \
+timeout 12s build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+Next tasks:
+
+1. Trace the loader path that populates `D_00262268[]` and `D_0026227C` from
+   the Splash/font resource. The UI font callback sees an empty registry even
+   after the resource reader advances; find the missing initializer or the
+   earlier parser field that prevents registration.
+2. Confirm the Splash and level readers consume the correct byte ranges. The
+   trace shows small remaining counts (`268` and `5168`) and large heap growth;
+   compare each cursor and allocation against the retail routine before
+   treating stage 5 as a complete parse.
+3. Follow the first level mesh allocation into the native packet path. Require
+   nonzero decoded vertices and a nonempty scene draw before claiming a visual
+   level.
+4. Diagnose why translated `func_001B3510` receives invalid guest data. Check
+   its caller inputs and all resource records before re-enabling that
+   animation path.
+5. After a scene mesh renders, verify Sly spawn, collision, movement, camera,
+   controller input, and level transitions. A level-resource load is not a
+   playable milestone.
+
+All C compatibility code stays in `hand/native_c/` and the override table;
+retail assembly remains a configured native fallback. Neither changes
+`sly1-decomp`. The launcher is still not playable.
