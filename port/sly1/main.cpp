@@ -47,14 +47,19 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
-    const unsigned limit = (stage == 73 || stage == 74 || stage == 75 ||
-        (stage >= 81 && stage <= 89) ? 256u :
-        (stage == 76 || stage == 78 || stage == 79 || stage == 80 ? 24u :
-        (stage == 70 || stage == 71 || stage == 72 ? 24u :
-        (stage == 59 || stage == 60 || stage == 61 || stage == 62 || stage == 63 || stage == 64) ? 256u :
-        (stage == 57 ? 256u :
-        (stage == 35 || (stage >= 50 && stage <= 53) ||
-         stage == 55 || stage == 56 ? 64u : limits[stage])))));
+    unsigned limit = limits[stage];
+    if (stage == 73 || stage == 74 || stage == 75 ||
+        (stage >= 81 && stage <= 89) || stage == 59 || stage == 60 ||
+        stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57) {
+        limit = 256u;
+    } else if (stage == 76 || stage == 78 || stage == 79 || stage == 80 ||
+               stage == 70 || stage == 71 || stage == 72) {
+        limit = 24u;
+    } else if (stage == 35 || (stage >= 50 && stage <= 53)) {
+        limit = 64u;
+    } else if (stage == 55 || stage == 56) {
+        limit = 4096u;
+    }
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
@@ -68,6 +73,27 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                 std::cerr << std::setw(2) << std::setfill('0')
                           << static_cast<unsigned>(openrac_guest_base[offset + i]);
             std::cerr << std::dec << std::setfill(' ') << '\n';
+        }
+    }
+    if (stage == 55u) {
+        std::uint32_t list_offset = 0;
+        if (trace_guest_range(a0, 12u, &list_offset)) {
+            std::uint32_t head = 0, tail = 0;
+            std::int32_t link_offset = 0;
+            std::memcpy(&head, openrac_guest_base + list_offset, 4u);
+            std::memcpy(&tail, openrac_guest_base + list_offset + 4u, 4u);
+            std::memcpy(&link_offset, openrac_guest_base + list_offset + 8u, 4u);
+            std::uint32_t next = 0, previous = 0, link_address = 0;
+            if (link_offset >= 0 && link_offset <= 0x10000 &&
+                trace_guest_range(a1 + static_cast<std::uint32_t>(link_offset),
+                                  8u, &link_address)) {
+                std::memcpy(&next, openrac_guest_base + link_address, 4u);
+                std::memcpy(&previous, openrac_guest_base + link_address + 4u, 4u);
+            }
+            std::cerr << "[list-remove] list=" << std::hex << a0 << " node=" << a1
+                      << " head=" << head << " tail=" << tail << " offset="
+                      << link_offset << " next=" << next << " previous=" << previous
+                      << std::dec << '\n';
         }
     }
     if (stage == 75u && a4 == 0x00A7F77Cu && a0 >= 0xEFu) {

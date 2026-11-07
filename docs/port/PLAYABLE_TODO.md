@@ -1487,3 +1487,28 @@ Resume by checking the trace and exact translated/decomp assembly for the
 listed readers, then make one evidence-backed port-only correction, rebuild,
 and run the native launcher with a bounded timeout. Native launcher runs are
 authorized; do not use an emulator or edit `/home/reaper/Code/sly1-decomp`.
+
+**Frame-list fault follow-up (2026-11-07):** Exact NTSC-U assembly for
+`func_0011ECB8` calls `func_00182ED8` only when `func_0011ECA0(mode)` returns a
+nonnegative slot. The port backfill had called it for every record, so the
+activation call is now inside that condition. The same function now records
+the start cursor and three decoded 16-bit fields for any invalid descriptor;
+the previous byte window was post-read and could not prove what the factory
+received.
+
+The current bounded direct-level run fails earlier in the frame cleanup path,
+at `func_00152600` called by `func_0015EFE8`. Its context list is
+`0x00262340`, link offset `0x630`, and its head is node `0x0082f9b0` (class
+`0x4d`, owner `0x006abd50`). A bounds-checked trace read found that node's
+embedded links at `+0x630` are `next=0xbf343386` and
+`previous=0xbef492b5`; the fault is while following this invalid list link at
+`0xbef498e5`. These values look like payload/float words, but the first write
+that corrupts them is not yet identified. Trace the node through resource
+loading, `func_00139EC8`, the `func_001243E0` callbacks, and the transfer from
+`D_002622E0` into the frame context before changing list semantics. The old
+reader trace at `/tmp/sly-native-reader-callback-sequence.log` remains the
+record-path evidence; the latest list trace is
+`/tmp/sly-native-list-link-full.log`. Build succeeds (202 generated C units,
+207 retail assembly translations, zero stubs). The window remains black and
+the port is not playable. All code changes remain in this port repo; the
+decomp repo is untouched.
