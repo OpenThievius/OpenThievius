@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-07, after commit `a115f82`. Work in
+Updated: 2026-11-07, pending checkpoint for the resource-service fix. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
@@ -10,6 +10,30 @@ registered in `backfills.tsv`; do not put those replacements in
 is involved in the port work.
 
 ## State
+
+- Current uncommitted work: the port-only `func_001E4EA8` now mirrors the
+  retail per-frame service tail even when no resource request is pending,
+  and after completing a resource request. The tail includes camera/world
+  updates and `func_001C06D8`; the latter and `func_001C0070` are selected from
+  exact US assembly because they have no matching C yet. The C backfill stays
+  isolated under `hand/native_c/`.
+- Build succeeded with `cmake --build build/port --target port_native -j2`.
+  The service-tail change has **not yet been run** in the native launcher.
+  After restart, first inspect the working tree and finish any pending commit;
+  then run the ordinary US ELF/ISO launch with `OPENRAC_STARTUP_TRACE=1` for
+  up to 15 seconds and check whether startup leaves Splash / frame state 3 or
+  begins producing visible text/geometry. Launcher runs are authorized; do
+  not use an emulator.
+- Exact assembly comparison remains: the assembly has a pre-reader
+  `func_001430B8` timer call; the current backfill still has an older
+  `func_00142ED0(1.0f)` after parsing. Recheck this sequencing against the
+  retail body before treating this patch as complete.
+
+- Previous pushed baseline: `6e2aa3c port(sly1): use retail assembly for render list traversal`.
+- User asked to restart now; prioritize committing and pushing this checkpoint
+  so the current changes and next action survive the restart.
+
+## Previous state
 
 - Latest pushed commit at this update: `a115f82 docs(sly1): preserve resource watchpoint findings`.
 - The checkout was clean and matched `origin/wip/native-sly-port` when this

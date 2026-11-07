@@ -20,6 +20,19 @@ counts. Port-only C overrides remain under `hand/native_c/` (with retired
 experiments under `hand/superseded_backfills/`); neither those nor generated
 assembly translations modify the decomp repository.
 
+### Current unverified startup repair (2026-11-07)
+
+Retail US `func_001E4EA8` has a shared per-frame service tail that runs even
+when its resource request slot is empty. The port-only replacement previously
+returned immediately in that case, skipping camera/world services and the
+`func_001C06D8` initializer. The current working tree restores the tail and
+selects exact retail assembly for `func_001C0070` and `func_001C06D8` because
+matching decomp C is unavailable. The native build succeeds, but this change
+has not yet been exercised in a launcher run; do not count it as fixing the
+black screen until a default-startup trace shows visible output or a state
+transition. See `RESTART_CHECKPOINT.md` for the immediate next steps. All
+functional C remains a port-only backfill.
+
 The previously missing `func_001DC9A0` is now selected from exact US retail
 assembly because the matching decomp C is still unavailable. Its 800-byte
 routine conditionally creates a class-`0x51`/subtype-`0x201` object and applies

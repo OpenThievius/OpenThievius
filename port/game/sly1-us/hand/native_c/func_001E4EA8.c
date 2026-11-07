@@ -5,7 +5,12 @@
 extern u8 D_002C3B00[];
 extern u8 D_00247AF0[];
 extern void* D_00275710;
-extern u8 D_00275F80[];
+extern void* D_00261990;
+extern u8 D_00261EF0[];
+extern u8 D_002623D8[];
+extern u8 D_0026FA90[];
+extern void* D_0026C6C8;
+extern f32 D_0026186C;
 
 void func_0018D410(void* memory);
 void* func_00137290(void* self, s32 buffer_length, u32 buffer, s32 flags);
@@ -25,7 +30,50 @@ void func_001DB838(s32 has_world);
 void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d);
 u32 sly1_native_boot_level_key(void);
 void func_00142ED0(f32 scale);
-void func_001F0220(void* state, s32 mode);
+void func_00191E70(s32 mode);
+void func_00143A60(void* self, s32 initialize);
+void func_001C0070(void);
+void func_001C06A0(s32 row, s32 column, f32 value);
+s32 func_001F4318(void* world, void* request_a, void* request_b);
+void func_00151E18(void* self);
+void func_00160CE8(void* self);
+void func_0016B520(void* self);
+void func_00138C00(void* world, s32 mode);
+void func_00143E40(void* self, s32 reset, f32 delta);
+void func_001C06D8(void);
+void func_00191EB0(void);
+u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+
+static void finish_resource_service(u8* request) {
+    void* world = D_00275710;
+    func_00143A60(D_00261990, 1);
+    func_001C0070();
+    func_001C06A0(10, 0, 1.0f);
+    (void)func_001F4318(world, request + 8, request + 0x0C);
+    func_00151E18(D_00261EF0);
+    func_00160CE8(D_002623D8);
+    func_0016B520(D_0026FA90);
+    func_00138C00(world, 0);
+    func_00143E40(D_00261990, 0, D_0026186C);
+
+    if ((*(u32*)(request + 0x10) & 0x10u) != 0) {
+        const u32 holder_address = (u32)&D_0026C6C8;
+        const u32 holder = *(u32*)holder_address;
+        if (holder != 0) {
+            const u32 vtable = *(u32*)holder;
+            const u32 method = vtable != 0 ? *(u32*)(vtable + 0x38u) : 0;
+            if (method != 0)
+                (void)sly1_native_call_regs4(method, holder_address, 0, 0, 0);
+        }
+    }
+
+    func_00142ED0(1.0f);
+    func_001C06D8();
+    if (world != 0)
+        func_001C06A0(1, 1, *(f32*)((u8*)world + 0x1D7Cu));
+    func_00191EB0();
+    *(u32*)request = 0;
+}
 
 void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
     u8* bytes = (u8*)block;
@@ -59,12 +107,13 @@ void func_001E4EA8(void* state) {
     s32 index;
 
     /* Trace point 9 is the request boundary, before validation or I/O. */
+    func_00191E70(2);
     sly1_native_loader_stage(9, 0, (u32)state);
     if (request == 0) return;
     if (*(u32*)(request + 4) == 0) {
-        /* The native reader completed synchronously; retire the retail
-         * worker's busy state on the next frame-loop service pass. */
-        if (D_00275710 != 0) func_001F0220(D_00275F80, 0);
+        /* Retail still runs its per-frame resource/camera service tail when
+         * there is no pending request. */
+        finish_resource_service(request);
         return;
     }
 
@@ -76,7 +125,10 @@ void func_001E4EA8(void* state) {
 
     range[0] = record[0] ^ record[5];
     range[1] = record[1] ^ record[7];
-    if (range[1] == 0) return;
+    if (range[1] == 0) {
+        finish_resource_service(request);
+        return;
+    }
     sly1_native_trace_resource_range(range[0], range[1]);
 
     /* Retail initializes a 0x24-byte callback record from these four words. */
@@ -86,7 +138,7 @@ void func_001E4EA8(void* state) {
     sector_count = (range[1] + 0x7FFu) >> 11;
     buffer_capacity = sector_count << 11;
     if (buffer_capacity > 0x00C00000u) {
-        *(u32*)request = 0;
+        finish_resource_service(request);
         return;
     }
     /* D_002C3B00 also backs renderer frame buffers. Large reader rings use
@@ -97,6 +149,7 @@ void func_001E4EA8(void* state) {
     *(u32*)(reader + 0x30) = (u32)callback_data;
     if (func_001373B0(reader, (const s32*)range) == 0) {
         func_001373D0(reader);
+        finish_resource_service(request);
         return;
     }
     /* Match retail transition ordering: retire the previous world before
@@ -125,6 +178,7 @@ void func_001E4EA8(void* state) {
     sly1_native_loader_stage(11, (u32)object, (u32)reader);
     if (object != 0) {
         sly1_native_loader_stage(12, (u32)object, (u32)reader);
+        func_001C06A0(10, 0, 0.0f);
         func_001DCEA0(object, reader);
         sly1_native_loader_stage(13, (u32)object, (u32)reader);
         /* Retail resumes the game clock after its resource setup completes. */
@@ -132,7 +186,6 @@ void func_001E4EA8(void* state) {
     }
 
     func_001373D0(reader);
-    *(u32*)request = 0;
     sly1_native_loader_stage(14, (u32)object, (u32)reader);
 
     /* Development-only shortcut from the first completed startup resource to
@@ -152,4 +205,5 @@ void func_001E4EA8(void* state) {
             }
         }
     }
+    finish_resource_service(request);
 }
