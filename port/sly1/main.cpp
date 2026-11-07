@@ -33,6 +33,11 @@ void sly1_native_start_worker(void);
 void sly1_native_start_loader(void);
 }
 
+namespace {
+bool trace_guest_range(std::uint32_t address, std::size_t size,
+                       std::uint32_t* offset_out);
+}
+
 extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a0,
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
@@ -47,6 +52,16 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+    if (stage == 23 && a2 <= 0x10000u &&
+        std::getenv("OPENRAC_DUMP_LEVEL_WINDOW") != nullptr) {
+        std::uint32_t offset = 0;
+        if (trace_guest_range(a1, 0x100u, &offset)) {
+            std::ofstream dump("/tmp/sly1-level-reader-window.bin",
+                               std::ios::binary);
+            if (dump) dump.write(
+                reinterpret_cast<const char*>(openrac_guest_base + offset), 0x100);
+        }
+    }
     if (stage == 7 && std::getenv("OPENRAC_DUMP_FONT_RESOURCE") != nullptr &&
         a0 <= 0xffffffffu - a1) {
         std::ofstream dump("/tmp/sly1-font-resource.bin", std::ios::binary);

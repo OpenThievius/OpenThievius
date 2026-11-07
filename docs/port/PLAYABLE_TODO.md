@@ -72,6 +72,16 @@ the level's renderable-object table. Continue from the level activation/resource
 object path rather than expanding these update-list callbacks. Diagnostic log:
 `/tmp/sly-native-class-owner-trace.log`.
 
+An opt-in reader-window dump at the pre-`func_0011ECB8` trace point records
+cursor `0x70000c9c` and `0x1364` bytes remaining. The EE alias for that cursor
+currently contains zero bytes, while the offline-decoded catalog file
+`resource_0100.bin` has nonzero data at file offset `0xc9c`. The reader window's
+origin has not been proven to equal the decoded file's origin, so this is a
+buffer/refill mapping lead rather than evidence that retail parsing is wrong.
+Next establish how `func_00137A60` fills the active window and whether it should
+match the offline decode. Dump: `/tmp/sly1-level-reader-window.bin`; trace:
+`/tmp/sly-native-reader-window.log`.
+
 The old port-only `func_0011ECB8` override was removed after checking the exact
 US assembly. It reads per-object callback records; its count is not the scene
 object or mesh count. The speculative parser remains under `hand/superseded/`
