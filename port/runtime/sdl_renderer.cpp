@@ -435,9 +435,16 @@ extern "C" void openrac_native_window_present(void) {
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
         g_textures->end_frame();
-        if (packets.size() >= 512u && std::getenv("OPENRAC_DUMP_NATIVE_FRAMES") != nullptr) {
+        if (std::getenv("OPENRAC_DUMP_NATIVE_FRAMES") != nullptr) {
             static unsigned frame_dump = 0;
             static unsigned frame_seen = 0;
+            std::size_t minimum_bytes = 512;
+            if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES")) {
+                char* end = nullptr;
+                const unsigned long parsed = std::strtoul(setting, &end, 10);
+                if (end != setting && *end == '\0' && parsed <= 16u * 1024u * 1024u)
+                    minimum_bytes = static_cast<std::size_t>(parsed);
+            }
             unsigned skip = 0;
             if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_SKIP")) {
                 char* end = nullptr;
@@ -445,7 +452,7 @@ extern "C" void openrac_native_window_present(void) {
                 if (end != setting && *end == '\0' && parsed <= 100000u)
                     skip = static_cast<unsigned>(parsed);
             }
-            if (frame_seen++ >= skip && frame_dump < 8) {
+            if (packets.size() >= minimum_bytes && frame_seen++ >= skip && frame_dump < 8) {
                 const auto pixels = openrac::renderer::read_rgba(0, width, height);
                 char path[96];
                 std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);

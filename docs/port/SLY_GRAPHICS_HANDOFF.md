@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-06. The native launcher remains not playable: the
+Last checked: 2026-11-07. The native launcher remains not playable: the
 bounded direct-level run still does not show Sly or level geometry. The latest
 default-startup trace also remains visually empty after 5 seconds, but the
 native pad now reports active pressure mode (`f14=3`, `f18=4`) and the frame
@@ -625,3 +625,49 @@ Next, capture a framebuffer after a 136KB textured packet, then compare it with
 the captured vertices, scissor, depth, blend and sampled atlas texels. This is
 the current visual blocker; the older null-call and invalid-write symptoms are
 not present in this run.
+
+## Textured-frame capture checkpoint (2026-11-07)
+
+The earlier capture command wrote frames before the large menu packet, so its
+all-black image did not represent the glyph draw. The native frame dumper now
+accepts `OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=N` (default 512; maximum 16 MiB).
+The minimum-byte filter is applied before `OPENRAC_DUMP_NATIVE_FRAME_SKIP`, so
+skip counts only eligible packets. This command captures the actual large menu
+frame on this machine:
+
+```sh
+OPENRAC_TRACE_DIRECT=1 OPENRAC_DUMP_NATIVE_FRAMES=1 \
+OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=131072 timeout 8s \
+  build/port/sly1_native build/port/extracted/boot/SCUS_971.98 \
+  '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'
+```
+
+The resulting `/tmp/sly1-native-frame-04.png` is still effectively black, but
+contains a faint dark-green block of glyphs near the center. It corresponds to
+the 136,512-byte packet and draw 2's 474 vertices; the packet filter now makes
+that correlation reproducible. With `OPENRAC_DEBUG_DIRECT_FLAT=1`, the same
+draw produces clearly rasterized gray rectangles in the same region, so the
+draw reaches the framebuffer and its geometry is not wholly off-screen. With
+`OPENRAC_DEBUG_T4_INDEX=all`, sampled atlas indices are nonzero, but the glyphs
+remain fragmented; replacing CLUT colors with grayscale does not fix the
+layout. `OPENRAC_DEBUG_T4_UPLOAD_SWIZZLE=1` also made no visible difference.
+These diagnostics implicate indexed texel/UV interpretation, palette values,
+or the textured shader path; they do not identify which one is wrong.
+
+The raw 64-byte PSMCT32 CLUT upload at block `0x1600` is now captured as
+`/tmp/sly1-gs-upload-1600.bin`. Its initial little-endian words are
+`0x001b001f`, `0x001c001f`, `0x0010001d`, and `0x001c0010`; interpreted as
+RGBA bytes, the entries are low-intensity green with low alpha. The payload
+matches the decoded Splash resource, so the next check is whether the retail
+GIF upload's CLUT format/CSM/CSA and GS alpha interpretation have been decoded
+correctly, and whether the glyph UVs sample the intended atlas cells. Do not
+brighten or recolor the palette as a functional fix until this is established.
+
+The exact captured normal frame is machine-local at
+`/tmp/sly1-native-frame-04.png`; flat and index diagnostics are likewise under
+`/tmp` and should not be committed. Next work: correlate one known glyph's
+record (atlas `u/v`, dimensions, palette entry) with the raw upload and the
+texture sample coordinates after perspective division. Then isolate the
+renderer with a controlled, non-game diagnostic texture to check alpha and T4
+lookup independently; keep any experiment behind a debug switch. The UI is not
+visible at present, so the port has not reached a playable state.

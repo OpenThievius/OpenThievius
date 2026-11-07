@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-Fresh repository review: 2026-11-07, starting at 1e17ead.
+Fresh repository review: 2026-11-07, starting at 1e17ead. A textured menu
+frame capture on the same date narrowed the visual blocker further; see the
+graphics handoff checkpoint below.
 This is a work plan, not a claim of playable progress. Work is active on
 wip/native-sly-port and stays in the port repo.
 
@@ -524,3 +526,34 @@ function. `func_001FFC08` is a library function, and its relevance to the
 active native frame path is not established. None currently displaces an
 active Sly backfill or explains the black frame. The port build still uses the
 older `dd6f80b` source snapshot; no decomp checkout was changed.
+
+## Graphics investigation update (2026-11-07)
+
+The frame dumper gained `OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=N`, allowing a
+capture to select the actual 136,512-byte glyph packet instead of earlier
+small packets. The normal capture is still nearly black but contains faint
+dark-green glyph blocks. Flat debug mode displays gray rectangles in the same
+area, confirming rasterized geometry; `OPENRAC_DEBUG_T4_INDEX=all` makes the
+sampled indices visible but leaves the glyph layout fragmented. The T4 upload
+swizzle experiment did not visibly improve it. Therefore prioritize a
+single-glyph trace from font record through atlas address, CLUT entry and final
+shader sample. The raw 64-byte CLUT at `0x1600` contains low-green/low-alpha
+RGBA words and matches the decoded Splash bytes. Verify upload CSM/CSA and
+alpha interpretation against the retail packet before considering palette
+changes. Evidence, command and limits are in
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md).
+
+Immediate graphics tasks:
+
+1. Trace one known glyph's source `u/v`, width/height, packed UVs and emitted
+   vertices. Calculate the expected texel indices after the native renderer's
+   STQ normalization and compare the underlying T4 nibbles at those texels.
+2. Decode the font CLUT upload tag and its TEX0/TEXCLUT state, proving the
+   16-entry ordering and alpha scaling independently of the image dump.
+3. Add a renderer-only synthetic T4 texture/CLUT case behind a debug switch
+   (solid opaque entries plus a simple glyph mask) to distinguish conversion
+   errors from Sly's packet state; remove or retain it strictly as a diagnostic.
+4. Once text is legible, return to the gameplay path: identify a renderable
+   level object with real mesh ownership and transform, then fix the first
+   demonstrated missing callback or scene adapter. Do not treat the font fix
+   as a playable milestone.
