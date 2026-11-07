@@ -13,3 +13,4 @@ func_0011ECB8	native_c/resource_object_records.c
 func_001E4E80	native_c/func_001E4EA8.c
 func_001E4EA8	native_c/func_001E4EA8.c
 func_001B4A10	native_c/animator_loader_probe.c
+func_001ACDA0	native_c/func_001ACDA0.c
