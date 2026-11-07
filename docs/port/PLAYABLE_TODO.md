@@ -41,6 +41,16 @@ This rules out a trace cap hiding a different callback, but object ownership
 and the reason these entries do not submit geometry remain unknown. The
 diagnostic is enabled only with `OPENRAC_TRACE_FONT=1`.
 
+A new bounded direct-level trace records the child list, mesh pointer, extra-data
+pointer, and sphere radius for those same update-list entries. All sampled
+entries have zero in all four fields. They are empty infrastructure objects,
+not cullable mesh owners, so forcing visibility or synthesizing bounds is the
+wrong fix. The native frame remains state 3, game mode 0, and menu page `-1`,
+so this direct-load probe has not reached a playable state. The retail state
+transition and resource callbacks that create renderable level objects remain
+unknown. Trace that path, then verify a real mesh pointer reaches the draw
+queue.
+
 The object-record override was not active in the preceding builds: hostgen
 combined its multi-function source file with the override copy and rejected a
 duplicated static helper, so the matched body won. `func_0011ECB8` now lives in

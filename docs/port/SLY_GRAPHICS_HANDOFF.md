@@ -10,7 +10,7 @@ objects/vtables. The active world still submits zero scene vertices, and the
 UI trace reports no fonts or visible text. The next graphics gate is the first
 real level mesh callback producing vertices, followed by its native renderer
 submission. The current build uses the local `sly1-decomp` checkout at
-`e1b39f1`, translates 2,043 C functions and 109 retail assembly functions,
+`e1b39f1`, translates 2,045 C functions and 108 retail assembly functions,
 and leaves 12 unreadable units. Port-only C overrides remain under
 `hand/native_c/`; neither those nor generated assembly translations modify
 the decomp repository.
@@ -79,19 +79,24 @@ NTSC-U ELF and ISO. Port-only stages 30 and 37–42 capture the
 `func_00125C90` return, VU0 accumulator lanes, selected vector lanes, and
 sampled node/camera fields. Stages 46–49 record the camera stack and callback
 pointers. Stages 50–52 record each sampled node's local translation, virtual
-callback slots, and first basis qword. In the latest 7-second run, the eight
+callback slots, and first basis qword. In the 7-second run, the eight
 sampled nodes all had zero local translation at `+0x100..+0x10C`, identity
 basis at `+0xD0..+0xDC`, and zero world position/radius at `+0x140..+0x148` and
 `+0x2A8`. Their vtable slots `+0x58`, `+0x84`, `+0xA0`, and `+0x118` resolved
 to `0x00125108`, `0x001273F0`, `0x00125C90`, and `0x00183350`. The retail
 `func_0019D6C0` assembly confirms this update call passes node, world/camera,
-and zero in `a0..a2`, matching the port dispatcher. The trace therefore
-narrows the question to whether these entries should receive a parent/world
-transform before culling, or whether they are zero-position entries without
-scene geometry; it does not establish that parsing is at fault. The MAC gate
-reports `0xF0`; the sphere test still rejects sampled objects with radius zero.
-These probes are diagnostic only and do not alter the retail branch or
-rendering.
+and zero in `a0..a2`, matching the port dispatcher. Stage 53 now records each
+sampled node's child list and mesh-data pointers. The MAC gate reports
+`0xF0`; the sphere test rejects the sampled objects with radius zero. A later
+12-second direct-level trace added each sampled entry's child-list, mesh-data,
+extra-data, and radius fields. All sampled entries had zero child list, mesh
+pointer, extra data, and radius. The retail child-walk/draw callback therefore
+has no sampled child or mesh to submit; forcing the sphere test would not
+create geometry. The native frame remains state 3 with game mode 0 and menu
+page `-1`, so this direct-load probe has not reached a playable game state.
+Which retail transition and resource callbacks create the renderable level
+objects remains unknown. These probes are diagnostic only and do not alter the
+retail branch or rendering.
 
 The screen-element constructor loop `func_001A9F78` exists in the current
 decomp source but its US status is still `no-c`, so hostgen emitted a no-op.

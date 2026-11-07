@@ -37,11 +37,11 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 53> traces{};
+    static std::array<std::atomic<unsigned>, 54> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
-    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
-    const unsigned limit = stage == 35 || (stage >= 50 && stage <= 52)
+    constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
+    const unsigned limit = stage == 35 || (stage >= 50 && stage <= 53)
         ? 64u : limits[stage];
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','

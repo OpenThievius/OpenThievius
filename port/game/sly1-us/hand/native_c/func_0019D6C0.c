@@ -57,6 +57,11 @@ static void update_actor_list(u32 world, u32 frame_address, u32 list_offset,
                                        *(u32*)(node_address + 0xD4u),
                                        *(u32*)(node_address + 0xD8u),
                                        *(u32*)(node_address + 0xDCu));
+                sly1_native_trace_font(53, node_address,
+                                       *(u32*)(node_address + 0x34u),
+                                       *(u32*)(node_address + 0x1F4u),
+                                       *(u32*)(node_address + 0x224u),
+                                       *(u32*)(node_address + 0x2A8u));
                 sly1_native_trace_font(41, node_address, argument,
                                        *(u32*)(node_address + 0x140u),
                                        *(u32*)(node_address + 0x144u),
