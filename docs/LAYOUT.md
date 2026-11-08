@@ -7,11 +7,13 @@ OpenThievius/
 ├── games/                  one directory per game
 │   └── sly1/
 │       └── game.json       discs, checksums, roles, where the decompilation lives
-├── port/                   the native PC port (not started)
+├── port/                   the native PC port
 ├── tools/                  repository-wide tools: openthievius.py, disc.py
+├── launcher/               the Rust and GPUI desktop launcher
 ├── tests/                  the tools' tests and the repository check
 ├── docs/                   knowledge and rules that span the project
 │   ├── policy/             sourcing policy
+│   ├── launcher/           launcher build and user guide
 │   └── decomp/             the decompilations: where they are, how they are checked
 ├── shared/                 files a game project keeps an identical copy of
 ├── baserom/                your own disc images (ignored, except its README)
@@ -34,6 +36,9 @@ relative to this repository); `OPENTHIEVIUS_SOURCE_SLY1` points elsewhere.
 **Only shared things live here**: the port, the tools that serve every game,
 the policies, and the cross-game knowledge.
 
+The desktop launcher is a cross-game app in `launcher/`; its build and user
+guide lives in `docs/launcher/README.md`.
+
 **Facts are kept once and checked.** A game's versions and checksums are in
 its project's `config/versions.json` and in `game.json`;
 `python3 tools/openthievius.py check` fails when they differ. A file copied
@@ -51,6 +56,7 @@ they are what readers see.
 |---|---|
 | Decompiled code, a symbol map, a build change | sly1-decomp |
 | The native port's code | `port/` |
+| The desktop launcher | `launcher/`, with its user and build guide in `docs/launcher/` |
 | A tool that serves several games or the repository | `tools/`, with a test in `tests/` |
 | A decision or rule for everyone | `docs/policy/`, and CONTRIBUTING.md if it changes how people work |
 | A new game version | its project, then its entry in `games/<game>/game.json`, then `tools/openthievius.py tables` |

@@ -3,6 +3,7 @@
 /baserom/*
 !/baserom/README.md
 /build/
+/launcher/target/
 /assets/
 *.iso
 *.img

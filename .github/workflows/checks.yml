@@ -1,7 +1,6 @@
 name: Checks
 
-# Checks that need neither a disc nor a toolchain: the tools' tests, the
-# generated tables and the no-game-data check.
+# Build the launcher package and run the repository's no-disc checks.
 
 on:
   push:
@@ -13,6 +12,38 @@ permissions:
   contents: read
 
 jobs:
+  launcher:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: OpenThievius/sly1-decomp
+          path: sly1-decomp
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install GPUI Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libvulkan-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            squashfs-tools
+      - name: Build AppImage
+        run: launcher/packaging/build-appimage.sh
+        env:
+          OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openthievius-launcher-appimage
+          path: launcher/target/appimage/dist/*.AppImage
+
   checks:
     runs-on: ubuntu-latest
     steps:

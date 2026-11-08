@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -383,6 +384,10 @@ extern "C" int openrac_native_window_create(void) {
     config.width = 960;
     config.height = 720;
     config.vsync = false;
+    const char* display_mode = std::getenv("OPENTHIEVIUS_DISPLAY_MODE");
+    if (display_mode != nullptr && std::strcmp(display_mode, "borderless") == 0) {
+        config.mode = openrac::platform::DisplayMode::Borderless;
+    }
     config.software = openrac::platform::SoftwareRenderer::Allow;
     std::string error;
     g_window = openrac::platform::Window::open(config, error);
