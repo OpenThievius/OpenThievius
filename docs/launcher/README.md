@@ -40,7 +40,9 @@ The script stages only the launcher and its desktop icon, downloads
 without running the AppImage wrapper, and writes
 `launcher/target/appimage/dist/OpenThievius-x86_64.AppImage`. It does not add
 disc images, game executables, or extracted game files. CI runs the packaging
-step on Ubuntu 22.04 and saves the AppImage as a workflow artifact.
+step on Ubuntu 22.04 and saves the AppImage as a workflow artifact. It also
+checks compilation on Windows and macOS; native packages for those platforms
+remain future work.
 
 Run the built AppImage from the repository root with:
 

@@ -4,7 +4,7 @@ name: Checks
 
 on:
   push:
-    branches: [master]
+    branches: [master, wip/launcher]
   pull_request:
     branches: [master]
 
@@ -43,6 +43,27 @@ jobs:
         with:
           name: openthievius-launcher-appimage
           path: launcher/target/appimage/dist/*.AppImage
+
+  launcher-other-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: OpenThievius/sly1-decomp
+          path: sly1-decomp
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Check launcher
+        run: cargo check --locked --manifest-path launcher/Cargo.toml
+        env:
+          OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
 
   checks:
     runs-on: ubuntu-latest
