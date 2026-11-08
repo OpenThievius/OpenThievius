@@ -45,7 +45,9 @@ Build a portable Windows zip or macOS `.app` zip on its native platform with
 `launcher/packaging/build-windows.ps1` or
 `launcher/packaging/build-macos.sh`; outputs go under
 `launcher/target/<platform>/dist/`. Those packages are not signed and do not
-include installers.
+include installers. These packages are for development and build verification;
+the launcher is not ready for release. CI does not publish packages or create
+GitHub releases.
 
 Run the built AppImage from the repository root with:
 
@@ -126,5 +128,6 @@ provide them. Repository policy prohibits prototype-derived data; consequently
 this launcher cannot positively recognize and name a prototype image without
 conflicting with that policy.
 
-Windows and macOS packaging remain future work. Keep game version recognition
-aligned with each game's maintained project definitions.
+Windows and macOS package scripts are available for local build verification.
+Keep game version recognition aligned with each game's maintained project
+definitions.
