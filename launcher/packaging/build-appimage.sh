@@ -15,8 +15,16 @@ trap cleanup EXIT
 linuxdeploy_path="${LINUXDEPLOY_PATH:-$tool_dir/linuxdeploy-x86_64.AppImage}"
 tool_root=""
 if [[ -z "${LINUXDEPLOY_PATH:-}" ]]; then
+    linuxdeploy_asset_url="$(
+        curl --fail --location --silent --show-error \
+            --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 90 \
+            https://api.github.com/repos/linuxdeploy/linuxdeploy/releases/tags/continuous \
+            | python3 -c 'import json, sys; assets=json.load(sys.stdin)["assets"]; print(next(asset["url"] for asset in assets if asset["name"] == "linuxdeploy-x86_64.AppImage"))'
+    )"
     curl --fail --location --silent --show-error \
-        https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+        --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 90 \
+        --header 'Accept: application/octet-stream' \
+        "$linuxdeploy_asset_url" \
         --output "$linuxdeploy_path"
 fi
 chmod +x "$linuxdeploy_path"
