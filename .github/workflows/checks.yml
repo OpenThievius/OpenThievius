@@ -5,7 +5,7 @@ name: Checks
 
 on:
   push:
-    branches: [master]
+    branches: [master, wip/launcher-tauri]
   pull_request:
     branches: [master]
 
@@ -28,3 +28,41 @@ jobs:
         run: python tests/check_repository.py
       - name: Compile tools
         run: python -m compileall -q tools tests
+
+  launcher:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libxdo-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            wget
+      - name: Install frontend dependencies
+        working-directory: launcher
+        run: npm ci
+      - name: Check the Svelte interface
+        working-directory: launcher
+        run: npm run check
+      - name: Build the frontend
+        working-directory: launcher
+        run: npm run build
+      - name: Check the Rust application
+        working-directory: launcher
+        run: cargo check --locked
