@@ -26,6 +26,7 @@ struct LauncherAssets;
 impl AssetSource for LauncherAssets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
         let bytes: Option<&'static [u8]> = match path {
+            "brand-icon.svg" => Some(include_bytes!("../resources/brand-icon.svg")),
             "background-sly1.svg" => Some(include_bytes!("../resources/background-sly1.svg")),
             "background-sly2.svg" => Some(include_bytes!("../resources/background-sly2.svg")),
             "background-sly3.svg" => Some(include_bytes!("../resources/background-sly3.svg")),
@@ -911,13 +912,7 @@ impl Render for Launcher {
             .py_4()
             .border_b_1()
             .border_color(rgb(PANEL))
-            .child(
-                div()
-                    .text_xl()
-                    .font_weight(gpui::FontWeight::BOLD)
-                    .text_color(rgb(TEXT))
-                    .child("OPENTHIEVIUS"),
-            )
+            .child(svg().path("brand-icon.svg").w(px(36.)).h(px(30.)))
             .child(div().flex_1())
             .child(self.game_tab(0, "Sly 1", cx))
             .child(self.game_tab(1, "Sly 2", cx))
