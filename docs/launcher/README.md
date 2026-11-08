@@ -98,10 +98,10 @@ and a `sly1_native` beside the launcher are fallbacks. For AppImage runs, a
 the extracted executable, original disc image, and selected display mode to
 the Sly 1 native port. It also passes `OPENTHIEVIUS_GAME_ID`,
 `OPENTHIEVIUS_GAME_DATA_DIR`, and `OPENTHIEVIUS_SAVE_DIR` so each native port
-can keep runtime data and saves under the matching game's directory. The
-current Sly 1 port does not yet implement save/load. Sly 2 and Sly 3 can use
-the same definitions and launch flow when their game definitions and native
-ports are added.
+can keep runtime data and saves under the matching game's directory. The Sly 1
+renderer uses the game data directory for its shader cache. Sly 1 does not yet
+implement save/load. Sly 2 and Sly 3 can use the same definitions and launch
+flow when their game definitions and native ports are added.
 
 The JSON config can be edited while the launcher is closed. Its game-specific
 maps use `sly1`, `sly2`, and `sly3` keys; for example:

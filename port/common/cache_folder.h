@@ -11,9 +11,10 @@
 
 namespace openrac {
 
-// The system's folder for a program's caches, with openrac in it: ~/Library/Caches/OpenRAC on
-// macOS, $HOME/cache on Android (the app's cache folder), else $XDG_CACHE_HOME/openrac, or
-// .cache/openrac in the user's home (%USERPROFILE% on Windows). Not made here.
+// If launched by OpenThievius, the per-game data folder's cache directory. Otherwise the system's
+// folder for a program's caches, with openrac in it: ~/Library/Caches/OpenRAC on macOS, $HOME/cache
+// on Android (the app's cache folder), else $XDG_CACHE_HOME/openrac, or .cache/openrac in the
+// user's home (%USERPROFILE% on Windows). Not made here.
 std::filesystem::path cache_folder();
 
 }  // namespace openrac

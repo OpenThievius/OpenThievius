@@ -11,6 +11,11 @@
 namespace openrac {
 
 std::filesystem::path cache_folder() {
+    if (const std::optional<std::string> game_data =
+            env::system_variable("OPENTHIEVIUS_GAME_DATA_DIR");
+        game_data.has_value() && !game_data->empty()) {
+        return std::filesystem::path(*game_data) / "cache";
+    }
 #if defined(__APPLE__)
     const std::string home = env::system_variable("HOME").value_or(".");
     return std::filesystem::path(home) / "Library/Caches/OpenRAC";
