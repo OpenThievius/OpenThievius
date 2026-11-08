@@ -1622,21 +1622,22 @@ fn main() {
             )),
         ),
     };
-    let (launcher_config, config_status) = if root_error.is_some() {
-        (config::LauncherConfig::default(), None)
+    let (launcher_config, config_status, config_load_failed) = if root_error.is_some() {
+        (config::LauncherConfig::default(), None, false)
     } else {
         match config::load_or_recover(&data_root) {
-            Ok((config, status)) => (config, status),
+            Ok((config, status)) => (config, status, false),
             Err(error) => (
                 config::LauncherConfig::default(),
                 Some(format!(
                     "Could not load launcher settings from {}: {error}",
                     data_root.display()
                 )),
+                true,
             ),
         }
     };
-    let storage_unavailable = root_error.is_some() || config_status.is_some();
+    let storage_unavailable = root_error.is_some() || config_load_failed;
     let mut startup_messages = Vec::new();
     startup_messages.extend(pointer_status);
     startup_messages.extend(root_error);
