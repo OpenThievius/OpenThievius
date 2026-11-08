@@ -77,7 +77,8 @@ and the backup path is shown on startup.
 
 If the data folder or settings cannot be opened, the launcher still opens and
 shows the filesystem error in its status area rather than exiting before the
-window appears.
+window appears. Settings offers a Retry storage action so the launcher can
+reload the data folder and settings after the filesystem problem is fixed.
 
 The Settings page stores per-game playability, display mode, and native port
 executable paths in `config.json`. Missing playability entries follow the

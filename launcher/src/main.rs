@@ -58,6 +58,7 @@ struct Launcher {
     scan_summary: String,
     scan_errors: Vec<String>,
     setup_status: String,
+    storage_unavailable: bool,
     setup_busy: bool,
     data_move_busy: bool,
     launch_preflight_busy: bool,
@@ -86,6 +87,7 @@ impl Launcher {
         data_root: PathBuf,
         config: config::LauncherConfig,
         startup_status: Option<String>,
+        storage_unavailable: bool,
     ) -> Self {
         Self {
             page: Page::Games,
@@ -101,6 +103,7 @@ impl Launcher {
             scan_summary: String::new(),
             scan_errors: Vec::new(),
             setup_status: startup_status.unwrap_or_default(),
+            storage_unavailable,
             setup_busy: false,
             data_move_busy: false,
             launch_preflight_busy: false,
@@ -159,7 +162,12 @@ impl Launcher {
             self.scan_summary = "Choose a disc image folder in Settings to scan.".to_owned();
             return;
         };
-        if self.scanning || self.setup_busy || self.data_move_busy || self.launch_preflight_busy {
+        if self.storage_unavailable
+            || self.scanning
+            || self.setup_busy
+            || self.data_move_busy
+            || self.launch_preflight_busy
+        {
             return;
         }
         self.scanning = true;
@@ -241,7 +249,12 @@ impl Launcher {
     }
 
     fn choose_disc_folder(&mut self, cx: &mut Context<Self>) {
-        if self.scanning || self.data_move_busy || self.setup_busy || self.launch_preflight_busy {
+        if self.storage_unavailable
+            || self.scanning
+            || self.data_move_busy
+            || self.setup_busy
+            || self.launch_preflight_busy
+        {
             return;
         }
         let result = cx.prompt_for_paths(PathPromptOptions {
@@ -256,6 +269,7 @@ impl Launcher {
                 if let Some(path) = paths.into_iter().next() {
                     let _ = weak.update(cx, |this, cx| {
                         if this.scanning
+                            || this.storage_unavailable
                             || this.data_move_busy
                             || this.setup_busy
                             || this.launch_preflight_busy
@@ -280,7 +294,11 @@ impl Launcher {
     }
 
     fn choose_game_port(&mut self, game_id: &'static str, cx: &mut Context<Self>) {
-        if self.data_move_busy || self.setup_busy || self.launch_preflight_busy {
+        if self.storage_unavailable
+            || self.data_move_busy
+            || self.setup_busy
+            || self.launch_preflight_busy
+        {
             return;
         }
         let prompt = cx.prompt_for_paths(PathPromptOptions {
@@ -294,7 +312,11 @@ impl Launcher {
             if let Ok(Ok(Some(paths))) = prompt.await {
                 if let Some(path) = paths.into_iter().next() {
                     let _ = weak.update(cx, |this, cx| {
-                        if this.data_move_busy || this.setup_busy || this.launch_preflight_busy {
+                        if this.storage_unavailable
+                            || this.data_move_busy
+                            || this.setup_busy
+                            || this.launch_preflight_busy
+                        {
                             return;
                         }
                         if !is_executable(&path) {
@@ -323,7 +345,8 @@ impl Launcher {
     }
 
     fn choose_data_folder(&mut self, cx: &mut Context<Self>) {
-        if self.scanning
+        if self.storage_unavailable
+            || self.scanning
             || self.setup_busy
             || self.data_move_busy
             || self.launch_preflight_busy
@@ -343,6 +366,7 @@ impl Launcher {
                 if let Some(new_root) = paths.into_iter().next() {
                     let old_root = match weak.read_with(cx, |this, _| {
                         if this.scanning
+                            || this.storage_unavailable
                             || this.setup_busy
                             || this.data_move_busy
                             || this.launch_preflight_busy
@@ -361,8 +385,10 @@ impl Launcher {
                     let can_move = weak
                         .update(cx, |this, cx| {
                             if this.scanning
+                                || this.storage_unavailable
                                 || this.setup_busy
                                 || this.data_move_busy
+                                || this.launch_preflight_busy
                                 || this.game_running
                             {
                                 return false;
@@ -427,6 +453,51 @@ impl Launcher {
         .detach();
     }
 
+    fn retry_storage(&mut self, cx: &mut Context<Self>) {
+        if !self.storage_unavailable
+            || self.scanning
+            || self.setup_busy
+            || self.data_move_busy
+            || self.launch_preflight_busy
+            || self.game_running
+        {
+            return;
+        }
+        let (data_root, pointer_status) = match config::data_root_or_recover() {
+            Ok(result) => result,
+            Err(error) => {
+                self.setup_status = format!("Storage is still unavailable: {error}");
+                cx.notify();
+                return;
+            }
+        };
+        let (launcher_config, config_status) = match config::load_or_recover(&data_root) {
+            Ok(result) => result,
+            Err(error) => {
+                self.setup_status = format!(
+                    "Could not load launcher settings from {}: {error}",
+                    data_root.display()
+                );
+                cx.notify();
+                return;
+            }
+        };
+        self.data_root = data_root;
+        self.config = launcher_config;
+        self.storage_unavailable = false;
+        let mut startup_messages = Vec::new();
+        startup_messages.extend(pointer_status);
+        startup_messages.extend(config_status);
+        self.setup_status = startup_messages.join("\n");
+        self.scan_started = false;
+        self.found.clear();
+        self.selected = None;
+        self.scan_errors.clear();
+        self.scanning = false;
+        self.start_scan(cx);
+        cx.notify();
+    }
+
     fn setup_selected(&mut self, cx: &mut Context<Self>) {
         let Some(index) = self.selected else { return };
         let Some(found) = self.found.get(index).cloned() else {
@@ -446,7 +517,8 @@ impl Launcher {
             return;
         };
         let data_root = self.data_root.clone();
-        if self.scanning
+        if self.storage_unavailable
+            || self.scanning
             || self.setup_busy
             || self.data_move_busy
             || self.launch_preflight_busy
@@ -528,7 +600,7 @@ impl Launcher {
     }
 
     fn toggle_playable(&mut self, game_id: &'static str, cx: &mut Context<Self>) {
-        if self.data_move_busy || self.launch_preflight_busy {
+        if self.storage_unavailable || self.data_move_busy || self.launch_preflight_busy {
             return;
         }
         let playable = self.config.is_playable(game_id);
@@ -545,7 +617,7 @@ impl Launcher {
     }
 
     fn toggle_display_mode(&mut self, game_id: &'static str, cx: &mut Context<Self>) {
-        if self.data_move_busy || self.launch_preflight_busy {
+        if self.storage_unavailable || self.data_move_busy || self.launch_preflight_busy {
             return;
         }
         let mode = self
@@ -573,7 +645,8 @@ impl Launcher {
     }
 
     fn launch_selected(&mut self, cx: &mut Context<Self>) {
-        if self.scanning
+        if self.storage_unavailable
+            || self.scanning
             || self.setup_busy
             || self.data_move_busy
             || self.launch_preflight_busy
@@ -1195,7 +1268,8 @@ impl Launcher {
                             .id("choose-disc-folder")
                             .child(button(
                                 "Choose folder",
-                                !self.scanning
+                                !self.storage_unavailable
+                                    && !self.scanning
                                     && !self.data_move_busy
                                     && !self.setup_busy
                                     && !self.launch_preflight_busy,
@@ -1209,6 +1283,7 @@ impl Launcher {
                     .child(button(
                         "Scan now",
                         !self.scanning
+                            && !self.storage_unavailable
                             && !self.setup_busy
                             && !self.data_move_busy
                             && !self.launch_preflight_busy
@@ -1240,7 +1315,8 @@ impl Launcher {
                             .id("choose-data-folder")
                             .child(button(
                                 "Move data folder",
-                                !self.scanning
+                                !self.storage_unavailable
+                                    && !self.scanning
                                     && !self.setup_busy
                                     && !self.data_move_busy
                                     && !self.launch_preflight_busy
@@ -1290,7 +1366,9 @@ impl Launcher {
                                     } else {
                                         "Play disabled"
                                     },
-                                    true,
+                                    !self.storage_unavailable
+                                        && !self.data_move_busy
+                                        && !self.launch_preflight_busy,
                                 ))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.toggle_playable(game_id, cx)
@@ -1299,7 +1377,12 @@ impl Launcher {
                         .child(
                             div()
                                 .id(("display-mode-setting", game_index))
-                                .child(button(mode_label, true))
+                                .child(button(
+                                    mode_label,
+                                    !self.storage_unavailable
+                                        && !self.data_move_busy
+                                        && !self.launch_preflight_busy,
+                                ))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.toggle_display_mode(game_id, cx)
                                 })),
@@ -1323,6 +1406,7 @@ impl Launcher {
                             .child(button(
                                 "Choose port executable",
                                 !self.data_move_busy
+                                    && !self.storage_unavailable
                                     && !self.setup_busy
                                     && !self.launch_preflight_busy,
                             ))
@@ -1330,6 +1414,14 @@ impl Launcher {
                                 this.choose_game_port(game_id, cx)
                             })),
                     ),
+            );
+        }
+        if self.storage_unavailable {
+            settings = settings.child(
+                div()
+                    .id("retry-storage")
+                    .child(button("Retry storage", true))
+                    .on_click(cx.listener(|this, _, _, cx| this.retry_storage(cx))),
             );
         }
         if !self.setup_status.is_empty() {
@@ -1544,6 +1636,7 @@ fn main() {
             ),
         }
     };
+    let storage_unavailable = root_error.is_some() || config_status.is_some();
     let mut startup_messages = Vec::new();
     startup_messages.extend(pointer_status);
     startup_messages.extend(root_error);
@@ -1555,6 +1648,7 @@ fn main() {
             let data_root = data_root.clone();
             let launcher_config = launcher_config.clone();
             let startup_status = startup_status.clone();
+            let storage_unavailable = storage_unavailable;
             let bounds = Bounds::centered(None, size(px(1100.), px(760.)), cx);
             cx.open_window(
                 WindowOptions {
@@ -1567,7 +1661,14 @@ fn main() {
                     let data_root = data_root.clone();
                     let launcher_config = launcher_config.clone();
                     let startup_status = startup_status.clone();
-                    cx.new(|_| Launcher::new(data_root, launcher_config, startup_status))
+                    cx.new(|_| {
+                        Launcher::new(
+                            data_root,
+                            launcher_config,
+                            startup_status,
+                            storage_unavailable,
+                        )
+                    })
                 },
             )
             .expect("open launcher window");
