@@ -912,7 +912,13 @@ impl Render for Launcher {
             .py_4()
             .border_b_1()
             .border_color(rgb(PANEL))
-            .child(svg().path("brand-icon.svg").w(px(36.)).h(px(30.)))
+            .child(
+                svg()
+                    .path("brand-icon.svg")
+                    .w(px(36.))
+                    .h(px(30.))
+                    .text_color(rgb(ACCENT)),
+            )
             .child(div().flex_1())
             .child(self.game_tab(0, "Sly 1", cx))
             .child(self.game_tab(1, "Sly 2", cx))
