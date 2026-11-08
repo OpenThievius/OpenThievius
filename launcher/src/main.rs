@@ -877,14 +877,15 @@ impl Launcher {
             .id(label)
             .px_4()
             .py_3()
+            .rounded_md()
             .cursor_pointer()
-            .border_b_2()
-            .border_color(rgb(if selected { ACCENT } else { PANEL }))
-            .text_color(rgb(if selected { TEXT } else { MUTED }))
+            .bg(rgb(if selected { PANEL_LIGHT } else { BG }))
+            .text_color(rgb(if selected { ACCENT } else { MUTED }))
             .child(label)
             .on_click(cx.listener(move |this, _, _, cx| {
                 if !this.launch_preflight_busy {
                     this.game = index;
+                    this.page = Page::Games;
                     this.selected = this.found.iter().position(|found| found.game_id == game_id);
                     cx.notify();
                 }
@@ -918,7 +919,9 @@ impl Render for Launcher {
                     .child("OPENTHIEVIUS"),
             )
             .child(div().flex_1())
-            .child(self.tab("Games", Page::Games, cx))
+            .child(self.game_tab(0, "Sly 1", cx))
+            .child(self.game_tab(1, "Sly 2", cx))
+            .child(self.game_tab(2, "Sly 3", cx))
             .child(self.tab("Settings", Page::Settings, cx));
 
         let content = if self.page == Page::Games {
@@ -960,18 +963,6 @@ impl Launcher {
             1 => "background-sly2.svg",
             _ => "background-sly3.svg",
         };
-        let selectors = div()
-            .flex()
-            .gap_5()
-            .px_10()
-            .pt_6()
-            .border_b_1()
-            .border_color(rgb(PANEL));
-        let selectors = selectors
-            .child(self.game_tab(0, "Sly 1", cx))
-            .child(self.game_tab(1, "Sly 2", cx))
-            .child(self.game_tab(2, "Sly 3", cx));
-
         let body = match self.game {
             0 => self
                 .game_panel("sly1", "Sly Cooper", "The Thievius Raccoonus · 2002", cx)
@@ -1006,7 +997,6 @@ impl Launcher {
                     .left_0()
                     .bg(gpui::black().opacity(0.32)),
             )
-            .child(selectors)
             .child(
                 div()
                     .relative()
