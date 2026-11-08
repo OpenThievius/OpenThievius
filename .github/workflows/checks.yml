@@ -48,7 +48,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            package: macos
+          - os: windows-latest
+            package: windows
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +68,21 @@ jobs:
         run: cargo check --locked --manifest-path launcher/Cargo.toml
         env:
           OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
+      - name: Build macOS app archive
+        if: matrix.package == 'macos'
+        run: launcher/packaging/build-macos.sh
+        env:
+          OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
+      - name: Build Windows portable archive
+        if: matrix.package == 'windows'
+        run: ./launcher/packaging/build-windows.ps1
+        shell: pwsh
+        env:
+          OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openthievius-launcher-${{ matrix.package }}
+          path: launcher/target/${{ matrix.package }}/dist/*.zip
 
   checks:
     runs-on: ubuntu-latest
