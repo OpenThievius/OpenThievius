@@ -28,8 +28,9 @@ Wayland when `WAYLAND_DISPLAY` is set and falls back to X11 when only
 `DISPLAY` is available. The package retains both backends; X11 libraries are
 not required by a Wayland session.
 
-To build the first-release Linux package, install Python 3, `curl`,
-`squashfs-tools`, and those same GPUI development libraries, then run:
+To build a Linux AppImage for local development and package verification,
+install Python 3, `curl`, `squashfs-tools`, and those same GPUI development
+libraries, then run:
 
 ```sh
 launcher/packaging/build-appimage.sh
