@@ -39,11 +39,6 @@ jobs:
         run: launcher/packaging/build-appimage.sh
         env:
           OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
-      - uses: actions/upload-artifact@v4
-        with:
-          name: openthievius-launcher-appimage
-          path: launcher/target/appimage/dist/*.AppImage
-
   launcher-other-platforms:
     strategy:
       fail-fast: false
@@ -79,11 +74,6 @@ jobs:
         shell: pwsh
         env:
           OPENTHIEVIUS_SOURCE_SLY1: ${{ github.workspace }}/sly1-decomp
-      - uses: actions/upload-artifact@v4
-        with:
-          name: openthievius-launcher-${{ matrix.package }}
-          path: launcher/target/${{ matrix.package }}/dist/*.zip
-
   checks:
     runs-on: ubuntu-latest
     steps:

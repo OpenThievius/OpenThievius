@@ -39,10 +39,10 @@ The script stages only the launcher and its desktop icon, downloads
 `linuxdeploy` into a temporary directory, extracts its static executable
 without running the AppImage wrapper, and writes
 `launcher/target/appimage/dist/OpenThievius-x86_64.AppImage`. It does not add
-disc images, game executables, or extracted game files. CI runs the packaging
-step on Ubuntu 22.04 and saves the AppImage as a workflow artifact. It also
-builds a portable Windows zip and a macOS `.app` zip. Build either package on
-its native platform with `launcher/packaging/build-windows.ps1` or
+disc images, game executables, or extracted game files. CI builds the Linux,
+Windows, and macOS packages to verify them but does not publish or upload them.
+Build a portable Windows zip or macOS `.app` zip on its native platform with
+`launcher/packaging/build-windows.ps1` or
 `launcher/packaging/build-macos.sh`; outputs go under
 `launcher/target/<platform>/dist/`. Those packages are not signed and do not
 include installers.
