@@ -13,6 +13,7 @@ cleanup() {
 trap cleanup EXIT
 
 linuxdeploy_path="${LINUXDEPLOY_PATH:-$tool_dir/linuxdeploy-x86_64.AppImage}"
+tool_root=""
 if [[ -z "${LINUXDEPLOY_PATH:-}" ]]; then
     curl --fail --location --silent --show-error \
         https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
@@ -35,7 +36,10 @@ if [[ -n "$squashfs_offset" ]]; then
     extracted_tool="$tool_dir/linuxdeploy-root"
     unsquashfs -quiet -no-progress -offset "$squashfs_offset" \
         -d "$extracted_tool" "$linuxdeploy_path"
+    tool_root="$extracted_tool"
     linuxdeploy_binary="$extracted_tool/usr/bin/linuxdeploy"
+else
+    tool_root="$(cd "$(dirname "$linuxdeploy_path")/../.." && pwd)"
 fi
 if [[ ! -x "$linuxdeploy_binary" ]]; then
     printf 'Could not find an executable linuxdeploy binary in %s\n' "$linuxdeploy_path" >&2
@@ -51,13 +55,32 @@ mkdir -p "$appdir/usr/share/metainfo"
 cp "$launcher_dir/resources/org.openthievius.launcher.appdata.xml" \
     "$appdir/usr/share/metainfo/org.openthievius.launcher.appdata.xml"
 
-LDAI_OUTPUT="$output_dir/OpenThievius-x86_64.AppImage" \
-    "$linuxdeploy_binary" \
+"$linuxdeploy_binary" \
     --appdir "$appdir" \
     --executable "$appdir/usr/bin/openthievius-launcher" \
     --desktop-file "$launcher_dir/resources/org.openthievius.launcher.desktop" \
-    --icon-file "$launcher_dir/resources/openthievius.svg" \
-    --output appimage
+    --icon-file "$launcher_dir/resources/openthievius.svg"
+
+appimagetool_binary="$tool_root/plugins/linuxdeploy-plugin-appimage/usr/bin/appimagetool"
+if [[ ! -x "$appimagetool_binary" ]]; then
+    appimagetool_binary="$(command -v appimagetool || true)"
+fi
+if [[ -z "$appimagetool_binary" || ! -x "$appimagetool_binary" ]]; then
+    printf 'Could not find appimagetool in the linuxdeploy bundle or PATH\n' >&2
+    exit 1
+fi
+runtime_file="${APPIMAGE_RUNTIME_FILE:-}"
+if [[ -z "$runtime_file" && -n "$squashfs_offset" ]]; then
+    runtime_file="$tool_dir/runtime-x86_64"
+    head -c "$squashfs_offset" "$linuxdeploy_path" > "$runtime_file"
+    chmod +x "$runtime_file"
+fi
+runtime_args=()
+if [[ -n "$runtime_file" ]]; then
+    runtime_args+=(--runtime-file "$runtime_file")
+fi
+"$appimagetool_binary" --no-appstream "${runtime_args[@]}" \
+    "$appdir" "$output_dir/OpenThievius-x86_64.AppImage"
 
 test -s "$output_dir/OpenThievius-x86_64.AppImage"
 chmod +x "$output_dir/OpenThievius-x86_64.AppImage"

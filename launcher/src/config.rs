@@ -110,7 +110,7 @@ fn recover_data_root_pointer_to(
 }
 
 pub fn suggested_data_root() -> io::Result<PathBuf> {
-    let data_dir = dirs::data_local_dir().ok_or_else(|| {
+    let data_dir = dirs::data_dir().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::NotFound,
             "application data directory unavailable",
@@ -232,7 +232,7 @@ fn data_root_pointer() -> PathBuf {
         return path;
     }
     dirs::config_dir()
-        .unwrap_or_else(|| dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")))
+        .unwrap_or_else(|| dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")))
         .join("openthievius")
         .join("data-root.json")
 }

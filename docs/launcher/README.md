@@ -62,10 +62,11 @@ write stages, and the detected image path and setup state are stored in
 path and hash and verifies the extracted executable again. This catches a disc
 image or setup file changed after the scan.
 
-The data root defaults to the platform's standard data location. On Linux it is
-`~/.local/share/openthievius`. Settings can move the data folder; the launcher
-copies and verifies its contents before switching the saved location and
-removing the old folder. If switching the pointer fails, the original and
+The data root defaults to the platform's standard per-user application data
+location. On Linux it is `~/.local/share/openthievius`; Windows and macOS use
+their standard application data folders. Settings can move the data folder.
+The launcher copies and verifies its contents before switching the saved
+location and removing the old folder. If switching the pointer fails, the original and
 verified copy are preserved and their paths are reported. If old-folder cleanup
 fails after switching, the new folder remains active and the UI reports the
 location of the old copy. A small pointer
