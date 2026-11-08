@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later OR CC0-1.0 -->
+<component type="desktop-application">
+  <id>org.openthievius.launcher</id>
+  <name>OpenThievius</name>
+  <summary>Set up and launch your OpenThievius games</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <developer>
+    <name>OpenThievius Contributors</name>
+  </developer>
+  <url type="homepage">https://github.com/OpenThievius/OpenThievius</url>
+  <launchable type="desktop-id">org.openthievius.launcher.desktop</launchable>
+  <description>
+    <p>Find supported versions in your own disc images, prepare game files in your user data folder, and launch games when native ports are available.</p>
+  </description>
+</component>

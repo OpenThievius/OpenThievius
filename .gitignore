@@ -26,3 +26,9 @@ Thumbs.db
 # Agent worktrees and local settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# Tauri launcher build output and installed JavaScript dependencies.
+/launcher/node_modules/
+/launcher/dist/
+/launcher/target/
+/launcher/.svelte-kit/

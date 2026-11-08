@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#526783"/><stop offset=".58" stop-color="#394958"/><stop offset="1" stop-color="#1b282d"/></linearGradient>
+    <radialGradient id="glow" cx=".62" cy=".4" r=".5"><stop stop-color="#d6c48d" stop-opacity=".6"/><stop offset="1" stop-color="#d6c48d" stop-opacity="0"/></radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="backdrop" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <g filter="url(#backdrop)">
+  <rect width="1600" height="900" fill="url(#sky)"/><rect width="1600" height="900" fill="url(#glow)"/>
+  <g fill="#18252a" opacity=".62"><path d="M0 620h110V410h120v210h75V330h142v290h82V455h145v165h89V280h155v340h72V390h128v230h92V345h170v275h99V420h100v200h103v280H0Z"/><path d="M0 700h160v-65h115v65h128v-94h143v94h130v-59h154v59h153v-86h144v86h140v-54h145v54h188v200H0Z" fill="#142126"/></g>
+  <path d="M0 760q400-75 800 0t800-8v148H0Z" fill="#263b3d" opacity=".8"/><rect width="1600" height="900" fill="#0d1518" opacity=".3"/>
+  </g>
+</svg>
