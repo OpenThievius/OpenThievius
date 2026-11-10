@@ -9,42 +9,30 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Last checked against `sly1-decomp` commit `2e00ac70` (PR #109), whose NTSC-U
-report is 4,741/4,807 matched functions, 91.66% matched code bytes, and 93.71%
-matched data bytes. Since the previous port snapshot `23bf912b`, upstream has
-66 commits and five more exact US functions. The direct host32 build compiles
-168/171 source units and all 57 active native backfill units. It maps 4,320
-catalogued function addresses and defines 815/829 functions in the direct-call
-frontier. The three source-unit failures are the exception/RTTI runtime under
-the current `-fno-rtti` flags.
+The public `OpenThievius/sly1-decomp` master is at `2e00ac70` (PR #109,
+2026-11-06); the local read-only checkout at `/home/reaper/Code/sly1-decomp`
+is clean but still at `e1b39f1`. The current SDL hostgen build uses the
+reworked snapshot and translates 2,043 C functions plus 234 selected US
+assembly functions, with no generated stubs. It builds with
+`cmake --build build/port --target port_native -j2`.
 
-The old port-only `func_00162890` reader is archived under
-`hand/superseded_backfills/`; the direct build uses upstream's matched
-`ReadPlacedObjectModel`. Host staging passes the implicit EE world argument to
-the callback allocator and replaces an undefined cross-object script cleanup
-loop with a defined reverse array walk. Startup now reaches packet submission.
-The previous crash in `func_001613C0` was caused by an uninitialized GIF packet
-writer. The port-only `func_001FAD68` backfill now calls the retail
-`ResetPacketWriters` callback in both host32 and SDL paths. SDL opens its window
-and enters repeated frames. The earlier apparent thunk-map fault was an
-AddressSanitizer use-after-free during shutdown: the quit path detached the
-guest thread, then global guest-function maps were destroyed while it
-continued executing. The live trace reports `app_state=3`, `frame_count=1`,
-`scene_gate=0`, 37 UI objects, and no visible text, scene vertices, image
-tags/qwords, or blit writes; `active_world=0`. Startup accepts initialization
-GIF chains that decode to zero vertices, and the root object has no children.
-The quit path now exits without detaching the guest worker. The diagnostic remains black and is not
-playable. See
+The current startup run now queues and loads the initial world, registers four
+fonts, and submits 240 raw vertices in some frames. It remains visually black:
+there are no recorded GIF image tags or image qwords, no blit writes, and no
+visible text. `func_001E4E80` (`QueueWorldLoad`) and the screen image record
+readers `func_001B2BA8` / `func_001B2CF8` are active port-only backfills under
+`hand/native_c/`, registered in `hand/backfills.tsv`; their behavior must be
+replaced by hostable decomp source when available. The latest trace is
+`/tmp/sly-vif-dma-debug.log`. Exact US assembly is selected for the reached
+image-mask uploader and related screen packet builders, but the trace still
+shows no GIF image tags. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
-trace and next diagnosis.
+blocker and next trace target.
 
-The SDL hostgen path is built from the same `2e00ac70` snapshot. CMake now
-directs hostgen output to its configured build directory. The last run is
-recorded at `/tmp/sly-2e00ac70-sdl-packetinit-run.log`.
+These build counts measure host compatibility, not decomp coverage. The port
+is not playable. The direct host32 diagnostic is separate from the SDL graphics
+frontend.
 
-Build counts measure host compatibility, not decomp coverage. The port is not
-playable. The separate freestanding host32 diagnostic does not provide a
-visible presentation path.
 ## Backfill policy
 
 Keep behavior replacements here or under `hand/native_c/`, never in the

@@ -1,29 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-10 against decomp commit `2e00ac70` (PR #109). Its
-NTSC-U report has 4,741/4,807 functions matched, 91.66% of code bytes, and
-93.71% of data bytes. The direct host32 build compiles 168/171 source units and
-57 native backfill units, maps 4,320 catalogued function addresses, and defines
-815/829 functions in its direct-call frontier. SDL hostgen uses the same source
-snapshot and builds 561 C functions plus 242 selected assembly translations.
-The port staging adapter fixes
-the invalid modern-GCC cleanup loop and preserves the required EE callback
-argument. A startup fault in `func_001613C0` was traced to the uninitialized GIF
-packet writer; the port-only `func_001FAD68` bridge calls the retail
-`ResetPacketWriters` initializer in both native build paths. SDL opens a window
-and enters repeated frames. The earlier apparent thunk-map fault was an
-AddressSanitizer use-after-free during shutdown: the quit path detached the
-guest thread and let global guest-function maps be destroyed while it
-continued running. The live startup trace instead shows `app_state=3`,
-`frame_count=1`, `scene_gate=0`, 37 UI objects, zero visible text, zero scene
-vertices, zero image tags/qwords, zero blit writes, and `active_world=0`.
-Startup accepts initialization GIF chains, but they decode to zero vertices;
-the root object has no children. The quit path now exits without detaching the guest thread.
-The actual graphics blocker is the missing transition from this live state to
-a world/menu that submits visible content. Follow that retail state/load
-transition first, then confirm its packets reach SDL. `PLAYABLE_TODO.md` has
-the detailed state.
+Last checked: 2026-11-10. The public decomp master is `2e00ac70` (PR #109,
+2026-11-06); the clean local checkout is older at `e1b39f1`. Against the
+reworked source, SDL hostgen translates 2,043 C functions and 234 selected US
+assembly functions with zero generated stubs. The native SDL build succeeds.
+
+Startup now reaches the initial resource, sets `g_currentWorld=0x006abdd0`,
+registers four fonts, and submits 240 raw vertices on some frames. It is still
+visually black: samples are `0x80000000`, with zero GIF image tags/qwords,
+blit writes, and visible text. The resource tables now contain 61 image
+records and 63 palette records; four font IDs are registered. Port-only
+`QueueWorldLoad` and image record readers remain separate under
+`hand/native_c/` and `hand/backfills.tsv`. Exact US assembly is enabled for the
+reached image-mask upload and screen packet builders. Those functions remove
+several no-op stubs, but image tags remain at zero. The VIF trace shows later
+direct streams are accepted and an earlier 48-byte startup transfer has a
+malformed `DIRECT` count. Latest trace: `/tmp/sly-vif-dma-debug.log`. Next,
+inspect why accepted texture streams produce no GIF image tags and why visible
+UI geometry is black. Detailed progress is in
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
 
 The graphics traces and captures below are historical from the earlier SDL
 build. Their render-list and texture observations remain useful once the

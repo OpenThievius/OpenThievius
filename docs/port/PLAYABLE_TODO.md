@@ -3,56 +3,55 @@
 
 ## Current status (2026-11-10)
 
-The latest decomp is `2e00ac70` (PR #109, night 16), fetched from the sibling
-repo's `origin/master` as a clean archive at `/tmp/sly1-decomp-2e00ac70`. The
-separate `/home/reaper/sly/sly1-decomp` checkout is still clean at `d5340060`,
-317 commits behind; it was not modified. Since the port's former `23bf912b`
-snapshot, upstream has 66 commits and a broad source reorganization. Five more
-US functions became exact: `func_00118988`, `func_00181078`, `func_00185538`,
-`func_00187260`, and `func_001F3140`. The report now has 4,741/4,807 functions
-(98.63%), 91.66% of code bytes, and 93.71% of data bytes matched.
+The public `OpenThievius/sly1-decomp` master is `2e00ac70` (PR #109,
+2026-11-06). The clean local checkout at `/home/reaper/Code/sly1-decomp` is
+older at `e1b39f1`; I reviewed the newer read-only snapshot at
+`/tmp/sly1-decomp-2e00ac70` and did not change the decomp repo. Its NTSC-U
+report has 4,741/4,807 functions matched, 91.66% code, and 93.71% data. The
+rework names the screen resource tables, font registry, and loader routines.
 
-The direct host32 adapter compiles 168/171 source units and 57/57 active native
-backfill units. Three source failures remain in the exception/RTTI runtime
-under the current `-fno-rtti` flags. The combined build contains 225 objects,
-maps 4,320/4,807 catalogued function addresses, and defines 815/829 functions
-in the direct-call frontier (14 missing). Host staging preserves the selected
-EE ABI, alignment, and cleanup-loop adaptations without editing decomp source.
+The SDL hostgen build translates 2,043 C functions and 234 selected US
+assembly functions, with zero generated stubs (2,582 catalogued functions
+still have no C). `cmake --build build/port --target port_native -j2` succeeds
+and links `build/port/sly1_native`. These are host coverage figures, not
+matching-decomp percentages. The independent direct host32 build is a separate
+diagnostic path.
 
-The reworked source also generates and links through the SDL hostgen path: 561
-C functions and 242 selected assembly translations are available (4,082
-catalogued functions still have no C). Five newly exact upstream functions
-include `SampleScriptAnimation` (`func_00118988`), `ControlModeWalker`
-(`func_00181078`), `GetAimRotation` (`func_00185538`), `CollectMeshHits`
-(`func_00187260`), and `ComputeOscillatorMaxDisplacement` (`func_001F3140`).
-The SDL path now writes into its configured CMake build directory; previously
-the generator silently used the repository's default build path.
+**Trace-label correction (2026-11-10):** the earlier diagnostic called
+`0x00275BC4` an app state, `0x00275BF0` an app-state mode, `0x00275F84` a scene
+gate, and `0x00262C68` a state selector. Current decomp identifies
+`0x00275BF0` as a ten-word table, `0x00275F84` as the screen-fade mode, and
+`0x00262C68` as pad routing. The other two values are now reported as raw
+addresses. Do not use the earlier `app_state=3` / `scene_gate=0` conclusions.
 
-**Latest startup checkpoint (2026-11-10):** the latest-source run passes the
-previous invalid `ScriptValue` cleanup and reaches packet submission at
-`func_001613C0`. Its first attempt faulted at `0x0808e0bf` because the GIF
-packet writer had never been initialized. The host replacement for
-`func_001FAD68` walked the host CRT init array, but the retail init table also
-contains the explicit `ResetPacketWriters` callback (`func_0015F658`), which
-is not a C++ global constructor. The port-only initializer now calls that
-function after host initialization. The rebuilt direct host32 diagnostic ran
-for 10 seconds without the packet-writer fault and was stopped by timeout
-(exit 124). The SDL path had a no-op for `func_001FAD68`; the same narrow
-initializer bridge is now registered in its separate `hand/native_c` backfill
-path. Its next 12-second run passes packet submission, then faults at host
-address `0x38` (later at an unspecified address) while
-`game_sly1_native_call_regs4` dispatches methods from `func_001A9FD0` /
-`func_001E9108`. The AddressSanitizer report shows this thunk-map
-use-after-free happens at process shutdown: the quit path detached the guest
-thread, then global guest-function maps were destroyed while it continued
-executing. This was not evidence of an in-game thunk lookup fault. The live
-window remains black; its latest trace reports `app_state=3`, `frame_count=1`,
-`scene_gate=0`, 37 UI objects, no visible text, no scene vertices, no image
-tags/qwords, no blit writes, and `active_world=0`. It accepts initialization
-GIF chains, but these decode to zero vertices. The root object has no children.
-The SDL quit path now terminates without detaching the worker or destroying
-shared renderer state underneath it. Latest bounded trace:
-`/tmp/sly-2e00ac70-bounded-callback.log`.
+**Latest startup checkpoint (2026-11-10):** the earlier empty world was caused
+by the no-op `func_001E4E80` (`QueueWorldLoad`), which cleared the screen fade
+without writing a load request. A port-only retail-equivalent queue routine is
+now registered in `hand/backfills.tsv`. The next native SDL run opened the
+initial resource at sector 820,372 (150,849 bytes), loaded the world, and
+registered four fonts instead of faulting on a null font. It now has
+`g_currentWorld=0x006abdd0` and emits 240 raw vertices on some frames (117
+inside the viewport). The window is still visually black: sampled vertex
+colors are `0x80000000`, image-tag/qword counts and blit writes remain zero,
+and `visible_text=0`. This is progress through startup, not playable graphics.
+
+The latest decomp identifies `func_001B2BA8` / `func_001B2CF8` as the image
+record table readers and `func_0015D8A8` as `LoadFont`. Hostgen still leaves
+the image readers without C, so a separate port-only implementation now
+parses their retail record sizes, offsets, and mask counts in
+`hand/native_c/image_records.c`. The trace confirms 61 image records, 63
+palette records, and four registered font IDs. The exact US assembly for
+`func_00169780` (`UploadImagesByMask`), `func_001B3488`
+(`SwitchActiveImageMask`), `func_001B3510` (`BuildAnimRecordGifPackets`), and
+`func_001614C8` (`AddGifUvEntry`) is now selected in hostgen because these
+reached routines have no C and were previously stubs. The build succeeds, but
+the follow-up still reports zero GIF image tags and zero non-black visible
+output. `OPENRAC_VIF_TRACE=1` shows the later VIF direct streams are accepted;
+an earlier 48-byte startup transfer contains a malformed `DIRECT` count and
+is rejected. Traces: `/tmp/sly-screen-resource-tables.log`,
+`/tmp/sly-vif-dma-debug.log`. Exit 124 is the expected timeout, not a guest
+crash. Next, inspect why the accepted texture streams do not produce GIF image
+tags and why visible UI geometry has color `0x80000000`.
 
 The port-only `func_00125C90` implementation remains based on the current
 99.7% upstream near-match, still not exact. Its active copy stays in
@@ -61,11 +60,12 @@ now holds the small text-layout setter backfills for `func_00137228` and its
 adjacent entries. Retire these when the corresponding hostable decomp code is
 available.
 
-**Next:** trace why the live game remains in app state 3 with no active world
-or render submissions. Follow the retail state/load transition and identify
-the first producer expected to create a visible object or menu; then verify
-that packet reaches the SDL renderer. The port is not playable and no actual
-game graphics have been seen.
+**Next:** trace the render packets and image upload path after
+`LoadScreenResources`: confirm the new image record readers run, inspect the
+loaded font atlas/palette records, and find why the renderer accepts chains
+but records no image tags or non-black visible output. Keep each functional
+replacement in the port backfill area and retire it when matching source is
+hostable. The port is not playable yet.
 
 `func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
 A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is
@@ -77,17 +77,13 @@ implicit EE argument-register carryover explicit; and animation callbacks use
 their declared vtable argument order. `func_001F5B08` remains a separate
 port-native backfill for the still-assembly libc memmove routine.
 
-The regular SDL hostgen path has been built against the rework: it now
-translates 561 C functions and 242 selected assembly routines. The remaining
-callback fault is at host address `0x38`, following the port-only packet-writer
-initializer bridge. The port is not playable. Previous SDL traces remain
-historical evidence of frame state `0,3,0`, no visible text
-or scene geometry, and no confirmed game artwork. The latest source clarifies
-movie state at `D_00269A00`: `+4` is the queued movie, `+8` its successor,
-`+0xC` the stream reader, and `+0x134` the decode thread step. `RunMainLoop`
-drains the queue before and after world loading; `func_0018E4F0`
-(`QueueMovieWithSuccessor`) stores the successor. The latest-source host32
-run has not yet reached the SDL graphics investigation.
+The regular SDL hostgen path has been built against the rework. Earlier SDL
+traces below remain historical evidence; they predate the queue and image
+record backfills. The latest source clarifies movie state at `D_00269A00`:
+`+4` is the queued movie, `+8` its successor, `+0xC` the stream reader, and
+`+0x134` the decode thread step. `RunMainLoop` drains the queue before and
+after world loading; `func_0018E4F0` (`QueueMovieWithSuccessor`) stores the
+successor.
 
 **Prior contact startup checkpoint (2026-11-10):** the active `0x00185D20` and
 `0x001860A8` backfills were mislabeled draw-entry helpers. Both were removed

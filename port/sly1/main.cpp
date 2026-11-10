@@ -900,10 +900,16 @@ int main(int argc, char** argv) {
                 std::uint32_t active_world = 0;
                 std::memcpy(&active_world, openrac_guest_base + 0x00275710u, 4);
                 std::uint32_t font_count = 0, font_array = 0, default_font = 0;
+                std::uint32_t image_count_a = 0, image_records_a = 0;
+                std::uint32_t image_count_b = 0, image_records_b = 0;
                 std::uint32_t font_ids[4]{};
                 std::memcpy(&font_count, openrac_guest_base + 0x00262260u, 4);
                 std::memcpy(&font_array, openrac_guest_base + 0x00262264u, 4);
                 std::memcpy(&default_font, openrac_guest_base + 0x0026227Cu, 4);
+                std::memcpy(&image_count_a, openrac_guest_base + 0x00274500u, 4);
+                std::memcpy(&image_records_a, openrac_guest_base + 0x00274504u, 4);
+                std::memcpy(&image_count_b, openrac_guest_base + 0x00274508u, 4);
+                std::memcpy(&image_records_b, openrac_guest_base + 0x0027450Cu, 4);
                 std::memcpy(font_ids, openrac_guest_base + 0x00262268u,
                             sizeof(font_ids));
                 std::uint32_t game_mode = 0;
@@ -930,7 +936,10 @@ int main(int argc, char** argv) {
                 std::int32_t state_data_mode = 0;
                 std::uint16_t state_data_flags = 0;
                 std::uint32_t state_transition_flags = 0;
-                std::int32_t scene_gate = 0;
+                std::int32_t screen_fade_mode = 0;
+                std::uint32_t screen_fade_request[6]{};
+                std::uint32_t world_load_request[5]{};
+                std::uint32_t last_world_key[8]{};
                 std::uint32_t scene_pending = 0;
                 std::int32_t scene_pending_state = -1;
                 std::uint16_t frame_flags_a = 0;
@@ -1049,8 +1058,14 @@ int main(int argc, char** argv) {
                             (deferred_cursor - 0x005E4700u) / 0x80u;
                     }
                 }
-                std::memcpy(&scene_gate, openrac_guest_base + 0x00275F84u,
-                            sizeof(scene_gate));
+                std::memcpy(&screen_fade_mode, openrac_guest_base + 0x00275F84u,
+                            sizeof(screen_fade_mode));
+                std::memcpy(screen_fade_request, openrac_guest_base + 0x00275F90u,
+                            sizeof(screen_fade_request));
+                std::memcpy(world_load_request, openrac_guest_base + 0x00275AF0u,
+                            sizeof(world_load_request));
+                std::memcpy(last_world_key, openrac_guest_base + 0x00275B04u,
+                            sizeof(last_world_key));
                 std::memcpy(&frame_flags_a, openrac_guest_base + 0x00262D38u + 0xAAu,
                             sizeof(frame_flags_a));
                 std::memcpy(&frame_flags_b, openrac_guest_base + 0x00262C70u + 0xAAu,
@@ -1133,9 +1148,10 @@ int main(int argc, char** argv) {
                         std::cerr << std::hex << word << ',';
                 }
                 std::cerr << std::dec
-                          << " sly_frame=" << frame_state[0] << ',' << frame_state[1]
-                          << ',' << frame_state[2] << " frame_count=" << frame_state[11]
-                          << " frame_top=0x" << std::hex << frame_top
+                          << " element_stack_prefix=" << frame_state[0] << ','
+                          << frame_state[1] << ',' << frame_state[2]
+                          << " element_stack_count_candidate=" << frame_state[11]
+                          << " element_stack_top=0x" << std::hex << frame_top
                           << ",vtable=0x" << frame_top_vtable
                           << ",callback=0x" << frame_top_callback
                           << ",mode=0x" << frame_top_mode
@@ -1151,7 +1167,7 @@ int main(int argc, char** argv) {
                           << global_state[4] << ',' << global_state[5] << ','
                           << global_state[6] << ',' << global_state[7] << ','
                           << global_state[8] << ',' << global_state[9] << std::dec
-                          << " game_mode=" << game_mode << " current_object=0x" << std::hex
+                          << " raw_264a58=" << game_mode << " current_world=0x" << std::hex
                           << current_object << " menu=" << std::dec << menu_mode << ','
                           << menu_state[0] << ',' << menu_state[1] << ',' << menu_state[2]
                           << " menu_anim=" << menu_blend << ',' << menu_since << ','
@@ -1159,7 +1175,18 @@ int main(int argc, char** argv) {
                           << " menu_data=" << std::hex << menu_font << ',' << menu_title
                           << ',' << menu_count << ',' << menu_items << ',' << menu_glyph_count
                           << ',' << menu_glyphs << std::dec
-                          << " load_request=" << std::hex << pending_resource << std::dec
+                          << " world_load_state=" << world_load_request[0]
+                          << " world_load_key=0x" << std::hex << world_load_request[1]
+                          << " world_load_f8=0x" << world_load_request[2]
+                          << " world_load_fc=0x" << world_load_request[3]
+                          << " world_load_flags=0x" << world_load_request[4]
+                          << " last_world_key=" << std::hex
+                          << last_world_key[0] << ',' << last_world_key[1] << ','
+                          << last_world_key[2] << ',' << last_world_key[3] << ','
+                          << last_world_key[4] << ',' << last_world_key[5] << ','
+                          << last_world_key[6] << ',' << last_world_key[7]
+                          << std::dec << " resource_request=0x" << std::hex
+                          << pending_resource << std::dec
                           << " movie_index=" << std::dec << movie_player[0]
                           << " movie_queued=0x" << std::hex << movie_player[1]
                           << " movie_queued_next=0x" << movie_player[2]
@@ -1284,22 +1311,29 @@ int main(int argc, char** argv) {
                           << " world_job_queue=0x" << std::hex
                           << world_job_queue[0] << ",0x" << world_job_queue[1]
                           << std::dec << " deferred_requests=" << deferred_request_count
-                          << " map_selection=0x" << std::hex << scene_pending << std::dec
-                          << " state_selector=0x" << std::hex << frame_selector << std::dec
-                          << " app_state=" << app_state
-                          << " app_state_started=" << app_state_started_at
+                          << " raw_26f808_260=0x" << std::hex << scene_pending << std::dec
+                          << " pad_routing=0x" << std::hex << frame_selector << std::dec
+                          << " raw_275bc4=" << app_state
+                          << " raw_275bc8=" << app_state_started_at
                           << " app_clock=" << app_clock
-                          << " app_state_mode=" << app_state_mode
-                          << " state_data=0x" << std::hex << state_data_address
-                          << " mode=" << std::dec << state_data_mode
-                          << " flags=0x" << std::hex << state_data_flags
-                          << " transition_flags=0x" << state_transition_flags << std::dec
+                          << " table_275bf0_first=" << app_state_mode
+                          << " selected_pad_record=0x" << std::hex << state_data_address
+                          << " pad_record_mode=" << std::dec << state_data_mode
+                          << " pad_record_pressed=0x" << std::hex << state_data_flags
+                          << " pad_routing_flags=0x" << state_transition_flags << std::dec
                           << " pad_report=0x" << std::hex << pad_report << std::dec
                           << " pad_mode=" << pad_mode << " pad_state=" << pad_state
                           << " pad_buttons=0x" << std::hex << pad_buttons
                           << " pad_pressed=0x" << pad_pressed << std::dec
-                          << " scene_gate=" << scene_gate << " pending_state="
-                          << scene_pending_state << " state_flags=" << std::hex
+                          << " screen_fade_mode=" << screen_fade_mode
+                          << " screen_fade_active=" << screen_fade_request[0]
+                          << ",key=0x" << std::hex << screen_fade_request[1]
+                          << ",f08=0x" << screen_fade_request[2]
+                          << ",fc=0x" << screen_fade_request[3]
+                          << ",flags=0x" << screen_fade_request[4]
+                          << " style=0x" << screen_fade_request[5] << std::dec
+                          << " map_entry_raw_state="
+                          << scene_pending_state << " pad_pressed_words=" << std::hex
                           << frame_flags_a << ',' << frame_flags_b << std::dec
                           << " elapsed=" << frame_elapsed
                           << " dispfb1=0x" << std::hex << dispfb1
@@ -1365,6 +1399,10 @@ int main(int argc, char** argv) {
                           << font_count << ",0x" << std::hex << font_array << ",0x"
                           << default_font << " ids=" << font_ids[0] << ','
                           << font_ids[1] << ',' << font_ids[2] << ',' << font_ids[3]
+                          << " image_records_a=" << std::dec << image_count_a << ",0x"
+                          << std::hex << image_records_a << " image_records_b="
+                          << std::dec << image_count_b << ",0x" << std::hex
+                          << image_records_b
                           << std::dec << " samples=";
                 for (std::uint32_t i = 0; i < ui_sample_count; ++i) {
                     const UiSample& sample = ui_samples[i];
