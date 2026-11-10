@@ -491,7 +491,7 @@ extern "C" void sly1_native_trace_loader_stage(u32 stage, u32 value,
     if (!g_startup_trace_enabled || reader_ptr == 0) return;
     // Keep the high volume object field reads out of the log. These points
     // bracket the scene record parsers and identify their decoded values.
-    if (stage != 3 && stage != 4 && (stage < 21 || stage > 25) &&
+    if (stage != 3 && stage != 4 && (stage < 21 || stage > 28) &&
         (stage < 29 || stage > 33)) return;
     const auto* reader = reinterpret_cast<volatile const u32*>(reader_ptr);
     write_hex("native host32: loader stage ", (int)stage);

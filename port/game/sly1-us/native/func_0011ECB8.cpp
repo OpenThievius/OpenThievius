@@ -34,6 +34,8 @@ extern "C" void func_0011ECB8(void* world, void* parameter, void* reader) {
 
         const u32 vtable = *reinterpret_cast<u32*>(object);
         const u32 read_method = vtable != 0 ? *reinterpret_cast<u32*>(vtable + 14u * 4u) : 0;
+        sly1_native_loader_stage(26, vtable, (u32)reader);
+        sly1_native_loader_stage(27, read_method, (u32)reader);
         if (read_method == 0x0013B598u) {
             call_retail_regs4(0x001BAC30u, (u32)object, (u32)reader, 0, 0);
             call_retail_regs4(0x00159478u, (u32)object + 0x5BCu,
@@ -41,6 +43,7 @@ extern "C" void func_0011ECB8(void* world, void* parameter, void* reader) {
         } else if (read_method != 0) {
             call_retail_regs4(read_method, (u32)object, (u32)reader, 0, 0);
         }
+        sly1_native_loader_stage(28, read_method, (u32)reader);
 
         const s32 index = key - 12;
         if (index >= 0 && index < 31) {

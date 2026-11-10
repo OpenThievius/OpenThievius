@@ -64,6 +64,21 @@ object loading begins, then continue following the first renderable world
 object and frame submission. The port remains not playable and no actual game
 image has been confirmed.
 
+**Canonical loader dispatch trace (2026-11-10):** the direct build now stages
+the reworked `remote_call.cpp` method name while preserving the port-only SIF
+completion boundary. Rebuilding against `../sly1-decomp` still compiles 162/171
+source units; combining them resolves 4,218/4,807 catalogued functions and
+784/815 functions in the reachable direct-call frontier. A fresh 15-second
+native run reaches `LoadGroupMembers` on object `0x0084c400` (class descriptor
+`0x08147ac0`) at stream cursor `0x70001077`. Its descriptor selects reader
+callback `func_001587C8` (`LoadGroupMembers`); execution then faults during a
+nested object's virtual read callback at low address `0x556`. This narrows the
+next investigation to the port-only `CreateTypedRecord`/`func_0011E580` object
+construction and class descriptor method slot used by the nested record. Do
+not change upstream matching behavior: any native factory or dispatch fix
+belongs in `hand/native_c/` and the backfill registry. Trace:
+`/tmp/sly-canonical-native-stage26.log`.
+
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++
 header constructs. `func_00125C90` remains `INCLUDE_ASM` in the latest

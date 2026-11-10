@@ -861,10 +861,10 @@ def main(argv=None):
             # native startup path handles a resource request.
             hook = 'extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
             adapted = hook + adapted
-            signature = "void func_001E4EA8(Self_1E4EA8* self)\n{"
+            signature = "void RunPendingWorldLoad(WorldLoadRequest* self)\n{"
             replacement = (
                 signature + "\n"
-                "    sly1_native_trace_resource_state((u32)self, (u32)self->f4, "
+                "    sly1_native_trace_resource_state((u32)self, (u32)self->key, "
                 "(u32)D_00275710);"
             )
             if adapted.count(signature) != 1:
@@ -896,8 +896,8 @@ def main(argv=None):
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one IOP service-start definition in " +
                                    rel.as_posix())
-        elif (rel.as_posix() == "lib/001F8000.cpp" or
-              "BindRemoteService(" in adapted or "func_001F80C0(" in adapted):
+        elif (rel.as_posix() == "lib/remote_call.cpp" or
+              re.search(r"(?m)^s32 (?:func_001F80C0|BindRemoteService)\(", adapted)):
             # SIF RPC completion for the two sound bootstrap services has no
             # IOP peer in the host build. Keep the matching implementation in
             # staged source, and let a port-only synchronous boundary own the
@@ -907,6 +907,14 @@ def main(argv=None):
                 r"BindRemoteService\(RemoteCallClient\* self, u32 cmd, s32 mode\))(?=\n\{)",
                 lambda match: match.group(0).replace("func_001F80C0", "decomp_func_001F80C0")
                 .replace("BindRemoteService", "decomp_BindRemoteService"), adapted)
+            # The latest reorganization moved this address into the shared
+            # remote_call.cpp unit. Match its Ctx and named method forms, but
+            # only in the unit whose config/files.tsv range owns 0x1F80C0.
+            if replacements == 0 and rel.as_posix() == "lib/remote_call.cpp":
+                adapted, replacements = re.subn(
+                    r"(?m)^s32 BindRemoteService\(RemoteCallClient\* self, u32 cmd, s32 mode\)(?=\n\{)",
+                    "s32 decomp_BindRemoteService(RemoteCallClient* self, u32 cmd, s32 mode)",
+                    adapted)
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one SIF RPC definition in " + rel.as_posix())
         elif rel.as_posix() == "main/00150000.cpp":
