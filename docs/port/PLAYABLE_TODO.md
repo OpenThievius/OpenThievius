@@ -3,66 +3,52 @@
 
 ## Current status (2026-11-10)
 
-The latest canonical decomp source is now checked out read-only at
-`../sly1-decomp`, commit `d534006` (PR #102). It reports matching C for
-4,667/4,807 NTSC-U functions (85.76% of code bytes). The large source
-reorganization adds whole-file C++ units and class/global metadata. That
-coverage is not yet usable by this port's C hostgen: a C-only run against this
-snapshot read 238 units, translated 563 functions, stubbed 2, and left 4,323
-without C. The staging layer currently fails on C++ methods/templates and
-flattened inherited fields in shared headers. Do not compare the 563 directly
-with decomp matching coverage; it measures hostgen compatibility. The
-configured `build/port` CMake cache still points to the older
-`/home/reaper/Code/sly1-decomp` checkout (`e1b39f1`); its build uses 2,044 C
-translations plus 230 assembly translations, with zero stubs. I tested the
-reworked source through the separate direct i386 compiler in
-`build/port/canonical-host32/`. The staging adapter now compiles 162/171
-decompilation units and all 100 port backfills. It combines 4,218/4,807
-catalogued functions, and the reachable call closure is 784/815. The remaining
-unit failures are concentrated in legacy exception/runtime code and a handful
-of newer class/header boundaries. The old CMake cache remains untouched; this
-canonical-source probe uses its own build directory and does not overwrite the
-known-good older-source build.
+The latest decomp is `330d67e1` (PR #107), fetched from the sibling repo's
+`origin/master`; the local sibling checkout remains clean at `d534006`. The
+rework reorganizes whole-file source and adds substantial matched player,
+camera, script, text, collision, loader, and IOP code. NTSC-U reports
+4,729/4,807 functions matched (98.38%) and 90.36% of code bytes. Port builds
+use the detached source snapshot `/tmp/sly1-decomp-330d67e`.
 
-The adapter handles the rework's named whole-file units, lowers GCC 2.95 named
-returns and `>?`/`<?` operations in staged copies, replaces used VU0 operations
-with host scalar math, and stages all headers so nested quoted includes receive
-the same host adaptations. Port-native replacements still take precedence by
-retail address; staged upstream definitions are renamed while their calls
-continue to route through the port boundary. New compatibility views for C51
-and V24A0 live under `port/sly1/host32/include/`, and an existing port backfill
-now uses the canonical `TextReader` header. No decomp checkout source was
-edited.
+The direct host32 adapter compiles 168/171 source units and 55 active native
+backfill units. Three exception/RTTI library units still do not compile with
+the current `-fno-rtti` flags. The combined build contains 223 objects,
+resolves 4,301 catalogued function addresses, and defines 806/827 functions in
+the direct-call frontier. A bounded launcher run now advances past several
+newly source-owned camera, packet, and color helpers. It still shows no
+graphics and currently faults in `func_001303F0` on a bad output pointer while
+`EvaluateTangentWeightCurve` enters the reworked curve path. Investigate the
+curve callback's registration and call-site ABI before adding a backfill.
 
-The port remains not playable. The last confirmed native run (Nov 7) stayed
-black at frame state `0,3,0` with no visible text or scene geometry. The latest
-source clarifies the movie queue at `D_00269A00`: `+4` is the queued movie,
-`+8` its queued successor, `+0xC` the stream reader, and `+0x134` the decode
-thread step. `RunMainLoop` drains the queue before world loading and again
-afterward; `func_0018E4F0` (`QueueMovieWithSuccessor`) stores the successor.
-This supersedes the older note below that mislabeled `0x00269A04..0x00269A10`
-as thread-dispatch state. The native trace now reports these movie fields by
-their decomp-confirmed names. A fresh 12-second native run using the existing
-CMake input showed `movie_queued=0`, `movie_queued_next=0`, and
-`movie_reader=0` through 5.45 seconds of guest time; frame state remained
-`0,3,0`, and the captured window remained black. It briefly reported 240
-vertices at 0.92 and 1.42 seconds, but this is not confirmed game artwork.
-Next: make the current decomp's main-loop/movie units hostable, then trace the
-state-sequence message producer if the queue remains empty.
+Host-only ABI compatibility adjustments stay in this repository's staging
+script: four-word globals retain EE quadword alignment; selected functions
+make implicit EE argument-register carryover explicit; and overloaded camera
+math calls route to the source-owned helpers with the intended argument order.
+`func_001F5B08` is a separate native backfill for the still-assembly libc
+memmove routine. These changes leave the decomp source untouched. Older
+port-native replacements for functions now matched in the rework were moved
+under `hand/superseded_backfills/` so they no longer shadow source.
 
-**Canonical source launcher checkpoint (2026-11-10):** the native launcher now
-passes its static initialization path and advances into game object startup.
-The latest 15-second run did not reach a stable frame: it segfaulted at guest
-address `0x00000556` during startup after the initializer callbacks, with no
-visible graphics. Previous blockers on the way were `InitRecursiveLock`,
-`InitDisplay`, `InitPadSystem`, `InitRenderFrames`, `InitSoundSystem`, and
-`ReadSlotObjects`; their current upstream bodies or separate port backfills
-now compile/link in the canonical build. A backfill boundary for
-`ReadSlotObjects` exports the distinct C++ call signatures used by the new
-grouped units. The next task is to trace the low-address indirect call after
-object loading begins, then continue following the first renderable world
-object and frame submission. The port remains not playable and no actual game
-image has been confirmed.
+The regular SDL hostgen path is not yet compatible with the rework: it
+translates 560 C functions and 242 selected assembly routines, then faults in
+callback dispatch at `0xF108`; the configured
+`build/port/native-resource` cache still points to
+`/home/reaper/Code/sly1-decomp` (`e1b39f1`). The port is not playable. Previous
+SDL traces remain historical evidence of frame state `0,3,0`, no visible text
+or scene geometry, and no confirmed game artwork. The latest source clarifies
+movie state at `D_00269A00`: `+4` is the queued movie, `+8` its successor,
+`+0xC` the stream reader, and `+0x134` the decode thread step. `RunMainLoop`
+drains the queue before and after world loading; `func_0018E4F0`
+(`QueueMovieWithSuccessor`) stores the successor. The latest-source host32
+run has not yet reached the SDL graphics investigation.
+
+**Prior contact startup checkpoint (2026-11-10):** the active `0x00185D20` and
+`0x001860A8` backfills were mislabeled draw-entry helpers. Both were removed
+from the active map and preserved under `hand/superseded_backfills/`. The
+`0x3f800000` fault was later cleared by retiring the separate `0x0011E580`
+factory override in the direct build. The current direct-build blocker is
+`func_00125C90`; that was the checkpoint's next task, before the newer host
+ABI failures summarized above.
 
 **Canonical loader dispatch trace (2026-11-10):** the direct build now stages
 the reworked `remote_call.cpp` method name while preserving the port-only SIF
@@ -91,21 +77,17 @@ capped-list call, plus its reader ABI; do not replace `LoadRecordMember` unless
 evidence shows the matching function itself is incompatible with the host ABI.
 Trace: `/tmp/sly-canonical-path-curve.log`; core: `/tmp/sly-pathlatest.core`.
 
-**Native ABI and mesh-load follow-up (2026-11-10):** the capped-list fault was
+**Earlier native ABI and mesh-load follow-up (2026-11-10):** the capped-list fault was
 caused by `ReadBufferedU32` being declared as a one-word aggregate in the
 reworked `file_1549C8.cpp`; i386 SysV therefore passed a hidden result pointer
 where the retail scalar reader expects its stream. The host staging copy now
 uses a scalar `s32` for that call while preserving the same 32-bit payload. A
 port-only `func_001E4C48` mesh-table reader fills the still-`INCLUDE_ASM` retail
 entry, and the native address map now prefers the factory backfill's canonical
-C symbol while retaining its prototype aliases. The rebuilt launcher passes
-nested capped-list parsing and reaches world contact updates. Its latest core
-faults at EIP `0x3f800000` while dispatching `ContactPartVt::f110` from
-`UpdateWorldContacts`; the pointer comes from contact-part state at
-`0x00846f00`. No graphics were displayed. Next trace the producer and layout
-of that contact-part vtable pointer before deciding whether a host-only guard
-is needed. Trace: `/tmp/sly-canonical-after-mesh.log`; core:
-`/tmp/sly-after-mesh.core`.
+C symbol while retaining its prototype aliases. The rebuilt launcher passed nested capped-list parsing and reached world
+contact updates. The callback fault was later traced to the mislabeled active
+port backfills; see the latest-source checkpoint above. Trace:
+`/tmp/sly-canonical-after-mesh.log`; core: `/tmp/sly-after-mesh.core`.
 
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++

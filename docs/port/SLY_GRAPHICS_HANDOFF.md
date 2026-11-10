@@ -1,15 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-10. The native launcher remains not playable. A fresh
-12-second normal-startup run stayed at frame state `0,3,0`, with the window
-black. Two snapshots briefly reported 240 vertices, but no Sly artwork or
-visible text was confirmed. The movie player's queued key, successor key, and
-reader remained null through 5.45 seconds of guest time. The run used the
-existing CMake cache, still pinned to `/home/reaper/Code/sly1-decomp`
-(`e1b39f1`). The canonical sibling checkout is now at `d534006` (PR #102),
-but its updated C++ units are not yet hostable by this port's C staging; see
-`PLAYABLE_TODO.md` for the coverage gap and next steps.
+Last checked: 2026-11-10 against decomp commit `330d67e1` (PR #107). Its
+NTSC-U report has 4,729/4,807 functions matched and 90.36% of code bytes. The
+latest direct host32 build compiles 168/171 source units and 55 native
+backfill units, resolves 4,301 catalogued function addresses, and defines
+806/827 functions in the direct-call frontier. Its latest bounded run passes
+camera alignment, packet, and color-conversion startup paths, then faults in
+`func_001303F0` through the reworked pose-curve callback. It has not reached a
+graphics frame and shows no game image. The regular SDL hostgen path remains
+on the older configured decomp checkout and its latest-source experiment
+faults at `0xF108` during callback dispatch. The direct host32 run is a
+separate source-compatibility diagnostic; it does not test the renderer. See
+`PLAYABLE_TODO.md` for the current ABI investigation and counts.
+
+The graphics traces and captures below are historical from the earlier SDL
+build. Their render-list and texture observations remain useful once the
+reworked source builds through its startup callbacks, but they do not describe
+the current direct host32 execution.
 
 The latest direct-level trace reaches loader stage 5 but submits no scene
 vertices or visible text. It found a live, unskipped render-list entry at `0x00847ce0`
