@@ -25,6 +25,7 @@ def main(argv=None):
     out = args.out.expanduser().resolve()
     port = args.port.resolve()
     include = source / "include"
+    names_header = include / "names.h"
     # This launcher targets NTSC-U. A proven whole-file unit replaces only its
     # own address range, not an entire 0x4000 window that happens to overlap it.
     # Keep chunks with uncovered text so matching functions after a file's end
@@ -71,6 +72,24 @@ def main(argv=None):
     staged_root.mkdir(parents=True, exist_ok=True)
     objects_root.mkdir(parents=True, exist_ok=True)
     backfill_root = port / "game" / "sly1-us" / "native"
+    # Native backfills take precedence at their retail address. The current
+    # decomp groups functions into named whole-file units, so the old
+    # address-named staging rules cannot reliably find every matching body.
+    # Rename only matching definitions in the staged copy; calls still use
+    # the public names and therefore resolve to the port boundary.
+    backfill_addresses = set()
+    if backfill_root.exists():
+        for path in backfill_root.rglob("*.cpp"):
+            backfill_addresses.update(
+                address.lower()
+                for address in re.findall(r"\bfunc_([0-9A-Fa-f]{8})\s*\(",
+                                          path.read_text(encoding="utf-8")))
+    address_names = {
+        address.lower(): name
+        for name, address in re.findall(
+            r"(?m)^#define\s+(\w+)\s+func_([0-9A-Fa-f]{8})\s*$",
+            names_header.read_text(encoding="utf-8") if names_header.is_file() else "")
+    }
     host_include = port / "sly1" / "host32" / "include"
     flags = [
         "-m32", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
@@ -85,7 +104,6 @@ def main(argv=None):
     # host-width integer aliases. Newer decomp snapshots include generated
     # readable symbol macros from common.h, so force that independent header
     # after the ABI header rather than letting the guard suppress it.
-    names_header = include / "names.h"
     if names_header.is_file():
         flags[flags.index("-I"):flags.index("-I")] = ["-include", str(names_header)]
     out.mkdir(parents=True, exist_ok=True)
@@ -203,7 +221,7 @@ def main(argv=None):
             for address in ("00201A18", "002027C8", "00202A80"):
                 pattern = re.compile(r"\bfunc_" + address + r"(?=\s*\()")
                 adapted, replacements = pattern.subn("decomp_func_" + address, adapted)
-                if replacements != 1:
+                if replacements != 1 and not (files_table.is_file() and replacements == 0):
                     raise RuntimeError("expected one platform function " + address +
                                        " in " + rel.as_posix())
             # The native display path replaces these two additional GS
@@ -214,7 +232,7 @@ def main(argv=None):
                 )
                 adapted, replacements = pattern.subn(
                     signature + " decomp_func_" + address + "(void* self)", adapted)
-                if replacements != 1:
+                if replacements != 1 and not (files_table.is_file() and replacements == 0):
                     raise RuntimeError("expected one GS boundary definition " + address +
                                        " in " + rel.as_posix())
             # EE DMA wait routines poll CHCR until hardware clears STR. A
@@ -229,7 +247,7 @@ def main(argv=None):
                     "00202C38": "s32 decomp_func_00202C38(DmaChan_202C38* ch, s32 mode, s32 timeout)",
                 }
                 adapted, replacements = re.subn(pattern, signatures[address], adapted)
-                if replacements != 1:
+                if replacements != 1 and not (files_table.is_file() and replacements == 0):
                     raise RuntimeError("expected one DMA wait definition " + address +
                                        " in " + rel.as_posix())
             # Native CD reads complete synchronously. Preserve the matching
@@ -238,7 +256,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^s32 func_00203D90\(void\)(?=\n\{)",
                 "s32 decomp_func_00203D90(void)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one CD status definition in " + rel.as_posix())
         elif rel.as_posix() == "main/00184000.cpp":
             # The candidate projection helper has a shifted argument list.
@@ -248,7 +266,7 @@ def main(argv=None):
                 r"(?m)^void func_001840F0\(f32 a, f32 b, f32 c, f32 d, Out_1840F0\* out0, void\* out1\)",
                 "void decomp_func_001840F0(f32 a, f32 b, f32 c, f32 d, Out_1840F0* out0, void* out1)",
                 adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one projection helper in " + rel.as_posix())
             # Retail Quad16 inputs are 16-byte aligned. Native retail-address
             # data symbols can be only 8-byte aligned, so keep the source body
@@ -257,7 +275,7 @@ def main(argv=None):
                 r"(?m)^void func_001847F0\(C51\* self, Quad_001847F0\* src\)",
                 "void decomp_func_001847F0(C51* self, Quad_001847F0* src)",
                 adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one camera vector setter in " + rel.as_posix())
         elif rel.as_posix() == "main/001EC000.cpp":
             # The matching packet-copy body calls the packet-size helper with
@@ -267,7 +285,7 @@ def main(argv=None):
                 r"(?m)^void func_001EE668\(void\* s, void\* a1, s32 size, u32\* src, void\* a4\)",
                 "void decomp_func_001EE668(void* s, void* a1, s32 size, u32* src, void* a4)",
                 adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one packet-copy definition in " + rel.as_posix())
         elif rel.as_posix() == "main/001E4000.cpp":
             # G275F80 is a 0x40-byte native view assembled from separate retail
@@ -276,7 +294,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^s32 D_00275F80 = 0;$",
                 "u8 D_00275F80[0x40] = {0};", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected the 4-byte D_00275F80 retail label in " +
                                    rel.as_posix())
             # func_00140D90 clears this system table through +0x42f, although
@@ -285,7 +303,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^u8 D_00261420\[528\] = \{0\};$",
                 "u8 D_00261420[0x430] = {0};", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected the D_00261420 retail table label in " +
                                    rel.as_posix())
             # Retail labels can expose only part of a T217D object (some methods
@@ -325,7 +343,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^void func_001683B8\(void\)(?=\s*\{)",
                 "void decomp_func_001683B8(void)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one GS completion wait in " + rel.as_posix())
         elif rel.as_posix() == "main/file_15F678.cpp":
             # Obj_161958 overlays the V24A0 packet writer with a C++ virtual
@@ -335,12 +353,12 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^    void func_00161958\(s32 count\);",
                 "    void decomp_func_00161958(s32 count);", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected Obj_161958 declaration in " + rel.as_posix())
             adapted, replacements = re.subn(
                 r"(?m)^void Obj_161958::func_00161958\(s32 count\)",
                 "void Obj_161958::decomp_func_00161958(s32 count)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected Obj_161958 method definition in " + rel.as_posix())
         elif rel.as_posix() == "main/file_184D78.cpp":
             # Retain the most recent one-based startup callback index in the
@@ -352,19 +370,19 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^void func_00185B38\(void\)\n\{",
                 callback_declaration, adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected startup callback loop in " + rel.as_posix())
             adapted, replacements = re.subn(
                 r"(?m)^(\s*)tbl\[i\]\(\);",
                 r"\1sly1_native_startup_callback(i);\n\1tbl[i]();", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one startup callback call in " + rel.as_posix())
             # Replace only the IOP module/CDVD bootstrap at its retail address;
             # keep the original matching body in the staged source for review.
             adapted, replacements = re.subn(
                 r"(?m)^void func_001858F8\(\)(?=\n\{)",
                 "void decomp_func_001858F8()", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one IOP bootstrap definition in " +
                                    rel.as_posix())
             # Native DMA channels live in host memory; this wait routine must
@@ -373,12 +391,12 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^void func_00185A58\(void\)(?=\n\{)",
                 "void decomp_func_00185A58(void)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one DMA wait definition in " + rel.as_posix())
             adapted, replacements = re.subn(
                 r"(?m)^void func_00185AC8\(\)(?=\n\{)",
                 "void decomp_func_00185AC8()", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one second DMA wait definition in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/00134000.cpp":
@@ -394,7 +412,7 @@ def main(argv=None):
                 "s32 func_001373B0(void* a, S18D410* pair)\n{\n"
                 "    return func_00137328(a, pair->p0, pair->second);\n}",
                 adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected mismatched resource-key wrapper in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/file_1E08F8.cpp" and args.trace_functions:
@@ -418,7 +436,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^s32 func_0011D968\(s32 id, s32 size, u8\* data\)(?=\n\{)",
                 "s32 decomp_func_0011D968(s32 id, s32 size, u8* data)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one sound RPC definition in " + rel.as_posix())
             # The native port has no Sly IOP sound module. Keep the matching
             # bank loader available in staged source while the port supplies
@@ -426,7 +444,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^s32 func_0011D140\(s32 a0, s32 a1\)(?=\n\{)",
                 "s32 decomp_func_0011D140(s32 a0, s32 a1)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one sound bank loader definition in " + rel.as_posix())
         elif rel.as_posix() == "lib/00204000.cpp":
             # Replace the IOP RPC wait with the native CD service; retain the
@@ -434,18 +452,21 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^s32 func_002040E8\(void\* arg\)(?=\n\{)",
                 "s32 decomp_func_002040E8(void* arg)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one IOP service-start definition in " +
                                    rel.as_posix())
-        elif rel.as_posix() == "lib/001F8000.cpp":
+        elif (rel.as_posix() == "lib/001F8000.cpp" or
+              "BindRemoteService(" in adapted or "func_001F80C0(" in adapted):
             # SIF RPC completion for the two sound bootstrap services has no
             # IOP peer in the host build. Keep the matching implementation in
             # staged source, and let a port-only synchronous boundary own the
             # retail address.
             adapted, replacements = re.subn(
-                r"(?m)^s32 func_001F80C0\(Ctx_1F80C0\* self, s32 a1, s32 a2\)(?=\n\{)",
-                "s32 decomp_func_001F80C0(Ctx_1F80C0* self, s32 a1, s32 a2)", adapted)
-            if replacements != 1:
+                r"(?m)^s32 (?:func_001F80C0\(Ctx_1F80C0\* self, s32 a1, s32 a2\)|"
+                r"BindRemoteService\(RemoteCallClient\* self, u32 cmd, s32 mode\))(?=\n\{)",
+                lambda match: match.group(0).replace("func_001F80C0", "decomp_func_001F80C0")
+                .replace("BindRemoteService", "decomp_BindRemoteService"), adapted)
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one SIF RPC definition in " + rel.as_posix())
         elif rel.as_posix() == "main/00150000.cpp":
             # Native processes cannot map valid EE low-memory addresses below
@@ -456,13 +477,13 @@ def main(argv=None):
                 r"(?m)^u32 func_00152460\(List01\* p, u32 value\)(?=\n\{)",
                 "u32 func_00152460(List01* p, u32 value);\n"
                 "u32 decomp_func_00152460(List01* p, u32 value)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one list address helper in " + rel.as_posix())
             adapted, replacements = re.subn(
                 r"(?m)^void func_00152470\(List01\* self, u32 value\)(?=\n\{)",
                 "void func_00152470(List01* self, u32 value);\n"
                 "void decomp_func_00152470(List01* self, u32 value)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one list append definition in " + rel.as_posix())
         elif rel.as_posix() == "main/001B4000.cpp":
             # The renderer's first cleanup can run before a world exists.
@@ -471,7 +492,7 @@ def main(argv=None):
             adapted, replacements = re.subn(
                 r"(?m)^void func_001B5F28\(Pool6C\* list, T2195\* item\)(?=\n\{)",
                 "void decomp_func_001B5F28(Pool6C* list, T2195* item)", adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one world pool insertion in " + rel.as_posix())
         elif rel.as_posix() == "main/00200000.cpp":
             # The retail DMA table contains MMIO addresses. The native port
@@ -481,7 +502,7 @@ def main(argv=None):
                 r"(?m)^u32 func_002027A0\(u32 index\) \{[^\n]*\}",
                 "u32 decomp_func_002027A0(u32 index) { if (index >= 10) return 0; return D_00279340[index]; }",
                 adapted)
-            if replacements != 1:
+            if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
         if args.trace_functions and rel.as_posix() in {
                 "main/00124000.cpp", "main/001B4000.cpp", "main/001B8000.cpp"}:
@@ -556,6 +577,16 @@ def main(argv=None):
             if adapted.count(old) != 1:
                 raise RuntimeError("expected C01 constructor list gate in " + rel.as_posix())
             adapted = adapted.replace(old, new, 1)
+        for address in backfill_addresses:
+            name = address_names.get(address)
+            if not name:
+                continue
+            definition = re.compile(
+                r"(?m)^(?P<header>[^\n;{}]*\b" + re.escape(name) +
+                r"\s*\([^\n{}]*\)[^\n{}]*)\n(?=\s*\{)")
+            adapted = definition.sub(
+                lambda match: match.group("header").replace(
+                    name, "decomp_" + name, 1) + "\n", adapted)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags
         if rel.as_posix() == "main/0016C000.cpp":

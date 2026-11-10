@@ -14,8 +14,16 @@ flattened inherited fields in shared headers. Do not compare the 563 directly
 with decomp matching coverage; it measures hostgen compatibility. The
 configured `build/port` CMake cache still points to the older
 `/home/reaper/Code/sly1-decomp` checkout (`e1b39f1`); its build uses 2,044 C
-translations plus 230 assembly translations, with zero stubs. Keep this
-known-good input until current decomp units become hostable.
+translations plus 230 assembly translations, with zero stubs. I tested the
+reworked source through the separate direct i386 compiler in
+`build/port/canonical-host32/`: it stages the new named units and combines
+without duplicate backfill addresses, but only 94/171 decomp units and 93/98
+port backfills compile. The partial link defines 801/4,807 catalogued
+functions and cannot reach `RunMainLoop` (frontier 0/1). The remaining source
+uses PS2 inline assembly and exception runtime features, plus Cfront syntax
+(`>?` and named returns), that this launcher cannot compile. Keep the canonical
+probe separate from the existing launcher until those host ABI gaps are
+resolved; it is not a runnable replacement yet.
 
 The port remains not playable. The last confirmed native run (Nov 7) stayed
 black at frame state `0,3,0` with no visible text or scene geometry. The latest
@@ -32,6 +40,16 @@ CMake input showed `movie_queued=0`, `movie_queued_next=0`, and
 vertices at 0.92 and 1.42 seconds, but this is not confirmed game artwork.
 Next: make the current decomp's main-loop/movie units hostable, then trace the
 state-sequence message producer if the queue remains empty.
+
+**Canonical source compile follow-up (2026-11-10):** the host32 staging script
+now tolerates address-specific adaptations whose bodies moved out of old
+0x4000 chunks in `files.tsv` snapshots. It also renames staged decomp
+definitions when a port-only native backfill owns that retail address, while
+keeping public call names routed to the backfill. This prevents matching C
+that moved into named units from shadowing separate port replacements. The
+source probe still fails as described above; next work is to make runtime
+units hostable and restore the `RunMainLoop` closure before attempting a
+canonical-source launch. Port backfills remain in the port tree.
 
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++
