@@ -749,6 +749,19 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one line-fit overload call in " +
                                    rel.as_posix())
+            # The EE compiler carries the world's first argument in a register
+            # into TakeCallRecord even though this source omits it. Native x86
+            # does not preserve that convention, so make it explicit in the
+            # staged copy of AddCallbackNode.
+            adapted, declaration_count = re.subn(
+                r"(?m)^void\* TakeCallRecord\(void\);$",
+                "void* TakeCallRecord(void* world);", adapted)
+            adapted, call_count = re.subn(
+                r"(Callback01\* n = \(Callback01\*\)TakeCallRecord)\(\);",
+                r"\1(world);", adapted)
+            if declaration_count != 1 or call_count != 1:
+                raise RuntimeError("expected callback pool world carryover in " +
+                                   rel.as_posix())
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.
@@ -1003,6 +1016,54 @@ def main(argv=None):
                 "void Obj_161958::decomp_func_00161958(s32 count)", adapted)
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected Obj_161958 method definition in " + rel.as_posix())
+            if args.trace_functions:
+                # Diagnose corrupt model mesh pointers without changing retail
+                # behavior. The invalid value is reported at parse time and
+                # again at the attachment DMA consumer, which separates a bad
+                # stream/global base from later record corruption.
+                adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+                needle = "                strip->mesh = mesh;"
+                replacement = (
+                    needle + '\n'
+                    '                if ((u32)mesh < 0x10000u || (u32)mesh > 0x09000000u) {\n'
+                    '                    sly1_port_trace_value(0x16620001u, (u32)mesh);\n'
+                    '                    sly1_port_trace_value(0x16620002u, (u32)g_animRecords);\n'
+                    '                }')
+                if adapted.count(needle) != 1:
+                    raise RuntimeError("expected parsed strip mesh assignment in " + rel.as_posix())
+                adapted = adapted.replace(needle, replacement)
+                needle = "            switch (*c->f18) {"
+                replacement = (
+                    '            if ((u32)c->f18 < 0x10000u || (u32)c->f18 > 0x09000000u) {\n'
+                    '                sly1_port_trace_value(0x1662a801u, (u32)c);\n'
+                    '                sly1_port_trace_value(0x1662a802u, (u32)c->f18);\n'
+                    '            }\n' + needle)
+                if adapted.count(needle) != 1:
+                    raise RuntimeError("expected attachment DMA kind switch in " + rel.as_posix())
+                adapted = adapted.replace(needle, replacement)
+        elif rel.as_posix() == "main/state_walker.cpp" and args.trace_functions:
+            # Follow serialized state-graph animation IDs through object
+            # creation and into playback. This is diagnostics only; it makes
+            # no change to the staged state machine or its decisions.
+            adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+            needle = "            BaseObject* o = CreateTypedRecord(kind, self->world, self->parent, b, c);"
+            replacement = (
+                needle + '\n'
+                '            sly1_port_trace_value(0x1b5f5001u, (u32)kind);\n'
+                '            sly1_port_trace_value(0x1b5f5002u, (u32)o);')
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected state-graph animation record creation")
+            adapted = adapted.replace(needle, replacement)
+            needle = "                CreateAnimationPlayerWithoutPresetTargets(e->anim, self->f1C, self->f20, &self->player, fa, fb);"
+            replacement = (
+                '                sly1_port_trace_value(0x1b66a001u, (u32)e->anim);\n'
+                '                sly1_port_trace_value(0x1b66a002u, (u32)self->owner);\n' + needle + '\n'
+                '                sly1_port_trace_value(0x1b66a003u, (u32)self->player);\n'
+                '                sly1_port_trace_value(0x1b66a004u, (u32)(self->player != 0 ? self->player->anim : 0));\n'
+                '                sly1_port_trace_value(0x1b66a005u, (u32)(self->player != 0 && self->player->anim != 0 ? self->player->anim->world : 0));')
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected state-walker animation player creation")
+            adapted = adapted.replace(needle, replacement)
         elif rel.as_posix() == "main/file_184D78.cpp":
             # Retain the most recent one-based startup callback index in the
             # native launcher diagnostics. This isolates a startup spin loop
@@ -1183,7 +1244,9 @@ def main(argv=None):
             adapted = hook + adapted
             old = """        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
         s32 n;"""
-            new = """        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
+            new = """        sly1_native_trace_group_child(0x4c475250u, (u32)self->world,
+            (u32)self->parent, (u32)self->count);
+        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
         sly1_native_trace_group_child((u32)r1, (u32)obj,
             obj != 0 ? (u32)obj->desc : 0,
             obj != 0 && obj->desc != 0 ? (u32)obj->desc->m0A : 0);
