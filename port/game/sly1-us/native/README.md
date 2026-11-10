@@ -9,32 +9,35 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Last checked against `sly1-decomp` commit `23bf912b` (PR #108), whose NTSC-U
-report is 4,736/4,807 matched functions and 91.26% matched code bytes. The
-source tree has 41 commits beyond the previous `330d67e1` snapshot, including
-seven newly exact functions. The direct host32 build compiles 168/171 source
-units and 55 active native backfill units. It resolves 4,309 catalogued
-function addresses and defines 809/828 functions in the direct-call frontier.
-The three source-unit failures are the exception/RTTI runtime units under the
-current `-fno-rtti` flags.
+Last checked against `sly1-decomp` commit `2e00ac70` (PR #109), whose NTSC-U
+report is 4,741/4,807 matched functions, 91.66% matched code bytes, and 93.71%
+matched data bytes. Since the previous port snapshot `23bf912b`, upstream has
+66 commits and five more exact US functions. The direct host32 build compiles
+168/171 source units and all 57 active native backfill units. It maps 4,320
+catalogued function addresses and defines 815/829 functions in the direct-call
+frontier. The three source-unit failures are the exception/RTTI runtime under
+the current `-fno-rtti` flags.
 
-The old port-only `func_00162890` reader stored a serialized mesh index where
-the renderer expected a `StripMesh*`. It is now archived under
-`hand/superseded_backfills/`, and the direct build selects the upstream matched
-`ReadPlacedObjectModel`. Startup passes the attachment DMA chain and advances
-into state setup. It now faults when `func_001DBBD8` receives a null world while
-registering an animation-player callback because the EE source carries its
-world argument implicitly. The host staging layer now passes it explicitly,
-which advances startup to a new invalid `ScriptValue` dispatch in
-`func_0011B060`. The edge animation, owner, player, and animation world are
-valid pointers. No game graphics appear. See
+The old port-only `func_00162890` reader is archived under
+`hand/superseded_backfills/`; the direct build uses upstream's matched
+`ReadPlacedObjectModel`. Host staging passes the implicit EE world argument to
+the callback allocator and replaces an undefined cross-object script cleanup
+loop with a defined reverse array walk. Startup now reaches packet submission.
+The previous crash in `func_001613C0` was caused by an uninitialized GIF packet
+writer. The port-only `func_001FAD68` backfill now calls the retail
+`ResetPacketWriters` callback in both host32 and SDL paths. SDL opens its window
+and advances into repeated frames, but faults in
+`game_sly1_native_call_regs4` during thunk-table lookup. Bounded tracing
+resolves repeated guest methods to valid host functions before the lookup
+fault. The trace still shows no
+vertices, texture uploads, or framebuffer output. The diagnostic remains black
+and is not playable. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 trace and next diagnosis.
 
-The ordinary hostgen/SDL path has not been adapted to this source rework. Its
-current probe faults in callback dispatch at `0xF108`. The configured
-`build/port/native-resource` cache also points to the older
-`/home/reaper/Code/sly1-decomp` checkout (`e1b39f1`).
+The SDL hostgen path is built from the same `2e00ac70` snapshot. CMake now
+directs hostgen output to its configured build directory. The last run is
+recorded at `/tmp/sly-2e00ac70-sdl-packetinit-run.log`.
 
 Build counts measure host compatibility, not decomp coverage. The port is not
 playable. The separate freestanding host32 diagnostic does not provide a
@@ -73,5 +76,5 @@ build/port/host32/launcher/sly1_host32 <SCUS_971.98> <Sly 1 ISO or BIN>
 ```
 
 The current diagnostic build lives under
-`build/port/canonical-23bf912-host32/`. It is an experimental source
+`build/port/canonical-2e00ac70-host32/`. It is an experimental source
 compatibility path, not the SDL graphics frontend.

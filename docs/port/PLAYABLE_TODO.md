@@ -3,40 +3,63 @@
 
 ## Current status (2026-11-10)
 
-The latest decomp is `23bf912b` (PR #108), fetched from the sibling repo's
-`origin/master`; the user checkout remains clean at `d534006`. Since snapshot
-`330d67e1` (PR #107), upstream added 41 commits, seven newly exact US functions,
-and substantial camera, attachment, file-reader, and script source. NTSC-U now
-reports 4,736/4,807 functions matched (98.52%) and 91.26% of code bytes. The
-port build uses a detached archive at `/tmp/sly1-decomp-23bf912`.
+The latest decomp is `2e00ac70` (PR #109, night 16), fetched from the sibling
+repo's `origin/master` as a clean archive at `/tmp/sly1-decomp-2e00ac70`. The
+separate `/home/reaper/sly/sly1-decomp` checkout is still clean at `d5340060`,
+317 commits behind; it was not modified. Since the port's former `23bf912b`
+snapshot, upstream has 66 commits and a broad source reorganization. Five more
+US functions became exact: `func_00118988`, `func_00181078`, `func_00185538`,
+`func_00187260`, and `func_001F3140`. The report now has 4,741/4,807 functions
+(98.63%), 91.66% of code bytes, and 93.71% of data bytes matched.
 
-The direct host32 adapter compiles 168/171 source units and 55 active native
-backfill units. Three failures are the exception/RTTI runtime under current
-`-fno-rtti` flags. The combined build contains 223 objects, resolves 4,309
-catalogued function addresses, and defines 809/828 functions in the direct-call
-frontier. Host staging normalizes the reworked weight, position, and rotation
-curve callbacks.
+The direct host32 adapter compiles 168/171 source units and 57/57 active native
+backfill units. Three source failures remain in the exception/RTTI runtime
+under the current `-fno-rtti` flags. The combined build contains 225 objects,
+maps 4,320/4,807 catalogued function addresses, and defines 815/829 functions
+in the direct-call frontier (14 missing). Host staging preserves the selected
+EE ABI, alignment, and cleanup-loop adaptations without editing decomp source.
 
-**Latest-source startup checkpoint (2026-11-10):** The old port-only
-`func_00162890` parser was an immediate graphics blocker: it skipped strip
-payloads and stored the serialized mesh index (`0x22`) where a `StripMesh*` was
-required. The new upstream `ReadPlacedObjectModel` is now selected for that
-retail address, and the old implementation is preserved under
-`hand/superseded_backfills/`. The native run passes `BuildAttachmentDmaChain`
-instead of faulting on `0x22`. It now faults later: `func_001DBBD8` receives a
-null world pointer and tries to allocate a queued call from `World+0x1B14`.
-The first run faulted through callback registration because matched
-`AddCallbackNode` calls `TakeCallRecord()` with no source-level world argument;
-the EE carried the world in a register, but the i386 host ABI did not. The
-staging adapter now passes `world` explicitly. This is a host ABI fix, not a
-behavior backfill, and upstream source remains untouched. The rebuilt launcher
-passes the callback allocation and advances to a new crash in
-`func_0011B060` (`ScriptValue` dispatch), where its value pointer is invalid.
-The trace confirms edge animation `0x0084d420`, owner `0x0084cfb0`, created
-player `0x0078b160`, and `Animation::world` `0x006abdd0` are valid. Next inspect
-the script-value producer/caller at this new fault. No game graphics appear.
-Trace and core evidence: `/tmp/sly-23bf912-abi-run.log`,
-`/tmp/sly-abi.core` (the original pre-fix core is `/tmp/sly-23bf912-stategraph.core`).
+The reworked source also generates and links through the SDL hostgen path: 561
+C functions and 242 selected assembly translations are available (4,082
+catalogued functions still have no C). Five newly exact upstream functions
+include `SampleScriptAnimation` (`func_00118988`), `ControlModeWalker`
+(`func_00181078`), `GetAimRotation` (`func_00185538`), `CollectMeshHits`
+(`func_00187260`), and `ComputeOscillatorMaxDisplacement` (`func_001F3140`).
+The SDL path now writes into its configured CMake build directory; previously
+the generator silently used the repository's default build path.
+
+**Latest startup checkpoint (2026-11-10):** the latest-source run passes the
+previous invalid `ScriptValue` cleanup and reaches packet submission at
+`func_001613C0`. Its first attempt faulted at `0x0808e0bf` because the GIF
+packet writer had never been initialized. The host replacement for
+`func_001FAD68` walked the host CRT init array, but the retail init table also
+contains the explicit `ResetPacketWriters` callback (`func_0015F658`), which
+is not a C++ global constructor. The port-only initializer now calls that
+function after host initialization. The rebuilt direct host32 diagnostic ran
+for 10 seconds without the packet-writer fault and was stopped by timeout
+(exit 124). The SDL path had a no-op for `func_001FAD68`; the same narrow
+initializer bridge is now registered in its separate `hand/native_c` backfill
+path. Its next 12-second run passes packet submission, then faults at host
+address `0x38` (later at an unspecified address) while
+`game_sly1_native_call_regs4` dispatches methods from `func_001A9FD0` /
+`func_001E9108`. Bounded callback tracing resolves repeated methods including
+`func_001AE178` to valid host functions; the crash backtrace places the fault
+inside the thunk-table lookup. The SDL window opens and the game loop runs,
+but traces still record no vertices, textures, or framebuffer output; it
+remains black. The opt-in callback trace is capped at 4,096 address changes.
+Latest bounded trace: `/tmp/sly-2e00ac70-bounded-callback.log`.
+
+The port-only `func_00125C90` implementation remains based on the current
+99.7% upstream near-match, still not exact. Its active copy stays in
+`port/game/sly1-us/native/` and separate from decomp source. The same directory
+now holds the small text-layout setter backfills for `func_00137228` and its
+adjacent entries. Retire these when the corresponding hostable decomp code is
+available.
+
+**Next:** reproduce with the bounded callback trace and inspect the thunk-table
+state at the lookup fault. Then trace GS packet contents and make SDL present
+the game's frame. The port is not playable and no actual game graphics have
+been seen.
 
 `func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
 A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is
@@ -48,12 +71,11 @@ implicit EE argument-register carryover explicit; and animation callbacks use
 their declared vtable argument order. `func_001F5B08` remains a separate
 port-native backfill for the still-assembly libc memmove routine.
 
-The regular SDL hostgen path is not yet compatible with the rework: it
-translates 560 C functions and 242 selected assembly routines, then faults in
-callback dispatch at `0xF108`; the configured
-`build/port/native-resource` cache still points to
-`/home/reaper/Code/sly1-decomp` (`e1b39f1`). The port is not playable. Previous
-SDL traces remain historical evidence of frame state `0,3,0`, no visible text
+The regular SDL hostgen path has been built against the rework: it now
+translates 561 C functions and 242 selected assembly routines. The remaining
+callback fault is at host address `0x38`, following the port-only packet-writer
+initializer bridge. The port is not playable. Previous SDL traces remain
+historical evidence of frame state `0,3,0`, no visible text
 or scene geometry, and no confirmed game artwork. The latest source clarifies
 movie state at `D_00269A00`: `+4` is the queued movie, `+8` its successor,
 `+0xC` the stream reader, and `+0x134` the decode thread step. `RunMainLoop`

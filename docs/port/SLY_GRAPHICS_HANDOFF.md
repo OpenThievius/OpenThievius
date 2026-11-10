@@ -1,23 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-10 against decomp commit `23bf912b` (PR #108). Its
-NTSC-U report has 4,736/4,807 functions matched and 91.26% matched code bytes.
-The direct host32 build compiles 168/171 source units and 55 native backfill
-units, resolves 4,309 catalogued addresses, and defines 809/828 functions in
-the direct-call frontier. The old port parser for `func_00162890` has been
-retired in favor of upstream's matched `ReadPlacedObjectModel`. This fixes the
-raw mesh-index-as-pointer crash in `BuildAttachmentDmaChain` and advances
-startup into state setup. The latest run now faults when
-`func_001DBBD8` receives a null world pointer during animation-player callback
-registration because the EE source carries the world argument implicitly. The
-host staging layer now passes it explicitly, and startup advances to a new
-`ScriptValue` dispatch fault in `func_0011B060`. The edge animation, owner,
-player, and animation world now trace as valid pointers. No game graphics appear.
-The SDL hostgen path still uses an older
-configured decomp checkout and its latest-source probe faults at `0xF108`. The
-direct host32 run is a source-compatibility diagnostic; it does not test the
-renderer. `PLAYABLE_TODO.md` has the current startup diagnosis and next steps.
+Last checked: 2026-11-10 against decomp commit `2e00ac70` (PR #109). Its
+NTSC-U report has 4,741/4,807 functions matched, 91.66% of code bytes, and
+93.71% of data bytes. The direct host32 build compiles 168/171 source units and
+57 native backfill units, maps 4,320 catalogued function addresses, and defines
+815/829 functions in its direct-call frontier. SDL hostgen uses the same source
+snapshot and builds 561 C functions plus 242 selected assembly translations.
+The port staging adapter fixes
+the invalid modern-GCC cleanup loop and preserves the required EE callback
+argument. A startup fault in `func_001613C0` was traced to the uninitialized GIF
+packet writer; the port-only `func_001FAD68` bridge calls the retail
+`ResetPacketWriters` initializer in both native build paths. SDL opens a window
+and reaches repeated frames. After this initializer, startup advances past the
+packet fault but now faults during `game_sly1_native_call_regs4`, called from
+`func_001A9FD0` and `func_001E9108`. The bounded callback trace resolves
+repeated methods including `func_001AE178` to valid host functions; the crash
+backtrace places the fault inside the thunk-table lookup.
+The trace reports no vertices, texture uploads, or framebuffer output, and the
+window stays black. Inspect the thunk-table state at that lookup, then verify
+GS submission and presentation. `PLAYABLE_TODO.md` has the detailed state.
 
 The graphics traces and captures below are historical from the earlier SDL
 build. Their render-list and texture observations remain useful once the
