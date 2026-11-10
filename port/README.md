@@ -34,8 +34,10 @@ functions from retail instructions. Generated C stays in the
 ignored build tree, separate from both matched decomp C and the port's
 handwritten C backfills. Set
 `OPENTHIEVIUS_ASM_SOURCE_SLY1` when the checkout used for matched C does not
-contain the assembly directory. The current build uses matched C and retail
-assembly from the local `sly1-decomp` checkout at `e1b39f1`.
+contain the assembly directory. The default `build/port` cache uses matched C
+and retail assembly from the local checkout at `e1b39f1`. Canonical upstream
+master has since been substantially reorganized; see the isolated experiment
+below before changing that cache.
 
 The latest native hostgen run against `e1b39f1` reads 185 units and translates
 2,050 C functions plus 148 retail-assembly functions. It lists 2,664 functions
@@ -53,6 +55,18 @@ the updated
 [playable TODO](../docs/port/PLAYABLE_TODO.md) for the exact report and trace.
 The graphics handoff records the current evidence and next blocker. Functional
 C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
+
+## Canonical decomp rework check (2026-11-10)
+
+Canonical `OpenThievius/sly1-decomp` master is `2e00ac70` (PR #109). The
+isolated `build/port/canonical-sdl` configuration uses a read-only snapshot at
+`/tmp/sly1-decomp-2e00ac70` for C and the older local checkout only for its US
+retail assembly. Hostgen translates 568 functions, including 251 from
+assembly, with 2 stubs and 4,069 functions without C. This proves the new
+layout can be consumed by the current hostgen pipeline, but its native launch
+still crashes during resource parsing at guest address `0x6FFFFFF8`; it is
+not ready to replace the default launcher configuration. See
+[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for the trace.
 
 To translate the selected assembly functions into the native build output
 directly, hostgen also supports:

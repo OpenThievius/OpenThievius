@@ -1,13 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-10, after checking canonical decomp PR #102. Work in
+Updated: 2026-11-10, after checking canonical decomp PR #109. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
 registered in `backfills.tsv`; do not put those replacements in
 `/home/reaper/Code/sly1-decomp`. Continue using native runs only; no emulator
 is involved in the port work.
+
+## Canonical decomp rework checkpoint (2026-11-10)
+
+Canonical `OpenThievius/sly1-decomp` master is
+`2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The checkout at
+`/home/reaper/Code/sly1-decomp` is still the older `e1b39f1`; the newer tree
+was inspected read-only at `/tmp/sly1-decomp-2e00ac70`. An isolated build at
+`build/port/canonical-sdl` uses the canonical C sources and the older checkout
+only for its generated US retail assembly. Do not treat this isolated
+experiment as the default launcher build.
+
+Latest source hostgen translates 568 functions (251 from selected assembly),
+stubs 2, and reports 4,069 without C. Canonical font and image record loading
+now runs far enough to register four font records. Exact retail assembly for
+`func_0011F798` and its wrapper `func_0011FDB8` was added to the isolated
+build after its previous curve read fault. The next 15-second native run no
+longer faults there; instead resource parsing advances into malformed
+descriptor/collision data and faults reading `0x6FFFFFF8`. The canonical
+source integration therefore remains experimental and does not improve the
+black-screen milestone yet. Log: `/tmp/sly-canonical-axis-asm-run.log`.
+
+Recent compatibility edits are port-only: image-reader backfills now use
+32-bit guest addresses so hostgen accepts them, and font-text backfills guard
+absent font pointers. Runtime font/GIF/VIF traces are opt-in diagnostics. The
+host32 compiler also omits three PS2 exception-runtime units unsupported by
+the native host ABI.
 
 ## State
 

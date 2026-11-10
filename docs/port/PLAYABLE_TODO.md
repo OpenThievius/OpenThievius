@@ -17,6 +17,19 @@ and links `build/port/sly1_native`. These are host coverage figures, not
 matching-decomp percentages. The independent direct host32 build is a separate
 diagnostic path.
 
+**Canonical rework integration check (2026-11-10):** I built separately
+against upstream `2e00ac70` in `build/port/canonical-sdl`, using
+`/tmp/sly1-decomp-2e00ac70` for source and the older local checkout only for
+US retail assembly. It translates 568 functions (251 assembly), stubs 2, and
+leaves 4,069 without C. The new image/font loaders register 61 image records,
+63 palette records, and four fonts. Adding exact retail assembly for the
+reached axis-curve helper moved startup beyond the previous curve fault, but
+the next bounded run entered malformed descriptor data and faulted at
+`0x6FFFFFF8`. The regular `build/port` cache still uses `e1b39f1`; canonical
+integration is not yet a viable launcher replacement. Keep this diagnostic
+separate from the older-build graphics findings below. Full trace and build
+details are in [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md).
+
 **Trace-label correction (2026-11-10):** the earlier diagnostic called
 `0x00275BC4` an app state, `0x00275BF0` an app-state mode, `0x00275F84` a scene
 gate, and `0x00262C68` a state selector. Current decomp identifies
