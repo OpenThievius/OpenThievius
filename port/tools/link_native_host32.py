@@ -81,7 +81,11 @@ PHDRS { text PT_LOAD FLAGS(5); data PT_LOAD FLAGS(6); }
 SECTIONS {
   . = 0x08048000;
   .text : { *(.text.start) *(.text .text.*) } :text
-  .rodata : { *(.rodata .rodata.*) } :text
+  . = ALIGN(0x1000);
+  /* EE RAM has no read-only pages. Retail code rewrites text strings while
+     wrapping them, so host literals must be writable even though they are
+     emitted into .rodata by the compiler. Keep them off the final RX page. */
+  .rodata : { *(.rodata .rodata.*) } :data
   . = ALIGN(0x1000);
   .data : { *(.data .data.*) } :data
   . = ALIGN(16);
