@@ -375,11 +375,12 @@ zero vertices and visible text remains zero. Log:
 callback, bounded `ReadFaceTree` backfill, and canonical C implementations of
 `ReadPlacedObjectModel` and `BuildLitStripMeshPacket` replace the earlier
 no-op or assembly paths. This removed the huge allocation and `0x5f5f` call.
-The reader now reaches its next object with plausible face-tree counts (36,144
-nodes over 13,198 faces), then faults at guest `0x02000000` inside
-`func_001E9EE8` while `func_001289C0` finishes object setup. The current run
-still does not reach visible graphics; rendered vertex count remains zero.
-Latest log: `/tmp/sly-canonical-face-tree-bounded.log`.
+The reader now reaches the first collision face tree with plausible counts
+(36,144 nodes over 13,198 faces). It then faults at guest `0x02000000` in the
+second `func_00137FB0` call from `func_001BAC30`, while the retail assembly
+reader stores collision mesh data. It has not reached the world-list updater;
+the current run still shows zero rendered vertices. Latest confirming log:
+`/tmp/sly-canonical-confirmed-frontier.log`.
 
 ### Active work after resume (2026-11-11)
 
@@ -387,8 +388,9 @@ Latest log: `/tmp/sly-canonical-face-tree-bounded.log`.
 2. The canonical decomp snapshot used for the current isolated build is
    `2e00ac7001cb5016613f8dbc24e1c91a865263e4`; do not contribute port
    backfills there.
-3. Trace the guest `0x02000000` fault through `func_001E9EE8` and its object
-   list inputs; verify which list or callback reaches the unmapped boundary.
+3. Trace the second collision mesh read in `func_001BAC30`: capture its radius,
+   vertex, face, and edge counts before the exact `func_00137FB0` assembly
+   stores to `0x02000000`; compare those values to the serialized stream.
 4. Keep the C class-4 callback and face-tree reader registered as port-only
    backfills; remove them when equivalent US decomp C becomes hostable.
 4. Determine whether the level fault comes from a port backfill or an
