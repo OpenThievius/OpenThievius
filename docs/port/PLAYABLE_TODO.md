@@ -20,10 +20,12 @@ reworked source through the separate direct i386 compiler in
 without duplicate backfill addresses, but only 94/171 decomp units and 93/98
 port backfills compile. The partial link defines 801/4,807 catalogued
 functions and cannot reach `RunMainLoop` (frontier 0/1). The remaining source
-uses PS2 inline assembly and exception runtime features, plus Cfront syntax
-(`>?` and named returns), that this launcher cannot compile. Keep the canonical
-probe separate from the existing launcher until those host ABI gaps are
-resolved; it is not a runnable replacement yet.
+uses PS2 inline assembly and exception runtime features, plus GCC's removed
+`>?` operator, that this launcher cannot compile. A staging-only conversion
+now lowers the decomp's GCC 2.95 named-return form, which gets `main_loop.cpp`
+past parsing; its VU0 inline assembly then fails on the host's MIPS-only
+constraints. Keep the canonical probe separate from the existing launcher
+until those host ABI gaps are resolved; it is not a runnable replacement yet.
 
 The port remains not playable. The last confirmed native run (Nov 7) stayed
 black at frame state `0,3,0` with no visible text or scene geometry. The latest
@@ -46,10 +48,13 @@ now tolerates address-specific adaptations whose bodies moved out of old
 0x4000 chunks in `files.tsv` snapshots. It also renames staged decomp
 definitions when a port-only native backfill owns that retail address, while
 keeping public call names routed to the backfill. This prevents matching C
-that moved into named units from shadowing separate port replacements. The
-source probe still fails as described above; next work is to make runtime
-units hostable and restore the `RunMainLoop` closure before attempting a
-canonical-source launch. Port backfills remain in the port tree.
+that moved into named units from shadowing separate port replacements. It
+also converts named returns in staged units and a staged `vu0.h`. The direct
+compile still yields 94/171 units: the main loop now reaches unsupported host
+VU0 asm constraints, so the compiled function closure remains far short of
+startup. Next work is a host-side VU0 implementation for gameplay operations
+and lowering of the remaining `>?` expressions. Port backfills remain in the
+port tree.
 
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++

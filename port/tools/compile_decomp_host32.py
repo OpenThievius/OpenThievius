@@ -11,6 +11,55 @@ import sys
 from pathlib import Path
 
 
+def lower_named_returns(text, label):
+    """Lower GCC 2.95's named-return extension to ordinary host C++."""
+    pattern = re.compile(
+        r"(?m)^(?P<indent>[ \t]*)(?P<prefix>(?:(?:static|inline)\s+)*"
+        r"(?P<type>[A-Za-z_]\w*(?:::\w+)*)\s+[^\n{};]*\))"
+        r"\s+return\s+(?P<result>[A-Za-z_]\w*)\s*\n(?P<open>[ \t]*)\{")
+    matches = list(pattern.finditer(text))
+    for match in reversed(matches):
+        opening = match.end() - 1
+        depth = 0
+        state = "code"
+        escaped = False
+        closing = None
+        for index in range(opening, len(text)):
+            char = text[index]
+            nxt = text[index + 1] if index + 1 < len(text) else ""
+            if state == "line_comment":
+                if char == "\n": state = "code"
+                continue
+            if state == "block_comment":
+                if char == "*" and nxt == "/": state = "code"
+                continue
+            if state in ("string", "char"):
+                if escaped: escaped = False
+                elif char == "\\": escaped = True
+                elif (state == "string" and char == '"') or (state == "char" and char == "'"):
+                    state = "code"
+                continue
+            if char == "/" and nxt == "/": state = "line_comment"; continue
+            if char == "/" and nxt == "*": state = "block_comment"; continue
+            if char == '"': state = "string"; continue
+            if char == "'": state = "char"; continue
+            if char == "{": depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    closing = index
+                    break
+        if closing is None:
+            raise RuntimeError("unclosed named-return body in " + label)
+        replacement = (match.group("indent") + match.group("prefix") + "\n" +
+                       match.group("open") + "{\n" + match.group("open") + "    " +
+                       match.group("type") + " " + match.group("result") + ";")
+        text = (text[:match.start()] + replacement + text[match.end():closing] +
+                "\n" + match.group("open") + "    return " + match.group("result") + ";" +
+                "\n" + text[closing:])
+    return text
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path, help="read-only sly1-decomp checkout")
@@ -67,10 +116,17 @@ def main(argv=None):
     warnings = 0
     staged_root = out / "staged"
     objects_root = out / "objects"
+    staged_include = staged_root / "include"
     shutil.rmtree(staged_root, ignore_errors=True)
     shutil.rmtree(objects_root, ignore_errors=True)
     staged_root.mkdir(parents=True, exist_ok=True)
     objects_root.mkdir(parents=True, exist_ok=True)
+    staged_include.mkdir(parents=True, exist_ok=True)
+    vu0_header = include / "vu0.h"
+    if vu0_header.is_file():
+        (staged_include / "vu0.h").write_text(
+            lower_named_returns(vu0_header.read_text(encoding="utf-8"), "include/vu0.h"),
+            encoding="utf-8")
     backfill_root = port / "game" / "sly1-us" / "native"
     # Native backfills take precedence at their retail address. The current
     # decomp groups functions into named whole-file units, so the old
@@ -98,6 +154,7 @@ def main(argv=None):
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
         "-include", str(port / "sly1" / "host_abi.h"),
         "-I", str(host_include),
+        "-I", str(staged_include),
         "-I", str(include),
     ]
     # host_abi.h defines the retail common.h guard because it supplies the
@@ -120,6 +177,7 @@ def main(argv=None):
         # A pair of format strings in the US source contains literal newlines
         # between quotes; preserve their intended newline in host C++ syntax.
         adapted = re.sub(r'"([^"\\\n]*)\n"', lambda m: '"' + m.group(1) + r'\n"', adapted)
+        adapted = lower_named_returns(adapted, rel.as_posix())
         # func_001612F8 writes a GIF packet from two 64-bit tag arguments.
         # Several matching translation units declared those arguments as
         # 32-bit values, which shifts the final output pointer on the i386
@@ -582,8 +640,8 @@ def main(argv=None):
             if not name:
                 continue
             definition = re.compile(
-                r"(?m)^(?P<header>[^\n;{}]*\b" + re.escape(name) +
-                r"\s*\([^\n{}]*\)[^\n{}]*)\n(?=\s*\{)")
+                r"(?m)^(?P<header>\s*(?:[A-Za-z_][\w:*&<>]*\s+)+\b" +
+                re.escape(name) + r"\s*\([^\n{}]*\)[^\n{}]*)\n(?=\s*\{)")
             adapted = definition.sub(
                 lambda match: match.group("header").replace(
                     name, "decomp_" + name, 1) + "\n", adapted)
