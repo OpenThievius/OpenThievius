@@ -374,7 +374,14 @@ zero vertices and visible text remains zero. Log:
 `/tmp/sly-canonical-direct-level-queued.log`. The current candidate fault sits
 inside the exact retail `func_001289C0` parser, after the direct-level resource
 has begun; compare its caller's stream position and the specific serialized
-field before backfilling more code.
+field before backfilling more code. A diagnostic build briefly selected the
+existing port C body for `func_001289C0` instead of exact retail assembly. It
+reproduced the same failure, but added phase traces: the object callback is
+entered with reader cursor `0x700000C0`, while `func_001289C0`'s first C trace
+already sees cursor `0x661D` and remaining `-15616`. Its huge allocation
+therefore follows corruption before common-reader entry, during the class-4
+object callback path. The experiment was reverted; exact retail assembly
+remains selected. Diagnostic log: `/tmp/sly-canonical-c-reader-backfill.log`.
 
 ### Active work after resume (2026-11-11)
 
@@ -382,9 +389,9 @@ field before backfilling more code.
 2. The canonical decomp snapshot used for the current isolated build is
    `2e00ac7001cb5016613f8dbc24e1c91a865263e4`; do not contribute port
    backfills there.
-3. Trace the level parser from the direct-level entry. Identify why its reader
-   reaches the 1.64 GB allocation and `0x5f5f` callback; add bounds checks only
-   at the responsible port-owned boundary.
+3. Trace the class-4 object callback (`func_001BAC30`) between its reader
+   cursor `0x700000C0` and the common-reader call where the cursor is already
+   `0x661D`; identify the first bad field/read before adding a backfill.
 4. Determine whether the level fault comes from a port backfill or an
    unreadable canonical unit before adding more replacements. Keep each
    implementation in the port and record which canonical function can replace
