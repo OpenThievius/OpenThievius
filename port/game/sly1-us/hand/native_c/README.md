@@ -210,3 +210,11 @@ level trace confirms ten root class-`0x1e` world nodes and two class-`0x51`
 ConeVolumes, all owned by world `0x0088d530`; their mesh/attachment/extra-data
 and radius fields are zero. These diagnostic stages are gated by
 `OPENRAC_TRACE_FONT=1` and do not affect renderer state.
+
+The canonical decomp rework check also exposed two host-compatibility fixes
+kept here: `image_records.c` now passes retail guest addresses as `u32` rather
+than hostgen's unsupported `gaddr` type, and `font_text.c` guards null font
+records encountered before font registration. These are port-only behavior
+and ABI accommodations; remove them or replace them when matching C is
+hostable and resource ordering is handled correctly. The experiment and its
+current failure point are recorded in `docs/port/RESTART_CHECKPOINT.md`.

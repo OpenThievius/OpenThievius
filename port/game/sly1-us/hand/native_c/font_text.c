@@ -213,6 +213,9 @@ void func_0015C8B8(void* opaque, f32 sx, f32 sy) {
     __builtin_memcpy(&sy_arg_bits, &sy, sizeof(sy_arg_bits));
     sly1_native_trace_font(17, (u32)opaque, sx_arg_bits, sy_arg_bits, 0, 0);
     FontTextFont* font = (FontTextFont*)opaque;
+    /* Port guard: startup can construct a letter element before its font
+     * record has been registered. Retail assumes the resource order is valid. */
+    if (font == 0) return;
     f32* point = (f32*)((u8*)font + 0x10u + (u32)font->depth * 8u);
     u32 sx_bits, sy_bits, stack_x_bits, stack_y_bits;
     __builtin_memcpy(&sx_bits, &font->sx, sizeof(sx_bits));
@@ -239,6 +242,7 @@ void func_0015C8B8(void* opaque, f32 sx, f32 sy) {
 
 void func_0015C900(void* opaque) {
     FontTextFont* font = (FontTextFont*)opaque;
+    if (font == 0) return;
     if (font->depth <= 0) return;
     --font->depth;
     font->sx = *(f32*)((u8*)font + 0x10u + (u32)font->depth * 8u);

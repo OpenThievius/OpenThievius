@@ -96,11 +96,14 @@
       "func_001B5F50"
     ],
     "only": [
+      "func_0011F798",
+      "func_0011FDB8",
       "func_0011D078",
       "func_0011D140",
       "func_0011D968",
       "func_0011DB00",
       "func_001DC9A0",
+      "func_001533A8",
       "func_00139B70",
       "func_001612F8",
       "func_001662A8",
@@ -111,6 +114,8 @@
       "func_001F6B70",
       "func_001E9108",
       "func_001EE3B8",
+      "func_001EE850",
+      "func_0018D758",
       "func_001EE668",
       "func_001837E0",
       "func_001F8480",
