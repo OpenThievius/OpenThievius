@@ -1,5 +1,6 @@
 # symbol	file
 func_001EE930	native_c/value_list_reader.c
+func_001B5F50	native_c/state_graph_loader.c
 func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
@@ -46,7 +47,6 @@ func_00161768	native_c/display_packets.c
 func_001617E8	native_c/display_packets.c
 func_00161860	native_c/display_packets.c
 func_001618C0	native_c/display_packets.c
-func_0015C1C0	native_c/func_0015C1C0.c
 func_001FD8A8	native_c/func_001FD8A8.c
 func_0015C200	native_c/font_text.c
 func_0015C260	native_c/font_text.c
@@ -117,9 +117,6 @@ func_00188C10	native_c/object_transform_primitives.c
 func_00125BF0	native_c/object_transform_primitives.c
 func_001261C0	native_c/object_update_callbacks.c
 func_0018D800	native_c/func_0018D800.c
-func_0018D500	native_c/native_heap.c
-func_0018D5C0	native_c/native_heap.c
-func_0018D568	native_c/resource_readers.c
 func_0018B5C0	native_c/startup_async_state.c
 func_0018B600	native_c/startup_async_state.c
 func_0018B670	native_c/startup_async_state.c
@@ -169,8 +166,6 @@ func_00128C10	native_c/resource_object_common.c
 func_001F5A58	native_c/func_001F5A58.c
 func_00140C28	native_c/func_00140C28.c
 func_00140CC8	native_c/func_00140CC8.c
-func_001E4EA8	native_c/func_001E4EA8.c
-func_001E4E80	native_c/func_001E4E80.c
 func_001B2BA8	native_c/image_records.c
 func_001B2CF8	native_c/image_records.c
 func_001DB838	native_c/func_001DB838.c
@@ -216,7 +211,6 @@ func_002040E8	native_c/input_manager.c
 func_00194D30	native_c/func_00194D30.c
 func_001943E8	native_c/func_001943E8.c
 func_00138BE0	native_c/collision_loader.c
-func_001B7C40	native_c/collision_loader.c
 func_001BB4A0	native_c/collision_loader.c
 func_0016EC88	native_c/func_0016EC88.c
 func_00160B28	native_c/func_00160B28.c
@@ -309,6 +303,12 @@ func_001AA8A8	native_c/ui_layout.c
 func_00161458	native_c/display_packets.c
 func_001615F0	native_c/display_packets.c
 func_0019DDA0	native_c/display_packets.c
-func_001ACDA0	native_c/func_001ACDA0.c
 func_0011ECB8	native_c/resource_object_record_loop.c
 func_00160CE8	native_c/func_00160CE8.c
+func_0015C1C0	overrides_c/func_0015C1C0.c
+func_0018D500	overrides_c/native_heap.c
+func_0018D568	overrides_c/func_0018D568.c
+func_0018D5C0	overrides_c/native_heap.c
+func_001ACDA0	overrides_c/func_001ACDA0.c
+func_001B7C40	overrides_c/func_001B7C40.c
+func_001E4E80	overrides_c/func_001E4E80.c

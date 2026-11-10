@@ -75,20 +75,6 @@ static void finish_resource_service(u8* request) {
     *(u32*)request = 0;
 }
 
-void func_001E4E80(void* block, s32 a, s32 b, s32 c, s32 d) {
-    u8* bytes = (u8*)block;
-    if (*(s32*)bytes != 0) return;
-    *(s32*)(bytes + 0x00) = 1;
-    *(s32*)(bytes + 0x04) = a;
-    *(s32*)(bytes + 0x08) = b;
-    *(s32*)(bytes + 0x0C) = c;
-    *(s32*)(bytes + 0x10) = d;
-    sly1_native_loader_stage(7, 0, (u32)block);
-    /* The native loader performs synchronous sector reads, so dispatch the
-     * queued job here instead of waiting for Sly's absent worker scheduler. */
-    func_001E4EA8(block);
-}
-
 void func_001E4EA8(void* state) {
     static s32 direct_level_attempted = 0;
     u8* request = (u8*)state;
@@ -199,6 +185,10 @@ void func_001E4EA8(void* state) {
                 u8* entry = D_00247AF0 + (u32)index * 0x2Cu;
                 if (*(u32*)(entry + 0x20) == wanted) {
                     sly1_native_loader_stage(150, wanted, (u32)entry);
+                    /* This probe runs at the tail of the current synchronous
+                     * request, before finish_resource_service clears state.
+                     * Make the retail queue routine accept the next request. */
+                    *(s32*)request = 0;
                     func_001E4E80((void*)0x00275AF0u, (s32)entry, 0, 0, 0);
                     break;
                 }
