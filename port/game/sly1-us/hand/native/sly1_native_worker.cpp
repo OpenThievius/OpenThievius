@@ -141,6 +141,21 @@ extern "C" uint32_t game_sly1_native_call_regs4(uint32_t address, uint32_t a0,
                                                   uint32_t a1, uint32_t a2,
                                                   uint32_t a3) {
     if (address == 0 || openrac_guest_function_name(address) == nullptr) return 0;
+    if (std::getenv("OPENRAC_TRACE_BAD_THUNK") != nullptr) {
+        static thread_local uint32_t last_address;
+        static thread_local unsigned trace_count;
+        if (address != last_address && trace_count < 4096) {
+            const auto target = openrac_guest_function(address);
+            std::fprintf(stderr,
+                         "[native callback] guest=%#010x host=%p name=%s args=%#010x,%#010x,%#010x,%#010x\n",
+                         address, reinterpret_cast<void*>(target),
+                         openrac_guest_function_name(address), a0, a1, a2, a3);
+            ++trace_count;
+            if (trace_count == 4096)
+                std::fprintf(stderr, "[native callback] transition trace limit reached\n");
+        }
+        last_address = address;
+    }
     if (std::getenv("OPENRAC_TRACE_UI_CALLS") != nullptr &&
         (address == 0x00194F80u || address == 0x001AB198u ||
          address == 0x001AA790u || address == 0x0015E318u)) {
