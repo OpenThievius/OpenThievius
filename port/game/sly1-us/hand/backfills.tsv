@@ -170,7 +170,9 @@ func_001F5A58	native_c/func_001F5A58.c
 func_00140C28	native_c/func_00140C28.c
 func_00140CC8	native_c/func_00140CC8.c
 func_001E4EA8	native_c/func_001E4EA8.c
-func_001E4E80	native_c/func_001E4EA8.c
+func_001E4E80	native_c/func_001E4E80.c
+func_001B2BA8	native_c/image_records.c
+func_001B2CF8	native_c/image_records.c
 func_001DB838	native_c/func_001DB838.c
 func_001DB928	native_c/func_001DB928.c
 func_001DCCC0	native_c/func_001DCCC0.c
