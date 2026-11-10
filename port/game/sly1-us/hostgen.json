@@ -39,6 +39,9 @@
   "includes": [
     "include"
   ],
+  "aliases": [
+    "include/names.h"
+  ],
   "defines": [
     "SLY1_RETAIL_ASM_FUNC_00162890",
     "SLY1_RETAIL_ASM_FUNC_001DCEA0",
@@ -97,6 +100,7 @@
     ],
     "only": [
       "func_00137FB0",
+      "func_00138398",
       "func_0011F798",
       "func_0011FDB8",
       "func_0011D078",

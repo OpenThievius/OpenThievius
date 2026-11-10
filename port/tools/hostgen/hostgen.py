@@ -1016,6 +1016,18 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
                   if not all(n in replaced for n in names_of[id(text)])}
     # The port's own C for functions the decompilation matches, in place of their definitions.
     overrides = read_overrides(args.game.parent, cfg)
+    # When sly1.py stages an override as a standalone unit because the canonical
+    # decomp renamed its definition, that unit is already the function body.
+    # Do not also inject it into itself as a replacement.
+    direct_overrides = set()
+    direct_root = source / "src" / "000_native_overrides"
+    if direct_root.is_dir():
+        for path in direct_root.rglob("*.c"):
+            direct_overrides.update(re.findall(
+                r"^[ \t]*(?:static\s+)?[A-Za-z_]\w*(?:\s*\*)?\s+"
+                r"(func_[0-9A-Fa-f]{8})\s*\([^;{}]*\)\s*(?:const\s*)?\{",
+                path.read_text(encoding="utf-8", errors="replace"), re.MULTILINE))
+    overrides = {name: text for name, text in overrides.items() if name not in direct_overrides}
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
     if aliases:

@@ -19,6 +19,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT.parent / "sly1-decomp"
 FUNCTION = re.compile(r"\b(func_[0-9A-Fa-f]{8})\b")
+FUNCTION_DEFINITION = re.compile(
+    r"^[ \t]*(?:static\s+)?[A-Za-z_]\w*(?:\s*\*)?\s+"
+    r"(func_[0-9A-Fa-f]{8})\s*\([^;{}]*\)\s*(?:const\s*)?\{",
+    re.MULTILINE,
+)
 
 
 def source_root(explicit):
@@ -800,15 +805,43 @@ def prepare_c_view(source, version):
     # Port-owned functional replacements stay outside sly1-decomp. Hostgen
     # treats them as ordinary C units so matching source can replace them by
     # removing the corresponding backfill file.
-    backfills = ROOT / "port" / "game" / "sly1-us" / "hand" / "native_c"
-    if backfills.is_dir():
-        out_dir = staged / "src" / "native_backfills"
-        out_dir.mkdir()
-        for source_file in sorted(backfills.rglob("*")):
+    hand = ROOT / "port" / "game" / "sly1-us" / "hand"
+    out_dir = staged / "src" / "native_backfills"
+    native_c = hand / "native_c"
+    if native_c.is_dir():
+        for source_file in sorted(native_c.rglob("*")):
             if source_file.is_file() and source_file.suffix in (".c", ".h"):
-                target = out_dir / source_file.relative_to(backfills)
+                target = out_dir / source_file.relative_to(native_c)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source_file, target)
+
+    # Some override functions are also called directly by semantic names in
+    # the latest decomp. Put unmatched port-owned overrides first in the unit
+    # list so their retail-address definitions take precedence in hostgen.
+    # Overrides already supplied in native_c are injected there by hostgen and
+    # must not be compiled twice.
+    overrides_c = hand / "overrides_c"
+    if overrides_c.is_dir():
+        source_definitions = set()
+        for source_file in sorted(native_c.rglob("*.c")) if native_c.is_dir() else ():
+            source_definitions.update(FUNCTION_DEFINITION.findall(
+                source_file.read_text(encoding="utf-8", errors="replace")))
+        for source_file in sorted(overrides_c.rglob("*")):
+            if not source_file.is_file() or source_file.suffix not in (".c", ".h"):
+                continue
+            if source_file.suffix == ".h":
+                continue
+            definitions = set(FUNCTION_DEFINITION.findall(
+                source_file.read_text(encoding="utf-8", errors="replace")))
+            if definitions & source_definitions:
+                if definitions - source_definitions:
+                    raise ValueError(
+                        "%s mixes a matched override with an unmatched function; split the file"
+                        % source_file)
+                continue
+            target = staged / "src" / "000_native_overrides" / source_file.relative_to(overrides_c)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_file, target)
     return staged
 
 
