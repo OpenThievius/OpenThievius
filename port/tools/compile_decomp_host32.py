@@ -419,6 +419,25 @@ def main(argv=None):
         staged_header = staged_include / header.relative_to(include)
         staged_header.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(header, staged_header)
+    wide_header = staged_include / "mul_wide.h"
+    if wide_header.is_file():
+        # The upstream macro emits EE multu/HI/LO constraints. The native
+        # build needs the same unsigned 32x32 -> 64-bit result on the host.
+        wide_header.write_text(
+            wide_header.read_text(encoding="utf-8").replace(
+                '__asm__("multu %2,%3" : "=l"(low), "=h"(high) : "d"(a), "d"(b))',
+                "do { u64 sly1_product = (u64)(u32)(a) * (u32)(b); "
+                "(low) = (u32)sly1_product; (high) = (u32)(sly1_product >> 32); } while (0)"),
+            encoding="utf-8")
+    rotation_header = staged_include / "mul_rotation.h"
+    if rotation_header.is_file():
+        # EE GCC's signed/unsigned vector conversions are implicit. Host GCC
+        # requires SetRows to use the bit-identical unsigned vector type.
+        rotation_header.write_text(
+            rotation_header.read_text(encoding="utf-8").replace(
+                "const s128& x, const s128& y, const s128& z",
+                "const u128& x, const u128& y, const u128& z"),
+            encoding="utf-8")
     system_header = staged_include / "system.h"
     if system_header.is_file():
         system_header.write_text(
@@ -426,10 +445,15 @@ def main(argv=None):
             encoding="utf-8")
     vu0_header = include / "vu0.h"
     if vu0_header.is_file():
-        (staged_include / "vu0.h").write_text(
-            lower_host_vu0(lower_named_returns(
-                vu0_header.read_text(encoding="utf-8"), "include/vu0.h")),
-            encoding="utf-8")
+        host_vu0 = lower_host_vu0(lower_named_returns(
+            vu0_header.read_text(encoding="utf-8"), "include/vu0.h"))
+        # Recent matching helpers use GCC 2.95's cast-lvalue extension to
+        # influence EE register allocation. It has the same vector value as
+        # `r`, but modern host GCC rejects taking the address of the cast.
+        # The EE-only allocation detail is irrelevant to the host ABI.
+        host_vu0 = host_vu0.replace(
+            "return *(u128*)&(s128)r;", "return r;")
+        (staged_include / "vu0.h").write_text(host_vu0, encoding="utf-8")
     backfill_root = port / "game" / "sly1-us" / "native"
     # Native backfills take precedence at their retail address. The current
     # decomp groups functions into named whole-file units, so the old
@@ -553,6 +577,12 @@ def main(argv=None):
             adapted = re.sub(
                 r"(?<!void )FitLineThroughAngleSamples\(",
                 "sly1_host_fit_angle_samples(", adapted)
+        elif rel.as_posix() == "main/file_180EB0.cpp":
+            # The EE compiler accepts implicit signed/unsigned vector
+            # conversions for this helper; host GCC requires matching types.
+            adapted = adapted.replace(
+                "SetMatrixRows(Mat02& m, const s128& a, const s128& b, const s128& c)",
+                "SetMatrixRows(Mat02& m, const u128& a, const u128& b, const u128& c)")
         # func_001612F8 writes a GIF packet from two 64-bit tag arguments.
         # Several matching translation units declared those arguments as
         # 32-bit values, which shifts the final output pointer on the i386
