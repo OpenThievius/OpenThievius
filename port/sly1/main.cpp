@@ -1478,11 +1478,12 @@ int main(int argc, char** argv) {
     while (!game_started.load(std::memory_order_acquire)) {
         openrac_native_window_present();
         if (openrac_native_window_poll_input()) {
-            game_thread.detach();
-            openrac_native_window_destroy();
             trace_stop.store(true, std::memory_order_relaxed);
             if (trace_thread.joinable()) trace_thread.join();
-            return 0;
+            // Guest execution may still be inside translated retail code. Do
+            // not detach it and then destroy process-wide guest maps while it
+            // is running; terminate the process so the OS reclaims resources.
+            std::_Exit(0);
         }
         presenter.wait();
     }
