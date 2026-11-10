@@ -614,11 +614,97 @@ def main(argv=None):
                 raise RuntimeError("expected one HSV output register call in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/pose_source.cpp":
-            # This unit describes the matched Hermite helper as taking its
-            # scalar inputs before its outputs. Its implementation at
-            # 0x001303F0 uses output pointers first; EE's mixed GPR/FPR call
-            # convention hid the declaration mismatch, while i386 stack slots
-            # do not. Keep the retail callee and normalize both calls here.
+            # These closure byte arrays hold Mat02 values passed to VU0
+            # routines. Their retail stack layout is quadword-aligned even
+            # though the byte-array declarations do not express it to GCC.
+            # Keep their field offsets and alignment in the host frame.
+            for closure in ("AxisCurveClosure", "KeyedCurveClosure"):
+                old = (f"struct {closure} {{\n    u8 a[0x30];\n"
+                       "    u8 b[0x30];\n    u8 c[0x30];")
+                new = (f"struct {closure} {{\n"
+                       "    u8 a[0x30] __attribute__((aligned(16)));\n"
+                       "    u8 b[0x30] __attribute__((aligned(16)));\n"
+                       "    u8 c[0x30] __attribute__((aligned(16))); ")
+                if adapted.count(old) != 1:
+                    raise RuntimeError("expected one matrix closure: " + closure)
+                adapted = adapted.replace(old, new, 1)
+            # The three concrete weight-curve methods are installed in a
+            # WeightCurveEval table, whose host-call signature is
+            # (curve, owner, key, scale, flags, outValue, outSlope). The EE
+            # source declarations follow the register layout of direct EE
+            # callers instead. Give the host definitions the table's actual
+            # callback signature while keeping the implementation logic.
+            curve_callbacks = (
+                ("TangentWeightCurve", "EvaluateTangentWeightCurve"),
+                ("ControlPointWeightCurve", "EvaluateControlPointWeightCurve"),
+                ("LinearWeightCurve", "EvaluateLinearWeightCurve"),
+            )
+            for curve_type, function in curve_callbacks:
+                pattern = (
+                    rf"void {function}\({curve_type}\* self, s32 unused, "
+                    rf"s32 flags, f32\* outF, f32\* outI, f32 key, f32 scale\)")
+                replacement = (
+                    f"void {function}({curve_type}* self, PlacedObject* owner, "
+                    "f32 key, f32 scale, s32 flags, f32* outF, f32* outI)")
+                adapted, replacements = re.subn(pattern, replacement, adapted)
+                if replacements != 1:
+                    raise RuntimeError("expected one host weight-curve callback: " +
+                                       function)
+            # PositionCurveEval also carries key/scale before mode and output
+            # pointers. The source method declarations follow EE register
+            # residue, which shifts the output pointer onto the host stack's
+            # scale word when called through a curve vtable.
+            old = ("void EvaluateAxisPositionCurve(AxisPositionCurve* self, "
+                   "PlacedObject* other, s32 c, s32 e, s32 f, f32 p12, f32 p13)\n{\n"
+                   "    EvaluateAxisCurves(self->axis, other, c, &self->base, e, f, p12, p13);")
+            new = ("void EvaluateAxisPositionCurve(AxisPositionCurve* self, "
+                   "PlacedObject* other, f32 key, f32 scale, s32 mode, "
+                   "void* outValue, void* outSlope)\n{\n"
+                   "    EvaluateAxisCurves(self->axis, other, mode, &self->base, "
+                   "(f32*)outValue, (f32*)outSlope, key, scale);")
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one host axis-position callback")
+            adapted = adapted.replace(old, new, 1)
+            adapted = adapted.replace(
+                "((VectorCurveToldFn)other->desc02()->m28)(other, e, f);",
+                "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                "(s32)outValue, (s32)outSlope);")
+            old = ("void EvaluateVectorKeyPositionCurve(VectorKeyPositionCurve* self, "
+                   "PlacedObject* other, s32 a2, s32 a3, s32 a4, f32 p12, f32 p13)\n{\n"
+                   "    EvaluateVectorKeyCurve(self->count, (s32)self->keys, a2, a3, a4, p12, p13);")
+            new = ("void EvaluateVectorKeyPositionCurve(VectorKeyPositionCurve* self, "
+                   "PlacedObject* other, f32 key, f32 scale, s32 mode, "
+                   "void* outValue, void* outSlope)\n{\n"
+                   "    EvaluateVectorKeyCurve(self->count, (s32)self->keys, mode, "
+                   "(s32)outValue, (s32)outSlope, key, scale);")
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one host keyed-position callback")
+            adapted = adapted.replace(old, new, 1)
+            adapted = adapted.replace(
+                "((VectorCurveToldFn)other->desc02()->m28)(other, a3, a4);",
+                "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                "(s32)outValue, (s32)outSlope);")
+            # RotationCurveEval supplies the key and scale after its two
+            # output pointers. The source body relied on EE FPR residue when
+            # forwarding to EvaluateAxisCurves; make those values explicit on
+            # the host stack ABI.
+            old = ("void EvaluateAxisRotationCurve(AxisRotationCurve* self, "
+                   "PlacedObject* other, s32 c, void* p3, void* p4)\n{\n"
+                   "    AngleSample tmp;\n"
+                   "    EvaluateAxisCurves(self->axis, other, c, &self->base, "
+                   "p3 ? (void*)&tmp : 0, p4 ? (void*)tmp.b : 0);")
+            new = ("void EvaluateAxisRotationCurve(AxisRotationCurve* self, "
+                   "PlacedObject* other, s32 c, void* p3, void* p4, "
+                   "f32 key, f32 scale)\n{\n"
+                   "    AngleSample tmp;\n"
+                   "    EvaluateAxisCurves(self->axis, other, c, &self->base, "
+                   "p3 ? (f32*)&tmp : 0, p4 ? (f32*)tmp.b : 0, key, scale);")
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one host rotation-curve callback")
+            adapted = adapted.replace(old, new, 1)
+            # The matching Hermite implementation at 0x001303F0 takes its
+            # output pointers first. Reorder the two source calls that express
+            # the same register flow as scalar inputs followed by outputs.
             adapted = adapted.replace(
                 "void EvaluateHermiteSegment(f32 delta, f32 diff, f32 scale, "
                 "f32 p4, f32 p14, f32 p1C, f32 p24, f32* outF, f32* outI, "
