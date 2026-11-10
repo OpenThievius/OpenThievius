@@ -544,6 +544,24 @@ sly1_native_trace_resource_state(u32 self, u32 pending, u32 world) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_group_child(u32 type, u32 object, u32 descriptor, u32 read_method) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: group child type ", (int)type);
+    write_hex("native host32: group child object ", (int)object);
+    write_hex("native host32: group child descriptor ", (int)descriptor);
+    write_hex("native host32: group child read method ", (int)read_method);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_path_curve(u32 kind, u32 curve, u32 vtable, u32 read_method) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: path curve kind ", (int)kind);
+    write_hex("native host32: path curve object ", (int)curve);
+    write_hex("native host32: path curve vtable ", (int)vtable);
+    write_hex("native host32: path curve reader ", (int)read_method);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_c02_state(u32 tag, u32 self) {
     if (!g_startup_trace_enabled) return;
     write_hex("native host32: C02 trace point ", (int)tag);

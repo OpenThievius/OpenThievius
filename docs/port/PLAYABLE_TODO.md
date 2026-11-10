@@ -79,6 +79,18 @@ not change upstream matching behavior: any native factory or dispatch fix
 belongs in `hand/native_c/` and the backfill registry. Trace:
 `/tmp/sly-canonical-native-stage26.log`.
 
+**Nested record follow-up (2026-11-10):** opt-in traces around the decomp
+`LoadGroupMembers` callback show child type `0x7A`, descriptor address
+`0x08147c20`, and `m0A` at `func_00158B30` (`LoadRecordMember`). This is a
+valid descriptor dispatch, so the earlier `0x556` value was not this child's
+read-method slot. The captured core now faults at EIP `0x2` with a return site
+inside `LoadRecordMember`, after it takes the no-path-curve branch and calls
+`ReadCappedWordList` for its nested record. Path-curve tracing did not fire.
+The next investigation is the stream count and read sequence feeding that
+capped-list call, plus its reader ABI; do not replace `LoadRecordMember` unless
+evidence shows the matching function itself is incompatible with the host ABI.
+Trace: `/tmp/sly-canonical-path-curve.log`; core: `/tmp/sly-pathlatest.core`.
+
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++
 header constructs. `func_00125C90` remains `INCLUDE_ASM` in the latest

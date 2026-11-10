@@ -953,6 +953,34 @@ def main(argv=None):
                 adapted)
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
+        if args.trace_functions and rel.as_posix() == "main/file_1549C8.cpp":
+            # Identify a malformed nested class read slot before the retail
+            # virtual dispatch in LoadGroupMembers faults.
+            hook = ('extern "C" void sly1_native_trace_group_child(\n'
+                    '    u32, u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_path_curve(\n'
+                    '    u32, u32, u32, u32);\n')
+            adapted = hook + adapted
+            old = """        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
+        s32 n;"""
+            new = """        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
+        sly1_native_trace_group_child((u32)r1, (u32)obj,
+            obj != 0 ? (u32)obj->desc : 0,
+            obj != 0 && obj->desc != 0 ? (u32)obj->desc->m0A : 0);
+        s32 n;"""
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one group child read site in " + rel.as_posix())
+            adapted = adapted.replace(old, new, 1)
+            old = """        n->curve20 = CreatePathCurve(idx);
+        if (n->curve20->vt->m00 != 0) {"""
+            new = """        n->curve20 = CreatePathCurve(idx);
+        sly1_native_trace_path_curve((u32)idx, (u32)n->curve20,
+            n->curve20 != 0 ? (u32)n->curve20->vt : 0,
+            n->curve20 != 0 && n->curve20->vt != 0 ? (u32)n->curve20->vt->m00 : 0);
+        if (n->curve20->vt->m00 != 0) {"""
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one path curve reader site in " + rel.as_posix())
+            adapted = adapted.replace(old, new, 1)
         if args.trace_functions and rel.as_posix() in {
                 "main/00124000.cpp", "main/001B4000.cpp", "main/001B8000.cpp"}:
             # Global -finstrument-functions changes behavior where the decomp
