@@ -2144,7 +2144,7 @@ this is not confirmed game artwork. Trace the producer, framebuffer and
 presentation path. Log: `/tmp/sly-native-ui-callbacks-ready.log` (transient).
 See `RESTART_CHECKPOINT.md` for the restart sequence and detailed readings.
 
-**Canonical decomp recheck (2026-11-08):** The configured checkout at
+**Canonical decomp recheck (superseded 2026-11-11):** The configured checkout at
 `/home/reaper/Code/sly1-decomp` remains clean at `e1b39f1`, and its
 `ReaperOfVeriod` remote had no new commits. Canonical
 `OpenThievius/sly1-decomp` is at `cf97578`; the temporary read-only checkout is
@@ -2157,4 +2157,27 @@ movie pipeline (`func_0018F198`, `func_0018F448`, and decode callbacks),
 so this C is not yet available to hostgen. On resume, sync that read-only
 input to canonical `cf97578`, then trace why the startup step sequence does
 not queue the opening movie after Splash. Do not change the decomp project or
-fake a movie queue event. The playable goal is paused.
+fake a movie queue event. The old paused-state note is superseded; port work is
+active on `wip/native-sly-port`.
+
+**Canonical source integration and level parser (2026-11-11):** Canonical
+master is now `2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The port's
+isolated source staging reads that snapshot and resolves semantic names through
+`include/names.h`; the upstream checkout remains read-only. The clean native
+build compiles and links 257 generated C units: 700 C translations, 242
+assembly translations, two C stubs, and 3,951 functions still without C.
+
+The latest native direct-level probe completes Splash, selects key `0x0100`,
+and reads sector 867214 (4,911,835 bytes). It then reaches an invalid
+1,645,753,056-byte allocation in the object parser, calls code address
+`0x5f5f`, and faults at guest address `0xFFFFA9E3`. The current output has zero
+vertices and no visible text. Trace:
+`/tmp/sly-canonical-direct-level-queued.log`.
+
+Recent port-only fixes include canonical-name aliasing, standalone staging for
+unmatched override bodies, a state graph loader backfill that guards absent
+class stream callbacks, and list pointer/tail checks. The next step is to trace
+the stream field read by exact retail `func_001289C0` and find which preceding
+loader path misaligns it. Keep any temporary C in the port and name the retail
+function it replaces so later decomp C can supersede it. See
+`RESTART_CHECKPOINT.md` for the full configuration and native launch command.

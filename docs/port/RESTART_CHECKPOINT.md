@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-10, after checking canonical decomp PR #109. Work in
+Updated: 2026-11-11, after integrating the canonical decomp rewrite. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
@@ -9,35 +9,39 @@ registered in `backfills.tsv`; do not put those replacements in
 `/home/reaper/Code/sly1-decomp`. Continue using native runs only; no emulator
 is involved in the port work.
 
-## Canonical decomp rework checkpoint (2026-11-10)
+## Canonical decomp rework checkpoint (2026-11-11)
 
 Canonical `OpenThievius/sly1-decomp` master is
 `2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The checkout at
 `/home/reaper/Code/sly1-decomp` is still the older `e1b39f1`; the newer tree
-was inspected read-only at `/tmp/sly1-decomp-2e00ac70`. An isolated build at
-`build/port/canonical-sdl` uses the canonical C sources and the older checkout
-only for its generated US retail assembly. Do not treat this isolated
-experiment as the default launcher build.
+was inspected read-only at `/tmp/sly1-decomp-2e00ac70`. The isolated build at
+`build/port/canonical-fresh` uses the canonical C sources and the older
+checkout only for generated US retail assembly. Hostgen now reads
+`include/names.h`, binding semantic C names to retail addresses. This raised
+hostgen coverage to 700 translated functions, 242 selected assembly
+functions, 2 remaining C stubs, and 3,951 functions without C; all 257
+generated C units compile and link.
 
-Latest source hostgen translates 562 functions (252 from selected assembly),
-stubs 2, and reports 4,069 without C. Canonical font and image record loading
-now runs far enough to register four font records. Exact retail assembly for
-`func_0011F798` and its wrapper `func_0011FDB8` was added to the isolated
-build after its previous curve read fault. An initial 15-second native run
-then faulted reading `0x6FFFFFF8` while parsing collision data
-(`/tmp/sly-canonical-axis-asm-run.log`). The latest probe replaced the active
-port-only `func_00137FB0` collision mesh reader with its exact US retail
-assembly, retaining the C file under `hand/superseded_backfills/`. That
-assembly consumes several mesh records; startup now reaches a null virtual
-callback and faults at `0xFFFF0626`
-(`/tmp/sly-canonical-collision-asm-run.log`). The canonical build remains
-experimental and produces no visible graphics.
+Port overrides without a host-readable matching C definition are staged
+ahead of the canonical units as separate port-owned source files. This lets
+address-based functions remain callable when the reworked decomp renames
+their C symbols or a canonical unit cannot be read. Implementations stay in
+the port under `hand/native_c/`, `hand/overrides_c/`, and
+`hand/superseded_backfills/`; the upstream checkout was not modified.
 
-Recent compatibility edits are port-only: image-reader backfills now use
-32-bit guest addresses so hostgen accepts them, and font-text backfills guard
-absent font pointers. Runtime font/GIF/VIF traces are opt-in diagnostics. The
-host32 compiler also omits three PS2 exception-runtime units unsupported by
-the native host ABI.
+The latest native run finishes Splash loading, enters the frame loop, reaches
+the opt-in level key `0x0100`, and reads the level at sector 867214
+(4,911,835 bytes). Level parsing then requests a corrupt 1,645,753,056-byte
+allocation, attempts an indirect call to `0x5f5f`, and faults at guest address
+`0xFFFFA9E3`. The port emits zero vertices and no visible text; this is loader
+progress, not a visual or playable milestone. Trace:
+`/tmp/sly-canonical-direct-level-queued.log`.
+
+A port-only state graph loader retains the retail field layout and stream
+reads while guarding absent class stream callbacks. The list append override
+rejects invalid guest pointers and repairs an invalid tail before writing.
+Those fallbacks got Splash past its immediate `0xFFFFFFFF` crash; replace them
+with canonical C when those units are host-readable.
 
 ## State
 
@@ -300,7 +304,7 @@ a first graphics milestone. Run log:
 `/tmp/sly-native-ui-callbacks-ready.log` (may disappear on restart). The
 diagnostic flag is opt-in; regular launches do not print the inventory.
 
-### Canonical decomp recheck (superseded 2026-11-10)
+### Canonical decomp recheck (superseded 2026-11-11)
 
 The previous check used an outdated fork at `/home/reaper/Code/sly1-decomp`
 and missed the active sibling checkout. The default sibling at
@@ -352,19 +356,41 @@ the movie. Native log: `/tmp/sly-native-intro-state.log` (transient). The
 diagnostic build succeeded and the 12-second native run reached timeout
 without crashing; no emulator was used.
 
-### Active work after resume (2026-11-10)
+### Canonical source integration update (2026-11-11)
+
+The prior `d534006` check is superseded by canonical master
+`2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The native build now
+points its isolated source staging at `/tmp/sly1-decomp-2e00ac70`; the personal
+`/home/reaper/Code/sly1-decomp` checkout remains old and was not edited. Hostgen
+now unaliases `include/names.h`, and the canonical build compiles/links 257
+generated C units with 700 translated functions, 242 assembly translations,
+and two C stubs.
+
+With the state graph and list guards, Splash completes and the direct-level
+probe reaches sector 867214. The latest level trace fails during object
+parsing: `func_001289C0` requests 1,645,753,056 bytes, then the parser attempts
+code address `0x5f5f`; the final guest fault is `0xFFFFA9E3`. The renderer has
+zero vertices and visible text remains zero. Log:
+`/tmp/sly-canonical-direct-level-queued.log`. The current candidate fault sits
+inside the exact retail `func_001289C0` parser, after the direct-level resource
+has begun; compare its caller's stream position and the specific serialized
+field before backfilling more code.
+
+### Active work after resume (2026-11-11)
 
 1. The active port branch is `wip/native-sly-port`; keep changes here.
-2. The canonical sibling decomp is current at `d534006`; do not contribute
-   port backfills there.
-3. Preserve the corrected movie-player trace and rebuild the latest source.
-   First close the hostgen C++ staging gap for the queue and main-loop units;
-   then run the native launcher and see whether the queued key remains null
-   through Splash. If null, trace the type-7 step-sequence message producer.
-   Never synthesize a queue event.
-4. Keep functional port-only C under `hand/native_c/` and registered in
-   `backfills.tsv`; keep it separate from newly available matching decomp C.
-   No emulator.
+2. The canonical decomp snapshot used for the current isolated build is
+   `2e00ac7001cb5016613f8dbc24e1c91a865263e4`; do not contribute port
+   backfills there.
+3. Trace the level parser from the direct-level entry. Identify why its reader
+   reaches the 1.64 GB allocation and `0x5f5f` callback; add bounds checks only
+   at the responsible port-owned boundary.
+4. Determine whether the level fault comes from a port backfill or an
+   unreadable canonical unit before adding more replacements. Keep each
+   implementation in the port and record which canonical function can replace
+   it later.
+5. Re-run bounded native launches after loader fixes and track scene vertices.
+   Do not claim graphics from resource parsing or a non-black window.
 
 Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
 latest queue and worker evidence is near the end of the latter. `/tmp` logs
