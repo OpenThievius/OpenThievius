@@ -121,6 +121,19 @@ available.
 resource parsing. The previous bounded trace showed both were no-op stubs, so
 they failed to consume those fields from the resource stream. These are
 port-only replacements and should be removed when matching C becomes hostable.
+
+`resource_face_tree.c` backfills `func_00138278` (`ReadFaceTree`). The canonical
+source contains this reader, but hostgen currently reports it as `no-c`; the
+class-4 callback needs it to consume BSP records after collision mesh data.
+The backfill follows the decomp field layout and bounds node counts and links.
+Remove it when the matching C function is hostable.
+
+The canonical rework supplies `ReadPlacedObjectModel` and
+`BuildLitStripMeshPacket` in `file_15F678.cpp`; the port now selects those C
+functions instead of their older retail assembly translations. The class-4
+`func_001BAC30` callback remains a separately registered port-only backfill
+because the canonical US decomp has no hostable body for it. These changes
+advance model parsing but do not yet produce visible vertices.
 With both readers active, the class-4 parse advances from cursor `0x700014d5`
 through `0x70001a1f`, then reaches stage 132 and finishes its 57 groups at stage
 134. Its frame has flags `0x0763e73f`, but the flagged nested-object link at

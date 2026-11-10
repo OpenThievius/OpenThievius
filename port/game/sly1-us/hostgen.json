@@ -43,9 +43,7 @@
     "include/names.h"
   ],
   "defines": [
-    "SLY1_RETAIL_ASM_FUNC_00162890",
     "SLY1_RETAIL_ASM_FUNC_001DCEA0",
-    "SLY1_RETAIL_ASM_FUNC_001BAC30",
     "SLY1_RETAIL_ASM_FUNC_001C1190",
     "SLY1_RETAIL_ASM_FUNC_001C13E8",
     "SLY1_RETAIL_ASM_FUNC_0011A080",
@@ -174,7 +172,6 @@
       "func_00158C60",
       "func_00165AE8",
       "func_00162810",
-      "func_00162890",
       "func_00143E40",
       "func_001ED650",
       "func_00166690",
@@ -183,7 +180,6 @@
       "func_001EEA40",
       "func_001EEB60",
       "func_001DCEA0",
-      "func_001BAC30",
       "func_00196410",
       "func_001B9AE0",
       "func_0018BDC8",
@@ -343,7 +339,6 @@
       "func_0012BC38",
       "func_00124868",
       "func_001245A8",
-      "func_00164868",
       "func_001EE560",
       "func_001E4C48",
       "func_001289C0",

@@ -160,6 +160,14 @@ void func_001BAC30(void* self, void* reader) {
     trace_reader_phase(self, reader, 9u);
 
     func_001289C0(self, reader);
+    {
+        const u32 model = *(u32*)(object + 0x22Cu);
+        const u32 count = model != 0 ? *(u32*)(model + 0x0Cu) : 0;
+        const u32 parts = model != 0 ? *(u32*)(model + 0x10u) : 0;
+        const u32 first_strips = parts != 0 ? *(u32*)(parts + 0x58u) : 0;
+        sly1_native_trace_font(66u, model, count, parts, first_strips,
+                               *(u32*)(object + 0x3B0u));
+    }
     trace_reader_phase(self, reader, 7u);
     func_001B7C40(self, 1);
     {

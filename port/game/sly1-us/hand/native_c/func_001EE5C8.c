@@ -4,11 +4,16 @@
 #include "common.h"
 
 s32 func_001EE560(u32 writer, s32 type, s32 count, s32 flags);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_001EE5C8(u32 writer, u32 type, s32 count, u32 flags,
                    u32 out_size, u32 out_cursor) {
     s32 size;
     u32 cursor;
+
+    sly1_native_trace_font(65u, writer, type, (u32)count,
+                           out_size, out_cursor);
 
     if (count == 0) {
         if (out_cursor != 0) *(u32*)out_cursor = 0;

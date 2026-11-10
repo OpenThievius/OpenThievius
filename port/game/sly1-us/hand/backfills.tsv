@@ -157,12 +157,14 @@ func_00137F08	native_c/resource_stream_vector_readers.c
 func_00109488	native_c/func_00109488.c
 func_00160E80	native_c/collision_mesh_copy.c
 func_00160EA0	native_c/collision_mesh_copy.c
+func_00138278	native_c/resource_face_tree.c
 func_001897F0	native_c/collision_transform.c
 func_001B9448	native_c/collision_transform.c
 func_00123ED0	native_c/resource_base_constructor.c
 func_00124050	native_c/func_00124050.c
 func_001240F8	native_c/func_001240F8.c
 func_00128C10	native_c/resource_object_common.c
+func_001BAC30	native_c/func_001BAC30.c
 func_001F5A58	native_c/func_001F5A58.c
 func_00140C28	native_c/func_00140C28.c
 func_00140CC8	native_c/func_00140CC8.c

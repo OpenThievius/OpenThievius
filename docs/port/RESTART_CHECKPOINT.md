@@ -362,8 +362,8 @@ The prior `d534006` check is superseded by canonical master
 `2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The native build now
 points its isolated source staging at `/tmp/sly1-decomp-2e00ac70`; the personal
 `/home/reaper/Code/sly1-decomp` checkout remains old and was not edited. Hostgen
-now unaliases `include/names.h`, and the canonical build compiles/links 257
-generated C units with 700 translated functions, 242 assembly translations,
+now unaliases `include/names.h`, and the canonical build compiles/links 258
+generated C units with 707 translated functions, 239 assembly translations,
 and two C stubs.
 
 With the state graph and list guards, Splash completes and the direct-level
@@ -371,17 +371,15 @@ probe reaches sector 867214. The latest level trace fails during object
 parsing: `func_001289C0` requests 1,645,753,056 bytes, then the parser attempts
 code address `0x5f5f`; the final guest fault is `0xFFFFA9E3`. The renderer has
 zero vertices and visible text remains zero. Log:
-`/tmp/sly-canonical-direct-level-queued.log`. The current candidate fault sits
-inside the exact retail `func_001289C0` parser, after the direct-level resource
-has begun; compare its caller's stream position and the specific serialized
-field before backfilling more code. A diagnostic build briefly selected the
-existing port C body for `func_001289C0` instead of exact retail assembly. It
-reproduced the same failure, but added phase traces: the object callback is
-entered with reader cursor `0x700000C0`, while `func_001289C0`'s first C trace
-already sees cursor `0x661D` and remaining `-15616`. Its huge allocation
-therefore follows corruption before common-reader entry, during the class-4
-object callback path. The experiment was reverted; exact retail assembly
-remains selected. Diagnostic log: `/tmp/sly-canonical-c-reader-backfill.log`.
+`/tmp/sly-canonical-direct-level-queued.log`. A new port-only `func_001BAC30`
+callback, bounded `ReadFaceTree` backfill, and canonical C implementations of
+`ReadPlacedObjectModel` and `BuildLitStripMeshPacket` replace the earlier
+no-op or assembly paths. This removed the huge allocation and `0x5f5f` call.
+The reader now reaches its next object with plausible face-tree counts (36,144
+nodes over 13,198 faces), then faults at guest `0x02000000` inside
+`func_001E9EE8` while `func_001289C0` finishes object setup. The current run
+still does not reach visible graphics; rendered vertex count remains zero.
+Latest log: `/tmp/sly-canonical-face-tree-bounded.log`.
 
 ### Active work after resume (2026-11-11)
 
@@ -389,9 +387,10 @@ remains selected. Diagnostic log: `/tmp/sly-canonical-c-reader-backfill.log`.
 2. The canonical decomp snapshot used for the current isolated build is
    `2e00ac7001cb5016613f8dbc24e1c91a865263e4`; do not contribute port
    backfills there.
-3. Trace the class-4 object callback (`func_001BAC30`) between its reader
-   cursor `0x700000C0` and the common-reader call where the cursor is already
-   `0x661D`; identify the first bad field/read before adding a backfill.
+3. Trace the guest `0x02000000` fault through `func_001E9EE8` and its object
+   list inputs; verify which list or callback reaches the unmapped boundary.
+4. Keep the C class-4 callback and face-tree reader registered as port-only
+   backfills; remove them when equivalent US decomp C becomes hostable.
 4. Determine whether the level fault comes from a port backfill or an
    unreadable canonical unit before adding more replacements. Keep each
    implementation in the port and record which canonical function can replace
