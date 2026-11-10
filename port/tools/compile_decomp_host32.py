@@ -348,6 +348,30 @@ def lower_host_system(text):
     return text
 
 
+def align_host_quad_arrays(text):
+    """Retain the EE alignment of four-word globals in the i386 staging copy.
+
+    The matching source often declares a VU quadword as a plain scalar array
+    (for example ``f32 value[4]``), since its retail address provides the
+    required alignment. The host linker lays these symbols out independently
+    and otherwise gives them only scalar alignment. Native SIMD loads then
+    fault even though the source data is valid. Over-aligning these host-only
+    arrays preserves their four-word contents and leaves the decomp untouched.
+    """
+    pattern = re.compile(
+        r"(?m)^(?P<prefix>[ \t]*(?:(?:static|const|volatile|extern)\s+)*)"
+        r"(?P<type>(?:s32|u32|f32))\s+"
+        r"(?P<name>[A-Za-z_]\w*)\s*(?P<array>\[\s*4\s*\])"
+        r"(?P<tail>\s*(?:=|;))")
+
+    def replace(match):
+        return (match.group("prefix") + match.group("type") +
+                " __attribute__((aligned(16))) " + match.group("name") +
+                match.group("array") + match.group("tail"))
+
+    return pattern.sub(replace, text)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path, help="read-only sly1-decomp checkout")
@@ -516,6 +540,7 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        adapted = align_host_quad_arrays(adapted)
         if rel.as_posix() == "lib/graph.c":
             # This upstream C file relies on old C's implicit function
             # declarations and GNU vector scalar assignment. Keep its logic,
@@ -564,19 +589,80 @@ def main(argv=None):
             adapted = adapted.replace(
                 "ComputeSinCos(&p.sine, &p.cosine);",
                 "ComputeSinCos(unused, &p.sine, &p.cosine);")
-        elif rel.as_posix() == "main/base_object.cpp":
-            # The port backfill has the retail pointer-first argument order;
-            # the current matching C candidate places the outputs last.
+            # ReserveVifUnpack calls WriteVifUnpackHeader with only its first
+            # EE register argument. On EE, a1-a3 still hold ReserveVifUnpack's
+            # unused1/size/unused3 parameters; the i386 ABI has no such register
+            # residue, so make that already-existing argument flow explicit in
+            # the host staging copy.
+            adapted, replacements = re.subn(
+                r"(?m)^        size = WriteVifUnpackHeader\(s\);$",
+                "        size = WriteVifUnpackHeader(s, (s32)unused1, size, "
+                "(s32)unused3);",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one EE register-residue call in " +
+                                   rel.as_posix())
+        elif rel.as_posix() == "main/anim_record.cpp":
+            # ConvertHsvToRgb keeps its second output pointer in EE a1 while
+            # the C call supplies only the source pointer. Preserve that
+            # register flow explicitly for the host stack ABI.
+            adapted, replacements = re.subn(
+                r"ConvertHsvToRgb\(&tmp\);",
+                "ConvertHsvToRgb(&tmp, (Quad_001B4580*)dst);",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one HSV output register call in " +
+                                   rel.as_posix())
+        elif rel.as_posix() == "main/pose_source.cpp":
+            # This unit describes the matched Hermite helper as taking its
+            # scalar inputs before its outputs. Its implementation at
+            # 0x001303F0 uses output pointers first; EE's mixed GPR/FPR call
+            # convention hid the declaration mismatch, while i386 stack slots
+            # do not. Keep the retail callee and normalize both calls here.
             adapted = adapted.replace(
-                '#include "common.h"',
-                '#include "common.h"\n'
-                'void func_001840F0(f32*, f32*, f32, f32, f32, f32);\n'
-                'static inline void sly1_host_fit_angle_samples(f32 a, f32 b, '
-                'f32 c, f32 d, f32* out0, void* out1) { '
-                'func_001840F0(out0, (f32*)out1, a, b, c, d); }', 1)
-            adapted = re.sub(
-                r"(?<!void )FitLineThroughAngleSamples\(",
-                "sly1_host_fit_angle_samples(", adapted)
+                "void EvaluateHermiteSegment(f32 delta, f32 diff, f32 scale, "
+                "f32 p4, f32 p14, f32 p1C, f32 p24, f32* outF, f32* outI, "
+                "s32 zero);",
+                "void EvaluateHermiteSegment(f32* outF, f32* outI, f32* out2, "
+                "f32 delta, f32 diff, f32 scale, f32 p4, f32 p14, f32 p1C, "
+                "f32 p24);")
+            adapted, replacements = re.subn(
+                r"EvaluateHermiteSegment\(delta, diff, scale, "
+                r"\(\(TangentWeightKey\*\)p\)->value, "
+                r"\(\(TangentWeightKey\*\)p\)->f, "
+                r"\(\(TangentWeightKey\*\)p \+ 1\)->value, "
+                r"\(\(TangentWeightKey\*\)p \+ 1\)->d, outF, outI, 0\);",
+                "EvaluateHermiteSegment(outF, outI, 0, delta, diff, scale, "
+                "((TangentWeightKey*)p)->value, ((TangentWeightKey*)p)->f, "
+                "((TangentWeightKey*)p + 1)->value, "
+                "((TangentWeightKey*)p + 1)->d);",
+                adapted)
+            adapted, second = re.subn(
+                r"EvaluateHermiteSegment\(left, dt, 1\.0f, "
+                r"owner->f224->f90, owner->f224->f94, value, slope, "
+                r"&owner->f224->f90, &owner->f224->f94, 0\);",
+                "EvaluateHermiteSegment(&owner->f224->f90, "
+                "&owner->f224->f94, 0, left, dt, 1.0f, owner->f224->f90, "
+                "owner->f224->f94, value, slope);",
+                adapted)
+            if replacements != 1 or second != 1:
+                raise RuntimeError("expected two Hermite register-order calls in " +
+                                   rel.as_posix())
+        elif rel.as_posix() == "main/base_object.cpp":
+            # The reworked matching source now owns both helpers. Its second
+            # overload calls the first with output pointers last, while the
+            # implementation at 0x00183F40 takes them first. Preserve the
+            # intended function and make that argument order explicit for the
+            # host compiler; the former adapter targeted a retired backfill.
+            adapted, replacements = re.subn(
+                r"FitLineThroughPoints\(x, b \* 0\.003921569f, y, "
+                r"d \* 0\.003921569f, out0, out1\);",
+                "FitLineThroughPoints(out0, (f32*)out1, x, "
+                "b * 0.003921569f, y, d * 0.003921569f);",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one line-fit overload call in " +
+                                   rel.as_posix())
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.
