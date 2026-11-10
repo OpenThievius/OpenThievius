@@ -293,7 +293,12 @@ def prepare_c_view(source, version):
             # paths in 0018C000. Their bodies use only explicit fields and
             # calls, so adding the record pointer as argument zero preserves
             # the target layout and gives C the same `this` value.
-            if cpp.stem == "file_1E08F8":
+            # Older decomp snapshots kept several unrelated runtime records
+            # in this unit. The current source names the world-load request
+            # directly and no longer has the card formatting helpers below.
+            # Keep this narrow C lowering for snapshots that still contain
+            # those exact records instead of keying it only by file name.
+            if cpp.stem == "file_1E08F8" and "struct Ctx_1E0CD0" in text:
                 def lower_record_method(tag, method_pattern, helper_name,
                                         helper_signature, fields=()):
                     nonlocal text
