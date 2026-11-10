@@ -3,31 +3,32 @@
 
 ## Current status (2026-11-10)
 
-The latest decomp is `330d67e1` (PR #107), fetched from the sibling repo's
-`origin/master`; the local sibling checkout remains clean at `d534006`. The
-rework reorganizes whole-file source and adds substantial matched player,
-camera, script, text, collision, loader, and IOP code. NTSC-U reports
-4,729/4,807 functions matched (98.38%) and 90.36% of code bytes. Port builds
-use the detached source snapshot `/tmp/sly1-decomp-330d67e`.
+The latest decomp is `23bf912b` (PR #108), fetched from the sibling repo's
+`origin/master`; the user checkout remains clean at `d534006`. Since snapshot
+`330d67e1` (PR #107), upstream added 41 commits, seven newly exact US functions,
+and substantial camera, attachment, file-reader, and script source. NTSC-U now
+reports 4,736/4,807 functions matched (98.52%) and 91.26% of code bytes. The
+port build uses a detached archive at `/tmp/sly1-decomp-23bf912`.
 
-The direct host32 adapter compiles 168/171 source units and 55 active native
-backfill units. Three exception/RTTI library units still do not compile with
-the current `-fno-rtti` flags. The combined build contains 223 objects,
-resolves 4,301 catalogued function addresses, and defines 806/827 functions in
-the direct-call frontier. A bounded launcher run now advances past several
-newly source-owned camera, packet, and color helpers. It still shows no
-graphics and currently faults in `func_001303F0` on a bad output pointer while
-`EvaluateTangentWeightCurve` enters the reworked curve path. Investigate the
-curve callback's registration and call-site ABI before adding a backfill.
+The direct host32 adapter compiles 168/171 source units and 56 active native
+backfill units. Three failures are the exception/RTTI runtime under current
+`-fno-rtti` flags. The combined build contains 224 objects, resolves 4,309
+catalogued function addresses, and defines 809/828 functions in the direct-call
+frontier. Host staging now normalizes the reworked weight, position, and rotation
+curve callbacks; startup advances beyond the earlier pose-curve crash. The
+current crash is in matched `BuildAttachmentDmaChain` (`func_001662A8`), where a
+command record supplies `0x22` as the `f18` pointer. No graphics appear. Trace the
+attachment configuration and its producer before changing matched code.
+
+`func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
+A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is
+counted only in the port build; replace it when matching source becomes hostable.
 
 Host-only ABI compatibility adjustments stay in this repository's staging
-script: four-word globals retain EE quadword alignment; selected functions
-make implicit EE argument-register carryover explicit; and overloaded camera
-math calls route to the source-owned helpers with the intended argument order.
-`func_001F5B08` is a separate native backfill for the still-assembly libc
-memmove routine. These changes leave the decomp source untouched. Older
-port-native replacements for functions now matched in the rework were moved
-under `hand/superseded_backfills/` so they no longer shadow source.
+script: four-word globals retain EE quadword alignment; selected functions make
+implicit EE argument-register carryover explicit; and animation callbacks use
+their declared vtable argument order. `func_001F5B08` remains a separate
+port-native backfill for the still-assembly libc memmove routine.
 
 The regular SDL hostgen path is not yet compatible with the rework: it
 translates 560 C functions and 242 selected assembly routines, then faults in

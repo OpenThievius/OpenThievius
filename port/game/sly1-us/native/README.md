@@ -9,14 +9,23 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Last checked against `sly1-decomp` commit `330d67e1` (PR #107), whose NTSC-U
-report is 4,729/4,807 matched functions and 90.36% matched code bytes. The
-direct host32 build compiles 168/171 source units and 55 active native
-backfill units. It resolves 4,301 catalogued function addresses. A bounded
-startup run gets past camera alignment, packet-header, and color-conversion
-paths, then faults in the pose-curve path at `func_001303F0`; it displays no
-graphics. See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for
-the live diagnosis and logs.
+Last checked against `sly1-decomp` commit `23bf912b` (PR #108), whose NTSC-U
+report is 4,736/4,807 matched functions and 91.26% matched code bytes. The
+source tree has 41 commits beyond the previous `330d67e1` snapshot, including
+seven newly exact functions. The direct host32 build compiles 168/171 source
+units and 56 active native backfill units. It resolves 4,309 catalogued
+function addresses and defines 809/828 functions in the direct-call frontier.
+The three source-unit failures are the exception/RTTI runtime units under the
+current `-fno-rtti` flags.
+
+The latest bounded startup run passes the reworked pose-curve callback after
+host-only adapters normalized the position and rotation callback signatures.
+It then reaches matched `BuildAttachmentDmaChain` (`func_001662A8`) and faults
+while dereferencing a command record's `f18` pointer, which contains `0x22`.
+This points to invalid or misinterpreted attachment data before a graphics frame;
+no game graphics appear. See
+[`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
+trace and next diagnosis.
 
 The ordinary hostgen/SDL path has not been adapted to this source rework. Its
 current probe faults in callback dispatch at `0xF108`. The configured
@@ -26,17 +35,19 @@ current probe faults in callback dispatch at `0xF108`. The configured
 Build counts measure host compatibility, not decomp coverage. The port is not
 playable. The separate freestanding host32 diagnostic does not provide a
 visible presentation path.
-
 ## Backfill policy
 
 Keep behavior replacements here or under `hand/native_c/`, never in the
 decompilation checkout. Keep host ABI and linker adaptations in the staged
 copy generator so matched code and its matching score remain unchanged. The
 current host staging compatibility work retains 16-byte alignment for
-four-word arrays and makes selected EE argument-register carryover explicit.
+four-word arrays, makes selected EE argument-register carryover explicit, and
+normalizes animation callbacks to their vtable signatures.
 
 `func_001F5B08.cpp` implements overlap-safe `memmove` for a still-assembly
-libc function used during camera-controller stack insertion. The other active
+libc function used during camera-controller stack insertion.
+`func_00183668.cpp` is a separate behavior backfill for the still-unmatched
+script-event filter; retire it once matching C is hostable. The other active
 files provide platform boundaries (CD reads, Linux threads/semaphores, timer
 and DMA services), still-missing retail routines, or host translations of
 handwritten EE/VU0 code. Keep each replacement narrow and document its retail
@@ -58,5 +69,5 @@ build/port/host32/launcher/sly1_host32 <SCUS_971.98> <Sly 1 ISO or BIN>
 ```
 
 The current diagnostic build lives under
-`build/port/canonical-330d67e-aligned-host32/`. It is an experimental source
+`build/port/canonical-23bf912-host32/`. It is an experimental source
 compatibility path, not the SDL graphics frontend.
