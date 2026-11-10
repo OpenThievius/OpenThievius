@@ -12,14 +12,18 @@ the invalid modern-GCC cleanup loop and preserves the required EE callback
 argument. A startup fault in `func_001613C0` was traced to the uninitialized GIF
 packet writer; the port-only `func_001FAD68` bridge calls the retail
 `ResetPacketWriters` initializer in both native build paths. SDL opens a window
-and reaches repeated frames. After this initializer, startup advances past the
-packet fault but now faults during `game_sly1_native_call_regs4`, called from
-`func_001A9FD0` and `func_001E9108`. The bounded callback trace resolves
-repeated methods including `func_001AE178` to valid host functions; the crash
-backtrace places the fault inside the thunk-table lookup.
-The trace reports no vertices, texture uploads, or framebuffer output, and the
-window stays black. Inspect the thunk-table state at that lookup, then verify
-GS submission and presentation. `PLAYABLE_TODO.md` has the detailed state.
+and enters repeated frames. The earlier apparent thunk-map fault was an
+AddressSanitizer use-after-free during shutdown: the quit path detached the
+guest thread and let global guest-function maps be destroyed while it
+continued running. The live startup trace instead shows `app_state=3`,
+`frame_count=1`, `scene_gate=0`, 37 UI objects, zero visible text, zero scene
+vertices, zero image tags/qwords, zero blit writes, and `active_world=0`.
+Startup accepts initialization GIF chains, but they decode to zero vertices;
+the root object has no children. The quit path now exits without detaching the guest thread.
+The actual graphics blocker is the missing transition from this live state to
+a world/menu that submits visible content. Follow that retail state/load
+transition first, then confirm its packets reach SDL. `PLAYABLE_TODO.md` has
+the detailed state.
 
 The graphics traces and captures below are historical from the earlier SDL
 build. Their render-list and texture observations remain useful once the

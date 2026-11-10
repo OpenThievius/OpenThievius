@@ -26,12 +26,15 @@ loop with a defined reverse array walk. Startup now reaches packet submission.
 The previous crash in `func_001613C0` was caused by an uninitialized GIF packet
 writer. The port-only `func_001FAD68` backfill now calls the retail
 `ResetPacketWriters` callback in both host32 and SDL paths. SDL opens its window
-and advances into repeated frames, but faults in
-`game_sly1_native_call_regs4` during thunk-table lookup. Bounded tracing
-resolves repeated guest methods to valid host functions before the lookup
-fault. The trace still shows no
-vertices, texture uploads, or framebuffer output. The diagnostic remains black
-and is not playable. See
+and enters repeated frames. The earlier apparent thunk-map fault was an
+AddressSanitizer use-after-free during shutdown: the quit path detached the
+guest thread, then global guest-function maps were destroyed while it
+continued executing. The live trace reports `app_state=3`, `frame_count=1`,
+`scene_gate=0`, 37 UI objects, and no visible text, scene vertices, image
+tags/qwords, or blit writes; `active_world=0`. Startup accepts initialization
+GIF chains that decode to zero vertices, and the root object has no children.
+The quit path now exits without detaching the guest worker. The diagnostic remains black and is not
+playable. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 trace and next diagnosis.
 

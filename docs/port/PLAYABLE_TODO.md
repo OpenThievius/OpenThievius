@@ -42,12 +42,17 @@ initializer bridge is now registered in its separate `hand/native_c` backfill
 path. Its next 12-second run passes packet submission, then faults at host
 address `0x38` (later at an unspecified address) while
 `game_sly1_native_call_regs4` dispatches methods from `func_001A9FD0` /
-`func_001E9108`. Bounded callback tracing resolves repeated methods including
-`func_001AE178` to valid host functions; the crash backtrace places the fault
-inside the thunk-table lookup. The SDL window opens and the game loop runs,
-but traces still record no vertices, textures, or framebuffer output; it
-remains black. The opt-in callback trace is capped at 4,096 address changes.
-Latest bounded trace: `/tmp/sly-2e00ac70-bounded-callback.log`.
+`func_001E9108`. The AddressSanitizer report shows this thunk-map
+use-after-free happens at process shutdown: the quit path detached the guest
+thread, then global guest-function maps were destroyed while it continued
+executing. This was not evidence of an in-game thunk lookup fault. The live
+window remains black; its latest trace reports `app_state=3`, `frame_count=1`,
+`scene_gate=0`, 37 UI objects, no visible text, no scene vertices, no image
+tags/qwords, no blit writes, and `active_world=0`. It accepts initialization
+GIF chains, but these decode to zero vertices. The root object has no children.
+The SDL quit path now terminates without detaching the worker or destroying
+shared renderer state underneath it. Latest bounded trace:
+`/tmp/sly-2e00ac70-bounded-callback.log`.
 
 The port-only `func_00125C90` implementation remains based on the current
 99.7% upstream near-match, still not exact. Its active copy stays in
@@ -56,10 +61,11 @@ now holds the small text-layout setter backfills for `func_00137228` and its
 adjacent entries. Retire these when the corresponding hostable decomp code is
 available.
 
-**Next:** reproduce with the bounded callback trace and inspect the thunk-table
-state at the lookup fault. Then trace GS packet contents and make SDL present
-the game's frame. The port is not playable and no actual game graphics have
-been seen.
+**Next:** trace why the live game remains in app state 3 with no active world
+or render submissions. Follow the retail state/load transition and identify
+the first producer expected to create a visible object or menu; then verify
+that packet reaches the SDL renderer. The port is not playable and no actual
+game graphics have been seen.
 
 `func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
 A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is
