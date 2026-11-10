@@ -269,6 +269,7 @@ struct VifTrace {
     std::array<uint32_t, 0x80> command_counts{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mpg{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mscal{};
+    std::array<uint32_t, 4> direct_prefix{};
     struct Operand { uint32_t command; uint32_t count; uint32_t immediate; };
     std::array<Operand, 48> operands{};
     struct Program {
@@ -285,6 +286,7 @@ struct VifTrace {
     size_t mscal_count = 0;
     size_t operand_count = 0;
     size_t program_count = 0;
+    bool has_direct_prefix = false;
 };
 
 std::atomic_flag g_vu_unsupported_notice = ATOMIC_FLAG_INIT;
@@ -322,7 +324,8 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         const uint32_t count = (code >> 16) & 0xFFu;
         const uint32_t immediate = code & 0xFFFFu;
         ++trace->command_counts[command];
-        if (((command >= 1u && command <= 3u) ||
+        if (((command >= 1u && command <= 3u) || command == 0x50u ||
+             command == 0x51u ||
              (command >= 0x60u && command <= 0x7Fu)) &&
             trace->operand_count < trace->operands.size()) {
             trace->operands[trace->operand_count++] = {command, count, immediate};
@@ -332,6 +335,11 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint32_t qwc = immediate == 0 ? 0x10000u : immediate;
             const size_t bytes = static_cast<size_t>(qwc) * 16u;
             if (bytes > stream.size() - cursor) return false;
+            if (!trace->has_direct_prefix && bytes >= sizeof(trace->direct_prefix)) {
+                std::memcpy(trace->direct_prefix.data(), stream.data() + cursor,
+                            sizeof(trace->direct_prefix));
+                trace->has_direct_prefix = true;
+            }
             openrac_guest_gif_stream_write(stream.data() + cursor, bytes);
             cursor += bytes;
             *direct_bytes += bytes;
@@ -503,6 +511,17 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
             openrac::log::info("native VIF1 DMA transfer={} bytes={} DIRECT_bytes={} MPG={} MSCAL={}",
                                transfer + 1, stream.size(), direct_bytes, trace.mpg_total,
                                trace.mscal_total);
+            if (trace.has_direct_prefix)
+                openrac::log::info("native VIF1 DIRECT prefix={:#010x},{:#010x},{:#010x},{:#010x}",
+                                   trace.direct_prefix[0], trace.direct_prefix[1],
+                                   trace.direct_prefix[2], trace.direct_prefix[3]);
+            for (size_t i = 0; i < segments.size() && i < 16u; ++i) {
+                const DmaSegment& segment = segments[i];
+                openrac::log::info(
+                    "native VIF1 DMA segment transfer={} index={} id={} qwc={} tag={:#010x} data={:#010x} stream_offset={} stream_size={}",
+                    transfer + 1, i, segment.id, segment.qwc, segment.tag_address,
+                    segment.data_address, segment.stream_offset, segment.stream_size);
+            }
             for (size_t command = 0; command < trace.command_counts.size(); ++command) {
                 if (trace.command_counts[command] != 0)
                     openrac::log::info("native VIF1 command transfer={} opcode={:#x} count={}",

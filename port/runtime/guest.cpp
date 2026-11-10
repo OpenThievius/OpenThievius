@@ -312,6 +312,28 @@ void openrac_guest_trace_function_entry(gaddr address) {
             }
         }
 
+        static const bool trace_font_path =
+            std::getenv("OPENRAC_TRACE_FONT") != nullptr;
+        if (trace_font_path) {
+            static constexpr gaddr targets[] = {
+                0x001B2DF8u, // allocate the level's font records
+                0x0015D8A8u, // load and register a font record
+                0x0015C1C0u, // look up a font by ID
+                0x001AE510u, // construct a letter glyph element
+            };
+            static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
+            for (std::size_t i = 0; i < std::size(targets); ++i) {
+                if (address != targets[i]) continue;
+                const unsigned count = counts[i].fetch_add(1, std::memory_order_relaxed) + 1;
+                if (count <= 16) {
+                    std::fprintf(stderr,
+                                 "[font path] thread=%u address=%#010x count=%u\n",
+                                 thread_id, address, count);
+                }
+                break;
+            }
+        }
+
         static const bool trace_boot_queue =
             std::getenv("OPENRAC_TRACE_BOOT_QUEUE") != nullptr;
         if (trace_boot_queue) {

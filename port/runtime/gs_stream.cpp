@@ -44,6 +44,7 @@ struct GifParser {
 
 std::mutex g_parser_mutex;
 GifParser g_parser;
+uint32_t g_gif_trace_count = 0;
 std::vector<openrac_gs_vertex> g_current_frame;
 std::vector<openrac_gs_vertex> g_published_frame;
 
@@ -194,6 +195,16 @@ void begin_tag(uint64_t low, uint64_t high) {
     const uint32_t encoded_register_count = static_cast<uint32_t>((low >> 60) & 0xFu);
     g_parser.register_count = encoded_register_count == 0 ? 16u : encoded_register_count;
     g_parser.register_index = 0;
+    if (std::getenv("OPENRAC_GIF_TRACE") != nullptr && g_gif_trace_count < 512u) {
+        std::fprintf(stderr,
+                     "[gif trace] tag=%u format=%u loops=%u nreg=%u eop=%u pre=%u low=%#018llx high=%#018llx\n",
+                     g_gif_trace_count, g_parser.format, g_parser.loops,
+                     g_parser.register_count, static_cast<unsigned>((low >> 15) & 1u),
+                     static_cast<unsigned>((low >> 46) & 1u),
+                     static_cast<unsigned long long>(low),
+                     static_cast<unsigned long long>(high));
+    }
+    ++g_gif_trace_count;
     if (((low >> 46) & 1u) != 0)
         write_gs_register(0x00u, (low >> 47) & 0x7FFu);
 
@@ -294,6 +305,7 @@ extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) 
 extern "C" void openrac_guest_gs_reset(void) {
     std::lock_guard lock(g_parser_mutex);
     g_parser = GifParser{};
+    g_gif_trace_count = 0;
     g_current_frame.clear();
     g_published_frame.clear();
 }
