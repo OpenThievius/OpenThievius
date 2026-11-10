@@ -13,17 +13,21 @@ Last checked against `sly1-decomp` commit `23bf912b` (PR #108), whose NTSC-U
 report is 4,736/4,807 matched functions and 91.26% matched code bytes. The
 source tree has 41 commits beyond the previous `330d67e1` snapshot, including
 seven newly exact functions. The direct host32 build compiles 168/171 source
-units and 56 active native backfill units. It resolves 4,309 catalogued
+units and 55 active native backfill units. It resolves 4,309 catalogued
 function addresses and defines 809/828 functions in the direct-call frontier.
 The three source-unit failures are the exception/RTTI runtime units under the
 current `-fno-rtti` flags.
 
-The latest bounded startup run passes the reworked pose-curve callback after
-host-only adapters normalized the position and rotation callback signatures.
-It then reaches matched `BuildAttachmentDmaChain` (`func_001662A8`) and faults
-while dereferencing a command record's `f18` pointer, which contains `0x22`.
-This points to invalid or misinterpreted attachment data before a graphics frame;
-no game graphics appear. See
+The old port-only `func_00162890` reader stored a serialized mesh index where
+the renderer expected a `StripMesh*`. It is now archived under
+`hand/superseded_backfills/`, and the direct build selects the upstream matched
+`ReadPlacedObjectModel`. Startup passes the attachment DMA chain and advances
+into state setup. It now faults when `func_001DBBD8` receives a null world while
+registering an animation-player callback because the EE source carries its
+world argument implicitly. The host staging layer now passes it explicitly,
+which advances startup to a new invalid `ScriptValue` dispatch in
+`func_0011B060`. The edge animation, owner, player, and animation world are
+valid pointers. No game graphics appear. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 trace and next diagnosis.
 

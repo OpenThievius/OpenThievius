@@ -17,6 +17,13 @@ now provides `CreateTypedRecord` at that address, so the direct host32 build
 uses the decomp definition. The legacy hostgen override remains only while its
 configured source checkout lacks the matching implementation.
 
+`func_00162890.cpp` was an incomplete GLOBSET model reader. It skipped the
+variable strip payloads and left the serialized mesh index (for example
+`0x22`) in the field that the renderer reads as a `StripMesh*`. The wave 15
+decomp now supplies the complete matched `ReadPlacedObjectModel`; the direct
+host32 build uses that implementation, which gets past attachment DMA setup.
+The archive copy is reference only. The direct build no longer compiles it.
+
 The latest decomp now has matching C for the moved loader, pose-curve, object
 transform, collision, camera, text, and state-graph functions. Those files
 previously replaced the matching source, including temporary no-op boundaries

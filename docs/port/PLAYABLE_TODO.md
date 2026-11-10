@@ -10,15 +10,33 @@ and substantial camera, attachment, file-reader, and script source. NTSC-U now
 reports 4,736/4,807 functions matched (98.52%) and 91.26% of code bytes. The
 port build uses a detached archive at `/tmp/sly1-decomp-23bf912`.
 
-The direct host32 adapter compiles 168/171 source units and 56 active native
+The direct host32 adapter compiles 168/171 source units and 55 active native
 backfill units. Three failures are the exception/RTTI runtime under current
-`-fno-rtti` flags. The combined build contains 224 objects, resolves 4,309
+`-fno-rtti` flags. The combined build contains 223 objects, resolves 4,309
 catalogued function addresses, and defines 809/828 functions in the direct-call
-frontier. Host staging now normalizes the reworked weight, position, and rotation
-curve callbacks; startup advances beyond the earlier pose-curve crash. The
-current crash is in matched `BuildAttachmentDmaChain` (`func_001662A8`), where a
-command record supplies `0x22` as the `f18` pointer. No graphics appear. Trace the
-attachment configuration and its producer before changing matched code.
+frontier. Host staging normalizes the reworked weight, position, and rotation
+curve callbacks.
+
+**Latest-source startup checkpoint (2026-11-10):** The old port-only
+`func_00162890` parser was an immediate graphics blocker: it skipped strip
+payloads and stored the serialized mesh index (`0x22`) where a `StripMesh*` was
+required. The new upstream `ReadPlacedObjectModel` is now selected for that
+retail address, and the old implementation is preserved under
+`hand/superseded_backfills/`. The native run passes `BuildAttachmentDmaChain`
+instead of faulting on `0x22`. It now faults later: `func_001DBBD8` receives a
+null world pointer and tries to allocate a queued call from `World+0x1B14`.
+The first run faulted through callback registration because matched
+`AddCallbackNode` calls `TakeCallRecord()` with no source-level world argument;
+the EE carried the world in a register, but the i386 host ABI did not. The
+staging adapter now passes `world` explicitly. This is a host ABI fix, not a
+behavior backfill, and upstream source remains untouched. The rebuilt launcher
+passes the callback allocation and advances to a new crash in
+`func_0011B060` (`ScriptValue` dispatch), where its value pointer is invalid.
+The trace confirms edge animation `0x0084d420`, owner `0x0084cfb0`, created
+player `0x0078b160`, and `Animation::world` `0x006abdd0` are valid. Next inspect
+the script-value producer/caller at this new fault. No game graphics appear.
+Trace and core evidence: `/tmp/sly-23bf912-abi-run.log`,
+`/tmp/sly-abi.core` (the original pre-fix core is `/tmp/sly-23bf912-stategraph.core`).
 
 `func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
 A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is

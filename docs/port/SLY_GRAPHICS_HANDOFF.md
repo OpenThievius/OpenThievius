@@ -3,14 +3,20 @@
 
 Last checked: 2026-11-10 against decomp commit `23bf912b` (PR #108). Its
 NTSC-U report has 4,736/4,807 functions matched and 91.26% matched code bytes.
-The direct host32 build compiles 168/171 source units and 56 native backfill
+The direct host32 build compiles 168/171 source units and 55 native backfill
 units, resolves 4,309 catalogued addresses, and defines 809/828 functions in
-the direct-call frontier. The latest run passes the reworked pose-curve
-callbacks and then faults in matched `BuildAttachmentDmaChain`
-(`func_001662A8`) when an attachment command record provides `0x22` as its
-`f18` pointer. No game graphics appear. The SDL hostgen path still uses an
-older configured decomp checkout and its latest-source probe faults at `0xF108`.
-The direct host32 run is a source-compatibility diagnostic; it does not test the
+the direct-call frontier. The old port parser for `func_00162890` has been
+retired in favor of upstream's matched `ReadPlacedObjectModel`. This fixes the
+raw mesh-index-as-pointer crash in `BuildAttachmentDmaChain` and advances
+startup into state setup. The latest run now faults when
+`func_001DBBD8` receives a null world pointer during animation-player callback
+registration because the EE source carries the world argument implicitly. The
+host staging layer now passes it explicitly, and startup advances to a new
+`ScriptValue` dispatch fault in `func_0011B060`. The edge animation, owner,
+player, and animation world now trace as valid pointers. No game graphics appear.
+The SDL hostgen path still uses an older
+configured decomp checkout and its latest-source probe faults at `0xF108`. The
+direct host32 run is a source-compatibility diagnostic; it does not test the
 renderer. `PLAYABLE_TODO.md` has the current startup diagnosis and next steps.
 
 The graphics traces and captures below are historical from the earlier SDL
