@@ -218,3 +218,6 @@ records encountered before font registration. These are port-only behavior
 and ABI accommodations; remove them or replace them when matching C is
 hostable and resource ordering is handled correctly. The experiment and its
 current failure point are recorded in `docs/port/RESTART_CHECKPOINT.md`.
+For that canonical build, `func_00137FB0` now comes from exact US retail
+assembly. Its former C reader is retained under `hand/superseded_backfills/`
+for comparison and is not compiled into the launcher.

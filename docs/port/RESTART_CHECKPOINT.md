@@ -19,15 +19,19 @@ was inspected read-only at `/tmp/sly1-decomp-2e00ac70`. An isolated build at
 only for its generated US retail assembly. Do not treat this isolated
 experiment as the default launcher build.
 
-Latest source hostgen translates 568 functions (251 from selected assembly),
+Latest source hostgen translates 562 functions (252 from selected assembly),
 stubs 2, and reports 4,069 without C. Canonical font and image record loading
 now runs far enough to register four font records. Exact retail assembly for
 `func_0011F798` and its wrapper `func_0011FDB8` was added to the isolated
-build after its previous curve read fault. The next 15-second native run no
-longer faults there; instead resource parsing advances into malformed
-descriptor/collision data and faults reading `0x6FFFFFF8`. The canonical
-source integration therefore remains experimental and does not improve the
-black-screen milestone yet. Log: `/tmp/sly-canonical-axis-asm-run.log`.
+build after its previous curve read fault. An initial 15-second native run
+then faulted reading `0x6FFFFFF8` while parsing collision data
+(`/tmp/sly-canonical-axis-asm-run.log`). The latest probe replaced the active
+port-only `func_00137FB0` collision mesh reader with its exact US retail
+assembly, retaining the C file under `hand/superseded_backfills/`. That
+assembly consumes several mesh records; startup now reaches a null virtual
+callback and faults at `0xFFFF0626`
+(`/tmp/sly-canonical-collision-asm-run.log`). The canonical build remains
+experimental and produces no visible graphics.
 
 Recent compatibility edits are port-only: image-reader backfills now use
 32-bit guest addresses so hostgen accepts them, and font-text backfills guard

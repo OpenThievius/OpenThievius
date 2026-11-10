@@ -96,6 +96,7 @@
       "func_001B5F50"
     ],
     "only": [
+      "func_00137FB0",
       "func_0011F798",
       "func_0011FDB8",
       "func_0011D078",

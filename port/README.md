@@ -61,10 +61,10 @@ C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 Canonical `OpenThievius/sly1-decomp` master is `2e00ac70` (PR #109). The
 isolated `build/port/canonical-sdl` configuration uses a read-only snapshot at
 `/tmp/sly1-decomp-2e00ac70` for C and the older local checkout only for its US
-retail assembly. Hostgen translates 568 functions, including 251 from
+retail assembly. Hostgen translates 562 functions, including 252 from
 assembly, with 2 stubs and 4,069 functions without C. This proves the new
 layout can be consumed by the current hostgen pipeline, but its native launch
-still crashes during resource parsing at guest address `0x6FFFFFF8`; it is
+still crashes during resource loading at guest address `0xFFFF0626`; it is
 not ready to replace the default launcher configuration. See
 [`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for the trace.
 

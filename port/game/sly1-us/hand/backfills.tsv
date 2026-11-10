@@ -309,7 +309,6 @@ func_001AA8A8	native_c/ui_layout.c
 func_00161458	native_c/display_packets.c
 func_001615F0	native_c/display_packets.c
 func_0019DDA0	native_c/display_packets.c
-func_00137FB0	native_c/collision_mesh_reader.c
 func_001ACDA0	native_c/func_001ACDA0.c
 func_0011ECB8	native_c/resource_object_record_loop.c
 func_00160CE8	native_c/func_00160CE8.c
