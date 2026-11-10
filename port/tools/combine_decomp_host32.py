@@ -195,8 +195,14 @@ def main(argv=None):
     native_count = 0
     extra_native_count = 0
     for i, (address, candidates) in enumerate(function_rows):
-        if len(candidates) == 1:
-            source_lines.append(f'extern "C" void sly1_native_ref_{i}() asm("{next(iter(candidates))}");')
+        # Port backfills can export several C++ ABI aliases for one retail
+        # function. Prefer their canonical unmangled func_<address> entry for
+        # indirect dispatch, while retaining all aliases for direct callers.
+        canonical = next((symbol for symbol in candidates
+                          if symbol.lower() == f"func_{address:08x}"), None)
+        if canonical is not None or len(candidates) == 1:
+            target = canonical if canonical is not None else next(iter(candidates))
+            source_lines.append(f'extern "C" void sly1_native_ref_{i}() asm("{target}");')
             native_expr = f"reinterpret_cast<unsigned int>(&sly1_native_ref_{i})"
             if address in catalogued_addresses:
                 native_count += 1

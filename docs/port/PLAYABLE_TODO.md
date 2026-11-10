@@ -91,6 +91,22 @@ capped-list call, plus its reader ABI; do not replace `LoadRecordMember` unless
 evidence shows the matching function itself is incompatible with the host ABI.
 Trace: `/tmp/sly-canonical-path-curve.log`; core: `/tmp/sly-pathlatest.core`.
 
+**Native ABI and mesh-load follow-up (2026-11-10):** the capped-list fault was
+caused by `ReadBufferedU32` being declared as a one-word aggregate in the
+reworked `file_1549C8.cpp`; i386 SysV therefore passed a hidden result pointer
+where the retail scalar reader expects its stream. The host staging copy now
+uses a scalar `s32` for that call while preserving the same 32-bit payload. A
+port-only `func_001E4C48` mesh-table reader fills the still-`INCLUDE_ASM` retail
+entry, and the native address map now prefers the factory backfill's canonical
+C symbol while retaining its prototype aliases. The rebuilt launcher passes
+nested capped-list parsing and reaches world contact updates. Its latest core
+faults at EIP `0x3f800000` while dispatching `ContactPartVt::f110` from
+`UpdateWorldContacts`; the pointer comes from contact-part state at
+`0x00846f00`. No graphics were displayed. Next trace the producer and layout
+of that contact-part vtable pointer before deciding whether a host-only guard
+is needed. Trace: `/tmp/sly-canonical-after-mesh.log`; core:
+`/tmp/sly-after-mesh.core`.
+
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++
 header constructs. `func_00125C90` remains `INCLUDE_ASM` in the latest

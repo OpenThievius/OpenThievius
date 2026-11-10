@@ -562,6 +562,20 @@ sly1_native_trace_path_curve(u32 kind, u32 curve, u32 vtable, u32 read_method) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_capped_list(u32 stage, u32 count, u32 list, u32 stream) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: capped-list stage ", (int)stage);
+    write_hex("native host32: capped-list count ", (int)count);
+    write_hex("native host32: capped-list object ", (int)list);
+    write_hex("native host32: capped-list stream ", (int)stream);
+    if (stream >= 0x00100000u && stream < 0x12000000u) {
+        const auto* words = reinterpret_cast<volatile const u32*>(stream);
+        write_hex("native host32: capped-list cursor ", (int)words[6]);
+        write_hex("native host32: capped-list remaining ", (int)words[7]);
+    }
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_c02_state(u32 tag, u32 self) {
     if (!g_startup_trace_enabled) return;
     write_hex("native host32: C02 trace point ", (int)tag);

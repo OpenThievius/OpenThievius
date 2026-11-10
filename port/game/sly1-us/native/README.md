@@ -49,6 +49,10 @@ the combine step rejects an address defined by both trees. Keep these
 replacements behavior-focused and derive their state changes from Sly 1's own
 retail executable.
 
+`func_001E4C48.cpp` is a port-only reader for the still-unmatched mesh table
+entry. It reads the point and link arrays through the host-mapped retail stream
+and allocator services; remove it when matching C++ becomes hostable.
+
 `linux_semaphores.cpp` supplies Linux i386 host services for Sly's retail
 `CreateSema`, `DeleteSema`, `SignalSema`, `iSignalSema`, `WaitSema`, `PollSema`
 and `iPollSema` wrappers. It uses host futexes and does not run PS2 instructions.

@@ -953,12 +953,30 @@ def main(argv=None):
                 adapted)
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
+        if rel.as_posix() == "main/file_1549C8.cpp":
+            # The decomp models ReadBufferedU32 as a one-word aggregate in this
+            # unit. On the i386 SysV host that adds a hidden result pointer,
+            # but the retail reader returns the word in EAX. Keep the same
+            # four bytes while matching the actual host call ABI.
+            declaration = "StreamWord ReadBufferedU32(void* src);"
+            declarations = adapted.count(declaration)
+            if declarations != 1:
+                raise RuntimeError("expected one stream-word reader declaration in " +
+                                   rel.as_posix())
+            adapted = adapted.replace(declaration, "s32 ReadBufferedU32(void* src);")
+            local = "StreamWord tmp = ReadBufferedU32(src);"
+            locals_ = adapted.count(local)
+            if locals_ != 1:
+                raise RuntimeError("expected one stream-word reader use in " + rel.as_posix())
+            adapted = adapted.replace(local, "s32 tmp = ReadBufferedU32(src);")
         if args.trace_functions and rel.as_posix() == "main/file_1549C8.cpp":
             # Identify a malformed nested class read slot before the retail
             # virtual dispatch in LoadGroupMembers faults.
             hook = ('extern "C" void sly1_native_trace_group_child(\n'
                     '    u32, u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_path_curve(\n'
+                    '    u32, u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_capped_list(\n'
                     '    u32, u32, u32, u32);\n')
             adapted = hook + adapted
             old = """        BaseObject* obj = (BaseObject*)CreateTypedRecord(r1, self->world, self->parent, r2, r3);
@@ -981,6 +999,37 @@ def main(argv=None):
             if adapted.count(old) != 1:
                 raise RuntimeError("expected one path curve reader site in " + rel.as_posix())
             adapted = adapted.replace(old, new, 1)
+            # Instrument the canonical capped-list reader below once its actual
+            # body is present in this whole-file unit.
+            list_entry = """void ReadCappedWordList(CappedWordList* self, s32 count, void* unused, void* src)
+{
+"""
+            if adapted.count(list_entry) != 1:
+                raise RuntimeError("expected one capped word-list definition in " + rel.as_posix())
+            adapted = adapted.replace(
+                list_entry,
+                list_entry + "    sly1_native_trace_capped_list(2, (u32)count, (u32)self, (u32)src);\n",
+                1)
+            end = """        }
+    }
+}
+
+void LoadEffectSpawner"""
+            end_new = """        }
+    }
+    sly1_native_trace_capped_list(3, (u32)count, (u32)self, (u32)src);
+}
+
+void LoadEffectSpawner"""
+            if adapted.count(end) != 1:
+                raise RuntimeError("expected capped-list end in " + rel.as_posix())
+            adapted = adapted.replace(end, end_new, 1)
+            callsite = """        ReadCappedWordList((u8*)m + 0x130, t, self, stream);"""
+            callsite_new = """        sly1_native_trace_capped_list(1, (u32)t, (u32)((u8*)m + 0x130), (u32)stream);
+        ReadCappedWordList((u8*)m + 0x130, t, self, stream);"""
+            if adapted.count(callsite) != 1:
+                raise RuntimeError("expected capped-list call site in " + rel.as_posix())
+            adapted = adapted.replace(callsite, callsite_new, 1)
         if args.trace_functions and rel.as_posix() in {
                 "main/00124000.cpp", "main/001B4000.cpp", "main/001B8000.cpp"}:
             # Global -finstrument-functions changes behavior where the decomp
