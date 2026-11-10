@@ -391,6 +391,11 @@ def main(argv=None):
     # own address range, not an entire 0x4000 window that happens to overlap it.
     # Keep chunks with uncovered text so matching functions after a file's end
     # are not silently dropped from the native build.
+    unsupported_native_units = {
+        "src/lib/throw.c",           # PS2 __builtin_eh_return / unwind ABI
+        "src/lib/exception.cpp",     # requires the PS2 C++ exception runtime
+        "src/lib/type_info_kinds.cpp", # depends on host RTTI runtime symbols
+    }
     whole_files = []
     whole_ranges = []
     files_table = source / "config" / "us" / "files.tsv"
@@ -400,7 +405,7 @@ def main(argv=None):
             if len(fields) < 3:
                 continue
             unit = source / fields[0]
-            if unit.is_file():
+            if unit.is_file() and fields[0] not in unsupported_native_units:
                 whole_files.append(unit)
                 whole_ranges.append((int(fields[1], 16), int(fields[2], 16)))
     main = source / "src" / "main"
@@ -420,6 +425,7 @@ def main(argv=None):
         path
         for directory in ("lib", "libm")
         for path in (source / "src" / directory).rglob("*.cpp")
+        if path.relative_to(source).as_posix() not in unsupported_native_units
     ]))
     if not sources:
         parser.error("no C++ source units found under " + str(source / "src"))
@@ -1460,7 +1466,7 @@ void LoadEffectSpawner"""
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
         staged.write_text(adapted, encoding="utf-8")
-        unit_flags = flags
+        unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":
             # Avoid depending on the host's optional 32-bit libc headers.
             unit_flags = flags + ["-Dfabsf=__builtin_fabsf"]
@@ -1505,6 +1511,8 @@ void LoadEffectSpawner"""
         for name, error in failures + backfill_failures:
             print(f"\n{name}:\n{error}", file=sys.stderr)
         return 1
+    print("Skipped unsupported PS2 exception runtime units: " +
+          ", ".join(sorted(unsupported_native_units)))
     print(f"staged sources: {staged_root}")
     print(f"object files: {objects_root}")
     return 0
