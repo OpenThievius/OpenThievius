@@ -523,6 +523,15 @@ extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_startup(u32 index, u32 phase, u32 callback) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: startup callback index ", (int)index);
+    write_hex("native host32: startup callback phase ", (int)phase);
+    if (callback != 0)
+        write_hex("native host32: startup callback address ", (int)callback);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_resource_state(u32 self, u32 pending, u32 world) {
     if (!g_startup_trace_enabled) return;
     write_hex("native host32: resource self ", (int)self);

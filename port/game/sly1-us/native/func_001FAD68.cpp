@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Port-only replacement for the initializer-table interior entry in retail
-// assembly func_001FAC00. The native C++ linker supplies this process's table.
+// assembly func_001FAC00. The host CRT and Sly's retail initializer list are
+// separate tables; the packet-writer callback needs a host-side bridge.
 using Constructor = void (*)();
 
 extern "C" Constructor __init_array_start[];
 extern "C" Constructor __init_array_end[];
 extern "C" int sly1_native_host32_crt_initialized;
+extern "C" void func_0015F658();
 
 namespace {
 void trace_constructor(Constructor constructor) {
@@ -20,13 +22,19 @@ void trace_constructor(Constructor constructor) {
 } // namespace
 
 extern "C" void func_001FAD68() {
-    // A normally linked SDL build has already run this table through the
-    // platform C runtime before entering Sly. The freestanding diagnostic
-    // launcher leaves the flag clear and still dispatches the table here.
-    if (sly1_native_host32_crt_initialized != 0) return;
-    for (Constructor* current = __init_array_start;
-         current != __init_array_end; ++current) {
-        trace_constructor(*current);
-        (*current)();
+    // The freestanding diagnostic has no C runtime to execute its own
+    // initializers. SDL builds have already run these before main.
+    if (sly1_native_host32_crt_initialized == 0) {
+        for (Constructor* current = __init_array_start;
+             current != __init_array_end; ++current) {
+            trace_constructor(*current);
+            (*current)();
+        }
     }
+
+    // The retail constructor list also calls ResetPacketWriters. It is an
+    // explicit callback, not a C++ global constructor, so the host CRT never
+    // includes it in __init_array. Initialize its globals after the image is
+    // mapped and before the first frame submits a GS packet.
+    func_0015F658();
 }

@@ -734,6 +734,44 @@ def main(argv=None):
             if replacements != 1 or second != 1:
                 raise RuntimeError("expected two Hermite register-order calls in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/script_machine.cpp":
+            # EE GCC 2.95 emits the intended reverse destruction loop when the
+            # pointer walks from a neighboring local into arr. Modern GCC
+            # treats comparing pointers from separate objects as undefined
+            # behavior and optimizes the loop into an infinite walk. Preserve
+            # the same 32-element reverse order with defined array indexing.
+            old = """    p = &t;
+    while (arr != p) {
+        p--;
+        DestroyScriptValue(p, 0);
+    }"""
+            new = """    for (s32 cleanupIndex = 32; cleanupIndex != 0; --cleanupIndex) {
+        DestroyScriptValue(&arr[cleanupIndex - 1], 0);
+    }"""
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected EvalScriptCall cleanup loop in " +
+                                   rel.as_posix())
+            adapted = adapted.replace(old, new, 1)
+        elif rel.as_posix() == "main/file_15F678.cpp":
+            # SetCurrentLevelEntry carries the WorldKeyBlock in an EE argument
+            # register through GetEntryIdByKey and FindKeyEntry. Give that
+            # value an explicit host parameter at both calls; otherwise the
+            # host ABI reads unrelated stack bytes (the current crash is
+            # 0x30303030 in the key pointer).
+            replacements = [
+                ("s32 GetEntryIdByKey(s32 a0);",
+                 "s32 GetEntryIdByKey(KeyedEntry* key);"),
+                ("KeyedEntry* FindKeyEntry(void);",
+                 "KeyedEntry* FindKeyEntry(KeyedEntry* key);"),
+                ("s32 GetEntryIdByKey(void);",
+                 "s32 GetEntryIdByKey(KeyedEntry* key);"),
+                ("s32 GetEntryIdByKey(void)\n{\n    s32 v;\n    KeyedEntry* r = FindKeyEntry();",
+                 "s32 GetEntryIdByKey(KeyedEntry* key)\n{\n    s32 v;\n    KeyedEntry* r = FindKeyEntry(key);")]
+            for old, new in replacements:
+                if adapted.count(old) != 1:
+                    raise RuntimeError("expected one keyed-entry ABI site in " +
+                                       rel.as_posix() + ": " + old.splitlines()[0])
+                adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/base_object.cpp":
             # The reworked matching source now owns both helpers. Its second
             # overload calls the first with output pointers last, while the
@@ -1122,17 +1160,59 @@ def main(argv=None):
         elif rel.as_posix() == "main/file_1E08F8.cpp" and args.trace_functions:
             # Capture the pending key/blob and current world when the direct
             # native startup path handles a resource request.
-            hook = 'extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
+            hook = ('extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n')
             adapted = hook + adapted
             signature = "void RunPendingWorldLoad(WorldLoadRequest* self)\n{"
             replacement = (
                 signature + "\n"
+                "    sly1_native_trace_startup(0xFFFFFFFDu, 0, 0);\n"
                 "    sly1_native_trace_resource_state((u32)self, (u32)self->key, "
                 "(u32)D_00275710);"
             )
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected one resource request handler in " + rel.as_posix())
             adapted = adapted.replace(signature, replacement)
+            end = "    self->state = 0;\n}\n\nvoid RequestWorldLoadByMode"
+            end_replacement = (
+                "    self->state = 0;\n"
+                "    sly1_native_trace_startup(0xFFFFFFFDu, 1, 0);\n"
+                "}\n\nvoid RequestWorldLoadByMode"
+            )
+            if adapted.count(end) != 1:
+                raise RuntimeError("expected world-load completion in " + rel.as_posix())
+            adapted = adapted.replace(end, end_replacement, 1)
+        elif rel.as_posix() == "main/main_loop.cpp" and args.trace_functions:
+            # Mark the retail constructor phase and each startup initializer.
+            # A single guest callback can wait indefinitely, so the before /
+            # after pair identifies the exact callback without global
+            # function instrumentation, which changes several EE ABI cases.
+            hook = 'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
+            adapted = hook + adapted
+            before = "    RunConstructorsOnce();"
+            if adapted.count(before) != 1:
+                raise RuntimeError("expected RunConstructorsOnce in " + rel.as_posix())
+            adapted = adapted.replace(
+                before,
+                "    sly1_native_trace_startup(0xFFFFFFFFu, 0, 0);\n" + before +
+                "\n    sly1_native_trace_startup(0xFFFFFFFFu, 1, 0);",
+                1)
+            before = "    RunStartupInitializers();"
+            if adapted.count(before) != 1:
+                raise RuntimeError("expected RunStartupInitializers in " + rel.as_posix())
+            adapted = adapted.replace(
+                before,
+                "    sly1_native_trace_startup(0xFFFFFFFEu, 0, 0);\n" + before +
+                "\n    sly1_native_trace_startup(0xFFFFFFFEu, 1, 0);",
+                1)
+            before = "        tbl[i]();"
+            if adapted.count(before) != 1:
+                raise RuntimeError("expected startup callback invocation in " + rel.as_posix())
+            adapted = adapted.replace(
+                before,
+                "        sly1_native_trace_startup(i, 0, (u32)tbl[i]);\n" + before +
+                "\n        sly1_native_trace_startup(i, 1, (u32)tbl[i]);",
+                1)
         elif rel.as_posix() == "main/0011C000.cpp":
             # Sound RPC requests cannot be serviced without Sly's IOP sound
             # module. Keep the matching body staged while the port supplies a
