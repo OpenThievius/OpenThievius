@@ -48,9 +48,11 @@ int func_00128018(void* first_transform, void* second_transform,
 void func_001860A8(void* queue, s32 mode, void** entry);
 
 extern "C" void func_00185D20(f32 weight, void* owner, void* alternate,
-                                const f32* input_position, const f32* basis,
+                                void* input_position_arg, void* basis_arg,
                                 s32 mode, s32 callback_data,
                                 s32 tail, void** entry_cursor) {
+    const auto* input_position = static_cast<const f32*>(input_position_arg);
+    const auto* basis = static_cast<const f32*>(basis_arg);
     auto* pool = *reinterpret_cast<unsigned char**>(
         static_cast<unsigned char*>(owner) + 0x14);
     auto* entry = static_cast<SlyDrawEntry*>(func_001B5EE0(pool + 0x1afc));
