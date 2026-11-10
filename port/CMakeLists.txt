@@ -40,6 +40,7 @@ add_custom_target(port_hostgen
             --asm on --native-asm
             --asm-source ${OPENTHIEVIUS_ASM_SOURCE_SLY1}
             --source ${OPENTHIEVIUS_SOURCE_SLY1}
+            --out ${CMAKE_CURRENT_BINARY_DIR}/hostgen/us
     COMMENT "Generating matched C and selected retail assembly for the native launcher")
 
 add_custom_target(port_compile_decomp_host32
