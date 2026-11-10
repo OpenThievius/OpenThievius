@@ -1,9 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-07. The native launcher remains not playable. The latest
-direct-level trace reaches loader stage 5 but submits no scene vertices or
-visible text. It found a live, unskipped render-list entry at `0x00847ce0`
+Last checked: 2026-11-10. The native launcher remains not playable. A fresh
+12-second normal-startup run stayed at frame state `0,3,0`, with the window
+black. Two snapshots briefly reported 240 vertices, but no Sly artwork or
+visible text was confirmed. The movie player's queued key, successor key, and
+reader remained null through 5.45 seconds of guest time. The run used the
+existing CMake cache, still pinned to `/home/reaper/Code/sly1-decomp`
+(`e1b39f1`). The canonical sibling checkout is now at `d534006` (PR #102),
+but its updated C++ units are not yet hostable by this port's C staging; see
+`PLAYABLE_TODO.md` for the coverage gap and next steps.
+
+The latest direct-level trace reaches loader stage 5 but submits no scene
+vertices or visible text. It found a live, unskipped render-list entry at `0x00847ce0`
 with three primary records. Those records point through `0x00844450` to two
 non-null structures (`0x0083fc60` and `0x0083f4b0`); the latter references
 three 512-byte payloads at `0x0064d6e0`, `0x0064d8e0`, and `0x0064dae0`.
@@ -14,9 +23,11 @@ addresses; they do not reference those image payloads. Other direct-level
 groups are still skipped by their resource flag. The scene draw list still
 has zero geometry submissions. A separate blocker remains:
 default startup still stays on Splash rather than reaching the intro/title
-flow. The current build uses the local
-`sly1-decomp` checkout at `e1b39f1`; see dated checkpoints below for coverage
-counts. Port-only C overrides remain under `hand/native_c/` (with retired
+flow. The source now identifies `D_00269A00` as `MoviePlayer`; offsets `+4`,
+`+8`, `+0xC`, and `+0x134` are queued key, successor, reader, and decode
+thread step. This corrects the earlier trace label `thread_dispatch`. See
+dated checkpoints below for details. Port-only C overrides remain under
+`hand/native_c/` (with retired
 experiments under `hand/superseded_backfills/`); neither those nor generated
 assembly translations modify the decomp repository.
 

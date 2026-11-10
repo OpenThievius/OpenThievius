@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-07, after verifying the resource-service path. Work in
+Updated: 2026-11-10, after checking canonical decomp PR #102. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
@@ -270,14 +270,17 @@ a first graphics milestone. Run log:
 `/tmp/sly-native-ui-callbacks-ready.log` (may disappear on restart). The
 diagnostic flag is opt-in; regular launches do not print the inventory.
 
-### Canonical decomp recheck (2026-11-08)
+### Canonical decomp recheck (superseded 2026-11-10)
 
-The configured checkout `/home/reaper/Code/sly1-decomp` is clean at `e1b39f1`
-but its only remote is `ReaperOfVeriod/sly1-decomp`; fetching that remote showed
-no change. The canonical `OpenThievius/sly1-decomp` is now at `cf97578`
-(`Merge pull request #77 from OpenThievius/vu0-wave2`). It was inspected in a
-temporary read-only clone at `/tmp/sly1-decomp-latest`; neither that checkout
-nor the configured decomp working tree was changed by port work.
+The previous check used an outdated fork at `/home/reaper/Code/sly1-decomp`
+and missed the active sibling checkout. The default sibling at
+`/home/reaper/sly/sly1-decomp` has now been fast-forwarded, without source
+edits, from PR #81 to canonical `d534006` (PR #102, Nov 9). It is clean on
+`master`. Its current report has matching C for 4,667/4,807 NTSC-U functions
+(85.76% of code bytes). Note: `build/port/CMakeCache.txt` remains configured
+to `/home/reaper/Code/sly1-decomp` at `e1b39f1`; the latest successful native
+build therefore still uses that older input until hostgen can consume the
+reworked units.
 
 The canonical source contains `src/main/movie_player.cpp`, including
 `func_0018F198` (`PlayMovie`), `func_0018F448` (`StartMovieStream`),
@@ -288,11 +291,25 @@ calls `CreateMovieDecodeThread`. In `src/main/file_14EE40.cpp`,
 `HandleStepSequenceMessage` sends message type 7 to
 `QueueMovie(g_moviePlayer, msg->f4.i)`. The concrete producer-side trace lead
 is to determine whether/where the startup step sequence posts type 7 and why
-the native run has no queued movie after Splash. These source files are absent
-from the older configured checkout, and the port build still consumes
-`/home/reaper/Code/sly1-decomp`; this C is therefore not yet used by the
-launcher. On resume, reconcile that checkout with canonical `cf97578` before
-making another movie-path port backfill.
+the native run has no queued movie after Splash. These source files are now in
+the configured checkout. A C-only hostgen run against `d534006` read 238
+units, translated 563 functions, stubbed 2, and left 4,323 without C. Several
+important C++ units fail the current C staging because headers contain
+methods/templates and inheritance layouts that the stager cannot lower. This
+is a hostgen compatibility gap, not a loss of matching progress. Keep
+generated code out of the decomp repository.
+
+The same source reclassifies the words previously logged as `thread_dispatch`:
+`D_00269A00` is `MoviePlayer`; offsets `+4`, `+8`, and `+0xC` are queued key,
+successor key, and stream reader. Offset `+0x134` is the decoder thread step.
+`func_0018E4F0` is `QueueMovieWithSuccessor`, which sets the successor. The
+diagnostic now prints these fields under movie-player names. This corrects
+the earlier interpretation that they were worker-dispatch fields. A fresh
+12-second native run (using the existing CMake input) showed queued key,
+successor key, and reader all zero from 0.42 through 5.45 guest seconds;
+`threadStep` remained 2. The frame stayed `0,3,0`. It reported 240 vertices
+for two intermediate snapshots, but the window remained black, so these are
+not confirmed game graphics. Log: `/tmp/sly-native-decomp-refresh-queue.log`.
 
 The user-provided 62-second PCSX2 capture shows the game go from launch black
 to the SCEE Presents card, animated opening, gameplay, and title prompt. The
@@ -305,15 +322,16 @@ the movie. Native log: `/tmp/sly-native-intro-state.log` (transient). The
 diagnostic build succeeded and the 12-second native run reached timeout
 without crashing; no emulator was used.
 
-### Resume after restart
+### Active work after resume (2026-11-10)
 
-1. Check `git status --short --branch` and read this section before new probes.
-2. The playable goal is paused; wait for the user's resume before continuing
-   implementation or running another launcher session.
-3. On resume, reconcile the configured decomp checkout with canonical
-   `cf97578` without contributing changes to that repository. Then trace the
-   step-sequence message type 7 producer and movie queue in the native build;
-   do not synthesize a queue event.
+1. The active port branch is `wip/native-sly-port`; keep changes here.
+2. The canonical sibling decomp is current at `d534006`; do not contribute
+   port backfills there.
+3. Preserve the corrected movie-player trace and rebuild the latest source.
+   First close the hostgen C++ staging gap for the queue and main-loop units;
+   then run the native launcher and see whether the queued key remains null
+   through Splash. If null, trace the type-7 step-sequence message producer.
+   Never synthesize a queue event.
 4. Keep functional port-only C under `hand/native_c/` and registered in
    `backfills.tsv`; keep it separate from newly available matching decomp C.
    No emulator.

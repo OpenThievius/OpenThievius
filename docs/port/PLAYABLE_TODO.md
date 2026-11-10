@@ -1,6 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current status (2026-11-10)
+
+The latest canonical decomp source is now checked out read-only at
+`../sly1-decomp`, commit `d534006` (PR #102). It reports matching C for
+4,667/4,807 NTSC-U functions (85.76% of code bytes). The large source
+reorganization adds whole-file C++ units and class/global metadata. That
+coverage is not yet usable by this port's C hostgen: a C-only run against this
+snapshot read 238 units, translated 563 functions, stubbed 2, and left 4,323
+without C. The staging layer currently fails on C++ methods/templates and
+flattened inherited fields in shared headers. Do not compare the 563 directly
+with decomp matching coverage; it measures hostgen compatibility. The
+configured `build/port` CMake cache still points to the older
+`/home/reaper/Code/sly1-decomp` checkout (`e1b39f1`); its build uses 2,044 C
+translations plus 230 assembly translations, with zero stubs. Keep this
+known-good input until current decomp units become hostable.
+
+The port remains not playable. The last confirmed native run (Nov 7) stayed
+black at frame state `0,3,0` with no visible text or scene geometry. The latest
+source clarifies the movie queue at `D_00269A00`: `+4` is the queued movie,
+`+8` its queued successor, `+0xC` the stream reader, and `+0x134` the decode
+thread step. `RunMainLoop` drains the queue before world loading and again
+afterward; `func_0018E4F0` (`QueueMovieWithSuccessor`) stores the successor.
+This supersedes the older note below that mislabeled `0x00269A04..0x00269A10`
+as thread-dispatch state. The native trace now reports these movie fields by
+their decomp-confirmed names. A fresh 12-second native run using the existing
+CMake input showed `movie_queued=0`, `movie_queued_next=0`, and
+`movie_reader=0` through 5.45 seconds of guest time; frame state remained
+`0,3,0`, and the captured window remained black. It briefly reported 240
+vertices at 0.92 and 1.42 seconds, but this is not confirmed game artwork.
+Next: make the current decomp's main-loop/movie units hostable, then trace the
+state-sequence message producer if the queue remains empty.
+
+The matching source for important graphics callbacks is present upstream,
+but several defining units still fail this port's C staging because of C++
+header constructs. `func_00125C90` remains `INCLUDE_ASM` in the latest
+decomp. Keep working in this port repository; keep any functional replacement
+C in `hand/native_c/` and registered in `hand/backfills.tsv`.
+
 Fresh repository review: 2026-11-07. The current local decomp input is
 `e1b39f1` from `/home/reaper/Code/sly1-decomp`, and CMake uses that checkout
 for matched C and retail assembly. Current hostgen reports 192 units, 2,044

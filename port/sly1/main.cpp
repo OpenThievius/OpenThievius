@@ -736,7 +736,8 @@ int main(int argc, char** argv) {
                 std::uint32_t menu_count = 0;
                 std::uint32_t menu_glyphs = 0;
                 std::uint32_t menu_glyph_count = 0;
-                std::uint32_t thread_dispatch_fields[3]{};
+                std::uint32_t movie_player[4]{};
+                std::uint32_t movie_decode_step = 0;
                 std::uint32_t pending_resource = 0;
                 std::uint32_t resource_state_mode = 0;
                 std::uint32_t resource_state_busy = 0;
@@ -748,9 +749,12 @@ int main(int argc, char** argv) {
                             sizeof(menu_count));
                 std::memcpy(&menu_items, openrac_guest_base + 0x00269D64u,
                             sizeof(menu_items));
-                std::memcpy(thread_dispatch_fields,
-                            openrac_guest_base + 0x00269A04u,
-                            sizeof(thread_dispatch_fields));
+                std::memcpy(movie_player,
+                            openrac_guest_base + 0x00269A00u,
+                            sizeof(movie_player));
+                std::memcpy(&movie_decode_step,
+                            openrac_guest_base + 0x00269B34u,
+                            sizeof(movie_decode_step));
                 std::memcpy(&pending_resource, openrac_guest_base + 0x00275AF0u,
                             sizeof(pending_resource));
                 std::memcpy(&resource_state_busy, openrac_guest_base + 0x00275F84u,
@@ -1156,10 +1160,11 @@ int main(int argc, char** argv) {
                           << ',' << menu_count << ',' << menu_items << ',' << menu_glyph_count
                           << ',' << menu_glyphs << std::dec
                           << " load_request=" << std::hex << pending_resource << std::dec
-                          << " thread_dispatch=0x" << std::hex
-                          << thread_dispatch_fields[0] << ",0x"
-                          << thread_dispatch_fields[1] << ",0x"
-                          << thread_dispatch_fields[2] << std::dec
+                          << " movie_index=" << std::dec << movie_player[0]
+                          << " movie_queued=0x" << std::hex << movie_player[1]
+                          << " movie_queued_next=0x" << movie_player[2]
+                          << " movie_reader=0x" << movie_player[3]
+                          << " movie_decode_step=" << std::dec << movie_decode_step
                           << " resource_draw=" << resource_state_busy << ','
                           << resource_state_mode
                           << " overlay=" << overlay_state[0] << ',' << overlay_state[1]
