@@ -16,16 +16,23 @@ configured `build/port` CMake cache still points to the older
 `/home/reaper/Code/sly1-decomp` checkout (`e1b39f1`); its build uses 2,044 C
 translations plus 230 assembly translations, with zero stubs. I tested the
 reworked source through the separate direct i386 compiler in
-`build/port/canonical-host32/`: it stages the new named units and combines
-without duplicate backfill addresses, but only 94/171 decomp units and 93/98
-port backfills compile. The partial link defines 801/4,807 catalogued
-functions and cannot reach `RunMainLoop` (frontier 0/1). The remaining source
-uses PS2 inline assembly and exception runtime features, plus GCC's removed
-`>?` operator, that this launcher cannot compile. A staging-only conversion
-now lowers the decomp's GCC 2.95 named-return form, which gets `main_loop.cpp`
-past parsing; its VU0 inline assembly then fails on the host's MIPS-only
-constraints. Keep the canonical probe separate from the existing launcher
-until those host ABI gaps are resolved; it is not a runnable replacement yet.
+`build/port/canonical-host32/`. The staging adapter now compiles 162/171
+decompilation units and all 100 port backfills. It combines 4,218/4,807
+catalogued functions, and the reachable call closure is 784/815. The remaining
+unit failures are concentrated in legacy exception/runtime code and a handful
+of newer class/header boundaries. The old CMake cache remains untouched; this
+canonical-source probe uses its own build directory and does not overwrite the
+known-good older-source build.
+
+The adapter handles the rework's named whole-file units, lowers GCC 2.95 named
+returns and `>?`/`<?` operations in staged copies, replaces used VU0 operations
+with host scalar math, and stages all headers so nested quoted includes receive
+the same host adaptations. Port-native replacements still take precedence by
+retail address; staged upstream definitions are renamed while their calls
+continue to route through the port boundary. New compatibility views for C51
+and V24A0 live under `port/sly1/host32/include/`, and an existing port backfill
+now uses the canonical `TextReader` header. No decomp checkout source was
+edited.
 
 The port remains not playable. The last confirmed native run (Nov 7) stayed
 black at frame state `0,3,0` with no visible text or scene geometry. The latest
@@ -43,18 +50,19 @@ vertices at 0.92 and 1.42 seconds, but this is not confirmed game artwork.
 Next: make the current decomp's main-loop/movie units hostable, then trace the
 state-sequence message producer if the queue remains empty.
 
-**Canonical source compile follow-up (2026-11-10):** the host32 staging script
-now tolerates address-specific adaptations whose bodies moved out of old
-0x4000 chunks in `files.tsv` snapshots. It also renames staged decomp
-definitions when a port-only native backfill owns that retail address, while
-keeping public call names routed to the backfill. This prevents matching C
-that moved into named units from shadowing separate port replacements. It
-also converts named returns in staged units and a staged `vu0.h`. The direct
-compile still yields 94/171 units: the main loop now reaches unsupported host
-VU0 asm constraints, so the compiled function closure remains far short of
-startup. Next work is a host-side VU0 implementation for gameplay operations
-and lowering of the remaining `>?` expressions. Port backfills remain in the
-port tree.
+**Canonical source launcher checkpoint (2026-11-10):** the native launcher now
+passes its static initialization path and advances into game object startup.
+The latest 15-second run did not reach a stable frame: it segfaulted at guest
+address `0x00000556` during startup after the initializer callbacks, with no
+visible graphics. Previous blockers on the way were `InitRecursiveLock`,
+`InitDisplay`, `InitPadSystem`, `InitRenderFrames`, `InitSoundSystem`, and
+`ReadSlotObjects`; their current upstream bodies or separate port backfills
+now compile/link in the canonical build. A backfill boundary for
+`ReadSlotObjects` exports the distinct C++ call signatures used by the new
+grouped units. The next task is to trace the low-address indirect call after
+object loading begins, then continue following the first renderable world
+object and frame submission. The port remains not playable and no actual game
+image has been confirmed.
 
 The matching source for important graphics callbacks is present upstream,
 but several defining units still fail this port's C staging because of C++

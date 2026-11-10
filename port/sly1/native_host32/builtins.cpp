@@ -101,3 +101,13 @@ extern "C" float sqrtf(float value) {
     __asm__ volatile("flds %1; fsqrt; fstps %0" : "=m"(result) : "m"(value));
     return result;
 }
+
+extern "C" float fminf(float a, float b) { return a < b ? a : b; }
+extern "C" float fmaxf(float a, float b) { return a > b ? a : b; }
+
+// The retail exception runtime is linked as address-preserving code even though
+// native gameplay does not throw C++ exceptions. These two ABI entry points
+// satisfy its unused virtual teardown and diagnostic references.
+void operator delete(void*, unsigned int) noexcept {}
+extern "C" const char* sly1_exception_what(const void*) asm("_ZNK9exception4whatEv");
+extern "C" const char* sly1_exception_what(const void*) { return "Sly exception"; }

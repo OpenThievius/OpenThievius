@@ -60,6 +60,294 @@ def lower_named_returns(text, label):
     return text
 
 
+def escape_literal_newlines(text):
+    """Convert raw line breaks inside ordinary string/character literals."""
+    out = []
+    state = "code"
+    escaped = False
+    i = 0
+    while i < len(text):
+        c = text[i]
+        n = text[i + 1] if i + 1 < len(text) else ""
+        if state == "line_comment":
+            out.append(c)
+            if c == "\n": state = "code"
+        elif state == "block_comment":
+            out.append(c)
+            if c == "*" and n == "/":
+                out.append(n); i += 1; state = "code"
+        elif state in ("string", "char"):
+            if c == "\n":
+                out.append(r"\n")
+                escaped = False
+            else:
+                out.append(c)
+                if escaped: escaped = False
+                elif c == "\\": escaped = True
+                elif (state == "string" and c == '"') or (state == "char" and c == "'"):
+                    state = "code"
+        else:
+            out.append(c)
+            if c == "/" and n == "/": out.append(n); i += 1; state = "line_comment"
+            elif c == "/" and n == "*": out.append(n); i += 1; state = "block_comment"
+            elif c == '"': state = "string"
+            elif c == "'": state = "char"
+        i += 1
+    return "".join(out)
+
+
+def lower_gcc_minmax(text):
+    """Lower the old GCC ``>?`` maximum operator in staged C++ units."""
+    compound_used = False
+    text, count = re.subn(
+        r"\b(?P<lhs>[A-Za-z_]\w*)\s*>\?=\s*(?P<rhs>[A-Za-z_]\w*)",
+        lambda m: m.group("lhs") + " = sly1_host_max(" + m.group("lhs") +
+        ", " + m.group("rhs") + ")", text)
+    compound_used |= count != 0
+    text, count = re.subn(
+        r"(?P<lhs>\*\(f32\*\)&self->f26A0)\s*>\?=\s*"
+        r"(?P<rhs>\*\(f32\*\)\(\(u8\*\)self \+ 0xA(?:40|20)\))",
+        lambda m: m.group("lhs") + " = sly1_host_max(" + m.group("lhs") +
+        ", " + m.group("rhs") + ")", text)
+    compound_used |= count != 0
+    points = []
+    state = "code"
+    escaped = False
+    i = 0
+    while i < len(text):
+        c = text[i]
+        n = text[i + 1] if i + 1 < len(text) else ""
+        if state == "line":
+            if c == "\n": state = "code"
+            i += 1; continue
+        if state == "comment":
+            if c == "*" and n == "/": state = "code"; i += 2; continue
+            i += 1; continue
+        if state in ("string", "char"):
+            if escaped: escaped = False
+            elif c == "\\": escaped = True
+            elif (state == "string" and c == '"') or (state == "char" and c == "'"): state = "code"
+            i += 1; continue
+        if c == "/" and n == "/": state = "line"; i += 2; continue
+        if c == "/" and n == "*": state = "comment"; i += 2; continue
+        if c == '"': state = "string"; i += 1; continue
+        if c == "'": state = "char"; i += 1; continue
+        if c in "<>" and n == "?": points.append((i, c)); i += 2; continue
+        i += 1
+
+    spans = []
+    for op, operator in points:
+        left = op - 1
+        while left >= 0 and text[left].isspace(): left -= 1
+        paren = bracket = 0
+        while left >= 0:
+            c = text[left]
+            if c == ")": paren += 1
+            elif c == "(":
+                if paren == 0: break
+                paren -= 1
+            elif c == "]": bracket += 1
+            elif c == "[":
+                if bracket == 0: break
+                bracket -= 1
+            if (paren == 0 and bracket == 0 and
+                    (c in "=,;{}?" or (c == ":" and
+                     (left == 0 or text[left - 1] != ":") and
+                     (left + 1 >= len(text) or text[left + 1] != ":")))): break
+            left -= 1
+        left += 1
+        while left < op and text[left].isspace(): left += 1
+        prefix = ""
+        replace_left = left
+        if text.startswith("return", left) and (left + 6 == op or text[left + 6].isspace()):
+            prefix = "return "
+            replace_left = left
+            left += 6
+            while left < op and text[left].isspace(): left += 1
+
+        right = op + 2
+        while right < len(text) and text[right].isspace(): right += 1
+        end = right
+        paren = bracket = 0
+        while end < len(text):
+            c = text[end]
+            if c == "(": paren += 1
+            elif c == ")":
+                if paren == 0: break
+                paren -= 1
+            elif c == "[": bracket += 1
+            elif c == "]":
+                if bracket == 0: break
+                bracket -= 1
+            if (paren == 0 and bracket == 0 and
+                    (c in ",;{}?" or (c == ":" and
+                     (end == 0 or text[end - 1] != ":") and
+                     (end + 1 >= len(text) or text[end + 1] != ":")))): break
+            end += 1
+        while end > right and text[end - 1].isspace(): end -= 1
+        if left == op or right == end:
+            continue
+        spans.append((replace_left, left, op, right, end, prefix, operator))
+    for replace_left, left, op, right, end, prefix, operator in reversed(spans):
+        lhs = text[left:op].strip()
+        rhs = text[right:end].strip()
+        helper_name = "sly1_host_max" if operator == ">" else "sly1_host_min"
+        replacement = prefix + helper_name + "((" + lhs + "), (" + rhs + "))"
+        text = text[:replace_left] + replacement + text[end:]
+    if spans or compound_used:
+        helper = ("template<class A, class B> static inline auto sly1_host_max(A a, B b) "
+                  "-> decltype(a + b) { return a > b ? a : b; }\n"
+                  "template<class A, class B> static inline auto sly1_host_min(A a, B b) "
+                  "-> decltype(a + b) { return a < b ? a : b; }\n")
+        text = helper + text
+    return text
+
+
+def lower_host_vu0(text):
+    """Replace VU0-only inline assembly with equivalent host float-vector math."""
+    helpers = r"""
+    union HostLanes { u128 q; f32 f[4]; };
+    static f32 HostLane(u128 q, int i) { HostLanes v; v.q = q; return v.f[i]; }
+    static u128 HostPack(f32 x, f32 y, f32 z, f32 w) {
+        HostLanes v{}; v.f[0] = x; v.f[1] = y; v.f[2] = z; v.f[3] = w; return v.q;
+    }
+    static u32 HostBits(f32 f) { union { f32 f; u32 u; } v; v.f = f; return v.u; }
+    static f32 HostFloat(u32 u) { union { f32 f; u32 u; } v; v.u = u; return v.f; }
+    static u128 HostWeighted3(u128 r0, u128 r1, u128 r2, u128 v) {
+        f32 x = HostLane(v, 0), y = HostLane(v, 1), z = HostLane(v, 2);
+        return HostPack(HostLane(r0,0)*x + HostLane(r1,0)*y + HostLane(r2,0)*z,
+                        HostLane(r0,1)*x + HostLane(r1,1)*y + HostLane(r2,1)*z,
+                        HostLane(r0,2)*x + HostLane(r1,2)*y + HostLane(r2,2)*z,
+                        HostLane(v,3));
+    }
+    static u128 HostWeighted4(u128 r0, u128 r1, u128 r2, u128 r3, u128 v) {
+        return HostPack(HostLane(r0,0)*HostLane(v,0)+HostLane(r1,0)*HostLane(v,1)+HostLane(r2,0)*HostLane(v,2)+HostLane(r3,0)*HostLane(v,3),
+                        HostLane(r0,1)*HostLane(v,0)+HostLane(r1,1)*HostLane(v,1)+HostLane(r2,1)*HostLane(v,2)+HostLane(r3,1)*HostLane(v,3),
+                        HostLane(r0,2)*HostLane(v,0)+HostLane(r1,2)*HostLane(v,1)+HostLane(r2,2)*HostLane(v,2)+HostLane(r3,2)*HostLane(v,3),
+                        HostLane(r0,3)*HostLane(v,0)+HostLane(r1,3)*HostLane(v,1)+HostLane(r2,3)*HostLane(v,2)+HostLane(r3,3)*HostLane(v,3));
+    }
+    """
+    marker = "struct Vu0 {"
+    if marker not in text:
+        return text
+    text = text.replace(marker, marker + helpers, 1)
+    bodies = {
+        "Zero": "return HostPack(0,0,0,0);",
+        "Ones": "return HostPack(1,1,1,1);",
+        "Copy": "return a;",
+        "Add": "return HostPack(HostLane(a,0)+HostLane(b,0),HostLane(a,1)+HostLane(b,1),HostLane(a,2)+HostLane(b,2),HostLane(a,3)+HostLane(b,3));",
+        "Sub": "return HostPack(HostLane(a,0)-HostLane(b,0),HostLane(a,1)-HostLane(b,1),HostLane(a,2)-HostLane(b,2),HostLane(a,3)-HostLane(b,3));",
+        "FromFloat": "return HostPack(f,0,0,0);",
+        "FromFloatAt": "return HostPack(f,0,0,0);",
+        "Scalar": "return HostPack(f,0,0,0);",
+        "ScalarAt": "return HostPack(f,0,0,0);",
+        "ScalarAtValue": "return HostPack(f,0,0,0);",
+        "FromFloatAtCall": "return HostPack(f,0,0,0);",
+        "ScalarAtCall": "return HostPack(f,0,0,0);",
+        "ToFloat": "return HostLane(a,0);",
+        "ToFloatMoved": "return HostLane(a,0);",
+        "ToFloatNow": "return HostLane(a,0);",
+        "ToFloatViaBits": "return HostLane(a,0);",
+        "ToBits": "return HostBits(HostLane(a,0));",
+        "ToFloatY": "return HostLane(a,1);",
+        "ToFloatZ": "return HostLane(a,2);",
+        "StoreX": "*(u32*)&dst = HostBits(HostLane(a,0));",
+        "Splat": "return HostPack(f,f,f,f);",
+        "FromFloats": "return HostPack(x,y,z,z);",
+        "ScalarInGpr": "return HostPack(f,0,0,0);",
+        "ScalarInGprReg": "return HostPack(f,0,0,0);",
+        "MulX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)*scale,HostLane(a,1)*scale,HostLane(a,2)*scale,HostLane(a,3)*scale);",
+        "MulAddX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)+HostLane(b,0)*scale,HostLane(a,1)+HostLane(b,1)*scale,HostLane(a,2)+HostLane(b,2)*scale,HostLane(a,3)+HostLane(b,3)*scale);",
+        "MulAddX2": "f32 sx=HostLane(s,0),tx=HostLane(t,0); return HostPack(HostLane(a,0)+HostLane(b,0)*sx+HostLane(c,0)*tx,HostLane(a,1)+HostLane(b,1)*sx+HostLane(c,1)*tx,HostLane(a,2)+HostLane(b,2)*sx+HostLane(c,2)*tx,HostLane(a,3)+HostLane(b,3)*sx+HostLane(c,3)*tx);",
+        "MulAddX2WeightFirst": "f32 sx=HostLane(s,0),tx=HostLane(t,0); return HostPack(HostLane(a,0)+HostLane(b,0)*sx+HostLane(c,0)*tx,HostLane(a,1)+HostLane(b,1)*sx+HostLane(c,1)*tx,HostLane(a,2)+HostLane(b,2)*sx+HostLane(c,2)*tx,HostLane(a,3)+HostLane(b,3)*sx+HostLane(c,3)*tx);",
+        "MulAddX3": "f32 sx=HostLane(s,0),tx=HostLane(t,0),ux=HostLane(u,0); return HostPack(HostLane(a,0)+HostLane(b,0)*sx+HostLane(c,0)*tx+HostLane(d,0)*ux,HostLane(a,1)+HostLane(b,1)*sx+HostLane(c,1)*tx+HostLane(d,1)*ux,HostLane(a,2)+HostLane(b,2)*sx+HostLane(c,2)*tx+HostLane(d,2)*ux,HostLane(a,3)+HostLane(b,3)*sx+HostLane(c,3)*tx+HostLane(d,3)*ux);",
+        "Dot": "return HostPack(HostLane(a,0)*HostLane(b,0)+HostLane(a,1)*HostLane(b,1)+HostLane(a,2)*HostLane(b,2),HostLane(a,1)*HostLane(b,1),HostLane(a,2)*HostLane(b,2),0);",
+        "SelfDot": "return HostPack(HostLane(v,0)*HostLane(v,0)+HostLane(v,1)*HostLane(v,1)+HostLane(v,2)*HostLane(v,2),HostLane(v,1)*HostLane(v,1),HostLane(v,2)*HostLane(v,2),0);",
+        "DotXY": "return HostPack(HostLane(a,0)*HostLane(b,0)+HostLane(a,1)*HostLane(b,1),HostLane(a,1)*HostLane(b,1),0,0);",
+        "Sqrt": "return HostPack(__builtin_sqrtf(HostLane(a,0)),HostLane(a,1),HostLane(a,2),HostLane(a,3));",
+        "DivX": "f32 q=1.0f/HostLane(s,0); return HostPack(HostLane(a,0)*q,HostLane(a,1)*q,HostLane(a,2)*q,HostLane(a,3)*q);",
+        "Cross": "return HostPack(HostLane(a,1)*HostLane(b,2)-HostLane(a,2)*HostLane(b,1),HostLane(a,2)*HostLane(b,0)-HostLane(a,0)*HostLane(b,2),HostLane(a,0)*HostLane(b,1)-HostLane(a,1)*HostLane(b,0),0);",
+        "Min": "return HostPack(__builtin_fminf(HostLane(a,0),HostLane(b,0)),__builtin_fminf(HostLane(a,1),HostLane(b,1)),__builtin_fminf(HostLane(a,2),HostLane(b,2)),HostLane(a,3));",
+        "Max": "return HostPack(__builtin_fmaxf(HostLane(a,0),HostLane(b,0)),__builtin_fmaxf(HostLane(a,1),HostLane(b,1)),__builtin_fmaxf(HostLane(a,2),HostLane(b,2)),HostLane(a,3));",
+        "Rotate": "const u128* r=(const u128*)&m; return HostWeighted3(r[0],r[1],r[2],v);",
+        "RotateRows": "return HostWeighted3(r0,r1,r2,v);",
+        "Transform": "const u128* r=(const u128*)&m; u128 v4=HostPack(HostLane(v,0),HostLane(v,1),HostLane(v,2),w); return HostWeighted4(r[0],r[1],r[2],r[3],v4);",
+        "TransformRows": "u128 v4=HostPack(HostLane(v,0),HostLane(v,1),HostLane(v,2),w); return HostWeighted4(r0,r1,r2,r3,v4);",
+        "Transform4": "return HostWeighted4(m0,m1,m2,m3,v);",
+        "RotateTransposed": "const u128* r=(const u128*)&m; return HostPack(HostLane(r[0],0)*HostLane(v,0)+HostLane(r[0],1)*HostLane(v,1)+HostLane(r[0],2)*HostLane(v,2),HostLane(r[1],0)*HostLane(v,0)+HostLane(r[1],1)*HostLane(v,1)+HostLane(r[1],2)*HostLane(v,2),HostLane(r[2],0)*HostLane(v,0)+HostLane(r[2],1)*HostLane(v,1)+HostLane(r[2],2)*HostLane(v,2),HostLane(v,3));",
+        "MulXSum": "f32 sx=HostLane(s,0),tx=HostLane(t,0); return HostPack(HostLane(a,0)*sx+HostLane(b,0)*tx,HostLane(a,1)*sx+HostLane(b,1)*tx,HostLane(a,2)*sx+HostLane(b,2)*tx,HostLane(a,3)*sx+HostLane(b,3)*tx);",
+        "PlaneSigns": "u128 d=HostPack(HostLane(r0,0)*HostLane(v,0)+HostLane(r1,0)*HostLane(v,1)+HostLane(r2,0)*HostLane(v,2),HostLane(r0,1)*HostLane(v,0)+HostLane(r1,1)*HostLane(v,1)+HostLane(r2,1)*HostLane(v,2),HostLane(r0,2)*HostLane(v,0)+HostLane(r1,2)*HostLane(v,1)+HostLane(r2,2)*HostLane(v,2),HostLane(r0,3)*HostLane(v,0)+HostLane(r1,3)*HostLane(v,1)+HostLane(r2,3)*HostLane(v,2)); u32 f=0; for(int i=0;i<4;i++) if(HostLane(d,i)-HostLane(ones,i)*HostLane(s,0)<0) f|=(0x80u>>i); return f;",
+        "MulXSum3": "f32 sx=HostLane(s,0),tx=HostLane(t,0),ux=HostLane(u,0); return HostPack(HostLane(a,0)*sx+HostLane(b,0)*tx+HostLane(c,0)*ux,HostLane(a,1)*sx+HostLane(b,1)*tx+HostLane(c,1)*ux,HostLane(a,2)*sx+HostLane(b,2)*tx+HostLane(c,2)*ux,HostLane(a,3)*sx+HostLane(b,3)*tx+HostLane(c,3)*ux);",
+        "MulXSum4": "f32 sx=HostLane(s,0),tx=HostLane(t,0),ux=HostLane(u,0),vx=HostLane(v,0); return HostPack(HostLane(a,0)*sx+HostLane(b,0)*tx+HostLane(c,0)*ux+HostLane(d,0)*vx,HostLane(a,1)*sx+HostLane(b,1)*tx+HostLane(c,1)*ux+HostLane(d,1)*vx,HostLane(a,2)*sx+HostLane(b,2)*tx+HostLane(c,2)*ux+HostLane(d,2)*vx,HostLane(a,3)*sx+HostLane(b,3)*tx+HostLane(c,3)*ux+HostLane(d,3)*vx);",
+        "RotateUntied": "const u128* r=(const u128*)&m; return HostWeighted3(r[0],r[1],r[2],v);",
+        "RotateMembers": "const u128* r=(const u128*)&m; return HostWeighted3(r[0],r[1],r[2],v);",
+        "RotateRowsTied": "return HostWeighted3(r0,r1,r2,v);",
+        "Transpose": "Rows r; for(int i=0;i<3;i++) r.r[i]=HostPack(HostLane(m.r[0],i),HostLane(m.r[1],i),HostLane(m.r[2],i),0); return r;",
+        "MulTransposed": "const u128* p=(const u128*)&a; const u128* q=(const u128*)&b; u128* r=(u128*)&out; for(int j=0;j<3;j++) r[j]=HostPack(HostLane(q[0],0)*HostLane(p[0],j)+HostLane(q[1],0)*HostLane(p[1],j)+HostLane(q[2],0)*HostLane(p[2],j),HostLane(q[0],1)*HostLane(p[0],j)+HostLane(q[1],1)*HostLane(p[1],j)+HostLane(q[2],1)*HostLane(p[2],j),HostLane(q[0],2)*HostLane(p[0],j)+HostLane(q[1],2)*HostLane(p[1],j)+HostLane(q[2],2)*HostLane(p[2],j),HostLane(q[0],3)*HostLane(p[0],j)+HostLane(q[1],3)*HostLane(p[1],j)+HostLane(q[2],3)*HostLane(p[2],j));",
+    }
+
+    def matching_brace(source, opening):
+        depth, state, escaped = 0, "code", False
+        for i in range(opening, len(source)):
+            c = source[i]
+            n = source[i + 1] if i + 1 < len(source) else ""
+            if state == "line":
+                if c == "\n": state = "code"
+                continue
+            if state == "comment":
+                if c == "*" and n == "/": state = "code"
+                continue
+            if state in ("string", "char"):
+                if escaped: escaped = False
+                elif c == "\\": escaped = True
+                elif (state == "string" and c == '"') or (state == "char" and c == "'"): state = "code"
+                continue
+            if c == "/" and n == "/": state = "line"; continue
+            if c == "/" and n == "*": state = "comment"; continue
+            if c == '"': state = "string"; continue
+            if c == "'": state = "char"; continue
+            if c == "{": depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0: return i
+        raise RuntimeError("unclosed VU0 method while staging")
+
+    for name, body in bodies.items():
+        pattern = re.compile(
+            r"(?m)^[ \t]*(?:template\s*<[^\n]*>\s*)?(?:static\s+)?[^\n;{}]*\b" +
+            re.escape(name) + r"\s*\([^\n;{}]*\)\s*\n[ \t]*\{")
+        cursor = 0
+        while True:
+            match = pattern.search(text, cursor)
+            if match is None: break
+            opening = text.find("{", match.start(), match.end())
+            closing = matching_brace(text, opening)
+            if "__asm__" in text[opening:closing]:
+                text = text[:opening + 1] + "\n        " + body + "\n    " + text[closing:]
+                cursor = opening + len(body) + 2
+            else:
+                cursor = closing + 1
+    return text
+
+
+def lower_host_system(text):
+    """Give the few EE COP0/interrupt helpers host-safe compile-time bodies."""
+    replacements = {
+        '__asm__ volatile("sync");': "__sync_synchronize();",
+        '__asm__ volatile("sync\\n\\tei");': "__sync_synchronize();",
+        '__asm__ volatile("mfc0 %0, $12" : "=r"(r));': "r = 0;",
+        '__asm__ volatile("mfc0 %0, $9" : "=r"(r));': "r = 0;",
+        '__asm__ volatile("mtc0 %z0, $6\\n\\tsync.p" : : "dJ"(n));': "(void)n;",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(
+        r"static __inline__ s32 CurrentThreadIdFromInterrupt\(void\)\s*\{.*?\n\}",
+        "static __inline__ s32 CurrentThreadIdFromInterrupt(void)\n{\n    return -1;\n}",
+        text, flags=re.S)
+    return text
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path, help="read-only sly1-decomp checkout")
@@ -122,10 +410,25 @@ def main(argv=None):
     staged_root.mkdir(parents=True, exist_ok=True)
     objects_root.mkdir(parents=True, exist_ok=True)
     staged_include.mkdir(parents=True, exist_ok=True)
+    # Quoted includes inside decomp headers search their own directory before
+    # any -I path. Stage the full header tree so nested includes cannot bypass
+    # host-only adapters (notably vu0.h) and read the unmodified EE assembly.
+    for header in include.rglob("*"):
+        if not header.is_file():
+            continue
+        staged_header = staged_include / header.relative_to(include)
+        staged_header.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(header, staged_header)
+    system_header = staged_include / "system.h"
+    if system_header.is_file():
+        system_header.write_text(
+            lower_host_system(system_header.read_text(encoding="utf-8")),
+            encoding="utf-8")
     vu0_header = include / "vu0.h"
     if vu0_header.is_file():
         (staged_include / "vu0.h").write_text(
-            lower_named_returns(vu0_header.read_text(encoding="utf-8"), "include/vu0.h"),
+            lower_host_vu0(lower_named_returns(
+                vu0_header.read_text(encoding="utf-8"), "include/vu0.h")),
             encoding="utf-8")
     backfill_root = port / "game" / "sly1-us" / "native"
     # Native backfills take precedence at their retail address. The current
@@ -136,10 +439,17 @@ def main(argv=None):
     backfill_addresses = set()
     if backfill_root.exists():
         for path in backfill_root.rglob("*.cpp"):
-            backfill_addresses.update(
-                address.lower()
-                for address in re.findall(r"\bfunc_([0-9A-Fa-f]{8})\s*\(",
-                                          path.read_text(encoding="utf-8")))
+            if re.fullmatch(r"func_[0-9A-Fa-f]{8}", path.stem):
+                backfill_addresses.add(path.stem.removeprefix("func_").lower())
+            content = path.read_text(encoding="utf-8")
+            # Some port boundaries share one source file. Count only actual
+            # address-named definitions there, never addresses merely called
+            # by a backfill (those vanilla definitions still belong to Sly).
+            for address in re.findall(
+                    r"(?m)^\s*(?:extern\s+\"C\"\s+)?"
+                    r"(?:[A-Za-z_]\w*(?:::\w+)?\s+)+"
+                    r"func_([0-9A-Fa-f]{8})\s*\([^;{}]*\)\s*\{", content):
+                backfill_addresses.add(address.lower())
     address_names = {
         address.lower(): name
         for name, address in re.findall(
@@ -174,10 +484,75 @@ def main(argv=None):
         original = src.read_text(encoding="utf-8")
         # The PS2 compiler treats unsigned long literals as 64-bit; i386 does not.
         adapted = re.sub(r"(?i)(0x[0-9a-f]+|[0-9]+)UL\b", r"\1ULL", original)
-        # A pair of format strings in the US source contains literal newlines
-        # between quotes; preserve their intended newline in host C++ syntax.
-        adapted = re.sub(r'"([^"\\\n]*)\n"', lambda m: '"' + m.group(1) + r'\n"', adapted)
-        adapted = lower_named_returns(adapted, rel.as_posix())
+        # These two source strings contain literal newlines, which modern C++
+        # rejects. Preserve the intended newline characters in the staged copy.
+        adapted = adapted.replace(
+            '"Sly Cooper\nand the Thievius Raccoonus"',
+            '"Sly Cooper\\nand the Thievius Raccoonus"')
+        adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
+        adapted = escape_literal_newlines(adapted)
+        adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        if rel.as_posix() == "lib/graph.c":
+            # This upstream C file relies on old C's implicit function
+            # declarations and GNU vector scalar assignment. Keep its logic,
+            # adding explicit prototypes and zeroing the two VIF tags by bytes
+            # for the modern C++ host compiler.
+            adapted = adapted.replace(
+                '#include "common.h"',
+                '#include "common.h"\n'
+                'void WriteDisplayRegisters(void*);\n'
+                's32 SendDrawEnvironment(void*);', 1)
+            adapted = adapted.replace(
+                '*(V128*)&self->tag50 = 0;',
+                '__builtin_memset(&self->tag50, 0, sizeof(V128));')
+            adapted = adapted.replace(
+                '*(V128*)&self->tag140 = 0;',
+                '__builtin_memset(&self->tag140, 0, sizeof(V128));')
+        elif rel.as_posix() == "lib/allocate.cpp":
+            # Dynamic exception specifications were removed after the PS2
+            # compiler; they do not affect this native C++ allocation body.
+            adapted = adapted.replace(" throw(bad_alloc)", "")
+        elif rel.as_posix() == "main/pad_input.cpp":
+            adapted = adapted.replace("fabsf(", "__builtin_fabsf(")
+        elif rel.as_posix() == "main/file_1B7968.cpp":
+            # This helper manually walks the original EE 8-byte vararg slots.
+            # The host32 C++ ABI places each word argument in a 4-byte stack
+            # slot, so lower just this staged helper to the host layout.
+            adapted = adapted.replace(
+                "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 8) - 8))",
+                "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 4) - 4))")
+            adapted = adapted.replace(
+                "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
+                "(char*)__builtin_next_arg(size)")
+        elif rel.as_posix() == "main/file_1E88D0.cpp":
+            # AreFloatsNearlyEqual has a separate native replacement; retain
+            # its public address prototype while renaming the upstream body.
+            adapted = adapted.replace(
+                '#include "common.h"',
+                '#include "common.h"\n'
+                'extern "C" s32 func_001EAC68(f32, f32, f32);', 1)
+            adapted = adapted.replace(
+                "void ComputeSinCos(f32* a, f32* b);",
+                "void ComputeSinCos(f32 angle, f32* a, f32* b);")
+            adapted = adapted.replace(
+                "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle)",
+                "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut)")
+            adapted = adapted.replace(
+                "ComputeSinCos(&p.sine, &p.cosine);",
+                "ComputeSinCos(unused, &p.sine, &p.cosine);")
+        elif rel.as_posix() == "main/base_object.cpp":
+            # The port backfill has the retail pointer-first argument order;
+            # the current matching C candidate places the outputs last.
+            adapted = adapted.replace(
+                '#include "common.h"',
+                '#include "common.h"\n'
+                'void func_001840F0(f32*, f32*, f32, f32, f32, f32);\n'
+                'static inline void sly1_host_fit_angle_samples(f32 a, f32 b, '
+                'f32 c, f32 d, f32* out0, void* out1) { '
+                'func_001840F0(out0, (f32*)out1, a, b, c, d); }', 1)
+            adapted = re.sub(
+                r"(?<!void )FitLineThroughAngleSamples\(",
+                "sly1_host_fit_angle_samples(", adapted)
         # func_001612F8 writes a GIF packet from two 64-bit tag arguments.
         # Several matching translation units declared those arguments as
         # 32-bit values, which shifts the final output pointer on the i386
@@ -187,11 +562,19 @@ def main(argv=None):
             r"(?m)^(void func_001612F8\([^,]+),[^;\n]*;",
             r"\1, u64 prim, s32 nloop, s32 nreg, u64 data, s32* out);",
             adapted)
-        if rel.as_posix() == "main/0015C000.cpp":
+        # Multiple recovered declarations of the same GIF packet helper used
+        # incompatible widths (and one used void*). One host ABI signature is
+        # required so 64-bit GIF tags do not shift the optional output pointer.
+        adapted = re.sub(
+            r"(?m)^[^\n]*\bReserveGifPackedData\([^;\n]*\);",
+            "void ReserveGifPackedData(void*, u64, s32, s32, u64, s32*);",
+            adapted)
+        if rel.as_posix() in ("main/0015C000.cpp", "main/file_1549C8.cpp"):
             # The PS2 ABI gives long 64 bits; i386 gets the same aliases from
             # host_abi.h, where they are represented with long long.
             adapted = adapted.replace("typedef signed long s64;\n", "")
             adapted = adapted.replace("typedef unsigned long u64;\n", "")
+        if rel.as_posix() == "main/0015C000.cpp":
             # The display worker publishes its current packet through a
             # shared global, then dereferences it twice while the main thread
             # may clear that global during a synchronous frame handoff. Keep
@@ -636,15 +1019,16 @@ def main(argv=None):
                 raise RuntimeError("expected C01 constructor list gate in " + rel.as_posix())
             adapted = adapted.replace(old, new, 1)
         for address in backfill_addresses:
-            name = address_names.get(address)
-            if not name:
-                continue
-            definition = re.compile(
-                r"(?m)^(?P<header>\s*(?:[A-Za-z_][\w:*&<>]*\s+)+\b" +
-                re.escape(name) + r"\s*\([^\n{}]*\)[^\n{}]*)\n(?=\s*\{)")
-            adapted = definition.sub(
-                lambda match: match.group("header").replace(
-                    name, "decomp_" + name, 1) + "\n", adapted)
+            names = {"func_" + address.upper()}
+            if address in address_names:
+                names.add(address_names[address])
+            for name in names:
+                definition = re.compile(
+                    r"(?m)^(?P<header>\s*(?:[A-Za-z_][\w:*&<>]*\s+)+\b" +
+                    re.escape(name) + r"\s*\([^{};]*\)[^{};]*)\s*(?=\{)")
+                adapted = definition.sub(
+                    lambda match: match.group("header").replace(
+                        name, "decomp_" + name, 1) + " ", adapted)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags
         if rel.as_posix() == "main/0016C000.cpp":

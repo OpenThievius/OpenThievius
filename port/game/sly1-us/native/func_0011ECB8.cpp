@@ -65,3 +65,21 @@ extern "C" void func_0011ECB8_stream(void* world, void* parameter, void* reader)
 extern "C" void func_0011ECB8_stream(void* world, void* parameter, void* reader) {
     func_0011ECB8(world, parameter, reader);
 }
+
+extern "C" void func_0011ECB8_world_base(void* world, void* parameter, void* reader)
+    __asm__("_Z13func_0011ECB8P5WorldP10BaseObjectP14BufferedStream");
+extern "C" void func_0011ECB8_world_base(void* world, void* parameter, void* reader) {
+    func_0011ECB8(world, parameter, reader);
+}
+
+extern "C" void func_0011ECB8_group(void* world, void* parameter, void* reader)
+    __asm__("_Z13func_0011ECB8PvP11ObjectGroupP10LoadStream");
+extern "C" void func_0011ECB8_group(void* world, void* parameter, void* reader) {
+    func_0011ECB8(world, parameter, reader);
+}
+
+extern "C" void func_0011ECB8_placed(void* world, void* parameter, void* reader)
+    __asm__("_Z13func_0011ECB8P5WorldP12PlacedObjectPv");
+extern "C" void func_0011ECB8_placed(void* world, void* parameter, void* reader) {
+    func_0011ECB8(world, parameter, reader);
+}

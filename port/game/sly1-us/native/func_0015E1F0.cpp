@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Port-only backfill for the US decomp's current near-match. Measure the
 // widest rendered line by dispatching each character through the active font.
-#include "s15db28.h"
+#include "text_reader.h"
 
-void func_0015DB80(S15DB28* self);
-s32 func_0015DBE0(S15DB28* self);
+void func_0015DB80(TextReader* self);
+s32 func_0015DBE0(TextReader* self);
 
 f32 func_0015E1F0(void* opaque) {
-    S15DB28* self = (S15DB28*)opaque;
+    TextReader* self = (TextReader*)opaque;
     f32 maximum = 0.0f;
     f32 line_width = 0.0f;
 
@@ -18,9 +18,9 @@ f32 func_0015E1F0(void* opaque) {
             if (line_width > maximum) maximum = line_width;
             line_width = 0.0f;
         } else {
-            V24A2* font = self->font;
-            const V24A2_Vt* vtable = font->vt;
-            V24A2* adjusted_font = (V24A2*)((u8*)font + vtable->adj3);
+            Font* font = self->font;
+            const FontVt* vtable = font->vt;
+            Font* adjusted_font = (Font*)((u8*)font + vtable->adj3);
             line_width += vtable->width(adjusted_font, kind);
         }
     }
