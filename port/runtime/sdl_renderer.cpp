@@ -139,10 +139,12 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     std::uint64_t failed_tag_low = 0;
     std::uint32_t failed_payload_address = 0;
     std::size_t failed_payload_size = 0;
+    std::size_t tags_consumed = 0;
     const char* failure = "tag limit";
     g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);
     bool ok = false;
     for (std::size_t tags = 0; tags < kMaxTags; ++tags) {
+        tags_consumed = tags + 1;
         const std::uint8_t* tag = nullptr;
         failed_tag_address = tag_address;
         if (!guest_span(tag_address, 16, tag)) { failure = "tag span"; break; }
@@ -288,6 +290,23 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             return;
         }
         g_packets.insert(g_packets.end(), stream.begin(), stream.end());
+    }
+    if (std::getenv("OPENRAC_TRACE_DMA_CALL") != nullptr) {
+        static std::atomic<unsigned> chain_trace_count{0};
+        const unsigned index = chain_trace_count.fetch_add(1, std::memory_order_relaxed);
+        if (index < 64) {
+            std::uint64_t first = 0;
+            std::uint64_t second = 0;
+            if (stream.size() >= sizeof(first))
+                std::memcpy(&first, stream.data(), sizeof(first));
+            if (stream.size() >= sizeof(first) + sizeof(second))
+                std::memcpy(&second, stream.data() + sizeof(first), sizeof(second));
+            std::fprintf(stderr,
+                         "[native dma chain] #%u source=%#010x tags=%zu bytes=%zu first=%#018llx second=%#018llx\n",
+                         index + 1, source_address, tags_consumed, stream.size(),
+                         static_cast<unsigned long long>(first),
+                         static_cast<unsigned long long>(second));
+        }
     }
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(stream.size(), std::memory_order_relaxed);

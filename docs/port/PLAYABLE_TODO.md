@@ -136,6 +136,17 @@ are black/zero and its first position is outside the viewport. Logs:
 960x720 host frame capture is fully black. Capture log:
 `/tmp/sly-frame-packet-dump-20261111.log`; packet binaries and PPM frames remain
 in `/tmp/sly1-native-render-packets-*.bin` and `/tmp/sly1-native-frame-*.ppm`.
+The added bounded `OPENRAC_TRACE_DMA_CALL=1` trace maps the steady 2,128-byte
+frame packet to a 32-byte GIF chain from `0x00343b00` and a 1,216-byte chain
+from `0x00625030`; both have two DMA tags. The latter begins with GIF tag
+`0x1000400000000009`, followed by the 14-register descriptor `0xE`. The VIF1
+submission at `0x003c3b00` contributes a 736-byte DIRECT payload. This isolates
+the packet components but has not yet identified which component contains the
+invalid vertex data. The same trace sees channel-2 sends with source zero; the
+native walker currently treats address zero as EE RAM and reads 265,472 bytes.
+Retail `func_00202A80` also starts DMA with a zero source, so do not add a null
+short-circuit without confirming the caller's intended behavior. Trace:
+`/tmp/sly-dma-chain-headers-20261111.log`.
 
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed
 `InitScreenElements` calling no-op stubs for timer, gauge, framed text,

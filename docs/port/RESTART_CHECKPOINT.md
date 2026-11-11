@@ -900,3 +900,14 @@ the static black draw. Next trace the 2,128-byte packet's producer, the state
 that activates it, and why its vertex attributes/positions are invalid. Build
 command:
 `cmake --build build/port --target port_native -j2`.
+
+The bounded `OPENRAC_TRACE_DMA_CALL=1` trace maps each steady 2,128-byte frame
+packet to a 32-byte, two-tag GIF chain from `0x00343b00`, a 1,216-byte,
+two-tag chain from `0x00625030`, and a 736-byte DIRECT payload from VIF1 source
+`0x003c3b00`. The `0x00625030` chain starts with GIF tag
+`0x1000400000000009` and register descriptor `0xE`. This decomposes the frame
+packet but does not yet identify which source contributes the invalid vertex.
+The trace also reports channel-2 sends with source zero; the native walker
+currently reads 265,472 bytes from EE address zero. Retail `func_00202A80`
+does start DMA for zero source values, so preserve that behavior until the
+caller's intent is established. Log: `/tmp/sly-dma-chain-headers-20261111.log`.
