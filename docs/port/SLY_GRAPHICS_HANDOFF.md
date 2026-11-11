@@ -25,6 +25,13 @@ hardware VU emulator. If VU0 work is needed by a reachable path, port its
 specific call-site behavior into native C. Latest trace:
 `/tmp/sly-vif1-tte-startup-8s-20261111.log`.
 
+A 20-second bounded follow-up reaches 9.5 guest seconds, through the
+CountdownNotifier's configured 4–6 second interval. Splash remains in element
+stack state 3, with no movie queued, all 37 UI elements inactive, no visible
+text, and zero image tags/qwords. The vertex counter briefly varies from 6 to
+48, but there is no visible artwork. The title transition remains blocked.
+Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
+
 Current visual diagnosis: startup reaches frame state 3 and creates the UI
 objects/fonts, but their draw methods are inactive. The frame's UI dispatchers
 run, text-buffer setup runs five times, and no text/glyph/screen-element draw

@@ -60,6 +60,11 @@ visible text are zero. The separate VIF0 upload remains unhandled; its source
 is the `.vutext` microcode section. Trace:
 `/tmp/sly-vif1-tte-startup-8s-20261111.log`.
 
+A 20-second follow-up passes 9.5 guest seconds, still with no queued movie,
+inactive UI, visible text, or image tags/qwords. The backend vertex counter
+briefly reads 6–48 but produces no visible art. Trace:
+`/tmp/sly-vif1-tte-progression-20s-20261111.log`.
+
 ### Range-bound recovery (2026-11-11)
 
 The native configuration now translates exact US retail assembly for

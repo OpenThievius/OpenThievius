@@ -956,3 +956,11 @@ snapshot reports 734 C translations, 498 assembly translations, 2 stubs, and
 current Splash/UI path. The active `build/port` launcher continues to use its
 existing staged source because the fresh hostgen report showed no new C
 translations for this path.
+
+**Post-fix progression check (2026-11-11):** A 20-second bounded native run
+reached 9.5 guest seconds, past the CountdownNotifier's configured 4–6 second
+interval. The active world remained in element-stack state 3 with no queued
+movie, 37 inactive UI objects, `visible_text=0`, and zero image tags/qwords.
+The backend vertex count fluctuated from 6 to 48 but produced no visible
+artwork. The VIF1 TTE fix repairs startup parsing without advancing Splash.
+Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.

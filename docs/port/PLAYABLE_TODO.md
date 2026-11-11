@@ -2717,3 +2717,12 @@ matched implementation covers the current Splash/UI path. The VIF0 chain
 trace's start address `0x00211e10` is the `.vutext` base; the port still drops
 that channel. Follow only if the reachable native path needs VU0 behavior;
 implement the specific function in native C rather than adding a VU emulator.
+
+**Post-fix progression check (2026-11-11):** A 20-second bounded native run
+reached 9.5 guest seconds after crossing the CountdownNotifier's configured
+4–6 second interval. The world stayed active in element-stack state 3; no
+movie was queued, all 37 UI objects remained inactive, `visible_text=0`, and
+image tags/qwords remained zero. The renderer's vertex counter fluctuated
+between 6 and 48, without producing visible art. This confirms the TTE fix
+repairs VIF startup parsing but does not unblock the Splash/title transition.
+Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
