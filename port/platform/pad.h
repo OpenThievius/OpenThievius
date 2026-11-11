@@ -13,8 +13,8 @@
 //
 //   - Sixteen digital buttons in one 16-bit word, **active low**: a button
 //     that is held reads 0, a released one 1. The bit order is fixed by the
-//     controller: the low byte is the first button byte the pad sends, the
-//     high byte the second (Button below).
+//     controller. Retail PollPadInput combines read-buffer bytes as
+//     (byte[2] << 8) | byte[3], so this adapter emits the high byte first.
 //   - Two analog sticks, one byte per axis: 0x00 is fully left or up, 0xFF
 //     fully right or down, 0x80 the centre. Sticks at rest read near 0x80,
 //     never exactly, so games apply a dead zone of their own.
@@ -27,8 +27,8 @@
 //   +0   0x00 when the read succeeded
 //   +1   the mode: high nibble the type (4 digital, 7 analog), low nibble
 //        the number of 16-bit words that follow (0x41, 0x73, 0x79)
-//   +2   buttons, low byte (active low)
-//   +3   buttons, high byte (active low)
+//   +2   buttons, high byte (active low; PollPadInput shifts it left)
+//   +3   buttons, low byte (active low)
 //   +4   right stick X     +5  right stick Y
 //   +6   left stick X      +7  left stick Y
 //   +8   pressure: right, left, up, down (+8..+11)

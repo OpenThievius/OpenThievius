@@ -63,8 +63,8 @@ void Pad::write_read_buffer(std::span<std::uint8_t, kPadBufferSize> out) const {
     }
     out[0] = 0x00;
     out[1] = kModePressure;
-    out[2] = static_cast<std::uint8_t>(buttons & 0xFF);
-    out[3] = static_cast<std::uint8_t>(buttons >> 8);
+    out[2] = static_cast<std::uint8_t>(buttons >> 8);
+    out[3] = static_cast<std::uint8_t>(buttons & 0xFF);
     out[4] = right_x;
     out[5] = right_y;
     out[6] = left_x;

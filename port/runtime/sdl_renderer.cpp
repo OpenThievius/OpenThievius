@@ -440,8 +440,8 @@ extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned
         static std::array<std::uint16_t, 2> previous_buttons{0xFFFFu, 0xFFFFu};
         static std::array<unsigned char, 2> previous_status{0xFFu, 0xFFu};
         const std::uint16_t buttons = static_cast<std::uint16_t>(
-            static_cast<std::uint16_t>(report[2]) |
-            (static_cast<std::uint16_t>(report[3]) << 8u));
+            (static_cast<std::uint16_t>(report[2]) << 8u) |
+            static_cast<std::uint16_t>(report[3]));
         if (report[0] != previous_status[static_cast<std::size_t>(port)] ||
             buttons != previous_buttons[static_cast<std::size_t>(port)]) {
             std::fprintf(stderr,
