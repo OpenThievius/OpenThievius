@@ -2722,10 +2722,14 @@ untouched. Wave 29 splits aggregate US source into named files and adds PAL
 version tracking and data. `ReadPlacedObjectModel` is unchanged from `782e2899`,
 so this update does not explain or fix the forced-level strip count. Hostgen
 now translates 789 C functions, 501 US assembly functions, 2 stubs, and 3,635
-without C across 276 units (up from 734 C functions across 256 units). The US
-assembly directory is absent from the new source archive, so the native build
-retains `/tmp/sly1-decomp-wave24-asm` for exact retail assembly. The rebuilt
-Wave 29 launcher still reaches the Splash world in element-stack state 3 but
+without C across 276 units (up from 734 C functions across 256 units). Report
+comparison shows 49 functions that were previously without C now translate
+from C, largely MPEG/IPU decoder code. That is useful for future FMV playback,
+but the normal Splash trace has `movie_queued=0`, so those decoders are not yet
+on the observed black-screen path. The US assembly directory is absent from
+the new source archive, so the native build retains
+`/tmp/sly1-decomp-wave24-asm` for exact retail assembly. The rebuilt Wave 29
+launcher still reaches the Splash world in element-stack state 3 but
 shows a black window, 37 inactive UI objects, no visible text, no vertices,
 and no image transfers; accepted GIF-chain submissions alone have not produced
 visible art. Latest run: `/tmp/sly-wave29-normal-15s-20261111.log`.

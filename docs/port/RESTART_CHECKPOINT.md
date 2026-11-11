@@ -21,7 +21,10 @@ source and the existing exact US assembly snapshot at
 assembly directory. Hostgen now reports 789 C translations, 501 US assembly
 translations, 2 stubs, and 3,635 functions without C across 276 units. Wave 29
 splits named source files and adds PAL version/data tracking;
-`ReadPlacedObjectModel` is unchanged from `782e2899`.
+`ReadPlacedObjectModel` is unchanged from `782e2899`. Report comparison shows
+49 functions that previously lacked C now translate from C, mostly MPEG/IPU
+decoder code. The normal Splash trace has `movie_queued=0`, so those new
+decoders are not yet on the observed black-screen path.
 
 The latest 15-second normal startup reaches the Splash world and element-stack
 state 3 with 37 inactive UI objects and fonts. The window is still black, with

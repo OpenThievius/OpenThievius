@@ -36,7 +36,9 @@ functions and 501 assembly functions across 276 units, with 2 stubs and 3,635
 functions without C. Generated C stays in the ignored build tree, separate
 from matched decomp C and port backfills. Upstream no longer includes the US
 assembly directory, so retain `OPENTHIEVIUS_ASM_SOURCE_SLY1` for exact retail
-assembly translations.
+assembly translations. Wave 29 also exposes 49 functions that previously had
+no C translation, mostly MPEG/IPU decoder code; the current Splash path has not
+queued a movie yet.
 
 The four VIF packet-writer helpers reached by the direct-level path now use
 exact US retail assembly. A bounded forced-level run still exhausts the 32 MiB
