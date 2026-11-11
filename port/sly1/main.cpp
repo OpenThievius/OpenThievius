@@ -57,6 +57,8 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57 ||
         (stage >= 136u && stage <= 139u)) {
         limit = 256u;
+    } else if (stage == 65u) {
+        limit = 4096u;
     } else if (stage == 134u || stage == 135u) {
         limit = 128u;
     } else if (stage == 76 || stage == 78 || stage == 79 || stage == 80 ||
@@ -70,6 +72,19 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if (index >= limit) return;
     std::cerr << "[font trace] stage=" << stage << " args=" << std::hex << a0 << ','
               << a1 << ',' << a2 << ',' << a3 << ',' << a4 << std::dec << '\n';
+    if (stage == 65u) {
+        std::uint32_t writer_offset = 0;
+        if (trace_guest_range(a0, 0x20u, &writer_offset)) {
+            std::uint32_t end = 0, begin = 0, cursor = 0, mode = 0;
+            std::memcpy(&end, openrac_guest_base + writer_offset, 4u);
+            std::memcpy(&begin, openrac_guest_base + writer_offset + 4u, 4u);
+            std::memcpy(&cursor, openrac_guest_base + writer_offset + 0x0Cu, 4u);
+            std::memcpy(&mode, openrac_guest_base + writer_offset + 0x10u, 4u);
+            std::cerr << "[vif-reserve] writer=" << std::hex << a0
+                      << " begin=" << begin << " cursor=" << cursor
+                      << " end=" << end << " mode=" << mode << std::dec << '\n';
+        }
+    }
     if (stage == 42u) {
         const std::uint32_t begin = a2 >= 16u ? a2 - 16u : a2;
         std::uint32_t offset = 0;

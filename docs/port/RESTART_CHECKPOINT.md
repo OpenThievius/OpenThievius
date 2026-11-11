@@ -1,26 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after fetching decomp `origin/master` through `1bd176fe`
-(Night 26), tracing the UI path, and rebuilding against that read-only source
-snapshot. Work in
+Updated: 2026-11-11, after fetching decomp `origin/master` through `782e2899`
+(PR #121), tracing the UI path, and selecting four missing VIF writer helpers
+from exact US retail assembly. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 `overrides_c/`, registered in the matching hand table; do not put those
-replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
+replacements in `/home/reaper/sly/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
 Canonical checkout `/home/reaper/sly/sly1-decomp` remains clean at
-`bfc74817` (Wave 24); a fetch shows `origin/master` at `1bd176fe` (Night 26,
-PR #119), 14 commits ahead. The latest commits improve names, static-data/PAL
-tracking and reports, but add no matching C for the title/menu render path. A
-read-only archive at `/tmp/sly1-decomp-night26-source` now supplies C and US
-metadata to the build; `/tmp/sly1-decomp-wave24-asm` supplies selected exact
-retail assembly. Hostgen reports 732 C translations, 405 US assembly
-translations, and 2 stubs across 269 generated units.
+`bfc74817` (Wave 24); the fetched `origin/master` is `782e2899` (PR #121).
+The latest source improves names, declarations, and static-data tracking, but
+adds no matching C for the title/menu render path. The read-only archive
+`/tmp/sly1-decomp-782e2899-source` supplies C and US metadata to the build;
+`/tmp/sly1-decomp-wave24-asm` supplies selected exact retail assembly. Hostgen
+reports 734 C translations, 501 US assembly translations, 2 stubs, and 3,674
+functions without C across 256 units.
 
 The latest UI trace reaches frame state 3 with 37 UI objects and fonts. The
 update/draw dispatchers run, the first static UI pointers and vtables are
@@ -37,7 +37,24 @@ remains at state 0 with a null `+0x338` timer gate, so retail code will not
 advance its timer. The StateGraph remains unarmed on the `0x261` self-edge, no
 movie is queued, and graphics counters remain zero. Trace the ordinary level
 resource/state activation that should provide the sequence and gate. Latest
-diagnostic log: `/tmp/sly-title-step-sequence-final.log`.
+diagnostic log: `/tmp/sly-title-step-sequence-final.log`. After the VIF writer
+assembly recovery, a new 15-second normal run still has zero visible text and
+no visible artwork; the transient 240-vertex packet is black/transparent.
+
+A forced `OPENRAC_BOOT_LEVEL=0x0100` run reaches the selected level's lit-strip
+mesh packet builder but exhausts the 32 MiB EE heap with repeated 15,904-byte
+allocation requests, then faults at `0x02000000`. The last functions are
+`func_001EE5C8`, `func_00164868`, `func_00162890`, `func_001249A8`, and the
+port-only `func_001BAC30` resource loader. The new exact retail VIF helpers
+remove their no-op warnings but do not yet fix this failure. The decomp now
+contains a `LoadCollider` body at this address, but hostgen still reports its
+US function as `no-C`; keep the separate port reader in `hand/native_c/` until
+that body becomes hostable. A 4,096-sample VIF writer trace found no sampled
+cursor outside its buffer bounds, narrowing the heap fault away from a runaway
+writer cursor. The fresh build uses `/tmp/sly1-decomp-782e2899-source`. Logs:
+`/tmp/sly-latest-decomp-normal-15s-20261111.log`,
+`/tmp/sly-latest-decomp-direct0100-20261111.log`, and
+`/tmp/sly-nap-direct0100-vif-cursor-20261111.log`.
 
 Build: `cmake --build build/port --target port_native -j2`. The older
 checkpoint notes below are chronological and are superseded by this summary.

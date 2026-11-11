@@ -2726,3 +2726,42 @@ image tags/qwords remained zero. The renderer's vertex counter fluctuated
 between 6 and 48, without producing visible art. This confirms the TTE fix
 repairs VIF startup parsing but does not unblock the Splash/title transition.
 Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
+
+**VIF packet-writer recovery (2026-11-11):** A forced `0x0100` native load
+reached the level's mesh packet builder and exposed three reachable no-op
+stubs in the VIF writer: `func_001EE4C0` (`WriteVifStrow`), `func_001EE528`
+(`WriteVifStmask`), and `func_001EE718` (`WriteVifUnpack`). The helper
+`func_001EE560` (`WriteVifUnpackHeader`) was also still a no-op. Exact US
+retail assembly for all four exists in the staged assembly source, so hostgen
+now selects it via `asm.only`; this is retail assembly, not a functional C
+backfill. Build coverage is now 734 C translations, 501 assembly translations,
+2 stubs, and 3,674 functions without C.
+
+The no-op warnings disappear after this change, and the normal Splash launch
+remains alive through 15 seconds. It still stays at state 3 with all 37 UI
+elements inactive and `visible_text=0`; the sampled 240-vertex UI packet has
+black/transparent RGBA, no image tags, and no visible artwork. The forced-level
+probe still fails while building a lit-strip mesh packet: the guest heap
+reaches its 32 MiB boundary with repeated 15,904-byte allocation requests,
+then faults at `0x02000000`. Its last guest frames pass through
+`func_001EE5C8` / `func_00164868` / `func_00162890` / `func_001249A8` /
+`func_001BAC30`. This is progress past missing VIF writer helpers, but it does
+not identify whether the allocation pressure comes from stream alignment or
+mesh data; do not increase guest RAM or treat the load as successful. Logs:
+`/tmp/sly-nap-direct0100-vif-writers-20261111.log` and
+`/tmp/sly-nap-normal-vif-writers-15s-20261111.log`.
+
+The active CMake cache now points to `/tmp/sly1-decomp-782e2899-source`, not
+the older Night 26 staging archive. A clean build still reports 734 C and 501
+assembly translations. The upstream source includes `LoadCollider` for
+`func_001BAC30`, but current hostgen reports that US function as `no-C`; the
+port-only C replacement remains registered in `hand/native_c/` and the
+unmodified decomp checkout remains read-only. Rebuilding after selecting the
+four VIF writer helpers and switching to the latest source did not clear the
+forced-level heap fault or the black normal Splash output. The 4,096 captured
+VIF reservation samples stayed within their writer buffers, so the current
+heap trace points to repeated mesh-data allocations rather than a cursor
+crossing a packet boundary. Latest logs:
+`/tmp/sly-latest-decomp-direct0100-20261111.log`,
+`/tmp/sly-latest-decomp-normal-15s-20261111.log`, and
+`/tmp/sly-nap-direct0100-vif-cursor-20261111.log`.

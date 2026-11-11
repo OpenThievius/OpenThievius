@@ -112,15 +112,13 @@ scratchpad around animation-table parsing for inspection. Keep all of these
 diagnostics and heuristics port-only; validate the asset layout before
 replacing them with matched C.
 
-`func_001BAC30` is a port-only C reconstruction of the retail class-4 resource
-reader, kept in `backfills.tsv` because the decomp checkout has no C or ASM for
-it. Its retail body consumes collision meshes, transforms, and indexed arrays.
-The native trace showed that the prior no-op left the resource cursor inside
-this payload, so the next record was misread as factory type `0x6e1a` and a null
-virtual call followed. The current backfill aims to restore that stream
-consumption; validate its cursor against the retail reader before treating the
-loader as fixed. Remove this entry when matching decompilation becomes
-available.
+`func_001BAC30` is a port-only C reconstruction of the retail class-3 collider
+reader, kept in `backfills.tsv`. The latest decomp source contains a
+`LoadCollider` body, but hostgen still reports its US function as `no-C`, so
+the launcher otherwise links a no-op. The backfill stays isolated in
+`native_c/` and should be removed when the upstream body becomes hostable. It
+reads collision meshes, transforms and indexed arrays; its cursor and large
+mesh allocations remain under investigation and are not a validated fix.
 
 `resource_stream_vector_readers.c` backfills `func_00137E90` and
 `func_00137F08`, the 16-byte-stride packed-vector readers used by class-4
@@ -136,20 +134,20 @@ that canonical unit becomes hostable.
 
 `resource_face_tree.c` backfills `func_00138278` (`ReadFaceTree`). The canonical
 source contains this reader, but hostgen currently reports it as `no-c`; the
-class-4 callback needs it to consume BSP records after collision mesh data.
+collider callback needs it to consume BSP records after collision mesh data.
 The backfill follows the decomp field layout and bounds node counts and links.
 Remove it when the matching C function is hostable.
 
 The canonical rework supplies `ReadPlacedObjectModel` and
 `BuildLitStripMeshPacket` in `file_15F678.cpp`; the port now selects those C
-functions instead of their older retail assembly translations. The class-4
-`func_001BAC30` callback remains a separately registered port-only backfill
-because the canonical US decomp has no hostable body for it. These changes
+functions instead of their older retail assembly translations. The
+`func_001BAC30` collider callback remains a separately registered port-only
+backfill because hostgen cannot yet compile its upstream source. These changes
 advance model parsing but do not yet produce visible vertices.
-With both readers active, the class-4 parse advances from cursor `0x700014d5`
-through `0x70001a1f`, then reaches stage 132 and finishes its 57 groups at stage
-134. Its frame has flags `0x0763e73f`, but the flagged nested-object link at
-`+0x84` is `0xffff823f`. The port-only `func_00125138` backfill now skips
+With both readers active, the class-3 collider parse advances from cursor
+`0x700014d5` through `0x70001a1f`, then reaches stage 132 and finishes its 57
+groups at stage 134. Its frame has flags `0x0763e73f`, but the flagged
+nested-object link at `+0x84` is `0xffff823f`. The port-only `func_00125138` backfill now skips
 nested links outside guest EE RAM and logs them at stage 64, allowing startup
 to continue. A bounded run reaches loader stage 5 and stays alive, but GS
 published vertices remain 0 and image-transfer counts remain 0; visible scene
