@@ -1,6 +1,8 @@
 # symbol	file
 func_001EE930	native_c/value_list_reader.c
 func_001B5F50	native_c/state_graph_loader.c
+func_001B5EA0	native_c/func_001B5EA0.c
+func_001B6D78	native_c/func_001B6D78.c
 func_0015EDB8	native_c/func_0015EDB8.c
 func_0015EE80	native_c/func_0015EE80.c
 func_0015E810	native_c/func_0015E810.c
