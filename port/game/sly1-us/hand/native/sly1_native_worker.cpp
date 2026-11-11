@@ -340,6 +340,32 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
             }
         }
     }
+    if ((stage == 147u || stage == 149u ||
+         (stage == 148u && (object >> 16) >= 0x3500u)) &&
+        reader != 0u) {
+        std::fprintf(stderr,
+                     "[loader-stream] stage=%u value=%#010x flags=%#x mode=%d "
+                     "ptr=%#010x left=%d next=%#010x next_count=%d f28=%#x "
+                     "f2c=%#x f30=%#x f34=%#x f38=%d size=%d left_file=%d "
+                     "start=%d sector=%d chunks=%d cur=%d read=%d write=%d\n",
+                     stage, object, GREF(uint32_t, reader),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 4u)),
+                     GREF(uint32_t, reader + 0x18u),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)),
+                     GREF(uint32_t, reader + 0x20u),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x24u)),
+                     GREF(uint32_t, reader + 0x28u), GREF(uint32_t, reader + 0x2Cu),
+                     GREF(uint32_t, reader + 0x30u), GREF(uint32_t, reader + 0x34u),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x38u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x3Cu)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x40u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x44u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x48u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x4Cu)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x50u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x54u)),
+                     static_cast<int32_t>(GREF(uint32_t, reader + 0x58u)));
+    }
     std::fprintf(stderr,
                  "[loader] thread=%u stage=%u object=%#010x reader=%#010x "
                  "cursor=%#010x remaining=%d heap=%#010x/%#010x\n",

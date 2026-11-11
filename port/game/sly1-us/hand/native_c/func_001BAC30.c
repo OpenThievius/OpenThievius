@@ -60,6 +60,9 @@ void func_001BAC30(void* self, void* reader) {
     *(u64*)(object + 0x2C8u) = state;
 
     func_00137FB0(reader, object + 0x380u);
+    sly1_native_loader_stage(138u,
+        (u32)*(s32*)((u8*)reader + 0x1Cu),
+        (u32)reader);
     if (reader_failed(reader)) return;
     {
         const f32 radius = *(f32*)(object + 0x380u);
@@ -117,7 +120,8 @@ void func_001BAC30(void* self, void* reader) {
     {
         const s32 count = (s32)func_00137C40(reader);
         void* pairs = allocate_reader_array(reader, count, 8);
-        *(u32*)(object + 0x408u) = (u32)pairs;
+        *(s32*)(object + 0x408u) = count;
+        *(u32*)(object + 0x40Cu) = (u32)pairs;
         if (count > SLY1_MAX_RESOURCE_ARRAY_ITEMS) return;
         for (s32 i = 0; i < count; ++i) {
             u8* pair = (u8*)pairs + (u32)i * 8u;
@@ -129,23 +133,38 @@ void func_001BAC30(void* self, void* reader) {
     }
 
     {
-        const s32 count = *(s32*)(object + 0x3B0u);
-        if (count >= 0) {
-            if (count >= SLY1_MAX_RESOURCE_ARRAY_ITEMS) {
+        const s32 ref_count = *(s32*)(object + 0x408u);
+        const s32 face_count = *(s32*)(object + 0x3B0u);
+        if (ref_count > 0) {
+            if (face_count < 0 || face_count >= SLY1_MAX_RESOURCE_ARRAY_ITEMS) {
                 *(s32*)((u8*)reader + 0x1Cu) = -1;
                 return;
             }
-            void* indices = allocate_reader_array(reader, count + 1, 4);
+            void* indices = allocate_reader_array(reader, face_count + 1, 4);
             *(u32*)(object + 0x410u) = (u32)indices;
-            for (s32 i = 0; i <= count; ++i) {
+            for (s32 i = 0; i <= face_count; ++i) {
                 *(s32*)((u8*)indices + (u32)i * 4u) = func_00137D10(reader);
                 if (reader_failed(reader)) return;
             }
         }
     }
     trace_reader_phase(self, reader, 6u);
+    sly1_native_loader_stage(149u, 0u, (u32)reader);
 
+    {
+        const u32 cursor = *(u32*)((u8*)reader + 0x18u);
+        const u8* bytes = (const u8*)cursor;
+        sly1_native_trace_font(68u, cursor,
+            (u32)*(s32*)((u8*)reader + 0x1Cu),
+            (u32)bytes[0] | ((u32)bytes[1] << 8) |
+                ((u32)bytes[2] << 16) | ((u32)bytes[3] << 24),
+            (u32)bytes[4] | ((u32)bytes[5] << 8),
+            (u32)bytes[6] | ((u32)bytes[7] << 8));
+    }
     func_00137FB0(reader, object + 0x4E8u);
+    sly1_native_loader_stage(139u,
+        (u32)*(s32*)((u8*)reader + 0x1Cu),
+        (u32)reader);
     if (reader_failed(reader)) return;
     if ((state & 0x8000000000000000ull) != 0) {
         copy_mesh_header(object + 0x4E8u, object + 0x50Cu);
