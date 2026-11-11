@@ -12,6 +12,15 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+Exact retail assembly now covers 15 additional reached GIF, text-panel, frame
+transform, camera, and world-list callbacks. Build coverage is 732 C
+translations, 388 assembly translations, and 2 stubs. A 65-second native run
+reaches 32.15 guest seconds but remains in app state 3 with no pad input, no
+movie request, no world load, and zero graphics. Trace:
+`/tmp/sly-long-startup-65s.log`. PCSX2 reference video becomes visible around
+22 seconds; whether it received a controller input at that point is still
+being confirmed.
+
 The next trace found 11 further reached UI state callbacks running as no-ops;
 exact US retail assembly is selected for text-panel/timer state, element
 hiding, cursor-frame selection, texture-register lookup, and near-camera group

@@ -7,7 +7,7 @@ remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
 functions; it adds compiler investigations and re-scores near-matching C,
 including `func_00109488`, still unmatched and already isolated as a port-only
 backfill. No newly available matching C can replace a port backfill. The
-native launcher rebuild succeeds with 732 C translations, 373 retail assembly
+native launcher rebuild succeeds with 732 C translations, 388 retail assembly
 translations, and 2 generated stubs.
 
 **Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
@@ -31,6 +31,16 @@ assembly translations. The next bounded native run has no warnings for this
 cluster, but still shows 37 inactive screen elements and zero vertices, text,
 image tags, or GIF submissions. The player remains on event `0x261`, state
 `2 -> 2`. Log: `/tmp/sly-ui-state-retail-asm-20s.log`.
+
+**Extended startup trace (2026-11-11):** restored exact US assembly for 15 more
+reached callbacks covering GIF ST entry creation, text-panel text/subject,
+object-frame transforms, and camera/world-list updates. Build coverage is now
+732 C translations, 388 assembly translations, and 2 stubs. A 65-second native
+run reaches 32.15 guest seconds but still shows app state 3 waiting with no pad
+buttons, no movie queued, no world-load request, all 37 elements inactive, and
+zero vertices, visible text, image tags, or GIF submissions. The game is not
+merely taking longer than the earlier short traces to reach graphics. Log:
+`/tmp/sly-long-startup-65s.log`.
 
 **Frame initializer recovery (2026-11-11):** selected exact US assembly for
 the reached `func_00193210`, `func_00193270`, and `func_00193288` helpers after

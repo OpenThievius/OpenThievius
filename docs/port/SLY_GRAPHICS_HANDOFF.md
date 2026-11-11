@@ -31,6 +31,14 @@ inactive and zero vertices, visible text, image tags, or GIF submissions. The
 Splash player stays on the `0x261` `2 -> 2` edge. Log:
 `/tmp/sly-ui-state-retail-asm-20s.log`.
 
+Exact US assembly is also selected for 15 more reached callbacks covering GIF
+ST entry creation, text-panel text and subject, frame transforms, and
+world-list/camera updates. The launcher now builds with 732 C translations,
+388 assembly translations, and 2 stubs. A 65-second native run reaches 32.15
+guest seconds but remains in app state 3 with no input, no movie request, no
+world load, inactive screen elements, and zero graphics output. Log:
+`/tmp/sly-long-startup-65s.log`.
+
 Exact US assembly is now selected for the reached frame setup helpers
 `func_00193210`, `func_00193270`, and `func_00193288`, which the port's frame
 initializer had been calling as no-op stubs. The 15-second native trace shows

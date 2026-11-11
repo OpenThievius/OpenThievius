@@ -34,11 +34,13 @@ latest newly matched functions; their source units still cannot pass the
 port's C frontend because shared headers contain duplicate collider members,
 failed layout assertions, and C++-only declarations. Neither was reached in
 the latest startup trace. Rebuilding against Wave 23 succeeds with 732 C translations,
-373 retail assembly translations, and 2 stubs. A fresh trace identified 22
+388 retail assembly translations, and 2 stubs. A fresh trace identified 22
 reached visual/UI no-ops and they now run from exact US retail assembly. The
 initialized font count rose from 35 to 37, but all screen elements remain
 inactive and renderer counters remain at zero. The player advances along the
-Splash graph’s state-2 self-edge; the missing graphic output is still unresolved.
+Splash graph’s state-2 self-edge. A 65-second native run reaches 32.15 guest
+seconds but remains in app state 3, waiting for input, with no movie queued and
+no graphics submissions. The missing graphic output is still unresolved.
 
 ### Frame setup and Splash graph trace (2026-11-11)
 
