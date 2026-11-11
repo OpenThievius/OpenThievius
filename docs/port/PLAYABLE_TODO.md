@@ -19,10 +19,11 @@ the scene-object/render path or make the port playable. Build and trace:
 
 **Latest direct-level packet result:** public decomp `master` is `55d39f28`
 (4,758/4,807 US functions, 93.108% code); `night21` is `4097b806`
-(4,759/4,807, 93.125%) and is the source configured for the port. The recent
-rework adds useful collision, placed-object, and player code; night21 mainly
-corrects types/signatures and matches one more helper. It adds no newly matched
-function on the current strip-render path. A separate local fork checkout at
+(4,759/4,807, 93.125%). The ordinary `build/port` cache now uses canonical
+master for matched C and the separate local fork for retail assembly. The
+recent rework adds useful collision, placed-object, and player code; night21
+mainly corrects types/signatures and matches one more helper. It adds no newly
+matched function on the current strip-render path. A separate local fork checkout at
 `/home/reaper/Code/sly1-decomp` is older (`e1b39f16`, wave 16) but has useful C
 definitions for three reached VIF/GIF packet-word writers. Their port-only
 backfills replaced no-op stubs.
