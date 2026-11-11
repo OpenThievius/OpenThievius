@@ -22,11 +22,24 @@ visible in the native launcher.
 
 ## Current visual blocker (2026-11-11)
 
+### Decomp refresh (2026-11-11)
+
+The canonical decomp checkout is current at `4c574846` (Wave 22, PR #115),
+with 4,760/4,807 US functions matched and 93.25% of code bytes matched. Wave
+22 matches `func_001B55C0` (triangle animator slot 4) and expands the state
+walker implementation. The relevant translation unit still cannot pass the
+port's C frontend because shared headers contain duplicate collider members,
+failed layout assertions, and C++-only declarations. The newly matched
+callback did not run in the latest startup trace, so it is not the current
+black-screen cause. The updated native build succeeds with 732 C translations,
+308 retail assembly translations, and 2 stubs; the visual frontier remains
+unchanged.
+
 ### Direct-level packet update (2026-11-11, latest)
 
-The public decomp was refreshed: `master` is `55d39f28` (4,758/4,807 US
-functions; 93.108% code) and `night21` is `4097b806` (4,759/4,807; 93.125%),
-the source configured in the port build. The broad rework adds collision,
+Earlier checkpoint: the public decomp was at `55d39f28` (4,758/4,807 US
+functions; 93.108% code) and `night21` was `4097b806` (4,759/4,807; 93.125%).
+The broad rework adds collision,
 placed-object, and player code, while night21's 82-file delta mostly corrects
 types/signatures and reports and matches one active-set collision helper. The
 changed `file_15F678.cpp` confirms the strip descriptor and packet relocation

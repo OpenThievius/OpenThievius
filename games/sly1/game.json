@@ -36,7 +36,7 @@
         "sha256": "b7d46b478efd1455f2142c00a0c81c3cf900bf46a72d0808e6d8bc477d25f49a"
       },
       "baserom": "baserom/us/SCUS_971.98",
-      "decompiles": "The boot executable SCUS_971.98, function by function (93.11% of code bytes matched at sly1-decomp 55d39f28, 2026-11-11)."
+      "decompiles": "The boot executable SCUS_971.98, function by function (93.25% of code bytes matched at sly1-decomp 4c574846, 2026-11-11)."
     },
     "eu": {
       "label": "PAL v1.00 (Sly Raccoon)",

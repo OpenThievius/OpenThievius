@@ -3,6 +3,31 @@
 
 ## Current status (2026-11-11)
 
+**Decomp refresh (2026-11-11):** canonical `sly1-decomp` master advanced from
+`55d39f28` to `4c574846` (Wave 22, merged as PR #115); the clean local
+checkout at `/home/reaper/sly/sly1-decomp` is fast-forwarded to this commit.
+The US report now lists 4,760/4,807 matched functions and 93.25% of code
+bytes. Wave 22 matches `func_001B55C0` (triangle animator slot 4) and expands
+state-walker C, among other source and progress-tool updates. Hostgen still
+cannot stage `src/main/state_walker.cpp` as C: duplicate `contacts` members,
+layout assertions, and C++-only declarations in shared headers stop the
+frontend. The new callback was not reached in the latest runtime trace, so
+this rework does not yet move the visual frontier. Rebuilding against
+`4c574846` succeeds with the same 732 C translations, 308 assembly
+translations, and 2 stubs.
+
+**Text preparation callback recovery (2026-11-11):** hostgen was emitting a
+no-op for `func_001E1FD0` even though the port already had a functional
+varargs formatter replacement, because its source unit cannot be staged by the
+native C frontend. It is now registered as a standalone port-only backfill,
+alongside `func_001E20B8`. Exact US retail assembly is also selected for
+`func_001AA5A0` (screen text glyph substitution) and `func_001E2138` (string
+copy). The native build succeeds with 732 C translations, 308 assembly
+translations, 2 stubs, and 3,868 functions without C. A 10-second run confirms
+the callbacks no longer emit no-op warnings, but UI objects remain in mode 0
+and the renderer still submits zero vertices/GIF chains; no graphics milestone
+yet. Log: `/tmp/sly-aa5a0-exactasm-10s.log`.
+
 **Initializer callback recovery (2026-11-11):** after re-fetching the public
 decomp, `master` remains `55d39f28` and open Wave 21 is `4097b806` (PR #114).
 Wave 21 changes 82 files, mostly declarations, signatures, and generated

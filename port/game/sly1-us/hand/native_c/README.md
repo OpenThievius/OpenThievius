@@ -128,6 +128,12 @@ resource parsing. The previous bounded trace showed both were no-op stubs, so
 they failed to consume those fields from the resource stream. These are
 port-only replacements and should be removed when matching C becomes hostable.
 
+`func_001E20B8.c` is a port-only bounded formatter used by active screen-element
+updates. The canonical body lives in a source unit hostgen cannot currently
+compile because of unrelated C++ layout/header errors. Keeping the replacement
+in `native_c/` lets it compile as its own unit; remove this backfill entry when
+that canonical unit becomes hostable.
+
 `resource_face_tree.c` backfills `func_00138278` (`ReadFaceTree`). The canonical
 source contains this reader, but hostgen currently reports it as `no-c`; the
 class-4 callback needs it to consume BSP records after collision mesh data.
@@ -249,3 +255,10 @@ and face trees now complete and the parser advances into placed-object records.
 The bounded launcher reaches the frame loop without rendered vertices. See
 `docs/port/RESTART_CHECKPOINT.md` for the exact source revision, hostgen errors,
 and current graphics frontier.
+
+`func_001E20B8` and `func_001E1FD0` are port-only varargs bridges to the
+native formatter. The upstream translation unit containing these functions is
+not hostable, so keeping them in `backfills.tsv` ensures the SDL launcher links
+the functional C instead of generated no-op stubs. The unbounded retail entry
+uses the formatter's capacity-zero mode; retain both separately from
+`sly1-decomp` so matching source can replace them later.

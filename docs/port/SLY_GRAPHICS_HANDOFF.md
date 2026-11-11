@@ -1,12 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. Canonical decomp master is `55d39f28` (PR #113),
-and `/home/reaper/sly/sly1-decomp` is clean at that commit. Open Wave 21 is
-`4097b806` (PR #114); its declaration/signature cleanup adds no newly matched
-function on the active graphics route. The current hostgen build links 730 C
-translations, 305 selected US assembly translations, and two generated stubs
-across 267 generated units. It builds the native host32 launcher.
+Last checked: 2026-11-11. Canonical decomp master is `4c574846` (Wave 22, PR
+#115), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 22
+matches triangle animator callback `func_001B55C0` and expands state-walker C;
+the latter still fails native C staging on duplicate collider members and
+C++-only header declarations. The new callback was not reached in the last
+startup trace, so it does not yet move the active graphics path. The current
+hostgen build links 732 C translations, 308 selected US assembly translations,
+and two generated stubs across 269 generated units. It builds the native
+host32 launcher.
 
 Exact US assembly is now selected for the 24 missing functions reached from
 the port's frame-system initialization callback table, including

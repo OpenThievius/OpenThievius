@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after restoring reached frame-system and UI callbacks
-`55d39f28`. Work in
+Updated: 2026-11-11, after refreshing to decomp master `4c574846` and restoring
+reached screen-text callbacks. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -11,6 +11,28 @@ replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
+
+Canonical `/home/reaper/sly/sly1-decomp` was fetched and fast-forwarded to
+`4c574846` (Wave 22, PR #115); it is clean and tracks `origin/master`. The US
+report lists 4,760/4,807 matched functions and 93.25% matched code. Wave 22
+matches the triangle animator's `func_001B55C0` and expands state-walker code.
+That source unit remains unhostable in the current C frontend due to duplicate
+`contacts` members and C++-only constructs in included headers. The newly
+matched callback was not reached during the latest startup trace. Rebuilding
+the port against the updated master succeeds; generated coverage remains 732
+C translations, 308 US assembly translations, 2 stubs, and 3,868 functions
+without C across 269 generated units.
+
+The current build now registers `func_001E1FD0` and `func_001E20B8` as
+standalone port-only formatter backfills. Exact US retail assembly is selected
+for screen glyph substitution `func_001AA5A0` and string copy `func_001E2138`.
+This removes the formatter's generated no-op stub and restores the reached
+screen-text callbacks. Build: 732 C translations, 308 assembly translations,
+2 stubs, and 3,868 functions without C across 269 generated units. A fresh
+10-second native run still shows UI objects at mode 0 and zero vertices/GIF
+submissions, so the screen remains black. Log:
+`/tmp/sly-aa5a0-exactasm-10s.log`. Keep the two formatter replacements in the
+port's `hand/native_c` directory until matching upstream C is hostable.
 
 Decomp checkouts: `/home/reaper/sly/sly1-decomp` is clean on `master` at
 `55d39f28`; public `origin/night21` (`4097b806`) is open as PR #114. The other local clone,
