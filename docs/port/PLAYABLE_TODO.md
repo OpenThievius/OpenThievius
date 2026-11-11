@@ -11,12 +11,28 @@ count; 92.49% of code). The major source rework adds typed collision mesh and
 buffered-stream layouts and functional bodies for `func_00137FB0`,
 `func_00138278`, and `func_001BAC30`.
 
-The native hostgen build against that source compiles 260 generated C units:
-713 translated functions, 238 assembly translations, 2 stubs, and 3,951
+The native hostgen build against that source compiles 261 generated C units:
+716 translated functions, 244 assembly translations, 2 stubs, and 3,942
 functions without C. The whole `file_137290.cpp` source unit remains unreadable
 to hostgen because aggregate headers produce duplicate inherited members and
 layout assertions. Port-only backfills remain separate in
 `hand/native_c/`.
+
+**Latest startup investigation (2026-11-11):** canonical HEAD was rechecked at
+`9eb875995bb6767d244d56437e987d965e106b01`; the local sibling checkout is
+older, so builds continue from the detached canonical snapshot. Port-only
+`InitObjectGroup` / `StartObjectGroup` backfills now match the canonical bodies
+and register the Splash world's group lifecycle. A diagnostic run confirms
+the group (`id=0x54b`) has one class-`0x57` CountdownNotifier. Its state stays
+`-1`, timer owner/enable field is zero, and `timeLeft` is zero despite limits
+4–6 seconds. The title/prompt callbacks are now selected from exact US retail
+assembly because their canonical translation unit still cannot be hosted; this
+does not make the UI visible. At about seven guest seconds, the window remains
+black, with no queued movie, visible text, vertices, GIF image tags, or DMA
+chain submissions. The current frontier is to trace the notifier's missing
+start/arming path and the Splash transition producer, then follow the first
+actual UI or movie draw submission. Log:
+`/tmp/sly-canonical-9eb87599-countdown-state.log`.
 
 The latest bounded native run now parses both collision meshes and their face
 trees without the earlier second-mesh stream failure. This was enabled by

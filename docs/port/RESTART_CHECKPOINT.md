@@ -12,14 +12,15 @@ is involved in the port work.
 ## Canonical decomp rework checkpoint (2026-11-11)
 
 Canonical `OpenThievius/sly1-decomp` master is
-`2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The checkout at
-`/home/reaper/Code/sly1-decomp` is still the older `e1b39f1`; the newer tree
-was inspected read-only at `/tmp/sly1-decomp-2e00ac70`. The isolated build at
-`build/port/canonical-fresh` uses the canonical C sources and the older
-checkout only for generated US retail assembly. Hostgen now reads
-`include/names.h`, binding semantic C names to retail addresses. This raised
-hostgen coverage to 700 translated functions, 242 selected assembly
-functions, 2 remaining C stubs, and 3,951 functions without C; all 257
+`9eb875995bb6767d244d56437e987d965e106b01` (PR #110), verified against the
+remote on 2026-11-11. The sibling checkout at
+`/home/reaper/sly/sly1-decomp` is older (`d534006`); the detached read-only
+snapshot `/tmp/sly1-decomp-9eb87599` is used for canonical C. The isolated
+build at `build/port/canonical-fresh` uses the older
+`/home/reaper/Code/sly1-decomp` checkout only for generated US retail
+assembly. Hostgen reads `include/names.h`, binding semantic C names to retail
+addresses. The latest generated set contains 716 translated functions, 244
+selected assembly functions, 2 stubs, and 3,942 functions without C; all 261
 generated C units compile and link.
 
 Port overrides without a host-readable matching C definition are staged
@@ -42,6 +43,17 @@ reads while guarding absent class stream callbacks. The list append override
 rejects invalid guest pointers and repairs an invalid tail before writing.
 Those fallbacks got Splash past its immediate `0xFFFFFFFF` crash; replace them
 with canonical C when those units are host-readable.
+
+Latest startup trace after matching the ObjectGroup lifecycle callbacks:
+`/tmp/sly-canonical-9eb87599-countdown-state.log`. The Splash group's sole
+member is a class-`0x57` CountdownNotifier (`id=0x54b`). It remains at state
+`-1`, with its timer disabled and `timeLeft=0` (configured min/max 4–6 sec).
+The frame loop runs for about seven guest seconds, but no movie is queued and
+no screen element is visible; vertices, GIF image tags, and DMA submissions
+remain zero. Exact US retail assembly was selected for the title/prompt
+callbacks, removing those no-C stubs without changing the outcome. Next inspect
+the notifier start/arming path and the Splash transition producer to find why
+screen elements remain hidden. The decomp checkout is unchanged.
 
 ## State
 
