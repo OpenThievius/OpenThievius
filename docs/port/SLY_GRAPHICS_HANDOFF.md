@@ -9,7 +9,18 @@ latest newly matched functions, and their C++ translation units still fail
 native C staging on layout conflicts and C++-only header declarations. The
 current hostgen build links 732 C translations, 340 selected US assembly
 translations, and two generated stubs across 269 generated units. It builds
-the native host32 launcher.
+the current native launcher.
+
+A fresh SDL native launch showed the remaining no-op cluster and exact US
+assembly is now selected for 22 reached visual/UI functions, including text
+panel and arc/item setup, UI state helpers, packet buffers, masked-image
+packet submission, resident-image transfer, and texture-register setup. The
+build succeeds with 732 C translations, 362 assembly translations, and 2
+stubs. In the 20-second follow-up, these functions no longer warn and the
+sampled initialized font count rises from 35 to 37. However, all 37 elements
+remain in mode 0, the Splash animation player advances on the `0x261` self-edge
+(`2 -> 2`), and the trace still reports zero vertices, visible text, image
+tags, and GIF submissions. Trace: `/tmp/sly-renderer-retail-asm-20s.log`.
 
 Exact US assembly is now selected for the reached frame setup helpers
 `func_00193210`, `func_00193270`, and `func_00193288`, which the port's frame

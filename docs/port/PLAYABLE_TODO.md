@@ -7,8 +7,21 @@ remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
 functions; it adds compiler investigations and re-scores near-matching C,
 including `func_00109488`, still unmatched and already isolated as a port-only
 backfill. No newly available matching C can replace a port backfill. The
-native launcher rebuild succeeds with 732 C translations, 340 retail assembly
+native launcher rebuild succeeds with 732 C translations, 362 retail assembly
 translations, and 2 generated stubs.
+
+**Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
+reached visual routines still running as empty stubs. Exact US assembly is now
+selected for the text panel and arc/item initializers, UI state helpers,
+packet-buffer helpers, masked-image packet construction/submission, resident
+image transfer, texture-register setup, and frame animator step. Build coverage
+is 732 C translations, 362 assembly translations, and 2 stubs. The 20-second
+follow-up has no warnings for this cluster and raises the initialized font
+count from 35 to 37, but all 37 screen elements remain mode 0 and renderer
+counters remain zero (vertices, visible text, image tags, and GIF chains). The
+Splash graph's player advances to 9.48 seconds while its `0x261` edge remains
+`2 -> 2`; its gate is null and the countdown remains at zero. Log:
+`/tmp/sly-renderer-retail-asm-20s.log`.
 
 **Frame initializer recovery (2026-11-11):** selected exact US assembly for
 the reached `func_00193210`, `func_00193270`, and `func_00193288` helpers after
@@ -36,7 +49,7 @@ event `0x261`. Log: `/tmp/sly-font-layout-init-asm-15s.log`.
 pointer-caption, letterbox, and arc-sprite initialization. Exact US retail
 assembly is now selected for those callbacks and their reached small helpers;
 the preceding text prep/measurement cluster is restored too. The build
-succeeds with 732 C translations, 340 assembly translations, 2 stubs, and
+succeeds with 732 C translations, 362 assembly translations, 2 stubs, and
 3,841 functions without C. A fresh 10-second native trace has no no-op warnings
 for either restored callback cluster, but all 37 UI objects remain at mode 0
 and it still reports zero vertices, image tags, and GIF-chain submissions.

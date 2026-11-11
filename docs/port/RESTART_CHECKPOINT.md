@@ -12,6 +12,16 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+Fresh native evidence: the build now selects exact US assembly for 22 more
+reached visual/UI functions (text and arc/item setup, UI state helpers, packet
+buffers, masked-image submission, resident-image transfer, texture-register
+setup, and frame animator step). Build: 732 C translations, 362 assembly
+translations, and 2 stubs. The 20-second trace has no warnings for these
+functions and shows 37 initialized fonts, but all 37 elements remain mode 0;
+vertices, visible text, image tags, and GIF submissions remain zero. The graph
+player advances to 9.48 seconds on the `0x261` `2 -> 2` self-edge; its notifier
+gate is still null. Log: `/tmp/sly-renderer-retail-asm-20s.log`.
+
 The latest native build selects exact US assembly for the reached frame setup
 helpers `func_00193210`, `func_00193270`, `func_00193288`, and the reached
 font/layout helpers `func_001E2268` and `func_001E22C0`. The build has 732 C

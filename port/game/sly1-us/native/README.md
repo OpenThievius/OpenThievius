@@ -14,20 +14,19 @@ PR #116; checked 2026-11-11). It remains at 4,760/4,807 US functions and
 93.25% matched code; Wave 23 adds no matched functions. The native build uses
 this checkout for C and `/home/reaper/Code/sly1-decomp` only for selected US
 retail assembly. The isolated hostgen build translates 732 functions plus
-340 selected assembly functions, with 2 generated stubs, across 269 C units.
+362 selected assembly functions, with 2 generated stubs, across 269 C units.
 Build: `cmake --build build/port --target port_native -j2`.
 
-The current Splash trace resolves the CountdownNotifier's child owner through
-the port-only `0x0015A838` wrapper and `0x0015A4F0` search backfills. The
-separate `0x0015A198` override now handles ID-hash searches, and `0x0015A418`
-uses it as the canonical `FindFirstObjectById` wrapper. Splash still has no
-object with ID `0x25f`, leaving the notifier's graph pointer null. The
-`0x00147AB0` backfill transitions it from state -1 to 0 and requests event
-`0x261`, but `CreateStateWalker` (`0x001b6290`) has no host C. The launcher
-still renders no vertices or visible text, with no GIF image tags or DMA
-submissions; the window stays black. Trace:
-`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`. All behavior replacements
-remain isolated from `sly1-decomp`. See
+The current Splash trace resolves the CountdownNotifier's graph pointer to
+StateGraph ID `0x25f` and creates its walker. The graph's animation player
+advances, but remains on the `0x261` state-2 self-edge. The notifier stays in
+state 0 with a null `+0x338` gate. A fresh trace found 22 reached visual/UI
+functions running as empty stubs; they are now selected from exact US retail
+assembly. The initialized font count rose from 35 to 37, but every screen
+element remains mode 0 and the renderer reports zero vertices, visible text,
+image tags, or GIF submissions. Trace:
+`/tmp/sly-renderer-retail-asm-20s.log`. All behavior replacements remain
+isolated from `sly1-decomp`. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 blocker and next trace target.
 
