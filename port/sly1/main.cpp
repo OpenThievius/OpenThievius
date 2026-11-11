@@ -432,11 +432,19 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
         if (!trace_guest_range(descriptor, 0x10u, &descriptor_address)) break;
         std::memcpy(&type, openrac_guest_base + descriptor_address + 4u, 4u);
         std::memcpy(&object_size, openrac_guest_base + descriptor_address + 0x0Cu, 4u);
+        if (!trace_guest_range(object, 0x34u, &object_address)) break;
+        std::uint32_t object_id = 0, parent = 0, next_by_id = 0, descriptor_flags = 0;
+        std::memcpy(&object_id, openrac_guest_base + object_address + 8u, 4u);
+        std::memcpy(&parent, openrac_guest_base + object_address + 0x18u, 4u);
+        std::memcpy(&next_by_id, openrac_guest_base + object_address + 0x24u, 4u);
+        std::memcpy(&descriptor_flags, openrac_guest_base + descriptor_address + 8u, 4u);
         if (object_size < 0x39Cu || object_size > 0x10000u ||
             !trace_guest_range(object, object_size, &object_address)) {
             std::cerr << "[owner-class-object] i=" << index << " object=0x"
                       << std::hex << object << " type=0x" << type
-                      << " size=0x" << object_size << " (no mesh header)\n";
+                      << " size=0x" << object_size << " id=0x" << object_id
+                      << " parent=0x" << parent << " next_by_id=0x" << next_by_id
+                      << " desc_flags=0x" << descriptor_flags << " (no mesh header)\n";
             break;
         }
         std::uint32_t radius_bits = 0;
@@ -452,7 +460,9 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
         std::memcpy(&next, openrac_guest_base + object_address + 0x24u, 4u);
         std::cerr << "[owner-class-object] i=" << std::dec << index
                   << " object=0x" << std::hex << object << " type=0x" << type
-                  << " size=0x" << object_size << " radius_bits=0x" << radius_bits
+                  << " size=0x" << object_size << " id=0x" << object_id
+                  << " parent=0x" << parent << " next_by_id=0x" << next_by_id
+                  << " desc_flags=0x" << descriptor_flags << " radius_bits=0x" << radius_bits
                   << " vertices=" << std::dec << vertex_count << "@0x" << std::hex
                   << vertices << " faces=" << std::dec << face_count << "@0x"
                   << std::hex << faces << " link_capacity=" << std::dec << link_capacity
@@ -526,7 +536,7 @@ void trace_world_object_groups(std::uint32_t world) {
                 std::memcpy(&next_cell, openrac_guest_base + slot_address, 4u);
             std::uint32_t member_class = 0xFFFFFFFFu, member_parent = 0;
             std::uint32_t member_address = 0;
-            std::uint32_t notifier_state = 0, notifier_owner = 0;
+            std::uint32_t notifier_state = 0, notifier_handle = 0, notifier_owner = 0;
             std::uint32_t notifier_timer_gate = 0, notifier_start = 0;
             float notifier_min = 0.0f, notifier_max = 0.0f, notifier_left = 0.0f;
             bool notifier_in_root_list = false;
@@ -558,7 +568,8 @@ void trace_world_object_groups(std::uint32_t world) {
                         }
                     }
                     std::memcpy(&notifier_state, openrac_guest_base + member_address + 0x2D0u, 4u);
-                    std::memcpy(&notifier_owner, openrac_guest_base + member_address + 0x2E8u, 4u);
+                    std::memcpy(&notifier_handle, openrac_guest_base + member_address + 0x2E8u, 4u);
+                    std::memcpy(&notifier_owner, openrac_guest_base + member_address + 0x2ECu, 4u);
                     std::memcpy(&notifier_start, openrac_guest_base + member_address + 0x00u, 4u);
                     std::uint32_t descriptor_address = 0;
                     if (trace_guest_range(notifier_start, 0x54u, &descriptor_address))
@@ -575,7 +586,8 @@ void trace_world_object_groups(std::uint32_t world) {
                       << member_class << ",parent=0x" << member_parent;
             if (member_class == 0x57u)
                 std::cerr << ",state=" << std::dec << notifier_state << std::hex
-                          << ",owner=0x" << notifier_owner << ",timer_gate=0x"
+                          << ",walker=0x" << notifier_handle << ",owner=0x"
+                          << notifier_owner << ",timer_gate=0x"
                           << notifier_timer_gate << ",start=0x" << notifier_start
                           << std::dec << ",root_list=" << notifier_in_root_list
                           << ",timer=" << notifier_left
