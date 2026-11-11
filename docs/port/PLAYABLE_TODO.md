@@ -3,6 +3,20 @@
 
 ## Current status (2026-11-11)
 
+**Canonical packet-writer registration (2026-11-11):** the refreshed upstream
+checkout remains at `55d39f28`; fetching `origin` found no newer `master`
+commit. The three port-only packet-word implementations already existed in
+`hand/native_c/display_packets.c`, but were missing from `hand/backfills.tsv`,
+so the canonical build emitted no-op warnings for `func_001EE3F0`,
+`func_001EE420`, and `func_001EE498`. They are now registered as port
+backfills. The canonical `55d39f28` native build succeeds, and an eight-second
+direct-level run reaches loader stages 13–14 without those warnings or a
+fault. It still emits only eight setup DMAs and reports zero scene vertices
+and visible text. This closes a packet-writer no-op gap; it does not resolve
+the scene-object/render path or make the port playable. Build and trace:
+`build/port/canonical-55d39f28` and
+`/tmp/sly-canonical-master-55d39f28-packet-backfills-8s.log`.
+
 **Latest direct-level packet result:** public decomp `master` is `55d39f28`
 (4,758/4,807 US functions, 93.108% code); `night21` is `4097b806`
 (4,759/4,807, 93.125%) and is the source configured for the port. The recent

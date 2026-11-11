@@ -44,6 +44,9 @@ func_0015F618	native_c/display_packets.c
 func_0015F658	native_c/display_packets.c
 func_001FAD68	native_c/func_001FAD68.c
 func_001EE318	native_c/display_packets.c
+func_001EE3F0	native_c/display_packets.c
+func_001EE420	native_c/display_packets.c
+func_001EE498	native_c/display_packets.c
 func_001EE5C8	native_c/func_001EE5C8.c
 func_00161708	native_c/display_packets.c
 func_00161768	native_c/display_packets.c
