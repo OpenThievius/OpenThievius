@@ -2591,3 +2591,32 @@ the stream field read by exact retail `func_001289C0` and find which preceding
 loader path misaligns it. Keep any temporary C in the port and name the retail
 function it replaces so later decomp C can supersede it. See
 `RESTART_CHECKPOINT.md` for the full configuration and native launch command.
+
+## Black-window UI draw-path check (2026-11-11)
+
+The screenshot's solid black output is still a failure state, not expected
+gameplay. The title resource setup has progressed further than the earlier
+font-empty traces: normal startup reaches frame state 3, has 37 global UI
+objects, a populated font registry, and an active world. However, a fresh
+instrumented run remains at `visible_text=0`, `vertices=0`, `image_tags=0`,
+and `gif_chain_submits=0`; pad state is neutral. This rules out missing font
+records as the only explanation for the black frame.
+
+To remove a trace blind spot, the port-only `font_text.c` and
+`screen_element_draw.c` backfills now call a port-named runtime trace wrapper
+at entries `0x0015DB28`, `0x0015E318`, `0x0015C638`, `0x001AA790`, and
+`0x001AB198`. The wrapper avoids colliding with hostgen's no-C stub for the
+retail-named runtime function. In the fresh run none of these five entries was
+reached. Existing menu-path traces still see only notifier calls
+`0x00146470` and `0x00148FF0`, twice each; the retail menu draw entry
+`0x00194F80` was not reached either. This narrows the immediate blocker to the
+active UI/menu dispatch or title transition before the text backfills, rather
+than glyph rasterization. The renderer consequently has no submitted content
+to show.
+
+Next trace the frame's UI/world callback dispatch and identify why neither
+`func_00194F80` nor the registered screen-element draw callbacks run. Keep the
+text and screen-element implementations in `hand/native_c/`; they remain
+port-only replacements and do not represent decompilation progress. Build:
+`cmake --build build/port --target port_native -j2`. Log:
+`/tmp/sly-instrumented-ui.log`.

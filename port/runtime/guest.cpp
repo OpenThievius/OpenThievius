@@ -400,6 +400,10 @@ void openrac_guest_trace_function_entry(gaddr address) {
     }
 }
 
+void sly1_native_trace_entry(gaddr address) {
+    openrac_guest_trace_function_entry(address);
+}
+
 int openrac_guest_set_stack(gaddr bottom, gaddr top) {
     if (bottom >= top || top > openrac_guest_ram_size) {
         error("guest stack range is outside main RAM");

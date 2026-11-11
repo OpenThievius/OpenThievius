@@ -1010,3 +1010,18 @@ screen. Capture: `/tmp/sly-native-165728-retail-asm.log`. Next, follow the
 regular startup/frame path from these threads and identify why no per-frame
 scene or UI geometry is submitted; keep the Splash-to-title transition as a
 separate route to trace.
+
+## Current black-frame diagnosis (2026-11-11)
+
+The black window is not expected game output. A fresh normal-startup run reaches
+frame state 3 with an active world, 37 global UI objects, and a populated font
+registry, but reports `visible_text=0`, `vertices=0`, `image_tags=0`, and
+`gif_chain_submits=0`. The controller remains neutral. Port-only tracing added
+to the text layout, glyph emission, caption draw, and screen-element draw
+backfills confirms none of `0x0015DB28`, `0x0015E318`, `0x0015C638`,
+`0x001AA790`, or `0x001AB198` runs. Menu trace sees only two calls each to
+notifier functions `0x00146470` and `0x00148FF0`; it sees no `0x00194F80`
+menu draw call. The immediate investigation is therefore the UI/menu dispatch
+and startup transition that should invoke these draws. Do not spend time on
+glyph or atlas fixes until a draw callback is reached. Details and build
+instructions are in `PLAYABLE_TODO.md` under “Black-window UI draw-path check”.
