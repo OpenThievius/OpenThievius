@@ -50,7 +50,8 @@
     "SLY1_RETAIL_ASM_FUNC_0011A358",
     "SLY1_RETAIL_ASM_FUNC_0011A630",
     "SLY1_RETAIL_ASM_FUNC_0011BA28",
-    "SLY1_RETAIL_ASM_FUNC_001289C0"
+    "SLY1_RETAIL_ASM_FUNC_001289C0",
+    "SLY1_RETAIL_ASM_FUNC_00162890"
   ],
   "names": {},
   "symbols": [
@@ -97,6 +98,7 @@
       "func_001B5F50"
     ],
     "only": [
+      "func_00137FB0",
       "func_00138398",
       "func_0011F798",
       "func_0011FDB8",
@@ -350,6 +352,8 @@
       "func_001EE560",
       "func_001E4C48",
       "func_001289C0",
+      "func_00162890",
+      "func_00182C58",
       "func_001587C8",
       "func_00124A48",
       "func_001D7040",
