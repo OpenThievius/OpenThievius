@@ -31,15 +31,15 @@ log: `/tmp/sly-canonical-55d39f28-tangent-readers-retail-8s.log`.
 
 ## Render queue follow-up (2026-11-11)
 
-The refreshed `file_167D68.cpp` identifies `0x00169718` as
-`FlushMeshQueue`: it loops over `g_meshQueueCount` (`D_002626D0`) and calls
-`SubmitMeshQueueEntry` (`0x001694A0`) for each queued copy. Hostgen cannot read
-that C++ unit, and the function was reached as a no-op. `hostgen.json` now
-selects exact US retail assembly for `func_00169718` under `asm.only`; hostgen
-links 253 assembly translations (725 C translations, 2 stubs, 3,929 without
-C). A rebuilt eight-second direct-level native run removes the warning but
-still records zero vertices and zero GIF submissions. Log:
-`/tmp/sly-canonical-55d39f28-flush-mesh-queue-exact-8s.log`.
+The refreshed `file_167D68.cpp` contains the mesh queue implementation but is
+not hostgen-readable. Exact US retail assembly is now selected under `asm.only`
+for `SubmitMeshQueueEntry` (`0x001694A0`), `QueueMeshStrip` (`0x001694F8`),
+`QueueNodeLink` (`0x00169608`), `RemapMeshQueueValues` (`0x001696B8`), and
+`FlushMeshQueue` (`0x00169718`). The remapper was reached as a no-op. Hostgen
+now links 257 assembly translations (725 C translations, 2 stubs, 3,925
+without C). An eight-second direct-level native run has no missing-function
+warning for this cluster, but still records zero vertices and zero GIF
+submissions. Log: `/tmp/sly-canonical-55d39f28-mesh-queue-cluster-8s.log`.
 
 This is a correctness fix for the animation mesh-copy queue, not a graphics
 milestone. The five direct-level outer groups remain marked to skip geometry,
@@ -59,8 +59,8 @@ build at `build/port/canonical-55d39f28` uses this source and the older
 `/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
 hostgen C frontend cannot parse several refreshed C++ units and falls back to
 assembly for their new definitions; with the current loader assembly selections,
-linked coverage is 725 translated functions, 253 selected assembly functions,
-2 stubs, and 3,929
+linked coverage is 725 translated functions, 257 selected assembly functions,
+2 stubs, and 3,925
 functions without C across 265 generated C units. The build succeeds.
 
 Port overrides without a host-readable matching C definition are staged

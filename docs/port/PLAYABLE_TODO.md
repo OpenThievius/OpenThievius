@@ -19,12 +19,14 @@ Frame-writer tracing shows the GS writer cursor stays at its initial DMA tag
 while the VIF writer advances by about `0x2e0` bytes. This moves the current
 visual blocker from world loading to understanding why the scene path does not
 write/submit GS geometry. The default Splash also has no visible UI elements.
-A previously missing reached function, `FlushMeshQueue` (`0x00169718`), is now
-selected from exact US retail assembly because the refreshed source unit
-`file_167D68.cpp` is not hostgen-readable. It drains queued mesh-copy entries
-through `SubmitMeshQueueEntry`; the no-C warning is gone, but the direct-level
-trace still has zero vertices and no GIF submissions. Do not mistake the mesh
-queue fix for rendered output. The invalid UI virtual-call guard is port-only
+The reached mesh queue now uses exact US retail assembly for
+`SubmitMeshQueueEntry` (`0x001694A0`), `QueueMeshStrip` (`0x001694F8`),
+`QueueNodeLink` (`0x00169608`), `RemapMeshQueueValues` (`0x001696B8`), and
+`FlushMeshQueue` (`0x00169718`). The refreshed source unit `file_167D68.cpp`
+is not hostgen-readable, and the remapper had been reached as a no-op. The
+queue cluster no longer reports no-C warnings, but the direct-level trace
+still has zero vertices and no GIF submissions. Do not mistake the queue fix
+for rendered output. The invalid UI virtual-call guard is port-only
 safety code and traces bad callbacks if encountered; it does not synthesize
 graphics. Latest direct-level
 trace: `/tmp/sly-canonical-55d39f28-direct-level-packets-8s.log`; frame writer
@@ -38,8 +40,8 @@ fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 interpolation, and player physics code. Those new definitions are not yet
 hosted by this port: the current C hostgen staging step cannot parse their
 updated C++ headers and falls back to retail assembly for them. The refreshed
-build links 725 translated functions, 253 retail assembly translations,
-2 stubs, and 3,929 functions without C across 265 generated C units. The source
+build links 725 translated functions, 257 retail assembly translations,
+2 stubs, and 3,925 functions without C across 265 generated C units. The source
 snapshot is `/tmp/sly1-decomp-55d39f28`; `/home/reaper/sly/sly1-decomp` is now
 fast-forwarded to `55d39f28` and clean. Build:
 `build/port/canonical-55d39f28`.

@@ -3,7 +3,7 @@
 
 Last checked: 2026-11-11. Canonical decomp master is `55d39f28` (PR #113),
 and `/home/reaper/sly/sly1-decomp` is clean at that commit. The current
-canonical hostgen build links 725 C translations, 253 selected US assembly
+canonical hostgen build links 725 C translations, 257 selected US assembly
 translations, and two generated stubs. It builds the native host32 launcher.
 
 Startup now reaches the initial resource, sets `g_currentWorld=0x006abdd0`,
@@ -24,7 +24,7 @@ UI geometry is black. Detailed progress is in
 Most older graphics traces and captures below are historical from the earlier
 SDL build. Their render-list and texture observations remain useful, but do
 not describe the current host32 execution. The current frame packet trace is
-`/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`; `FlushMeshQueue` is
+`/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`; the five mesh queue helpers are
 now selected from exact retail assembly and verified to run, while the
 direct-level run still shows zero scene vertices/GIF submissions. See the
 latest details in `PLAYABLE_TODO.md` and `RESTART_CHECKPOINT.md`.
