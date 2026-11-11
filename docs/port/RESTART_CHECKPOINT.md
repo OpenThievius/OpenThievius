@@ -39,9 +39,12 @@ tags/submissions, and visible text; the window remains black. Logs:
 `/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
 `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 
-Next: follow the strip's `unpack` address from its allocation through packet
-buffer relocation, correct the port-side producer if needed, then verify a
-nonzero scene vertex count and visible graphics. Do not claim playability yet.
+The source now narrows that trace: `BuildStripMeshPacket` and
+`BuildLitStripMeshPacket` set `strip->unpack` through
+`ReserveVifUnpack(..., &hdr->p)`, and the model loader adjusts it by
+`strip->addr[0] - starts[0]` after packet detachment. Inspect that value on both
+sides of the copy/remap, correct the port-side producer if needed, then verify
+a nonzero scene vertex count and visible graphics. Do not claim playability yet.
 
 ## Current follow-up (2026-11-11)
 

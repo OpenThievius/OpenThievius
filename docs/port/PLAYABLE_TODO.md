@@ -13,8 +13,10 @@ negative packet counts in `func_001EE5C8.c`; it does not clamp the source range.
 An 8-second direct-level run stays alive and reaches rendering setup, but a
 5-second state trace still has zero scene vertices, image tags/submissions, or
 visible text. Eight small GIF setup DMAs are emitted; the window remains black.
-The next task is to trace the strip's unpack pointer and its packet relocation
-back to the loader, not to synthesize geometry. Logs:
+The `night21` source shows the pointer is produced by
+`ReserveVifUnpack(..., &hdr->p)` in the strip mesh builders, then adjusted by
+`strip->addr[0] - starts[0]` after packet detachment. Trace it immediately
+before and after that relocation; do not synthesize geometry. Logs:
 `/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
 `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 

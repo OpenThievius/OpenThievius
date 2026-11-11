@@ -49,8 +49,11 @@ It still reports zero scene vertices, zero GIF image tags/submissions, and no
 visible text. The window remains black; this is not a visual milestone.
 Trace: `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 
-Next trace the `strip->unpack` pointer through model loading and packet-buffer
-relocation to find why it points into float data. Do not clamp or rewrite the
+The `night21` model source narrows the next probe: `BuildStripMeshPacket` and
+`BuildLitStripMeshPacket` assign `strip->unpack` through
+`ReserveVifUnpack(..., &hdr->p)`. After packet-buffer detachment, the loader
+adjusts it by `strip->addr[0] - starts[0]`. Trace that pointer before and after
+the copy/remap to find why it lands in float data. Do not clamp or rewrite the
 range. Keep the negative-count guard and the three helper implementations in
 the port-only backfill layer until the parser/relocation path is understood.
 
