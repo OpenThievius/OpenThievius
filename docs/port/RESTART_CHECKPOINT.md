@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after re-fetching decomp master `bfc74817` (Wave 24),
-regenerating US assembly from its config, and tracing the Splash path. Work in
+Updated: 2026-11-11, after fetching decomp `origin/master` through `1bd176fe`
+(Night 26), tracing the UI path, and rebuilding against that read-only source
+snapshot. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -12,31 +13,34 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
-The decomp checkout was fetched again and remains clean at `bfc74817` on
-`master`; no commits have landed after Wave 24 / PR #117. The US report remains
-4,760/4,807 functions and 93.25% of code bytes. The port build now reports 732
-C translations, 405 US retail assembly translations, and 2 stubs.
+Canonical checkout `/home/reaper/sly/sly1-decomp` remains clean at
+`bfc74817` (Wave 24); a fetch shows `origin/master` at `1bd176fe` (Night 26,
+PR #119), 14 commits ahead. The latest commits improve names, static-data/PAL
+tracking and reports, but add no matching C for the title/menu render path. A
+read-only archive at `/tmp/sly1-decomp-night26-source` now supplies C and US
+metadata to the build; `/tmp/sly1-decomp-wave24-asm` supplies selected exact
+retail assembly. Hostgen reports 732 C translations, 405 US assembly
+translations, and 2 stubs across 269 generated units.
 
-The canonical checkout had no local `asm/us` output, so an ignored temporary
-copy was made at `/tmp/sly1-decomp-wave24-asm`, supplied the existing user ELF,
-and ran `tools/setup_asm.py --version us`. CMake now points the assembly
-source at that generated output while C still comes from the clean canonical
-checkout. No decomp source or generated files were changed in the main
-checkout.
+The latest UI trace reaches frame state 3 with 37 UI objects and fonts. The
+update/draw dispatchers run, the first static UI pointers and vtables are
+valid, and text-buffer setup `func_0015DB28` runs five times. No active UI draw
+method, glyph/text draw, or menu draw runs; the menu page is `-1` and output
+counters remain zero. The user's Enter taps were captured as Start
+(`held=0x0008`) but did not change game state or produce graphics. Retail
+`UpdateElementStack` confirms state 3 only consumes R1 (`0x0800`) to open the
+pause layer, or L2 (`0x0100`) to open an available map; it does not consume
+Start. Keyboard bindings are Q for R1 and `1` for L2. This explains why Enter
+did nothing but not the missing automatic title transition. The Splash world
+has no class-`0x65` StepSequence objects; its class-`0x57` CountdownNotifier
+remains at state 0 with a null `+0x338` timer gate, so retail code will not
+advance its timer. The StateGraph remains unarmed on the `0x261` self-edge, no
+movie is queued, and graphics counters remain zero. Trace the ordinary level
+resource/state activation that should provide the sequence and gate. Latest
+diagnostic log: `/tmp/sly-title-step-sequence-final.log`.
 
-The latest port change selects exact US retail assembly for
-`UpdateRangeRecordBounds` (`func_001B1BF8`) and `AreFloatsNearlyEqual`
-(`func_001EAC68`). The 45-second native run reaches 22.08 guest seconds, but
-still reports zero vertices, image tags, GIF-chain submissions, visible text,
-or queued movie. No artificial input was sent. Log:
-`/tmp/sly-wave24-range-bounds-45s.log`. A later call-path trace shows object
-tree updates run, but range-record setup, update and packet routines are not
-reached. Splash calls text layout and notifier setup, but not the text draw or
-glyph emit functions. The currently open launcher traces keyboard/controller
-input as well; it remains neutral until a user presses a button. Latest log:
-`/tmp/sly-current-canonical-asm-interactive.log`. Continue by checking whether
-input advances the Splash graph; if not, trace why its `0x261` self-edge
-remains unarmed.
+Build: `cmake --build build/port --target port_native -j2`. The older
+checkpoint notes below are chronological and are superseded by this summary.
 
 Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `bfc74817`
 (Wave 24, PR #117), tracking `origin/master`. Wave 24 adds 410 readable names

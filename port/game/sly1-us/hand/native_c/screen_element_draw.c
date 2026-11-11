@@ -2,7 +2,8 @@
 /* Port-only backfill of the retail caption draw callback. */
 #include "common.h"
 
-extern void sly1_native_trace_entry(u32 address);
+extern void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2,
+                                   u32 a3, u32 a4);
 
 typedef struct SlyScreenTextLayout {
     f32 x;
@@ -60,7 +61,7 @@ void func_001AA268(void* opaque)
  * for captions, counters, prompts, and other text-bearing UI elements. */
 void func_001AA790(void* opaque)
 {
-    sly1_native_trace_entry(0x001AA790u);
+    sly1_native_trace_font(193u, 0x001AA790u, (u32)opaque, 0, 0, 0);
     u8* self = (u8*)opaque;
     SlyScreenTextLayout layout;
     s32 color;
@@ -100,7 +101,7 @@ void func_001AA790(void* opaque)
 
 void func_001AB198(void* opaque)
 {
-    sly1_native_trace_entry(0x001AB198u);
+    sly1_native_trace_font(194u, 0x001AB198u, (u32)opaque, 0, 0, 0);
     u8* self = (u8*)opaque;
     SlyScreenTextLayout layout;
     SlyScreenFont* font;

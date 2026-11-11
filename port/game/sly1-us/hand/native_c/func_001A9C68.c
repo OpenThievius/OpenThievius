@@ -3,6 +3,8 @@
 #include "common.h"
 
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2,
+                            u32 a3, u32 a4);
 void func_001F0220(void* object, s32 mode);
 extern u8 D_00275F80[];
 
@@ -45,6 +47,10 @@ extern u32 D_00273EB0;
 extern u32 D_00274118;
 
 void func_001A9C68(void) {
+    sly1_native_trace_font(185u, *(u32*)0x002486B0u,
+                           *(u32*)0x002486B4u,
+                           *(u32*)0x002721D0u,
+                           *(u32*)0x002701F8u, 0u);
     D_0026C6C8 = 0x00217E30u;
     D_0026C948 = 0x00217E80u;
     D_0026CBC8 = 0x00217ED0u;
@@ -82,6 +88,11 @@ void func_001A9C68(void) {
     D_00273C50 = 0x002185B0u;
     D_00273EB0 = 0x00218600u;
     D_00274118 = 0x002181F0u;
+
+    sly1_native_trace_font(186u, *(u32*)0x002486B0u,
+                           *(u32*)0x002486B4u,
+                           *(u32*)0x002721D0u,
+                           *(u32*)0x002701F8u, 0u);
 
     for (s32 index = 0x24; index >= 0; --index) {
         u32 object = *(u32*)(0x002486B0u + (u32)index * 4u);

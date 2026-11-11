@@ -10,6 +10,8 @@ extern u32 D_002C2A14;
 extern u32 D_002C2A18;
 extern u32 D_002C2A1C;
 int sly1_native_pad_read(u32 port, u32 report, u32 size);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2,
+                            u32 a3, u32 a4);
 
 static f32 axis_value(u8 value) {
     f32 axis = ((f32)value - 128.0f) / 127.0f;
@@ -105,6 +107,10 @@ void func_0016E238(void* object) {
     *(u16*)(self + 0xA8) = buttons;
     *(u16*)(self + 0xAA) = buttons & (u16)~old_buttons;
     *(u16*)(self + 0xAC) = old_buttons & (u16)~buttons;
+    if (buttons != old_buttons)
+        sly1_native_trace_font(199u, (u32)object, old_buttons, buttons,
+                               buttons & (u16)~old_buttons,
+                               old_buttons & (u16)~buttons);
     *(u8*)(self + 0x10) = bytes[1];
     *(f32*)(self + 0x20) = *(f32*)(D_00261858 + 0x10);
     if (buttons != 0) *(f32*)(self + 0x24) = *(f32*)(D_00261858 + 0x10);

@@ -421,8 +421,21 @@ extern "C" int openrac_native_window_poll_input(void) {
     if (!g_input) return 1;
     SDL_Event event;
     bool quit = false;
+    static unsigned traced_key_events = 0;
     std::scoped_lock lock(g_input_mutex);
     while (SDL_PollEvent(&event)) {
+        if (std::getenv("OPENRAC_TRACE_PAD") != nullptr &&
+            (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) &&
+            traced_key_events < 64u) {
+            std::fprintf(stderr,
+                         "[key] type=%s key=%#x scancode=%u repeat=%u focus=%p\n",
+                         event.type == SDL_EVENT_KEY_DOWN ? "down" : "up",
+                         static_cast<unsigned>(event.key.key),
+                         static_cast<unsigned>(event.key.scancode),
+                         event.key.repeat ? 1u : 0u,
+                         static_cast<void*>(SDL_GetKeyboardFocus()));
+            ++traced_key_events;
+        }
         if (event.type == SDL_EVENT_QUIT ||
             (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) quit = true;
         g_input->handle_event(event);

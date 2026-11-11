@@ -1,15 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. Canonical decomp master is `bfc74817` (Wave 24, PR
-#117), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 24
-adds 410 readable names and project-owned assembly macros, with no change to
-the match report (4,760/4,807 US functions; 93.25% of code bytes). Wave 22's
-`func_001B55C0` and `func_001536C8` remain the latest newly matched functions,
-and their C++ translation units still fail native C staging on layout
-conflicts and C++-only header declarations. The refreshed hostgen build links
-732 C translations, 396 selected US assembly translations, and two generated
-stubs across 269 generated C units. The native launcher builds successfully.
+Last checked: 2026-11-11. `origin/master` for `sly1-decomp` is now
+`1bd176fe` (Night 26, PR #119); the clean checkout at
+`/home/reaper/sly/sly1-decomp` remains at `bfc74817` (Wave 24, PR #117), so a
+read-only archive at `/tmp/sly1-decomp-night26-source` supplies current C and
+US metadata to hostgen. These commits add no newly matched C for the current
+startup/UI path. Hostgen translates 732 C functions, 405 US retail assembly
+functions, and 2 stubs across 269 generated C units. The launcher builds.
+
+Current visual diagnosis: startup reaches frame state 3 and creates the UI
+objects/fonts, but their draw methods are inactive. The frame's UI dispatchers
+run, text-buffer setup runs five times, and no text/glyph/screen-element draw
+or menu draw is reached. The user pressed Enter; the pad bridge saw Start
+(`0x0008`), but the title/menu state did not change. Retail `UpdateElementStack`
+shows why: state 3 consumes R1 (`0x0800`) to open the pause layer and L2
+(`0x0100`) to open an available map; it does not consume Start. Keyboard
+bindings are Q for R1 and `1` for L2. This explains the Enter result, but the
+automatic Splash/title transition and missing graphics remain the blocker.
+No vertices, image transfers, or GIF submissions reach the window. The loaded
+Splash world contains no class-`0x65` StepSequence objects. Its class-`0x57`
+CountdownNotifier is state 0 with a null `+0x338` gate pointer, so retail
+`CountDownNotifierTimer` returns without counting down. The state graph stays
+unarmed on the `0x261` self-edge and no movie is queued. Trace the normal level
+resource/state activation path that should provide the sequence and gate.
+Latest capture: `/tmp/sly-title-step-sequence-final.log`.
 
 A fresh SDL native launch showed the remaining no-op cluster and exact US
 assembly is now selected for 22 reached visual/UI functions, including text
@@ -1013,15 +1028,19 @@ separate route to trace.
 
 ## Current black-frame diagnosis (2026-11-11)
 
-The black window is not expected game output. A fresh normal-startup run reaches
-frame state 3 with an active world, 37 global UI objects, and a populated font
-registry, but reports `visible_text=0`, `vertices=0`, `image_tags=0`, and
-`gif_chain_submits=0`. The controller remains neutral. Port-only tracing added
-to the text layout, glyph emission, caption draw, and screen-element draw
-backfills confirms none of `0x0015DB28`, `0x0015E318`, `0x0015C638`,
-`0x001AA790`, or `0x001AB198` runs. Menu trace sees only two calls each to
-notifier functions `0x00146470` and `0x00148FF0`; it sees no `0x00194F80`
-menu draw call. The immediate investigation is therefore the UI/menu dispatch
-and startup transition that should invoke these draws. Do not spend time on
-glyph or atlas fixes until a draw callback is reached. Details and build
-instructions are in `PLAYABLE_TODO.md` under “Black-window UI draw-path check”.
+The black window is not expected game output. Normal startup reaches frame
+state 3 with an active world, 37 global UI objects, and registered fonts, but
+reports zero visible text, vertices, image tags, and GIF submissions. Corrected
+port tracing confirms text-buffer setup runs five times, while text layout,
+glyph emission, and screen-element/menu draw callbacks do not. The UI frame
+update and draw dispatchers do run. The retail UI pointer table and initialized
+vtables are valid; no active object's draw method is dispatched. The previous
+trace's apparent invalid UI pointers came from reusing trace stage 183, which
+was already used by the graphics worker.
+
+The user pressed Enter several times. The native pad bridge captured Start
+(`held=0x0008`), but the game stayed at frame state 3, menu page -1, and zero
+graphics. The current lead is the title/menu state transition and its input
+path, not the renderer or font atlas. Pad edge tracing and function-entry
+targets now cover `func_001E9108`, `func_00194D30`, and `func_001936A0`. See
+`PLAYABLE_TODO.md` under “Black-window UI and input trace”.

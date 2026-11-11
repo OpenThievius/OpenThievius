@@ -1,15 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Decomp refresh (2026-11-11):** canonical `sly1-decomp` master advanced from
-`d56e797c` (Wave 23, PR #116) to `bfc74817` (Wave 24, PR #117). The US totals
-remain 4,760/4,807 functions and 93.25% of code bytes. Wave 24 adds 410
-readable names and project-owned assembly macros, but no newly matched
-functions or code bytes. This improves source navigation without supplying
-new matching C for the port. A fresh fetch on 2026-11-11 found no commits after
-`bfc74817`. `func_00109488` remains unmatched and isolated as a port-only
-backfill. The native launcher rebuild against Wave 24 succeeds with 732 C
-translations, 405 retail assembly translations, and 2 stubs.
+**Decomp refresh (2026-11-11):** fetched `origin/master` through
+`1bd176fe` (Night 26, PR #119), 14 commits ahead of the clean local checkout
+at `bfc74817` (Wave 24, PR #117). The newer changes mainly improve names,
+static-data and PAL tracking, and reports; they add no matching C for the
+current startup/UI draw path. To keep the upstream checkout untouched, the
+native build now reads the temporary snapshot `/tmp/sly1-decomp-night26-source`
+for C and the generated US assembly copy `/tmp/sly1-decomp-wave24-asm` for
+retail assembly. Hostgen still translates 732 C functions, 405 US assembly
+functions, and 2 stubs. Keep functional fixes port-only.
 
 **Range-bound recovery (2026-11-11):** added exact US retail assembly for
 `UpdateRangeRecordBounds` and `AreFloatsNearlyEqual`, which the decomp's
@@ -21,24 +21,28 @@ the new functions emitted no missing-function warnings. This rules out only
 the missing implementations themselves, not the wider culling path. Log:
 `/tmp/sly-wave24-range-bounds-45s.log`.
 
-**Splash interaction/render trace (2026-11-11):** regenerated the selected US
-assembly from the canonical Wave 24 source configuration and the user's ELF.
-The native run confirms `UpdateObjectTree`, `UpdatePlacedObject`, and
-`UpdateWorldListedObject` execute, while range-record setup/update/packet
-functions do not. Splash reaches text-layout preparation and starts its
-notifier, but does not reach text drawing or glyph emission. The pad stays
-neutral and renderer counters stay at zero. One native window is open with
-pad/menu/range tracing; Enter maps to Start and Space maps to Cross. Log:
-`/tmp/sly-current-canonical-asm-interactive.log`.
+**Current black-window diagnosis (2026-11-11):** normal startup reaches frame
+state 3, constructs 37 UI objects and fonts, and runs the UI update/draw
+dispatchers. The static UI pointers and vtables are valid, but no active draw
+method is called. Text-buffer setup `func_0015DB28` runs five times; glyph/text
+draw and screen-element callbacks do not. Menu page stays `-1`, there are zero
+vertices/image transfers/GIF submissions, and `func_00194F80` is not reached.
+The user's Enter taps were captured as Start (`held=0x0008`) but do not change
+the state or show graphics. Retail `UpdateElementStack` confirms this is
+expected: in state 3, it opens the pause layer only for R1 (`0x0800`) and opens
+the map for L2 (`0x0100`) when a map page exists. It does not consume Start.
+The keyboard bridge maps Q to R1 and `1` to L2. This gives us a non-invasive
+manual input check when the user is available, but does not explain or repair
+the missing automatic Splash/title transition. Latest trace:
+`/tmp/sly-title-transition-night26.log`.
 
 **Native input correction (2026-11-11):** retail `PollPadInput` combines
 button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the
 opposite order, swapping button identities. The port now emits the high byte
 first, and `OPENRAC_TRACE_PAD=1` reports the same decoded held-button mask.
-The rebuilt launcher succeeds. A 90-second native run remained neutral at
-44.7 guest seconds with no movie request or graphics, so a real keyboard or
-controller press is still needed to verify the transition. Log:
-`/tmp/sly-pad-input-interactive-90s.log`.
+The rebuilt launcher succeeds. Later logs capture keyboard Enter as Start and
+show it does not advance the current state-3 startup path. New trace stages
+record guest button edges and the state/menu transition handlers.
 
 **Reached world-update recovery (2026-11-11):** exact US retail assembly now
 provides eight reached object/animation callbacks that were empty stubs:
@@ -2592,31 +2596,39 @@ loader path misaligns it. Keep any temporary C in the port and name the retail
 function it replaces so later decomp C can supersede it. See
 `RESTART_CHECKPOINT.md` for the full configuration and native launch command.
 
-## Black-window UI draw-path check (2026-11-11)
+## Black-window UI and input trace (2026-11-11)
 
 The screenshot's solid black output is still a failure state, not expected
-gameplay. The title resource setup has progressed further than the earlier
-font-empty traces: normal startup reaches frame state 3, has 37 global UI
-objects, a populated font registry, and an active world. However, a fresh
-instrumented run remains at `visible_text=0`, `vertices=0`, `image_tags=0`,
-and `gif_chain_submits=0`; pad state is neutral. This rules out missing font
-records as the only explanation for the black frame.
+gameplay. Normal startup reaches frame state 3 with an active world, 37 global
+UI objects, and a populated font registry, but remains at `visible_text=0`,
+`vertices=0`, `image_tags=0`, and `gif_chain_submits=0`.
 
-To remove a trace blind spot, the port-only `font_text.c` and
-`screen_element_draw.c` backfills now call a port-named runtime trace wrapper
-at entries `0x0015DB28`, `0x0015E318`, `0x0015C638`, `0x001AA790`, and
-`0x001AB198`. The wrapper avoids colliding with hostgen's no-C stub for the
-retail-named runtime function. In the fresh run none of these five entries was
-reached. Existing menu-path traces still see only notifier calls
-`0x00146470` and `0x00148FF0`, twice each; the retail menu draw entry
-`0x00194F80` was not reached either. This narrows the immediate blocker to the
-active UI/menu dispatch or title transition before the text backfills, rather
-than glyph rasterization. The renderer consequently has no submitted content
-to show.
+The first backfill trace attempt was invalid: hostgen rewrote the proposed
+runtime-wrapper call to a generated no-C game stub. The corrected tracing uses
+the launcher's existing `game_sly1_native_trace_font` hook. A fresh run shows
+five calls to text-buffer setup `func_0015DB28`, but no calls to text layout
+draw `func_0015E318`, glyph emission `func_0015C638`, or screen-element draw
+callbacks `func_001AA790` / `func_001AB198`. The frame update and draw
+dispatchers (`func_001E9668`, `func_001AA110`, `func_001E9648`,
+`func_001AA178`) do run repeatedly. The static UI list's first object pointers
+and their initialized vtables match the retail data, so the earlier apparent
+bad object values were a trace-stage collision with the graphics worker, not
+corrupt UI pointers. No active object draw method is dispatched, and the menu
+draw function `func_00194F80` is not reached.
 
-Next trace the frame's UI/world callback dispatch and identify why neither
-`func_00194F80` nor the registered screen-element draw callbacks run. Keep the
-text and screen-element implementations in `hand/native_c/`; they remain
-port-only replacements and do not represent decompilation progress. Build:
-`cmake --build build/port --target port_native -j2`. Log:
-`/tmp/sly-instrumented-ui.log`.
+The user's Enter presses were captured by the native pad bridge as Start
+(`held=0x0008`), confirming keyboard input reaches the guest. Retail
+`UpdateElementStack` shows why they did not change frame state 3: this state
+consumes R1 (`0x0800`) for the pause layer and L2 (`0x0100`) for an available
+map, not Start. The keyboard bridge maps Q to R1 and `1` to L2. Current trace
+still has no queued movie, world load, text draw, UI draw callback, or graphics
+submission after startup reaches the main loop. The native Splash world has no
+world-class trace reports no class-`0x65` StepSequence objects, so no sequence
+can queue movie message type 7 through `HandleStepSequenceMessage`. The
+class-`0x57` CountdownNotifier is state 0 with a null `+0x338` gate pointer;
+retail `CountDownNotifierTimer` returns without ticking while that pointer is
+null. Its state graph is unarmed on the `0x261` self-edge and there is no movie
+queued. Next trace why the expected StepSequence is absent and why the
+notifier gate is null, then follow normal resource/state activation. Do not
+force a menu or movie. Keep all implementation in `hand/native_c/` separate
+from matching decomp C. Latest run: `/tmp/sly-title-step-sequence-final.log`.

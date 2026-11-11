@@ -2,7 +2,8 @@
 /* Port-only Sly font stack and text cursor backfills. */
 #include "common.h"
 
-extern void sly1_native_trace_entry(u32 address);
+extern void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2,
+                                   u32 a3, u32 a4);
 
 typedef struct FontTextFont {
     s32 first;
@@ -150,7 +151,8 @@ typedef struct FontLegacyLayout {
  * from decomp source so it can be replaced when the matching unit is ready. */
 void func_0015C638(void* opaque, char* string,
                    FontLegacyLayout* layout, s32 flags, u32 packet) {
-    sly1_native_trace_entry(0x0015C638u);
+    sly1_native_trace_font(190u, 0x0015C638u, (u32)opaque, (u32)string,
+                           (u32)layout, (u32)flags);
     FontTextFont* font = (FontTextFont*)opaque;
     char* p;
     char* next;
@@ -473,7 +475,8 @@ void func_0015DBB8(void* opaque, void* color) {
 
 void func_0015E318(void* opaque, FontTextLayout* layout, s32 flag,
                    void* packet) {
-    sly1_native_trace_entry(0x0015E318u);
+    sly1_native_trace_font(191u, 0x0015E318u, (u32)opaque, (u32)layout,
+                           (u32)flag, (u32)packet);
     FontTextBuffer* text = (FontTextBuffer*)opaque;
     f32 line_widths[64] = {0};
     s32 line = 0;
@@ -655,7 +658,8 @@ void func_0015DB80(void* opaque) {
 }
 
 void* func_0015DB28(void* opaque, s32 text_address, s32 font_address) {
-    sly1_native_trace_entry(0x0015DB28u);
+    sly1_native_trace_font(192u, 0x0015DB28u, (u32)opaque,
+                           (u32)text_address, (u32)font_address, 0u);
     FontTextBuffer* text = (FontTextBuffer*)opaque;
     *(u32*)(text->inline_font + 0x4Cu) = (u32)D_0024A220;
     text->text_address = text_address;

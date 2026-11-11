@@ -291,7 +291,9 @@ void openrac_guest_trace_function_entry(gaddr address) {
             std::getenv("OPENRAC_TRACE_MENU_PATH") != nullptr;
         if (trace_menu_path) {
             static constexpr gaddr targets[] = {
+                0x001E9108u, // transition/state handler that polls pad edges
                 0x001936A0u, // populate a title/menu page
+                0x00194D30u, // request a menu-page transition
                 0x00194F80u, // draw the retail menu object
                 0x0015DB28u, // prepare text layout
                 0x0015E318u, // draw text into a GIF packet
@@ -398,10 +400,6 @@ void openrac_guest_trace_function_entry(gaddr address) {
             }
         }
     }
-}
-
-void sly1_native_trace_entry(gaddr address) {
-    openrac_guest_trace_function_entry(address);
 }
 
 int openrac_guest_set_stack(gaddr bottom, gaddr top) {

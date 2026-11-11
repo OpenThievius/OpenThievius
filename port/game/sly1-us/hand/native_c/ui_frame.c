@@ -16,9 +16,11 @@ static void dispatch_ui_slot(u32 slot_offset) {
         vtable = *(u32*)object;
         method = vtable != 0 ? *(u32*)(vtable + slot_offset) : 0;
         if (method != 0) {
+            sly1_native_trace_font(188u, (u32)index, object,
+                                   *(u32*)(object + 0x250u), vtable, method);
             if (method < 0x00100000u || method >= 0x00211E10u ||
                 (method & 3u) != 0) {
-                sly1_native_trace_font(184u, (u32)index, object, vtable,
+                sly1_native_trace_font(189u, (u32)index, object, vtable,
                                        method, slot_offset);
                 continue;
             }
@@ -28,19 +30,27 @@ static void dispatch_ui_slot(u32 slot_offset) {
 }
 
 void func_001AA110(void) {
+    sly1_native_trace_font(195u, 0x001AA110u, 0, 0, 0, 0);
     dispatch_ui_slot(0x28); /* virtual slot 10: update */
 }
 
 void func_001AA178(void) {
+    sly1_native_trace_font(196u, 0x001AA178u, 0, 0, 0, 0);
+    sly1_native_trace_font(187u, *(u32*)0x002486B0u,
+                           *(u32*)0x002486B4u,
+                           *(u32*)0x002721D0u,
+                           *(u32*)0x002701F8u, 0u);
     dispatch_ui_slot(0x24); /* virtual slot 9: draw */
     (void)sly1_native_call_regs4(0x001EFEE0u, 0x00275F80u, 0, 0, 0);
     (void)sly1_native_call_regs4(0x001AE820u, 0x00273EB0u, 0, 0, 0);
 }
 
 void func_001E9668(void) {
+    sly1_native_trace_font(197u, 0x001E9668u, 0, 0, 0, 0);
     func_001AA110();
 }
 
 void func_001E9648(void) {
+    sly1_native_trace_font(198u, 0x001E9648u, 0, 0, 0, 0);
     func_001AA178();
 }

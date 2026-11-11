@@ -43,7 +43,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                                               std::uint32_t a1, std::uint32_t a2,
                                               std::uint32_t a3, std::uint32_t a4) {
     if (std::getenv("OPENRAC_TRACE_FONT") == nullptr) return;
-    static std::array<std::atomic<unsigned>, 192> traces{};
+    static std::array<std::atomic<unsigned>, 240> traces{};
     if (stage >= traces.size()) return;
     const unsigned index = traces[stage].fetch_add(1, std::memory_order_relaxed);
     constexpr unsigned limits[] = {2, 2, 8, 16, 4, 4, 4, 2, 8, 16, 16, 8, 8, 8, 8, 8, 24, 32, 8, 4, 4, 4, 64, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 16};
@@ -231,7 +231,6 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                              a2 - a1);
     }
 }
-
 extern "C" void game_sly1_native_trace_resource_range(std::uint32_t sector,
                                                          std::uint32_t byte_count) {
     if (std::getenv("OPENRAC_STARTUP_TRACE") == nullptr) return;
@@ -403,7 +402,7 @@ std::array<std::array<std::uint32_t, 7>, 12> trace_world_objects(std::uint32_t w
 void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
     if (std::getenv("OPENRAC_TRACE_OBJECTS") == nullptr || world == 0) return;
     static std::array<std::uint32_t, 0x95> last_traced_world{};
-    const bool trace_each_snapshot = class_id == 0x57u || class_id == 0x65u || class_id == 0x88u;
+    const bool trace_each_snapshot = class_id == 0x57u || class_id == 0x88u;
     if (class_id >= last_traced_world.size() ||
         (!trace_each_snapshot && last_traced_world[class_id] == world)) return;
     last_traced_world[class_id] = world;
@@ -505,18 +504,6 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
                     }
                 }
                 std::cerr << std::dec << '\n';
-            } else if (type == 0x65u && object_size >= 0x340u) {
-                std::int32_t mode = 0, state = 0, count = 0, step = 0;
-                std::uint32_t steps = 0;
-                std::memcpy(&mode, openrac_guest_base + object_address + 0x2D0u, 4u);
-                std::memcpy(&state, openrac_guest_base + object_address + 0x2D4u, 4u);
-                std::memcpy(&count, openrac_guest_base + object_address + 0x2DCu, 4u);
-                std::memcpy(&steps, openrac_guest_base + object_address + 0x2E0u, 4u);
-                std::memcpy(&step, openrac_guest_base + object_address + 0x2E4u, 4u);
-                std::cerr << "[step-sequence-trace] object=0x" << std::hex << object
-                          << std::dec << " mode=" << mode << " state=" << state
-                          << " steps=" << count << "@0x" << std::hex << steps
-                          << std::dec << " current_step=" << step << '\n';
             } else if (type == 0x7Du && object_size >= 0x330u) {
                 std::int32_t count = 0;
                 std::uint32_t items = 0, post_children = 0;
