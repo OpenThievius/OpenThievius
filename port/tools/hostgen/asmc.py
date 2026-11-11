@@ -780,6 +780,10 @@ class Translator:
         for k, a in enumerate(heads):
             ins = self.at(a)
             out.append(f"L_{a:08X}:;")
+            trace = getattr(self, "trace_sites", {}).get(self.unit.fn.name, {}).get(a)
+            if trace is not None:
+                args = trace.get("args", [])
+                out.append(f"{trace['function']}({', '.join(f'(unsigned int){arg}' for arg in args)});")
             if not is_control(ins):
                 out += self.stmt(ins)
                 falls = a + 4
@@ -1607,6 +1611,10 @@ class Translator:
         decl.append(f"    OPENRAC_ASM_FRAME({frame});")
         if self.mode == "host":
             decl.append(f"    openrac_guest_trace_function_entry(0x{self.entry_addr:08X}u);")
+            if f.symbol in getattr(self, "trace_calls", {}):
+                trace = self.trace_calls[f.symbol]
+                args = trace.get("args", ["a0", "a1", "a2"])
+                decl.append(f"    {trace['function']}({', '.join(f'(unsigned int){arg}' for arg in args)});")
         decl.append("    openrac_u64 " + ", ".join(f"r{n} = 0" for n in gprs) + ";")
         if highs:
             decl.append("    openrac_u64 " + ", ".join(f"h{n} = 0" for n in highs) + ";")
@@ -1841,6 +1849,11 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     dirs = [base / d for d in a.get("dirs", [])]
     gp = int(str(a["gp"]), 0) if a.get("gp") is not None else None
     tr = Translator(program, None, gp, "host", base)
+    tr.trace_calls = a.get("trace_calls", {})
+    tr.trace_sites = {
+        symbol: {int(address, 0): trace for address, trace in sites.items()}
+        for symbol, sites in a.get("trace_sites", {}).items()
+    }
     tr.gp_addresses = bool(a.get("gp_addresses"))
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))

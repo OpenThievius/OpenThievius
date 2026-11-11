@@ -84,6 +84,115 @@ extern "C" uint32_t game_sly1_native_vu0_component(uint32_t index) {
     return bits;
 }
 
+extern "C" void game_sly1_native_trace_model_reader(uint32_t model,
+                                                      uint32_t reader,
+                                                      uint32_t owner) {
+    if (std::getenv("OPENRAC_DUMP_MODEL_ENTRY") == nullptr ||
+        openrac_guest_base == nullptr) return;
+    static unsigned dumps = 0;
+    if (dumps >= 32u) return;
+    if (reader > openrac_guest_ram_size - 0x24u) return;
+    if (reader != 0x0064c4c0u) return;
+    const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+    const int32_t remaining = static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu));
+    const uint32_t model_offset = openrac_guest_ram_address(model);
+    const uint32_t owner_offset = openrac_guest_ram_address(owner);
+    if (cursor < GUEST_SCRATCHPAD || cursor >= GUEST_SCRATCHPAD + 0x2000u ||
+        model_offset >= openrac_guest_ram_size || owner_offset >= openrac_guest_ram_size)
+        return;
+    char path[80];
+    std::snprintf(path, sizeof(path), "/tmp/sly1-model-entry-ring-%02u.bin", dumps);
+    if (FILE* file = std::fopen(path, "wb")) {
+        std::fwrite(openrac_guest_base + GUEST_SCRATCHPAD, 1, 0x2000u, file);
+        std::fclose(file);
+    }
+    std::fprintf(stderr,
+        "[model-entry-dump] model=%#010x owner=%#010x reader=%#010x "
+        "cursor=%#010x remaining=%d ring=%s bytes=",
+        model, owner, reader, cursor, remaining, path);
+    const uint32_t input_offset = cursor >= GUEST_SCRATCHPAD &&
+                                  cursor < GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE
+        ? cursor : openrac_guest_ram_address(cursor);
+    if (remaining > 0 && input_offset >= GUEST_SCRATCHPAD &&
+        input_offset < GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE) {
+        const uint32_t bytes = std::min<uint32_t>(32u, static_cast<uint32_t>(remaining));
+        for (uint32_t i = 0; i < bytes &&
+             input_offset + i < GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE; ++i)
+            std::fprintf(stderr, "%02x", openrac_guest_base[input_offset + i]);
+    }
+    std::fputc('\n', stderr);
+    ++dumps;
+}
+
+namespace {
+void trace_model_read(const char* kind, gaddr reader, uint32_t width) {
+    if (std::getenv("OPENRAC_TRACE_MODEL_FIELDS") == nullptr ||
+        openrac_guest_base == nullptr || reader != 0x0064c4c0u) return;
+    static unsigned reads = 0;
+    if (reader > openrac_guest_ram_size - 0x20u) return;
+    const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+    const int32_t remaining = static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu));
+    uint32_t offset = cursor;
+    const bool scratchpad = cursor >= GUEST_SCRATCHPAD &&
+                            cursor < GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE;
+    if (!scratchpad)
+        offset = openrac_guest_ram_address(cursor);
+    if ((scratchpad && offset >= GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE) ||
+        (!scratchpad && offset >= openrac_guest_ram_size)) return;
+    const uint32_t available = scratchpad
+        ? GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE - offset
+        : openrac_guest_ram_size - offset;
+    const uint32_t bytes = std::min<uint32_t>(available,
+        static_cast<uint32_t>(std::max(remaining, 0)));
+    uint32_t value = 0;
+    for (uint32_t i = 0; i < std::min<uint32_t>(width, std::min<uint32_t>(bytes, 4u)); ++i)
+        value |= static_cast<uint32_t>(openrac_guest_base[offset + i]) << (8u * i);
+    if (value < 0x1000u) return;
+    std::fprintf(stderr, "[model-field] n=%u kind=%s reader=%#010x cursor=%#010x remaining=%d width=%u value=",
+                 reads, kind, reader, cursor, remaining, width);
+    std::fprintf(stderr, "%#x", value);
+    std::fprintf(stderr, " next=");
+    for (uint32_t i = 0; i < std::min<uint32_t>(width, std::min<uint32_t>(bytes, 8u)); ++i)
+        std::fprintf(stderr, "%02x", openrac_guest_base[offset + i]);
+    std::fputc('\n', stderr);
+    ++reads;
+}
+}
+
+extern "C" void game_sly1_native_trace_model_read_u16(uint32_t reader) {
+    trace_model_read("u16", reader, 2u);
+}
+extern "C" void game_sly1_native_trace_model_read_s16(uint32_t reader) {
+    trace_model_read("s16", reader, 2u);
+}
+extern "C" void game_sly1_native_trace_model_strip_count(uint32_t reader, uint32_t part_index) {
+    if (std::getenv("OPENRAC_TRACE_MODEL_FIELDS") == nullptr ||
+        openrac_guest_base == nullptr || reader != 0x0064c4c0u ||
+        reader > openrac_guest_ram_size - 0x20u) return;
+    const uint32_t cursor = GREF(uint32_t, reader + 0x18u);
+    const bool scratchpad = cursor >= GUEST_SCRATCHPAD &&
+                            cursor < GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE;
+    const uint32_t offset = scratchpad ? cursor : openrac_guest_ram_address(cursor);
+    if ((scratchpad && offset > GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE - 2u) ||
+        (!scratchpad && (offset >= openrac_guest_ram_size ||
+                         offset > openrac_guest_ram_size - 2u))) return;
+    const uint32_t value = openrac_guest_base[offset] |
+                           (static_cast<uint32_t>(openrac_guest_base[offset + 1u]) << 8u);
+    if (value < 0x1000u && (part_index < 500u || part_index > 512u)) return;
+    std::fprintf(stderr,
+        "[model-strip-count] part=%u reader=%#010x cursor=%#010x remaining=%d value=%u (%#06x)\n",
+        part_index, reader, cursor,
+        static_cast<int32_t>(GREF(uint32_t, reader + 0x1Cu)), value, value);
+    char path[96];
+    std::snprintf(path, sizeof(path), "/tmp/sly1-model-strip-part-%u.bin", part_index);
+    if (FILE* file = std::fopen(path, "wb")) {
+        std::fwrite(openrac_guest_base + GUEST_SCRATCHPAD, 1,
+                    GUEST_SCRATCHPAD_SIZE, file);
+        std::fclose(file);
+        std::fprintf(stderr, "[model-strip-count] ring=%s\n", path);
+    }
+}
+
 extern "C" void sly1_native_start_worker(void) {
     const gaddr saved_sp = openrac_guest_sp;
     const gaddr params = openrac_guest_frame(0x48u);

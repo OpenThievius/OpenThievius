@@ -27,6 +27,10 @@
     "sly1_native_temp_alloc",
     "sly1_native_temp_end",
     "sly1_native_loader_stage",
+    "game_sly1_native_trace_model_reader",
+    "game_sly1_native_trace_model_read_u16",
+    "game_sly1_native_trace_model_read_s16",
+    "game_sly1_native_trace_model_strip_count",
     "sly1_native_boot_level_key",
     "openrac_lib_sly1_signal_sema"
   ],
@@ -88,6 +92,28 @@
   "source_standard": "gnu99",
   "asm": {
     "enabled": true,
+    "trace_calls": {
+      "func_00162890": {
+        "function": "game_sly1_native_trace_model_reader",
+        "args": ["a0", "a1", "a2"]
+      },
+      "func_00137BE0": {
+        "function": "game_sly1_native_trace_model_read_u16",
+        "args": ["a0"]
+      },
+      "func_00137D10": {
+        "function": "game_sly1_native_trace_model_read_s16",
+        "args": ["a0"]
+      }
+    },
+    "trace_sites": {
+      "func_00162890": {
+        "0x00162E94": {
+          "function": "game_sly1_native_trace_model_strip_count",
+          "args": ["r23", "r18"]
+        }
+      }
+    },
     "dirs": [
       "asm/us"
     ],

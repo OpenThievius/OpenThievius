@@ -2731,21 +2731,43 @@ Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
 
 A bounded native run with `OPENRAC_BOOT_LEVEL=0x0100` localizes the fatal heap
 growth to retail model parsing. `func_00162890` reads a valid top-level part
-count of 1,962, then at part index 1,093 reads `nstrips=0xFF02` (65,282) from
-reader cursor `0x7000011a` with 7,910 bytes remaining. That count requests
+count of 1,962, then at **part index 512** reads `nstrips=0xFF02` (65,282) from
+reader cursor `0x7000011a` with 7,910 bytes remaining. The previous estimate
+of part 1,093 was not validated and is superseded by the call-site trace. The
+record's preceding vector, float, signed short, and three byte fields consume
+the expected 21 bytes, so the bad value is at the expected strip-count field.
+That count requests
 5,222,560 bytes for the `0x50` strip records and 3,133,536 bytes for the
 `0x30` packet records. Repeated allocations eventually exhaust the configured
 32 MiB guest heap and fault at `0x02000000`.
 
-Do not raise the heap limit or clamp the strip count: this is a parser or
-stream-alignment failure, not evidence that the level needs more memory. The
-port-only `func_00162890` implementation in `hand/native_c/resource_object_common.c`
-is a partial reader and does not consume the strip and morph payloads, so it
-must not replace the retail ASM for this experiment. Next trace the reader
-cursor after each part field and variable-length strip payload near part 1,093,
-then compare with the matching `ReadPlacedObjectModel` source in the latest
-decomp snapshot. Exact run logs are `/tmp/sly-model-strip-detail-20261111.log`
-and `/tmp/sly-heap-large-allocations-20261111.log`.
+The 128-byte live scratchpad window at offsets `0x100..0x17f` matches the
+existing decoded level resource byte-for-byte at offset 1,867,947, including
+the `02 ff` count bytes. This shows the count is in the stream bytes the native
+reader sees and in the extracted decoded file; it does not prove that the
+extraction decoder and live refill path are both correct relative to retail.
+The latest decomp's `ReadPlacedObjectModel` and the translated retail ASM both
+read this field as little-endian U16, so changing its width or clamping it
+would hide the failure and desynchronize later records.
+
+Opt-in tracing is now configured in hostgen and the port worker:
+`OPENRAC_TRACE_MODEL_FIELDS=1` logs unusually large U16/S16 values and every
+oversized strip count, with part index, stream cursor, and remaining bytes;
+`OPENRAC_DUMP_MODEL_ENTRY=1` saves the initial ring. A forced-level rerun
+reproduces part 512 and saves the live ring as
+`/tmp/sly1-model-strip-part-512.bin`. Logs:
+`/tmp/sly-model-strip-index-20261111.log`,
+`/tmp/sly-model-strip-capture-20261111.log`, and
+`/tmp/sly-model-large-u16-20261111.log`, plus the final filtered rerun
+`/tmp/sly-model-neighbor-counts-20261111b.log`.
+
+Do not raise the heap limit, clamp the strip count, or enable the partial
+port-only `func_00162890` in `hand/native_c/resource_object_common.c`; it does
+not consume the strip and morph payloads. Next compare the active native
+buffer refill/decompression path and the level resource boundaries against
+the exact stream position around part 512, then confirm against a known-good
+retail parse. Until that is resolved, the forced-level black-screen path is
+not a successful load and normal startup remains visually blocked.
 
 **VIF packet-writer recovery (2026-11-11):** A forced `0x0100` native load
 reached the level's mesh packet builder and exposed three reachable no-op
