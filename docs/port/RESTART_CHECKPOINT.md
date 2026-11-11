@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after the state-graph follow-up on canonical master
+Updated: 2026-11-11, after restoring the reached animator callbacks
 `55d39f28`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -11,6 +11,25 @@ replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Current follow-up (2026-11-11)
+
+The latest native build adds exact US retail assembly for the reached
+`ClaimAnimatorStep` (`0x001B4B08`), `func_001B4B68`, and `func_001B4BC8`
+callbacks. This follows the prior restoration of `FlushCursors` and
+`StepAnimators`; all five no longer produce no-C warnings in the bounded
+startup run. Build report: 727 C translations, 278 retail assembly
+translations, 2 stubs, and 3,902 functions without C across 267 generated C
+units. The six-second run reaches the regular frame loop without a crash, but
+still has a black window, zero vertices, zero visible text, and zero GIF chain
+submissions. The Splash graph remains unarmed at state key `0x261`, edge
+`2 -> 2`, while the animation player's time advances. Trace:
+`/tmp/sly-canonical-55d39f28-animation-callbacks-6s.log`.
+
+The decomp checkout was fetched again and remains clean at `55d39f28` (PR
+#113), with no newer upstream commits. Its newly matched collision, placed
+object, and player functions remain outside this early startup/rendering
+frontier and their refreshed C++ units still do not pass the port's C hostgen
+frontend. Keep those sources untouched; consume them after hostgen can compile
+them or their startup-relevant retail assembly is identified.
 
 Fetched the public decomp again; `master` remains `55d39f28` (PR #113), with
 no new commits. The broad rework changed 126 files and added/expanded matched

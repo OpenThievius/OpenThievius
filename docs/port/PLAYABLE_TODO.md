@@ -15,6 +15,19 @@ headers still do not pass the port's C hostgen frontend. Keep consuming them
 through port-hostable C or exact retail assembly rather than editing the
 decomp to suit hostgen.
 
+**Animator callback follow-up (2026-11-11):** the native build now selects
+exact US retail assembly for `ClaimAnimatorStep` (`0x001B4B08`) and the two
+newly observed animator callbacks (`0x001B4B68`, `0x001B4BC8`), alongside
+`FlushCursors` and `StepAnimators`. A six-second native run reaches the frame
+loop without no-C warnings for these callbacks. The graph remains unarmed at
+state key `0x261`, edge `2 -> 2`; the window is still black with zero vertices,
+visible text, or GIF chain submissions. Build coverage is now 727 C
+translations, 278 retail assembly translations, 2 stubs, and 3,902 functions
+without C across 267 generated C units. Trace:
+`/tmp/sly-canonical-55d39f28-animation-callbacks-6s.log`. Keep the next effort
+on the path that should arm/advance the Splash graph or produce the first
+drawable GS packet; do not synthesize graphics or force the graph state.
+
 Added opt-in recurring state-graph diagnostics to `port/sly1/main.cpp`.
 Repeated native snapshots show Splash graph `0x25f` has four states and seven
 edges. The port now selects exact US retail assembly for the reached animation
