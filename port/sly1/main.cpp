@@ -483,6 +483,88 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
     }
 }
 
+void trace_world_object_groups(std::uint32_t world) {
+    if (std::getenv("OPENRAC_TRACE_OBJECTS") == nullptr || world == 0) return;
+    static std::uint32_t last_traced_world = 0;
+    if (last_traced_world == world) return;
+    last_traced_world = world;
+
+    std::uint32_t slot_address = 0;
+    if (!trace_guest_range(world + 0x1884u + 0x53u * 4u, 4u, &slot_address)) return;
+    std::uint32_t group = 0;
+    std::memcpy(&group, openrac_guest_base + slot_address, 4u);
+    for (unsigned group_index = 0; group != 0 && group_index < 16u; ++group_index) {
+        std::uint32_t group_address = 0;
+        if (!trace_guest_range(group, 0x2E0u, &group_address)) break;
+        std::uint32_t descriptor = 0, next_group = 0;
+        std::memcpy(&descriptor, openrac_guest_base + group_address, 4u);
+        std::uint32_t descriptor_address = 0;
+        if (!trace_guest_range(descriptor, 0x10u, &descriptor_address)) break;
+        std::uint32_t class_id = 0;
+        std::memcpy(&class_id, openrac_guest_base + descriptor_address + 4u, 4u);
+        if (class_id != 0x53u) break;
+
+        std::uint32_t cell = 0;
+        std::int32_t link_offset = 0;
+        std::memcpy(&cell, openrac_guest_base + group_address + 0x2D0u, 4u);
+        std::memcpy(&link_offset, openrac_guest_base + group_address + 0x2D8u, 4u);
+        std::memcpy(&next_group, openrac_guest_base + group_address + 0x24u, 4u);
+        std::cerr << "\n[object-group] world=0x" << std::hex << world
+                  << " group=0x" << group << " id=0x";
+        std::uint32_t group_id = 0;
+        std::memcpy(&group_id, openrac_guest_base + group_address + 8u, 4u);
+        std::cerr << group_id << " cells=0x" << cell << " link=" << std::dec
+                  << link_offset;
+
+        for (unsigned member_index = 0; cell != 0 && member_index < 32u;
+             ++member_index) {
+            std::uint32_t cell_address = 0;
+            if (!trace_guest_range(cell, 0x10u, &cell_address) ||
+                link_offset < 0 || link_offset > 0x10000) break;
+            std::uint32_t member = 0, member_id = 0, next_cell = 0;
+            std::memcpy(&member, openrac_guest_base + cell_address, 4u);
+            std::memcpy(&member_id, openrac_guest_base + cell_address + 4u, 4u);
+            if (trace_guest_range(cell + static_cast<std::uint32_t>(link_offset),
+                                  4u, &slot_address))
+                std::memcpy(&next_cell, openrac_guest_base + slot_address, 4u);
+            std::uint32_t member_class = 0xFFFFFFFFu, member_parent = 0;
+            std::uint32_t member_address = 0;
+            std::uint32_t notifier_state = 0, notifier_owner = 0;
+            std::uint32_t notifier_timer_gate = 0;
+            float notifier_min = 0.0f, notifier_max = 0.0f, notifier_left = 0.0f;
+            if (member != 0 && trace_guest_range(member, 0x34u, &member_address)) {
+                std::uint32_t member_descriptor = 0, member_desc_address = 0;
+                std::memcpy(&member_descriptor, openrac_guest_base + member_address, 4u);
+                std::memcpy(&member_parent, openrac_guest_base + member_address + 0x18u, 4u);
+                if (trace_guest_range(member_descriptor, 8u, &member_desc_address))
+                    std::memcpy(&member_class,
+                                openrac_guest_base + member_desc_address + 4u, 4u);
+                if (member_class == 0x57u &&
+                    trace_guest_range(member, 0x39Cu, &member_address)) {
+                    std::memcpy(&notifier_state, openrac_guest_base + member_address + 0x2D0u, 4u);
+                    std::memcpy(&notifier_owner, openrac_guest_base + member_address + 0x2E8u, 4u);
+                    std::memcpy(&notifier_timer_gate, openrac_guest_base + member_address + 0x338u, 4u);
+                    std::memcpy(&notifier_min, openrac_guest_base + member_address + 0x390u, 4u);
+                    std::memcpy(&notifier_max, openrac_guest_base + member_address + 0x394u, 4u);
+                    std::memcpy(&notifier_left, openrac_guest_base + member_address + 0x398u, 4u);
+                }
+            }
+            std::cerr << " [" << std::dec << member_index << ":0x" << std::hex
+                      << member << ",id=0x" << member_id << ",class=0x"
+                      << member_class << ",parent=0x" << member_parent;
+            if (member_class == 0x57u)
+                std::cerr << ",state=" << std::dec << notifier_state << std::hex
+                          << ",owner=0x" << notifier_owner << ",timer_gate=0x"
+                          << notifier_timer_gate << std::dec << ",timer=" << notifier_left
+                          << '(' << notifier_min << '-' << notifier_max << ')';
+            std::cerr << ']';
+            cell = next_cell;
+        }
+        std::cerr << '\n';
+        group = next_group;
+    }
+}
+
 #define SLY1_REGISTER_ENTRY(name, target)                                                        \
     uint64_t name(                                                                               \
         uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,          \
@@ -1257,8 +1339,11 @@ int main(int argc, char** argv) {
                               << fields[4] << ',' << fields[5] << ",children="
                               << std::dec << fields[6] << std::hex << ']';
                 }
-                for (std::uint32_t class_id = 0; class_id < 0x95u; ++class_id)
+                for (std::uint32_t class_id = 0; class_id < 0x95u; ++class_id) {
                     trace_world_class_objects(current_object, class_id);
+                    if (class_id == 0x53u)
+                        trace_world_object_groups(current_object);
+                }
                 const bool has_scene_object = std::any_of(
                     root_object_fields.begin(), root_object_fields.end(),
                     [](const auto& fields) { return fields[0] != 0 && fields[4] == 0x44u; });
