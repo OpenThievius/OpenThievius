@@ -7,7 +7,7 @@ remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
 functions; it adds compiler investigations and re-scores near-matching C,
 including `func_00109488`, still unmatched and already isolated as a port-only
 backfill. No newly available matching C can replace a port backfill. The
-native launcher rebuild succeeds with 732 C translations, 335 retail assembly
+native launcher rebuild succeeds with 732 C translations, 340 retail assembly
 translations, and 2 generated stubs.
 
 **Frame initializer recovery (2026-11-11):** selected exact US assembly for
@@ -19,6 +19,15 @@ vertices, visible text, and GIF submissions. It also confirms Splash graph
 object ID `0x25f` is present and stays on its state-2 self-edge for event
 `0x261`; the missing-link diagnosis is obsolete. Log:
 `/tmp/sly-frame-init-asm-15s.log`.
+
+**Font/layout helper recovery (2026-11-11):** exact US assembly is now selected
+for reached no-op helpers `func_001E2268` and `func_001E22C0`. Build coverage
+is 732 C translations, 340 assembly translations, and 2 stubs. The next
+15-second native trace confirms both no-op warnings are gone, but all 37 UI
+objects remain inactive and vertices, visible text, and GIF submissions stay
+at zero. The CountdownNotifier remains state 0 with a null `+0x338` gate and
+zero timer (range 4–6); its graph remains on an unarmed state-2 self-edge for
+event `0x261`. Log: `/tmp/sly-font-layout-init-asm-15s.log`.
 
 ## Current status (2026-11-11)
 

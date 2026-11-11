@@ -7,7 +7,7 @@ adds no matched functions or code bytes; it updates compiler investigations
 and near-match scores. Wave 22's `func_001B55C0` and `func_001536C8` remain the
 latest newly matched functions, and their C++ translation units still fail
 native C staging on layout conflicts and C++-only header declarations. The
-current hostgen build links 732 C translations, 338 selected US assembly
+current hostgen build links 732 C translations, 340 selected US assembly
 translations, and two generated stubs across 269 generated units. It builds
 the native host32 launcher.
 
@@ -18,6 +18,14 @@ those stubs are gone, but still reports zero vertices, visible text, and GIF
 submissions. The Splash graph object is present at ID `0x25f`; it remains on
 state 2 / event `0x261` / self-edge `2 -> 2`, so the earlier missing-graph-link
 diagnosis does not fit this run. Trace: `/tmp/sly-frame-init-asm-15s.log`.
+
+The reached resource/font setup no-ops `func_001E2268` and `func_001E22C0` are
+now also selected from exact US assembly. A second 15-second native trace
+confirms the warnings are gone, but still shows all 37 UI objects in mode 0
+and zero vertices, visible text, or GIF submissions. The CountdownNotifier
+stays in state 0 with its `+0x338` timer gate null and timer at 0 (configured
+range 4–6 seconds); the event `0x261` graph edge remains an unarmed `2 -> 2`
+self-loop. Trace: `/tmp/sly-font-layout-init-asm-15s.log`.
 
 Runtime tracing found additional no-op screen constructors during the active
 `InitScreenElements` pass. Exact US assembly is now selected for timer, gauge,

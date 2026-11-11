@@ -13,13 +13,22 @@ only; no emulator is involved in the port work.
 ## Latest handoff (2026-11-11)
 
 The latest native build selects exact US assembly for the reached frame setup
-helpers `func_00193210`, `func_00193270`, and `func_00193288`. The build has
-732 C translations, 338 assembly translations, and 2 generated stubs. A
+helpers `func_00193210`, `func_00193270`, `func_00193288`, and the reached
+font/layout helpers `func_001E2268` and `func_001E22C0`. The build has 732 C
+translations, 340 assembly translations, and 2 generated stubs. A
 15-second native trace confirms the functions no longer warn as no-ops, but
 still records zero vertices, visible text, and GIF submissions. It also shows
 Splash graph object ID `0x25f` present on state 2 / event `0x261` / self-edge
 `2 -> 2`; do not use the earlier missing-graph-link diagnosis for this run.
 Log: `/tmp/sly-frame-init-asm-15s.log`.
+
+The build now also selects exact US assembly for `func_001E2268` and
+`func_001E22C0`, reached font/resource layout helpers that were no-op stubs.
+Coverage is 732 C translations, 340 assembly translations, and 2 stubs. A
+second 15-second run still shows all 37 UI objects inactive and no graphics.
+The class-`0x57` CountdownNotifier stays at state 0 with a null `+0x338` timer
+gate and zero timer; its graph remains on the unarmed `0x261` self-edge. Log:
+`/tmp/sly-font-layout-init-asm-15s.log`.
 
 Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `d56e797c`
 (Wave 23, PR #116), tracking `origin/master`. Wave 23 adds no matched
@@ -27,7 +36,7 @@ functions: the US report remains 4,760/4,807 functions and 93.25% matched code.
 It adds compiler-investigation notes and near-match re-scores; notably,
 `func_00109488` remains unmatched and its current role as a port-only backfill
 is unchanged. The native build was rebuilt successfully against this checkout:
-732 C translations, 335 US retail assembly translations, and 2 generated
+732 C translations, 340 US retail assembly translations, and 2 generated
 stubs. No port code change was needed from this decomp update.
 
 The current runtime-driven assembly selection also restores the reached UI

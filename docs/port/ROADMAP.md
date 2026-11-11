@@ -34,7 +34,7 @@ latest newly matched functions; their source units still cannot pass the
 port's C frontend because shared headers contain duplicate collider members,
 failed layout assertions, and C++-only declarations. Neither was reached in
 the latest startup trace. Rebuilding against Wave 23 succeeds with 732 C translations,
-335 retail assembly translations, and 2 stubs; the visual frontier remains
+340 retail assembly translations, and 2 stubs; the visual frontier remains
 unchanged.
 
 ### Frame setup and Splash graph trace (2026-11-11)
@@ -47,6 +47,15 @@ vertices, visible text, and GIF submissions. It also confirms the Splash
 StateGraph object exists at ID `0x25f`, remaining on state 2 / event `0x261` /
 self-edge `2 -> 2`; the missing-link theory from earlier traces is no longer
 supported. Log: `/tmp/sly-frame-init-asm-15s.log`.
+
+Exact US assembly was then selected for the reached font/resource layout
+helpers `func_001E2268` and `func_001E22C0`. A second 15-second trace confirms
+these no-op warnings are gone, but still reports 37 inactive UI objects and
+zero vertices, visible text, or GIF submissions. The CountdownNotifier is
+still at state 0 with timer gate `+0x338` null and timer value 0 (range 4–6);
+the `0x261` graph edge remains an unarmed `2 -> 2` self-loop. This narrows the
+next investigation to the producer that should arm the notifier or activate
+Splash UI. Log: `/tmp/sly-font-layout-init-asm-15s.log`.
 
 ### Direct-level packet update (2026-11-11, latest)
 
