@@ -127,7 +127,12 @@ vertices and a repeated 240-vertex untextured UI draw with zero STQ and black
 RGBA. The screen remains black. Next target is the native VIF/VU packet path
 and its display-list output; the contact crash is no longer the immediate
 startup blocker. Logs: `/tmp/sly-contact-bypass-20261111.log` and
-`/tmp/sly-contact-bypass-render-20261111.log`.
+`/tmp/sly-contact-bypass-render-20261111.log`. A packet capture confirms the
+2,128-byte draw packet is identical across captured frames (SHA-256
+`5e3373eaa5afba0e7f8eeb570de46d011e2aa4684ee80bc7ed8d2bc3109c1321`); the
+960x720 host frame capture is fully black. Capture log:
+`/tmp/sly-frame-packet-dump-20261111.log`; packet binaries and PPM frames remain
+in `/tmp/sly1-native-render-packets-*.bin` and `/tmp/sly1-native-frame-*.ppm`.
 
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed
 `InitScreenElements` calling no-op stubs for timer, gauge, framed text,

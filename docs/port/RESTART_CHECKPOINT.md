@@ -888,5 +888,11 @@ zero decoded vertices, plus a `2128`-byte UI packet with 240 vertices and one
 draw. That draw is untextured and has zero STQ and black RGBA on its first
 vertex. The window remains black; this is not a visual/playable milestone.
 Logs are `/tmp/sly-contact-bypass-20261111.log` and
-`/tmp/sly-contact-bypass-render-20261111.log`. Build command:
+`/tmp/sly-contact-bypass-render-20261111.log`. A further packet/frame capture
+found the repeated 2,128-byte UI packet identical across frames, SHA-256
+`5e3373eaa5afba0e7f8eeb570de46d011e2aa4684ee80bc7ed8d2bc3109c1321`; the
+captured 960x720 frame is entirely black. Log:
+`/tmp/sly-frame-packet-dump-20261111.log`; binary and PPM captures are in
+`/tmp/sly1-native-render-packets-*.bin` and `/tmp/sly1-native-frame-*.ppm`.
+Build command:
 `cmake --build build/port --target port_native -j2`.
