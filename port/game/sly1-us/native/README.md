@@ -9,23 +9,21 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-The public `OpenThievius/sly1-decomp` master is at `2e00ac70` (PR #109,
-2026-11-06); the local read-only checkout at `/home/reaper/Code/sly1-decomp`
-is clean but still at `e1b39f1`. The current SDL hostgen build uses the
-reworked snapshot and translates 2,043 C functions plus 234 selected US
-assembly functions, with no generated stubs. It builds with
-`cmake --build build/port --target port_native -j2`.
+The public `OpenThievius/sly1-decomp` master is at
+`f36f43ee4236753a04d73881b82d16ca0100bcea` (PR #112, checked 2026-11-11).
+The read-only source snapshot is `/tmp/sly1-decomp-f36f43ee`; the older
+`/home/reaper/Code/sly1-decomp` checkout is used only for selected US retail
+assembly. The isolated hostgen build translates 722 functions plus 247
+selected assembly functions, with 2 unsupported stubs, across 263 C units.
+Build: `cmake --build build/port/canonical-f36f43ee --target port_native -j2`.
 
-The current startup run now queues and loads the initial world, registers four
-fonts, and submits 240 raw vertices in some frames. It remains visually black:
-there are no recorded GIF image tags or image qwords, no blit writes, and no
-visible text. `func_001E4E80` (`QueueWorldLoad`) and the screen image record
-readers `func_001B2BA8` / `func_001B2CF8` are active port-only backfills under
-`hand/native_c/`, registered in `hand/backfills.tsv`; their behavior must be
-replaced by hostable decomp source when available. The latest trace is
-`/tmp/sly-vif-dma-debug.log`. Exact US assembly is selected for the reached
-image-mask uploader and related screen packet builders, but the trace still
-shows no GIF image tags. See
+The current Splash trace resolves the CountdownNotifier's child owner through
+the new port-only `0x0015A838` wrapper and `0x0015A4F0` search backfills. It
+still renders zero vertices and visible text, with no GIF image tags or DMA
+submissions; the window stays black. Latest trace:
+`/tmp/sly-canonical-f36f43ee-owner-resolved.log`. The source C remains isolated
+from `sly1-decomp`; replace these backfills when the canonical unit becomes
+hostable. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 blocker and next trace target.
 

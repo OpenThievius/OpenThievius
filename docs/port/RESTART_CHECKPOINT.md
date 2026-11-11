@@ -4,23 +4,26 @@
 Updated: 2026-11-11, after integrating the canonical decomp rewrite. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
-port-only functional C backfills under `port/game/sly1-us/hand/native_c/` and
-registered in `backfills.tsv`; do not put those replacements in
-`/home/reaper/Code/sly1-decomp`. Continue using native runs only; no emulator
-is involved in the port work.
+port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
+`overrides_c/`, registered in the matching hand table; do not put those
+replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
+only; no emulator is involved in the port work.
 
-## Canonical decomp rework checkpoint (2026-11-11)
+## Canonical decomp refresh checkpoint (2026-11-11)
 
 Canonical `OpenThievius/sly1-decomp` master is
-`9eb875995bb6767d244d56437e987d965e106b01` (PR #110), verified against the
-remote on 2026-11-11. The sibling checkout at
-`/home/reaper/sly/sly1-decomp` is older (`d534006`); the detached read-only
-snapshot `/tmp/sly1-decomp-9eb87599` is used for canonical C. The isolated
-build at `build/port/canonical-fresh` uses the older
+`f36f43ee4236753a04d73881b82d16ca0100bcea` (PR #112), verified against the
+remote on 2026-11-11. Upstream reports 4,749/4,807 NTSC-U functions matched
+(98.79% by function count, 92.62% of code, and 94.56% of data). The source
+rework splits large translation units and adds matching progress across
+state notifiers, object hosting, pose sources, collision, camera, input, and
+movie code. The read-only archive is `/tmp/sly1-decomp-f36f43ee`; the sibling
+checkout at `/home/reaper/sly/sly1-decomp` is still at `d534006`. The isolated
+build at `build/port/canonical-f36f43ee` uses the older
 `/home/reaper/Code/sly1-decomp` checkout only for generated US retail
 assembly. Hostgen reads `include/names.h`, binding semantic C names to retail
-addresses. The latest generated set contains 716 translated functions, 244
-selected assembly functions, 2 stubs, and 3,942 functions without C; all 261
+addresses. The latest generated set contains 722 translated functions, 247
+selected assembly functions, 2 stubs, and 3,936 functions without C; all 263
 generated C units compile and link.
 
 Port overrides without a host-readable matching C definition are staged
@@ -30,13 +33,12 @@ their C symbols or a canonical unit cannot be read. Implementations stay in
 the port under `hand/native_c/`, `hand/overrides_c/`, and
 `hand/superseded_backfills/`; the upstream checkout was not modified.
 
-The latest native run finishes Splash loading, enters the frame loop, reaches
-the opt-in level key `0x0100`, and reads the level at sector 867214
-(4,911,835 bytes). Level parsing then requests a corrupt 1,645,753,056-byte
-allocation, attempts an indirect call to `0x5f5f`, and faults at guest address
-`0xFFFFA9E3`. The port emits zero vertices and no visible text; this is loader
-progress, not a visual or playable milestone. Trace:
-`/tmp/sly-canonical-direct-level-queued.log`.
+The latest bounded native run finishes Splash loading and enters the frame
+loop. The canonical notifier lookup now resolves Splash's class-`0x75` child
+(`0x846cb0`, id `0x22a`) as the CountdownNotifier owner. The window still has
+zero vertices, no visible text, no GIF image tags, and no DMA submissions; it
+remains black. This is a lookup fix, not a visual or playable milestone. Trace:
+`/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
 
 A port-only state graph loader retains the retail field layout and stream
 reads while guarding absent class stream callbacks. The list append override
@@ -456,26 +458,25 @@ Native launches are authorized. Do not use PCSX2 or another emulator.
 ## Notifier lookup follow-up (2026-11-11)
 
 The current branch is `wip/native-sly-port`. Canonical `sly1-decomp` remains
-read-only at `9eb875995bb6767d244d56437e987d965e106b01`; the older sibling
-checkout is not used for C. The port backfill for the canonical gathered search
-at `0x0015A4F0` is isolated in
-`hand/overrides_c/func_0015A4F0.c`, registered in `hand/overrides.tsv`, and
-staged as a standalone unit because its canonical source unit is unreadable to
-hostgen. It removes that function's no-C stub warning. The adjacent
-`0x0015A198` is a separate function; don't conflate the two symbols.
+read-only at `f36f43ee4236753a04d73881b82d16ca0100bcea`; the old sibling
+checkout is not used for C. The canonical source defines
+`FindFirstObjectByIdGathered` at `0x0015A838` as a wrapper around
+`GatherObjectsById` at `0x0015A4F0`. Since `file_1549C8.cpp` is still unreadable
+to hostgen, both functions are staged as separate port-only overrides in
+`hand/overrides_c/` and registered in `hand/overrides.tsv`. The adjacent
+`0x0015A198` is a different traversal and must not be conflated with either.
 
-We verified from canonical C and retail assembly that `StartStateNotifier`
-(`0x00146470`) looks up kind `0x75` before calling `SetStateNotifierState`
-(`0x00147AB0`). The exact assembly for the setter crashed in the native host,
-so it is not selected at present. The latest 12-second run still has the
-CountdownNotifier at state `-1`, owner `0`, timer gate `0`, no queued movie,
-no visible text, and zero vertices/GIF submissions. The lookup backfill's
-owner result is still zero and requires validation against the class hierarchy
-and startup object data before relying on it. Log:
-`/tmp/sly-canonical-gathered-lookup-active.log`.
+The 7-second native trace proves mode-1 lookup returns the expected child
+(`0x846cb0`, class `0x75`, id `0x22a`, parent `0x846910`) and stores it at
+notifier offset `+0x2ec`. A prior trace incorrectly read `+0x2e8`, which is
+the state-walker handle. The notifier remains at state `-1` with timer gate
+off. `func_00147AB0` still reports no C in the current host build, but its
+same-state `-1` call is not yet shown to be the graphics blocker. No movie,
+visible text, vertices, GIF image tags, or DMA submissions appear. Log:
+`/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
 
 Latest successful build:
-`cmake --build build/port/canonical-fresh --target port_native -j2` — 262 C
-translation units compiled, 721 functions translated, 247 retail assembly
-translations, 2 unsupported C stubs, and 3,938 functions without C. The
+`cmake --build build/port/canonical-f36f43ee --target port_native -j2` — 263 C
+translation units compiled, 722 functions translated, 247 retail assembly
+translations, 2 unsupported C stubs, and 3,936 functions without C. The
 window remains black; this is not a visual milestone.

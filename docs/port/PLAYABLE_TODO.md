@@ -3,54 +3,47 @@
 
 ## Current status (2026-11-11)
 
-The latest public `OpenThievius/sly1-decomp` master is `9eb87599` (PR #110).
-The checkout at `/home/reaper/sly1-decomp` was 317 commits behind and has been
-fetched; a detached read-only snapshot is at `/tmp/sly1-decomp-9eb87599`.
-Upstream reports 4,747/4,807 NTSC-U functions matched (98.75% by function
-count; 92.49% of code). The major source rework adds typed collision mesh and
-buffered-stream layouts and functional bodies for `func_00137FB0`,
-`func_00138278`, and `func_001BAC30`.
+The latest public `OpenThievius/sly1-decomp` master was refreshed to
+`f36f43ee` (PR #112) on 2026-11-11. A read-only source snapshot is at
+`/tmp/sly1-decomp-f36f43ee`; the sibling checkout at
+`/home/reaper/sly/sly1-decomp` still has an older worktree, so do not build from
+it. Upstream reports 4,749/4,807 NTSC-U functions matched (98.79% by function
+count, 92.62% of code, and 94.56% of data). The rework splits large units,
+matches `state_notifier.cpp` and `pose_source.cpp`, and advances object,
+collision, camera, input, and movie code. A high match percentage still does
+not make the C hostable by our launcher.
 
-The native hostgen build against that source currently compiles 262 generated
-C units: 721 translated functions, 247 assembly translations, 2 stubs, and
-3,938 functions without C. The whole `file_137290.cpp` source unit remains unreadable
-to hostgen because aggregate headers produce duplicate inherited members and
-layout assertions. Port-only backfills remain separate in
-`hand/native_c/`.
+The isolated SDL hostgen build against this snapshot compiles 263 generated C
+units: 722 translated functions, 247 retail assembly translations, 2 stubs,
+and 3,936 functions without C. `file_1549C8.cpp` remains unreadable to hostgen;
+its lookup wrappers therefore need separate port backfills. Keep those under
+`hand/overrides_c/`, separate from matching sources. Current build:
+`build/port/canonical-f36f43ee`.
 
-**Latest startup investigation (2026-11-11):** canonical HEAD was rechecked at
-`9eb875995bb6767d244d56437e987d965e106b01`; the local sibling checkout is
-older, so builds continue from the detached canonical snapshot. Port-only
-`InitObjectGroup` / `StartObjectGroup` backfills now match the canonical bodies
-and register the Splash world's group lifecycle. A diagnostic run confirms
-the group (`id=0x54b`) has one class-`0x57` CountdownNotifier. Its state stays
-`-1`, timer owner/enable field is zero, and `timeLeft` is zero despite limits
-4–6 seconds. The title/prompt callbacks are now selected from exact US retail
-assembly because their canonical translation unit still cannot be hosted; this
-does not make the UI visible. At about seven guest seconds, the window remains
-black, with no queued movie, visible text, vertices, GIF image tags, or DMA
-chain submissions. The current frontier is to trace the notifier's missing
-start/arming path and the Splash transition producer, then follow the first
-actual UI or movie draw submission. Log:
-`/tmp/sly-canonical-9eb87599-countdown-state.log`.
+**Earlier notifier trace (superseded by the lookup follow-up below):** the
+`9eb87599` snapshot showed a class-`0x57` CountdownNotifier at state `-1`,
+with its owner field reported as zero. That trace read `+0x2e8`, which is the
+state-walker handle; the actual lookup owner is at `+0x2ec`. It also preceded
+the `0x0015A838` wrapper backfill. See the current `f36f43ee` evidence below.
 
-**Notifier/lookup follow-up (2026-11-11):** canonical source confirms
-`StartStateNotifier` (`0x00146470`) searches its world for kind `0x75`, then
-calls the state setter; the countdown setter delegates to
-`SetStateNotifierState` (`0x00147AB0`). Its exact retail assembly crashed in
-the native host when selected, so it is no longer forced through assembly.
-`0x0015A4F0` is the reworked decomp's `GatherObjectsById` traversal; the
-adjacent `0x0015A198` is a distinct function. A port-only copy of the lookup
-is staged as a standalone override because `file_1549C8.cpp` is unreadable to
-hostgen. It removes the no-C warning for `0x0015A4F0`, but the latest 12-second
-run still shows owner=0, notifier state=-1, no queued movie, no visible text,
-and zero vertices/GIF submissions. This is not a visual milestone and the
-lookup's Splash result still needs validation against retail data. Next inspect
-the class-kind traversal and why the owner lookup returns null before trying
-the state setter again. Log: `/tmp/sly-canonical-gathered-lookup-active.log`.
+**Notifier/lookup follow-up (2026-11-11):** refreshed upstream source confirms
+`StartStateNotifier` (`0x00146470`) calls the four-argument wrapper
+`FindFirstObjectByIdGathered` (`0x0015A838`), which in turn calls
+`GatherObjectsById` (`0x0015A4F0`). The native port had only backfilled the
+inner helper; the wrapper remained a zero-return stub. Both are now isolated
+port overrides. The corrected mode-1 search returns Splash's class-`0x75`
+child (`id=0x22a`, address `0x846cb0`) as the CountdownNotifier's owner. A
+separate trace fix now reads owner at `+0x2ec` (the old trace mislabeled
+`+0x2e8`, the state-walker handle). This advances the notifier setup, but the
+7-second native run still has state `-1`, timer gate off, no visible text, and
+zero vertices, GIF image tags, or DMA submissions. The window remains black.
+Next trace the transition producer and the first actual screen/movie draw
+request; owner resolution alone did not produce graphics. Log:
+`/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
 
-The latest bounded native run now parses both collision meshes and their face
-trees without the earlier second-mesh stream failure. This was enabled by
+**Earlier collision follow-up (9eb87599 snapshot):** the bounded native run
+parsed both collision meshes and their face trees without the earlier
+second-mesh stream failure. This was enabled by
 correcting `func_001BAC30` to store `refCount` at `+0x408`, `refs` at `+0x40c`,
 and to read `faceStarts` only when `refCount > 0`, matching the reworked
 upstream `LoadCollider`. The launcher reaches the frame loop without crashing,
@@ -58,14 +51,10 @@ but still reports zero rendered vertices and a black window. The next task is
 to trace the level/world objects that should submit scene geometry. Build and
 latest trace details are in [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md).
 
-`func_00152CA0` (`AddDmaReturnTag`) was another reached no-C function from the
-reworked packet-writer source. The canonical body closes the active DMA tag and
-appends a `RET` tag. Since hostgen cannot compile that source unit yet, the port
-now carries the same small body in `hand/native_c/display_packets.c`,
-registered as a backfill. A rebuilt native run removes its no-C warning, but
-still reaches the frame loop with zero vertices, GIF image tags, and submitted
-chains. This repairs a packet-builder primitive; it does not establish the
-source of the missing scene objects. Trace:
+**Earlier packet-writer follow-up (9eb87599 snapshot):**
+`func_00152CA0` (`AddDmaReturnTag`) was a reached no-C function from the
+reworked packet-writer source. Its port backfill closed the active DMA tag and
+appended a `RET` tag, but did not produce scene graphics. Trace:
 `/tmp/sly-canonical-9eb87599-return-tag.log`.
 
 **Canonical source integration check (historical, 2026-11-10):** I built separately
@@ -92,7 +81,7 @@ gate, and `0x00262C68` a state selector. Current decomp identifies
 `0x00262C68` as pad routing. The other two values are now reported as raw
 addresses. Do not use the earlier `app_state=3` / `scene_gate=0` conclusions.
 
-**Latest startup checkpoint (2026-11-10):** the earlier empty world was caused
+**Earlier startup checkpoint (2026-11-10):** the earlier empty world was caused
 by the no-op `func_001E4E80` (`QueueWorldLoad`), which cleared the screen fade
 without writing a load request. A port-only retail-equivalent queue routine is
 now registered in `hand/backfills.tsv`. The next native SDL run opened the

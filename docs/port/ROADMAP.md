@@ -20,7 +20,24 @@ Its font atlas and palette data are present and match the decoded Splash bytes,
 but the submitted text remains malformed and no normal title/gameplay path is
 visible in the native launcher.
 
-## Current visual blocker (2026-11-06)
+## Current visual blocker (2026-11-11)
+
+The current native startup uses the `f36f43ee` source snapshot of
+`sly1-decomp`; upstream reports 4,749/4,807 NTSC-U functions matched (92.62%
+of code). Hostgen translates 722 functions and 247 selected retail assembly
+functions across 263 generated C units, with 2 stubs and 3,936 functions
+without C. These are build-compatibility counts, not a playable milestone.
+
+Splash's `StartStateNotifier` lookup now resolves the class-`0x75` child at
+`0x846cb0` as the CountdownNotifier's owner. Both lookup functions are
+port-only overrides because `file_1549C8.cpp` is not hostable yet. The
+7-second native run still shows notifier state `-1`, timer gate off, no visible
+text, zero scene vertices, and no GIF image tags or DMA submissions. The
+window remains black. Next trace the Splash transition producer and the first
+actual screen, movie, or scene draw request. Details and the reproducible log
+are in [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
+
+### Historical visual investigation (2026-11-06)
 
 The user-provided PCSX2 reference screencast
 `Screencast_20261106_183929.webm` (2026-11-06) shows the European release
