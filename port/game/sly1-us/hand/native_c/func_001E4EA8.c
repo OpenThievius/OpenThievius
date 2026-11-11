@@ -128,9 +128,10 @@ void func_001E4EA8(void* state) {
         finish_resource_service(request);
         return;
     }
-    /* D_002C3B00 also backs renderer frame buffers. Large reader rings use
-     * reserved upper EE RAM instead of overwriting those buffers. */
-    ring_buffer = buffer_capacity > 0x00340C00u ? 0x01000000u :
+    /* Large native rings live beyond the retail heap's 32 MiB end. The
+     * launcher backs this port-only range with expanded guest memory; retail
+     * heap bounds remain unchanged. */
+    ring_buffer = buffer_capacity > 0x00340C00u ? 0x02000000u :
                                                     (u32)D_002C3B00;
     func_00137290(reader, (s32)buffer_capacity, ring_buffer, 6);
     *(u32*)(reader + 0x30) = (u32)callback_data;

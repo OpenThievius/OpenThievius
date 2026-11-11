@@ -811,7 +811,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    openrac::runtime::Memory::create();
+    /* The retail heap still ends at 32 MiB (InitHeap sets 0x02000000).
+     * Native large-resource streaming uses a port-only ring above that limit. */
+    openrac::runtime::Memory::create(GUEST_RAM_EXPANDED_SIZE);
     if (!openrac::runtime::load_elf(executable, image, &reason)) {
         std::cerr << "could not load the Sly 1 boot executable: " << reason << '\n';
         return 1;
