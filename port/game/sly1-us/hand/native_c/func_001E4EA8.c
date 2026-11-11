@@ -53,7 +53,8 @@ static void finish_resource_service(u8* request) {
     func_00151E18(D_00261EF0);
     func_00160CE8(D_002623D8);
     func_0016B520(D_0026FA90);
-    func_00138C00(world, 0);
+    /* Port-only temporary bypass: the active contact list still contains
+     * records that fault in exact retail UpdateWorldContacts. */
     func_00143E40(D_00261990, 0, D_0026186C);
 
     if ((*(u32*)(request + 0x10) & 0x10u) != 0) {

@@ -101,7 +101,8 @@ void func_001EA118(void* world) {
     if (dt != 0.0f) {
         func_001E9C78(world, dt);
         func_001E9E30(world);
-        func_00138C00(world, 0);
+        /* Port-only temporary bypass; the loaded collider list currently
+         * faults in exact retail UpdateWorldContacts before drawing. */
         func_001BDD00(world, 1, dt);
 
         actor_iterator_begin(&iterator, (u32)(object + 0x6C));
@@ -113,7 +114,7 @@ void func_001EA118(void* world) {
         }
         actor_iterator_end(&iterator);
 
-        func_00138C00(world, 1);
+        /* Contact pass bypassed for the same malformed-list startup issue. */
         func_001BDD00(world, 6, dt);
         actor_iterator_begin(&iterator, (u32)(object + 0x60));
         while ((actor = actor_iterator_next(&iterator)) != 0) {

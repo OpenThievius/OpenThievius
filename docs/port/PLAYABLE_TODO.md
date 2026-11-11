@@ -112,6 +112,23 @@ event `0x261`. Log: `/tmp/sly-font-layout-init-asm-15s.log`.
 
 ## Current status (2026-11-11)
 
+**Contact-update bypass and renderer re-entry (2026-11-11):** a fresh run
+confirmed `func_00138C00` faults at guest address `0xBF800228` while walking
+the active world's collider list. Eleven class-`0x1e`/EffectOwner records had
+null contact-table pointers; temporarily unlinking those records did not fix
+the fault, so that attempted list mutation was discarded. The port now
+temporarily bypasses contact updates at the load, resource-service, and frame
+update call sites. This is an explicitly temporary `hand/native_c/` backfill:
+it disables collision/contact simulation and must be removed when collider
+registration is corrected or upstream code can be hosted. With the bypass,
+the launcher stays alive through a 12-second run and reaches regular graphics
+submission. `OPENRAC_TRACE_DIRECT=1` shows large scene packets decoding to zero
+vertices and a repeated 240-vertex untextured UI draw with zero STQ and black
+RGBA. The screen remains black. Next target is the native VIF/VU packet path
+and its display-list output; the contact crash is no longer the immediate
+startup blocker. Logs: `/tmp/sly-contact-bypass-20261111.log` and
+`/tmp/sly-contact-bypass-render-20261111.log`.
+
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed
 `InitScreenElements` calling no-op stubs for timer, gauge, framed text,
 pointer-caption, letterbox, and arc-sprite initialization. Exact US retail

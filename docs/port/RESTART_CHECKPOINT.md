@@ -869,3 +869,24 @@ Latest successful build:
 translation units compiled, 722 functions translated, 247 retail assembly
 translations, 2 unsupported C stubs, and 3,936 functions without C. The
 window remains black; this is not a visual milestone.
+
+## Contact pass and graphics re-entry (2026-11-11)
+
+On the active `wip/native-sly-port` branch, `func_00138C00` exact US assembly
+faults at guest address `0xBF800228` during world loading. The loaded list6C
+contains eleven class-`0x1e` EffectOwner entries with no contact table; removing
+only those nodes for the pass still faulted, so do not keep or revive that
+unlink experiment. A clearly marked temporary port-only bypass now replaces
+the contact pass in the world-load tail, deferred-resource service, and both
+frame-update modes. This permits the run to reach graphics submission but
+disables contact/collision updates. It is not matching decomp work and must be
+removed after collider registration is repaired.
+
+The launcher then runs for the full 12-second bound without a process fault.
+Renderer trace reports repeated large packets (`265616`/`531088` bytes) with
+zero decoded vertices, plus a `2128`-byte UI packet with 240 vertices and one
+draw. That draw is untextured and has zero STQ and black RGBA on its first
+vertex. The window remains black; this is not a visual/playable milestone.
+Logs are `/tmp/sly-contact-bypass-20261111.log` and
+`/tmp/sly-contact-bypass-render-20261111.log`. Build command:
+`cmake --build build/port --target port_native -j2`.

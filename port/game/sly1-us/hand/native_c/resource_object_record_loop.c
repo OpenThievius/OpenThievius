@@ -13,11 +13,15 @@ void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
 
 void func_0011ECB8(void* owner, void* parameter, void* reader)
 {
+    u32 count_cursor = *(u32*)((u8*)reader + 0x18u);
     s32 count = func_00137D10(reader);
     s32 i;
 
     sly1_native_trace_font(83u, (u32)owner, (u32)reader, (u32)parameter,
         (u32)count, *(u32*)((u8*)reader + 0x18u));
+    sly1_native_trace_font(86u, (u32)parameter, (u32)count,
+        count_cursor, *(u16*)count_cursor,
+        (u32)*(s32*)((u8*)reader + 0x1Cu));
 
     if (count <= 0) return;
 

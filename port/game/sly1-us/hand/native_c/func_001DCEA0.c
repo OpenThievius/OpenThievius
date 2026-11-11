@@ -166,7 +166,10 @@ void func_001DCEA0(void* self, void* reader) {
         (void)func_0018D5C0(0x80000);
     }
     if (D_00261990 != 0) func_00144270(D_00261990);
-    func_00138C00(self, 0);
+    /* Temporary port-only bypass: current active collider list contains
+     * malformed records and exact retail contact update faults before the
+     * first native frame. Keep this diagnostic override separate from decomp. */
+    sly1_native_trace_font(179u, (u32)object, 0, 0, 0, 0);
     func_001BEC58(*(s32*)(object + 0x1D74));
     func_001C0B38(self);
     D_0027B314 = saved_context;
