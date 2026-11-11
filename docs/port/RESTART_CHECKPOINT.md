@@ -911,3 +911,24 @@ The trace also reports channel-2 sends with source zero; the native walker
 currently reads 265,472 bytes from EE address zero. Retail `func_00202A80`
 does start DMA for zero source values, so preserve that behavior until the
 caller's intent is established. Log: `/tmp/sly-dma-chain-headers-20261111.log`.
+
+### VIF startup-buffer trace (2026-11-11)
+
+The opt-in trace logs VIF0 chain headers and sixteen payload words. Startup
+submits one VIF0 CNT tag at `0x00211e10` with 46 QWC and an END tag at
+`0x00212100`. Later VIF0 submits use empty CNT/END tags at `0xe041efe0`.
+VIF1's first TADR is `0x00212110`, directly after that VIF0 END tag in the
+shared staging buffer. Its 48-byte setup transfer contains NOP/IRQ and STCYCL
+commands; the current interpreter rejects opcode `0x40` at offset `0x14`
+(`0x400002ff`). The run continues into later VIF1 transfers that emit 736
+DIRECT bytes. This is not currently the explanation for the steady black
+output; keep the warning until the opcode is understood. Do not discard the
+packet or mistake this setup for scene geometry. Logs:
+`/tmp/sly-vif0-data-trace-20261111.log` and
+`/tmp/sly-vif1-failure-context-20261111.log`.
+
+The clearest next tasks remain (1) follow the missing startup StepSequence
+and notifier gate through normal Splash resource activation, (2) identify why
+no active UI draw callbacks run, and (3) trace the 2,128-byte draw packet's
+producer and invalid vertex attributes. The native display remains black;
+no graphics or playable state has been reached.

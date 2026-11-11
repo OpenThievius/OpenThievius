@@ -2668,3 +2668,24 @@ queued. Next trace why the expected StepSequence is absent and why the
 notifier gate is null, then follow normal resource/state activation. Do not
 force a menu or movie. Keep all implementation in `hand/native_c/` separate
 from matching decomp C. Latest run: `/tmp/sly-title-step-sequence-final.log`.
+
+## VIF startup-buffer trace (2026-11-11)
+
+The opt-in DMA trace records VIF0 chain headers and the first sixteen payload
+words. Startup submits one VIF0 CNT tag at `0x00211e10` with 46 QWC, followed
+by an END tag at `0x00212100`; later VIF0 calls point to empty CNT/END tags at
+`0xe041efe0`. VIF1's first TADR is `0x00212110`, immediately after the shared
+buffer's VIF0 END tag. Its 48-byte setup transfer contains NOP/IRQ and STCYCL
+commands, then the current interpreter rejects opcode `0x40` at offset
+`0x14` (`0x400002ff`). The same run continues into later VIF1 transfers that
+emit 736 DIRECT bytes. This isolated setup is not currently the explanation
+for the steady black frame. Preserve the warning until opcode `0x40` is
+understood; do not discard the packet or treat it as scene geometry. Logs:
+`/tmp/sly-vif0-data-trace-20261111.log` and
+`/tmp/sly-vif1-failure-context-20261111.log`. The VIF0 trace is opt-in under
+`OPENRAC_TRACE_DMA_CALL=1` and inspects at most eight chains.
+
+Continue from the stronger active lead: why the startup world has no
+StepSequence/title transition or active UI draw callbacks, then separately
+trace the 2,128-byte packet's invalid vertex attributes. The window is still
+black; no graphics or playable state has been reached.

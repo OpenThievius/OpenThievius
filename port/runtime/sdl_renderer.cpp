@@ -324,6 +324,48 @@ extern "C" void openrac_native_renderer_trace_dma_call(std::uint32_t channel_add
         std::fprintf(stderr, "[native dma call] #%u channel=%#010x source=%#010x\n",
                      index + 1, channel_address, source_address);
     }
+    if (channel_address == 0x10008000u && source_address != 0) {
+        static std::atomic<unsigned> vif0_trace_count{0};
+        const unsigned vif0_index = vif0_trace_count.fetch_add(1, std::memory_order_relaxed);
+        if (vif0_index < 8) {
+            std::uint32_t tag_address = guest_address(source_address);
+            for (unsigned tag_index = 0; tag_index < 8; ++tag_index) {
+                const std::uint8_t* tag = nullptr;
+                std::uint64_t low = 0;
+                if (!guest_span(tag_address, 16, tag)) break;
+                std::memcpy(&low, tag, sizeof(low));
+                const std::uint32_t qwc = static_cast<std::uint32_t>(low & 0xFFFFu);
+                const unsigned id = static_cast<unsigned>((low >> 28) & 7u);
+                const std::uint32_t reference = static_cast<std::uint32_t>(
+                    (low >> 32) & 0x7FFFFFFFu);
+                std::fprintf(stderr,
+                             "[native vif0 chain] #%u tag=%u address=%#010x id=%u qwc=%u reference=%#010x\n",
+                             vif0_index + 1, tag_index, tag_address, id, qwc,
+                             reference);
+                if (tag_index == 0 && id == 1u) {
+                    const std::uint8_t* payload = nullptr;
+                    const std::size_t payload_size = static_cast<std::size_t>(qwc) * 16u;
+                    if (guest_span(tag_address + 16u, payload_size, payload)) {
+                        for (std::size_t word = 0; word < 16u && word * 4u < payload_size; ++word) {
+                            std::uint32_t value = 0;
+                            std::memcpy(&value, payload + word * 4u, sizeof(value));
+                            std::fprintf(stderr, "[native vif0 data] #%u word=%zu value=%#010x\n",
+                                         vif0_index + 1, word, value);
+                        }
+                    }
+                }
+                if (id == 1u) {
+                    tag_address += 16u + qwc * 16u;
+                } else if (id == 2u || id == 5u) {
+                    tag_address = guest_address(reference);
+                } else if (id == 3u || id == 4u) {
+                    tag_address += 16u;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /* Receive the GIF stream after the native VIF1/VU1 path has expanded the
