@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after refreshing to decomp master `d56e797c` (Wave 23) and
+Updated: 2026-11-11, after refreshing to decomp master `bfc74817` (Wave 24) and
 rebuilding against it. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -11,6 +11,14 @@ replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
+
+Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `bfc74817`
+(Wave 24, PR #117), tracking `origin/master`. Wave 24 adds 410 readable names
+and project-owned assembly macros; the US match report is unchanged at
+4,760/4,807 functions and 93.25% of code bytes. No new matching function body
+was available to replace a port backfill. A rebuild against the refreshed
+checkout succeeds: 732 C translations, 388 assembly translations, and 2
+stubs, across 269 generated C units.
 
 Exact retail assembly now covers 15 additional reached GIF, text-panel, frame
 transform, camera, and world-list callbacks. Build coverage is 732 C

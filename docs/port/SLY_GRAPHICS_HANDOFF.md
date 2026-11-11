@@ -1,15 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. Canonical decomp master is `d56e797c` (Wave 23, PR
-#116), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 23
-adds no matched functions or code bytes; it updates compiler investigations
-and near-match scores. Wave 22's `func_001B55C0` and `func_001536C8` remain the
-latest newly matched functions, and their C++ translation units still fail
-native C staging on layout conflicts and C++-only header declarations. The
-current hostgen build links 732 C translations, 340 selected US assembly
-translations, and two generated stubs across 269 generated units. It builds
-the current native launcher.
+Last checked: 2026-11-11. Canonical decomp master is `bfc74817` (Wave 24, PR
+#117), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 24
+adds 410 readable names and project-owned assembly macros, with no change to
+the match report (4,760/4,807 US functions; 93.25% of code bytes). Wave 22's
+`func_001B55C0` and `func_001536C8` remain the latest newly matched functions,
+and their C++ translation units still fail native C staging on layout
+conflicts and C++-only header declarations. The refreshed hostgen build links
+732 C translations, 388 selected US assembly translations, and two generated
+stubs across 269 generated C units. The native launcher builds successfully.
 
 A fresh SDL native launch showed the remaining no-op cluster and exact US
 assembly is now selected for 22 reached visual/UI functions, including text

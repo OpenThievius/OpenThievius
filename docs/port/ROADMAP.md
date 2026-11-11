@@ -24,16 +24,16 @@ visible in the native launcher.
 
 ### Decomp refresh (2026-11-11)
 
-The canonical decomp checkout is current at `d56e797c` (Wave 23, PR #116),
+The canonical decomp checkout is current at `bfc74817` (Wave 24, PR #117),
 with 4,760/4,807 US functions matched and 93.25% of code bytes matched. Wave
-23 adds no matched functions or matched code bytes. It expands compiler
-investigations and re-scores near-matching candidates, including
-`func_00109488`, which remains unmatched and already has a separate port-only
-functional backfill. Wave 22's `func_001B55C0` and `func_001536C8` remain the
-latest newly matched functions; their source units still cannot pass the
-port's C frontend because shared headers contain duplicate collider members,
-failed layout assertions, and C++-only declarations. Neither was reached in
-the latest startup trace. Rebuilding against Wave 23 succeeds with 732 C translations,
+24 adds 410 readable names and project-owned assembly macros, but no newly
+matched functions or code bytes. The names improve navigation and the macros
+make retail assembly easier to read; neither exposes new matching C for the
+port. Wave 22's `func_001B55C0` and `func_001536C8` remain the latest newly
+matched functions; their source units still cannot pass the port's C frontend
+because shared headers contain duplicate collider members, failed layout
+assertions, and C++-only declarations. Neither was reached in the latest
+startup trace. Rebuilding against Wave 24 succeeds with 732 C translations,
 388 retail assembly translations, and 2 stubs. A fresh trace identified 22
 reached visual/UI no-ops and they now run from exact US retail assembly. The
 initialized font count rose from 35 to 37, but all screen elements remain

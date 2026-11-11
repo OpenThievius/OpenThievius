@@ -2,13 +2,13 @@
 # Concrete plan for a playable native Sly 1
 
 **Decomp refresh (2026-11-11):** canonical `sly1-decomp` master advanced from
-`4c574846` (Wave 22, PR #115) to `d56e797c` (Wave 23, PR #116). The US totals
-remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
-functions; it adds compiler investigations and re-scores near-matching C,
-including `func_00109488`, still unmatched and already isolated as a port-only
-backfill. No newly available matching C can replace a port backfill. The
-native launcher rebuild succeeds with 732 C translations, 388 retail assembly
-translations, and 2 generated stubs.
+`d56e797c` (Wave 23, PR #116) to `bfc74817` (Wave 24, PR #117). The US totals
+remain 4,760/4,807 functions and 93.25% of code bytes. Wave 24 adds 410
+readable names and project-owned assembly macros, but no newly matched
+functions or code bytes. This improves source navigation without supplying
+new matching C for the port. `func_00109488` remains unmatched and isolated as
+a port-only backfill. The native launcher rebuild against Wave 24 succeeds
+with 732 C translations, 388 retail assembly translations, and 2 stubs.
 
 **Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
 reached visual routines still running as empty stubs. Exact US assembly is now
