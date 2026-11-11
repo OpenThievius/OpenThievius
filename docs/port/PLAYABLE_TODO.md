@@ -1,23 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current status (2026-11-10)
+## Current status (2026-11-11)
 
-The public `OpenThievius/sly1-decomp` master is `2e00ac70` (PR #109,
-2026-11-06). The clean local checkout at `/home/reaper/Code/sly1-decomp` is
-older at `e1b39f1`; I reviewed the newer read-only snapshot at
-`/tmp/sly1-decomp-2e00ac70` and did not change the decomp repo. Its NTSC-U
-report has 4,741/4,807 functions matched, 91.66% code, and 93.71% data. The
-rework names the screen resource tables, font registry, and loader routines.
+The latest public `OpenThievius/sly1-decomp` master is `9eb87599` (PR #110).
+The checkout at `/home/reaper/sly1-decomp` was 317 commits behind and has been
+fetched; a detached read-only snapshot is at `/tmp/sly1-decomp-9eb87599`.
+Upstream reports 4,747/4,807 NTSC-U functions matched (98.75% by function
+count; 92.49% of code). The major source rework adds typed collision mesh and
+buffered-stream layouts and functional bodies for `func_00137FB0`,
+`func_00138278`, and `func_001BAC30`.
 
-The SDL hostgen build translates 2,043 C functions and 234 selected US
-assembly functions, with zero generated stubs (2,582 catalogued functions
-still have no C). `cmake --build build/port --target port_native -j2` succeeds
-and links `build/port/sly1_native`. These are host coverage figures, not
-matching-decomp percentages. The independent direct host32 build is a separate
-diagnostic path.
+The native hostgen build against that source compiles 260 generated C units:
+713 translated functions, 238 assembly translations, 2 stubs, and 3,951
+functions without C. The whole `file_137290.cpp` source unit remains unreadable
+to hostgen because aggregate headers produce duplicate inherited members and
+layout assertions. Port-only backfills remain separate in
+`hand/native_c/`.
 
-**Canonical rework integration check (2026-11-10):** I built separately
+The latest bounded native run now parses both collision meshes and their face
+trees without the earlier second-mesh stream failure. This was enabled by
+correcting `func_001BAC30` to store `refCount` at `+0x408`, `refs` at `+0x40c`,
+and to read `faceStarts` only when `refCount > 0`, matching the reworked
+upstream `LoadCollider`. The launcher reaches the frame loop without crashing,
+but still reports zero rendered vertices and a black window. The next task is
+to trace the level/world objects that should submit scene geometry. Build and
+latest trace details are in [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md).
+
+**Canonical source integration check (historical, 2026-11-10):** I built separately
 against upstream `2e00ac70` in `build/port/canonical-sdl`, using
 `/tmp/sly1-decomp-2e00ac70` for source and the older local checkout only for
 US retail assembly. It translates 568 functions (251 assembly), stubs 2, and
@@ -2144,7 +2154,7 @@ this is not confirmed game artwork. Trace the producer, framebuffer and
 presentation path. Log: `/tmp/sly-native-ui-callbacks-ready.log` (transient).
 See `RESTART_CHECKPOINT.md` for the restart sequence and detailed readings.
 
-**Canonical decomp recheck (superseded 2026-11-11):** The configured checkout at
+**Canonical decomp recheck (superseded by `9eb87599`, 2026-11-11):** The configured checkout at
 `/home/reaper/Code/sly1-decomp` remains clean at `e1b39f1`, and its
 `ReaperOfVeriod` remote had no new commits. Canonical
 `OpenThievius/sly1-decomp` is at `cf97578`; the temporary read-only checkout is
@@ -2160,7 +2170,7 @@ not queue the opening movie after Splash. Do not change the decomp project or
 fake a movie queue event. The old paused-state note is superseded; port work is
 active on `wip/native-sly-port`.
 
-**Canonical source integration and level parser (2026-11-11):** Canonical
+**Earlier canonical source integration and level parser (superseded by `9eb87599`, 2026-11-11):** Canonical
 master is now `2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The port's
 isolated source staging reads that snapshot and resolves semantic names through
 `include/names.h`; the upstream checkout remains read-only. The clean native

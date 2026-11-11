@@ -229,8 +229,17 @@ kept here: `image_records.c` now passes retail guest addresses as `u32` rather
 than hostgen's unsupported `gaddr` type, and `font_text.c` guards null font
 records encountered before font registration. These are port-only behavior
 and ABI accommodations; remove them or replace them when matching C is
-hostable and resource ordering is handled correctly. The experiment and its
-current failure point are recorded in `docs/port/RESTART_CHECKPOINT.md`.
-For that canonical build, `func_00137FB0` now comes from exact US retail
-assembly. Its former C reader is retained under `hand/superseded_backfills/`
-for comparison and is not compiled into the launcher.
+hostable and resource ordering is handled correctly.
+
+`collision_mesh_reader.c` is an active port-only reader for `func_00137FB0`.
+It follows the current decomp's `Mesh03` layout and read order in
+`file_137290.cpp`, with native-safe count bounds and loader diagnostics. Keep
+it separate from the matching source: the upstream function is still a near
+match, and the whole upstream translation unit currently fails host staging
+on conflicting aggregate headers. The second collision mesh reaches the final
+serialized edge links. Comparing the reworked `LoadCollider` body also fixed
+the port callback's `refCount` and face-start offsets; both collision meshes
+and face trees now complete and the parser advances into placed-object records.
+The bounded launcher reaches the frame loop without rendered vertices. See
+`docs/port/RESTART_CHECKPOINT.md` for the exact source revision, hostgen errors,
+and current graphics frontier.

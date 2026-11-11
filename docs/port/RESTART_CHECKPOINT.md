@@ -358,46 +358,62 @@ without crashing; no emulator was used.
 
 ### Canonical source integration update (2026-11-11)
 
-The prior `d534006` check is superseded by canonical master
-`2e00ac7001cb5016613f8dbc24e1c91a865263e4` (PR #109). The native build now
-points its isolated source staging at `/tmp/sly1-decomp-2e00ac70`; the personal
-`/home/reaper/Code/sly1-decomp` checkout remains old and was not edited. Hostgen
-now unaliases `include/names.h`, and the canonical build compiles/links 258
-generated C units with 707 translated functions, 239 assembly translations,
-and two C stubs.
+The latest upstream Sly decomp master is `9eb87599` (PR #110), fetched from
+`OpenThievius/sly1-decomp` after the local `/home/reaper/sly/sly1-decomp`
+checkout was found 317 commits behind. A detached snapshot is available at
+`/tmp/sly1-decomp-9eb87599`; the decomp checkout was not edited. Its README
+reports 4,747 of 4,807 US functions matched (98.75% by function count; 92.49%
+of code), and the rework adds typed mesh and buffered-stream layouts plus
+functional `func_00137FB0` and `func_00138278` bodies in
+`src/main/file_137290.cpp`.
 
-With the state graph and list guards, Splash completes and the direct-level
-probe reaches sector 867214. The latest level trace fails during object
-parsing: `func_001289C0` requests 1,645,753,056 bytes, then the parser attempts
-code address `0x5f5f`; the final guest fault is `0xFFFFA9E3`. The renderer has
-zero vertices and visible text remains zero. Log:
-`/tmp/sly-canonical-direct-level-queued.log`. A new port-only `func_001BAC30`
-callback, bounded `ReadFaceTree` backfill, and canonical C implementations of
-`ReadPlacedObjectModel` and `BuildLitStripMeshPacket` replace the earlier
-no-op or assembly paths. This removed the huge allocation and `0x5f5f` call.
-The reader now reaches the first collision face tree with plausible counts
-(36,144 nodes over 13,198 faces). It then faults at guest `0x02000000` in the
-second `func_00137FB0` call from `func_001BAC30`, while the retail assembly
-reader stores collision mesh data. It has not reached the world-list updater;
-the current run still shows zero rendered vertices. Latest confirming log:
-`/tmp/sly-canonical-confirmed-frontier.log`.
+The native port was rebuilt against that snapshot. Hostgen still reports 247
+units, 713 translated functions, 238 assembly translations, 2 stubbed, and
+3,951 without C. It cannot compile `file_137290.cpp` as one unit because
+included aggregate headers have duplicate inherited member names and resulting
+layout assertions (including `WorldListedObject::next` and collider
+`contacts`). The new collision reader therefore informs the port-only
+`hand/native_c/collision_mesh_reader.c`; it is not copied into the decomp or
+counted as matching work. `func_00137FB0` remains excluded from hostgen's
+assembly-only list while the backfill is active. The canonical face-tree C is
+also still not hostable, so its separate port backfill remains registered.
+
+Comparing the reworked `LoadCollider` with the port callback found the actual
+second-mesh misalignment: the callback stored the face-reference pointer where
+`refCount` belongs, omitted the `refs` pointer field, then used the first
+mesh's `faceCount` as the condition for reading `faceStarts`. It therefore
+consumed thousands of extra halfwords before the second mesh. The port now
+stores `refCount` at `+0x408`, the refs pointer at `+0x40c`, and reads
+`faceCount + 1` signed halfwords only when `refCount > 0`, matching upstream.
+
+The second mesh now parses with 3,604 vertices, 6,403 faces, and 6,115 edge
+records; its face tree has 16,113 nodes. The callback returns with positive
+stream bytes remaining and the level parser proceeds into placed-object
+records. A 10-second bounded native run reaches the frame loop without a
+process crash. It still reports zero rendered vertices and a black window, so
+the remaining work is in world-object activation or scene draw submission,
+not the second collision-mesh read. Latest native log:
+`/tmp/sly-canonical-9eb87599-collider-offset-fix.log`. Build:
+
+```sh
+cmake -S port -B build/port/canonical-fresh \
+  -DOPENTHIEVIUS_SOURCE_SLY1=/tmp/sly1-decomp-9eb87599 \
+  -DOPENTHIEVIUS_ASM_SOURCE_SLY1=/home/reaper/Code/sly1-decomp \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/port/canonical-fresh --target port_native -j2
+```
 
 ### Active work after resume (2026-11-11)
 
-1. The active port branch is `wip/native-sly-port`; keep changes here.
-2. The canonical decomp snapshot used for the current isolated build is
-   `2e00ac7001cb5016613f8dbc24e1c91a865263e4`; do not contribute port
-   backfills there.
-3. Trace the second collision mesh read in `func_001BAC30`: capture its radius,
-   vertex, face, and edge counts before the exact `func_00137FB0` assembly
-   stores to `0x02000000`; compare those values to the serialized stream.
-4. Keep the C class-4 callback and face-tree reader registered as port-only
-   backfills; remove them when equivalent US decomp C becomes hostable.
-4. Determine whether the level fault comes from a port backfill or an
-   unreadable canonical unit before adding more replacements. Keep each
-   implementation in the port and record which canonical function can replace
-   it later.
-5. Re-run bounded native launches after loader fixes and track scene vertices.
+1. Keep work on `wip/native-sly-port`; keep the canonical decomp checkout
+   read-only.
+2. Trace the loaded level's placed objects from `func_001289C0` through world
+   list activation and the frame draw callbacks. The loader now completes both
+   meshes and face trees, but the frame trace still reports zero vertices.
+3. Keep `func_00137FB0`, `func_00138278`, and the class-4 callback as clearly
+   marked port-only code. Replace them only when the corresponding canonical C
+   can be hosted or when the backfill is deliberately verified against it.
+4. Re-run bounded native launches after a reader fix and track scene vertices.
    Do not claim graphics from resource parsing or a non-black window.
 
 Primary durable notes are this file and `docs/port/PLAYABLE_TODO.md`; the
