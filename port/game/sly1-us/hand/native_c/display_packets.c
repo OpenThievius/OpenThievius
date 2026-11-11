@@ -56,6 +56,32 @@ void func_001EE368(void* opaque, s32 target) {
     }
 }
 
+/* Port-only backfills for packet words also matched in the decomp's newer
+ * source tree. These tiny cursor writers are required by the model VIF path. */
+void func_001EE3F0(void* opaque, s32 bytes) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    const u32 cursor = writer->cursor;
+    *(u32*)cursor = ((u32)(bytes / 8) | 0x14000000u);
+    writer->cursor = cursor + 4u;
+}
+
+void func_001EE420(void* opaque, s32 bytes) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    const u32 cursor = writer->cursor;
+    *(u32*)cursor = ((u32)(bytes / 8) | 0x15000000u);
+    writer->cursor = cursor + 4u;
+}
+
+void func_001EE498(void* opaque, u32 x, u32 y) {
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    if (writer == 0) return;
+    const u32 cursor = writer->cursor;
+    *(u32*)cursor = y | (x << 8) | 0x01000000u;
+    writer->cursor = cursor + 4u;
+}
+
 void func_001EE7D0(void* opaque, s32 qwords, void* source, s32 flag) {
     SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
     if (writer == 0 || source == 0 || qwords < 0) return;

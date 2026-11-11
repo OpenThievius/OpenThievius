@@ -15,7 +15,10 @@ void func_001EE5C8(u32 writer, u32 type, s32 count, u32 flags,
     sly1_native_trace_font(65u, writer, type, (u32)count,
                            out_size, out_cursor);
 
-    if (count == 0) {
+    /* A negative count means the upstream strip range is malformed. Retail
+     * arithmetic would wrap the writer cursor; leave this packet empty while
+     * the port-side loader/relocation path is being corrected. */
+    if (count <= 0) {
         if (out_cursor != 0) *(u32*)out_cursor = 0;
         if (out_size != 0) *(s32*)out_size = 0;
         return;
