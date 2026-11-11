@@ -31,6 +31,11 @@
     "game_sly1_native_trace_model_read_u16",
     "game_sly1_native_trace_model_read_s16",
     "game_sly1_native_trace_model_strip_count",
+    "game_sly1_native_trace_model_part",
+    "game_sly1_native_trace_lz_entry",
+    "game_sly1_native_trace_lz_branch",
+    "game_sly1_native_trace_lz_token",
+    "game_sly1_native_trace_lz_output",
     "sly1_native_boot_level_key",
     "openrac_lib_sly1_signal_sema"
   ],
@@ -104,13 +109,35 @@
       "func_00137D10": {
         "function": "game_sly1_native_trace_model_read_s16",
         "args": ["a0"]
+      },
+      "func_001378A0": {
+        "function": "game_sly1_native_trace_lz_entry",
+        "args": ["a0"]
       }
     },
     "trace_sites": {
       "func_00162890": {
+        "0x00162A08": {
+          "function": "game_sly1_native_trace_model_part",
+          "args": ["r23", "r18"]
+        },
         "0x00162E94": {
           "function": "game_sly1_native_trace_model_strip_count",
-          "args": ["r23", "r18"]
+          "args": ["r23", "r29", "r18"]
+        }
+      },
+      "func_001378A0": {
+        "0x00137910": {
+          "function": "game_sly1_native_trace_lz_branch",
+          "args": ["r16", "r18", "r19", "r21", "r20"]
+        },
+        "0x00137994": {
+          "function": "game_sly1_native_trace_lz_token",
+          "args": ["r16", "r20", "r18", "r17", "r21"]
+        },
+        "0x00137A00": {
+          "function": "game_sly1_native_trace_lz_output",
+          "args": ["r16", "r20", "r18", "r17"]
         }
       }
     },

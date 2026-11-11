@@ -13,6 +13,29 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+### Forced-level input corruption trace (2026-11-11)
+
+The forced-level `0x0100` model failure is downstream of the live compressed
+input stream, not an oversized strip count in the extracted model. In LZ chunk
+228 (`0x70000000` output window), the guest input buffer at `0x01173983`
+matches `resource_0100.sectors.bin` starting at offset `0x173983` through byte
+36, then diverges at byte 37: live `... ff bf 99 1e 00 00 ...`, extracted
+`... ff bf 99 7f 1a bf ...`. The LZ routine takes its literal branch for that
+byte, so the wrong `0x1e` is already in the input buffer before it is copied to
+the output. The decoded resource is correct at the failing model record and
+must not be patched or count-clamped.
+
+The direct 32,381-byte guest input capture is
+`/tmp/sly1-lz-input-0228.bin`; compare it with
+`build/port/extracted/catalog/resource_0100.sectors.bin` at offset
+`0x173983`. The branch/token trace is
+`/tmp/sly-lz-input-capture-20261111.log`. The forced-level run still exits on
+the 32 MiB EE heap exhaustion after the corrupt model data reaches the ASM
+reader. Next, trace the source fill/refill path (`func_001377C0` /
+`func_00137490` via `func_00137820`) and compare the bytes immediately after
+those reads with the sector resource. Do not change the model reader, raise the
+heap limit, or clamp strip counts to conceal this upstream mismatch.
+
 The local sibling checkout `/home/reaper/sly/sly1-decomp` remains untouched at
 `bfc74817`. Canonical upstream master is `674b40e` (PR #122, Wave 29), staged
 read-only at `/tmp/sly1-decomp-674b40e-source`. The native build uses this C
@@ -41,13 +64,14 @@ Latest normal log: `/tmp/sly-wave29-normal-15s-20261111.log`.
 The forced `OPENRAC_BOOT_LEVEL=0x0100` trace localizes the 32 MiB EE heap
 failure to `func_00162890`: model part 512 reads `nstrips=0xFF02` from cursor
 `0x7000011a`, causing 5.22 MiB and 3.13 MiB array requests before repeated
-15,904-byte packet allocations exhaust the heap. The preceding 21 fixed bytes
-match the model-reader field layout. A 128-byte live scratchpad window matches
-the extracted decoded level resource, including `02 ff`; this does not yet
-prove the live refill output is correct against retail. Do not clamp the count
-or raise the heap limit. The old estimate of part 1,093 was wrong and is
-superseded by the call-site trace. The model reader remains retail ASM; the
-partial native C version must stay disabled. Logs:
+15,904-byte packet allocations exhaust the heap. The model count is malformed
+because live compressed input at `0x01173983` diverges from the extracted
+resource at byte 37 of LZ chunk 228 (`1e` live, `7f` expected). The decoded
+resource and model reader remain unchanged; the mismatch must be fixed in or
+before the compressed input fill/refill path. Do not clamp the count or raise
+the heap limit. The old estimate of part 1,093 was wrong and is superseded by
+the call-site trace. The model reader remains retail ASM; the partial native C
+version must stay disabled. Logs:
 `/tmp/sly-model-neighbor-counts-20261111b.log`,
 `/tmp/sly-model-strip-part-512.bin`, and
 `/tmp/sly-model-strip-capture-20261111.log`.

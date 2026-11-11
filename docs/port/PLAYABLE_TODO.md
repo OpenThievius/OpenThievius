@@ -9,8 +9,11 @@ functions, with 2 stubs across 276 units. Normal launch still shows a black
 window after 15 seconds: 37 UI objects remain inactive, and there is no visible
 text, geometry, or image transfer. A forced level `0x0100` load fails at model
 part 512 when the retail ASM reader consumes `nstrips=0xFF02`; the 32 MiB heap
-then exhausts. Do not clamp that count or increase the heap. The latest parser
-trace and source refresh are below. Keep missing-function backfills in the
+then exhausts. A byte-level trace shows the guest compressed-input buffer
+diverges from the extracted level resource at byte 37 of LZ chunk 228 (`1e`
+live vs `7f` expected); the malformed model count is downstream. Do not clamp
+that count or increase the heap. The latest input-buffer capture and source
+refresh are below. Keep missing-function backfills in the
 separate port-only directories so matching decomp C can replace them cleanly.
 
 **Historical decomp refresh (Night 26, 2026-11-11):** fetched `origin/master` through
