@@ -87,14 +87,15 @@ precedence over that list. Some launcher paths still contain guest-addressed
 EE/DMA/VIF/VU/GS compatibility services from the earlier startup experiment;
 they are diagnostic scaffolding, not the target gameplay architecture.
 
-The current graphics task is to inspect the decoded font atlas and alpha plane,
-then trace indexed texture/CLUT conversion, UVs, and GS blend/test state into
-the OpenGL output. The launch command and texture dump are in
-`docs/port/SLY_GRAPHICS_HANDOFF.md`. Contributors comfortable with PS2 GS
-formats, GIF packets, OpenGL shaders, and image inspection can take this
-track. Once a readable menu is visible, the port still needs
-the title/level transition, Sly pad-library integration, controllable character
-movement and collision, real audio, and saves. See the
+The current graphics task is to trace normal Splash/title activation and why
+all UI elements stay inactive, then inspect the 2,128-byte UI packet's
+invalid attributes. The latest native run still has zero visible vertices,
+image tags, or text. A separate DMA fix now preserves VIF1's retail-set TTE
+bit; it removes the malformed startup stream but has not produced graphics.
+See the launch command and evidence in `docs/port/SLY_GRAPHICS_HANDOFF.md`.
+Once a readable menu is visible, the port still needs the title/level
+transition, Sly pad-library integration, controllable character movement and
+collision, real audio, and saves. See the
 [roadmap](../docs/port/ROADMAP.md) and [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md)
 for status and starter tasks.
 

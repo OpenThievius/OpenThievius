@@ -940,3 +940,19 @@ vertices, image tags, image qwords, and visible text; all 37 UI objects are
 inactive and no movie is queued. Next, follow normal Splash/title activation,
 then the 2,128-byte packet's producer and invalid attributes. The display
 remains black; no graphics or playable state has been reached.
+
+### Upstream decomp refresh (2026-11-11)
+
+Fetched canonical `OpenThievius/sly1-decomp` master `782e2899` (PR #121).
+The working checkout `/home/reaper/sly/sly1-decomp` remains read-only at
+`bfc74817`; only its remote tracking ref changed. The latest clean source
+snapshot is `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 added readable
+names, five `.data` labels, shared type/declaration cleanup, and classification
+of `.vutext` as 21,840 bytes of original VU microcode. Matched US functions
+and code bytes remain 4,760/4,807 and 93.252%; the data metric rose to 99.628%
+from classifying existing content, not new C. Isolated hostgen against this
+snapshot reports 734 C translations, 498 assembly translations, 2 stubs, and
+3,677 functions without C across 256 units. It adds no matching source on the
+current Splash/UI path. The active `build/port` launcher continues to use its
+existing staged source because the fresh hostgen report showed no new C
+translations for this path.

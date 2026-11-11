@@ -24,18 +24,18 @@ visible in the native launcher.
 
 ### Decomp refresh (2026-11-11)
 
-The canonical decomp checkout is current at `bfc74817` (Wave 24, PR #117),
-with 4,760/4,807 US functions matched and 93.25% of code bytes matched. Wave
-24 adds 410 readable names and project-owned assembly macros, but no newly
-matched functions or code bytes. The names improve navigation and the macros
-make retail assembly easier to read; neither exposes new matching C for the
-port. A fresh fetch on 2026-11-11 found no later commit. Wave 22's
-`func_001B55C0` and `func_001536C8` remain the latest newly
-matched functions; their source units still cannot pass the port's C frontend
-because shared headers contain duplicate collider members, failed layout
-assertions, and C++-only declarations. Neither was reached in the latest
-startup trace. Rebuilding against Wave 24 succeeds with 732 C translations,
-405 retail assembly translations, and 2 stubs. Recent assembly selections
+Canonical `sly1-decomp` master is now `782e2899` (PR #121); the working
+checkout remains read-only at `bfc74817`. The latest source archive is
+`/tmp/sly1-decomp-782e2899-source`. Waves 25–27 add readable names, five
+`.data` labels, shared type/declaration cleanup, and classify `.vutext` as
+21,840 bytes of original VU microcode. Matched US code is unchanged at
+4,760/4,807 functions and 93.252%; the data coverage increase to 99.628% is
+not newly decompiled game logic. Hostgen against the latest archive yields
+734 C translations, 498 retail assembly translations, 2 stubs, and 3,677
+functions without C in 256 units; it adds no matched implementation for the
+current startup/UI path. The VU0 transfer at `0x00211e10` is this `.vutext`
+section. Keep any future VU0 work as native call-site C, not a hardware
+emulator. Recent assembly selections
 restore reached object, animation, range-bound, and rendering callbacks. A
 fresh 45-second run with the range-bound functions still reports zero
 vertices, image tags, GIF-chain submissions, visible text, or queued movie at
@@ -45,6 +45,20 @@ movie queued and no graphics submissions. Wave 24 names
 `0x275BC0` as `g_elementStack` and `func_001E9108` as `UpdateElementStack`;
 this corrects the earlier interpretation of state 3 as an app-level input
 wait. The startup transition and missing graphic output remain unresolved.
+
+### VIF1 tag-transfer correction (2026-11-11)
+
+Retail sets CHCR TTE (`0x40`) before submitting the first VIF1 microcode
+chain, but port-only `func_00202A80` replaced CHCR with `0x105` and cleared
+that bit. The native VIF1 handler already consumes inline VIF tag codes when
+TTE is set. The backfill now preserves it, so startup parses the initial
+64-byte transfer as one MPG plus one MSCAL and accepts the next stream's eight
+MPGs and 736 DIRECT bytes. The fix removes the malformed-stream warning but
+does not produce visuals: at 3.45 guest seconds the Splash world is active,
+all 37 UI objects are inactive, and vertices, image tags, image qwords, and
+visible text are zero. The separate VIF0 upload remains unhandled; its source
+is the `.vutext` microcode section. Trace:
+`/tmp/sly-vif1-tte-startup-8s-20261111.log`.
 
 ### Range-bound recovery (2026-11-11)
 

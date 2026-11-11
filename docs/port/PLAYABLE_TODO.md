@@ -2698,5 +2698,22 @@ The VIF1 fix advances setup but does not change the visible result: the
 still reports zero vertices, image tags, image qwords, and visible text. No
 movie is queued, and all 37 UI objects remain inactive. Continue from the
 missing normal Splash/title activation and the invalid 2,128-byte UI draw
-packet. Do not force a menu or movie. Logs:
-the window remains black; no graphics or playable state has been reached.
+packet. Do not force a menu or movie. The window remains black; no graphics
+or playable state has been reached.
+
+## Upstream decomp refresh (2026-11-11)
+
+Fetched canonical `OpenThievius/sly1-decomp` master at `782e2899` (PR #121).
+The working checkout `/home/reaper/sly/sly1-decomp` remains read-only at
+`bfc74817`; only its remote tracking ref was updated. A clean source snapshot
+is available at `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 add name and
+declaration/type cleanup, five `.data` labels, and classify the 21,840-byte
+`.vutext` section as original VU microcode. Matched US functions and code bytes
+are unchanged at 4,760/4,807 and 93.252%; the 99.628% data metric reflects
+classification/labels, not new game logic. Hostgen against the current source
+still reports 734 C translations, 498 selected retail-assembly translations,
+2 stubs, and 3,677 functions without C (256 units, 31 seconds). No new
+matched implementation covers the current Splash/UI path. The VIF0 chain
+trace's start address `0x00211e10` is the `.vutext` base; the port still drops
+that channel. Follow only if the reachable native path needs VU0 behavior;
+implement the specific function in native C rather than adding a VU emulator.

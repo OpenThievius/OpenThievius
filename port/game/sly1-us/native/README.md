@@ -9,16 +9,17 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-The canonical `sly1-decomp` master is at `bfc74817` (Wave 24, PR #117),
-checked again on 2026-11-11; no newer commits were found. Its US report is
-4,760/4,807 functions and 93.25% of code bytes matched. Wave 24 adds names and
-assembly macros, but no matched functions. The native build uses this checkout
-for C. Its selected US retail assembly is freshly generated from the same
-checkout and the user's own ELF in a temporary copy at
-`/tmp/sly1-decomp-wave24-asm`; no assembly or executable is committed. The
-build translates 732 C functions and 405 assembly functions, with 2 generated
-stubs across 269 C units. Build: `cmake --build build/port --target
-port_native -j2`.
+Canonical `sly1-decomp` master is `782e2899` (PR #121). The checkout at
+`/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; its remote
+tracking ref was fetched, not checked out. The latest read-only source archive
+is `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 added names, five `.data`
+labels, shared type/declaration cleanup, and classified the `.vutext` VU
+microcode section. Matched US code remains 4,760/4,807 functions and 93.252%
+of code bytes; no matched implementation was added for the current startup/UI
+path. Hostgen against the latest archive yields 734 C functions, 498 retail
+assembly functions, 2 stubs, and 3,677 without C in 256 units. The active
+`build/port` launcher was rebuilt after the port-only VIF1 TTE correction;
+all functional backfills remain separate from `sly1-decomp`.
 
 The current Splash trace resolves the CountdownNotifier's graph pointer to
 StateGraph ID `0x25f` and creates its walker. The graph's animation player

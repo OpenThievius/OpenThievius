@@ -1,13 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. `origin/master` for `sly1-decomp` is now
-`1bd176fe` (Night 26, PR #119); the clean checkout at
-`/home/reaper/sly/sly1-decomp` remains at `bfc74817` (Wave 24, PR #117), so a
-read-only archive at `/tmp/sly1-decomp-night26-source` supplies current C and
-US metadata to hostgen. These commits add no newly matched C for the current
-startup/UI path. Hostgen translates 732 C functions, 405 US retail assembly
-functions, and 2 stubs across 269 generated C units. The launcher builds.
+Last checked: 2026-11-11. Canonical `sly1-decomp` master is now
+`782e2899` (PR #121); the checked-out source at
+`/home/reaper/sly/sly1-decomp` remains at `bfc74817` and was not modified.
+The read-only snapshot at `/tmp/sly1-decomp-782e2899-source` supplies the
+latest source to hostgen. Waves 25–27 add readable names, five `.data` labels,
+shared type/declaration cleanup, and classify the 21,840-byte `.vutext`
+section as original VU microcode. They add no matched functions or code bytes
+(4,760/4,807 functions; 93.252% code unchanged). Data coverage increases to
+99.628% by classifying existing VU microcode and data labels, not new game C.
+Hostgen against this snapshot yields 734 C functions, 498 retail assembly
+functions, 2 stubs, and 3,677 without C in 256 units. The source changes add
+no matched implementation for the current startup/UI path.
+
+The native VIF1 DMA backfill now preserves the TTE bit set by the retail
+caller. Previously it overwrote CHCR with `0x105`, dropping inline VIF codes,
+so the interpreter tried to decode VU microinstructions as commands. The
+fixed startup transfer parses as 64 bytes with one MPG and one MSCAL; the next
+large transfer parses eight MPGs and 736 DIRECT bytes. The window still
+reaches Splash with zero vertices/image tags and no visible text. The
+unhandled VIF0 upload begins at `.vutext` address `0x00211e10`; do not expand a
+hardware VU emulator. If VU0 work is needed by a reachable path, port its
+specific call-site behavior into native C. Latest trace:
+`/tmp/sly-vif1-tte-startup-8s-20261111.log`.
 
 Current visual diagnosis: startup reaches frame state 3 and creates the UI
 objects/fonts, but their draw methods are inactive. The frame's UI dispatchers
