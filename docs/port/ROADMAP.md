@@ -41,7 +41,8 @@ unchanged.
 
 The startup frame initializer called `func_00193210`, `func_00193270`, and
 `func_00193288` as no-op stubs. Exact US retail assembly is now selected for
-all three; the build links with 338 assembly translations. A fresh 15-second
+all three; that earlier build linked with 338 assembly translations. The
+current build has 340 after restoring two reached font/layout helpers. A fresh 15-second
 native trace confirms those no-op warnings are gone but still reports zero
 vertices, visible text, and GIF submissions. It also confirms the Splash
 StateGraph object exists at ID `0x25f`, remaining on state 2 / event `0x261` /
