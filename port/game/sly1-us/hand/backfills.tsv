@@ -267,6 +267,8 @@ func_00152438	native_c/intrusive_lists.c
 func_00152440	native_c/intrusive_lists.c
 func_00152600	native_c/intrusive_lists.c
 func_00139EC8	native_c/frame_object_transfer.c
+func_001963D8	native_c/object_group_lifecycle.c
+func_00196900	native_c/object_group_lifecycle.c
 func_00152460	native_c/intrusive_lists.c
 func_00152720	native_c/intrusive_lists.c
 func_0018D410	native_c/resource_key.c
