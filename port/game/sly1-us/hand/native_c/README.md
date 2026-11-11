@@ -9,6 +9,12 @@ listed in `../overrides.tsv`; otherwise hostgen keeps the decomp definition
 when both are present. Entries in `backfills.tsv` cover functions supplied
 where matching C is absent.
 
+`func_001B5EA0.c` implements the state-walker free-pool pop, and
+`func_001B6D78.c` dispatches a walker's class and registered listeners. They
+are port-only backfills for the current state-graph startup path. Exact US
+retail assembly supplies the surrounding graph loader/start/walker routines
+in `hostgen.json`; retire these C helpers when their matching C is hostable.
+
 `func_00144008`, `func_001EEBB0`, and `func_001389D0` are port-only scalar
 translations of the retail camera basis update, tagged direction-list query,
 and two-axis endpoint sorter. They are listed in `backfills.tsv` so the SDL

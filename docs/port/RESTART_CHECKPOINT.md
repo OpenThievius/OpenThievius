@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after refreshing canonical master to `55d39f28`. Work in
+Updated: 2026-11-11, after the state-graph follow-up on canonical master
+`55d39f28`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -44,8 +45,7 @@ submissions. Log: `/tmp/sly-canonical-55d39f28-mesh-queue-cluster-8s.log`.
 This is a correctness fix for the animation mesh-copy queue, not a graphics
 milestone. The five direct-level outer groups remain marked to skip geometry,
 so do not change their flags or force their draw path. Continue with the normal
-Splash-to-title/state transition and identify why Splash's state graph link for
-object ID `0x25f` is absent; only then can its walker/draw lifecycle run.
+Splash-to-title/state transition and trace which class draw callbacks run.
 
 ## Canonical decomp refresh checkpoint (2026-11-11)
 
@@ -58,10 +58,32 @@ code. A detached source worktree is `/tmp/sly1-decomp-55d39f28`. The isolated
 build at `build/port/canonical-55d39f28` uses this source and the older
 `/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
 hostgen C frontend cannot parse several refreshed C++ units and falls back to
-assembly for their new definitions; with the current loader assembly selections,
+assembly for their new definitions; at that first refresh point,
 linked coverage is 725 translated functions, 257 selected assembly functions,
 2 stubs, and 3,925
 functions without C across 265 generated C units. The build succeeds.
+
+## State-graph startup follow-up (2026-11-11)
+
+The earlier Splash lookup diagnosis was wrong: a later trace shows the real
+class-`0x88` StateGraph with ID `0x25f` at `0x00847800`. Exact US retail
+assembly is now selected for `StartStateGraph` (`0x001B61A8`),
+`SpawnInitialStateWalker` (`0x001B61F0`), `CreateStateWalker`
+(`0x001B6290`), `FindStateEntryIndexOrZero` (`0x001B63F8`),
+`FindStateEntryIndex` (`0x001B63C0`), `PopZeroedFreeSlot` (`0x001B5EE0`),
+`StartNextStateWalkerEdge` (`0x001B66A0`), `NotifyStateWalkerChange`
+(`0x001B6E28`), and `CreateAnimationPlayerWithoutPresetTargets`
+(`0x0012C7B0`). `PopFreeSlot` (`0x001B5EA0`) and
+`CallStateWalkerListeners` (`0x001B6D78`) are separate port-only C backfills
+under `hand/native_c/`, registered in `backfills.tsv`.
+
+The isolated build succeeds with 727 C translations, 266 retail assembly
+translations, 2 stubs, and 3,914 functions without C across 267 generated C
+units. A 10-second native run has no no-op warnings in the reached state-graph
+path, but still reports frame state `0,3,0`, zero scene vertices, no visible
+text, and no GIF submissions. The state-graph path is no longer stubbed, but
+the trace does not confirm a title transition; the black screen remains. Trace:
+`/tmp/sly-canonical-55d39f28-state-animation-10s.log`.
 
 Port overrides without a host-readable matching C definition are staged
 ahead of the canonical units as separate port-owned source files. This lets
@@ -90,17 +112,17 @@ The port now separates the two lookup paths made clear by the reworked source:
 `func_0015A198` is the object-ID hash gatherer and `func_0015A4F0` is the
 class-kind gatherer. The updated `func_0015A418` wrapper uses the former, as
 canonical `FindFirstObjectById` does. This fixes the stale port lookup's
-incompatible semantics and compiles as an isolated override. In the current
-Splash run the state-notifier link search for ID `0x25f` still returns zero;
-the notifier's graph pointer at `+0x2e4` is null. Its `-1` to `0` transition
-still requests event `0x261`, but `CreateStateWalker` (`0x001b6290`) is a no-C
-stub. State is 0, the timer gate is 0, and graphics/text/DMAs remain absent.
+incompatible semantics and compiles as an isolated override. The older Splash
+run reported the state-notifier link search for ID `0x25f` as zero and the
+graph pointer at `+0x2e4` as null; the later state-graph follow-up above
+supersedes that result. Its `-1` to `0` transition requested event `0x261`,
+but `CreateStateWalker` (`0x001b6290`) was then a no-C stub. State was 0, the
+timer gate was 0, and graphics/text/DMAs were absent.
 The state-setter backfill currently covers modes 0, 2, 3, 6, and 7; modes 4
 and 5 still need the camera math. Trace:
-`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`. Next find why Splash's
-resource load leaves object ID `0x25f` absent before investing in the walker
-helpers. Keep the implementation under `hand/overrides_c/` so matching C can
-replace it later.
+`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`. This earlier trace
+predates the state-graph follow-up above. Keep the implementation under
+`hand/overrides_c/` so matching C can replace it later.
 
 The first refreshed native run against `55d39f28` showed a class-`0x53`
 ObjectGroup stream fault: after an initial list count of 36, a nested count

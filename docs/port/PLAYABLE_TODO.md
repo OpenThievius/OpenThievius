@@ -39,17 +39,32 @@ fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 `f36f43ee`, it matches nine additional US functions in collision, object
 interpolation, and player physics code. Those new definitions are not yet
 hosted by this port: the current C hostgen staging step cannot parse their
-updated C++ headers and falls back to retail assembly for them. The refreshed
-build links 725 translated functions, 257 retail assembly translations,
+updated C++ headers and falls back to retail assembly for them. At that first
+refresh point, the build linked 725 translated functions, 257 retail assembly translations,
 2 stubs, and 3,925 functions without C across 265 generated C units. The source
 snapshot is `/tmp/sly1-decomp-55d39f28`; `/home/reaper/sly/sly1-decomp` is now
 fast-forwarded to `55d39f28` and clean. Build:
 `build/port/canonical-55d39f28`.
 
-The nine new matches are useful decompilation progress, but they do not cover
-the resource/group loader currently blocking visuals. Keep port-only C under
-`hand/native_c/` or `hand/overrides_c/`; do not patch matching sources to work
-around hostgen limitations.
+**State-graph follow-up (2026-11-11):** the latest default-startup trace
+confirms the Splash StateGraph object is present at `0x00847800`, class `0x88`,
+ID `0x25f`. This supersedes the earlier conclusion that its link was absent.
+The graph start, initial walker, state-key lookup, edge planner, and event
+helpers are now selected from US retail assembly; two small pool/listener
+helpers remain isolated port C backfills. A 10-second native run has no
+no-op warnings in that reached state-graph path, but startup remains in frame
+state `0,3,0`; vertices, visible text, and GIF submissions are still zero.
+The path is no longer stubbed, but the trace does not yet confirm a title
+transition. Log:
+`/tmp/sly-canonical-55d39f28-state-animation-10s.log`.
+The current build has 727 C translations, 266 assembly translations, 2 stubs,
+and 3,914 functions without C across 267 generated units.
+
+Those nine new matches are useful decompilation progress in collision, object
+interpolation, and player physics; they are not the remaining graphics blocker.
+Several refreshed C++ units are still unreadable to the native C hostgen path.
+Keep port-only C under `hand/native_c/` or `hand/overrides_c/`; do not patch
+matching sources to work around hostgen limitations.
 
 **Earlier notifier trace (superseded by the lookup follow-up below):** the
 `9eb87599` snapshot showed a class-`0x57` CountdownNotifier at state `-1`,
@@ -68,15 +83,16 @@ separate trace fix now reads owner at `+0x2ec` (the old trace mislabeled
 `+0x2e8`, the state-walker handle). The rework shows that `0x0015a198` is the
 object-ID hash gatherer, while `0x0015a4f0` gathers by class kind. The port now
 keeps those paths separate, and `0x0015a418` delegates to the object-ID
-gatherer as canonical `FindFirstObjectById` does. Splash's link lookup for
-object ID `0x25f` still returns zero, leaving the graph pointer at `+0x2e4`
-null. The notifier nevertheless transitions from `-1` to `0`, invokes owner
-method `0x00182c80`, and requests event `0x261`; `CreateStateWalker`
-(`0x001b6290`) remains a no-C stub. State 0 and timer gate 0 are confirmed,
+gatherer as canonical `FindFirstObjectById` does. This older trace reported
+object ID `0x25f` absent and the graph pointer at `+0x2e4` null; the state-graph
+follow-up above supersedes that result. The notifier nevertheless transitions
+from `-1` to `0`, invokes owner method `0x00182c80`, and requests event `0x261`;
+`CreateStateWalker` (`0x001b6290`) was then a no-C stub. State 0 and timer
+gate 0 were confirmed,
 with no visible text or vertices, GIF image tags, or DMA submissions. The
 separate `0x00147ab0` backfill covers modes 0, 2, 3, 6, and 7; modes 4 and 5
-still need canonical camera math. Find why the Splash resource load lacks ID
-`0x25f` before implementing state-walker helpers. Log:
+still need canonical camera math. This earlier trace predates the state-graph
+follow-up above. Log:
 `/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`.
 
 **Latest source refresh and resource trace (2026-11-11):** building against
@@ -192,13 +208,13 @@ now holds the small text-layout setter backfills for `func_00137228` and its
 adjacent entries. Retire these when the corresponding hostable decomp code is
 available.
 
-**Next:** keep following the ordinary Splash-to-title/state transition and
-trace which class draw callbacks run on frames. The direct-level probe loads
+**Next:** follow the ordinary Splash-to-title/state transition now that the
+graph and initial walker path run. Trace its state/event callbacks and the
+class draw callbacks on frames. The direct-level probe loads
 resource/world lists, but its five outer groups are flagged to skip geometry;
-preserve that retail behavior and do not force their draw path. Resolve the
-missing Splash graph link at object ID `0x25f` before constructing a state
-walker. The native render writer still has no GS geometry, so visuals and the
-playable state remain unachieved. Keep each functional
+preserve that retail behavior and do not force their draw path. The native
+render writer still has no GS geometry, so visuals and the playable state
+remain unachieved. Keep each functional
 replacement in the port backfill area and retire it when matching source is
 hostable. The port is not playable yet.
 

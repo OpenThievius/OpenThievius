@@ -3,14 +3,22 @@
 
 Last checked: 2026-11-11. Canonical decomp master is `55d39f28` (PR #113),
 and `/home/reaper/sly/sly1-decomp` is clean at that commit. The current
-canonical hostgen build links 725 C translations, 257 selected US assembly
-translations, and two generated stubs. It builds the native host32 launcher.
+hostgen build links 727 C translations, 266 selected US assembly translations,
+and two generated stubs across 267 generated units. It builds the native
+host32 launcher.
 
-Startup now reaches the initial resource, sets `g_currentWorld=0x006abdd0`,
-registers four fonts, and submits 240 raw vertices on some frames. It is still
-visually black: samples are `0x80000000`, with zero GIF image tags/qwords,
-blit writes, and visible text. The resource tables now contain 61 image
-records and 63 palette records; four font IDs are registered. Port-only
+The Splash StateGraph link is present (`0x00847800`, ID `0x25f`), correcting
+the earlier missing-link diagnosis. The graph start and initial walker
+routines are no longer no-op stubs; its small pool-pop and listener
+dispatch helpers are port-only C backfills. The latest bounded run still has
+zero scene vertices, visible text, and GIF submissions, so there are no
+confirmed game graphics yet.
+
+Older SDL traces reached the initial resource, set `g_currentWorld=0x006abdd0`,
+and briefly reported 240 raw vertices; those samples were not confirmed game
+art. The current canonical host32 run remains visually black with zero scene
+vertices, visible text, and GIF submissions. The resource tables contain 61
+image records and 63 palette records; four font IDs are registered. Port-only
 `QueueWorldLoad` and image record readers remain separate under
 `hand/native_c/` and `hand/backfills.tsv`. Exact US assembly is enabled for the
 reached image-mask upload and screen packet builders. Those functions remove
