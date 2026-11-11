@@ -6,9 +6,20 @@
 remain 4,760/4,807 functions and 93.25% of code bytes. Wave 24 adds 410
 readable names and project-owned assembly macros, but no newly matched
 functions or code bytes. This improves source navigation without supplying
-new matching C for the port. `func_00109488` remains unmatched and isolated as
-a port-only backfill. The native launcher rebuild against Wave 24 succeeds
-with 732 C translations, 396 retail assembly translations, and 2 stubs.
+new matching C for the port. A fresh fetch on 2026-11-11 found no commits after
+`bfc74817`. `func_00109488` remains unmatched and isolated as a port-only
+backfill. The native launcher rebuild against Wave 24 succeeds with 732 C
+translations, 405 retail assembly translations, and 2 stubs.
+
+**Range-bound recovery (2026-11-11):** added exact US retail assembly for
+`UpdateRangeRecordBounds` and `AreFloatsNearlyEqual`, which the decomp's
+range-record source identifies as the sphere-bound calculation and its
+comparison helper. This addresses a plausible culling/packet-queue blocker.
+A fresh 45-second native run still reaches 22.08 guest seconds with zero
+vertices, image tags, GIF-chain submissions, visible text, or queued movie;
+the new functions emitted no missing-function warnings. This rules out only
+the missing implementations themselves, not the wider culling path. Log:
+`/tmp/sly-wave24-range-bounds-45s.log`.
 
 **Native input correction (2026-11-11):** retail `PollPadInput` combines
 button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the

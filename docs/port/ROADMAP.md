@@ -29,21 +29,33 @@ with 4,760/4,807 US functions matched and 93.25% of code bytes matched. Wave
 24 adds 410 readable names and project-owned assembly macros, but no newly
 matched functions or code bytes. The names improve navigation and the macros
 make retail assembly easier to read; neither exposes new matching C for the
-port. Wave 22's `func_001B55C0` and `func_001536C8` remain the latest newly
+port. A fresh fetch on 2026-11-11 found no later commit. Wave 22's
+`func_001B55C0` and `func_001536C8` remain the latest newly
 matched functions; their source units still cannot pass the port's C frontend
 because shared headers contain duplicate collider members, failed layout
 assertions, and C++-only declarations. Neither was reached in the latest
 startup trace. Rebuilding against Wave 24 succeeds with 732 C translations,
-396 retail assembly translations, and 2 stubs. A fresh trace identified 22
-reached visual/UI no-ops and they now run from exact US retail assembly. The
-initialized font count rose from 35 to 37, but all screen elements remain
-inactive and renderer counters remain at zero. The player advances along the
-Splash graph’s state-2 self-edge. A 65-second native run reaches 32.15 guest
-seconds but remains in global element-stack state 3, which is its normal
-state, with no movie queued and no graphics submissions. Wave 24 names
+405 retail assembly translations, and 2 stubs. Recent assembly selections
+restore reached object, animation, range-bound, and rendering callbacks. A
+fresh 45-second run with the range-bound functions still reports zero
+vertices, image tags, GIF-chain submissions, visible text, or queued movie at
+22.08 guest seconds. A 65-second native run reaches 32.15 guest seconds but
+remains in global element-stack state 3, which is its normal state, with no
+movie queued and no graphics submissions. Wave 24 names
 `0x275BC0` as `g_elementStack` and `func_001E9108` as `UpdateElementStack`;
 this corrects the earlier interpretation of state 3 as an app-level input
 wait. The startup transition and missing graphic output remain unresolved.
+
+### Range-bound recovery (2026-11-11)
+
+The native configuration now translates exact US retail assembly for
+`UpdateRangeRecordBounds` (`func_001B1BF8`) and `AreFloatsNearlyEqual`
+(`func_001EAC68`). Range records feed sphere bounds into packet visibility and
+culling, so their prior no-op behavior was a plausible reason scene objects
+never reached rendering. The 45-second run confirms these implementations
+load without missing-function warnings, but render counters remain at zero.
+The next investigation needs to follow range-record setup through visibility
+selection and packet insertion. Log: `/tmp/sly-wave24-range-bounds-45s.log`.
 
 ### Native pad report correction (2026-11-11)
 

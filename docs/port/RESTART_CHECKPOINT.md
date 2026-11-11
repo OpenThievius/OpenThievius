@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after refreshing to decomp master `bfc74817` (Wave 24) and
-rebuilding against it. Work in
+Updated: 2026-11-11, after re-fetching decomp master `bfc74817` (Wave 24),
+restoring range-bound callbacks, and rebuilding the native launcher. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -11,6 +11,20 @@ replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
+
+The decomp checkout was fetched again and remains clean at `bfc74817` on
+`master`; no commits have landed after Wave 24 / PR #117. The US report remains
+4,760/4,807 functions and 93.25% of code bytes. The port build now reports 732
+C translations, 405 US retail assembly translations, and 2 stubs.
+
+The latest port change selects exact US retail assembly for
+`UpdateRangeRecordBounds` (`func_001B1BF8`) and `AreFloatsNearlyEqual`
+(`func_001EAC68`). The 45-second native run reaches 22.08 guest seconds, but
+still reports zero vertices, image tags, GIF-chain submissions, visible text,
+or queued movie. No artificial input was sent. Log:
+`/tmp/sly-wave24-range-bounds-45s.log`. Continue by tracing range-record
+initialization, camera visibility, and packet insertion; the bounds callbacks
+alone did not bring graphics on screen.
 
 Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `bfc74817`
 (Wave 24, PR #117), tracking `origin/master`. Wave 24 adds 410 readable names
