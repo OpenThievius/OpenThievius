@@ -20,6 +20,15 @@ was available to replace a port backfill. A rebuild against the refreshed
 checkout succeeds: 732 C translations, 388 assembly translations, and 2
 stubs, across 269 generated C units.
 
+Port-side input fix: native pad reports now put the button high byte at
+`report[2]` and low byte at `report[3]`, matching retail's
+`(buf[2] << 8) | buf[3]` decode. The previous reversed order changed button
+identities (including Start to R1). `OPENRAC_TRACE_PAD=1` traces transitions
+in this decoded order. The build succeeds. A 90-second run reached 44.7 guest
+seconds but had no key input, movie request, or graphics; the transition after
+a real button press remains to be checked. Log:
+`/tmp/sly-pad-input-interactive-90s.log`.
+
 Exact retail assembly now covers 15 additional reached GIF, text-panel, frame
 transform, camera, and world-list callbacks. Build coverage is 732 C
 translations, 388 assembly translations, and 2 stubs. A 65-second native run

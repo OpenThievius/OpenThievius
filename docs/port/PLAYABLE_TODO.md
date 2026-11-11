@@ -10,6 +10,15 @@ new matching C for the port. `func_00109488` remains unmatched and isolated as
 a port-only backfill. The native launcher rebuild against Wave 24 succeeds
 with 732 C translations, 388 retail assembly translations, and 2 stubs.
 
+**Native input correction (2026-11-11):** retail `PollPadInput` combines
+button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the
+opposite order, swapping button identities. The port now emits the high byte
+first, and `OPENRAC_TRACE_PAD=1` reports the same decoded held-button mask.
+The rebuilt launcher succeeds. A 90-second native run remained neutral at
+44.7 guest seconds with no movie request or graphics, so a real keyboard or
+controller press is still needed to verify the transition. Log:
+`/tmp/sly-pad-input-interactive-90s.log`.
+
 **Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
 reached visual routines still running as empty stubs. Exact US assembly is now
 selected for the text panel and arc/item initializers, UI state helpers,

@@ -45,6 +45,17 @@ state, with no movie queued and no graphics submissions. Wave 24 names
 this corrects the earlier interpretation of state 3 as an app-level input
 wait. The startup transition and missing graphic output remain unresolved.
 
+### Native pad report correction (2026-11-11)
+
+Wave 24's `PollPadInput` source confirms that retail decodes button bytes as
+`(buf[2] << 8) | buf[3]`. The native adapter had emitted them low-byte first,
+so button identities were swapped (Enter/Start appeared as R1). The port now
+emits the high byte first, and the opt-in `OPENRAC_TRACE_PAD=1` log decodes it
+with the same retail order. The native build succeeds. A 90-second run reached
+44.7 guest seconds with neutral input, no queued movie, and zero graphics;
+because no key was pressed during that run, input-driven progression remains
+unverified. Log: `/tmp/sly-pad-input-interactive-90s.log`.
+
 ### Frame setup and Splash graph trace (2026-11-11)
 
 The startup frame initializer called `func_00193210`, `func_00193270`, and
