@@ -536,9 +536,13 @@ void trace_world_object_groups(std::uint32_t world) {
                 std::memcpy(&next_cell, openrac_guest_base + slot_address, 4u);
             std::uint32_t member_class = 0xFFFFFFFFu, member_parent = 0;
             std::uint32_t member_address = 0;
-            std::uint32_t notifier_state = 0, notifier_handle = 0, notifier_owner = 0;
+            std::uint32_t notifier_state = 0, notifier_initial_mode = 0;
+            std::uint32_t notifier_handle = 0, notifier_owner = 0;
+            std::uint32_t notifier_graph = 0, notifier_saved_event = 0;
+            std::uint32_t notifier_aux = 0;
             std::uint32_t notifier_timer_gate = 0, notifier_start = 0;
             float notifier_min = 0.0f, notifier_max = 0.0f, notifier_left = 0.0f;
+            float notifier_state_time = 0.0f, notifier_event_time = 0.0f;
             bool notifier_in_root_list = false;
             if (member != 0 && trace_guest_range(member, 0x34u, &member_address)) {
                 std::uint32_t member_descriptor = 0, member_desc_address = 0;
@@ -568,8 +572,14 @@ void trace_world_object_groups(std::uint32_t world) {
                         }
                     }
                     std::memcpy(&notifier_state, openrac_guest_base + member_address + 0x2D0u, 4u);
+                    std::memcpy(&notifier_state_time, openrac_guest_base + member_address + 0x2D4u, 4u);
+                    std::memcpy(&notifier_initial_mode, openrac_guest_base + member_address + 0x2D8u, 4u);
+                    std::memcpy(&notifier_saved_event, openrac_guest_base + member_address + 0x2DCu, 4u);
+                    std::memcpy(&notifier_event_time, openrac_guest_base + member_address + 0x2E0u, 4u);
+                    std::memcpy(&notifier_graph, openrac_guest_base + member_address + 0x2E4u, 4u);
                     std::memcpy(&notifier_handle, openrac_guest_base + member_address + 0x2E8u, 4u);
                     std::memcpy(&notifier_owner, openrac_guest_base + member_address + 0x2ECu, 4u);
+                    std::memcpy(&notifier_aux, openrac_guest_base + member_address + 0x334u, 4u);
                     std::memcpy(&notifier_start, openrac_guest_base + member_address + 0x00u, 4u);
                     std::uint32_t descriptor_address = 0;
                     if (trace_guest_range(notifier_start, 0x54u, &descriptor_address))
@@ -586,9 +596,15 @@ void trace_world_object_groups(std::uint32_t world) {
                       << member_class << ",parent=0x" << member_parent;
             if (member_class == 0x57u)
                 std::cerr << ",state=" << std::dec << notifier_state << std::hex
+                          << ",initial_mode=" << std::dec << notifier_initial_mode << std::hex
+                          << ",state_time=" << std::dec << notifier_state_time
+                          << ",saved_event=" << std::hex << notifier_saved_event
+                          << ",event_time=" << std::dec << notifier_event_time
+                          << ",graph=0x" << std::hex << notifier_graph
                           << ",walker=0x" << notifier_handle << ",owner=0x"
                           << notifier_owner << ",timer_gate=0x"
                           << notifier_timer_gate << ",start=0x" << notifier_start
+                          << ",aux=0x" << notifier_aux
                           << std::dec << ",root_list=" << notifier_in_root_list
                           << ",timer=" << notifier_left
                           << '(' << notifier_min << '-' << notifier_max << ')';

@@ -22,8 +22,8 @@ checkout at `/home/reaper/sly/sly1-decomp` is still at `d534006`. The isolated
 build at `build/port/canonical-f36f43ee` uses the older
 `/home/reaper/Code/sly1-decomp` checkout only for generated US retail
 assembly. Hostgen reads `include/names.h`, binding semantic C names to retail
-addresses. The latest generated set contains 722 translated functions, 247
-selected assembly functions, 2 stubs, and 3,936 functions without C; all 263
+addresses. The latest generated set contains 726 translated functions, 247
+selected assembly functions, 2 stubs, and 3,934 functions without C; all 265
 generated C units compile and link.
 
 Port overrides without a host-readable matching C definition are staged
@@ -37,8 +37,24 @@ The latest bounded native run finishes Splash loading and enters the frame
 loop. The canonical notifier lookup now resolves Splash's class-`0x75` child
 (`0x846cb0`, id `0x22a`) as the CountdownNotifier owner. The window still has
 zero vertices, no visible text, no GIF image tags, and no DMA submissions; it
-remains black. This is a lookup fix, not a visual or playable milestone. Trace:
-`/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
+remains black. This is a lookup fix, not a visual or playable milestone. The
+earlier run is logged at `/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
+
+The port now separates the two lookup paths made clear by the reworked source:
+`func_0015A198` is the object-ID hash gatherer and `func_0015A4F0` is the
+class-kind gatherer. The updated `func_0015A418` wrapper uses the former, as
+canonical `FindFirstObjectById` does. This fixes the stale port lookup's
+incompatible semantics and compiles as an isolated override. In the current
+Splash run the state-notifier link search for ID `0x25f` still returns zero;
+the notifier's graph pointer at `+0x2e4` is null. Its `-1` to `0` transition
+still requests event `0x261`, but `CreateStateWalker` (`0x001b6290`) is a no-C
+stub. State is 0, the timer gate is 0, and graphics/text/DMAs remain absent.
+The state-setter backfill currently covers modes 0, 2, 3, 6, and 7; modes 4
+and 5 still need the camera math. Trace:
+`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`. Next find why Splash's
+resource load leaves object ID `0x25f` absent before investing in the walker
+helpers. Keep the implementation under `hand/overrides_c/` so matching C can
+replace it later.
 
 A port-only state graph loader retains the retail field layout and stream
 reads while guarding absent class stream callbacks. The list append override
@@ -46,7 +62,7 @@ rejects invalid guest pointers and repairs an invalid tail before writing.
 Those fallbacks got Splash past its immediate `0xFFFFFFFF` crash; replace them
 with canonical C when those units are host-readable.
 
-Latest startup trace after matching the ObjectGroup lifecycle callbacks:
+Earlier startup trace after matching the ObjectGroup lifecycle callbacks:
 `/tmp/sly-canonical-9eb87599-countdown-state.log`. The Splash group's sole
 member is a class-`0x57` CountdownNotifier (`id=0x54b`). It remains at state
 `-1`, with its timer disabled and `timeLeft=0` (configured min/max 4–6 sec).

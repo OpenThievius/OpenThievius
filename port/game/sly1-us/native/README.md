@@ -13,17 +13,21 @@ The public `OpenThievius/sly1-decomp` master is at
 `f36f43ee4236753a04d73881b82d16ca0100bcea` (PR #112, checked 2026-11-11).
 The read-only source snapshot is `/tmp/sly1-decomp-f36f43ee`; the older
 `/home/reaper/Code/sly1-decomp` checkout is used only for selected US retail
-assembly. The isolated hostgen build translates 722 functions plus 247
-selected assembly functions, with 2 unsupported stubs, across 263 C units.
+assembly. The isolated hostgen build translates 726 functions plus 247
+selected assembly functions, with 2 unsupported stubs, across 265 C units.
 Build: `cmake --build build/port/canonical-f36f43ee --target port_native -j2`.
 
 The current Splash trace resolves the CountdownNotifier's child owner through
-the new port-only `0x0015A838` wrapper and `0x0015A4F0` search backfills. It
-still renders zero vertices and visible text, with no GIF image tags or DMA
-submissions; the window stays black. Latest trace:
-`/tmp/sly-canonical-f36f43ee-owner-resolved.log`. The source C remains isolated
-from `sly1-decomp`; replace these backfills when the canonical unit becomes
-hostable. See
+the port-only `0x0015A838` wrapper and `0x0015A4F0` search backfills. The
+separate `0x0015A198` override now handles ID-hash searches, and `0x0015A418`
+uses it as the canonical `FindFirstObjectById` wrapper. Splash still has no
+object with ID `0x25f`, leaving the notifier's graph pointer null. The
+`0x00147AB0` backfill transitions it from state -1 to 0 and requests event
+`0x261`, but `CreateStateWalker` (`0x001b6290`) has no host C. The launcher
+still renders no vertices or visible text, with no GIF image tags or DMA
+submissions; the window stays black. Trace:
+`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`. All behavior replacements
+remain isolated from `sly1-decomp`. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 blocker and next trace target.
 

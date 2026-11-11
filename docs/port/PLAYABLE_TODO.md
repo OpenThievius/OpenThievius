@@ -13,9 +13,9 @@ matches `state_notifier.cpp` and `pose_source.cpp`, and advances object,
 collision, camera, input, and movie code. A high match percentage still does
 not make the C hostable by our launcher.
 
-The isolated SDL hostgen build against this snapshot compiles 263 generated C
-units: 722 translated functions, 247 retail assembly translations, 2 stubs,
-and 3,936 functions without C. `file_1549C8.cpp` remains unreadable to hostgen;
+The isolated SDL hostgen build against this snapshot compiles 265 generated C
+units: 726 translated functions, 247 retail assembly translations, 2 stubs,
+and 3,934 functions without C. `file_1549C8.cpp` remains unreadable to hostgen;
 its lookup wrappers therefore need separate port backfills. Keep those under
 `hand/overrides_c/`, separate from matching sources. Current build:
 `build/port/canonical-f36f43ee`.
@@ -34,12 +34,19 @@ inner helper; the wrapper remained a zero-return stub. Both are now isolated
 port overrides. The corrected mode-1 search returns Splash's class-`0x75`
 child (`id=0x22a`, address `0x846cb0`) as the CountdownNotifier's owner. A
 separate trace fix now reads owner at `+0x2ec` (the old trace mislabeled
-`+0x2e8`, the state-walker handle). This advances the notifier setup, but the
-7-second native run still has state `-1`, timer gate off, no visible text, and
-zero vertices, GIF image tags, or DMA submissions. The window remains black.
-Next trace the transition producer and the first actual screen/movie draw
-request; owner resolution alone did not produce graphics. Log:
-`/tmp/sly-canonical-f36f43ee-owner-resolved.log`.
+`+0x2e8`, the state-walker handle). The rework shows that `0x0015a198` is the
+object-ID hash gatherer, while `0x0015a4f0` gathers by class kind. The port now
+keeps those paths separate, and `0x0015a418` delegates to the object-ID
+gatherer as canonical `FindFirstObjectById` does. Splash's link lookup for
+object ID `0x25f` still returns zero, leaving the graph pointer at `+0x2e4`
+null. The notifier nevertheless transitions from `-1` to `0`, invokes owner
+method `0x00182c80`, and requests event `0x261`; `CreateStateWalker`
+(`0x001b6290`) remains a no-C stub. State 0 and timer gate 0 are confirmed,
+with no visible text or vertices, GIF image tags, or DMA submissions. The
+separate `0x00147ab0` backfill covers modes 0, 2, 3, 6, and 7; modes 4 and 5
+still need canonical camera math. Find why the Splash resource load lacks ID
+`0x25f` before implementing state-walker helpers. Log:
+`/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`.
 
 **Earlier collision follow-up (9eb87599 snapshot):** the bounded native run
 parsed both collision meshes and their face trees without the earlier
