@@ -11,9 +11,9 @@ count; 92.49% of code). The major source rework adds typed collision mesh and
 buffered-stream layouts and functional bodies for `func_00137FB0`,
 `func_00138278`, and `func_001BAC30`.
 
-The native hostgen build against that source compiles 261 generated C units:
-716 translated functions, 244 assembly translations, 2 stubs, and 3,942
-functions without C. The whole `file_137290.cpp` source unit remains unreadable
+The native hostgen build against that source currently compiles 262 generated
+C units: 721 translated functions, 247 assembly translations, 2 stubs, and
+3,938 functions without C. The whole `file_137290.cpp` source unit remains unreadable
 to hostgen because aggregate headers produce duplicate inherited members and
 layout assertions. Port-only backfills remain separate in
 `hand/native_c/`.
@@ -33,6 +33,21 @@ chain submissions. The current frontier is to trace the notifier's missing
 start/arming path and the Splash transition producer, then follow the first
 actual UI or movie draw submission. Log:
 `/tmp/sly-canonical-9eb87599-countdown-state.log`.
+
+**Notifier/lookup follow-up (2026-11-11):** canonical source confirms
+`StartStateNotifier` (`0x00146470`) searches its world for kind `0x75`, then
+calls the state setter; the countdown setter delegates to
+`SetStateNotifierState` (`0x00147AB0`). Its exact retail assembly crashed in
+the native host when selected, so it is no longer forced through assembly.
+`0x0015A4F0` is the reworked decomp's `GatherObjectsById` traversal; the
+adjacent `0x0015A198` is a distinct function. A port-only copy of the lookup
+is staged as a standalone override because `file_1549C8.cpp` is unreadable to
+hostgen. It removes the no-C warning for `0x0015A4F0`, but the latest 12-second
+run still shows owner=0, notifier state=-1, no queued movie, no visible text,
+and zero vertices/GIF submissions. This is not a visual milestone and the
+lookup's Splash result still needs validation against retail data. Next inspect
+the class-kind traversal and why the owner lookup returns null before trying
+the state setter again. Log: `/tmp/sly-canonical-gathered-lookup-active.log`.
 
 The latest bounded native run now parses both collision meshes and their face
 trees without the earlier second-mesh stream failure. This was enabled by

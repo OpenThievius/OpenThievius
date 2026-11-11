@@ -485,9 +485,6 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
 
 void trace_world_object_groups(std::uint32_t world) {
     if (std::getenv("OPENRAC_TRACE_OBJECTS") == nullptr || world == 0) return;
-    static std::uint32_t last_traced_world = 0;
-    if (last_traced_world == world) return;
-    last_traced_world = world;
 
     std::uint32_t slot_address = 0;
     if (!trace_guest_range(world + 0x1884u + 0x53u * 4u, 4u, &slot_address)) return;
@@ -530,8 +527,9 @@ void trace_world_object_groups(std::uint32_t world) {
             std::uint32_t member_class = 0xFFFFFFFFu, member_parent = 0;
             std::uint32_t member_address = 0;
             std::uint32_t notifier_state = 0, notifier_owner = 0;
-            std::uint32_t notifier_timer_gate = 0;
+            std::uint32_t notifier_timer_gate = 0, notifier_start = 0;
             float notifier_min = 0.0f, notifier_max = 0.0f, notifier_left = 0.0f;
+            bool notifier_in_root_list = false;
             if (member != 0 && trace_guest_range(member, 0x34u, &member_address)) {
                 std::uint32_t member_descriptor = 0, member_desc_address = 0;
                 std::memcpy(&member_descriptor, openrac_guest_base + member_address, 4u);
@@ -541,8 +539,31 @@ void trace_world_object_groups(std::uint32_t world) {
                                 openrac_guest_base + member_desc_address + 4u, 4u);
                 if (member_class == 0x57u &&
                     trace_guest_range(member, 0x39Cu, &member_address)) {
+                    std::uint32_t list_address = 0;
+                    if (trace_guest_range(world + 0x48u, 12u, &list_address)) {
+                        std::uint32_t node = 0, link_offset = 0;
+                        std::memcpy(&node, openrac_guest_base + list_address, 4u);
+                        std::memcpy(&link_offset, openrac_guest_base + list_address + 8u, 4u);
+                        for (unsigned i = 0; node != 0 && i < 256u; ++i) {
+                            if (node == member) {
+                                notifier_in_root_list = true;
+                                break;
+                            }
+                            std::uint32_t node_address = 0, next_address = 0;
+                            if (!trace_guest_range(node, 0x24u, &node_address) ||
+                                link_offset > 0x10000u ||
+                                !trace_guest_range(node + link_offset, 4u, &next_address))
+                                break;
+                            std::memcpy(&node, openrac_guest_base + next_address, 4u);
+                        }
+                    }
                     std::memcpy(&notifier_state, openrac_guest_base + member_address + 0x2D0u, 4u);
                     std::memcpy(&notifier_owner, openrac_guest_base + member_address + 0x2E8u, 4u);
+                    std::memcpy(&notifier_start, openrac_guest_base + member_address + 0x00u, 4u);
+                    std::uint32_t descriptor_address = 0;
+                    if (trace_guest_range(notifier_start, 0x54u, &descriptor_address))
+                        std::memcpy(&notifier_start,
+                                    openrac_guest_base + descriptor_address + 0x50u, 4u);
                     std::memcpy(&notifier_timer_gate, openrac_guest_base + member_address + 0x338u, 4u);
                     std::memcpy(&notifier_min, openrac_guest_base + member_address + 0x390u, 4u);
                     std::memcpy(&notifier_max, openrac_guest_base + member_address + 0x394u, 4u);
@@ -555,7 +576,9 @@ void trace_world_object_groups(std::uint32_t world) {
             if (member_class == 0x57u)
                 std::cerr << ",state=" << std::dec << notifier_state << std::hex
                           << ",owner=0x" << notifier_owner << ",timer_gate=0x"
-                          << notifier_timer_gate << std::dec << ",timer=" << notifier_left
+                          << notifier_timer_gate << ",start=0x" << notifier_start
+                          << std::dec << ",root_list=" << notifier_in_root_list
+                          << ",timer=" << notifier_left
                           << '(' << notifier_min << '-' << notifier_max << ')';
             std::cerr << ']';
             cell = next_cell;

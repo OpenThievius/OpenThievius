@@ -298,6 +298,8 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 0x0015C638u, // emit glyphs
                 0x001AA790u, // draw a screen text element
                 0x001AB198u, // draw a caption element
+                0x00146470u, // start a state notifier
+                0x00148FF0u, // set a countdown notifier state
             };
             static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
             for (std::size_t i = 0; i < std::size(targets); ++i) {

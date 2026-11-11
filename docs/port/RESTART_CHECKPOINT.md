@@ -452,3 +452,30 @@ The native launcher accepts the extracted US ELF and disc image; the known
 paths are `build/port/extracted/boot/SCUS_971.98` and
 `/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso`.
 Native launches are authorized. Do not use PCSX2 or another emulator.
+
+## Notifier lookup follow-up (2026-11-11)
+
+The current branch is `wip/native-sly-port`. Canonical `sly1-decomp` remains
+read-only at `9eb875995bb6767d244d56437e987d965e106b01`; the older sibling
+checkout is not used for C. The port backfill for the canonical gathered search
+at `0x0015A4F0` is isolated in
+`hand/overrides_c/func_0015A4F0.c`, registered in `hand/overrides.tsv`, and
+staged as a standalone unit because its canonical source unit is unreadable to
+hostgen. It removes that function's no-C stub warning. The adjacent
+`0x0015A198` is a separate function; don't conflate the two symbols.
+
+We verified from canonical C and retail assembly that `StartStateNotifier`
+(`0x00146470`) looks up kind `0x75` before calling `SetStateNotifierState`
+(`0x00147AB0`). The exact assembly for the setter crashed in the native host,
+so it is not selected at present. The latest 12-second run still has the
+CountdownNotifier at state `-1`, owner `0`, timer gate `0`, no queued movie,
+no visible text, and zero vertices/GIF submissions. The lookup backfill's
+owner result is still zero and requires validation against the class hierarchy
+and startup object data before relying on it. Log:
+`/tmp/sly-canonical-gathered-lookup-active.log`.
+
+Latest successful build:
+`cmake --build build/port/canonical-fresh --target port_native -j2` — 262 C
+translation units compiled, 721 functions translated, 247 retail assembly
+translations, 2 unsupported C stubs, and 3,938 functions without C. The
+window remains black; this is not a visual milestone.
