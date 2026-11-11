@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after fetching decomp `origin/master` through `782e2899`
-(PR #121), tracing the UI path, and selecting four missing VIF writer helpers
-from exact US retail assembly. Work in
+Updated: 2026-11-11, after refreshing decomp through `674b40e` (PR #122,
+Wave 29), tracing the model reader, and rebuilding against the refreshed source.
+Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -13,48 +13,44 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
-Canonical checkout `/home/reaper/sly/sly1-decomp` remains clean at
-`bfc74817` (Wave 24); the fetched `origin/master` is `782e2899` (PR #121).
-The latest source improves names, declarations, and static-data tracking, but
-adds no matching C for the title/menu render path. The read-only archive
-`/tmp/sly1-decomp-782e2899-source` supplies C and US metadata to the build;
-`/tmp/sly1-decomp-wave24-asm` supplies selected exact retail assembly. Hostgen
-reports 734 C translations, 501 US assembly translations, 2 stubs, and 3,674
-functions without C across 256 units.
+The local sibling checkout `/home/reaper/sly/sly1-decomp` remains untouched at
+`bfc74817`. Canonical upstream master is `674b40e` (PR #122, Wave 29), staged
+read-only at `/tmp/sly1-decomp-674b40e-source`. The native build uses this C
+source and the existing exact US assembly snapshot at
+`/tmp/sly1-decomp-wave24-asm` because current upstream no longer includes the
+assembly directory. Hostgen now reports 789 C translations, 501 US assembly
+translations, 2 stubs, and 3,635 functions without C across 276 units. Wave 29
+splits named source files and adds PAL version/data tracking;
+`ReadPlacedObjectModel` is unchanged from `782e2899`.
 
-The latest UI trace reaches frame state 3 with 37 UI objects and fonts. The
-update/draw dispatchers run, the first static UI pointers and vtables are
-valid, and text-buffer setup `func_0015DB28` runs five times. No active UI draw
-method, glyph/text draw, or menu draw runs; the menu page is `-1` and output
-counters remain zero. The user's Enter taps were captured as Start
-(`held=0x0008`) but did not change game state or produce graphics. Retail
-`UpdateElementStack` confirms state 3 only consumes R1 (`0x0800`) to open the
-pause layer, or L2 (`0x0100`) to open an available map; it does not consume
-Start. Keyboard bindings are Q for R1 and `1` for L2. This explains why Enter
-did nothing but not the missing automatic title transition. The Splash world
-has no class-`0x65` StepSequence objects; its class-`0x57` CountdownNotifier
-remains at state 0 with a null `+0x338` timer gate, so retail code will not
-advance its timer. The StateGraph remains unarmed on the `0x261` self-edge, no
-movie is queued, and graphics counters remain zero. Trace the ordinary level
-resource/state activation that should provide the sequence and gate. Latest
-diagnostic log: `/tmp/sly-title-step-sequence-final.log`. After the VIF writer
-assembly recovery, a new 15-second normal run still has zero visible text and
-no visible artwork; the transient 240-vertex packet is black/transparent.
+The latest 15-second normal startup reaches the Splash world and element-stack
+state 3 with 37 inactive UI objects and fonts. The window is still black, with
+no visible text, vertices, or image transfers. Accepted GIF-chain submissions
+are present, but have not produced visible art. The prior Enter taps were
+captured as Start (`held=0x0008`) and did not change game state; retail
+`UpdateElementStack` confirms state 3 consumes R1 (`0x0800`) for pause or L2
+(`0x0100`) for an available map, not Start. This explains the input result but
+not the missing title transition. The Splash world has no class-`0x65`
+StepSequence objects; its class-`0x57` CountdownNotifier is in state 0 with a
+null `+0x338` timer gate, and the StateGraph remains on the `0x261` self-edge.
+Latest normal log: `/tmp/sly-wave29-normal-15s-20261111.log`.
 
-A forced `OPENRAC_BOOT_LEVEL=0x0100` run reaches the selected level's lit-strip
-mesh packet builder but exhausts the 32 MiB EE heap with repeated 15,904-byte
-allocation requests, then faults at `0x02000000`. The last functions are
-`func_001EE5C8`, `func_00164868`, `func_00162890`, `func_001249A8`, and the
-port-only `func_001BAC30` resource loader. The new exact retail VIF helpers
-remove their no-op warnings but do not yet fix this failure. The decomp now
-contains a `LoadCollider` body at this address, but hostgen still reports its
-US function as `no-C`; keep the separate port reader in `hand/native_c/` until
-that body becomes hostable. A 4,096-sample VIF writer trace found no sampled
-cursor outside its buffer bounds, narrowing the heap fault away from a runaway
-writer cursor. The fresh build uses `/tmp/sly1-decomp-782e2899-source`. Logs:
-`/tmp/sly-latest-decomp-normal-15s-20261111.log`,
-`/tmp/sly-latest-decomp-direct0100-20261111.log`, and
-`/tmp/sly-nap-direct0100-vif-cursor-20261111.log`.
+The forced `OPENRAC_BOOT_LEVEL=0x0100` trace localizes the 32 MiB EE heap
+failure to `func_00162890`: model part 512 reads `nstrips=0xFF02` from cursor
+`0x7000011a`, causing 5.22 MiB and 3.13 MiB array requests before repeated
+15,904-byte packet allocations exhaust the heap. The preceding 21 fixed bytes
+match the model-reader field layout. A 128-byte live scratchpad window matches
+the extracted decoded level resource, including `02 ff`; this does not yet
+prove the live refill output is correct against retail. Do not clamp the count
+or raise the heap limit. The old estimate of part 1,093 was wrong and is
+superseded by the call-site trace. The model reader remains retail ASM; the
+partial native C version must stay disabled. Logs:
+`/tmp/sly-model-neighbor-counts-20261111b.log`,
+`/tmp/sly-model-strip-part-512.bin`, and
+`/tmp/sly-model-strip-capture-20261111.log`.
+
+Latest pushed commit: `f7d0d7a trace(sly1): pinpoint oversized model strip count`
+on `wip/native-sly-port`.
 
 Build: `cmake --build build/port --target port_native -j2`. The older
 checkpoint notes below are chronological and are superseded by this summary.

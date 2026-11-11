@@ -30,12 +30,13 @@ Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
 standalone command defaults to `--asm off`. The native CMake launcher enables
 the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
 with matching C are skipped automatically. The active `build/port` cache now
-uses the read-only source snapshot `/tmp/sly1-decomp-782e2899-source` and US
-retail assembly from `/tmp/sly1-decomp-wave24-asm`. Hostgen translates 734 C
-functions and 501 assembly functions across 256 units, with 2 stubs and 3,674
+uses the read-only source snapshot `/tmp/sly1-decomp-674b40e-source` and US
+retail assembly from `/tmp/sly1-decomp-wave24-asm`. Hostgen translates 789 C
+functions and 501 assembly functions across 276 units, with 2 stubs and 3,635
 functions without C. Generated C stays in the ignored build tree, separate
-from matched decomp C and port backfills. Set `OPENTHIEVIUS_ASM_SOURCE_SLY1`
-when the matched-source checkout has no assembly directory.
+from matched decomp C and port backfills. Upstream no longer includes the US
+assembly directory, so retain `OPENTHIEVIUS_ASM_SOURCE_SLY1` for exact retail
+assembly translations.
 
 The four VIF packet-writer helpers reached by the direct-level path now use
 exact US retail assembly. A bounded forced-level run still exhausts the 32 MiB

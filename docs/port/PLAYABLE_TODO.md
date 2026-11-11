@@ -1,7 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Decomp refresh (2026-11-11):** fetched `origin/master` through
+**Current status (2026-11-11):** branch `wip/native-sly-port` is pushed through
+`f7d0d7a`. The native build uses decomp source `674b40e` from
+`/tmp/sly1-decomp-674b40e-source` plus US retail assembly from
+`/tmp/sly1-decomp-wave24-asm`; hostgen translates 789 C and 501 assembly
+functions, with 2 stubs across 276 units. Normal launch still shows a black
+window after 15 seconds: 37 UI objects remain inactive, and there is no visible
+text, geometry, or image transfer. A forced level `0x0100` load fails at model
+part 512 when the retail ASM reader consumes `nstrips=0xFF02`; the 32 MiB heap
+then exhausts. Do not clamp that count or increase the heap. The latest parser
+trace and source refresh are below. Keep missing-function backfills in the
+separate port-only directories so matching decomp C can replace them cleanly.
+
+**Historical decomp refresh (Night 26, 2026-11-11):** fetched `origin/master` through
 `1bd176fe` (Night 26, PR #119), 14 commits ahead of the clean local checkout
 at `bfc74817` (Wave 24, PR #117). The newer changes mainly improve names,
 static-data and PAL tracking, and reports; they add no matching C for the
@@ -2703,20 +2715,25 @@ or playable state has been reached.
 
 ## Upstream decomp refresh (2026-11-11)
 
-Fetched canonical `OpenThievius/sly1-decomp` master at `782e2899` (PR #121).
-The working checkout `/home/reaper/sly/sly1-decomp` remains read-only at
-`bfc74817`; only its remote tracking ref was updated. A clean source snapshot
-is available at `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 add name and
-declaration/type cleanup, five `.data` labels, and classify the 21,840-byte
-`.vutext` section as original VU microcode. Matched US functions and code bytes
-are unchanged at 4,760/4,807 and 93.252%; the 99.628% data metric reflects
-classification/labels, not new game logic. Hostgen against the current source
-still reports 734 C translations, 498 selected retail-assembly translations,
-2 stubs, and 3,677 functions without C (256 units, 31 seconds). No new
-matched implementation covers the current Splash/UI path. The VIF0 chain
-trace's start address `0x00211e10` is the `.vutext` base; the port still drops
-that channel. Follow only if the reachable native path needs VU0 behavior;
-implement the specific function in native C rather than adding a VU emulator.
+Fetched canonical `OpenThievius/sly1-decomp` master at `674b40e` (PR #122,
+Wave 29) into the temporary read-only snapshot
+`/tmp/sly1-decomp-674b40e-source`; the sibling working checkout remains
+untouched. Wave 29 splits aggregate US source into named files and adds PAL
+version tracking and data. `ReadPlacedObjectModel` is unchanged from `782e2899`,
+so this update does not explain or fix the forced-level strip count. Hostgen
+now translates 789 C functions, 501 US assembly functions, 2 stubs, and 3,635
+without C across 276 units (up from 734 C functions across 256 units). The US
+assembly directory is absent from the new source archive, so the native build
+retains `/tmp/sly1-decomp-wave24-asm` for exact retail assembly. The rebuilt
+Wave 29 launcher still reaches the Splash world in element-stack state 3 but
+shows a black window, 37 inactive UI objects, no visible text, no vertices,
+and no image transfers; accepted GIF-chain submissions alone have not produced
+visible art. Latest run: `/tmp/sly-wave29-normal-15s-20261111.log`.
+
+The VIF0 chain trace's start address `0x00211e10` is the `.vutext` base; the
+port still drops that channel. Follow only if the reachable native path needs
+VU0 behavior; implement the specific function in native C rather than adding
+a VU emulator.
 
 **Post-fix progression check (2026-11-11):** A 20-second bounded native run
 reached 9.5 guest seconds after crossing the CountdownNotifier's configured
@@ -2793,17 +2810,19 @@ mesh data; do not increase guest RAM or treat the load as successful. Logs:
 `/tmp/sly-nap-direct0100-vif-writers-20261111.log` and
 `/tmp/sly-nap-normal-vif-writers-15s-20261111.log`.
 
-The active CMake cache now points to `/tmp/sly1-decomp-782e2899-source`, not
-the older Night 26 staging archive. A clean build still reports 734 C and 501
-assembly translations. The upstream source includes `LoadCollider` for
+The active CMake cache now points to `/tmp/sly1-decomp-674b40e-source`, not
+the older Wave 27 snapshot. Hostgen reports 789 C and 501 assembly translations
+across 276 units. The upstream source includes `LoadCollider` for
 `func_001BAC30`, but current hostgen reports that US function as `no-C`; the
 port-only C replacement remains registered in `hand/native_c/` and the
 unmodified decomp checkout remains read-only. Rebuilding after selecting the
 four VIF writer helpers and switching to the latest source did not clear the
-forced-level heap fault or the black normal Splash output. The 4,096 captured
+forced-level heap fault or the black normal Splash output. The latest Wave 29
+normal run still shows no visible graphics, and a forced run reproduces the
+part 512 count exactly. The 4,096 captured
 VIF reservation samples stayed within their writer buffers, so the current
 heap trace points to repeated mesh-data allocations rather than a cursor
 crossing a packet boundary. Latest logs:
-`/tmp/sly-latest-decomp-direct0100-20261111.log`,
-`/tmp/sly-latest-decomp-normal-15s-20261111.log`, and
+`/tmp/sly-wave29-direct0100-20261111.log`,
+`/tmp/sly-wave29-normal-15s-20261111.log`, and
 `/tmp/sly-nap-direct0100-vif-cursor-20261111.log`.

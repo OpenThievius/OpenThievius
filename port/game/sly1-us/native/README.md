@@ -9,18 +9,23 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Canonical `sly1-decomp` master is `782e2899` (PR #121). The checkout at
+Canonical `sly1-decomp` master is `674b40e` (PR #122, Wave 29). The checkout at
 `/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; its remote
 tracking ref was fetched, not checked out. The latest read-only source archive
-is `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 added names, five `.data`
-labels, shared type/declaration cleanup, and classified the `.vutext` VU
-microcode section. Matched US code remains 4,760/4,807 functions and 93.252%
-of code bytes; no matched implementation was added for the current startup/UI
-path. Hostgen against the latest archive yields 734 C functions, 501 retail
-assembly functions, 2 stubs, and 3,674 without C in 256 units. Four reachable
+is `/tmp/sly1-decomp-674b40e-source`; the build keeps using US assembly from
+`/tmp/sly1-decomp-wave24-asm`, since the new source archive does not contain
+that directory. Wave 29 splits the source into named files and adds PAL
+version tracking and data; `ReadPlacedObjectModel` is unchanged. Hostgen against
+the latest archive yields 789 C functions, 501 retail assembly functions, 2
+stubs, and 3,635 without C in 276 units. Four reachable
 VIF writer helpers use exact US retail assembly because their staged C is not
 matching. The `build/port` launcher was rebuilt after the port-only VIF1 TTE
 correction; all functional backfills remain separate from `sly1-decomp`.
+
+The 15-second normal startup run against Wave 29 still shows a black window,
+37 inactive UI objects, no visible text, no vertices, and no image transfers.
+The element stack remains in state 3; accepted GIF-chain submissions do not
+produce visible art. See `docs/port/PLAYABLE_TODO.md` for the current trace.
 
 The current Splash trace resolves the CountdownNotifier's graph pointer to
 StateGraph ID `0x25f` and creates its walker. The graph's animation player
