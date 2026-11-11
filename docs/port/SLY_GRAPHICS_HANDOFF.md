@@ -7,10 +7,18 @@ matches triangle animator callback `func_001B55C0` and active-set helper
 `func_001536C8`, and expands state-walker C. Their C++ translation units still
 fail native C staging on layout conflicts and C++-only header declarations.
 Neither function was reached in the last startup trace, so they do not yet
-move the active graphics path. The current
-hostgen build links 732 C translations, 308 selected US assembly translations,
-and two generated stubs across 269 generated units. It builds the native
-host32 launcher.
+move the active graphics path. The current hostgen build links 732 C
+translations, 335 selected US assembly translations, and two generated stubs
+across 269 generated units. It builds the native host32 launcher.
+
+Runtime tracing found additional no-op screen constructors during the active
+`InitScreenElements` pass. Exact US assembly is now selected for timer, gauge,
+framed-text, pointer-caption, letterbox, and arc-sprite setup, along with the
+reached text measurement helpers. The 10-second follow-up has no warnings for
+these functions, but every sampled UI object stays at mode 0 and renderer
+counters remain at zero vertices, image tags, and GIF submissions. Restoring
+the setup callbacks did not arm the Splash UI or produce graphics. Trace:
+`/tmp/sly-wave22-screen-init-asm-10s.log`.
 
 Exact US assembly is now selected for the 24 missing functions reached from
 the port's frame-system initialization callback table, including

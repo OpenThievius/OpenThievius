@@ -3,6 +3,18 @@
 
 ## Current status (2026-11-11)
 
+**Reachable screen setup callbacks (2026-11-11):** the runtime trace showed
+`InitScreenElements` calling no-op stubs for timer, gauge, framed text,
+pointer-caption, letterbox, and arc-sprite initialization. Exact US retail
+assembly is now selected for those callbacks and their reached small helpers;
+the preceding text prep/measurement cluster is restored too. The build
+succeeds with 732 C translations, 335 assembly translations, 2 stubs, and
+3,841 functions without C. A fresh 10-second native trace has no no-op warnings
+for either restored callback cluster, but all 37 UI objects remain at mode 0
+and it still reports zero vertices, image tags, and GIF-chain submissions.
+This removes missing initialization behavior without producing visible
+graphics. Log: `/tmp/sly-wave22-screen-init-asm-10s.log`.
+
 **Decomp refresh (2026-11-11):** canonical `sly1-decomp` master advanced from
 `55d39f28` to `4c574846` (Wave 22, merged as PR #115); the clean local
 checkout at `/home/reaper/sly/sly1-decomp` is fast-forwarded to this commit.

@@ -33,7 +33,7 @@ duplicate collider members, failed layout assertions, and C++-only
 declarations. Neither new function ran in the latest startup trace, so they
 are not the current black-screen cause. The updated native build succeeds
 with 732 C translations,
-308 retail assembly translations, and 2 stubs; the visual frontier remains
+335 retail assembly translations, and 2 stubs; the visual frontier remains
 unchanged.
 
 ### Direct-level packet update (2026-11-11, latest)

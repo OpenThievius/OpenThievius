@@ -12,6 +12,17 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+The current runtime-driven assembly selection also restores the reached UI
+constructors `InitTimerElement`, `InitGauge`, `InitFramedElement`,
+`InitPointerTextCaption`, `InitLetterboxElement`, and `CreateArcSprite`, plus
+their exact US assembly dependencies. The text glyph/layout measurement
+helpers called in the same setup chain are restored. Build: 732 C translations,
+335 assembly translations, 2 stubs, and 3,841 without C across 269 generated
+units. The 10-second trace confirms these functions no longer warn as no-ops,
+but all 37 UI objects remain mode 0 and there are still zero vertices, image
+tags, or submitted GIF chains. Log:
+`/tmp/sly-wave22-screen-init-asm-10s.log`.
+
 Canonical `/home/reaper/sly/sly1-decomp` was fetched and fast-forwarded to
 `4c574846` (Wave 22, PR #115); it is clean and tracks `origin/master`. The US
 report lists 4,760/4,807 matched functions and 93.25% matched code. Wave 22
