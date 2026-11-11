@@ -10,6 +10,36 @@ port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
+## Current follow-up (2026-11-11)
+
+Fetched the public decomp again; `master` remains `55d39f28` (PR #113), with
+no new commits. The broad rework changed 126 files and added/expanded matched
+code in collision, placed-object interpolation, and player request/target
+paths. It is useful future gameplay coverage, but those new C++ units still
+fail the current port C hostgen frontend and the functions are not on the
+present startup/rendering frontier.
+
+An opt-in repeated snapshot in `port/sly1/main.cpp` now records the Splash
+StateGraph and StepSequence runtime fields. Native traces for 6–12 seconds
+show graph `0x25f` with four states, seven edges, and `armed=0`; the sole
+walker remains at state key `0x261` on edge `2 -> 2`. The edge has a valid
+animation pointer, but the walker has no player. The class-`0x57`
+CountdownNotifier remains state 0, `+0x338` is null, and its 4–6 second timer
+stays at zero. The world has no class-`0x65` StepSequence. No vertices, visible
+text, or GIF submissions appear. `+0x338` is a gate reference checked by the
+canonical notifier update, so the log label was corrected from “timer gate”
+to `gate_ref`; do not set it or force the state. Next locate the vanilla
+producer/resolution for that reference and determine why the `0x261` graph
+edge is not armed. Logs:
+`/tmp/sly-canonical-55d39f28-state-edge-6s.log` and
+`/tmp/sly-canonical-55d39f28-graph-sequence-dynamic-12s.log`.
+
+The separate direct-level probe remains the route for investigating the first
+actual gameplay graphics: world loading succeeds, but the GS writer stays at
+its initial DMA tag and reports zero geometry. Resume with the producer for
+the Splash gate/edge and then the direct-level GS geometry path; do not treat
+the Splash state trace as evidence that graphics are fixed.
+
 Follow-up on the class-`0x53` parser trace: canonical
 `src/main/file_15F678.cpp` contains the full `ReadPlacedObjectModel`
 implementation behind `func_00162890`, but hostgen cannot compile that C++

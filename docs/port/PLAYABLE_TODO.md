@@ -3,6 +3,33 @@
 
 ## Current status (2026-11-11)
 
+**Latest decomp refresh and startup frontier:** fetched
+`OpenThievius/sly1-decomp` and confirmed `master` is still `55d39f28` (PR
+#113), with no newer upstream commits. The rework changes 126 files, including
+new US matches and substantial edits to `collider_contact.cpp`,
+`collider_span.cpp`, `placed_object.cpp`, `player_request.cpp`, and
+`player_target.cpp`; it also reorganizes/reports a large set of versioned
+sources. Those new matches are useful for later gameplay and collision work,
+but the current black screen is earlier in startup/rendering, and the new
+headers still do not pass the port's C hostgen frontend. Keep consuming them
+through port-hostable C or exact retail assembly rather than editing the
+decomp to suit hostgen.
+
+Added opt-in recurring state-graph diagnostics to `port/sly1/main.cpp`.
+Repeated native snapshots show Splash graph `0x25f` has four states and seven
+edges; its sole walker stays on state key `0x261`, edge `2 -> 2`, with a valid
+animation pointer but no animation player. The graph `armed` field remains 0.
+The associated CountdownNotifier is state 0 with a null `+0x338` gate reference
+and timer 0 (range 4–6 seconds). No class-`0x65` StepSequence is present. These
+values stay unchanged through a 12-second native run, so startup is not making
+progress through the Splash state path. This is a trace, not a reason to force
+the notifier, graph, or input forward. Next, trace the vanilla producer for
+the notifier's `+0x338` gate reference and confirm which callback should arm
+the `0x261` edge; then return to the direct-level GS geometry path.
+Latest edge trace: `/tmp/sly-canonical-55d39f28-state-edge-6s.log`;
+recurring graph/notifier trace:
+`/tmp/sly-canonical-55d39f28-graph-sequence-dynamic-12s.log`.
+
 **Animation reader and render-packet follow-up:** the refreshed decomp names
 `0x0011FFD8` as `ReadAxisRotationCurve`, `0x0011EFC8` as
 `ReadTangentWeightCurve`, and `0x0011F180` as `GetTangentWeightCurveTimes`.
@@ -34,7 +61,7 @@ trace: `/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`.
 
 
 The latest public `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113),
-fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
+fetched and checked again on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 (98.98% by function count, 93.11% of code, and 94.56% of data). Since
 `f36f43ee`, it matches nine additional US functions in collision, object
 interpolation, and player physics code. Those new definitions are not yet

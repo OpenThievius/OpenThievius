@@ -403,8 +403,9 @@ std::array<std::array<std::uint32_t, 7>, 12> trace_world_objects(std::uint32_t w
 void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
     if (std::getenv("OPENRAC_TRACE_OBJECTS") == nullptr || world == 0) return;
     static std::array<std::uint32_t, 0x95> last_traced_world{};
+    const bool trace_each_snapshot = class_id == 0x57u || class_id == 0x65u || class_id == 0x88u;
     if (class_id >= last_traced_world.size() ||
-        last_traced_world[class_id] == world) return;
+        (!trace_each_snapshot && last_traced_world[class_id] == world)) return;
     last_traced_world[class_id] = world;
 
     const std::uint32_t slot = world + 0x1884u + class_id * 4u;
@@ -440,6 +441,73 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
         std::memcpy(&descriptor_flags, openrac_guest_base + descriptor_address + 8u, 4u);
         if (object_size < 0x39Cu || object_size > 0x10000u ||
             !trace_guest_range(object, object_size, &object_address)) {
+            if (type == 0x88u && object_size >= 0x54u) {
+                std::int32_t states = 0, edges = 0, armed = 0;
+                std::uint32_t state_table = 0, edge_table = 0, walker = 0;
+                std::memcpy(&states, openrac_guest_base + object_address + 0x34u, 4u);
+                std::memcpy(&state_table, openrac_guest_base + object_address + 0x38u, 4u);
+                std::memcpy(&edges, openrac_guest_base + object_address + 0x3Cu, 4u);
+                std::memcpy(&edge_table, openrac_guest_base + object_address + 0x40u, 4u);
+                std::memcpy(&armed, openrac_guest_base + object_address + 0x44u, 4u);
+                std::memcpy(&walker, openrac_guest_base + object_address + 0x48u, 4u);
+                std::cerr << "[state-graph-trace] graph=0x" << std::hex << object
+                          << " states=" << std::dec << states << "@0x" << std::hex
+                          << state_table << " edges=" << std::dec << edges << "@0x"
+                          << std::hex << edge_table << " armed=" << std::dec << armed
+                          << " walker_head=0x" << std::hex << walker;
+                if (walker != 0) {
+                    std::uint32_t wa = 0, owner = 0, player = 0, edge = 0;
+                    std::int32_t driven = 0, target = 0, current = 0;
+                    if (trace_guest_range(walker, 0x40u, &wa)) {
+                        std::memcpy(&owner, openrac_guest_base + wa + 0x18u, 4u);
+                        std::memcpy(&driven, openrac_guest_base + wa + 0x1Cu, 4u);
+                        std::memcpy(&target, openrac_guest_base + wa + 0x20u, 4u);
+                        std::memcpy(&player, openrac_guest_base + wa + 0x24u, 4u);
+                        std::memcpy(&current, openrac_guest_base + wa + 0x30u, 4u);
+                        std::memcpy(&edge, openrac_guest_base + wa + 0x34u, 4u);
+                        std::cerr << " walker_owner=0x" << owner << " driven=0x" << driven
+                                  << " target=0x" << target << " player=0x" << player
+                                  << std::dec << " current=" << current << " edge=0x"
+                                  << std::hex << edge;
+                        std::uint32_t state_address = 0, edge_address = 0;
+                        if (current >= 0 && current < states &&
+                            trace_guest_range(state_table + static_cast<std::uint32_t>(current) * 8u,
+                                              8u, &state_address)) {
+                            std::int32_t key = 0, next_key = 0;
+                            std::memcpy(&key, openrac_guest_base + state_address, 4u);
+                            std::memcpy(&next_key, openrac_guest_base + state_address + 4u, 4u);
+                            std::cerr << " state_key=" << std::dec << key
+                                      << " state_next=" << next_key;
+                        }
+                        if (trace_guest_range(edge, 0x14u, &edge_address)) {
+                            std::uint32_t animation = 0, flags = 0;
+                            std::int32_t from = 0, to = 0;
+                            float weight = 0.0f;
+                            std::memcpy(&animation, openrac_guest_base + edge_address, 4u);
+                            std::memcpy(&from, openrac_guest_base + edge_address + 4u, 4u);
+                            std::memcpy(&to, openrac_guest_base + edge_address + 8u, 4u);
+                            std::memcpy(&flags, openrac_guest_base + edge_address + 0xCu, 4u);
+                            std::memcpy(&weight, openrac_guest_base + edge_address + 0x10u, 4u);
+                            std::cerr << " edge_anim=0x" << std::hex << animation << std::dec
+                                      << " edge_states=" << from << ',' << to << " edge_flags=0x"
+                                      << std::hex << flags << std::dec << " edge_weight=" << weight;
+                        }
+                    }
+                }
+                std::cerr << std::dec << '\n';
+            } else if (type == 0x65u && object_size >= 0x340u) {
+                std::int32_t mode = 0, state = 0, count = 0, step = 0;
+                std::uint32_t steps = 0;
+                std::memcpy(&mode, openrac_guest_base + object_address + 0x2D0u, 4u);
+                std::memcpy(&state, openrac_guest_base + object_address + 0x2D4u, 4u);
+                std::memcpy(&count, openrac_guest_base + object_address + 0x2DCu, 4u);
+                std::memcpy(&steps, openrac_guest_base + object_address + 0x2E0u, 4u);
+                std::memcpy(&step, openrac_guest_base + object_address + 0x2E4u, 4u);
+                std::cerr << "[step-sequence-trace] object=0x" << std::hex << object
+                          << std::dec << " mode=" << mode << " state=" << state
+                          << " steps=" << count << "@0x" << std::hex << steps
+                          << std::dec << " current_step=" << step << '\n';
+            }
             std::cerr << "[owner-class-object] i=" << index << " object=0x"
                       << std::hex << object << " type=0x" << type
                       << " size=0x" << object_size << " id=0x" << object_id
@@ -540,7 +608,7 @@ void trace_world_object_groups(std::uint32_t world) {
             std::uint32_t notifier_handle = 0, notifier_owner = 0;
             std::uint32_t notifier_graph = 0, notifier_saved_event = 0;
             std::uint32_t notifier_aux = 0;
-            std::uint32_t notifier_timer_gate = 0, notifier_start = 0;
+            std::uint32_t notifier_gate_ref = 0, notifier_start = 0;
             float notifier_min = 0.0f, notifier_max = 0.0f, notifier_left = 0.0f;
             float notifier_state_time = 0.0f, notifier_event_time = 0.0f;
             bool notifier_in_root_list = false;
@@ -585,7 +653,7 @@ void trace_world_object_groups(std::uint32_t world) {
                     if (trace_guest_range(notifier_start, 0x54u, &descriptor_address))
                         std::memcpy(&notifier_start,
                                     openrac_guest_base + descriptor_address + 0x50u, 4u);
-                    std::memcpy(&notifier_timer_gate, openrac_guest_base + member_address + 0x338u, 4u);
+                    std::memcpy(&notifier_gate_ref, openrac_guest_base + member_address + 0x338u, 4u);
                     std::memcpy(&notifier_min, openrac_guest_base + member_address + 0x390u, 4u);
                     std::memcpy(&notifier_max, openrac_guest_base + member_address + 0x394u, 4u);
                     std::memcpy(&notifier_left, openrac_guest_base + member_address + 0x398u, 4u);
@@ -602,8 +670,8 @@ void trace_world_object_groups(std::uint32_t world) {
                           << ",event_time=" << std::dec << notifier_event_time
                           << ",graph=0x" << std::hex << notifier_graph
                           << ",walker=0x" << notifier_handle << ",owner=0x"
-                          << notifier_owner << ",timer_gate=0x"
-                          << notifier_timer_gate << ",start=0x" << notifier_start
+                          << notifier_owner << ",gate_ref=0x"
+                          << notifier_gate_ref << ",start=0x" << notifier_start
                           << ",aux=0x" << notifier_aux
                           << std::dec << ",root_list=" << notifier_in_root_list
                           << ",timer=" << notifier_left
