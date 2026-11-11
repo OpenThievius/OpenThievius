@@ -14,7 +14,7 @@ PR #116; checked 2026-11-11). It remains at 4,760/4,807 US functions and
 93.25% matched code; Wave 23 adds no matched functions. The native build uses
 this checkout for C and `/home/reaper/Code/sly1-decomp` only for selected US
 retail assembly. The isolated hostgen build translates 732 functions plus
-362 selected assembly functions, with 2 generated stubs, across 269 C units.
+373 selected assembly functions, with 2 generated stubs, across 269 C units.
 Build: `cmake --build build/port --target port_native -j2`.
 
 The current Splash trace resolves the CountdownNotifier's graph pointer to
@@ -25,7 +25,10 @@ functions running as empty stubs; they are now selected from exact US retail
 assembly. The initialized font count rose from 35 to 37, but every screen
 element remains mode 0 and the renderer reports zero vertices, visible text,
 image tags, or GIF submissions. Trace:
-`/tmp/sly-renderer-retail-asm-20s.log`. All behavior replacements remain
+`/tmp/sly-renderer-retail-asm-20s.log`. A second exact-assembly pass restores
+11 reached UI state callbacks; those warnings are gone, but the next trace
+still shows all 37 elements inactive and zero graphics output. Trace:
+`/tmp/sly-ui-state-retail-asm-20s.log`. All behavior replacements remain
 isolated from `sly1-decomp`. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 blocker and next trace target.

@@ -7,7 +7,7 @@ remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
 functions; it adds compiler investigations and re-scores near-matching C,
 including `func_00109488`, still unmatched and already isolated as a port-only
 backfill. No newly available matching C can replace a port backfill. The
-native launcher rebuild succeeds with 732 C translations, 362 retail assembly
+native launcher rebuild succeeds with 732 C translations, 373 retail assembly
 translations, and 2 generated stubs.
 
 **Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
@@ -22,6 +22,15 @@ counters remain zero (vertices, visible text, image tags, and GIF chains). The
 Splash graph's player advances to 9.48 seconds while its `0x261` edge remains
 `2 -> 2`; its gate is null and the countdown remains at zero. Log:
 `/tmp/sly-renderer-retail-asm-20s.log`.
+
+**UI state callback recovery (2026-11-11):** the follow-up trace found another
+11 reached no-op callbacks for text-panel and timer state, screen-element
+hiding, cursor-frame selection, texture-register lookup, and near-camera group
+updates. They now use exact US retail assembly; the launcher rebuilds with 373
+assembly translations. The next bounded native run has no warnings for this
+cluster, but still shows 37 inactive screen elements and zero vertices, text,
+image tags, or GIF submissions. The player remains on event `0x261`, state
+`2 -> 2`. Log: `/tmp/sly-ui-state-retail-asm-20s.log`.
 
 **Frame initializer recovery (2026-11-11):** selected exact US assembly for
 the reached `func_00193210`, `func_00193270`, and `func_00193288` helpers after
@@ -49,7 +58,7 @@ event `0x261`. Log: `/tmp/sly-font-layout-init-asm-15s.log`.
 pointer-caption, letterbox, and arc-sprite initialization. Exact US retail
 assembly is now selected for those callbacks and their reached small helpers;
 the preceding text prep/measurement cluster is restored too. The build
-succeeds with 732 C translations, 362 assembly translations, 2 stubs, and
+succeeds with 732 C translations, 335 assembly translations, 2 stubs, and
 3,841 functions without C. A fresh 10-second native trace has no no-op warnings
 for either restored callback cluster, but all 37 UI objects remain at mode 0
 and it still reports zero vertices, image tags, and GIF-chain submissions.

@@ -12,6 +12,13 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+The next trace found 11 further reached UI state callbacks running as no-ops;
+exact US retail assembly is selected for text-panel/timer state, element
+hiding, cursor-frame selection, texture-register lookup, and near-camera group
+updates. Build: 732 C translations, 373 assembly translations, 2 stubs. Their
+no-op warnings are gone, but all 37 screen elements remain inactive and all
+renderer counters remain at zero. Trace: `/tmp/sly-ui-state-retail-asm-20s.log`.
+
 Fresh native evidence: the build now selects exact US assembly for 22 more
 reached visual/UI functions (text and arc/item setup, UI state helpers, packet
 buffers, masked-image submission, resident-image transfer, texture-register

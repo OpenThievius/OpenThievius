@@ -22,6 +22,15 @@ remain in mode 0, the Splash animation player advances on the `0x261` self-edge
 (`2 -> 2`), and the trace still reports zero vertices, visible text, image
 tags, and GIF submissions. Trace: `/tmp/sly-renderer-retail-asm-20s.log`.
 
+A second recovery restores 11 more reached UI state callbacks from exact US
+retail assembly: text-panel and timer state, element hiding, cursor-frame
+selection, texture-register lookup, and near-camera group updates. The current
+build has 732 C translations, 373 assembly translations, and 2 stubs. The
+follow-up trace removes these no-op warnings but still finds all 37 elements
+inactive and zero vertices, visible text, image tags, or GIF submissions. The
+Splash player stays on the `0x261` `2 -> 2` edge. Log:
+`/tmp/sly-ui-state-retail-asm-20s.log`.
+
 Exact US assembly is now selected for the reached frame setup helpers
 `func_00193210`, `func_00193270`, and `func_00193288`, which the port's frame
 initializer had been calling as no-op stubs. The 15-second native trace shows
