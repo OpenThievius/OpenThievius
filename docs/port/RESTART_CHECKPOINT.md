@@ -29,22 +29,51 @@ counts to prevent a malformed strip from wrapping its packet cursor into
 unmapped memory. This safety behavior is isolated from the decomp and should
 be revisited once the model-data pointer is understood.
 
-Latest direct-level findings: `func_00165588` reads unpack words
-`0x4e3c/0x3eb1` at strip `0x00e3d4c0`, unpack pointer `0x00e3d844`. This is a
-reversed range, and must be traced back through the model parser/packet
-relocation; do not clamp it. With the guard, an 8-second launcher run remains
-alive and a 5-second state trace reaches the frame loop with an active world
-and eight 144-byte GIF setup DMAs. It still shows zero scene vertices, image
+The earlier “reversed strip range” diagnosis was incorrect: the probe read two
+halfwords from `strip->unpack` without confirming that it pointed at the
+`StripUnpack` descriptor. `func_00165588` expects that pointer to address
+`off[0]` and `off[1]`; in a suspect strip it instead appeared to point at a VIF
+command. A follow-up confirmed a valid case where `unpack=packet+4` and the
+payload starts with descriptor offsets `0x24, 0x1e0`. Another earlier sample
+begins `04 01 00 01 24 c0 54 68`; there `packet+4` is a command word, so the
+offset/packet-prefix path still needs tracing. Do not clamp or rewrite the
+descriptor values based on the old probe. Keep the negative-count guard as a
+temporary port safety measure. With it, an 8-second launcher run remains alive
+and a 5-second state trace reaches the frame loop with an active world and
+eight 144-byte GIF setup DMAs. It still shows zero scene vertices, image
 tags/submissions, and visible text; the window remains black. Logs:
 `/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
 `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 
-The source now narrows that trace: `BuildStripMeshPacket` and
-`BuildLitStripMeshPacket` set `strip->unpack` through
-`ReserveVifUnpack(..., &hdr->p)`, and the model loader adjusts it by
-`strip->addr[0] - starts[0]` after packet detachment. Inspect that value on both
-sides of the copy/remap, correct the port-side producer if needed, then verify
-a nonzero scene vertex count and visible graphics. Do not claim playability yet.
+After removing the invalid probe, a clean `port_native` rebuild succeeded
+(730 C, 287 assembly translations, 2 stubs). A fresh 5-second direct-level
+run completed its timeout without a crash and emitted the same eight 144-byte
+GIF setup DMAs; it still has no visible scene. Log:
+`/tmp/sly-night21-4097b806-decomp-refresh-clean-5s.log`.
+
+The source shows `BuildStripMeshPacket` and `BuildLitStripMeshPacket` set
+`strip->unpack` through `ReserveVifUnpack(..., &hdr->p)`, write the descriptor
+offsets through that pointer, and later adjust it by
+`strip->addr[0] - starts[0]`. The next probe should capture the original
+descriptor pointer and packet begin before detachment, then compare them with
+the copied addresses for both the valid and suspect prefixes. Verify a nonzero
+scene vertex count and visible graphics after fixing that producer path. Do not
+claim playability yet.
+
+## Decomp rework check (2026-11-11)
+
+Fetched the public repository again. `master` is `55d39f28` (4,758/4,807 US
+functions, 93.108% code); `night21` is `4097b806` (4,759/4,807, 93.125% code)
+and is the source configured for the current port build. The night21 delta is
+82 files, mostly type/signature corrections and report/source updates, plus an
+exact active-set collision helper. The broad master rework adds substantial
+collision, placed-object, and player code, but no newly matched function on the
+current strip-render path. `file_15F678.cpp` clarifies the descriptor layout
+(`off[4]`, `strip[4]`, `f10`, `f12`) and confirms the builder/relocation flow;
+it does not explain the inconsistent packet prefix. Neither decomp checkout
+was modified. Current hostgen coverage remains 730 C translations, 287 retail
+assembly translations, 2 stubs, and 3,890 functions without C across 267
+generated C units.
 
 ## Current follow-up (2026-11-11)
 

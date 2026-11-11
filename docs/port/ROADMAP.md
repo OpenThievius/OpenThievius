@@ -24,22 +24,31 @@ visible in the native launcher.
 
 ### Direct-level packet update (2026-11-11, latest)
 
-The latest public decomp work was checked in two places: `master` remains
-`55d39f28`, while the public `night21` branch is at `4097b806`. The newer
-branch reorganizes source and reports but adds no hostgen coverage on this
-render path. A separate local fork checkout (`/home/reaper/Code/sly1-decomp`,
-`e1b39f16`, wave 16) contains C definitions for the small packet writers
-`func_001EE3F0`, `func_001EE420`, and `func_001EE498`; their behavior is now
-backfilled only in the port's `native_c/display_packets.c`.
+The public decomp was refreshed: `master` is `55d39f28` (4,758/4,807 US
+functions; 93.108% code) and `night21` is `4097b806` (4,759/4,807; 93.125%),
+the source configured in the port build. The broad rework adds collision,
+placed-object, and player code, while night21's 82-file delta mostly corrects
+types/signatures and reports and matches one active-set collision helper. The
+changed `file_15F678.cpp` confirms the strip descriptor and packet relocation
+flow, but adds no newly matched function on this render path. The port-hostgen
+frontend still cannot compile the relevant full C++ unit. A separate local
+fork checkout (`/home/reaper/Code/sly1-decomp`, `e1b39f16`, wave 16) contains C
+definitions for the small packet writers `func_001EE3F0`, `func_001EE420`, and
+`func_001EE498`; their behavior remains backfilled only in the port's
+`native_c/display_packets.c`.
 
 The direct-level launcher had been faulting because these reached packet-word
-writers were no-op stubs. Restoring them exposed a second input problem:
-`func_00165588` receives a strip unpack range of `0x4e3c..0x3eb1` at strip
-`0x00e3d4c0` (`unpack=0x00e3d844`), so the count is negative and its packet
-cursor wraps to unmapped memory. The port-only `func_001EE5C8` backfill now
-skips negative counts; valid counts still follow the retail writer path. This
-keeps the launcher alive for an 8-second direct-level run, but does not produce
-a valid packet for that strip or correct its source or relocation.
+writers were no-op stubs. A prior probe called the first two halfwords at
+`strip->unpack` a reversed range (`0x4e3c..0x3eb1`); this was not a verified
+descriptor read and must not guide a fix. `StripUnpack` begins with four
+16-bit `off` values, followed by four `strip` values. A valid sample has
+`unpack=packet+4` with descriptor offsets `0x24` and `0x1e0`. A suspect sample
+has `packet` bytes `04 01 00 01 24 c0 54 68 ...` and the same `+4` pointer
+lands on a command word. Trace the producer pointer, packet begin, and copy
+delta for both cases. Keep the port-only negative-count guard in
+`func_001EE5C8` until this path is understood; do not clamp descriptor values.
+The 8-second direct-level run stays alive, but still produces no scene
+vertices, GIF image tags/submissions, or visible text.
 
 Build `build/port/night21-4097b806` succeeds with 730 C translations, 287
 selected retail assembly translations, 2 stubs, and 3,890 functions without
@@ -51,17 +60,18 @@ Trace: `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 
 The `night21` model source narrows the next probe: `BuildStripMeshPacket` and
 `BuildLitStripMeshPacket` assign `strip->unpack` through
-`ReserveVifUnpack(..., &hdr->p)`. After packet-buffer detachment, the loader
-adjusts it by `strip->addr[0] - starts[0]`. Trace that pointer before and after
-the copy/remap to find why it lands in float data. Do not clamp or rewrite the
-range. Keep the negative-count guard and the three helper implementations in
-the port-only backfill layer until the parser/relocation path is understood.
+`ReserveVifUnpack(..., &hdr->p)`, initialize the descriptor at that address,
+and after packet-buffer detachment the loader adjusts it by
+`strip->addr[0] - starts[0]`. The source flow alone does not explain why some
+copied packets start with a prefix that puts the pointer on a command word.
+Keep the negative-count guard and three helper implementations in the
+port-only backfill layer until the parser/relocation path is understood.
 
-The current native startup uses the `f36f43ee` source snapshot of
-`sly1-decomp`; upstream reports 4,749/4,807 NTSC-U functions matched (92.62%
-of code). Hostgen translates 722 functions and 247 selected retail assembly
-functions across 263 generated C units, with 2 stubs and 3,936 functions
-without C. These are build-compatibility counts, not a playable milestone.
+An earlier native startup checkpoint used the `f36f43ee` source snapshot of
+`sly1-decomp` and hostgen translated 722 functions and 247 selected retail
+assembly functions across 263 generated C units. The current build uses
+`night21` (`4097b806`) and its coverage is recorded above. These are
+build-compatibility counts, not a playable milestone.
 
 Splash's `StartStateNotifier` lookup now resolves the class-`0x75` child at
 `0x846cb0` as the CountdownNotifier's owner. Both lookup functions are

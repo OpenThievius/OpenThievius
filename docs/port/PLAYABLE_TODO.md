@@ -3,32 +3,39 @@
 
 ## Current status (2026-11-11)
 
-**Latest direct-level packet result:** the public decomp `night21` branch is
-`4097b806` (with `master` at `55d39f28`); a separate local fork checkout at
+**Latest direct-level packet result:** public decomp `master` is `55d39f28`
+(4,758/4,807 US functions, 93.108% code); `night21` is `4097b806`
+(4,759/4,807, 93.125%) and is the source configured for the port. The recent
+rework adds useful collision, placed-object, and player code; night21 mainly
+corrects types/signatures and matches one more helper. It adds no newly matched
+function on the current strip-render path. A separate local fork checkout at
 `/home/reaper/Code/sly1-decomp` is older (`e1b39f16`, wave 16) but has useful C
 definitions for three reached VIF/GIF packet-word writers. Their port-only
-backfills replaced no-op stubs. A bad strip then exposed a negative unpack
-range (`0x4e3c..0x3eb1`), which wrapped the packet cursor. The port now skips
-negative packet counts in `func_001EE5C8.c`; it does not clamp the source range.
-An 8-second direct-level run stays alive and reaches rendering setup, but a
-5-second state trace still has zero scene vertices, image tags/submissions, or
-visible text. Eight small GIF setup DMAs are emitted; the window remains black.
-The `night21` source shows the pointer is produced by
-`ReserveVifUnpack(..., &hdr->p)` in the strip mesh builders, then adjusted by
-`strip->addr[0] - starts[0]` after packet detachment. Trace it immediately
-before and after that relocation; do not synthesize geometry. Logs:
+backfills replaced no-op stubs.
+
+The prior “negative unpack range” (`0x4e3c..0x3eb1`) was not a verified range:
+the probe interpreted raw packet halfwords without confirming the descriptor
+pointer. `StripUnpack` begins with `off[4]`, then `strip[4]`. A valid sample has
+`unpack=packet+4` and begins with descriptor offsets `0x24, 0x1e0`; a suspect
+sample's packet starts `04 01 00 01 24 c0 54 68 ...`, so the same pointer lands
+on a command word. The negative-count guard in `func_001EE5C8.c` remains a
+temporary port safety measure; do not clamp the values. An 8-second
+direct-level run stays alive and reaches rendering setup, but still has zero
+scene vertices, image tags/submissions, or visible text. Eight small GIF setup
+DMAs are emitted; the window remains black. The `night21` source shows the
+pointer is produced by `ReserveVifUnpack(..., &hdr->p)` in the strip mesh
+builders, then adjusted by `strip->addr[0] - starts[0]` after packet
+detachment. Capture the original descriptor pointer and packet begin before
+detachment, then compare both with the copied addresses. Do not synthesize
+geometry. Logs:
 `/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
 `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
 
-**Latest decomp refresh and startup frontier:** fetched
-`OpenThievius/sly1-decomp` and confirmed `master` is still `55d39f28` (PR
-#113), with no newer upstream commits. The rework changes 126 files, including
-new US matches and substantial edits to `collider_contact.cpp`,
-`collider_span.cpp`, `placed_object.cpp`, `player_request.cpp`, and
-`player_target.cpp`; it also reorganizes/reports a large set of versioned
-sources. Those new matches are useful for later gameplay and collision work,
-but the current black screen is earlier in startup/rendering, and the new
-headers still do not pass the port's C hostgen frontend. Keep consuming them
+**Current decomp/use assessment:** the source unit clarifies the strip
+descriptor and builder/relocation flow but does not identify the packet-prefix
+discrepancy. The broad rework's new matches are useful for later gameplay and
+collision work; the current black screen remains earlier in startup/rendering.
+Relevant C++ still does not pass the port's C hostgen frontend. Consume it
 through port-hostable C or exact retail assembly rather than editing the
 decomp to suit hostgen.
 
