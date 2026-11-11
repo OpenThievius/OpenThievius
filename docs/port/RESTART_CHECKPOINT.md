@@ -23,9 +23,29 @@ An eight-second native run passes the old invalid nested count at
 translated from assembly. Exact assembly is also restored for collision reader
 `func_00137FB0`, leaving its port C backfill registered but superseded by
 `asm.only`. These changes let the resource load continue into world setup and
-the frame loop, where the top-level reader later exhausts at
-`0x70000000` (`remaining=-1`). Graphics remain zero. Latest log:
-`/tmp/sly-canonical-55d39f28-retail-loader-frontier-8s.log`.
+the frame loop. The subsequent exact `ReadAxisRotationCurve`,
+`ReadTangentWeightCurve`, and `GetTangentWeightCurveTimes` selections fix the
+state-graph cursor and let the first graph consume five animation children;
+the top-level reader reaches completion. Graphics remain zero. Latest loader
+log: `/tmp/sly-canonical-55d39f28-tangent-readers-retail-8s.log`.
+
+## Render queue follow-up (2026-11-11)
+
+The refreshed `file_167D68.cpp` identifies `0x00169718` as
+`FlushMeshQueue`: it loops over `g_meshQueueCount` (`D_002626D0`) and calls
+`SubmitMeshQueueEntry` (`0x001694A0`) for each queued copy. Hostgen cannot read
+that C++ unit, and the function was reached as a no-op. `hostgen.json` now
+selects exact US retail assembly for `func_00169718` under `asm.only`; hostgen
+links 253 assembly translations (725 C translations, 2 stubs, 3,929 without
+C). A rebuilt eight-second direct-level native run removes the warning but
+still records zero vertices and zero GIF submissions. Log:
+`/tmp/sly-canonical-55d39f28-flush-mesh-queue-exact-8s.log`.
+
+This is a correctness fix for the animation mesh-copy queue, not a graphics
+milestone. The five direct-level outer groups remain marked to skip geometry,
+so do not change their flags or force their draw path. Continue with the normal
+Splash-to-title/state transition and identify why Splash's state graph link for
+object ID `0x25f` is absent; only then can its walker/draw lifecycle run.
 
 ## Canonical decomp refresh checkpoint (2026-11-11)
 
@@ -39,8 +59,8 @@ build at `build/port/canonical-55d39f28` uses this source and the older
 `/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
 hostgen C frontend cannot parse several refreshed C++ units and falls back to
 assembly for their new definitions; with the current loader assembly selections,
-linked coverage is 725 translated functions, 252 selected assembly functions,
-2 stubs, and 3,930
+linked coverage is 725 translated functions, 253 selected assembly functions,
+2 stubs, and 3,929
 functions without C across 265 generated C units. The build succeeds.
 
 Port overrides without a host-readable matching C definition are staged

@@ -19,8 +19,14 @@ Frame-writer tracing shows the GS writer cursor stays at its initial DMA tag
 while the VIF writer advances by about `0x2e0` bytes. This moves the current
 visual blocker from world loading to understanding why the scene path does not
 write/submit GS geometry. The default Splash also has no visible UI elements.
-The invalid UI virtual-call guard is port-only safety code and traces bad
-callbacks if encountered; it does not synthesize graphics. Latest direct-level
+A previously missing reached function, `FlushMeshQueue` (`0x00169718`), is now
+selected from exact US retail assembly because the refreshed source unit
+`file_167D68.cpp` is not hostgen-readable. It drains queued mesh-copy entries
+through `SubmitMeshQueueEntry`; the no-C warning is gone, but the direct-level
+trace still has zero vertices and no GIF submissions. Do not mistake the mesh
+queue fix for rendered output. The invalid UI virtual-call guard is port-only
+safety code and traces bad callbacks if encountered; it does not synthesize
+graphics. Latest direct-level
 trace: `/tmp/sly-canonical-55d39f28-direct-level-packets-8s.log`; frame writer
 trace: `/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`.
 
@@ -32,8 +38,8 @@ fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 interpolation, and player physics code. Those new definitions are not yet
 hosted by this port: the current C hostgen staging step cannot parse their
 updated C++ headers and falls back to retail assembly for them. The refreshed
-build links 725 translated functions, 252 retail assembly translations,
-2 stubs, and 3,930 functions without C across 265 generated C units. The source
+build links 725 translated functions, 253 retail assembly translations,
+2 stubs, and 3,929 functions without C across 265 generated C units. The source
 snapshot is `/tmp/sly1-decomp-55d39f28`; `/home/reaper/sly/sly1-decomp` is now
 fast-forwarded to `55d39f28` and clean. Build:
 `build/port/canonical-55d39f28`.
@@ -184,10 +190,13 @@ now holds the small text-layout setter backfills for `func_00137228` and its
 adjacent entries. Retire these when the corresponding hostable decomp code is
 available.
 
-**Next:** trace the render packets and image upload path after
-`LoadScreenResources`: confirm the new image record readers run, inspect the
-loaded font atlas/palette records, and find why the renderer accepts chains
-but records no image tags or non-black visible output. Keep each functional
+**Next:** keep following the ordinary Splash-to-title/state transition and
+trace which class draw callbacks run on frames. The direct-level probe loads
+resource/world lists, but its five outer groups are flagged to skip geometry;
+preserve that retail behavior and do not force their draw path. Resolve the
+missing Splash graph link at object ID `0x25f` before constructing a state
+walker. The native render writer still has no GS geometry, so visuals and the
+playable state remain unachieved. Keep each functional
 replacement in the port backfill area and retire it when matching source is
 hostable. The port is not playable yet.
 

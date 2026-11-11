@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-10. The public decomp master is `2e00ac70` (PR #109,
-2026-11-06); the clean local checkout is older at `e1b39f1`. Against the
-reworked source, SDL hostgen translates 2,043 C functions and 234 selected US
-assembly functions with zero generated stubs. The native SDL build succeeds.
+Last checked: 2026-11-11. Canonical decomp master is `55d39f28` (PR #113),
+and `/home/reaper/sly/sly1-decomp` is clean at that commit. The current
+canonical hostgen build links 725 C translations, 253 selected US assembly
+translations, and two generated stubs. It builds the native host32 launcher.
 
 Startup now reaches the initial resource, sets `g_currentWorld=0x006abdd0`,
 registers four fonts, and submits 240 raw vertices on some frames. It is still
@@ -21,10 +21,13 @@ inspect why accepted texture streams produce no GIF image tags and why visible
 UI geometry is black. Detailed progress is in
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md).
 
-The graphics traces and captures below are historical from the earlier SDL
-build. Their render-list and texture observations remain useful once the
-reworked source builds through its startup callbacks, but they do not describe
-the current direct host32 execution.
+Most older graphics traces and captures below are historical from the earlier
+SDL build. Their render-list and texture observations remain useful, but do
+not describe the current host32 execution. The current frame packet trace is
+`/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`; `FlushMeshQueue` is
+now selected from exact retail assembly and verified to run, while the
+direct-level run still shows zero scene vertices/GIF submissions. See the
+latest details in `PLAYABLE_TODO.md` and `RESTART_CHECKPOINT.md`.
 
 The latest direct-level trace reaches loader stage 5 but submits no scene
 vertices or visible text. It found a live, unskipped render-list entry at `0x00847ce0`
