@@ -28,6 +28,7 @@ void func_001B5F50(void* object, void* stream) {
 
     func_00152438(self + 0x48, 8);
     count = func_00137B90(stream);
+    sly1_native_loader_stage(200u, (u32)count, (u32)stream);
     *(s32*)(self + 0x34) = count;
     entries = (u32)func_0018D500(count * 8);
     *(u32*)(self + 0x38) = entries;
@@ -43,6 +44,7 @@ void func_001B5F50(void* object, void* stream) {
     }
 
     count = func_00137B90(stream);
+    sly1_native_loader_stage(201u, (u32)count, (u32)stream);
     *(s32*)(self + 0x3C) = count;
     edges = (u32)func_0018D500(count * 0x14);
     *(u32*)(self + 0x40) = edges;
@@ -54,15 +56,23 @@ void func_001B5F50(void* object, void* stream) {
         *(u32*)(edge + 0x0C) = (u32)func_00137D78(stream);
         *(f32*)(edge + 0x10) = func_00137DF8(stream);
     }
+    sly1_native_loader_stage(202u, (u32)count, (u32)stream);
 
     func_0011EC40(self, stream);
-    (void)func_00137D10(stream);
+    sly1_native_loader_stage(203u, (u32)count, (u32)stream);
+    {
+        const s32 sentinel = func_00137D10(stream);
+        sly1_native_loader_stage(204u, (u32)sentinel, (u32)stream);
+    }
     for (j = 0; j < count; ++j) {
         u8* edge = (u8*)edges + (u32)j * 0x14;
         if (*(u32*)(edge + 0x00) != 0) {
             s32 kind = func_00137D10(stream);
             s32 b = func_00137D10(stream);
             s32 c = func_00137D10(stream);
+            sly1_native_loader_stage(205u, (u32)kind, (u32)stream);
+            sly1_native_loader_stage(206u, (u32)b, (u32)stream);
+            sly1_native_loader_stage(207u, (u32)c, (u32)stream);
             u32 child = (u32)func_0011E580(kind, *(u32*)(self + 0x14),
                                             *(u32*)(self + 0x18), b, c);
             u32 descriptor;
@@ -72,6 +82,7 @@ void func_001B5F50(void* object, void* stream) {
                 sly1_native_loader_stage(156, kind, child);
                 continue;
             }
+            sly1_native_loader_stage(208u, child, (u32)stream);
             descriptor = *(u32*)child;
             load_callback = descriptor >= 0x10000u && descriptor < 0x02000000u
                 ? *(u32*)(descriptor + 0x38) : 0;
