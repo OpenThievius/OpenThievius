@@ -10,8 +10,8 @@ fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 interpolation, and player physics code. Those new definitions are not yet
 hosted by this port: the current C hostgen staging step cannot parse their
 updated C++ headers and falls back to retail assembly for them. The refreshed
-build still links 726 translated functions, 247 retail assembly translations,
-2 stubs, and 3,934 functions without C across 265 generated C units. The source
+build now links 725 translated functions, 249 retail assembly translations,
+2 stubs, and 3,933 functions without C across 265 generated C units. The source
 snapshot is `/tmp/sly1-decomp-55d39f28`; the separate sibling checkout has only
 been fetched, not checked out or edited. Build:
 `build/port/canonical-55d39f28`.
@@ -66,6 +66,25 @@ not invent the missing graph object or force its notifier forward. The refreshed
 `LoadObjectGroup` source confirms this nested `ReadSlotObjects` call is expected
 when the group has one member; it occurs after the member data and property
 records, narrowing the cursor error to earlier parsing within that group.
+
+**Model-reader follow-up (2026-11-11):** the refreshed decomp has the full
+`ReadPlacedObjectModel` implementation in `src/main/file_15F678.cpp`, but the
+native hostgen build cannot compile that C++ unit. The port's compact
+`func_00162890` model-reader backfill was still selected and misaligned the
+Splash stream. `hostgen.json` now selects exact US retail assembly for this
+function, while the port C body remains guarded by
+`SLY1_RETAIL_ASM_FUNC_00162890` as a replaceable candidate. An eight-second
+native run passes the bogus `0x1ddd` nested count at `0x70001d1f` and consumes
+valid object records past `0x70001f00`. Selecting exact retail assembly for
+the 36-byte `func_00182C58` wrapper removes its no-op warning; the wrapper
+delegates to `func_001837E0`, already translated from assembly. Exact assembly
+is also restored for `func_00137FB0`, the collision vertex reader; its port C
+backfill remains registered but is superseded by the `asm.only` selection.
+Together these changes let the Splash load continue into world initialization
+and the frame loop. A later top-level reader still exhausts at cursor
+`0x70000000` (`remaining=-1`). The window remains black with zero vertices,
+image tags, and GIF submissions. Log:
+`/tmp/sly-canonical-55d39f28-retail-loader-frontier-8s.log`.
 
 **Earlier collision follow-up (9eb87599 snapshot):** the bounded native run
 parsed both collision meshes and their face trees without the earlier
@@ -796,21 +815,23 @@ with the direct-level loader fault.
 
 ## Immediate next steps
 
-1. Identify a level object in the active world lists that owns a mesh, then
+1. Trace the top-level stream exhaustion after class/group loading and collision
+   setup, where `func_001DCEA0` reaches `0x70000000` with `remaining=-1`.
+2. Identify a level object in the active world lists that owns a mesh, then
    trace its descriptor, constructor, activation callback, mesh vertex pointer
    and render callback. Current runs show populated update lists but zero scene
    vertices, so first establish which entries are actual renderables.
-2. Follow that object's render callback into the native scene submission path.
+3. Follow that object's render callback into the native scene submission path.
    Capture the first nonzero vertex stream and its camera/material state, then
    fix the earliest missing or invalid boundary before adding renderer
    workarounds.
-3. Investigate the missing font registry as a separate UI path. The direct
+4. Investigate the missing font registry as a separate UI path. The direct
    level resource has no registered fonts in the latest trace; this does not
    explain why the scene has zero vertices.
-4. Keep the direct-level shortcut as a diagnostic. Once geometry is visible,
+5. Keep the direct-level shortcut as a diagnostic. Once geometry is visible,
    restore the normal title-to-New-Game transition and verify movement,
    collision, camera, input, audio and checkpoint behavior with human input.
-5. Close the 12 unreadable build units and audit omitted call arguments, but
+6. Close the 12 unreadable build units and audit omitted call arguments, but
    prioritize functions proven reachable from the selected level's draw path.
 
 One additional retail-assembly comparison found and fixed a port-backfill

@@ -9,6 +9,24 @@ port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
+Follow-up on the class-`0x53` parser trace: canonical
+`src/main/file_15F678.cpp` contains the full `ReadPlacedObjectModel`
+implementation behind `func_00162890`, but hostgen cannot compile that C++
+unit. The port's compact C reader was still selected and misaligned Splash's
+stream. `hostgen.json` now selects exact US retail assembly for
+`func_00162890`; the compact C implementation remains guarded in
+`hand/native_c/resource_object_common.c` as a separate replacement candidate.
+An eight-second native run passes the old invalid nested count at
+`0x70001d1f`, consumes valid records past `0x70001f00`, then reaches type
+`0xffffda00` at `0x70001f06`. Selecting exact retail assembly for the small
+`func_00182C58` wrapper removes its no-op; its target `func_001837E0` is already
+translated from assembly. Exact assembly is also restored for collision reader
+`func_00137FB0`, leaving its port C backfill registered but superseded by
+`asm.only`. These changes let the resource load continue into world setup and
+the frame loop, where the top-level reader later exhausts at
+`0x70000000` (`remaining=-1`). Graphics remain zero. Latest log:
+`/tmp/sly-canonical-55d39f28-retail-loader-frontier-8s.log`.
+
 ## Canonical decomp refresh checkpoint (2026-11-11)
 
 Canonical `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113), fetched
@@ -20,8 +38,9 @@ code. A detached source worktree is `/tmp/sly1-decomp-55d39f28`. The isolated
 build at `build/port/canonical-55d39f28` uses this source and the older
 `/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
 hostgen C frontend cannot parse several refreshed C++ units and falls back to
-assembly for their new definitions; its linked coverage therefore remains 726
-translated functions, 247 selected assembly functions, 2 stubs, and 3,934
+assembly for their new definitions; with the current loader assembly selections,
+linked coverage is 725 translated functions, 249 selected assembly functions,
+2 stubs, and 3,933
 functions without C across 265 generated C units. The build succeeds.
 
 Port overrides without a host-readable matching C definition are staged
@@ -54,18 +73,13 @@ resource load leaves object ID `0x25f` absent before investing in the walker
 helpers. Keep the implementation under `hand/overrides_c/` so matching C can
 replace it later.
 
-The refreshed native run against `55d39f28` still reaches the frame loop and
-remains visually black. Its parser trace narrows the blocker to the class-`0x53`
-ObjectGroup stream: the initial object list count is 36, then a nested list
-count `0x1ddd` is read at guest cursor `0x70001d1f`, whose decoded Splash bytes
-are float data. The nested record loop sees type `0xffffd1dd`; after the group
-returns, the parent sees `0xffffcccc` at `0x70001df5`. Vertices, image tags,
-GIF submissions, and visible text remain zero. Log:
-`/tmp/sly-canonical-55d39f28-upstream-refresh.log`. Next trace which reader
-callback or port backfill leaves the group stream at the wrong offset; keep any
-functional repair under the port hand tree. Upstream `LoadObjectGroup` source
-confirms `ReadSlotObjects` is expected when a group has one member, after that
-member's data and property records; inspect earlier parsing within the group.
+The first refreshed native run against `55d39f28` showed a class-`0x53`
+ObjectGroup stream fault: after an initial list count of 36, a nested count
+`0x1ddd` was read at `0x70001d1f`, and the parent later saw `0xffffcccc` at
+`0x70001df5`. The exact-model-reader follow-up above supersedes that cursor
+diagnosis. Subsequent exact reader selections pass that earlier cursor frontier.
+The current parser frontier is the top-level reader exhaustion at
+`0x70000000` (`remaining=-1`) during `func_001DCEA0` setup.
 
 A port-only state graph loader retains the retail field layout and stream
 reads while guarding absent class stream callbacks. The list append override
