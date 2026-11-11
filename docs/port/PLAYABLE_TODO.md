@@ -3,22 +3,23 @@
 
 ## Current status (2026-11-11)
 
-The latest public `OpenThievius/sly1-decomp` master was refreshed to
-`f36f43ee` (PR #112) on 2026-11-11. A read-only source snapshot is at
-`/tmp/sly1-decomp-f36f43ee`; the sibling checkout at
-`/home/reaper/sly/sly1-decomp` still has an older worktree, so do not build from
-it. Upstream reports 4,749/4,807 NTSC-U functions matched (98.79% by function
-count, 92.62% of code, and 94.56% of data). The rework splits large units,
-matches `state_notifier.cpp` and `pose_source.cpp`, and advances object,
-collision, camera, input, and movie code. A high match percentage still does
-not make the C hostable by our launcher.
+The latest public `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113),
+fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
+(98.98% by function count, 93.11% of code, and 94.56% of data). Since
+`f36f43ee`, it matches nine additional US functions in collision, object
+interpolation, and player physics code. Those new definitions are not yet
+hosted by this port: the current C hostgen staging step cannot parse their
+updated C++ headers and falls back to retail assembly for them. The refreshed
+build still links 726 translated functions, 247 retail assembly translations,
+2 stubs, and 3,934 functions without C across 265 generated C units. The source
+snapshot is `/tmp/sly1-decomp-55d39f28`; the separate sibling checkout has only
+been fetched, not checked out or edited. Build:
+`build/port/canonical-55d39f28`.
 
-The isolated SDL hostgen build against this snapshot compiles 265 generated C
-units: 726 translated functions, 247 retail assembly translations, 2 stubs,
-and 3,934 functions without C. `file_1549C8.cpp` remains unreadable to hostgen;
-its lookup wrappers therefore need separate port backfills. Keep those under
-`hand/overrides_c/`, separate from matching sources. Current build:
-`build/port/canonical-f36f43ee`.
+The nine new matches are useful decompilation progress, but they do not cover
+the resource/group loader currently blocking visuals. Keep port-only C under
+`hand/native_c/` or `hand/overrides_c/`; do not patch matching sources to work
+around hostgen limitations.
 
 **Earlier notifier trace (superseded by the lookup follow-up below):** the
 `9eb87599` snapshot showed a class-`0x57` CountdownNotifier at state `-1`,
@@ -47,6 +48,24 @@ separate `0x00147ab0` backfill covers modes 0, 2, 3, 6, and 7; modes 4 and 5
 still need canonical camera math. Find why the Splash resource load lacks ID
 `0x25f` before implementing state-walker helpers. Log:
 `/tmp/sly-canonical-f36f43ee-mode-lookup-next.log`.
+
+**Latest source refresh and resource trace (2026-11-11):** building against
+`55d39f28` succeeds and produces the same hostgen coverage as `f36f43ee`;
+several refreshed C++ units are reported unreadable by the C frontend, so the
+new nine matched functions still execute through the existing retail assembly
+translations. A seven-second native run is logged at
+`/tmp/sly-canonical-55d39f28-upstream-refresh.log`. The Splash stream begins
+with a count of 36 and valid records, but the class-`0x53` ObjectGroup callback
+reaches a nested-list count `0x1ddd` at cursor `0x70001d1f`, where the decoded
+Splash bytes are float data. The nested list then reads invalid type
+`0xffffd1dd`; when the callback returns, the parent list reads
+`0xffffcccc` at cursor `0x70001df5`. The renderer remains at zero vertices,
+image tags, and GIF submissions. The active task is to identify which reader
+callback or port backfill leaves the class-`0x53` group stream misaligned; do
+not invent the missing graph object or force its notifier forward. The refreshed
+`LoadObjectGroup` source confirms this nested `ReadSlotObjects` call is expected
+when the group has one member; it occurs after the member data and property
+records, narrowing the cursor error to earlier parsing within that group.
 
 **Earlier collision follow-up (9eb87599 snapshot):** the bounded native run
 parsed both collision meshes and their face trees without the earlier

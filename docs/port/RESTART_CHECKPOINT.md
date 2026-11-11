@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after integrating the canonical decomp rewrite. Work in
+Updated: 2026-11-11, after refreshing canonical master to `55d39f28`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -11,20 +11,18 @@ only; no emulator is involved in the port work.
 
 ## Canonical decomp refresh checkpoint (2026-11-11)
 
-Canonical `OpenThievius/sly1-decomp` master is
-`f36f43ee4236753a04d73881b82d16ca0100bcea` (PR #112), verified against the
-remote on 2026-11-11. Upstream reports 4,749/4,807 NTSC-U functions matched
-(98.79% by function count, 92.62% of code, and 94.56% of data). The source
-rework splits large translation units and adds matching progress across
-state notifiers, object hosting, pose sources, collision, camera, input, and
-movie code. The read-only archive is `/tmp/sly1-decomp-f36f43ee`; the sibling
-checkout at `/home/reaper/sly/sly1-decomp` is still at `d534006`. The isolated
-build at `build/port/canonical-f36f43ee` uses the older
-`/home/reaper/Code/sly1-decomp` checkout only for generated US retail
-assembly. Hostgen reads `include/names.h`, binding semantic C names to retail
-addresses. The latest generated set contains 726 translated functions, 247
-selected assembly functions, 2 stubs, and 3,934 functions without C; all 265
-generated C units compile and link.
+Canonical `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113), fetched
+2026-11-11 from `/home/reaper/sly/sly1-decomp` without changing its checked-out
+files. Upstream reports 4,758/4,807 NTSC-U functions matched (98.98% by
+function count, 93.11% of code, and 94.56% of data). Since `f36f43ee`, nine
+functions were matched in collision, object interpolation, and player physics
+code. A detached source worktree is `/tmp/sly1-decomp-55d39f28`. The isolated
+build at `build/port/canonical-55d39f28` uses this source and the older
+`/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
+hostgen C frontend cannot parse several refreshed C++ units and falls back to
+assembly for their new definitions; its linked coverage therefore remains 726
+translated functions, 247 selected assembly functions, 2 stubs, and 3,934
+functions without C across 265 generated C units. The build succeeds.
 
 Port overrides without a host-readable matching C definition are staged
 ahead of the canonical units as separate port-owned source files. This lets
@@ -55,6 +53,19 @@ and 5 still need the camera math. Trace:
 resource load leaves object ID `0x25f` absent before investing in the walker
 helpers. Keep the implementation under `hand/overrides_c/` so matching C can
 replace it later.
+
+The refreshed native run against `55d39f28` still reaches the frame loop and
+remains visually black. Its parser trace narrows the blocker to the class-`0x53`
+ObjectGroup stream: the initial object list count is 36, then a nested list
+count `0x1ddd` is read at guest cursor `0x70001d1f`, whose decoded Splash bytes
+are float data. The nested record loop sees type `0xffffd1dd`; after the group
+returns, the parent sees `0xffffcccc` at `0x70001df5`. Vertices, image tags,
+GIF submissions, and visible text remain zero. Log:
+`/tmp/sly-canonical-55d39f28-upstream-refresh.log`. Next trace which reader
+callback or port backfill leaves the group stream at the wrong offset; keep any
+functional repair under the port hand tree. Upstream `LoadObjectGroup` source
+confirms `ReadSlotObjects` is expected when a group has one member, after that
+member's data and property records; inspect earlier parsing within the group.
 
 A port-only state graph loader retains the retail field layout and stream
 reads while guarding absent class stream callbacks. The list append override
