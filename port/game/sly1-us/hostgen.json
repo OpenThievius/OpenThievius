@@ -516,7 +516,15 @@
       "func_001493B8",
       "func_001493C0",
       "func_0016B520",
-      "func_001DDC40"
+      "func_001DDC40",
+      "func_00124EE8",
+      "func_0012D4A8",
+      "func_0012E5D0",
+      "func_0012E9E0",
+      "func_0012F190",
+      "func_0012F7E0",
+      "func_0013B430",
+      "func_001B1DE0"
     ],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
