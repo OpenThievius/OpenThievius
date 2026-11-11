@@ -35,8 +35,10 @@ Exact US assembly is also selected for 15 more reached callbacks covering GIF
 ST entry creation, text-panel text and subject, frame transforms, and
 world-list/camera updates. The launcher now builds with 732 C translations,
 388 assembly translations, and 2 stubs. A 65-second native run reaches 32.15
-guest seconds but remains in app state 3 with no input, no movie request, no
-world load, inactive screen elements, and zero graphics output. Log:
+guest seconds but remains in global element-stack state 3 (its normal state),
+with no input, no movie request, no world load, inactive screen elements, and
+zero graphics output. Wave 24 identifies this as `g_elementStack`, not an app
+state waiting for input. Log:
 `/tmp/sly-long-startup-65s.log`.
 
 Exact US assembly is now selected for the reached frame setup helpers

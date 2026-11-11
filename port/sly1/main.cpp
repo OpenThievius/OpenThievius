@@ -1167,10 +1167,10 @@ int main(int argc, char** argv) {
                 std::uint32_t world_job_queue[2]{};
                 std::uint32_t deferred_request_count = 0;
                 std::uint32_t frame_selector = 0;
-                std::int32_t app_state = 0;
-                float app_state_started_at = 0.0f;
-                std::int32_t app_state_mode = 0;
-                float app_clock = 0.0f;
+                std::int32_t element_stack_state = 0;
+                float element_stack_state_started_at = 0.0f;
+                std::int32_t element_stack_resume_state = 0;
+                float game_elapsed_time = 0.0f;
                 std::uint32_t state_data_address = 0;
                 std::int32_t state_data_mode = 0;
                 std::uint16_t state_data_flags = 0;
@@ -1240,14 +1240,16 @@ int main(int argc, char** argv) {
                 }
                 std::memcpy(&menu_mode, openrac_guest_base + 0x002701B8u,
                             sizeof(menu_mode));
-                std::memcpy(&app_state, openrac_guest_base + 0x00275BC4u,
-                            sizeof(app_state));
-                std::memcpy(&app_state_started_at, openrac_guest_base + 0x00275BC8u,
-                            sizeof(app_state_started_at));
-                std::memcpy(&app_state_mode, openrac_guest_base + 0x00275BF0u,
-                            sizeof(app_state_mode));
-                std::memcpy(&app_clock, openrac_guest_base + 0x00261868u,
-                            sizeof(app_clock));
+                std::memcpy(&element_stack_state, openrac_guest_base + 0x00275BC4u,
+                            sizeof(element_stack_state));
+                std::memcpy(&element_stack_state_started_at,
+                            openrac_guest_base + 0x00275BC8u,
+                            sizeof(element_stack_state_started_at));
+                std::memcpy(&element_stack_resume_state,
+                            openrac_guest_base + 0x00275BF0u,
+                            sizeof(element_stack_resume_state));
+                std::memcpy(&game_elapsed_time, openrac_guest_base + 0x00261868u,
+                            sizeof(game_elapsed_time));
                 std::uint32_t world_address = 0;
                 std::uint32_t special_scene_object = 0;
                 if (current_object != 0 &&
@@ -1555,10 +1557,11 @@ int main(int argc, char** argv) {
                           << std::dec << " deferred_requests=" << deferred_request_count
                           << " raw_26f808_260=0x" << std::hex << scene_pending << std::dec
                           << " pad_routing=0x" << std::hex << frame_selector << std::dec
-                          << " raw_275bc4=" << app_state
-                          << " raw_275bc8=" << app_state_started_at
-                          << " app_clock=" << app_clock
-                          << " table_275bf0_first=" << app_state_mode
+                          << " element_stack_state=" << element_stack_state
+                          << " element_stack_state_started_at="
+                          << element_stack_state_started_at
+                          << " game_elapsed_time=" << game_elapsed_time
+                          << " element_stack_resume_state=" << element_stack_resume_state
                           << " selected_pad_record=0x" << std::hex << state_data_address
                           << " pad_record_mode=" << std::dec << state_data_mode
                           << " pad_record_pressed=0x" << std::hex << state_data_flags

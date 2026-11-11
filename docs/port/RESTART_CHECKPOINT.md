@@ -23,11 +23,14 @@ stubs, across 269 generated C units.
 Exact retail assembly now covers 15 additional reached GIF, text-panel, frame
 transform, camera, and world-list callbacks. Build coverage is 732 C
 translations, 388 assembly translations, and 2 stubs. A 65-second native run
-reaches 32.15 guest seconds but remains in app state 3 with no pad input, no
+reaches 32.15 guest seconds but remains in global element-stack state 3 (its
+normal state), with no pad input, no
 movie request, no world load, and zero graphics. Trace:
 `/tmp/sly-long-startup-65s.log`. PCSX2 reference video becomes visible around
 22 seconds; whether it received a controller input at that point is still
-being confirmed.
+being confirmed. Wave 24 names this object `g_elementStack` and its update
+callback `UpdateElementStack`, correcting the former app-level input-wait
+interpretation.
 
 The next trace found 11 further reached UI state callbacks running as no-ops;
 exact US retail assembly is selected for text-panel/timer state, element
@@ -625,13 +628,11 @@ retail function requiring functional C, keep it under
 `port/game/sly1-us/hand/native_c/` and register it in `hand/backfills.tsv`;
 never change `sly1-decomp` for the port backfill.
 
-The main app state is `3`, its entry timestamp is `0`, and the app clock
-advances past `6.9` seconds. Retail state `3` does not auto-advance on elapsed
-time; it waits for input flags. Current input mode/state are `3/4`, with no
-pressed buttons or pending state flags. Thus the stable state is an input-wait
-path, not a timer that failed to advance. It remains unresolved whether this
-state should display an idle/title screen before input or only after a
-transition. The native output remains only the black clear.
+The global element stack is in state `3`, its normal state. The game clock
+advances, and the selected pad is in mode/state `3/4` with no pressed buttons.
+That is not evidence of an app-level input wait; the missing startup/title
+transition and the absence of drawing remain unresolved. The native output
+remains only the black clear.
 
 ### Latest UI and vertex trace (2026-11-07)
 

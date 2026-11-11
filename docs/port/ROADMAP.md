@@ -39,8 +39,11 @@ reached visual/UI no-ops and they now run from exact US retail assembly. The
 initialized font count rose from 35 to 37, but all screen elements remain
 inactive and renderer counters remain at zero. The player advances along the
 Splash graph’s state-2 self-edge. A 65-second native run reaches 32.15 guest
-seconds but remains in app state 3, waiting for input, with no movie queued and
-no graphics submissions. The missing graphic output is still unresolved.
+seconds but remains in global element-stack state 3, which is its normal
+state, with no movie queued and no graphics submissions. Wave 24 names
+`0x275BC0` as `g_elementStack` and `func_001E9108` as `UpdateElementStack`;
+this corrects the earlier interpretation of state 3 as an app-level input
+wait. The startup transition and missing graphic output remain unresolved.
 
 ### Frame setup and Splash graph trace (2026-11-11)
 

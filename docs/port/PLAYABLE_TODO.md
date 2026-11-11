@@ -36,10 +36,13 @@ image tags, or GIF submissions. The player remains on event `0x261`, state
 reached callbacks covering GIF ST entry creation, text-panel text/subject,
 object-frame transforms, and camera/world-list updates. Build coverage is now
 732 C translations, 388 assembly translations, and 2 stubs. A 65-second native
-run reaches 32.15 guest seconds but still shows app state 3 waiting with no pad
-buttons, no movie queued, no world-load request, all 37 elements inactive, and
-zero vertices, visible text, image tags, or GIF submissions. The game is not
-merely taking longer than the earlier short traces to reach graphics. Log:
+run reaches 32.15 guest seconds but still shows global element-stack state 3
+(normal state), no pad buttons, no movie queued, no world-load request, all 37
+elements inactive, and zero vertices, visible text, image tags, or GIF
+submissions. Wave 24 identifies `0x275BC0` as `g_elementStack` and
+`func_001E9108` as `UpdateElementStack`; state 3 is not an app-level input
+wait. The game is not merely taking longer than the earlier short traces to
+reach graphics. Log:
 `/tmp/sly-long-startup-65s.log`.
 
 **Frame initializer recovery (2026-11-11):** selected exact US assembly for
