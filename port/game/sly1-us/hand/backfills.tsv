@@ -323,6 +323,11 @@ func_0018D550	native_c/front_heap_reset.c
 func_00143AF0	native_c/world_list_cleanup.c
 func_00169CA0	native_c/world_list_cleanup.c
 func_00191EE8	native_c/world_list_cleanup.c
+func_0017FD70	native_c/world_list_cleanup.c
+func_001DFD70	native_c/world_list_cleanup.c
+func_00191EB0	native_c/drain_render_frames.c
+func_0015EF88	native_c/drain_render_frames.c
+func_0015F210	native_c/drain_render_frames.c
 func_001ACDA0	overrides_c/func_001ACDA0.c
 func_001E20B8	native_c/func_001E20B8.c
 func_001E1FD0	native_c/func_001E1FD0.c

@@ -25,6 +25,21 @@ void func_001B40C8(void);
 void func_0011C040(void);
 void func_001E9688(void* element_stack);
 void func_0018D550(void);
+void func_0015F210(s32 mode);
+void func_0015EFE8(void* context);
+void func_00152440(void* list);
+
+typedef struct NativeList_1DB838 {
+    u32 head;
+    u32 tail;
+    s32 offset;
+} NativeList_1DB838;
+
+typedef struct NativeFrameCleanup_1DB838 {
+    u8 pad[0x20];
+    NativeList_1DB838 frame_lists[3];
+    u32 tail;
+} NativeFrameCleanup_1DB838;
 
 void func_001DB838(s32 has_world) {
     if (has_world == 0) return;
@@ -43,6 +58,21 @@ void func_001DB838(s32 has_world) {
     func_001B40C8();
     func_0011C040();
     func_001E9688(D_00275BC0);
+    /* Retire render-list nodes before the front heap is rewound. The native
+     * loader can enter this teardown without passing through the retail main
+     * loop's usual DrainRenderFrames transition gate. */
+    func_0015F210(1);
+    {
+        NativeFrameCleanup_1DB838 pending = {0};
+        NativeList_1DB838* lists = (NativeList_1DB838*)0x002622E0u;
+        pending.frame_lists[0] = lists[0];
+        pending.frame_lists[1] = lists[1];
+        pending.frame_lists[2] = lists[2];
+        func_0015EFE8(&pending);
+        func_00152440(&lists[0]);
+        func_00152440(&lists[1]);
+        func_00152440(&lists[2]);
+    }
     func_0018D550();
 
     D_00261990 = 0;

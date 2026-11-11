@@ -93,9 +93,15 @@ provide equivalent checked guest-heap bounds around the matching allocator.
 
 `front_heap_reset.c` backfills `func_0018D550` with the retail reset-mark to
 front-cursor assignment. `world_list_cleanup.c` backfills the camera object
-count reset and the global object-list clears used immediately before world
-teardown resets transient memory. These stay isolated from the decomp tree and
-should be removed when their matching US C becomes hostable.
+count reset and the global object-list clears (class 0x75, point objects,
+target vectors, target curves, target points, and parts) used immediately before
+world teardown resets transient memory. These stay isolated from the decomp
+tree and should be removed when their matching US C becomes hostable.
+
+`drain_render_frames.c` backfills the retail render-thread semaphore drain,
+final-frame submission, and release of both frame contexts before world memory
+is recycled. This is a port-only bridge around the native synchronous DMA path;
+remove it when the matching renderer code is hostable.
 
 `resource_descriptors.c` provides port-only C for `func_0011E680` and is listed
 only in `backfills.tsv`, not `overrides.tsv`. Hostgen therefore compiles it as

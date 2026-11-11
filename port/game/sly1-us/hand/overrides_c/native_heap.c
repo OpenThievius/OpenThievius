@@ -23,8 +23,9 @@ void* func_0018D500(s32 size) {
         return 0;
     }
 
-    if (size >= 0x1000 && current >= 0x01000000u) {
-        /* Port-only bounded trace of large allocations in the level-load tail. */
+    if (size >= 0x10000) {
+        /* Port-only bounded trace of large allocations, including addresses
+         * below the old trace's 16 MiB cutoff. */
         sly1_native_loader_stage(163u, (u32)size, current);
     }
     func_0018D4F8(size);

@@ -634,8 +634,9 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
         static unsigned large_allocations_logged = 0;
         if (large_allocations_logged++ >= 12u) return;
         std::fprintf(stderr,
-                     "[heap] large request=%u current=%#010x\n",
-                     object, reader);
+                     "[heap] large request=%u front=%#010x back=%#010x mark=%#010x\n",
+                     object, reader, GREF(uint32_t, 0x002c2a24u),
+                     GREF(uint32_t, 0x002c2a18u));
         for (int depth = 1; depth < 5; ++depth) {
             char caller[256];
             openrac_host_caller(depth, caller, sizeof(caller));

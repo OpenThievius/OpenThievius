@@ -19,3 +19,13 @@ void func_00191EE8(void) {
     /* The target-vector registry is a List01 at this fixed retail address. */
     func_00152440((void*)0x00269BA8u);
 }
+
+void func_0017FD70(void) {
+    /* Registered point objects use this global List01. */
+    func_00152440((void*)0x00264088u);
+}
+
+void func_001DFD70(void) {
+    /* Class 0x75 objects link their registry node at object+0x80. */
+    func_00152440((void*)0x002758D0u);
+}
