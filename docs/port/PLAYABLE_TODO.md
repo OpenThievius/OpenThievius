@@ -27,6 +27,16 @@ but still reports zero rendered vertices and a black window. The next task is
 to trace the level/world objects that should submit scene geometry. Build and
 latest trace details are in [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md).
 
+`func_00152CA0` (`AddDmaReturnTag`) was another reached no-C function from the
+reworked packet-writer source. The canonical body closes the active DMA tag and
+appends a `RET` tag. Since hostgen cannot compile that source unit yet, the port
+now carries the same small body in `hand/native_c/display_packets.c`,
+registered as a backfill. A rebuilt native run removes its no-C warning, but
+still reaches the frame loop with zero vertices, GIF image tags, and submitted
+chains. This repairs a packet-builder primitive; it does not establish the
+source of the missing scene objects. Trace:
+`/tmp/sly-canonical-9eb87599-return-tag.log`.
+
 **Canonical source integration check (historical, 2026-11-10):** I built separately
 against upstream `2e00ac70` in `build/port/canonical-sdl`, using
 `/tmp/sly1-decomp-2e00ac70` for source and the older local checkout only for

@@ -403,6 +403,16 @@ cmake -S port -B build/port/canonical-fresh \
 cmake --build build/port/canonical-fresh --target port_native -j2
 ```
 
+The reworked packet-writer source also defines `func_00152CA0`
+(`AddDmaReturnTag`), which closes a DMA tag and appends a `RET` tag. Its
+containing unit is not hostable yet, and runtime diagnostics showed this
+function being called as a no-C stub. A port-only equivalent was added to
+`hand/native_c/display_packets.c` and `hand/backfills.tsv`. The rebuilt launcher
+no longer reports that missing-function warning, but still reaches the frame
+loop with zero vertices, image tags, and submitted chains. This is a repaired
+packet primitive, not a visual milestone. Run log:
+`/tmp/sly-canonical-9eb87599-return-tag.log`.
+
 ### Active work after resume (2026-11-11)
 
 1. Keep work on `wip/native-sly-port`; keep the canonical decomp checkout
@@ -410,6 +420,8 @@ cmake --build build/port/canonical-fresh --target port_native -j2
 2. Trace the loaded level's placed objects from `func_001289C0` through world
    list activation and the frame draw callbacks. The loader now completes both
    meshes and face trees, but the frame trace still reports zero vertices.
+   The `AddDmaReturnTag` no-op has been repaired and did not by itself produce
+   render submissions; keep tracing the object-to-draw path.
 3. Keep `func_00137FB0`, `func_00138278`, and the class-4 callback as clearly
    marked port-only code. Replace them only when the corresponding canonical C
    can be hosted or when the backfill is deliberately verified against it.

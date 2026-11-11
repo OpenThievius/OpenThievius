@@ -362,6 +362,19 @@ void func_00161200(void* frame) {
     packet_writer_close(writer, 1);
 }
 
+/* Retail AddDmaReturnTag: close the active DMA tag, then append a RET tag.
+ * The canonical C is now present upstream, but its containing source unit
+ * cannot yet be compiled by hostgen; keep this compatibility copy port-only. */
+void func_00152CA0(void* opaque) {
+    if (opaque == 0) return;
+    SlyPacketWriter* writer = (SlyPacketWriter*)opaque;
+    func_00152D70(writer);
+    u32 cursor = writer->cursor;
+    *(u64*)cursor = 0x60000000ull;
+    *(u64*)(cursor + 8u) = 0;
+    writer->cursor = cursor + 0x10u;
+}
+
 // Retail packet-list finalizer at 0x00152D70. The host packet submitter
 // consumes completed DMA tags synchronously, so console cache work is absent.
 void func_00152D70(void* self) {
