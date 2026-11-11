@@ -20,19 +20,25 @@ fail the current port C hostgen frontend and the functions are not on the
 present startup/rendering frontier.
 
 An opt-in repeated snapshot in `port/sly1/main.cpp` now records the Splash
-StateGraph and StepSequence runtime fields. Native traces for 6–12 seconds
-show graph `0x25f` with four states, seven edges, and `armed=0`; the sole
-walker remains at state key `0x261` on edge `2 -> 2`. The edge has a valid
-animation pointer, but the walker has no player. The class-`0x57`
-CountdownNotifier remains state 0, `+0x338` is null, and its 4–6 second timer
-stays at zero. The world has no class-`0x65` StepSequence. No vertices, visible
-text, or GIF submissions appear. `+0x338` is a gate reference checked by the
-canonical notifier update, so the log label was corrected from “timer gate”
-to `gate_ref`; do not set it or force the state. Next locate the vanilla
-producer/resolution for that reference and determine why the `0x261` graph
-edge is not armed. Logs:
-`/tmp/sly-canonical-55d39f28-state-edge-6s.log` and
-`/tmp/sly-canonical-55d39f28-graph-sequence-dynamic-12s.log`.
+StateGraph and StepSequence runtime fields. I selected exact US retail
+assembly for `CreateAnimationPlayer` (`0x0012C288`), its four reached helper
+functions (`0x0012D3F8`, `0x0012F6B0`, `0x00128998`, `0x001299E0`), and the
+per-frame player updater `func_0012EBD8`. The player is now allocated and its
+time advances each frame. I also restored `StartObjectSubGroup` (`0x001F4660`);
+the Splash's only subgroup has zero children.
+
+The graph `0x25f` still has four states, seven edges, and `armed=0`; its sole
+walker remains at state key `0x261` on edge `2 -> 2`, even while the animation
+player advances. The class-`0x57` CountdownNotifier remains state 0,
+`+0x338` is null, and its 4–6 second timer stays at zero. The world has no
+class-`0x65` StepSequence. There are still no vertices, visible text, or GIF
+submissions. The canonical notifier update treats `+0x338` as an optional gate
+reference; determine whether Splash intentionally leaves it null and what
+normal transition should leave the idle self-loop. Do not set it or force the
+graph. Latest traces:
+`/tmp/sly-canonical-55d39f28-animation-player-update-10s.log`,
+`/tmp/sly-canonical-55d39f28-subgroup-contents-8s.log`, and
+`/tmp/sly-canonical-55d39f28-direct-level-after-animation-10s.log`.
 
 The separate direct-level probe remains the route for investigating the first
 actual gameplay graphics: world loading succeeds, but the GS writer stays at

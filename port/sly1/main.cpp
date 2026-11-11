@@ -492,6 +492,16 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
                                       << " edge_states=" << from << ',' << to << " edge_flags=0x"
                                       << std::hex << flags << std::dec << " edge_weight=" << weight;
                         }
+                        std::uint32_t player_address = 0, animation = 0;
+                        float player_time = 0.0f, player_speed = 0.0f;
+                        if (player != 0 && trace_guest_range(player, 0xECu, &player_address)) {
+                            std::memcpy(&animation, openrac_guest_base + player_address + 8u, 4u);
+                            std::memcpy(&player_time, openrac_guest_base + player_address + 0x14u, 4u);
+                            std::memcpy(&player_speed, openrac_guest_base + player_address + 0x18u, 4u);
+                            std::cerr << " player_anim=0x" << std::hex << animation
+                                      << std::dec << " player_time=" << player_time
+                                      << " player_speed=" << player_speed;
+                        }
                     }
                 }
                 std::cerr << std::dec << '\n';
@@ -507,6 +517,34 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
                           << std::dec << " mode=" << mode << " state=" << state
                           << " steps=" << count << "@0x" << std::hex << steps
                           << std::dec << " current_step=" << step << '\n';
+            } else if (type == 0x7Du && object_size >= 0x330u) {
+                std::int32_t count = 0;
+                std::uint32_t items = 0, post_children = 0;
+                std::memcpy(&post_children, openrac_guest_base + object_address + 0x2D4u, 4u);
+                std::memcpy(&count, openrac_guest_base + object_address + 0x310u, 4u);
+                std::memcpy(&items, openrac_guest_base + object_address + 0x314u, 4u);
+                std::cerr << "[object-subgroup-trace] object=0x" << std::hex << object
+                          << std::dec << " children=" << count << "@0x" << std::hex << items
+                          << " post_children=0x" << post_children << std::dec << '\n';
+                if (count > 0 && count <= 256 &&
+                    trace_guest_range(items, static_cast<std::size_t>(count) * 4u,
+                                      &object_address)) {
+                    const auto* child_words = reinterpret_cast<const std::uint32_t*>(
+                        openrac_guest_base + object_address);
+                    for (std::int32_t child_index = 0; child_index < count; ++child_index) {
+                        const std::uint32_t child = child_words[child_index];
+                        std::uint32_t child_address = 0, child_desc = 0, child_desc_address = 0;
+                        std::uint32_t child_id = 0, child_type = 0xFFFFFFFFu;
+                        if (!trace_guest_range(child, 0x1Cu, &child_address)) break;
+                        std::memcpy(&child_desc, openrac_guest_base + child_address, 4u);
+                        std::memcpy(&child_id, openrac_guest_base + child_address + 8u, 4u);
+                        if (trace_guest_range(child_desc, 8u, &child_desc_address))
+                            std::memcpy(&child_type, openrac_guest_base + child_desc_address + 4u, 4u);
+                        std::cerr << "[object-subgroup-child] i=" << child_index << " object=0x"
+                                  << std::hex << child << " type=0x" << child_type
+                                  << " id=0x" << child_id << std::dec << '\n';
+                    }
+                }
             }
             std::cerr << "[owner-class-object] i=" << index << " object=0x"
                       << std::hex << object << " type=0x" << type

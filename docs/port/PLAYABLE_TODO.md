@@ -17,18 +17,28 @@ decomp to suit hostgen.
 
 Added opt-in recurring state-graph diagnostics to `port/sly1/main.cpp`.
 Repeated native snapshots show Splash graph `0x25f` has four states and seven
-edges; its sole walker stays on state key `0x261`, edge `2 -> 2`, with a valid
-animation pointer but no animation player. The graph `armed` field remains 0.
-The associated CountdownNotifier is state 0 with a null `+0x338` gate reference
-and timer 0 (range 4–6 seconds). No class-`0x65` StepSequence is present. These
-values stay unchanged through a 12-second native run, so startup is not making
-progress through the Splash state path. This is a trace, not a reason to force
-the notifier, graph, or input forward. Next, trace the vanilla producer for
-the notifier's `+0x338` gate reference and confirm which callback should arm
-the `0x261` edge; then return to the direct-level GS geometry path.
-Latest edge trace: `/tmp/sly-canonical-55d39f28-state-edge-6s.log`;
-recurring graph/notifier trace:
-`/tmp/sly-canonical-55d39f28-graph-sequence-dynamic-12s.log`.
+edges. The port now selects exact US retail assembly for the reached animation
+path: `CreateAnimationPlayer` (`0x0012C288`), `NewAnimationPlayer`
+(`0x0012D3F8`), `SetAnimationPlayerSpeed` (`0x0012F6B0`),
+`CreateTrackAttachment` (`0x00128998`), `InsertAttachment` (`0x001299E0`), and
+the world-step updater `func_0012EBD8`. The last function was the missing
+per-frame update: before it was restored, the graph walker had no player; now
+the player exists and its time advances from 0.4 to 4.45 seconds in a 10-second
+native run. `StartObjectSubGroup` (`0x001F4660`) is also restored, but the only
+Splash subgroup has zero children.
+
+The graph's sole walker still stays at state key `0x261`, edge `2 -> 2`, and
+the graph `armed` field remains 0. The associated CountdownNotifier remains in
+state 0 with a null `+0x338` gate reference and timer 0 (range 4–6 seconds); no
+class-`0x65` StepSequence is present. The Splash window remains black with no
+visible text or vertices. A direct-level boot with the animation path restored
+also still reports zero scene vertices and no GIF submissions. Do not force the
+notifier, graph, input, or parsed render-record flags. Next determine whether
+the asset intentionally leaves `+0x338` null and what normal title/gameplay
+transition should leave the idle `0x261` self-loop; continue separately on the
+direct-level renderable-object/GS path.
+Latest graph/player trace: `/tmp/sly-canonical-55d39f28-animation-player-update-10s.log`;
+direct-level follow-up: `/tmp/sly-canonical-55d39f28-direct-level-after-animation-10s.log`.
 
 **Animation reader and render-packet follow-up:** the refreshed decomp names
 `0x0011FFD8` as `ReadAxisRotationCurve`, `0x0011EFC8` as
@@ -84,8 +94,10 @@ state `0,3,0`; vertices, visible text, and GIF submissions are still zero.
 The path is no longer stubbed, but the trace does not yet confirm a title
 transition. Log:
 `/tmp/sly-canonical-55d39f28-state-animation-10s.log`.
-The current build has 727 C translations, 266 assembly translations, 2 stubs,
-and 3,914 functions without C across 267 generated units.
+At that stage the build had 727 C translations, 266 assembly translations,
+2 stubs, and 3,914 functions without C across 267 generated units. The latest
+build after restoring the animation-player cluster has 727 C translations,
+273 assembly translations, 2 stubs, and 3,907 functions without C.
 
 Those nine new matches are useful decompilation progress in collision, object
 interpolation, and player physics; they are not the remaining graphics blocker.
