@@ -25,11 +25,18 @@ scene vertices, image tags/submissions, or visible text. Eight small GIF setup
 DMAs are emitted; the window remains black. The `night21` source shows the
 pointer is produced by `ReserveVifUnpack(..., &hdr->p)` in the strip mesh
 builders, then adjusted by `strip->addr[0] - starts[0]` after packet
-detachment. Capture the original descriptor pointer and packet begin before
-detachment, then compare both with the copied addresses. Do not synthesize
-geometry. Logs:
+detachment. Capture and compare those pointers if the current route reaches the
+builder again; do not synthesize geometry. Logs:
 `/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
 `/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
+
+**Latest reproduction attempt:** temporary probes at the pre-detach,
+post-detach, and consumer points produced no strip events in a 15-second run.
+The loader reached collision face-tree stages 190–192, but submitted only the
+eight setup DMAs. The previous strip pointer issue is not currently reproduced
+on this route. Trace the model/object handoff into `ReadPlacedObjectModel` and
+reproduce the builder call before changing pointer arithmetic. Probe log:
+`/tmp/sly-night21-4097b806-strip-pointer-stages-15s.log`.
 
 **Current decomp/use assessment:** the source unit clarifies the strip
 descriptor and builder/relocation flow but does not identify the packet-prefix

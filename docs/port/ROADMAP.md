@@ -67,6 +67,15 @@ copied packets start with a prefix that puts the pointer on a command word.
 Keep the negative-count guard and three helper implementations in the
 port-only backfill layer until the parser/relocation path is understood.
 
+A fresh 15-second direct-level probe with temporary hooks before/after detach
+and at `func_00165588` produced no strip events. It did reach the collision
+face-tree parser (loader stages 190–192) and emitted the eight 144-byte setup DMAs.
+The strip pointer problem from older logs is not reproduced by the current
+launch path. Next trace the object/model handoff into `ReadPlacedObjectModel`
+and determine why it does not reach the strip builder before changing packet
+arithmetic.
+Probe log: `/tmp/sly-night21-4097b806-strip-pointer-stages-15s.log`.
+
 An earlier native startup checkpoint used the `f36f43ee` source snapshot of
 `sly1-decomp` and hostgen translated 722 functions and 247 selected retail
 assembly functions across 263 generated C units. The current build uses

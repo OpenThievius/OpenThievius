@@ -51,14 +51,24 @@ run completed its timeout without a crash and emitted the same eight 144-byte
 GIF setup DMAs; it still has no visible scene. Log:
 `/tmp/sly-night21-4097b806-decomp-refresh-clean-5s.log`.
 
+A follow-up inserted temporary probes before/after strip packet detachment and
+at `func_00165588`. A 15-second direct-level launch produced no strip events
+at any probe, despite collision face-tree stages 190–192; the fresh 5-second
+run likewise produced only the eight setup DMAs. The pointer arithmetic is
+therefore not the current reproducible blocker on this launch path. Reproduce
+the conditions for the older strip samples before changing their producer;
+first identify why this boot parses collision meshes but does not reach the
+strip builder.
+The probes were removed and the normal `port_native` target rebuilt. Log:
+`/tmp/sly-night21-4097b806-strip-pointer-stages-15s.log`.
+
 The source shows `BuildStripMeshPacket` and `BuildLitStripMeshPacket` set
 `strip->unpack` through `ReserveVifUnpack(..., &hdr->p)`, write the descriptor
 offsets through that pointer, and later adjust it by
-`strip->addr[0] - starts[0]`. The next probe should capture the original
-descriptor pointer and packet begin before detachment, then compare them with
-the copied addresses for both the valid and suspect prefixes. Verify a nonzero
-scene vertex count and visible graphics after fixing that producer path. Do not
-claim playability yet.
+`strip->addr[0] - starts[0]`. If the path is reached again, compare the
+original descriptor pointer and packet begin with the copied addresses for
+both valid and suspect prefixes. Verify a nonzero scene vertex count and
+visible graphics after fixing that producer path. Do not claim playability yet.
 
 ## Decomp rework check (2026-11-11)
 
