@@ -3,6 +3,28 @@
 
 ## Current status (2026-11-11)
 
+**Animation reader and render-packet follow-up:** the refreshed decomp names
+`0x0011FFD8` as `ReadAxisRotationCurve`, `0x0011EFC8` as
+`ReadTangentWeightCurve`, and `0x0011F180` as `GetTangentWeightCurveTimes`.
+The port now selects exact US retail assembly for these reached callbacks.
+This fixes the state-graph stream misalignment: the first graph's five
+animation children are consumed and the top-level resource loader reaches its
+completion stages before entering the frame loop. Keep the host C readers as
+separate port backfills for later replacement.
+
+A direct level probe (`OPENRAC_BOOT_LEVEL=0x0100`) loads a populated world:
+resource record index 2 and world lists are present, and the render thread
+runs. However, `vertices=0`, GIF image tags and submitted chains remain zero.
+Frame-writer tracing shows the GS writer cursor stays at its initial DMA tag
+while the VIF writer advances by about `0x2e0` bytes. This moves the current
+visual blocker from world loading to understanding why the scene path does not
+write/submit GS geometry. The default Splash also has no visible UI elements.
+The invalid UI virtual-call guard is port-only safety code and traces bad
+callbacks if encountered; it does not synthesize graphics. Latest direct-level
+trace: `/tmp/sly-canonical-55d39f28-direct-level-packets-8s.log`; frame writer
+trace: `/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`.
+
+
 The latest public `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113),
 fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 (98.98% by function count, 93.11% of code, and 94.56% of data). Since
@@ -10,10 +32,10 @@ fetched on 2026-11-11. Its NTSC-U report lists 4,758/4,807 functions matched
 interpolation, and player physics code. Those new definitions are not yet
 hosted by this port: the current C hostgen staging step cannot parse their
 updated C++ headers and falls back to retail assembly for them. The refreshed
-build now links 725 translated functions, 249 retail assembly translations,
-2 stubs, and 3,933 functions without C across 265 generated C units. The source
-snapshot is `/tmp/sly1-decomp-55d39f28`; the separate sibling checkout has only
-been fetched, not checked out or edited. Build:
+build links 725 translated functions, 252 retail assembly translations,
+2 stubs, and 3,930 functions without C across 265 generated C units. The source
+snapshot is `/tmp/sly1-decomp-55d39f28`; `/home/reaper/sly/sly1-decomp` is now
+fast-forwarded to `55d39f28` and clean. Build:
 `build/port/canonical-55d39f28`.
 
 The nine new matches are useful decompilation progress, but they do not cover

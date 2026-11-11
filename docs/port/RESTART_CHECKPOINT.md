@@ -29,9 +29,9 @@ the frame loop, where the top-level reader later exhausts at
 
 ## Canonical decomp refresh checkpoint (2026-11-11)
 
-Canonical `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113), fetched
-2026-11-11 from `/home/reaper/sly/sly1-decomp` without changing its checked-out
-files. Upstream reports 4,758/4,807 NTSC-U functions matched (98.98% by
+Canonical `OpenThievius/sly1-decomp` master is `55d39f28` (PR #113), fast-forwarded
+2026-11-11 in `/home/reaper/sly/sly1-decomp`; that checkout is clean and at
+`55d39f28`. Upstream reports 4,758/4,807 NTSC-U functions matched (98.98% by
 function count, 93.11% of code, and 94.56% of data). Since `f36f43ee`, nine
 functions were matched in collision, object interpolation, and player physics
 code. A detached source worktree is `/tmp/sly1-decomp-55d39f28`. The isolated
@@ -39,8 +39,8 @@ build at `build/port/canonical-55d39f28` uses this source and the older
 `/home/reaper/Code/sly1-decomp` checkout only for US retail assembly. The
 hostgen C frontend cannot parse several refreshed C++ units and falls back to
 assembly for their new definitions; with the current loader assembly selections,
-linked coverage is 725 translated functions, 249 selected assembly functions,
-2 stubs, and 3,933
+linked coverage is 725 translated functions, 252 selected assembly functions,
+2 stubs, and 3,930
 functions without C across 265 generated C units. The build succeeds.
 
 Port overrides without a host-readable matching C definition are staged
@@ -48,10 +48,19 @@ ahead of the canonical units as separate port-owned source files. This lets
 address-based functions remain callable when the reworked decomp renames
 their C symbols or a canonical unit cannot be read. Implementations stay in
 the port under `hand/native_c/`, `hand/overrides_c/`, and
-`hand/superseded_backfills/`; the upstream checkout was not modified.
+`hand/superseded_backfills/`; the decomp checkout is clean, with no port edits.
 
-The latest bounded native run finishes Splash loading and enters the frame
-loop. The canonical notifier lookup now resolves Splash's class-`0x75` child
+Exact retail assembly is selected for `ReadAxisRotationCurve`
+(`0x0011FFD8`), `ReadTangentWeightCurve` (`0x0011EFC8`), and
+`GetTangentWeightCurveTimes` (`0x0011F180`). The first state graph now consumes
+its five animation children and the top-level reader reaches completion before
+frame processing. A direct-level native probe loads populated resource/world
+lists and runs the render thread. Frame tracing still shows no GS geometry: the
+GS writer cursor stays at its initial tag, the VIF writer advances about
+`0x2e0` bytes, and vertex/GIF submission counters remain zero. Logs are
+`/tmp/sly-canonical-55d39f28-direct-level-packets-8s.log` and
+`/tmp/sly-canonical-55d39f28-frame-packet-trace-8s.log`. The canonical notifier
+lookup now resolves Splash's class-`0x75` child
 (`0x846cb0`, id `0x22a`) as the CountdownNotifier owner. The window still has
 zero vertices, no visible text, no GIF image tags, and no DMA submissions; it
 remains black. This is a lookup fix, not a visual or playable milestone. The
