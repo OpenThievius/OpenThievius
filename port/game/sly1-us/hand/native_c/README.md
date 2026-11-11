@@ -62,10 +62,15 @@ checksum guard, packet-list finalization, display packet primitives, and
 initial display-environment packet. The loader backfills reproduce the retail
 request-list sizes, CRC table and semaphore ordering.
 Native services create the loader semaphores and start its guest thread. The
-loader thread now runs and blocks on its request semaphore, while the display
-worker submits initialization GIF chains. The renderer still receives no
-visible scene geometry, and several called engine functions remain unresolved
-no-ops; this is startup progress, not a playable game.
+loader now completes the forced level load and the main loop remains active for
+at least 15 seconds. A stale frame node was being copied over by a large level
+resource block; the port drains both render contexts and all three deferred
+render lists before rewinding transient memory. The previous
+`0x66002e34` frame-list fault no longer occurs in that run. The trace shows a
+populated world and object lists, but zero submitted scene vertices, image
+tags, and blit writes. The window remains black and the game is not playable;
+scene geometry submission and several unresolved engine callbacks remain the
+next rendering blockers.
 
 `func_001E9108` now uses the US retail assembly translation for the frame-state
 dispatcher. Its earlier C reconstruction is retained under `hand/reference_c/`
