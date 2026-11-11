@@ -8,7 +8,7 @@ readable names and project-owned assembly macros, but no newly matched
 functions or code bytes. This improves source navigation without supplying
 new matching C for the port. `func_00109488` remains unmatched and isolated as
 a port-only backfill. The native launcher rebuild against Wave 24 succeeds
-with 732 C translations, 388 retail assembly translations, and 2 stubs.
+with 732 C translations, 396 retail assembly translations, and 2 stubs.
 
 **Native input correction (2026-11-11):** retail `PollPadInput` combines
 button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the
@@ -18,6 +18,18 @@ The rebuilt launcher succeeds. A 90-second native run remained neutral at
 44.7 guest seconds with no movie request or graphics, so a real keyboard or
 controller press is still needed to verify the transition. Log:
 `/tmp/sly-pad-input-interactive-90s.log`.
+
+**Reached world-update recovery (2026-11-11):** exact US retail assembly now
+provides eight reached object/animation callbacks that were empty stubs:
+`UpdateObjectTree`, `SeekAnimationEventCursor`, `RunAnimationEventsToTime`,
+`ApplyAnimationLoopMode`, `ApplyListedPoseSources`,
+`AddAnimationPlayerCallback`, `UpdateMatchingListedObjects`, and
+`SetRangeRecordPosition`. The rebuild has 732 C translations, 396 assembly
+translations, and 2 stubs. A 45-second native run reached game time 22.08
+seconds but still had no queued movie, world-load request, vertices, image
+tags, or GIF submits; all 37 UI elements remained inactive. The neutral pad
+trace means an input transition was not tested. More startup time does not
+advance this path. Log: `/tmp/sly-update-object-tree-summary-45s.log`.
 
 **Renderer/UI stub recovery (2026-11-11):** a fresh native trace exposed 22
 reached visual routines still running as empty stubs. Exact US assembly is now

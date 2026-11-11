@@ -34,7 +34,7 @@ matched functions; their source units still cannot pass the port's C frontend
 because shared headers contain duplicate collider members, failed layout
 assertions, and C++-only declarations. Neither was reached in the latest
 startup trace. Rebuilding against Wave 24 succeeds with 732 C translations,
-388 retail assembly translations, and 2 stubs. A fresh trace identified 22
+396 retail assembly translations, and 2 stubs. A fresh trace identified 22
 reached visual/UI no-ops and they now run from exact US retail assembly. The
 initialized font count rose from 35 to 37, but all screen elements remain
 inactive and renderer counters remain at zero. The player advances along the
@@ -55,6 +55,22 @@ with the same retail order. The native build succeeds. A 90-second run reached
 44.7 guest seconds with neutral input, no queued movie, and zero graphics;
 because no key was pressed during that run, input-driven progression remains
 unverified. Log: `/tmp/sly-pad-input-interactive-90s.log`.
+
+### Reached world-update recovery (2026-11-11)
+
+The startup warning list showed eight reached object/animation helpers running
+as empty stubs. The port now selects their exact US retail assembly:
+`UpdateObjectTree`, `SeekAnimationEventCursor`, `RunAnimationEventsToTime`,
+`ApplyAnimationLoopMode`, `ApplyListedPoseSources`,
+`AddAnimationPlayerCallback`, `UpdateMatchingListedObjects`, and
+`SetRangeRecordPosition`. Build coverage is 732 C translations, 396 assembly
+translations, and 2 stubs. A 45-second native run reached game time 22.08
+seconds—the point when the PCSX2 reference first shows the opening scene—but
+still had no movie queued, world-load request, vertices, image tags, or GIF
+submissions. All 37 UI elements remained inactive with `visible_text=0`. The
+pad trace stayed neutral, so input-driven progression was not exercised. This
+rules out elapsed startup time as the remaining explanation. Log:
+`/tmp/sly-update-object-tree-summary-45s.log`.
 
 ### Frame setup and Splash graph trace (2026-11-11)
 

@@ -29,6 +29,17 @@ seconds but had no key input, movie request, or graphics; the transition after
 a real button press remains to be checked. Log:
 `/tmp/sly-pad-input-interactive-90s.log`.
 
+World/animation recovery: selected exact US retail assembly for eight reached
+no-op callbacks—`UpdateObjectTree`, `SeekAnimationEventCursor`,
+`RunAnimationEventsToTime`, `ApplyAnimationLoopMode`, `ApplyListedPoseSources`,
+`AddAnimationPlayerCallback`, `UpdateMatchingListedObjects`, and
+`SetRangeRecordPosition`. The build now has 732 C translations, 396 assembly
+translations, and 2 stubs. A 45-second native run reached 22.08 guest seconds,
+with no movie/world request, vertices, image tags, or GIF submissions and all
+37 UI elements inactive. Its pad trace stayed neutral. This confirms elapsed
+time alone does not trigger the opening scene. Log:
+`/tmp/sly-update-object-tree-summary-45s.log`.
+
 Exact retail assembly now covers 15 additional reached GIF, text-panel, frame
 transform, camera, and world-list callbacks. Build coverage is 732 C
 translations, 388 assembly translations, and 2 stubs. A 65-second native run

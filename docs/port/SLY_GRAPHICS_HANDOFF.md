@@ -8,7 +8,7 @@ the match report (4,760/4,807 US functions; 93.25% of code bytes). Wave 22's
 `func_001B55C0` and `func_001536C8` remain the latest newly matched functions,
 and their C++ translation units still fail native C staging on layout
 conflicts and C++-only header declarations. The refreshed hostgen build links
-732 C translations, 388 selected US assembly translations, and two generated
+732 C translations, 396 selected US assembly translations, and two generated
 stubs across 269 generated C units. The native launcher builds successfully.
 
 A fresh SDL native launch showed the remaining no-op cluster and exact US
