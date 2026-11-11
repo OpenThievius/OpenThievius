@@ -918,17 +918,25 @@ The opt-in trace logs VIF0 chain headers and sixteen payload words. Startup
 submits one VIF0 CNT tag at `0x00211e10` with 46 QWC and an END tag at
 `0x00212100`. Later VIF0 submits use empty CNT/END tags at `0xe041efe0`.
 VIF1's first TADR is `0x00212110`, directly after that VIF0 END tag in the
-shared staging buffer. Its 48-byte setup transfer contains NOP/IRQ and STCYCL
-commands; the current interpreter rejects opcode `0x40` at offset `0x14`
-(`0x400002ff`). The run continues into later VIF1 transfers that emit 736
-DIRECT bytes. This is not currently the explanation for the steady black
-output; keep the warning until the opcode is understood. Do not discard the
-packet or mistake this setup for scene geometry. Logs:
-`/tmp/sly-vif0-data-trace-20261111.log` and
-`/tmp/sly-vif1-failure-context-20261111.log`.
+shared staging buffer. The decomp's current `original_data.tsv` identifies
+`0x00211e10` as the start of `.vutext`, a 21,840-byte VU microcode section.
+The first tag has 46 QWC and VIF code `0x4a5a0000`. The native submitter still
+drops VIF0 channel `0x10008000`, so that upload is not executed.
 
-The clearest next tasks remain (1) follow the missing startup StepSequence
-and notifier gate through normal Splash resource activation, (2) identify why
-no active UI draw callbacks run, and (3) trace the 2,128-byte draw packet's
-producer and invalid vertex attributes. The native display remains black;
-no graphics or playable state has been reached.
+The first VIF1 transfer starts at `0x00212110`. Its retail caller sets CHCR
+TTE (`0x40`), but the native backfill overwrote CHCR with `0x105`, clearing
+TTE. The interpreter consequently read VU instructions as commands and
+rejected `0x400002ff`. A port-only fix preserves TTE: the first transfer now
+parses as 64 bytes with one MPG and one MSCAL; the following transfer parses
+eight MPGs plus 736 DIRECT bytes without a malformed-stream warning. Logs:
+`/tmp/sly-vif0-data-trace-20261111.log`,
+`/tmp/sly-vif1-failure-context-20261111.log`, and
+`/tmp/sly-vif1-tte-startup-8s-20261111.log`. Keep VU0 work native to the port
+if a VU0 caller becomes reachable; do not extend a hardware emulator.
+
+The fix advances setup but does not change the visual result. At 3.45 guest
+seconds the 8-second trace reaches Splash/world state 3 and still has zero
+vertices, image tags, image qwords, and visible text; all 37 UI objects are
+inactive and no movie is queued. Next, follow normal Splash/title activation,
+then the 2,128-byte packet's producer and invalid attributes. The display
+remains black; no graphics or playable state has been reached.

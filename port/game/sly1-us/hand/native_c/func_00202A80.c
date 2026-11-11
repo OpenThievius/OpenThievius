@@ -26,5 +26,8 @@ void func_00202A80(s32 dma, void* source) {
     if (channel != 0x10009000u) return;
     *(u32*)0x1000E000u |= 1u;
     *(u32*)0x10009030u = address;
-    (void)openrac_guest_vif1_mmio_store32(0x10009000u, 0x105u);
+    /* The game sets TTE on this channel before submission. Preserve it so
+     * the VIF1 handler receives the VIF code stored in each DMA tag. */
+    const u32 chcr = (*(u32*)0x10009000u & 0x40u) | 0x105u;
+    (void)openrac_guest_vif1_mmio_store32(0x10009000u, chcr);
 }

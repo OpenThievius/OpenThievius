@@ -2675,17 +2675,28 @@ The opt-in DMA trace records VIF0 chain headers and the first sixteen payload
 words. Startup submits one VIF0 CNT tag at `0x00211e10` with 46 QWC, followed
 by an END tag at `0x00212100`; later VIF0 calls point to empty CNT/END tags at
 `0xe041efe0`. VIF1's first TADR is `0x00212110`, immediately after the shared
-buffer's VIF0 END tag. Its 48-byte setup transfer contains NOP/IRQ and STCYCL
-commands, then the current interpreter rejects opcode `0x40` at offset
-`0x14` (`0x400002ff`). The same run continues into later VIF1 transfers that
-emit 736 DIRECT bytes. This isolated setup is not currently the explanation
-for the steady black frame. Preserve the warning until opcode `0x40` is
-understood; do not discard the packet or treat it as scene geometry. Logs:
-`/tmp/sly-vif0-data-trace-20261111.log` and
-`/tmp/sly-vif1-failure-context-20261111.log`. The VIF0 trace is opt-in under
-`OPENRAC_TRACE_DMA_CALL=1` and inspects at most eight chains.
+buffer's VIF0 END tag. A raw ELF check identified `0x00211e10` as the start of
+the `.vutext` section (21,840 bytes of original VU microcode); its first DMA
+tag requests 46 QWC and carries VIF code `0x4a5a0000`. The native submitter
+still drops channel `0x10008000`, so this VU0 upload is not executed.
 
-Continue from the stronger active lead: why the startup world has no
-StepSequence/title transition or active UI draw callbacks, then separately
-trace the 2,128-byte packet's invalid vertex attributes. The window is still
-black; no graphics or playable state has been reached.
+The first VIF1 transfer starts at `0x00212110`. Its caller sets CHCR TTE
+(`0x40`), but the native backfill overwrote CHCR with `0x105`, clearing TTE.
+That made the interpreter read VU instructions as commands and reject
+`0x400002ff`. A port-only fix now preserves TTE. The first transfer is then
+64 bytes with one MPG and one MSCAL, and the next large transfer parses eight
+MPGs and 736 DIRECT bytes without a malformed-stream warning. Logs:
+`/tmp/sly-vif0-data-trace-20261111.log`,
+`/tmp/sly-vif1-failure-context-20261111.log`, and
+`/tmp/sly-vif1-tte-startup-8s-20261111.log`. The VIF0 trace is opt-in under
+`OPENRAC_TRACE_DMA_CALL=1` and inspects at most eight chains. The VU0 path is
+still a separate gap; use native C for any reached VU0 caller rather than
+expanding a VU hardware emulator.
+
+The VIF1 fix advances setup but does not change the visible result: the
+8-second trace reaches the Splash world and global element-stack state 3, yet
+still reports zero vertices, image tags, image qwords, and visible text. No
+movie is queued, and all 37 UI objects remain inactive. Continue from the
+missing normal Splash/title activation and the invalid 2,128-byte UI draw
+packet. Do not force a menu or movie. Logs:
+the window remains black; no graphics or playable state has been reached.
