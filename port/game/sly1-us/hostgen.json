@@ -36,6 +36,9 @@
     "game_sly1_native_trace_lz_branch",
     "game_sly1_native_trace_lz_token",
     "game_sly1_native_trace_lz_output",
+    "sly1_native_trace_frame_lists",
+    "sly1_native_trace_list_remove",
+    "sly1_native_trace_list_append",
     "sly1_native_boot_level_key",
     "openrac_lib_sly1_signal_sema"
   ],

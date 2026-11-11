@@ -50,6 +50,13 @@ void func_00138C00(void* object, s32 mode);
 void func_001BEC58(s32 value);
 void func_001C0B38(void* object);
 
+typedef struct NativeListWalkFrame_1DCEA0 {
+    u32 list;
+    u32 link;
+    s32 offset;
+    u32 previous;
+} NativeListWalkFrame_1DCEA0;
+
 #ifndef SLY1_RETAIL_ASM_FUNC_001DCEA0
 static void call_descriptor_method(void* object, u32 slot) {
     u32 descriptor;
@@ -65,8 +72,9 @@ void func_001DCEA0(void* self, void* reader) {
     u8* object = (u8*)self;
     s32 index;
     void* child;
-    void* node;
-    u32 saved_context;
+    u32 node;
+    u32 list48;
+    NativeListWalkFrame_1DCEA0 iterator;
 
     func_00151A88(D_00261EF0);
     sly1_native_loader_stage(15, (u32)object, (u32)reader);
@@ -149,15 +157,24 @@ void func_001DCEA0(void* self, void* reader) {
     func_001DCD28(self);
     func_001DBE48(self);
 
-    node = *(void**)(object + 0x48);
+    /* Retail's second list pass is a ListFrame walk. The active-list global
+     * points at the four-word iterator, not at the list header itself. */
+    list48 = (u32)(object + 0x48u);
+    iterator.list = list48;
+    iterator.link = list48;
+    iterator.offset = *(s32*)(list48 + 8u);
+    iterator.previous = D_0027B314;
+    D_0027B314 = (u32)&iterator;
+    node = *(u32*)iterator.link;
+    iterator.link = node + (u32)iterator.offset;
     while (node != 0) {
-        call_descriptor_method(node, 0x4C);
-        node = *(void**)((u8*)node + 0x1C);
+        call_descriptor_method((void*)node, 0x50u);
+        node = *(u32*)iterator.link;
+        iterator.link = node + (u32)iterator.offset;
     }
-    func_001DBE48(self);
+    D_0027B314 = iterator.previous;
 
-    saved_context = D_0027B314;
-    D_0027B314 = (u32)(object + 0x48);
+    func_001DBE48(self);
     func_00151D28(D_00261EF0);
     func_001E90E8(D_00275BC0);
 
@@ -172,7 +189,6 @@ void func_001DCEA0(void* self, void* reader) {
     sly1_native_trace_font(179u, (u32)object, 0, 0, 0, 0);
     func_001BEC58(*(s32*)(object + 0x1D74));
     func_001C0B38(self);
-    D_0027B314 = saved_context;
     sly1_native_loader_stage(5, (u32)object, (u32)reader);
 }
 #endif

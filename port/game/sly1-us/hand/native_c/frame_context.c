@@ -23,6 +23,16 @@ typedef struct NativeFrameContext {
     s32 f44;
 } NativeFrameContext;
 
+/* RemoveFromList walks this exact four-word frame chain when it unlinks the
+ * current item. Keep the frame in guest stack memory (hostgen lowers its
+ * address-taken local) and use the retail field order. */
+typedef struct NativeListWalkFrame {
+    u32 list;
+    u32 link;
+    s32 offset;
+    u32 previous;
+} NativeListWalkFrame;
+
 extern NativeFrameContext D_00262320[2];
 extern NativeFrameContext* D_002622D8;
 extern s32 D_00262318;
@@ -55,17 +65,16 @@ void func_001F6C20(s32 channel);
 int openrac_lib_sly1_signal_sema(u32 semaphore);
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
+void sly1_native_trace_frame_lists(u32 context);
 
 
 void func_0015EFE8(NativeFrameContext* context)
 {
+    NativeListWalkFrame iterator;
     NativeFrameList* lists[3];
-    u8 temporary_anchor[16];
-    u32 saved_temp;
     s32 list_index;
     if (context == 0) return;
-    saved_temp = D_0027B314;
-    D_0027B314 = (u32)temporary_anchor;
+    sly1_native_trace_frame_lists((u32)context);
     lists[0] = &context->l20;
     lists[1] = &context->l2C;
     lists[2] = &context->l38;
@@ -73,24 +82,34 @@ void func_0015EFE8(NativeFrameContext* context)
     for (list_index = 0; list_index < 3; ++list_index) {
         NativeFrameList* list = lists[list_index];
         u32 visited = 0;
-        while (list->head != 0 && visited++ < 4096u) {
-            u8* node = (u8*)list->head;
-            u8* root = D_00275710;
+        if (list->head == 0) continue;
+        iterator.list = (u32)list;
+        iterator.link = (u32)list;
+        iterator.offset = list->offset;
+        iterator.previous = D_0027B314;
+        D_0027B314 = (u32)&iterator;
+        for (;;) {
+            u32 node = *(u32*)iterator.link;
+            u32 root = (u32)D_00275710;
+            if (node == 0 || visited++ >= 4096u) break;
+            iterator.link = node + (u32)iterator.offset;
             if (list_index == 0) {
-                void* owner = *(void**)(node + 0x14);
+                u32 owner = *(u32*)(node + 0x14u);
                 func_00152600(list, node);
-                if (owner != 0) func_00152470((u8*)owner + 0x1CC0, node);
+                if (owner != 0) func_00152470((void*)(owner + 0x1CC0u), (void*)node);
             } else {
-                if (list_index == 1 && *(u32*)(node + 0x1088) != 0 && root != 0)
-                    func_001B5F28(root + 0x1B4C, node);
+                u32 free_slot = *(u32*)(node + 0x1088u);
+                if (list_index == 1 && free_slot != 0 && root != 0)
+                    func_001B5F28((void*)(root + 0x1B4Cu), (void*)free_slot);
                 func_00152600(list, node);
                 if (root != 0)
-                    func_00152470(root + (list_index == 1 ? 0x1B40 : 0x1BF4), node);
+                    func_001B5F28((void*)(root + (list_index == 1 ? 0x1B40u : 0x1BF4u)),
+                                  (void*)node);
             }
         }
-        if (list->head == 0) func_00152440(list);
+        if (list_index != 2) func_00152440(list);
+        D_0027B314 = iterator.previous;
     }
-    D_0027B314 = saved_temp;
 }
 
 void func_00191E70(s32 value)
@@ -149,6 +168,10 @@ void func_0015EC68(void)
     context->l20 = D_002622E0;
     context->l2C = D_002622F0;
     context->l38 = D_00262300;
+    func_00152440(&D_002622E0);
+    func_00152440(&D_002622F0);
+    func_00152440(&D_00262300);
+    sly1_native_trace_frame_lists((u32)context);
     D_002622D8 = 0;
     D_002622D0 = 0;
     (void)openrac_lib_sly1_signal_sema((u32)D_002623B0);

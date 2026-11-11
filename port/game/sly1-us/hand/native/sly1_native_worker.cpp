@@ -346,6 +346,128 @@ extern "C" void game_sly1_native_trace_lz_output(uint32_t reader,
         input_remaining, path);
 }
 
+extern "C" void game_sly1_native_trace_frame_lists(uint32_t context) {
+    if (std::getenv("OPENRAC_TRACE_FRAME_LISTS") == nullptr ||
+        openrac_guest_base == nullptr) return;
+    const uint32_t offset = openrac_guest_ram_address(context);
+    if (offset > openrac_guest_ram_size - 0x50u) return;
+    const uint32_t active = GREF(uint32_t, 0x0027b314u);
+    const bool active_in_ram = active <= openrac_guest_ram_size - 16u;
+    const bool active_in_port = active >= GUEST_PORT &&
+        active <= GUEST_PORT + GUEST_PORT_SIZE - 16u;
+    std::fprintf(stderr,
+        "[frame-lists] thread=%u context=%#010x active=%#010x\n",
+        openrac_guest_current_thread_id(), context, active);
+    uint32_t frame = active;
+    for (uint32_t depth = 0; depth < 4u; ++depth) {
+        const bool frame_in_ram = frame <= openrac_guest_ram_size - 16u;
+        const bool frame_in_port = frame >= GUEST_PORT &&
+            frame <= GUEST_PORT + GUEST_PORT_SIZE - 16u;
+        if (!frame_in_ram && !frame_in_port) {
+            if (depth == 0) std::fprintf(stderr, "[list-frame] invalid=%#010x\n", frame);
+            break;
+        }
+        const uint32_t list = GREF(uint32_t, frame);
+        const uint32_t link = GREF(uint32_t, frame + 4u);
+        const int32_t frame_offset = GREF(int32_t, frame + 8u);
+        const uint32_t previous = GREF(uint32_t, frame + 12u);
+        std::fprintf(stderr,
+            "[list-frame] depth=%u frame=%#010x list=%#010x link=%#010x offset=%d previous=%#010x\n",
+            depth, frame, list, link, frame_offset, previous);
+        frame = previous;
+    }
+    for (uint32_t i = 0; i < 3u; ++i) {
+        const uint32_t list = context + 0x20u + i * 0x0Cu;
+        const uint32_t list_offset = openrac_guest_ram_address(list);
+        if (list_offset > openrac_guest_ram_size - 12u) continue;
+        const uint32_t head = GREF(uint32_t, list);
+        const uint32_t tail = GREF(uint32_t, list + 4u);
+        const int32_t node_offset = GREF(int32_t, list + 8u);
+        uint32_t head_next = 0, head_prev = 0, tail_next = 0, tail_prev = 0;
+        if (head != 0) {
+            const uint32_t head_offset = openrac_guest_ram_address(head +
+                static_cast<uint32_t>(std::max(node_offset, 0)));
+            if (node_offset >= 0 && head_offset <= openrac_guest_ram_size - 8u) {
+                head_next = GREF(uint32_t, head + static_cast<uint32_t>(node_offset));
+                head_prev = GREF(uint32_t, head + static_cast<uint32_t>(node_offset) + 4u);
+            }
+        }
+        if (tail != 0 && node_offset >= 0) {
+            const uint32_t tail_links = openrac_guest_ram_address(tail +
+                static_cast<uint32_t>(node_offset));
+            if (tail_links <= openrac_guest_ram_size - 8u) {
+                tail_next = GREF(uint32_t, tail + static_cast<uint32_t>(node_offset));
+                tail_prev = GREF(uint32_t, tail + static_cast<uint32_t>(node_offset) + 4u);
+            }
+        }
+        std::fprintf(stderr,
+            "[frame-lists] slot=%u list=%#010x head=%#010x tail=%#010x offset=%d head-links={%#010x,%#010x} tail-links={%#010x,%#010x}\n",
+            i, list, head, tail, node_offset, head_next, head_prev,
+            tail_next, tail_prev);
+    }
+}
+
+extern "C" void game_sly1_native_trace_list_remove(uint32_t list,
+                                                       uint32_t item,
+                                                       int32_t offset,
+                                                       uint32_t next,
+                                                       uint32_t previous,
+                                                       uint32_t phase) {
+    if (std::getenv("OPENRAC_TRACE_FRAME_LISTS") == nullptr ||
+        openrac_guest_base == nullptr) return;
+    constexpr uint32_t target_link = 0x00830060u;
+    if (item + static_cast<uint32_t>(offset) != target_link &&
+        (next == 0 || next + static_cast<uint32_t>(offset) != target_link) &&
+        (previous == 0 || previous + static_cast<uint32_t>(offset) != target_link))
+        return;
+    static std::atomic<unsigned> calls{0};
+    const unsigned call = calls.fetch_add(1, std::memory_order_relaxed);
+    if (call >= 512u) return;
+    std::fprintf(stderr,
+        "[frame-list-remove] call=%u thread=%u caller=%#010x list=%#010x item=%#010x offset=%d phase=%u next=%#010x prev=%#010x\n",
+        call, openrac_guest_current_thread_id(),
+        openrac_guest_last_called_address_for_thread(openrac_guest_current_thread_id()),
+        list, item, offset, phase, next, previous);
+}
+
+extern "C" void game_sly1_native_trace_list_append(uint32_t list,
+                                                       uint32_t node,
+                                                       int32_t offset,
+                                                       uint32_t head,
+                                                       uint32_t tail,
+                                                       uint32_t phase) {
+    if (std::getenv("OPENRAC_TRACE_FRAME_LISTS") == nullptr ||
+        openrac_guest_base == nullptr) return;
+    constexpr uint32_t target_link = 0x00830060u;
+    const bool node_hits = node + static_cast<uint32_t>(offset) == target_link;
+    bool tail_hits = tail != 0 && tail + static_cast<uint32_t>(offset) == target_link;
+    if (!tail_hits && phase != 0) {
+        const uint32_t node_links = node + static_cast<uint32_t>(offset);
+        const uint32_t node_link_offset = openrac_guest_ram_address(node_links);
+        if (node_link_offset <= openrac_guest_ram_size - 8u) {
+            const uint32_t previous = GREF(uint32_t, node_links + 4u);
+            tail_hits = previous != 0 &&
+                previous + static_cast<uint32_t>(offset) == target_link;
+        }
+    }
+    if (!node_hits && !tail_hits) return;
+    static std::atomic<unsigned> calls{0};
+    const unsigned call = calls.fetch_add(1, std::memory_order_relaxed);
+    if (call >= 256u) return;
+    const uint32_t link_offset = openrac_guest_ram_address(target_link);
+    uint32_t next = 0, previous = 0;
+    if (link_offset <= openrac_guest_ram_size - 8u) {
+        next = GREF(uint32_t, target_link);
+        previous = GREF(uint32_t, target_link + 4u);
+    }
+    std::fprintf(stderr,
+        "[frame-list-append] call=%u thread=%u caller=%#010x phase=%u list=%#010x node=%#010x offset=%d head=%#010x tail=%#010x target={%u,%u} links={%#010x,%#010x}\n",
+        call, openrac_guest_current_thread_id(),
+        openrac_guest_last_called_address_for_thread(openrac_guest_current_thread_id()),
+        phase, list, node, offset, head, tail, node_hits ? 1u : 0u,
+        tail_hits ? 1u : 0u, next, previous);
+}
+
 extern "C" void sly1_native_start_worker(void) {
     const gaddr saved_sp = openrac_guest_sp;
     const gaddr params = openrac_guest_frame(0x48u);

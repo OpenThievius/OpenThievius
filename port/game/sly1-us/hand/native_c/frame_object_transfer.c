@@ -13,6 +13,13 @@ typedef struct NativeLink_139EC8 {
     u32 previous;
 } NativeLink_139EC8;
 
+typedef struct NativeListWalkFrame_139EC8 {
+    u32 list;
+    u32 link;
+    s32 offset;
+    u32 previous;
+} NativeListWalkFrame_139EC8;
+
 extern u32 D_0027B314;
 void func_00139D28(void* node);
 void func_00152600(void* list, void* node);
@@ -32,25 +39,26 @@ static void trace_frame_node(u32 node, u32 phase)
 void func_00139EC8(void* node_pointer)
 {
     u32 node = (u32)node_pointer;
-    u32 saved_temp = D_0027B314;
-    u32 temporary_anchor[4];
+    NativeListWalkFrame_139EC8 iterator;
     NativeList_139EC8* children = (NativeList_139EC8*)(node + 0x624u);
-    u32 slot = (u32)children;
     u32 link_offset = (u32)children->link_offset;
-    u32 child = children->head;
 
-    D_0027B314 = (u32)temporary_anchor;
-    if (child != 0) slot = child + link_offset;
-    while (child != 0) {
+    iterator.list = (u32)children;
+    iterator.link = (u32)children;
+    iterator.offset = (s32)link_offset;
+    iterator.previous = D_0027B314;
+    D_0027B314 = (u32)&iterator;
+    for (;;) {
+        u32 child = *(u32*)iterator.link;
+        if (child == 0) break;
+        iterator.link = child + link_offset;
         func_00139D28((void*)child);
-        child = *(u32*)slot;
-        slot = child + link_offset;
     }
+    D_0027B314 = iterator.previous;
 
     func_00152600((void*)(*(u32*)(node + 0x14u) + 0x1CB4u), node_pointer);
     func_00152470((void*)0x002622E0u, node_pointer);
     trace_frame_node(node, 1u);
     func_001243E0(node_pointer);
     trace_frame_node(node, 2u);
-    D_0027B314 = saved_temp;
 }

@@ -68,15 +68,17 @@ static void trace_camera_update(u32 camera) {
 }
 
 struct NativeActorIterator {
+    u32 list;
     u32 link;
     s32 offset;
-    u32 saved_context;
+    u32 previous;
 };
 
 static void actor_iterator_begin(struct NativeActorIterator* iterator, u32 list) {
+    iterator->list = list;
     iterator->link = list;
     iterator->offset = *(s32*)(list + 8);
-    iterator->saved_context = D_0027B314;
+    iterator->previous = D_0027B314;
     D_0027B314 = (u32)iterator;
 }
 
@@ -87,7 +89,7 @@ static u32 actor_iterator_next(struct NativeActorIterator* iterator) {
 }
 
 static void actor_iterator_end(struct NativeActorIterator* iterator) {
-    D_0027B314 = iterator->saved_context;
+    D_0027B314 = iterator->previous;
 }
 
 void func_001EA118(void* world) {

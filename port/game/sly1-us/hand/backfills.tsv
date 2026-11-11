@@ -319,9 +319,14 @@ func_0015C1C0	overrides_c/func_0015C1C0.c
 func_0018D500	overrides_c/native_heap.c
 func_0018D568	overrides_c/func_0018D568.c
 func_0018D5C0	overrides_c/native_heap.c
+func_0018D550	native_c/front_heap_reset.c
+func_00143AF0	native_c/world_list_cleanup.c
+func_00169CA0	native_c/world_list_cleanup.c
+func_00191EE8	native_c/world_list_cleanup.c
 func_001ACDA0	overrides_c/func_001ACDA0.c
 func_001E20B8	native_c/func_001E20B8.c
 func_001E1FD0	native_c/func_001E1FD0.c
 func_001B7C40	overrides_c/func_001B7C40.c
 func_001E4E80	overrides_c/func_001E4E80.c
 func_001DCEA0	native_c/func_001DCEA0.c
+func_00152600	native_c/func_00152600.c

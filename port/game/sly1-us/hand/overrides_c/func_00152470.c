@@ -16,6 +16,8 @@ typedef struct NativeListLink_152470 {
 void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
                             u32 a4);
 void sly1_native_loader_stage(u32 stage, u32 object, u32 reader);
+void sly1_native_trace_list_append(u32 list, u32 node, s32 offset,
+                                  u32 head, u32 tail, u32 phase);
 
 void func_00152470(void* list_pointer, void* node_pointer)
 {
@@ -32,6 +34,8 @@ void func_00152470(void* list_pointer, void* node_pointer)
         sly1_native_loader_stage(157, node, (u32)list_pointer);
         return;
     }
+    sly1_native_trace_list_append((u32)list, node, list->link_offset,
+                                  list->head, list->tail, 0u);
     if (list->tail != 0 &&
         (list->tail < 0x10000u || list->tail >= 0x02000000u ||
          list->tail > 0x02000000u - (u32)list->link_offset - 8u)) {
@@ -51,6 +55,8 @@ void func_00152470(void* list_pointer, void* node_pointer)
         tail_link->next = node;
     }
     list->tail = node;
+    sly1_native_trace_list_append((u32)list, node, list->link_offset,
+                                  list->head, list->tail, 1u);
 
     if ((u32)list_pointer == 0x002622E0u) {
         sly1_native_trace_font(56u, (u32)list_pointer, node,

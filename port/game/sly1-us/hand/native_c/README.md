@@ -91,6 +91,12 @@ zero-fill behavior. The native loader trace reports rejected requests under
 `OPENRAC_TRACE_LOADER=1`. Remove these overrides when the native runtime can
 provide equivalent checked guest-heap bounds around the matching allocator.
 
+`front_heap_reset.c` backfills `func_0018D550` with the retail reset-mark to
+front-cursor assignment. `world_list_cleanup.c` backfills the camera object
+count reset and the global object-list clears used immediately before world
+teardown resets transient memory. These stay isolated from the decomp tree and
+should be removed when their matching US C becomes hostable.
+
 `resource_descriptors.c` provides port-only C for `func_0011E680` and is listed
 only in `backfills.tsv`, not `overrides.tsv`. Hostgen therefore compiles it as
 a backfill without claiming it replaces matched decompilation. This reader
