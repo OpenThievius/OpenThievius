@@ -371,7 +371,11 @@
       "func_0011FFD8",
       "func_0011EFC8",
       "func_0011F180",
-      "func_00169718"
+      "func_00169718",
+      "func_001694A0",
+      "func_001694F8",
+      "func_00169608",
+      "func_001696B8"
     ],
     "gp": "0x002832F0",
     "forward_unprototyped": true,
