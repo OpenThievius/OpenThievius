@@ -894,5 +894,9 @@ found the repeated 2,128-byte UI packet identical across frames, SHA-256
 captured 960x720 frame is entirely black. Log:
 `/tmp/sly-frame-packet-dump-20261111.log`; binary and PPM captures are in
 `/tmp/sly1-native-render-packets-*.bin` and `/tmp/sly1-native-frame-*.ppm`.
-Build command:
+The large packet captures are image-transfer streams; the one malformed 48-byte
+VIF startup stream is an earlier, isolated event. Neither currently explains
+the static black draw. Next trace the 2,128-byte packet's producer, the state
+that activates it, and why its vertex attributes/positions are invalid. Build
+command:
 `cmake --build build/port --target port_native -j2`.

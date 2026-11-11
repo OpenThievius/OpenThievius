@@ -124,9 +124,12 @@ registration is corrected or upstream code can be hosted. With the bypass,
 the launcher stays alive through a 12-second run and reaches regular graphics
 submission. `OPENRAC_TRACE_DIRECT=1` shows large scene packets decoding to zero
 vertices and a repeated 240-vertex untextured UI draw with zero STQ and black
-RGBA. The screen remains black. Next target is the native VIF/VU packet path
-and its display-list output; the contact crash is no longer the immediate
-startup blocker. Logs: `/tmp/sly-contact-bypass-20261111.log` and
+RGBA. The screen remains black. The large packets are image-transfer streams,
+and the isolated 48-byte VIF rejection occurs before steady frame output; do
+not treat either as the main geometry lead. Trace the producer and activation
+state for the static 2,128-byte UI packet, including why its vertex attributes
+are black/zero and its first position is outside the viewport. Logs:
+`/tmp/sly-contact-bypass-20261111.log` and
 `/tmp/sly-contact-bypass-render-20261111.log`. A packet capture confirms the
 2,128-byte draw packet is identical across captured frames (SHA-256
 `5e3373eaa5afba0e7f8eeb570de46d011e2aa4684ee80bc7ed8d2bc3109c1321`); the
