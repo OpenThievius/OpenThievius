@@ -11,6 +11,8 @@ void func_00202C38(s32 channel, s32 a, s32 b);
 int openrac_lib_sly1_signal_sema(u32 semaphore);
 void func_001F6B60(s32 semaphore);
 void func_001683E8(void);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_0015EE80(void) {
     func_0015EDB8();
@@ -24,6 +26,11 @@ void func_0015EE80(void) {
         *((u32*)0x00262314u) = next < 2u ? next : 0u;
         const u32 request = 0x00262320u + index * 72u;
         *((u32*)0x0026231Cu) = request;
+
+        sly1_native_trace_font(183u, index, request,
+                               *((u32*)(request + 4u)),
+                               *((u32*)(request + 0x0Cu)),
+                               *((u32*)(request + 0x10u)));
 
         func_0015ED50((void*)request);
         func_001684E8();

@@ -53,6 +53,9 @@ void func_0015EB20(void* packet, void* frame, s32 unused);
 void func_0015EBF0(void* packet, void* frame, s32 unused);
 void func_001F6C20(s32 channel);
 int openrac_lib_sly1_signal_sema(u32 semaphore);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
+
 
 void func_0015EFE8(NativeFrameContext* context)
 {
@@ -120,6 +123,12 @@ void func_0015E9F0(void)
     D_002622D0 = context->i10;
     func_00152B38(D_00262280);
     func_00152B38(D_002622A8);
+
+    sly1_native_trace_font(180u, (u32)context,
+                           *(u32*)(D_00262280 + 4u),
+                           *(u32*)(D_00262280 + 0x0Cu),
+                           *(u32*)(D_002622A8 + 4u),
+                           *(u32*)(D_002622A8 + 0x0Cu));
 }
 
 /* Finish both packet writers before handing the frame to the display worker. */
@@ -127,6 +136,12 @@ void func_0015EC68(void)
 {
     NativeFrameContext* context = D_002622D8;
     if (context == 0) return;
+
+    sly1_native_trace_font(181u, (u32)context,
+                           *(u32*)(D_00262280 + 4u),
+                           *(u32*)(D_00262280 + 0x0Cu),
+                           *(u32*)(D_002622A8 + 4u),
+                           *(u32*)(D_002622A8 + 0x0Cu));
 
     func_0015EB20(D_002622A8, (u8*)context + 8u, 0);
     func_0015EBF0(D_00262280, context, 0);
@@ -137,6 +152,9 @@ void func_0015EC68(void)
     D_002622D8 = 0;
     D_002622D0 = 0;
     (void)openrac_lib_sly1_signal_sema((u32)D_002623B0);
+    sly1_native_trace_font(182u, (u32)context, (u32)context->i04,
+                           (u32)context->i0C,
+                           (u32)context->f04, (u32)context->f0C);
 }
 
 extern s32 D_002622D4;

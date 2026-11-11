@@ -3,6 +3,8 @@
 #include "common.h"
 
 extern u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+extern void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2,
+                                   u32 a3, u32 a4);
 
 static void dispatch_ui_slot(u32 slot_offset) {
     s32 index;
@@ -13,8 +15,15 @@ static void dispatch_ui_slot(u32 slot_offset) {
         if (object == 0 || *(s32*)(object + 0x250u) == 0) continue;
         vtable = *(u32*)object;
         method = vtable != 0 ? *(u32*)(vtable + slot_offset) : 0;
-        if (method != 0)
+        if (method != 0) {
+            if (method < 0x00100000u || method >= 0x00211E10u ||
+                (method & 3u) != 0) {
+                sly1_native_trace_font(184u, (u32)index, object, vtable,
+                                       method, slot_offset);
+                continue;
+            }
             (void)sly1_native_call_regs4(method, object, 0, 0, 0);
+        }
     }
 }
 
