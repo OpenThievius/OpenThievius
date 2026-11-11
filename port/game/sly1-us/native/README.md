@@ -16,10 +16,11 @@ is `/tmp/sly1-decomp-782e2899-source`. Waves 25–27 added names, five `.data`
 labels, shared type/declaration cleanup, and classified the `.vutext` VU
 microcode section. Matched US code remains 4,760/4,807 functions and 93.252%
 of code bytes; no matched implementation was added for the current startup/UI
-path. Hostgen against the latest archive yields 734 C functions, 498 retail
-assembly functions, 2 stubs, and 3,677 without C in 256 units. The active
-`build/port` launcher was rebuilt after the port-only VIF1 TTE correction;
-all functional backfills remain separate from `sly1-decomp`.
+path. Hostgen against the latest archive yields 734 C functions, 501 retail
+assembly functions, 2 stubs, and 3,674 without C in 256 units. Four reachable
+VIF writer helpers use exact US retail assembly because their staged C is not
+matching. The `build/port` launcher was rebuilt after the port-only VIF1 TTE
+correction; all functional backfills remain separate from `sly1-decomp`.
 
 The current Splash trace resolves the CountdownNotifier's graph pointer to
 StateGraph ID `0x25f` and creates its walker. The graph's animation player

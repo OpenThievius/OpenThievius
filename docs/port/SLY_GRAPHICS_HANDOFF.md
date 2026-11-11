@@ -10,8 +10,8 @@ shared type/declaration cleanup, and classify the 21,840-byte `.vutext`
 section as original VU microcode. They add no matched functions or code bytes
 (4,760/4,807 functions; 93.252% code unchanged). Data coverage increases to
 99.628% by classifying existing VU microcode and data labels, not new game C.
-Hostgen against this snapshot yields 734 C functions, 498 retail assembly
-functions, 2 stubs, and 3,677 without C in 256 units. The source changes add
+Hostgen against this snapshot yields 734 C functions, 501 retail assembly
+functions, 2 stubs, and 3,674 without C in 256 units. The source changes add
 no matched implementation for the current startup/UI path.
 
 The native VIF1 DMA backfill now preserves the TTE bit set by the retail
@@ -48,6 +48,16 @@ CountdownNotifier is state 0 with a null `+0x338` gate pointer, so retail
 unarmed on the `0x261` self-edge and no movie is queued. Trace the normal level
 resource/state activation path that should provide the sequence and gate.
 Latest capture: `/tmp/sly-title-step-sequence-final.log`.
+
+**VIF writer recovery (2026-11-11):** A forced level load reached its lit-strip
+mesh packet builder and exposed four no-op VIF writer helpers. Hostgen now
+selects exact US retail assembly for `func_001EE4C0` (`WriteVifStrow`),
+`func_001EE528` (`WriteVifStmask`), `func_001EE560` (the unpack-header helper),
+and `func_001EE718` (`WriteVifUnpack`). This removes their no-op behavior
+without introducing replacement C. The normal Splash run still produces no
+visible artwork. The forced level load now fails at the 32 MiB guest heap
+boundary during mesh packet construction; it does not reach a rendered level.
+See `PLAYABLE_TODO.md` for logs and the exact failure point.
 
 A fresh SDL native launch showed the remaining no-op cluster and exact US
 assembly is now selected for 22 reached visual/UI functions, including text

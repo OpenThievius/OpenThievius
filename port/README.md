@@ -29,30 +29,22 @@ limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
 standalone command defaults to `--asm off`. The native CMake launcher enables
 the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
-with matching C are skipped automatically; the current report translates 148
-functions from retail instructions. Generated C stays in the
-ignored build tree, separate from both matched decomp C and the port's
-handwritten C backfills. Set
-`OPENTHIEVIUS_ASM_SOURCE_SLY1` when the checkout used for matched C does not
-contain the assembly directory. The default `build/port` cache uses matched C
-and retail assembly from the local checkout at `e1b39f1`. Canonical upstream
-master has since been substantially reorganized; see the isolated experiment
-below before changing that cache.
+with matching C are skipped automatically. The active `build/port` cache now
+uses the read-only source snapshot `/tmp/sly1-decomp-782e2899-source` and US
+retail assembly from `/tmp/sly1-decomp-wave24-asm`. Hostgen translates 734 C
+functions and 501 assembly functions across 256 units, with 2 stubs and 3,674
+functions without C. Generated C stays in the ignored build tree, separate
+from matched decomp C and port backfills. Set `OPENTHIEVIUS_ASM_SOURCE_SLY1`
+when the matched-source checkout has no assembly directory.
 
-The latest native hostgen run against `e1b39f1` reads 185 units and translates
-2,050 C functions plus 148 retail-assembly functions. It lists 2,664 functions
-without C, has 12 unreadable units, and emits zero stubs. The build uses
-`--allow-unreadable`, so those units are omitted. Seven stream readers and two
-refill helpers from unreadable unit `00134000` are now translated from retail
-assembly. The retail heap initializer is also translated, and the bounded
-native launcher now reaches the selected level range at sector 867214. Exact
-retail animation-table and element-parser translations let it complete through
-loader stage 5 with an active world. The window remains black and scene output
-is still zero vertices; the first renderable mesh callback and native scene
-submission remain the blockers. The font registry is also empty in the direct
-level trace. See
-the updated
-[playable TODO](../docs/port/PLAYABLE_TODO.md) for the exact report and trace.
+The four VIF packet-writer helpers reached by the direct-level path now use
+exact US retail assembly. A bounded forced-level run still exhausts the 32 MiB
+guest heap during mesh packet construction; the normal Splash run stays black
+with inactive UI and no visible text. The separate `func_001BAC30` port reader
+remains active because hostgen reports the upstream `LoadCollider` body as
+`no-C`. See the [playable TODO](../docs/port/PLAYABLE_TODO.md) and
+[restart checkpoint](../docs/port/RESTART_CHECKPOINT.md) for the current
+diagnostics and remaining work.
 The graphics handoff records the current evidence and next blocker. Functional
 C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
 

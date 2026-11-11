@@ -31,7 +31,7 @@ checkout remains read-only at `bfc74817`. The latest source archive is
 21,840 bytes of original VU microcode. Matched US code is unchanged at
 4,760/4,807 functions and 93.252%; the data coverage increase to 99.628% is
 not newly decompiled game logic. Hostgen against the latest archive yields
-734 C translations, 498 retail assembly translations, 2 stubs, and 3,677
+734 C translations, 501 retail assembly translations, 2 stubs, and 3,674
 functions without C in 256 units; it adds no matched implementation for the
 current startup/UI path. The VU0 transfer at `0x00211e10` is this `.vutext`
 section. Keep any future VU0 work as native call-site C, not a hardware
