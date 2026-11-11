@@ -3,6 +3,38 @@
 
 ## Current status (2026-11-11)
 
+**Initializer callback recovery (2026-11-11):** after re-fetching the public
+decomp, `master` remains `55d39f28` and open Wave 21 is `4097b806` (PR #114).
+Wave 21 changes 82 files, mostly declarations, signatures, and generated
+reports; it adds no new function on the current graphics path. The build cache
+uses canonical `master` C from `/home/reaper/sly/sly1-decomp` and US retail
+assembly from the separate wave-16 checkout.
+
+The initialization callback table in port-only `func_00185B38` was invoking
+24 functions that had exact US retail assembly available but were still
+no-op stubs in the native build. The port now selects those function bodies
+from assembly in `hostgen.json`; this includes display setup `func_001688B8`,
+render-frame setup `func_0015E810`, and their sibling initializers. Build:
+730 C translations, 301 assembly translations, 2 stubs, 3,876 functions
+without C across 267 generated units. A 12-second default launch has a live
+world and initialized UI/font records but still reports zero vertices, visible
+text, and GIF-chain submissions. A 12-second direct-level launch reaches
+loader stages 13–14 and likewise reports zero vertices/submissions. The
+window remains black; this restores reached retail initializers but is not a
+visual milestone. Logs: `/tmp/sly-canonical-55d39f28-init-callback-asm-12s.log`
+and `/tmp/sly-canonical-55d39f28-init-callback-asm-direct0100-12s.log`.
+
+The next trace showed four more reached no-op dependencies: the animator
+helpers `func_001B4AA0` and `func_001B4AD0`, UI updater `func_001AB058`, and
+commentary updater `func_001E00B0`. Their exact US assembly is now selected as
+well. The 10-second follow-up has no no-op warnings for these four, but still
+reports `visible_text=0`, `vertices=0`, and zero GIF-chain submissions; all 37
+UI objects remain in mode 0. The trace now has 155 remaining no-op warnings,
+so the next step is to locate a live drawable object's update/draw callback
+and the producer that should change its mode. Do not force UI modes or graph
+state. Build: 730 C translations, 305 assembly translations, 2 stubs, 3,872
+functions without C. Log: `/tmp/sly-canonical-55d39f28-reached-anim-ui-asm-10s.log`.
+
 **Canonical packet-writer registration (2026-11-11):** the refreshed upstream
 checkout remains at `55d39f28`; fetching `origin` found no newer `master`
 commit. The three port-only packet-word implementations already existed in

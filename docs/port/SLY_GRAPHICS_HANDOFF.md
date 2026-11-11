@@ -2,10 +2,26 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-11. Canonical decomp master is `55d39f28` (PR #113),
-and `/home/reaper/sly/sly1-decomp` is clean at that commit. The current
-hostgen build links 727 C translations, 266 selected US assembly translations,
-and two generated stubs across 267 generated units. It builds the native
-host32 launcher.
+and `/home/reaper/sly/sly1-decomp` is clean at that commit. Open Wave 21 is
+`4097b806` (PR #114); its declaration/signature cleanup adds no newly matched
+function on the active graphics route. The current hostgen build links 730 C
+translations, 305 selected US assembly translations, and two generated stubs
+across 267 generated units. It builds the native host32 launcher.
+
+Exact US assembly is now selected for the 24 missing functions reached from
+the port's frame-system initialization callback table, including
+`func_001688B8` (display setup) and `func_0015E810` (render-frame setup). The
+12-second default and direct-level traces still report zero vertices, visible
+text, and GIF-chain submissions. This closes a no-op initializer gap but does
+not produce game graphics. Logs: `/tmp/sly-canonical-55d39f28-init-callback-asm-12s.log`
+and `/tmp/sly-canonical-55d39f28-init-callback-asm-direct0100-12s.log`.
+
+The active animator helpers `func_001B4AA0` and `func_001B4AD0`, UI updater
+`func_001AB058`, and commentary updater `func_001E00B0` are also selected from
+exact US assembly after runtime traces showed them being called as no-op
+stubs. They no longer warn, but the 10-second follow-up remains at zero
+vertices, visible text, and GIF submissions; all 37 UI objects have mode 0.
+Trace: `/tmp/sly-canonical-55d39f28-reached-anim-ui-asm-10s.log`.
 
 The Splash StateGraph link is present (`0x00847800`, ID `0x25f`), correcting
 the earlier missing-link diagnosis. The graph start and initial walker

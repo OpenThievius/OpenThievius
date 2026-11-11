@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after restoring the reached animator callbacks
+Updated: 2026-11-11, after restoring reached frame-system and UI callbacks
 `55d39f28`. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -13,15 +13,14 @@ only; no emulator is involved in the port work.
 ## Latest handoff (2026-11-11)
 
 Decomp checkouts: `/home/reaper/sly/sly1-decomp` is clean on `master` at
-`55d39f28`; `/tmp/sly1-decomp-4097b806` is a detached reference worktree at
-public `origin/night21` (`4097b806`). The other local clone,
+`55d39f28`; public `origin/night21` (`4097b806`) is open as PR #114. The other local clone,
 `/home/reaper/Code/sly1-decomp`, is a fork at `e1b39f16` from wave 16 and is
 older overall; it was useful only to read the C definitions of three small
 packet writers. None of these decomp checkouts was modified.
 
-The port build configured for `night21` succeeds:
-`build/port/night21-4097b806` (730 C translations, 287 retail-assembly
-translations, 2 stubs, 3,890 without C, 267 generated units). The three
+The current `build/port` cache uses canonical `master` C and separate US
+retail assembly. It succeeds with 730 C translations, 305 assembly
+translations, 2 stubs, 3,872 without C, and 267 generated units. The three
 reached packet-word writers (`func_001EE3F0`, `func_001EE420`,
 `func_001EE498`) now have port-only C backfills in
 `hand/native_c/display_packets.c`. The `func_001EE5C8` backfill skips negative
@@ -73,17 +72,39 @@ visible graphics after fixing that producer path. Do not claim playability yet.
 ## Decomp rework check (2026-11-11)
 
 Fetched the public repository again. `master` is `55d39f28` (4,758/4,807 US
-functions, 93.108% code); `night21` is `4097b806` (4,759/4,807, 93.125% code)
-and is the source configured for the current port build. The night21 delta is
-82 files, mostly type/signature corrections and report/source updates, plus an
-exact active-set collision helper. The broad master rework adds substantial
+functions, 93.108% code); open `night21` is `4097b806` (4,759/4,807, 93.125%
+code, PR #114). Its 82-file delta is mostly type/signature corrections and
+report/source updates, plus an exact active-set collision helper. The broad
+master rework adds substantial
 collision, placed-object, and player code, but no newly matched function on the
 current strip-render path. `file_15F678.cpp` clarifies the descriptor layout
 (`off[4]`, `strip[4]`, `f10`, `f12`) and confirms the builder/relocation flow;
 it does not explain the inconsistent packet prefix. Neither decomp checkout
-was modified. Current hostgen coverage remains 730 C translations, 287 retail
-assembly translations, 2 stubs, and 3,890 functions without C across 267
-generated C units.
+was modified. The current `build/port` cache uses canonical `master` C and
+separate US retail assembly. Current hostgen coverage is 730 C translations,
+305 retail assembly translations, 2 stubs, and 3,872 functions without C
+across 267 generated C units.
+
+## Frame-system initializer follow-up (2026-11-11)
+
+The port-only initializer table in `func_00185B38` called 24 functions that
+had exact US retail assembly but were still no-op stubs. `hostgen.json` now
+selects those 24 assembly bodies, including display setup `func_001688B8` and
+render-frame setup `func_0015E810`. A 12-second default native run and a
+12-second direct-level run both reach the frame loop; the direct-level run
+reaches loader stages 13–14. Both remain black, with zero vertices, visible
+text, and GIF-chain submissions. Logs:
+`/tmp/sly-canonical-55d39f28-init-callback-asm-12s.log` and
+`/tmp/sly-canonical-55d39f28-init-callback-asm-direct0100-12s.log`.
+
+The follow-up also selects exact assembly for the reached animator helpers
+`func_001B4AA0` and `func_001B4AD0`, UI updater `func_001AB058`, and commentary
+updater `func_001E00B0`. They no longer emit no-op warnings, but the 10-second
+native trace still has zero visible text, vertices, or GIF submissions. All
+37 UI objects remain at mode 0. The next trace target is the producer that
+should activate a drawable UI object or scene callback; do not force object
+modes or the Splash graph. Log:
+`/tmp/sly-canonical-55d39f28-reached-anim-ui-asm-10s.log`.
 
 ## Current follow-up (2026-11-11)
 
