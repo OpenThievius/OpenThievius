@@ -3,10 +3,11 @@
 
 Last checked: 2026-11-11. Canonical decomp master is `4c574846` (Wave 22, PR
 #115), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 22
-matches triangle animator callback `func_001B55C0` and expands state-walker C;
-the latter still fails native C staging on duplicate collider members and
-C++-only header declarations. The new callback was not reached in the last
-startup trace, so it does not yet move the active graphics path. The current
+matches triangle animator callback `func_001B55C0` and active-set helper
+`func_001536C8`, and expands state-walker C. Their C++ translation units still
+fail native C staging on layout conflicts and C++-only header declarations.
+Neither function was reached in the last startup trace, so they do not yet
+move the active graphics path. The current
 hostgen build links 732 C translations, 308 selected US assembly translations,
 and two generated stubs across 269 generated units. It builds the native
 host32 launcher.

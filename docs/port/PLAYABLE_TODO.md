@@ -7,12 +7,14 @@
 `55d39f28` to `4c574846` (Wave 22, merged as PR #115); the clean local
 checkout at `/home/reaper/sly/sly1-decomp` is fast-forwarded to this commit.
 The US report now lists 4,760/4,807 matched functions and 93.25% of code
-bytes. Wave 22 matches `func_001B55C0` (triangle animator slot 4) and expands
-state-walker C, among other source and progress-tool updates. Hostgen still
-cannot stage `src/main/state_walker.cpp` as C: duplicate `contacts` members,
-layout assertions, and C++-only declarations in shared headers stop the
-frontend. The new callback was not reached in the latest runtime trace, so
-this rework does not yet move the visual frontier. Rebuilding against
+bytes. Wave 22 newly matches `func_001B55C0` (triangle animator slot 4) and
+`func_001536C8` (`AddActiveSetItem`), and expands state-walker C. Hostgen
+still cannot stage `src/main/state_walker.cpp` as C because shared headers
+contain duplicate `contacts` members, failed layout assertions, and C++-only
+declarations. `src/main/file_14EE40.cpp`, which contains `AddActiveSetItem`,
+also fails C staging on C++-only methods and incompatible layout assertions.
+Neither function was reached in the latest runtime trace, so this rework does
+not yet move the visual frontier. Rebuilding against
 `4c574846` succeeds with the same 732 C translations, 308 assembly
 translations, and 2 stubs.
 

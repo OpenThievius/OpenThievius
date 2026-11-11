@@ -15,10 +15,11 @@ only; no emulator is involved in the port work.
 Canonical `/home/reaper/sly/sly1-decomp` was fetched and fast-forwarded to
 `4c574846` (Wave 22, PR #115); it is clean and tracks `origin/master`. The US
 report lists 4,760/4,807 matched functions and 93.25% matched code. Wave 22
-matches the triangle animator's `func_001B55C0` and expands state-walker code.
-That source unit remains unhostable in the current C frontend due to duplicate
-`contacts` members and C++-only constructs in included headers. The newly
-matched callback was not reached during the latest startup trace. Rebuilding
+matches triangle animator callback `func_001B55C0` and active-set helper
+`func_001536C8`, and expands state-walker code. The source units for both
+functions remain unhostable in the current C frontend due to header-level
+layout errors and C++-only constructs. Neither newly matched function was
+reached during the latest startup trace. Rebuilding
 the port against the updated master succeeds; generated coverage remains 732
 C translations, 308 US assembly translations, 2 stubs, and 3,868 functions
 without C across 269 generated units.
