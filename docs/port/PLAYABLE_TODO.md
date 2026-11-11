@@ -3,6 +3,21 @@
 
 ## Current status (2026-11-11)
 
+**Latest direct-level packet result:** the public decomp `night21` branch is
+`4097b806` (with `master` at `55d39f28`); a separate local fork checkout at
+`/home/reaper/Code/sly1-decomp` is older (`e1b39f16`, wave 16) but has useful C
+definitions for three reached VIF/GIF packet-word writers. Their port-only
+backfills replaced no-op stubs. A bad strip then exposed a negative unpack
+range (`0x4e3c..0x3eb1`), which wrapped the packet cursor. The port now skips
+negative packet counts in `func_001EE5C8.c`; it does not clamp the source range.
+An 8-second direct-level run stays alive and reaches rendering setup, but a
+5-second state trace still has zero scene vertices, image tags/submissions, or
+visible text. Eight small GIF setup DMAs are emitted; the window remains black.
+The next task is to trace the strip's unpack pointer and its packet relocation
+back to the loader, not to synthesize geometry. Logs:
+`/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
+`/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
+
 **Latest decomp refresh and startup frontier:** fetched
 `OpenThievius/sly1-decomp` and confirmed `master` is still `55d39f28` (PR
 #113), with no newer upstream commits. The rework changes 126 files, including

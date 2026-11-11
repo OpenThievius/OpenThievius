@@ -10,6 +10,39 @@ port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
+## Latest handoff (2026-11-11)
+
+Decomp checkouts: `/home/reaper/sly/sly1-decomp` is clean on `master` at
+`55d39f28`; `/tmp/sly1-decomp-4097b806` is a detached reference worktree at
+public `origin/night21` (`4097b806`). The other local clone,
+`/home/reaper/Code/sly1-decomp`, is a fork at `e1b39f16` from wave 16 and is
+older overall; it was useful only to read the C definitions of three small
+packet writers. None of these decomp checkouts was modified.
+
+The port build configured for `night21` succeeds:
+`build/port/night21-4097b806` (730 C translations, 287 retail-assembly
+translations, 2 stubs, 3,890 without C, 267 generated units). The three
+reached packet-word writers (`func_001EE3F0`, `func_001EE420`,
+`func_001EE498`) now have port-only C backfills in
+`hand/native_c/display_packets.c`. The `func_001EE5C8` backfill skips negative
+counts to prevent a malformed strip from wrapping its packet cursor into
+unmapped memory. This safety behavior is isolated from the decomp and should
+be revisited once the model-data pointer is understood.
+
+Latest direct-level findings: `func_00165588` reads unpack words
+`0x4e3c/0x3eb1` at strip `0x00e3d4c0`, unpack pointer `0x00e3d844`. This is a
+reversed range, and must be traced back through the model parser/packet
+relocation; do not clamp it. With the guard, an 8-second launcher run remains
+alive and a 5-second state trace reaches the frame loop with an active world
+and eight 144-byte GIF setup DMAs. It still shows zero scene vertices, image
+tags/submissions, and visible text; the window remains black. Logs:
+`/tmp/sly-night21-4097b806-negative-vif-guard-8s.log` and
+`/tmp/sly-night21-4097b806-vif-guard-state-5s.log`.
+
+Next: follow the strip's `unpack` address from its allocation through packet
+buffer relocation, correct the port-side producer if needed, then verify a
+nonzero scene vertex count and visible graphics. Do not claim playability yet.
+
 ## Current follow-up (2026-11-11)
 
 The latest native build adds exact US retail assembly for the reached
