@@ -85,6 +85,18 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                       << " end=" << end << " mode=" << mode << std::dec << '\n';
         }
     }
+    if (stage == 64u && (a0 & 0xFFFFFF00u) == 0xBAC30000u &&
+        (a0 & 0xFFu) == 9u) {
+        std::uint32_t cursor_offset = 0;
+        if (trace_guest_range(a1, 32u, &cursor_offset)) {
+            std::cerr << "[collider-model-input] cursor=" << std::hex << a1
+                      << " remaining=" << std::dec << a2 << " bytes=";
+            for (unsigned i = 0; i < 32u; ++i)
+                std::cerr << std::hex << std::setw(2) << std::setfill('0')
+                          << static_cast<unsigned>(openrac_guest_base[cursor_offset + i]);
+            std::cerr << std::dec << std::setfill(' ') << '\n';
+        }
+    }
     if (stage == 42u) {
         const std::uint32_t begin = a2 >= 16u ? a2 - 16u : a2;
         std::uint32_t offset = 0;

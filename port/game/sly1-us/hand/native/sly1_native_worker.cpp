@@ -234,9 +234,29 @@ extern "C" void game_sly1_native_loader_stage(uint32_t stage, uint32_t object,
         std::getenv("OPENRAC_DUMP_OBJECT_WINDOWS") != nullptr)
         direct_level_dump_active = true;
     if (stage == 160u) {
+        static unsigned heap_failures_logged = 0;
+        if (heap_failures_logged++ >= 4u) return;
         std::fprintf(stderr,
                      "[heap] exhausted request=%u current=%#010x limit=%#010x\n",
                      object, reader, GREF(uint32_t, 0x002699A8u));
+        for (int depth = 0; depth < 8; ++depth) {
+            char caller[256];
+            openrac_host_caller(depth, caller, sizeof(caller));
+            std::fprintf(stderr, "[heap] stack[%d]=%s\n", depth, caller);
+        }
+        return;
+    }
+    if (stage == 163u) {
+        static unsigned large_allocations_logged = 0;
+        if (large_allocations_logged++ >= 12u) return;
+        std::fprintf(stderr,
+                     "[heap] large request=%u current=%#010x\n",
+                     object, reader);
+        for (int depth = 1; depth < 5; ++depth) {
+            char caller[256];
+            openrac_host_caller(depth, caller, sizeof(caller));
+            std::fprintf(stderr, "[heap] large stack[%d]=%s\n", depth, caller);
+        }
         return;
     }
     if (stage == 171u) {

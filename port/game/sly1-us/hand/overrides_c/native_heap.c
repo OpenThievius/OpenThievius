@@ -18,11 +18,15 @@ void* func_0018D500(s32 size) {
     allocation = ((u32)size + 15u) & ~15u;
     if (current < heap_base || current > heap_limit ||
         allocation > heap_limit - current) {
-        /* Stage 160 is a native diagnostic event handled by the loader bridge. */
+        /* Stage 160 reports the guest heap frontier and configured limit. */
         sly1_native_loader_stage(160u, (u32)size, current);
         return 0;
     }
 
+    if (size >= 0x1000 && current >= 0x01000000u) {
+        /* Port-only bounded trace of large allocations in the level-load tail. */
+        sly1_native_loader_stage(163u, (u32)size, current);
+    }
     func_0018D4F8(size);
     D_002C2A1C = current + allocation;
     return (void*)current;

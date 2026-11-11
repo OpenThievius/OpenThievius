@@ -2727,6 +2727,26 @@ between 6 and 48, without producing visible art. This confirms the TTE fix
 repairs VIF startup parsing but does not unblock the Splash/title transition.
 Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
 
+## Forced-level model-reader failure (2026-11-11)
+
+A bounded native run with `OPENRAC_BOOT_LEVEL=0x0100` localizes the fatal heap
+growth to retail model parsing. `func_00162890` reads a valid top-level part
+count of 1,962, then at part index 1,093 reads `nstrips=0xFF02` (65,282) from
+reader cursor `0x7000011a` with 7,910 bytes remaining. That count requests
+5,222,560 bytes for the `0x50` strip records and 3,133,536 bytes for the
+`0x30` packet records. Repeated allocations eventually exhaust the configured
+32 MiB guest heap and fault at `0x02000000`.
+
+Do not raise the heap limit or clamp the strip count: this is a parser or
+stream-alignment failure, not evidence that the level needs more memory. The
+port-only `func_00162890` implementation in `hand/native_c/resource_object_common.c`
+is a partial reader and does not consume the strip and morph payloads, so it
+must not replace the retail ASM for this experiment. Next trace the reader
+cursor after each part field and variable-length strip payload near part 1,093,
+then compare with the matching `ReadPlacedObjectModel` source in the latest
+decomp snapshot. Exact run logs are `/tmp/sly-model-strip-detail-20261111.log`
+and `/tmp/sly-heap-large-allocations-20261111.log`.
+
 **VIF packet-writer recovery (2026-11-11):** A forced `0x0100` native load
 reached the level's mesh packet builder and exposed three reachable no-op
 stubs in the VIF writer: `func_001EE4C0` (`WriteVifStrow`), `func_001EE528`

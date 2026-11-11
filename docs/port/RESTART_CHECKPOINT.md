@@ -981,3 +981,17 @@ movie, 37 inactive UI objects, `visible_text=0`, and zero image tags/qwords.
 The backend vertex count fluctuated from 6 to 48 but produced no visible
 artwork. The VIF1 TTE fix repairs startup parsing without advancing Splash.
 Log: `/tmp/sly-vif1-tte-progression-20s-20261111.log`.
+
+**Forced-level model-reader failure (2026-11-11):** A direct native load of
+`0x0100` reaches `func_00162890`, which reads a plausible top-level count of
+1,962 model parts, then sees `nstrips=0xFF02` at part index 1,093 (reader
+cursor `0x7000011a`, 7,910 bytes remaining). This drives 5,222,560-byte strip
+and 3,133,536-byte packet-array requests before repeated mesh allocations
+exhaust the configured 32 MiB EE heap and fault at `0x02000000`. Do not raise
+the limit or clamp counts. The current port-only `func_00162890` in
+`hand/native_c/resource_object_common.c` is partial and does not consume the
+strip/morph payload; leave it out of hostgen selection. Trace cursor movement
+inside retail ASM around part 1,093 and compare each variable payload with the
+latest `ReadPlacedObjectModel` source. Evidence:
+`/tmp/sly-model-strip-detail-20261111.log`,
+`/tmp/sly-heap-large-allocations-20261111.log`.
