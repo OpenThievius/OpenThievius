@@ -10,6 +10,16 @@ backfill. No newly available matching C can replace a port backfill. The
 native launcher rebuild succeeds with 732 C translations, 335 retail assembly
 translations, and 2 generated stubs.
 
+**Frame initializer recovery (2026-11-11):** selected exact US assembly for
+the reached `func_00193210`, `func_00193270`, and `func_00193288` helpers after
+the runtime trace showed they were called as no-op stubs by the frame setup
+initializer. The rebuilt launcher links with 338 assembly translations. A
+fresh 15-second trace has no warnings for those three, but still shows zero
+vertices, visible text, and GIF submissions. It also confirms Splash graph
+object ID `0x25f` is present and stays on its state-2 self-edge for event
+`0x261`; the missing-link diagnosis is obsolete. Log:
+`/tmp/sly-frame-init-asm-15s.log`.
+
 ## Current status (2026-11-11)
 
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed

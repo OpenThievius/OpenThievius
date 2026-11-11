@@ -12,6 +12,15 @@ only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
 
+The latest native build selects exact US assembly for the reached frame setup
+helpers `func_00193210`, `func_00193270`, and `func_00193288`. The build has
+732 C translations, 338 assembly translations, and 2 generated stubs. A
+15-second native trace confirms the functions no longer warn as no-ops, but
+still records zero vertices, visible text, and GIF submissions. It also shows
+Splash graph object ID `0x25f` present on state 2 / event `0x261` / self-edge
+`2 -> 2`; do not use the earlier missing-graph-link diagnosis for this run.
+Log: `/tmp/sly-frame-init-asm-15s.log`.
+
 Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `d56e797c`
 (Wave 23, PR #116), tracking `origin/master`. Wave 23 adds no matched
 functions: the US report remains 4,760/4,807 functions and 93.25% matched code.

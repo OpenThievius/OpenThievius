@@ -1,15 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. Canonical decomp master is `4c574846` (Wave 22, PR
-#115), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 22
-matches triangle animator callback `func_001B55C0` and active-set helper
-`func_001536C8`, and expands state-walker C. Their C++ translation units still
-fail native C staging on layout conflicts and C++-only header declarations.
-Neither function was reached in the last startup trace, so they do not yet
-move the active graphics path. The current hostgen build links 732 C
-translations, 335 selected US assembly translations, and two generated stubs
-across 269 generated units. It builds the native host32 launcher.
+Last checked: 2026-11-11. Canonical decomp master is `d56e797c` (Wave 23, PR
+#116), and `/home/reaper/sly/sly1-decomp` is clean and fast-forwarded. Wave 23
+adds no matched functions or code bytes; it updates compiler investigations
+and near-match scores. Wave 22's `func_001B55C0` and `func_001536C8` remain the
+latest newly matched functions, and their C++ translation units still fail
+native C staging on layout conflicts and C++-only header declarations. The
+current hostgen build links 732 C translations, 338 selected US assembly
+translations, and two generated stubs across 269 generated units. It builds
+the native host32 launcher.
+
+Exact US assembly is now selected for the reached frame setup helpers
+`func_00193210`, `func_00193270`, and `func_00193288`, which the port's frame
+initializer had been calling as no-op stubs. The 15-second native trace shows
+those stubs are gone, but still reports zero vertices, visible text, and GIF
+submissions. The Splash graph object is present at ID `0x25f`; it remains on
+state 2 / event `0x261` / self-edge `2 -> 2`, so the earlier missing-graph-link
+diagnosis does not fit this run. Trace: `/tmp/sly-frame-init-asm-15s.log`.
 
 Runtime tracing found additional no-op screen constructors during the active
 `InitScreenElements` pass. Exact US assembly is now selected for timer, gauge,

@@ -37,6 +37,17 @@ the latest startup trace. Rebuilding against Wave 23 succeeds with 732 C transla
 335 retail assembly translations, and 2 stubs; the visual frontier remains
 unchanged.
 
+### Frame setup and Splash graph trace (2026-11-11)
+
+The startup frame initializer called `func_00193210`, `func_00193270`, and
+`func_00193288` as no-op stubs. Exact US retail assembly is now selected for
+all three; the build links with 338 assembly translations. A fresh 15-second
+native trace confirms those no-op warnings are gone but still reports zero
+vertices, visible text, and GIF submissions. It also confirms the Splash
+StateGraph object exists at ID `0x25f`, remaining on state 2 / event `0x261` /
+self-edge `2 -> 2`; the missing-link theory from earlier traces is no longer
+supported. Log: `/tmp/sly-frame-init-asm-15s.log`.
+
 ### Direct-level packet update (2026-11-11, latest)
 
 Earlier checkpoint: the public decomp was at `55d39f28` (4,758/4,807 US
