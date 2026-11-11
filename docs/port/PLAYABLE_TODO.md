@@ -21,6 +21,16 @@ the new functions emitted no missing-function warnings. This rules out only
 the missing implementations themselves, not the wider culling path. Log:
 `/tmp/sly-wave24-range-bounds-45s.log`.
 
+**Splash interaction/render trace (2026-11-11):** regenerated the selected US
+assembly from the canonical Wave 24 source configuration and the user's ELF.
+The native run confirms `UpdateObjectTree`, `UpdatePlacedObject`, and
+`UpdateWorldListedObject` execute, while range-record setup/update/packet
+functions do not. Splash reaches text-layout preparation and starts its
+notifier, but does not reach text drawing or glyph emission. The pad stays
+neutral and renderer counters stay at zero. One native window is open with
+pad/menu/range tracing; Enter maps to Start and Space maps to Cross. Log:
+`/tmp/sly-current-canonical-asm-interactive.log`.
+
 **Native input correction (2026-11-11):** retail `PollPadInput` combines
 button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the
 opposite order, swapping button identities. The port now emits the high byte

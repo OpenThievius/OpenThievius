@@ -57,6 +57,18 @@ load without missing-function warnings, but render counters remain at zero.
 The next investigation needs to follow range-record setup through visibility
 selection and packet insertion. Log: `/tmp/sly-wave24-range-bounds-45s.log`.
 
+### Splash menu and object path trace (2026-11-11)
+
+The selected retail assembly was regenerated with the canonical Wave 24
+configuration and the native build was relinked against it. A targeted trace
+confirms the object tree, placed-object, and world-listed-object updates run,
+but range-record preparation, update, packet construction, and queueing do not.
+The Splash path calls text layout and starts notifier setup, but it does not
+reach text drawing or glyph emission. At the last snapshot, the pad is neutral,
+the Splash graph remains on its state-2 self-edge, and all graphics counters
+remain zero. A single interactive native window is open for a manual
+Enter/Start check. Log: `/tmp/sly-current-canonical-asm-interactive.log`.
+
 ### Native pad report correction (2026-11-11)
 
 Wave 24's `PollPadInput` source confirms that retail decodes button bytes as

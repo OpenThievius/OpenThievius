@@ -9,13 +9,16 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-The canonical `OpenThievius/sly1-decomp` master is at `d56e797c` (Wave 23,
-PR #116; checked 2026-11-11). It remains at 4,760/4,807 US functions and
-93.25% matched code; Wave 23 adds no matched functions. The native build uses
-this checkout for C and `/home/reaper/Code/sly1-decomp` only for selected US
-retail assembly. The isolated hostgen build translates 732 functions plus
-388 selected assembly functions, with 2 generated stubs, across 269 C units.
-Build: `cmake --build build/port --target port_native -j2`.
+The canonical `sly1-decomp` master is at `bfc74817` (Wave 24, PR #117),
+checked again on 2026-11-11; no newer commits were found. Its US report is
+4,760/4,807 functions and 93.25% of code bytes matched. Wave 24 adds names and
+assembly macros, but no matched functions. The native build uses this checkout
+for C. Its selected US retail assembly is freshly generated from the same
+checkout and the user's own ELF in a temporary copy at
+`/tmp/sly1-decomp-wave24-asm`; no assembly or executable is committed. The
+build translates 732 C functions and 405 assembly functions, with 2 generated
+stubs across 269 C units. Build: `cmake --build build/port --target
+port_native -j2`.
 
 The current Splash trace resolves the CountdownNotifier's graph pointer to
 StateGraph ID `0x25f` and creates its walker. The graph's animation player
@@ -29,9 +32,14 @@ image tags, or GIF submissions. Trace:
 11 reached UI state callbacks; those warnings are gone, but the next trace
 still shows all 37 elements inactive and zero graphics output. Trace:
 `/tmp/sly-ui-state-retail-asm-20s.log`. A 65-second run reached 32.15 guest
-seconds but remained in app state 3 with no pad input, movie queue, world load,
-or graphics. Log: `/tmp/sly-long-startup-65s.log`. All behavior replacements remain
-isolated from `sly1-decomp`. See
+seconds but remained in the normal element-stack state with no pad input,
+movie queue, world load, or graphics. The latest trace reaches object-tree and
+placed-object update callbacks, but never prepares a range record or builds a
+range packet. Splash prepares text layout and starts its notifier, but never
+reaches text drawing or glyph emission. The pad remains neutral until a user
+presses a key or controller button. Log:
+`/tmp/sly-current-canonical-asm-interactive.log`.
+All behavior replacements remain isolated from `sly1-decomp`. See
 [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
 blocker and next trace target.
 

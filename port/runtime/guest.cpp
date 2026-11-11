@@ -369,6 +369,34 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 break;
             }
         }
+
+        static const bool trace_range_packets =
+            std::getenv("OPENRAC_TRACE_RANGE") != nullptr;
+        if (trace_range_packets) {
+            static constexpr gaddr targets[] = {
+                0x00124EE8u, // update the placed-object tree
+                0x00124FC0u, // update a placed object
+                0x0013A3A0u, // update a world-listed object
+                0x001B1B38u, // prepare a placed object's range record
+                0x001B2140u, // update range-record geometry and packet state
+                0x001B2358u, // build a range-record VIF packet
+                0x001B2640u, // queue a range-record packet for the camera
+                0x001B26F8u, // test range-record sphere visibility
+                0x001B2790u, // collect range records in reach
+                0x00166690u, // draw the range-record part
+            };
+            static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
+            for (std::size_t i = 0; i < std::size(targets); ++i) {
+                if (address != targets[i]) continue;
+                const unsigned count = counts[i].fetch_add(1, std::memory_order_relaxed) + 1;
+                if (count <= 8) {
+                    std::fprintf(stderr,
+                                 "[range path] thread=%u address=%#010x count=%u\n",
+                                 thread_id, address, count);
+                }
+                break;
+            }
+        }
     }
 }
 

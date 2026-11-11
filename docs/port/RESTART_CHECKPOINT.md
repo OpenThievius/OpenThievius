@@ -2,7 +2,7 @@
 # Sly 1 port restart checkpoint
 
 Updated: 2026-11-11, after re-fetching decomp master `bfc74817` (Wave 24),
-restoring range-bound callbacks, and rebuilding the native launcher. Work in
+regenerating US assembly from its config, and tracing the Splash path. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -17,14 +17,26 @@ The decomp checkout was fetched again and remains clean at `bfc74817` on
 4,760/4,807 functions and 93.25% of code bytes. The port build now reports 732
 C translations, 405 US retail assembly translations, and 2 stubs.
 
+The canonical checkout had no local `asm/us` output, so an ignored temporary
+copy was made at `/tmp/sly1-decomp-wave24-asm`, supplied the existing user ELF,
+and ran `tools/setup_asm.py --version us`. CMake now points the assembly
+source at that generated output while C still comes from the clean canonical
+checkout. No decomp source or generated files were changed in the main
+checkout.
+
 The latest port change selects exact US retail assembly for
 `UpdateRangeRecordBounds` (`func_001B1BF8`) and `AreFloatsNearlyEqual`
 (`func_001EAC68`). The 45-second native run reaches 22.08 guest seconds, but
 still reports zero vertices, image tags, GIF-chain submissions, visible text,
 or queued movie. No artificial input was sent. Log:
-`/tmp/sly-wave24-range-bounds-45s.log`. Continue by tracing range-record
-initialization, camera visibility, and packet insertion; the bounds callbacks
-alone did not bring graphics on screen.
+`/tmp/sly-wave24-range-bounds-45s.log`. A later call-path trace shows object
+tree updates run, but range-record setup, update and packet routines are not
+reached. Splash calls text layout and notifier setup, but not the text draw or
+glyph emit functions. The currently open launcher traces keyboard/controller
+input as well; it remains neutral until a user presses a button. Latest log:
+`/tmp/sly-current-canonical-asm-interactive.log`. Continue by checking whether
+input advances the Splash graph; if not, trace why its `0x261` self-edge
+remains unarmed.
 
 Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `bfc74817`
 (Wave 24, PR #117), tracking `origin/master`. Wave 24 adds 410 readable names
