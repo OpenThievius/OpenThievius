@@ -1,6 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+**Decomp refresh (2026-11-11):** canonical `sly1-decomp` master advanced from
+`4c574846` (Wave 22, PR #115) to `d56e797c` (Wave 23, PR #116). The US totals
+remain 4,760/4,807 functions and 93.25% of code bytes. Wave 23 added no matched
+functions; it adds compiler investigations and re-scores near-matching C,
+including `func_00109488`, still unmatched and already isolated as a port-only
+backfill. No newly available matching C can replace a port backfill. The
+native launcher rebuild succeeds with 732 C translations, 335 retail assembly
+translations, and 2 generated stubs.
+
 ## Current status (2026-11-11)
 
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed

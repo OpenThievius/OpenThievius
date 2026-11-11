@@ -9,13 +9,13 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-The public `OpenThievius/sly1-decomp` master is at
-`f36f43ee4236753a04d73881b82d16ca0100bcea` (PR #112, checked 2026-11-11).
-The read-only source snapshot is `/tmp/sly1-decomp-f36f43ee`; the older
-`/home/reaper/Code/sly1-decomp` checkout is used only for selected US retail
-assembly. The isolated hostgen build translates 726 functions plus 247
-selected assembly functions, with 2 unsupported stubs, across 265 C units.
-Build: `cmake --build build/port/canonical-f36f43ee --target port_native -j2`.
+The canonical `OpenThievius/sly1-decomp` master is at `d56e797c` (Wave 23,
+PR #116; checked 2026-11-11). It remains at 4,760/4,807 US functions and
+93.25% matched code; Wave 23 adds no matched functions. The native build uses
+this checkout for C and `/home/reaper/Code/sly1-decomp` only for selected US
+retail assembly. The isolated hostgen build translates 732 functions plus
+335 selected assembly functions, with 2 generated stubs, across 269 C units.
+Build: `cmake --build build/port --target port_native -j2`.
 
 The current Splash trace resolves the CountdownNotifier's child owner through
 the port-only `0x0015A838` wrapper and `0x0015A4F0` search backfills. The

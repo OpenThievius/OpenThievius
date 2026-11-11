@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after refreshing to decomp master `4c574846` and restoring
-reached screen-text callbacks. Work in
+Updated: 2026-11-11, after refreshing to decomp master `d56e797c` (Wave 23) and
+rebuilding against it. Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
@@ -11,6 +11,15 @@ replacements in `/home/reaper/Code/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
 
 ## Latest handoff (2026-11-11)
+
+Canonical `/home/reaper/sly/sly1-decomp` is clean on `master` at `d56e797c`
+(Wave 23, PR #116), tracking `origin/master`. Wave 23 adds no matched
+functions: the US report remains 4,760/4,807 functions and 93.25% matched code.
+It adds compiler-investigation notes and near-match re-scores; notably,
+`func_00109488` remains unmatched and its current role as a port-only backfill
+is unchanged. The native build was rebuilt successfully against this checkout:
+732 C translations, 335 US retail assembly translations, and 2 generated
+stubs. No port code change was needed from this decomp update.
 
 The current runtime-driven assembly selection also restores the reached UI
 constructors `InitTimerElement`, `InitGauge`, `InitFramedElement`,

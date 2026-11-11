@@ -24,15 +24,16 @@ visible in the native launcher.
 
 ### Decomp refresh (2026-11-11)
 
-The canonical decomp checkout is current at `4c574846` (Wave 22, PR #115),
+The canonical decomp checkout is current at `d56e797c` (Wave 23, PR #116),
 with 4,760/4,807 US functions matched and 93.25% of code bytes matched. Wave
-22 matches triangle animator callback `func_001B55C0` and active-set helper
-`func_001536C8`, and expands the state-walker implementation. Their source
-units still cannot pass the port's C frontend because shared headers contain
-duplicate collider members, failed layout assertions, and C++-only
-declarations. Neither new function ran in the latest startup trace, so they
-are not the current black-screen cause. The updated native build succeeds
-with 732 C translations,
+23 adds no matched functions or matched code bytes. It expands compiler
+investigations and re-scores near-matching candidates, including
+`func_00109488`, which remains unmatched and already has a separate port-only
+functional backfill. Wave 22's `func_001B55C0` and `func_001536C8` remain the
+latest newly matched functions; their source units still cannot pass the
+port's C frontend because shared headers contain duplicate collider members,
+failed layout assertions, and C++-only declarations. Neither was reached in
+the latest startup trace. Rebuilding against Wave 23 succeeds with 732 C translations,
 335 retail assembly translations, and 2 stubs; the visual frontier remains
 unchanged.
 
