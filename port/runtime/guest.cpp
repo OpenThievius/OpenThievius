@@ -324,6 +324,13 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 0x0015D8A8u, // load and register a font record
                 0x0015C1C0u, // look up a font by ID
                 0x001AE510u, // construct a letter glyph element
+                0x0012EBD8u, // update an animation player
+                0x0012F760u, // deliver animation-player callbacks
+                0x0012F7E0u, // register an animation-player callback
+                0x001B66A0u, // choose the next state-walker edge
+                0x001B6C68u, // commit state-walker arrival
+                0x001B6CA8u, // handle state-walker track end
+                0x001B6CF0u, // advance state-walker animation time
             };
             static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
             for (std::size_t i = 0; i < std::size(targets); ++i) {
