@@ -116,6 +116,26 @@
       "func_001378A0": {
         "function": "game_sly1_native_trace_lz_entry",
         "args": ["a0"]
+      },
+      "func_00153328": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["176", "a0", "a1", "a2", "0", "0"]
+      },
+      "func_001533A8": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["181", "a0", "0", "0", "0", "0"]
+      },
+      "func_00126270": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["178", "a0", "a1", "0", "0", "0"]
+      },
+      "func_0018F9D8": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["179", "a0", "a1", "0", "0", "0"]
+      },
+      "func_00166690": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["190", "a0", "0", "0", "0", "0"]
       }
     },
     "trace_sites": {
@@ -163,6 +183,7 @@
       "func_0011DB00",
       "func_001DC9A0",
       "func_001533A8",
+      "func_00153328",
       "func_00139B70",
       "func_001612F8",
       "func_001662A8",
@@ -201,6 +222,7 @@
       "func_00125C90",
       "func_00126270",
       "func_00126DE8",
+      "func_00188700",
       "func_0018F9D8",
       "func_00183D88",
       "func_00183DF8",
@@ -224,6 +246,10 @@
       "func_001EA0A8",
       "func_001EA4B8",
       "func_001EAAE0",
+      "func_001B2090",
+      "func_001B2640",
+      "func_001B26F8",
+      "func_001B2790",
       "func_001AA5A0",
       "func_001E2138",
       "func_001E2100",

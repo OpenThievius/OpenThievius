@@ -60,7 +60,7 @@ in `file_18F988.cpp`. Hostgen cannot compile that unit because of unrelated
 header conflicts, so `hostgen.json` now selects its exact US assembly
 translation. The launcher remains stable, but the output still has no scene
 geometry or image transfers. Hostgen for this build reports 798 translated
-functions, including 507 assembly translations and two remaining stubs.
+functions, including 513 assembly translations and two remaining stubs.
 
 The latest trace shows `class51_objects=2` after selecting the exact US
 assembly for `func_00183D88`, `func_00183DF8`, and `func_00183E70`. These are
@@ -70,6 +70,20 @@ in the live world, but this has not produced image uploads or scene geometry.
 The model-part queue path also has exact assembly selections for its
 camera-facing transform, scratchpad DMA setup, and fade ramp
 (`func_00126DE8`, `func_001C2430`, and `func_001EA4B8`).
+
+Wave 32 names `func_00153328` `QueuePlacedObjectDraw`; the port now selects its
+exact US assembly translation, along with range-record/light packet helpers
+`func_00188700`, `func_001B2090`, `func_001B2640`, `func_001B26F8`, and
+`func_001B2790`. Opt-in entry traces show `func_0018F9D8` once and
+`func_00126270` eight times. Both objects reaching the latter have a zeroed
+model-record prefix at `+0x22C` and zero draw parts (`+0x238 == 0`), in both the normal
+Splash world and the forced `0x0100` load. `func_00153328` is not entered and
+`func_00166690` is not reached. This points to the active world/content and
+startup state as the current frontier: model drawing cannot proceed with
+empty part lists. The trace is enabled with `OPENRAC_TRACE_FONT=1` and prints
+`[placed-object-draw]` records. Log:
+`/tmp/sly-wave32-placed-model-count-15s.log`; forced load:
+`/tmp/sly-wave32-forced-level-model-count-15s.log`.
 
 ## Latest handoff (2026-11-11)
 

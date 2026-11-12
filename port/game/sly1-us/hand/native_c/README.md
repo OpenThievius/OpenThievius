@@ -214,12 +214,26 @@ The model-queue dependency chain now also selects retail assembly for
 `func_00126DE8` (camera-facing transform), `func_001C2430` (scratchpad DMA
 setup), and `func_001EA4B8` (part fade ramp); all three are present in the
 decomp catalog but their containing source units are not hostable in this build.
+Wave 32 also names `func_00153328` `QueuePlacedObjectDraw`; it and the range
+record packet helpers `func_00188700`, `func_001B2090`, `func_001B2640`,
+`func_001B26F8`, and `func_001B2790` now use their exact US assembly. The
+normal and forced-level traces call `func_00126270`, but the two observed
+objects have a zeroed model-record prefix at `+0x22C` and zero draw parts at
+`+0x238`.
+The per-part callback `func_00166690` is not reached, and `func_00153328` is
+not entered in this trace. The current world data therefore still gives the
+renderer no model parts to draw. Use `OPENRAC_TRACE_FONT=1` for the opt-in
+`[placed-object-draw]` record.
 The same review found the class-0x51 ConeVolume attach/update/remove callbacks
 were still no-ops. Selecting their exact US assembly translations for
 `func_00183D88`, `func_00183DF8`, and `func_00183E70` raises the live world's
 ConeVolume list from zero to two objects in the normal startup trace. The
 15-second run remains stable, but image tags and actual scene geometry are
 still absent; this fixes world registration, not the rendering path.
+`func_00185150` (`CollectLightsForSphere`) remains a no-op: its retail body
+contains VU0 `vcallms` microprogram calls that the assembly translator cannot
+translate. A scalar port backfill may be needed when populated model parts
+reach `func_00166690`.
 The bounded direct-level probe parses key `0x0100` and installs a world, but
 does not connect it to gameplay. In default startup, the pad-state fix now
 lets the frame remain in state 3, and a trace reaches retail

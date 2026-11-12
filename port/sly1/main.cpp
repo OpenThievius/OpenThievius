@@ -85,6 +85,53 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                       << " end=" << end << " mode=" << mode << std::dec << '\n';
         }
     }
+    if (stage == 190u) {
+        std::uint32_t frame_offset = 0;
+        if (trace_guest_range(a0, 0x80u, &frame_offset)) {
+            std::uint32_t owner = 0, skin = 0, part = 0, cache = 0;
+            std::memcpy(&owner, openrac_guest_base + frame_offset + 0x70u, 4u);
+            std::memcpy(&skin, openrac_guest_base + frame_offset + 0x74u, 4u);
+            std::memcpy(&part, openrac_guest_base + frame_offset + 0x78u, 4u);
+            std::memcpy(&cache, openrac_guest_base + frame_offset + 0x7Cu, 4u);
+            std::uint32_t part_offset = 0;
+            if (part != 0 && trace_guest_range(part, 0x70u, &part_offset)) {
+                std::uint32_t f18 = 0, f28 = 0, flags = 0, mesh_count = 0;
+                std::uint32_t meshes = 0, strip_count = 0, strips = 0, light = 0;
+                std::memcpy(&f18, openrac_guest_base + part_offset + 0x18u, 4u);
+                std::memcpy(&f28, openrac_guest_base + part_offset + 0x28u, 4u);
+                std::memcpy(&flags, openrac_guest_base + part_offset + 0x2Cu, 4u);
+                std::memcpy(&mesh_count, openrac_guest_base + part_offset + 0x58u, 4u);
+                std::memcpy(&meshes, openrac_guest_base + part_offset + 0x5Cu, 4u);
+                std::memcpy(&strip_count, openrac_guest_base + part_offset + 0x60u, 4u);
+                std::memcpy(&strips, openrac_guest_base + part_offset + 0x64u, 4u);
+                std::memcpy(&light, openrac_guest_base + part_offset + 0x6Cu, 4u);
+                std::cerr << "[model-part] frame=0x" << std::hex << a0
+                          << " owner=0x" << owner << " skin=0x" << skin
+                          << " part=0x" << part << " cache=0x" << cache
+                          << " f18=0x" << f18 << " f28=0x" << f28
+                          << " flags=0x" << flags << " meshes=" << std::dec
+                          << mesh_count << "@0x" << std::hex << meshes
+                          << " strips=" << std::dec << strip_count << "@0x"
+                          << std::hex << strips << " light=0x" << light
+                          << std::dec << '\n';
+            }
+        }
+    }
+    if (stage == 178u) {
+        std::uint32_t object_offset = 0;
+        if (trace_guest_range(a0, 0x244u, &object_offset)) {
+            std::uint32_t model = 0, part_count = 0, parts = 0, states = 0;
+            std::memcpy(&model, openrac_guest_base + object_offset + 0x22Cu, 4u);
+            std::memcpy(&part_count, openrac_guest_base + object_offset + 0x238u, 4u);
+            std::memcpy(&parts, openrac_guest_base + object_offset + 0x23Cu, 4u);
+            std::memcpy(&states, openrac_guest_base + object_offset + 0x240u, 4u);
+            std::cerr << "[placed-object-draw] object=0x" << std::hex << a0
+                      << " camera=0x" << a1 << " model=0x" << model
+                      << " part_count=" << std::dec << part_count
+                      << " parts=0x" << std::hex << parts << " states=0x"
+                      << states << std::dec << '\n';
+        }
+    }
     if (stage == 64u && (a0 & 0xFFFFFF00u) == 0xBAC30000u &&
         (a0 & 0xFFu) == 9u) {
         std::uint32_t cursor_offset = 0;
