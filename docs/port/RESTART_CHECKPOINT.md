@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-11, after refreshing decomp through `674b40e` (PR #122,
-Wave 29), tracing the model reader, and rebuilding against the refreshed source.
+Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
+Wave 32), tracing the native GS submissions, and rebuilding against the
+refreshed source.
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -10,6 +11,41 @@ port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 `overrides_c/`, registered in the matching hand table; do not put those
 replacements in `/home/reaper/sly/sly1-decomp`. Continue using native runs
 only; no emulator is involved in the port work.
+
+## Current status (2026-11-12)
+
+The latest native build uses an immutable Wave 32 source snapshot at
+`build/port/decomp-source-wave32/` (upstream `86682dd`, PR #123); the sibling
+`/home/reaper/sly/sly1-decomp` checkout was left untouched. The exact US
+assembly source remains the older `wave24` snapshot because upstream no longer
+ships that assembly tree. Build command:
+`cmake --build build/port --target port_native -j2`.
+
+A normal 15-second native launch against the US ELF and ISO reaches the main
+frame loop without crashing. Current trace: 15 samples, world `0x6abdd0`,
+element-stack state 3, 1,459 accepted GIF-chain submissions, no image tags,
+and no bitblt writes. The occasional 240-vertex count is not level geometry:
+the lightweight trace parser expands 40 GS point primitives into six-vertex
+placeholder quads, with sampled points near the upper-left corner. The window
+still has no real game graphics and is not playable.
+
+The forced level probe remains useful for loader debugging but is not a game
+entry path. Its frame-list crash is fixed by draining both frame contexts and
+the three deferred lists before transient heap reset; the load reaches a
+populated world and stays alive. The traced world's class lists are populated,
+but the placed-object model/mesh attachments and render callbacks needed to
+submit scene geometry remain missing. All functional C replacements remain
+port-only under `hand/native_c/` or `hand/overrides_c/`.
+
+Upstream Wave 32 newly matches `func_00142278` (`IntersectSegmentWithCapsule`)
+in `src/main/collider_span.cpp`. Hostgen includes it in the refreshed source,
+which can help collision/gameplay later but does not address the current render
+path. The current direct GIF trace shows display setup packets and point draws,
+but no image upload packets. Full renderer traces can be captured with:
+`timeout 15s env OPENRAC_STARTUP_TRACE=1 OPENRAC_GIF_TRACE=1 OPENRAC_BOOT_LEVEL=0x0100 build/port/sly1_native build/port/extracted/boot/SCUS_971.98 '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'`.
+
+Latest logs: `/tmp/sly-wave32-normal-15s-20261112.log` and
+`/tmp/sly-gif-startup-20261112.log`.
 
 ## Latest handoff (2026-11-11)
 
