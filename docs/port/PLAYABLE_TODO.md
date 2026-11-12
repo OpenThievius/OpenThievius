@@ -8,17 +8,17 @@ build uses immutable decomp source Wave 32 at
 the older Wave 24 snapshot. The upstream `master` was checked again today and
 still points to `86682dd`; no newer decomp data is available. The separate
 `/home/reaper/sly/sly1-decomp` checkout is clean and 59 commits behind its
-configured origin, while the build snapshot is current. Normal launch reaches the memory-card menu state in the native trace. The
-user provided a screenshot of the readable unformatted-card prompt; capture
-provenance is not established. Yes/No choices appear as placeholder/button
+configured origin, while the build snapshot is current. Normal launch reaches the memory-card menu state in the native trace, and the
+user confirmed that the native window displays the readable unformatted-card
+prompt. Yes/No choices appear as placeholder/button
 glyphs. The native SIF probe still reports no card; no format was selected.
 The Yes/No order is Yes then No. The host maps Right Arrow to right and
 Space to Cross/confirm, so the user can choose No with Right then Space. This
 key mapping is verified in source but has not been runtime-verified on the
 prompt. Keep the default Yes choice untouched; never auto-format. The Splash
 graph is still on its `0x261` state-2 self-edge; no playable gameplay is verified. A fresh native
-framebuffer dump is black, so investigate capture/readback and establish
-whether the screenshot came from this launcher. Exact US assembly is now restored for the reached CountdownNotifier
+framebuffer dump is black despite the visible window, so fix the capture/readback
+mismatch. Exact US assembly is now restored for the reached CountdownNotifier
 handler, deferred-call queue, completion callback, timer, and the handler's
 `GetStateWalkerCurrentKey` dependency; this removes another no-op cluster but
 does not advance the current graph. The forced

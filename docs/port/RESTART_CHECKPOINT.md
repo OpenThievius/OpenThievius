@@ -1221,22 +1221,23 @@ reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
 
 A 12-second run after that recovery reaches global element-stack state 5
-and submits the memory-card menu. The user provided a screenshot showing the readable “Memory Card (PS2)
-in Memory Card Slot 1 is unformatted” prompt and its format question. The two
-menu choices appear as small placeholder/button glyphs instead of readable
-“Yes” and “No” labels. The screenshot capture provenance is not established.
+and submits the memory-card menu. The user confirmed the native window
+displays the readable “Memory Card (PS2) in Memory Card Slot 1 is
+unformatted” prompt and its format question.
+The two menu choices appear as small placeholder/button glyphs instead of
+readable “Yes” and “No” labels.
 The current native SIF memory-card probe deliberately reports unavailable,
 which produces this retail prompt; no format action has been taken. Do not
 select “Yes” or add an automatic format. The choice order is Yes then No. The
 native keyboard adapter maps Right Arrow to right and Space to Cross/confirm,
-so a user can select No with Right then Space. The mapping is confirmed in source (`port/platform/sly_input.cpp`) but
-has not been runtime-verified on this prompt. Do not send confirm with the
+so a user can select No with Right then Space. The mapping is confirmed in
+source (`port/platform/sly_input.cpp`) but has not been runtime-verified on
+this prompt. Do not send confirm with the
 default Yes selection. A fresh native framebuffer capture still returned
-black despite the user-provided screenshot, so visible output from the native
-launcher is not yet independently verified; investigate framebuffer readback
-and capture provenance.
+black despite the visible native prompt, so investigate why the frame dumper
+does not match the window.
 The startup graph remains at event `0x261`, state 2, self-edge `2 -> 2`. Run
-trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`; user screenshot:
+trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`; screenshot:
 `/tmp/codex-clipboard-caa8c0d5-10af-4877-a3c5-4fa0ad0a11ca.png`.
 
 The follow-up trace confirms queued animation callbacks are now delivered
