@@ -3,9 +3,10 @@
 
 **Current status (2026-11-12):** upstream `sly1-decomp` master is
 `86682ddd` (Wave 32); the sibling checkout remains at `bfc74817`, 59 commits
-behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 57/57
-port-only host32 backfills. The combined object resolves 809/822 direct frame
-calls, leaving 13 missing, and the freestanding i386 launcher links. It has not
+behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 58/58
+port-only host32 backfills. A native `TransformVector4` backfill closes one
+frame-path gap; the combined object resolves 810/822 direct frame calls,
+leaving 12 missing, and the freestanding i386 launcher links. It has not
 yet been run against the disc or shown a title, scene, or controllable game.
 
 The visible unformatted-memory-card prompt came from the separate experimental

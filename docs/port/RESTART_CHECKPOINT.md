@@ -3,8 +3,9 @@
 
 Updated: 2026-11-12. The public decomp master is `86682ddd` (Wave 32); the
 sibling checkout is 59 commits behind. A read-only snapshot compiles all 190
-Sly C++ units and 57 port-only host32 backfills. The combined object has 809 of
-822 functions in the direct frame-call frontier, and the freestanding i386
+Sly C++ units and 58 port-only host32 backfills. The native `TransformVector4`
+backfill resolves one direct frame-path function; the combined object has 810
+of 822 functions in the direct frame-call frontier, and the freestanding i386
 launcher links. It has not been run or shown a playable scene. This is the
 current no-emulation path.
 

@@ -2,10 +2,11 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-12. Current decomp master is `86682ddd` (Wave 32, PR #123).
-The no-emulation host32 path compiles all 190 Sly units and 57 port-only
-backfills, combines 4,339 catalogued native function entries, and links a
-freestanding launcher. Its direct frame-call frontier is missing 13 functions;
-it has not yet produced a verified title or scene.
+The no-emulation host32 path compiles all 190 Sly units and 58 port-only
+backfills, combines 4,340 catalogued native function entries, and links a
+freestanding launcher. A `TransformVector4` backfill resolved one frame-path
+call; 12 direct calls remain. The launcher has not yet produced a verified
+title or scene.
 
 The unformatted-memory-card prompt was observed in the separate experimental
 guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
