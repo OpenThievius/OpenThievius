@@ -21,6 +21,18 @@ active. Treat it as a regression: the prompt disappears, but no title or
 gameplay transition is demonstrated. Input/capture log:
 `/tmp/sly-wave39-post-dismiss-capture.log`.
 
+The latest bounded X11 trace confirms the input path: one Down key produces
+`held=0x0040`, closes the page (`element_state=5 -> 0`), and changes card
+display mode `1 -> 2`. The `D_002701B8` gate is zero afterward, but Splash
+remains active with no load, movie, or fade request; the captured framebuffer
+is black. Wave 39's matched `UpdateElementStack` says this state should finish
+the active `ObjectSubGroup`. An opt-in staging probe now records the subgroup
+lookup, finish call, and state-5 timer updates without changing game logic.
+All 190 Sly units and 65 port-only backfills compile with the probe. Runtime
+verification is blocked by the missing i386 development CRT (`gnu/stubs-32.h`)
+at launcher link time; the valid uninstrumented host32 launcher remains the
+baseline. See the restart checkpoint for the exact log and next trace step.
+
 **Build baseline (2026-11-13):** upstream `sly1-decomp` master is
 `f38f0113` (Wave 39); the sibling checkout remains at `bfc74817`, 100 commits
 behind. US coverage is 4,778/4,807 functions (99.40%) and 98.05% of code, up
@@ -52,12 +64,13 @@ rejections. The later `AddGifRegisterWrite` ABI diagnosis and visible warning
 capture supersede the earlier all-black conclusion. See the restart checkpoint
 for current evidence.
 
-**Immediate host32 task:** trace Splash/title progression after the no-card
-page closes. The display-context overrun, host `AddGifRegisterWrite` ABI
-mismatch, and Sly frame-size mismatch are fixed. Keep functional native service
-replacements in `port/game/sly1-us/native/`, separate from decomp source. Do
-not format a card, force UI visibility, or alter matching game logic to
-fabricate a scene.
+**Immediate host32 task:** restore the i386 development CRT or otherwise link
+the instrumented launcher, then capture the active subgroup lookup, finish
+state, and fade timer after Continue. The display-context overrun, host
+`AddGifRegisterWrite` ABI mismatch, and Sly frame-size mismatch are fixed.
+Keep functional native service replacements in
+`port/game/sly1-us/native/`, separate from decomp source. Do not format a
+card, force UI visibility, or alter matching game logic to fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

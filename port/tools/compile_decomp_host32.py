@@ -943,6 +943,60 @@ def main(argv=None):
             if adapted.count(notification_signature) != 1:
                 raise RuntimeError("expected countdown notification handler")
             adapted = adapted.replace(notification_signature, notification_trace, 1)
+        elif rel.as_posix() == "main/file_1F2758.cpp" and args.trace_functions:
+            # Staging-only trace of subgroup completion after Continue.
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            find_signature = "ObjectSubGroup* FindActiveObjectSubGroup(void)\n{"
+            if adapted.count(find_signature) != 1:
+                raise RuntimeError("expected active subgroup lookup")
+            find_start = adapted.index(find_signature)
+            find_end = adapted.index("\n}\n", find_start)
+            find_body = adapted[find_start:find_end]
+            find_return = "    return found;"
+            if find_body.count(find_return) != 1:
+                raise RuntimeError("expected active subgroup result")
+            find_body = find_body.replace(find_return, """    static u32 trace_count;
+    if (trace_count++ < 24) {
+        sly1_port_trace_value(0x1f437801u, (u32)found);
+        sly1_port_trace_value(0x1f437802u, found != 0 ? (u32)found->f2D0 : 0);
+        sly1_port_trace_value(0x1f437803u, found != 0 ? (u32)found->f2E4 : 0);
+        sly1_port_trace_value(0x1f437804u, found != 0 ? *(u32*)&found->f31C : 0);
+        sly1_port_trace_value(0x1f437805u, found != 0 ? (u32)found->count : 0);
+    }
+    return found;""")
+            adapted = adapted[:find_start] + find_body + adapted[find_end:]
+
+            finish_signature = "void StartObjectSubGroupFinish(ObjectSubGroup* self)\n{"
+            finish_trace = finish_signature + """
+    static u32 trace_count;
+    if (trace_count++ < 24) {
+        sly1_port_trace_value(0x1f480801u, (u32)self);
+        sly1_port_trace_value(0x1f480802u, self != 0 ? (u32)self->f2D0 : 0);
+        sly1_port_trace_value(0x1f480803u, self != 0 ? (u32)self->f2E4 : 0);
+        sly1_port_trace_value(0x1f480804u, self != 0 ? *(u32*)&self->f31C : 0);
+        sly1_port_trace_value(0x1f480805u, self != 0 ? (u32)self->count : 0);
+        sly1_port_trace_value(0x1f480806u, self != 0 ? (u32)self->f2D8 : 0);
+    }
+"""
+            if adapted.count(finish_signature) != 1:
+                raise RuntimeError("expected subgroup finish implementation")
+            adapted = adapted.replace(finish_signature, finish_trace, 1)
+
+            update_signature = "void UpdateObjectSubGroup(ObjectSubGroup* self)\n{"
+            update_trace = update_signature + """
+    static u32 trace_count;
+    if (self != 0 && self->f2E4 == 5 && trace_count++ < 24) {
+        sly1_port_trace_value(0x1f4c0101u, (u32)self);
+        sly1_port_trace_value(0x1f4c0102u, (u32)self->f2D0);
+        sly1_port_trace_value(0x1f4c0103u, (u32)self->f2E4);
+        sly1_port_trace_value(0x1f4c0104u, *(u32*)&self->f31C);
+        sly1_port_trace_value(0x1f4c0105u, *(u32*)&g_gameClock.time);
+        sly1_port_trace_value(0x1f4c0106u, (u32)self->count);
+    }
+"""
+            if adapted.count(update_signature) != 1:
+                raise RuntimeError("expected subgroup update implementation")
+            adapted = adapted.replace(update_signature, update_trace, 1)
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.

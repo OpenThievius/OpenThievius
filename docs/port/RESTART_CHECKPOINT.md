@@ -28,6 +28,21 @@ title or gameplay appears. No memory card was formatted. Startup log:
 `/tmp/sly1-latest-native-startup.log`; input/capture log:
 `/tmp/sly-wave39-post-dismiss-capture.log`.
 
+**Continue dismissal reproduced (2026-11-13):** one X11 Down key event was
+received by the valid host32 launcher (`held=0x0040`). The following samples
+show element-stack state `5 -> 0`, memory-card display `1 -> 2`, and
+`D_002701B8` (`memory_gate`) `2 -> 0`, while Splash stays active, with no
+load, movie, or fade request. The framebuffer remains black. This confirms
+the Continue dismissal and reproduces the regression; it does not reach a
+title or playable scene. Wave 39's `UpdateElementStack` source says state 0
+should call `StartObjectSubGroupFinish(FindActiveObjectSubGroup())` when that
+gate is zero and display mode is 2. Opt-in staging probes now record the
+subgroup returned, its state/timer, and subsequent state-5 updates. They enter
+the ignored host32 build output only with `--trace-functions`; matched game
+logic is unchanged. Runtime verification is pending because this environment
+lacks the 32-bit development CRT needed to link the instrumented launcher.
+Baseline log: `/tmp/sly1-wave39-subgroup-continue-baseline.log`.
+
 Updated: 2026-11-13. Public decomp master is `f38f0113` (Wave 39); the sibling
 checkout is `bfc74817`, 100 commits behind. US coverage is 4,778/4,807
 functions and 98.05% of code. Hostgen still translates 799 functions, with 2
@@ -56,9 +71,8 @@ absent. A follow-up framebuffer capture shows the page-3 no-card warning at
 the same proportions as the user's screenshot. The earlier synthetic Down-key
 run did not prove dismissal: its `pause_open=0` snapshot was a transient
 startup state, and a later capture after the warning opened again showed page
-3. The direct synthetic-key harness also failed to create its uinput device,
-so no Cross input was verified. Do not describe the page as dismissed or the
-next Splash state as a post-dismiss result. No format action was taken.
+3. The newer X11 trace described above confirms the Continue dismissal and the
+black-after-Continue regression. No format action was taken.
 
 A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
 `0x250` bytes through a two-record (`0x50` byte) retail display context,
@@ -70,10 +84,10 @@ The pause-menu callback reaches page 3 and renders the full warning panel and
 selected `Continue` item. A fresh trace stays on the Splash world with no
 world-load, movie, or fade request; title and gameplay remain unverified. The
 menu page has one Continue row and its retail activation uses the Cross bit.
-The SDL keyboard adapter maps Space to Cross, but synthetic X11/uinput tests
-did not deliver a verified Cross press to the guest. No dismissal or format
-action is claimed. Continue tracing the retail Splash-to-title path separately
-from this unresolved input check.
+The earlier synthetic X11/uinput tests did not deliver a verified Cross press
+to the guest. The newer X11 trace described above confirms Down dismisses the
+warning and exposes a black-after-Continue regression. No format action was
+taken.
 
 The user-confirmed visible memory-card format prompt came from the separate
 experimental guest-runtime launcher. The no-emulation host32 run reaches the
@@ -87,9 +101,10 @@ with matching decomp source when available.
 The eight black files mentioned above sampled early startup. The corrected
 capture uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
 `OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the full no-card warning. The
-next host32 task is to trace normal Splash-to-title progression after the
-warning is dismissed. Do not use `visible_ui=0` or `text_ui=0` as a substitute
-for checking the pause-menu layer or framebuffer.
+next host32 task is to link and run the instrumented launcher, then trace
+whether the Splash subgroup is found, enters finish state 5, and reaches its
+fade deadline. Do not use `visible_ui=0` or `text_ui=0` as a substitute for
+checking the pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
 
