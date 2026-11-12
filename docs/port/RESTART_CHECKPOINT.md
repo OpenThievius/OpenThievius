@@ -60,7 +60,16 @@ in `file_18F988.cpp`. Hostgen cannot compile that unit because of unrelated
 header conflicts, so `hostgen.json` now selects its exact US assembly
 translation. The launcher remains stable, but the output still has no scene
 geometry or image transfers. Hostgen for this build reports 798 translated
-functions, including 501 assembly translations and two remaining stubs.
+functions, including 507 assembly translations and two remaining stubs.
+
+The latest trace shows `class51_objects=2` after selecting the exact US
+assembly for `func_00183D88`, `func_00183DF8`, and `func_00183E70`. These are
+the ConeVolume refresh/attach/remove callbacks; the corresponding list was
+empty while they were no-ops. Their registration now reaches the two objects
+in the live world, but this has not produced image uploads or scene geometry.
+The model-part queue path also has exact assembly selections for its
+camera-facing transform, scratchpad DMA setup, and fade ramp
+(`func_00126DE8`, `func_001C2430`, and `func_001EA4B8`).
 
 ## Latest handoff (2026-11-11)
 

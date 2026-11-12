@@ -210,6 +210,16 @@ build selection, not a replacement in the decomp tree; drop it when the
 matching unit becomes hostable. The native launch remains stable, but the new
 selection has not produced scene geometry or image transfers yet.
 Hostgen reports all four as translated from `asm/us/text.s`, with no stubs.
+The model-queue dependency chain now also selects retail assembly for
+`func_00126DE8` (camera-facing transform), `func_001C2430` (scratchpad DMA
+setup), and `func_001EA4B8` (part fade ramp); all three are present in the
+decomp catalog but their containing source units are not hostable in this build.
+The same review found the class-0x51 ConeVolume attach/update/remove callbacks
+were still no-ops. Selecting their exact US assembly translations for
+`func_00183D88`, `func_00183DF8`, and `func_00183E70` raises the live world's
+ConeVolume list from zero to two objects in the normal startup trace. The
+15-second run remains stable, but image tags and actual scene geometry are
+still absent; this fixes world registration, not the rendering path.
 The bounded direct-level probe parses key `0x0100` and installs a world, but
 does not connect it to gameplay. In default startup, the pad-state fix now
 lets the frame remain in state 3, and a trace reaches retail
