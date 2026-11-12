@@ -2,7 +2,7 @@
 # Concrete plan for a playable native Sly 1
 
 **Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
-`4dc300a` (latest pushed trace checkpoint); the current native
+the latest animation-path recovery checkpoint; the current native
 build uses immutable decomp source Wave 32 at
 `86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
 the older Wave 24 snapshot. The upstream `master` was checked again today and
@@ -12,7 +12,8 @@ configured origin, while the build snapshot is current. Normal launch reaches
 frame state 3, loads Splash, but remains
 black with 37 inactive UI objects and no visible game graphics. Startup
 animation callbacks now dispatch, but the Splash graph remains on its `0x261`
-state-2 self-edge; no target-change or screen-element Show call occurs. The
+state-2 self-edge. The UI now submits 240 vertices with alpha-only black
+color and no image transfers; the screen remains black. The
 pad's `f14` is connection mode 3, so the no-controller auto-pause branch is
 inactive. Exact US assembly is now restored for the reached CountdownNotifier
 handler, deferred-call queue, completion callback, timer, and the handler's
@@ -62,6 +63,17 @@ The native build reports 527 assembly functions and links successfully. A
 animation callback stages dispatch, but the graph remains on its state-2
 self-edge; sampled frames show zero vertices and image uploads. Log:
 `/tmp/sly-wip-notifier-final-12s-20261112.log`.
+
+**Animation and pose-path assembly recovery (2026-11-12):** selected exact
+US retail assembly for the reached linked-animation, pose-source, tangent
+curve, matrix/trig, animation-event, pad-select, track-pose release, world-list
+release, deferred-call cleanup, and list helpers. Hostgen now reports 798
+translated functions, 546 from assembly, and 2 stubs. The 12-second native
+trace advances global element-stack state to 5 and submits 240 vertices, but
+the sampled RGBA values are alpha-only black (`0x80000000`) and there are no
+image transfers. The Splash graph stays on state-2 event `0x261`; the black
+frame is now localized to UI/render resource data rather than missing startup
+dispatch alone. Trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`.
 
 **Latest graphics-path correction (2026-11-12):** the current port-only
 `func_0019D6C0` follows Wave 32's `RunWorldFrameLists`: it reads slot 40 from

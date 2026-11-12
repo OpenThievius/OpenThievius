@@ -1201,14 +1201,16 @@ latest `ReadPlacedObjectModel` source. Evidence:
 
 ### Current checkpoint (2026-11-12)
 
-Branch `wip/native-sly-port` is pushed through `4dc300a`. The workspace is
-clean and synchronized with `origin`.
+Branch `wip/native-sly-port` now includes the animation-path recovery described below; local changes are being committed and pushed.
 Upstream
 `sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
 (Wave 32); verified with `git ls-remote`. The sibling working checkout remains
 untouched. Hostgen from the staged Wave 32 source reports 798 translated
-functions, 527 retail-assembly functions, and 2 stubs. The latest build
-succeeds; no new matching decomp source addresses Splash activation.
+functions, 546 retail-assembly functions, and 2 stubs. The latest build
+succeeds; no new matching decomp source addresses Splash activation. During
+this follow-up, exact US retail assembly was selected for nine reached
+animation/pose/math routines and ten newly exposed event/list cleanup helpers
+in `hostgen.json`; no replacement C was introduced.
 
 The latest native 15-second trace confirms the frame's draw dispatch is
 running, with calls for Splash objects `0x847dc0` (class `0x53`) and
@@ -1217,6 +1219,13 @@ owner `0x847870` has an empty model header. The direct `0x0100` model owner
 with 1,962 parts remains a separate forced-level parser failure and is not
 reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
+
+A 12-second run after that recovery reaches global element-stack state 5
+(with Splash UI active) and submits 240 vertices per sampled frame. Their RGBA
+values are alpha-only (`0x80000000`), and image transfers remain zero, so the
+window is still black. The state graph remains on event `0x261`, state 2,
+self-edge `2 -> 2`; it does not account for the new global stack state. Log:
+`/tmp/sly-wip-animation-cluster-12s-20261112.log`.
 
 The follow-up trace confirms queued animation callbacks are now delivered
 (stages 209, 211, 207, 206), but the graph stays at state index 2 (`0x261`) on
@@ -1232,5 +1241,4 @@ forcing state. Continue the independent direct-level strip reader investigation
 only when it can inform the normal rendering path. Preserve retail startup
 behavior; do not force a title, movie, or gameplay state. Keep replacement C
 only in `hand/native_c/` or `hand/overrides_c/`. The frame-list wrappers remain
-port-only; no mismatch was established in this run. Implementation and
-checkpoint commits are pushed; the workspace is clean.
+port-only; no mismatch was established in this run. The latest recovery and its trace are committed and pushed; the workspace is clean.
