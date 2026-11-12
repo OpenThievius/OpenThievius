@@ -17,13 +17,22 @@ backfills let retail startup reach pause page 3, and a bounded 10-second run
 reached about 600 frames without a fatal fault. A later native capture saved
 eight SDL framebuffer frames after that state was reached; all eight were
 black. The trace's global UI/text counters do not include the pause-menu layer.
-No title or scene has been demonstrated. See the
+A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote `0x250`
+bytes through a two-record (`0x50` byte) retail display context, overwriting
+the GIF channel global with display height `0xe0`. The backfill now writes
+only those records. A bounded host32 run kept the GIF channel at `0x082ffee8`
+and submitted 735/735 DMAs with zero rejections. The previous all-black frame
+capture has now been repeated and remains all black. The direct renderer
+decodes the recurring pause frame into 2,250 vertices and two untextured draws,
+but produces no non-black pixels. The pause layer reaches page 3 and submits
+the retail `Continue` choice. No title or scene has been demonstrated. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
 The user-confirmed visible unformatted-memory-card prompt was observed in the
-separate experimental guest-runtime launcher. The host32 path now reaches the
-matching retail page-3 state, but its captured framebuffer is black. No format
-action was taken. The graphics findings
+separate experimental guest-runtime launcher. The host32 path reaches the
+matching retail page-3 state. A DMA-channel-overwrite regression is fixed, but
+the post-fix framebuffer remains black. No format action was taken. The
+graphics findings
 below are guest-runtime research only, not playable milestones. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current architecture and next work.

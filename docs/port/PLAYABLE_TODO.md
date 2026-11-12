@@ -21,15 +21,23 @@ with no fatal fault. A later native framebuffer capture saved eight frames
 after page 3 was reached; all eight were black. The `visible_ui` and `text_ui`
 trace counters cover only the 37 global screen elements, not the pause-menu
 layer. A title or playable scene has not been demonstrated. No card-format
-action was taken. See the restart checkpoint for evidence.
+action was taken. A 2026-11-12 follow-up found and fixed a display-context
+overrun that changed the GIF channel global to `0xe0`: the native
+`func_00201D60` backfill wrote `0x250` bytes through a two-record (`0x50` byte)
+retail context. It now writes only those two records. A bounded host32 run
+kept the channel at `0x082ffee8` and submitted 735/735 renderer DMAs with zero
+rejections. A fresh capture after the fix is still all black. The renderer
+decodes the repeated pause frame into 2,250 vertices and two untextured draws,
+but produces no non-black pixels. See the restart checkpoint for evidence.
 
-**Immediate host32 task:** trace whether the retail pause-menu draw callback
-runs after the no-card flow reaches page 3, and inspect what it submits to the
-native renderer. The captured framebuffer is black, despite the retail page
-state being set. Then follow the normal title/resource activation path. Keep
-functional native service replacements in `port/game/sly1-us/native/`,
-separate from decomp source. Do not format a card, force UI visibility, or
-alter matching game logic to fabricate a scene.
+**Immediate host32 task:** trace why decoded draws produce black pixels and
+why the pause-menu `Continue` text is not visible. The display-context
+overrun is fixed; the retail pause-menu callback reaches page 3 and submits
+its `Continue` choice. Inspect draw state, viewport/scissor, and texture
+packets, then follow normal title/resource activation. Keep functional native
+service replacements in `port/game/sly1-us/native/`, separate from decomp
+source. Do not format a card, force UI visibility, or alter matching game
+logic to fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

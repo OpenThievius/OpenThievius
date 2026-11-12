@@ -24,15 +24,22 @@ A later native framebuffer capture saved eight frames after the page-3 state
 was reached; all eight were completely black. The trace's `visible_ui` and
 `text_ui` counters cover only the 37 global screen elements, not the pause
 menu layer, so those counters alone did not establish that the prompt was
-absent. The captured black frames do establish that this host32 run produced
-no visible prompt. A title or playable scene has not been demonstrated. No
-format action was taken.
+absent. A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
+`0x250` bytes through a two-record (`0x50` byte) retail display context,
+overwriting the GIF channel global with display height `0xe0`. It now writes
+only the two records. A bounded host32 run kept the channel at `0x082ffee8`
+and submitted 735/735 DMAs with zero rejections. A fresh capture after the
+fix is still all black. The direct renderer decodes the recurring pause frame
+into 2,250 vertices and two untextured draws but produces no non-black pixels.
+The pause-menu callback reaches page 3 and submits `Continue`. A title or
+playable scene has not been demonstrated. No format action was taken.
 
 The user-confirmed visible memory-card format prompt came from the separate
 experimental guest-runtime launcher. The no-emulation host32 run reaches the
-corresponding retail page-3 state, but its captured SDL framebuffer frames are
-black. No format action was taken. Guest-runtime GS/Splash traces below remain
-separate research, not evidence of native gameplay.
+corresponding retail page-3 state. The DMA-channel-overwrite regression is
+fixed, but the post-fix SDL framebuffer remains black. No format action was
+taken. Guest-runtime GS/Splash traces below remain separate research, not
+evidence of native gameplay.
 Do not extend that runtime's CPU or PS2-device models as port features. Keep
 port-only functional replacements in the OpenThievius tree and replace them
 with matching decomp source when available.
@@ -41,10 +48,10 @@ Native capture used `OPENRAC_DUMP_NATIVE_FRAMES=1` and
 `OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=1`; the eight files
 `/tmp/sly1-native-frame-00.ppm` through `-07.ppm` each had mean pixel value 0.
 The capture threshold matters because normal packets were smaller than the
-default 512-byte minimum. The next task is to trace whether the pause-menu draw
-callback runs and what it submits, then follow the missing title/resource
-activation path. Do not use `visible_ui=0` or `text_ui=0` as a substitute for
-checking the pause-menu layer or framebuffer.
+default 512-byte minimum. The next host32 task is to inspect the renderer's
+draw state, viewport/scissor, and texture packets to determine why the decoded
+draws leave the captured frame black. Do not use `visible_ui=0` or `text_ui=0`
+as a substitute for checking the pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
 
