@@ -65,8 +65,8 @@ functions, including 513 assembly translations and two remaining stubs.
 The latest trace shows `class51_objects=2` after selecting the exact US
 assembly for `func_00183D88`, `func_00183DF8`, and `func_00183E70`. These are
 the ConeVolume refresh/attach/remove callbacks; the corresponding list was
-empty while they were no-ops. Their registration now reaches the two objects
-in the live world, but this has not produced image uploads or scene geometry.
+empty while they were no-ops. Their registration now reaches two entries in
+the world list, but this has not produced image uploads or scene geometry.
 The model-part queue path also has exact assembly selections for its
 camera-facing transform, scratchpad DMA setup, and fade ramp
 (`func_00126DE8`, `func_001C2430`, and `func_001EA4B8`).
@@ -74,16 +74,29 @@ camera-facing transform, scratchpad DMA setup, and fade ramp
 Wave 32 names `func_00153328` `QueuePlacedObjectDraw`; the port now selects its
 exact US assembly translation, along with range-record/light packet helpers
 `func_00188700`, `func_001B2090`, `func_001B2640`, `func_001B26F8`, and
-`func_001B2790`. Opt-in entry traces show `func_0018F9D8` once and
-`func_00126270` eight times. Both objects reaching the latter have a zeroed
-model-record prefix at `+0x22C` and zero draw parts (`+0x238 == 0`), in both the normal
-Splash world and the forced `0x0100` load. `func_00153328` is not entered and
-`func_00166690` is not reached. This points to the active world/content and
-startup state as the current frontier: model drawing cannot proceed with
-empty part lists. The trace is enabled with `OPENRAC_TRACE_FONT=1` and prints
-`[placed-object-draw]` records. Log:
-`/tmp/sly-wave32-placed-model-count-15s.log`; forced load:
-`/tmp/sly-wave32-forced-level-model-count-15s.log`.
+`func_001B2790`. Earlier `[placed-object-draw]` samples were overinterpreted:
+the two objects inspected at `func_00126270` are entries in the class-0x51
+list, not representative placed models in the forced level. Their zero fields
+do not show that level model records are missing. Likewise, the earlier claim
+that `func_00153328` was not entered is not established by that trace hook;
+the opt-in hook records the address arguments but did not print function-entry
+events in the saved run.
+
+A fresh normal 15-second trace with
+`OPENRAC_TRACE_MODEL_FIELDS=1 OPENRAC_DUMP_MODEL_ENTRY=1` directly observes
+`func_00162890` parsing model data on thread 1: 32 reader entries, 34 part
+records, including valid per-part flags and strip counts around indices
+512–520 and 1,088–1,095. This is positive evidence that retail model records
+are being read; it does not prove that the current Splash render list points
+at those parsed model objects. At the same time the Splash frame still reports
+no GS image uploads and the point-only placeholder draw. The next task is to
+trace the parsed model owner/list from resource loading into the active world's
+draw traversal and identify why the real part queue is not submitted. Do not
+enable the partial `func_00162890` C reader: the decomp C++ translation remains
+unhostable in the current C hostgen pipeline, and retail assembly is the
+correct currently selected implementation. Latest run:
+`/tmp/sly-wave32-model-reader-entry-15s-20261112.log`; forced-key diagnostic
+run: `/tmp/sly-wave32-forced-model-reader-entry-15s-20261112.log`.
 
 ## Latest handoff (2026-11-11)
 
