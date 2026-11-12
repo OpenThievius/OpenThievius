@@ -12,9 +12,11 @@ configured origin, while the build snapshot is current. Normal launch reaches th
 user provided a screenshot of the readable unformatted-card prompt; capture
 provenance is not established. Yes/No choices appear as placeholder/button
 glyphs. The native SIF probe still reports no card; no format was selected.
-Keyboard arrows map to directions and Space to Cross/confirm, but input on
-this prompt remains unverified. The Splash graph is still on its `0x261`
-state-2 self-edge; no playable gameplay is verified. A fresh native
+The Yes/No order is Yes then No. The host maps Right Arrow to right and
+Space to Cross/confirm, so the user can choose No with Right then Space. This
+key mapping is verified in source but has not been runtime-verified on the
+prompt. Keep the default Yes choice untouched; never auto-format. The Splash
+graph is still on its `0x261` state-2 self-edge; no playable gameplay is verified. A fresh native
 framebuffer dump is black, so investigate capture/readback and establish
 whether the screenshot came from this launcher. Exact US assembly is now restored for the reached CountdownNotifier
 handler, deferred-call queue, completion callback, timer, and the handler's

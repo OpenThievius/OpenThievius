@@ -1227,9 +1227,11 @@ menu choices appear as small placeholder/button glyphs instead of readable
 “Yes” and “No” labels. The screenshot capture provenance is not established.
 The current native SIF memory-card probe deliberately reports unavailable,
 which produces this retail prompt; no format action has been taken. Do not
-select “Yes” or add an automatic format. Native keyboard controls map arrows
-to directions and Space to Cross/confirm; the input path has not yet been
-verified on this prompt. A fresh native framebuffer capture still returned
+select “Yes” or add an automatic format. The choice order is Yes then No. The
+native keyboard adapter maps Right Arrow to right and Space to Cross/confirm,
+so a user can select No with Right then Space. The mapping is confirmed in source (`port/platform/sly_input.cpp`) but
+has not been runtime-verified on this prompt. Do not send confirm with the
+default Yes selection. A fresh native framebuffer capture still returned
 black despite the user-provided screenshot, so visible output from the native
 launcher is not yet independently verified; investigate framebuffer readback
 and capture provenance.
