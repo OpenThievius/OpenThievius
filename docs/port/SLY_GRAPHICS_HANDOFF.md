@@ -8,12 +8,12 @@ advanced beyond this snapshot. The graphics findings and build counts below
 are historical notes from 2026-11-11 and are superseded where they conflict
 with [the current restart checkpoint](RESTART_CHECKPOINT.md). The current port
 build reports 798 translated functions, including 546 selected from US retail
-assembly. The user has now confirmed that the native window displays the
-unformatted-memory-card prompt with readable message text. Yes/No choices
+assembly. The user provided a screenshot of the unformatted-memory-card prompt with
+readable message text; capture provenance is not established. Yes/No choices
 appear as placeholder/button glyphs. The SIF memory-card probe currently
-reports no card; no format action was taken. A native frame dump still reads
-black, so investigate its readback timing/buffer before treating it as a
-faithful capture. Animation and pose helpers use exact retail assembly, while
+reports no card; no format action was taken. A fresh native frame dump still
+reads black, so investigate readback and confirm the launcher’s visible output
+before treating the screenshot as native-renderer evidence. Animation and pose helpers use exact retail assembly, while
 the Splash graph remains on its state-2 self-edge. See the checkpoint for the
 current trace and next steps.
 

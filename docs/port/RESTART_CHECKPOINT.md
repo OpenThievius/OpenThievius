@@ -1221,19 +1221,21 @@ reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
 
 A 12-second run after that recovery reaches global element-stack state 5
-and submits the memory-card menu. The user then confirmed a visible native
-frame showing the readable “Memory Card (PS2) in Memory Card Slot 1 is
-unformatted” prompt and its format question. The two menu choices appear as
-small placeholder/button glyphs instead of readable “Yes” and “No” labels.
+and submits the memory-card menu. The user provided a screenshot showing the readable “Memory Card (PS2)
+in Memory Card Slot 1 is unformatted” prompt and its format question. The two
+menu choices appear as small placeholder/button glyphs instead of readable
+“Yes” and “No” labels. The screenshot capture provenance is not established.
 The current native SIF memory-card probe deliberately reports unavailable,
 which produces this retail prompt; no format action has been taken. Do not
 select “Yes” or add an automatic format. Native keyboard controls map arrows
 to directions and Space to Cross/confirm; the input path has not yet been
-verified on this prompt. The earlier framebuffer dumper still captured black
-frames, so its readback is not authoritative for the user-visible window.
+verified on this prompt. A fresh native framebuffer capture still returned
+black despite the user-provided screenshot, so visible output from the native
+launcher is not yet independently verified; investigate framebuffer readback
+and capture provenance.
 The startup graph remains at event `0x261`, state 2, self-edge `2 -> 2`. Run
-trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`; the user-provided
-screenshot confirms the visible prompt.
+trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`; user screenshot:
+`/tmp/codex-clipboard-caa8c0d5-10af-4877-a3c5-4fa0ad0a11ca.png`.
 
 The follow-up trace confirms queued animation callbacks are now delivered
 (stages 209, 211, 207, 206), but the graph stays at state index 2 (`0x261`) on
