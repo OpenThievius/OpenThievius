@@ -2,7 +2,7 @@
 # Concrete plan for a playable native Sly 1
 
 **Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
-`19d4343` (latest pushed trace checkpoint; notifier assembly recovery pending); the current native
+`4dc300a` (latest pushed trace checkpoint); the current native
 build uses immutable decomp source Wave 32 at
 `86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
 the older Wave 24 snapshot. The upstream `master` was checked again today and

@@ -1199,8 +1199,8 @@ latest `ReadPlacedObjectModel` source. Evidence:
 
 ### Current checkpoint (2026-11-12)
 
-Branch `wip/native-sly-port` is pushed through `dc07875`; the notifier key
-helper selection and checkpoint update are the remaining local changes.
+Branch `wip/native-sly-port` is pushed through `4dc300a`. The workspace is
+clean and synchronized with `origin`.
 Upstream
 `sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
 (Wave 32); verified with `git ls-remote`. The sibling working checkout remains
@@ -1230,5 +1230,5 @@ forcing state. Continue the independent direct-level strip reader investigation
 only when it can inform the normal rendering path. Preserve retail startup
 behavior; do not force a title, movie, or gameplay state. Keep replacement C
 only in `hand/native_c/` or `hand/overrides_c/`. The frame-list wrappers remain
-port-only; no mismatch was established in this run. Push implementation and
-checkpoint commits after this documentation update.
+port-only; no mismatch was established in this run. Implementation and
+checkpoint commits are pushed; the workspace is clean.
