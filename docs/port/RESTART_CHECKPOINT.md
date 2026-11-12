@@ -5,22 +5,20 @@ Updated: 2026-11-12. The public decomp master is `647da5d6` (Wave 33); the
 sibling checkout is 65 commits behind. Wave 33 fully matches
 `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
 assembly disabled translates 799 functions, with 2 stubs and 4,127 functions
-without C across 280 units. A read-only snapshot compiles all 190 Sly C++ units
-and 61 port-only host32 backfills. Since the previous 810/822 frontier,
-bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
-add four direct frame-path entries. The combined object has 814 of 822
-functions in its direct-call frontier; the freestanding i386 launcher links.
-This scan omits indirect callbacks. The latest host32 staging build adds a
-zero return to the matched `SetIopSoundOptionFlag` body because it is declared
-non-void but only queues a command; the decomp source stays unchanged. A
-bounded native run now passes its prior `0xb` IOP fault and reaches
-`func_0012C288` (`CreateAnimationPlayer`), then faults reading address `0x1c`
-as a track. Core inspection shows its `self` is `0x847ef0`, descriptor
-`D_0021CAD8`, class `0x57` (CountdownNotifier), not animation class `0x83`.
-The first StateWalker animation call uses a valid class-0x83 object; the later
-faulting call comes through `CreateAnimationPlayerReturned`. Its trace reports
-return address `0x84d420` (heap data), so identify that indirect caller before
-changing any object reference. No playable scene has been demonstrated.
+without C across 280 units. The read-only snapshot compiles all 190 Sly units
+and 63 port-only host32 backfills. The combined object has 814 of 822 functions
+in its direct-call frontier; the freestanding i386 launcher links. Host staging
+adds zero returns to two matched non-void wrappers that call void functions;
+the decomp source stays unchanged. `WrapTextLines` rewrites strings in the
+main executable's read-only segment, so SDL now makes only that non-executable
+segment writable. A targeted trace proved the wrapping path completes without
+a fault. The false page-22 disc-change pause came from missing native IOP
+services and an address-space bug: an old shim wrote retail `0x002613F0`
+instead of the relocated host datum. Port-only services now report the mounted
+ISO ready and unchanged and update relocated `D_002613F0`. A 12-second SDL run
+no longer opens the false pause; the normal element stack reaches state 0 with
+one item and submits about 60 DMA frames per second. The window remains black,
+with no visible UI or scene; no playable scene has been demonstrated.
 
 The visible memory-card format prompt and all GS/Splash traces below came from
 the separate experimental guest-runtime launcher. Its memory-card probe

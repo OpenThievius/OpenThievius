@@ -3,38 +3,30 @@
 
 **Current status (2026-11-12):** upstream `sly1-decomp` master is
 `647da5d6` (Wave 33); the sibling checkout remains at `bfc74817`, 65 commits
-behind. The new source fully matches `func_0020A190` (`GetStreamId`) in the
-MPEG demultiplexer. Hostgen with assembly disabled translates 799 functions,
-with 2 stubs and 4,127 functions without C across 280 units. The source refresh
-does not change the Splash/title activation path. A read-only Wave 33 snapshot
-compiles 190/190 Sly units and 61/61 port-only host32 backfills. Since the
-previous 810/822 frontier, bounded-copy and perpendicular-basis backfills plus
-two cache-coherency APIs add four direct frame-path definitions. The combined
-object resolves 814/822 direct frame calls, leaving 8 missing, and the
-freestanding i386 launcher links. The SDL host32 launcher opens a native
-OpenGL window, but has not demonstrated a title, scene, or controllable game.
-The staged host32 copy now supplies `return 0` for matched
-`SetIopSoundOptionFlag`, whose decomp body queues a command but falls off a
-non-void function. This avoids GCC `-O2` falling through into the next body;
-the decomp source remains unchanged. A bounded native run passes the former
-`0xb` IOP fault and reaches `func_0012C288` (`CreateAnimationPlayer`), where it
-faults reading address `0x1c` as a track. The saved core shows its `self`
-pointer is `0x847ef0`, descriptor `D_0021CAD8`, class `0x57`
-(CountdownNotifier), not animation class `0x83`. The trace narrows this down:
-the first `StateWalker` call receives a valid class-0x83 animation at
-`0x84d420` and creates its player; a later call through
-`CreateAnimationPlayerReturned` passes the notifier as `self`. Its recorded
-return address is `0x84d420`, which is heap data rather than executable code,
-so the caller is still unresolved. The combined frontier scan does not follow
-indirect callbacks.
+behind. The source fully matches `func_0020A190` (`GetStreamId`) in the MPEG
+demultiplexer. Hostgen with assembly disabled translates 799 functions, with
+2 stubs and 4,127 functions without C across 280 units. The Wave 33 snapshot
+compiles 190/190 Sly units and 63/63 port-only host32 backfills. The combined
+object resolves 814/822 direct frame calls, leaving 8 missing; the SDL host32
+launcher links and runs at about 60 frames per second. Two staging-only
+returns adapt matched non-void wrappers that call void functions; decomp source
+is unchanged. The launcher makes the main executable's non-executable
+read-only segment writable because `WrapTextLines` rewrites wrapped strings
+there; a targeted trace confirmed that path completes without a fault. The
+latest trace exposed and fixed a false page-22 disc-change pause: the old native
+shim wrote retail address `0x002613F0` in guest RAM instead of the relocated
+host datum. Port-only services now report the mounted ISO ready and unchanged
+and update relocated `D_002613F0`. The pause is gone and the normal element
+stack reaches state 0 with one item. The window remains black, with no visible
+UI or scene; no title or playable state has been demonstrated. See the restart
+checkpoint for evidence.
 
-**Immediate host32 task:** identify the indirect caller of
-`CreateAnimationPlayerReturned` and determine why it supplies the
-CountdownNotifier. The ordinary StateWalker animation call is valid, so do not
-change its object reference, mask notifier fields, synthesize tracks, or alter
-matched decompilation to make startup continue. If a missing vanilla behavior
-needs a functional replacement, keep it in the port's registered
-`hand/native_c/` backfills.
+**Immediate host32 task:** trace why normal startup remains at element-stack
+state 0 with an inactive screen stack after the disc-status correction. Follow
+the retail memory-card/subgroup startup decision and pending title/resource
+activation. Keep functional native service replacements in
+`port/game/sly1-us/native/`, separate from decomp source. Do not force UI
+visibility or alter matching game logic to fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

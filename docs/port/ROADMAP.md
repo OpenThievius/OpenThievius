@@ -51,30 +51,33 @@ assembly disabled now translates 799 functions, with 2 stubs and 4,127
 functions without C across 280 units. This improves the movie path but does
 not change the observed Splash/title activation path.
 
-A read-only snapshot of `647da5d6` compiles all 190 units and all 61
+A read-only snapshot of `647da5d6` compiles all 190 units and all 63
 port-only host32 backfills. Since the previous 810/822 frontier, the
 bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
 add four definitions. The combined native object records 4,345 catalogued
 function entries, and the direct-call frontier has 814/822 definitions (8
 missing). The freestanding i386 launcher links, with unresolved retail
-functions routed to address-reporting traps. The SDL host32 launcher now opens
-a native OpenGL window and runs compiled game code against the retail ELF and
-ISO. It has not demonstrated a title or scene. The host32 staging adapter now
-adds a zero return to the matched `SetIopSoundOptionFlag` body, which is
-declared non-void but only queues a command. This fixes GCC `-O2` fallthrough
-without changing the decomp checkout. The latest bounded run passes the old
-`0xb` IOP fault and reaches `func_0012C288` (`CreateAnimationPlayer`), then
-faults reading address `0x1c` as a track. Core inspection shows the function's
-`self` is a class-`0x57` CountdownNotifier (`D_0021CAD8`), not animation class
-`0x83`. The first StateWalker call uses a valid class-0x83 animation; the
-faulting second call goes through `CreateAnimationPlayerReturned`, whose trace
-return address is heap data (`0x84d420`). Identify this indirect caller before
-changing the object flow. The DMA boundary
-also encountered channel value `0xe0`; unknown values no longer cause an
-invalid host register dereference. A prior core exposed misaligned host stack
-use in generated code, so host32 compilation requests stack realignment. The
-visible memory-card prompt came from the separate experimental guest-runtime
-launcher; no format was selected.
+functions routed to address-reporting traps. The SDL host32 launcher opens a
+native OpenGL window and runs compiled game code against the retail ELF and
+ISO, but has not demonstrated a title or scene. Staging-only host ABI returns
+now prevent two matched non-void wrappers from falling through after calling
+void functions; the decomp checkout remains unchanged. This corrects the
+earlier false diagnosis that a CountdownNotifier was passed as an animation
+object. Startup now passes those animation calls and reaches the final startup
+callback. The `WrapTextLines` newline write to `0x0820dece` was in the executable's
+read-only load segment. The launcher now makes only the main executable's
+non-executable read-only segment writable; a targeted trace proved wrapping
+completes. A false page-22 pause came from missing native IOP disc services and
+an address-space bug: a shim wrote retail `0x002613F0` instead of the relocated
+host datum. Port-only services now report the mounted ISO ready and unchanged
+and update `D_002613F0`. The pause is gone. A 12-second run reaches element
+stack state 0 with one item and about 60 accepted DMA frames per second. The
+window remains black, with no visible UI or scene. The DMA boundary also
+encountered channel value `0xe0`; unknown values no longer cause an invalid
+host register dereference. A prior core exposed misaligned host stack use in
+generated code, so host32 compilation requests stack realignment. The visible
+memory-card prompt came from the separate experimental guest-runtime launcher;
+no format was selected.
 
 ### Decomp refresh (2026-11-11)
 

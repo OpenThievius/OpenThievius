@@ -2,18 +2,22 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-12. Current decomp master is `647da5d6` (Wave 33, PR #124).
-The no-emulation host32 path compiles all 190 Sly units and 61 port-only
+The no-emulation host32 path compiles all 190 Sly units and 63 port-only
 backfills, combines 4,345 catalogued native function entries, and links a
 freestanding launcher. Its direct frame-call scan resolves 814/822 functions,
-leaving 8; indirect callbacks are outside the scan. The latest native run
-passes the previous `0xb` IOP fault after a staging-only return fix for
-`SetIopSoundOptionFlag`, then faults in `CreateAnimationPlayer` while reading
-address `0x1c` as a track. The core identifies its `self` as class-`0x57`
-CountdownNotifier (`D_0021CAD8`) rather than animation class `0x83`. The first
-StateWalker animation call is valid; the failing call is through
-`CreateAnimationPlayerReturned`, whose trace return address is heap data
-(`0x84d420`), leaving its indirect caller unresolved. No title or scene is
-verified.
+leaving 8; indirect callbacks are outside the scan. Two staging-only returns
+now prevent matched non-void wrappers from falling through after void calls;
+the decomp source remains untouched. This corrects the earlier false
+CountdownNotifier diagnosis. The latest run passes the animation-player
+calls and reaches the final startup callback. `WrapTextLines` rewrites strings in the executable's read-only segment, so the
+SDL launcher makes only the main executable's non-executable read-only segment
+writable; a targeted trace proved wrapping completes. A false page-22
+disc-change pause was traced to absent native IOP services and a status shim
+writing to the wrong address space. Port-only backfills now report the host ISO
+ready and unchanged and update relocated `D_002613F0`. The normal stack reaches
+state 0 with one item at about 60 accepted DMA frames per second. The window
+remains black with no visible UI, title, or scene. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
 The unformatted-memory-card prompt was observed in the separate experimental
 guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
