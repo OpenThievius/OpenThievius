@@ -29,6 +29,13 @@ the lightweight trace parser expands 40 GS point primitives into six-vertex
 placeholder quads, with sampled points near the upper-left corner. The window
 still has no real game graphics and is not playable.
 
+The current `OPENRAC_TRACE_DIRECT=1` run confirms the renderer sees only a
+single 240-vertex untextured draw on the 2,128-byte packet; its first point is
+at `(-2.25, 1.5)` with RGBA `(0,0,0,128)`. Larger 445,200- and 890,256-byte
+packets decode to no vertices or draws. This separates the black screen from
+a window-presentation issue: the game is not submitting the image uploads or
+scene primitives needed for a visible frame.
+
 The forced level probe remains useful for loader debugging but is not a game
 entry path. Its frame-list crash is fixed by draining both frame contexts and
 the three deferred lists before transient heap reset; the load reaches a
@@ -45,7 +52,15 @@ but no image upload packets. Full renderer traces can be captured with:
 `timeout 15s env OPENRAC_STARTUP_TRACE=1 OPENRAC_GIF_TRACE=1 OPENRAC_BOOT_LEVEL=0x0100 build/port/sly1_native build/port/extracted/boot/SCUS_971.98 '/home/reaper/pcsx2/Games/Sly Cooper and the Thievius Raccoonus (USA).iso'`.
 
 Latest logs: `/tmp/sly-wave32-normal-15s-20261112.log` and
-`/tmp/sly-gif-startup-20261112.log`.
+`/tmp/sly-gif-startup-20261112.log`; direct renderer decode:
+`/tmp/sly-wave32-queue-model-draw-15s.log`.
+
+Wave 32 also describes `func_0018F9D8` as the class-4 model-part queue callback
+in `file_18F988.cpp`. Hostgen cannot compile that unit because of unrelated
+header conflicts, so `hostgen.json` now selects its exact US assembly
+translation. The launcher remains stable, but the output still has no scene
+geometry or image transfers. Hostgen for this build reports 798 translated
+functions, including 501 assembly translations and two remaining stubs.
 
 ## Latest handoff (2026-11-11)
 

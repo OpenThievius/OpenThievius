@@ -202,7 +202,14 @@ The native hostgen build now translates the exact US retail assembly for
 `func_00125C90`, `func_00126270`, and `func_00166690` using the existing
 `asmc.py` path. These generated routines are kept in the ignored hostgen
 output, not copied into this C-backfill directory or the decomp checkout.
-Hostgen reports all three as translated from `asm/us/text.s`, with no stubs.
+Wave 32 identifies `func_0018F9D8` as the class-4 model-part queue callback in
+`file_18F988.cpp`. That source unit is still not hostable because unrelated
+aggregate/header errors prevent hostgen from reading it, so the port now also
+selects the exact US assembly translation for `func_0018F9D8`. This remains a
+build selection, not a replacement in the decomp tree; drop it when the
+matching unit becomes hostable. The native launch remains stable, but the new
+selection has not produced scene geometry or image transfers yet.
+Hostgen reports all four as translated from `asm/us/text.s`, with no stubs.
 The bounded direct-level probe parses key `0x0100` and installs a world, but
 does not connect it to gameplay. In default startup, the pad-state fix now
 lets the frame remain in state 3, and a trace reaches retail
