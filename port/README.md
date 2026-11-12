@@ -26,30 +26,23 @@ python3 port/tools/sly1.py status --version eu --json
 It is a planning/status tool, not a host build. The host build and its current
 limits are described in [the port roadmap](../docs/port/ROADMAP.md).
 
-Host generation can be run with `python3 port/tools/sly1.py hostgen`; the
-standalone command defaults to `--asm off`. The native CMake launcher enables
-the retail assembly fallbacks listed in `game/sly1-us/hostgen.json`. Functions
-with matching C are skipped automatically. The active `build/port` cache now
-uses the read-only source snapshot `/tmp/sly1-decomp-674b40e-source` and US
-retail assembly from `/tmp/sly1-decomp-wave24-asm`. Hostgen translates 789 C
-functions and 501 assembly functions across 276 units, with 2 stubs and 3,635
-functions without C. Generated C stays in the ignored build tree, separate
-from matched decomp C and port backfills. Upstream no longer includes the US
-assembly directory, so retain `OPENTHIEVIUS_ASM_SOURCE_SLY1` for exact retail
-assembly translations. Wave 29 also exposes 49 functions that previously had
-no C translation, mostly MPEG/IPU decoder code; the current Splash path has not
-queued a movie yet.
+Host generation can be run with `python3 port/tools/sly1.py hostgen`; it
+defaults to `--asm off`. The CMake `port_hostgen` target now explicitly keeps
+assembly translation off. Use `--asm on` only for a separate research output;
+do not make that output a dependency of the playable port. Generated sources
+stay in the ignored build tree, separate from matched decomp source and
+port-only backfills.
 
-The four VIF packet-writer helpers reached by the direct-level path now use
-exact US retail assembly. A bounded forced-level run still exhausts the 32 MiB
-guest heap during mesh packet construction; the normal Splash run stays black
-with inactive UI and no visible text. The separate `func_001BAC30` port reader
-remains active because hostgen reports the upstream `LoadCollider` body as
-`no-C`. See the [playable TODO](../docs/port/PLAYABLE_TODO.md) and
-[restart checkpoint](../docs/port/RESTART_CHECKPOINT.md) for the current
-diagnostics and remaining work.
-The graphics handoff records the current evidence and next blocker. Functional
-C backfills stay under `game/sly1-us/hand/native_c/`, outside `sly1-decomp`.
+The `port_native` launcher still links generated code to the experimental
+guest-memory and PS2-device runtime. Its visible memory-card prompt is not a
+native service implementation or a playable milestone. The target gameplay
+architecture is compiled Sly C/C++ with native host services and renderers;
+see the [architecture correction](../docs/port/OPENRAC_REUSE.md).
+
+Older forced-level and VIF/GS findings describe the experimental guest-runtime
+path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
+Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
+`game/sly1-us/native/`, outside `sly1-decomp`.
 
 ## Canonical decomp rework check (2026-11-10)
 
