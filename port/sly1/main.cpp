@@ -52,6 +52,7 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
     if ((stage >= 90u && stage <= 110u) ||
         (stage >= 111u && stage <= 125u) ||
         (stage >= 160u && stage <= 175u) ||
+        stage == 176u || stage == 178u || stage == 182u || stage == 201u ||
         stage == 73 || stage == 74 || stage == 75 ||
         (stage >= 81 && stage <= 89) || stage == 58 || stage == 59 || stage == 60 ||
         stage == 61 || stage == 62 || stage == 63 || stage == 64 || stage == 57 ||
@@ -130,6 +131,100 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                       << " part_count=" << std::dec << part_count
                       << " parts=0x" << std::hex << parts << " states=0x"
                       << states << std::dec << '\n';
+        }
+    }
+    if (stage == 181u) {
+        std::uint32_t context_offset = 0;
+        if (trace_guest_range(a0, 0x64u, &context_offset)) {
+            std::uint32_t object = 0;
+            std::memcpy(&object, openrac_guest_base + context_offset + 0x60u, 4u);
+            std::uint32_t object_offset = 0, descriptor = 0, descriptor_offset = 0;
+            if (object != 0 && trace_guest_range(object, 0x240u, &object_offset)) {
+                std::uint32_t type = 0xFFFFFFFFu, size = 0, id = 0;
+                std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+                if (trace_guest_range(descriptor, 0x10u, &descriptor_offset)) {
+                    std::memcpy(&type, openrac_guest_base + descriptor_offset + 4u, 4u);
+                    std::memcpy(&size, openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+                }
+                std::memcpy(&id, openrac_guest_base + object_offset + 8u, 4u);
+                std::uint32_t count = 0, parts = 0;
+                std::memcpy(&count, openrac_guest_base + object_offset + 0x238u, 4u);
+                std::memcpy(&parts, openrac_guest_base + object_offset + 0x23Cu, 4u);
+                std::cerr << "[render-object] context=0x" << std::hex << a0
+                          << " object=0x" << object << " class=0x" << type
+                          << " size=0x" << size << " id=0x" << id
+                          << " part_count=" << std::dec << count
+                          << " parts=0x" << std::hex << parts << std::dec << '\n';
+            } else {
+                std::cerr << "[render-object] context=0x" << std::hex << a0
+                          << " object=0x" << object << " (no mapped object)\n";
+            }
+        }
+    }
+    if (stage == 182u) {
+        std::uint32_t object_offset = 0;
+        if (trace_guest_range(a0, 0x248u, &object_offset)) {
+            std::uint32_t descriptor = 0, descriptor_offset = 0;
+            std::uint32_t type = 0xFFFFFFFFu, size = 0;
+            std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+            if (trace_guest_range(descriptor, 0xACu, &descriptor_offset)) {
+                std::memcpy(&type, openrac_guest_base + descriptor_offset + 4u, 4u);
+                std::memcpy(&size, openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+            }
+            if (size >= 0x248u && size <= 0x10000u &&
+                trace_guest_range(a0, size, &object_offset)) {
+                std::uint32_t id = 0, parent = 0, model_header[7]{};
+                std::uint32_t draw_method = 0, queue_method = 0;
+                std::uint32_t frame_record = 0, range_record = 0;
+                std::uint32_t list78_key = 0;
+                std::uint64_t object_flags = 0;
+                float position[3]{};
+                std::memcpy(&id, openrac_guest_base + object_offset + 8u, 4u);
+                std::memcpy(&parent, openrac_guest_base + object_offset + 0x18u, 4u);
+                std::memcpy(model_header, openrac_guest_base + object_offset + 0x22Cu,
+                            sizeof(model_header));
+                std::memcpy(&draw_method, openrac_guest_base + descriptor_offset + 0xA4u, 4u);
+                std::memcpy(&queue_method, openrac_guest_base + descriptor_offset + 0xA8u, 4u);
+                std::memcpy(&frame_record, openrac_guest_base + object_offset + 0x224u, 4u);
+                std::memcpy(&range_record, openrac_guest_base + object_offset + 0x284u, 4u);
+                std::memcpy(&list78_key, openrac_guest_base + object_offset + 0x294u, 4u);
+                std::memcpy(&object_flags, openrac_guest_base + object_offset + 0x2C8u, 8u);
+                std::memcpy(position, openrac_guest_base + object_offset + 0x100u,
+                            sizeof(position));
+                std::cerr << "[model-owner] object=0x" << std::hex << a0
+                          << " class=0x" << type << " id=0x" << id
+                          << " parent=0x" << parent << " draw=0x" << draw_method
+                          << " queue=0x" << queue_method << " frame=0x" << frame_record
+                          << " range=0x" << range_record << " list78_key=0x" << list78_key
+                          << " flags=0x" << object_flags << std::dec
+                          << " pos=" << position[0] << ',' << position[1] << ','
+                          << position[2] << " model_header=" << std::hex;
+                for (unsigned i = 0; i < std::size(model_header); ++i)
+                    std::cerr << (i == 0 ? "" : ",") << "0x" << model_header[i];
+                std::cerr << std::dec << '\n';
+            }
+        }
+    }
+    if (stage == 202u) {
+        std::uint32_t object_offset = 0;
+        if (trace_guest_range(a0, 0x244u, &object_offset)) {
+            std::uint32_t descriptor = 0, descriptor_offset = 0;
+            std::uint32_t type = 0xFFFFFFFFu, size = 0, id = 0;
+            std::memcpy(&descriptor, openrac_guest_base + object_offset, 4u);
+            if (trace_guest_range(descriptor, 0x10u, &descriptor_offset)) {
+                std::memcpy(&type, openrac_guest_base + descriptor_offset + 4u, 4u);
+                std::memcpy(&size, openrac_guest_base + descriptor_offset + 0x0Cu, 4u);
+            }
+            std::memcpy(&id, openrac_guest_base + object_offset + 8u, 4u);
+            std::uint32_t part_count = 0, parts = 0, states = 0;
+            std::memcpy(&part_count, openrac_guest_base + object_offset + 0x238u, 4u);
+            std::memcpy(&parts, openrac_guest_base + object_offset + 0x23Cu, 4u);
+            std::memcpy(&states, openrac_guest_base + object_offset + 0x240u, 4u);
+            std::cerr << "[draw-collider] object=0x" << std::hex << a0
+                      << " class=0x" << type << " size=0x" << size << " id=0x" << id
+                      << " part_count=" << std::dec << part_count
+                      << " parts=0x" << std::hex << parts << " states=0x" << states
+                      << " b=0x" << a1 << " m=0x" << a2 << std::dec << '\n';
         }
     }
     if (stage == 64u && (a0 & 0xFFFFFF00u) == 0xBAC30000u &&
@@ -634,6 +729,15 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
                   << vertices << " faces=" << std::dec << face_count << "@0x"
                   << std::hex << faces << " link_capacity=" << std::dec << link_capacity
                   << "@0x" << std::hex << links;
+        if ((type == 0x4Du || type == 0x51u) && object_size >= 0x244u) {
+            std::uint32_t model_header[7]{};
+            std::memcpy(model_header, openrac_guest_base + object_address + 0x22Cu,
+                        sizeof(model_header));
+            std::cerr << " model_header=" << std::hex << model_header[0] << ','
+                      << model_header[1] << ',' << model_header[2] << ','
+                      << model_header[3] << ',' << model_header[4] << ','
+                      << model_header[5] << ',' << model_header[6];
+        }
         std::uint32_t vertex_address = 0;
         if (vertex_count != 0 && vertex_count <= 0x100000u &&
             trace_guest_range(vertices, 16u, &vertex_address)) {

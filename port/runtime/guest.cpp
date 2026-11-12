@@ -372,6 +372,36 @@ void openrac_guest_trace_function_entry(gaddr address) {
             }
         }
 
+        static const bool trace_render_callbacks =
+            std::getenv("OPENRAC_TRACE_RENDER_CALLBACKS") != nullptr;
+        if (trace_render_callbacks) {
+            static constexpr gaddr targets[] = {
+                0x001261C0u, // DrawCollider
+                0x00126270u, // QueuePlacedObjectModelParts
+                0x00125C90u, // DrawPlacedObject
+                0x00153328u, // QueuePlacedObjectDraw
+                0x001B1B38u, // PrepareRangeRecord
+                0x001B2140u, // UpdateRangeRecord
+                0x001B2358u, // BuildRangeRecordPacket
+                0x001B2640u, // QueueRangeRecordPacket
+                0x001B26F8u, // test range-record sphere visibility
+                0x001B2790u, // collect range records in reach
+                0x001B93D8u, // class-4 DrawCollider
+                0x0018F9D8u, // QueueModelPartDraws
+            };
+            static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
+            for (std::size_t i = 0; i < std::size(targets); ++i) {
+                if (address != targets[i]) continue;
+                const unsigned count = counts[i].fetch_add(1, std::memory_order_relaxed) + 1;
+                if (count <= 32) {
+                    std::fprintf(stderr,
+                                 "[render callback] thread=%u address=%#010x count=%u\n",
+                                 thread_id, address, count);
+                }
+                break;
+            }
+        }
+
         static const bool trace_range_packets =
             std::getenv("OPENRAC_TRACE_RANGE") != nullptr;
         if (trace_range_packets) {

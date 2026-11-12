@@ -268,6 +268,7 @@ void func_00162890(void* block, void* reader, void* object) {
 
 void func_00128C10(void* object, void* reader) {
     u8* self = (u8*)object;
+    sly1_native_trace_font(182u, (u32)object, (u32)reader, 0, 0, 0);
     const s32 flags = func_00137C40(reader);
     if (flags == 0) return;
     const u32 extra = (u32)func_0018D5C0(0xC0);

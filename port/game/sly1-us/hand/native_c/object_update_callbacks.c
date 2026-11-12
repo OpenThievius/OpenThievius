@@ -3,6 +3,8 @@
 #include "common.h"
 
 u32 sly1_native_call_regs4(u32 address, u32 a0, u32 a1, u32 a2, u32 a3);
+void sly1_native_trace_font(u32 stage, u32 a0, u32 a1, u32 a2, u32 a3,
+                            u32 a4);
 
 void func_001261C0(void* object, void* camera, void* matrix) {
     u8* self = (u8*)object;
@@ -22,6 +24,8 @@ void func_001261C0(void* object, void* camera, void* matrix) {
     }
 
     u32 m26 = vtable != 0 ? *(u32*)(vtable + 0xA8) : 0;
+    sly1_native_trace_font(202u, (u32)object, (u32)camera, (u32)matrix, m26,
+                           0u);
     if (m26 != 0)
         (void)sly1_native_call_regs4(m26, (u32)object, (u32)camera,
                                      (u32)matrix, 0);

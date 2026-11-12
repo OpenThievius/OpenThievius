@@ -218,12 +218,19 @@ Wave 32 also names `func_00153328` `QueuePlacedObjectDraw`; it and the range
 record packet helpers `func_00188700`, `func_001B2090`, `func_001B2640`,
 `func_001B26F8`, and `func_001B2790` now use their exact US assembly. The
 normal and forced-level traces call `func_00126270`, but the two observed
-objects have a zeroed model-record prefix at `+0x22C` and zero draw parts at
-`+0x238`.
-The per-part callback `func_00166690` is not reached, and `func_00153328` is
-not entered in this trace. The current world data therefore still gives the
-renderer no model parts to draw. Use `OPENRAC_TRACE_FONT=1` for the opt-in
-`[placed-object-draw]` record.
+objects are class-0x51 entries, not the level model. A forced-level post-parse
+trace finds the actual class-4 owner at `0xa811f0` with 1,962 parts,
+`drawParts=0x00dc41a0`, and `partStates=0x00df9c00`. Its descriptor supplies
+`DrawCollider=0x001b93d8` and `QueueModelPartDraws=0x0018f9d8`; neither callback
+appears in the draw trace. The owner has no frame or range record at
+`+0x224`/`+0x284`, and no range-record helpers are entered in the bounded run.
+Meanwhile, the existing port-only `func_001261c0` wrapper records calls only
+for the two empty class-0x51 objects. This moves the investigation upstream:
+find why the populated class-4 owner is excluded from the camera/render-list
+traversal before changing mesh parsing or packet generation. Use
+`OPENRAC_TRACE_RENDER_CALLBACKS=1` with `OPENRAC_TRACE_FONT=1` to capture the
+callback entries and object descriptors. Latest log:
+`/tmp/sly-wave32-owner-state-12s-20261112.log`.
 The same review found the class-0x51 ConeVolume attach/update/remove callbacks
 were still no-ops. Selecting their exact US assembly translations for
 `func_00183D88`, `func_00183DF8`, and `func_00183E70` raises the live world's

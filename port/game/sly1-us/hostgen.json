@@ -131,7 +131,7 @@
       },
       "func_0018F9D8": {
         "function": "game_sly1_native_trace_font",
-        "args": ["179", "a0", "a1", "0", "0", "0"]
+        "args": ["201", "a0", "a1", "0", "0", "0"]
       },
       "func_00166690": {
         "function": "game_sly1_native_trace_font",

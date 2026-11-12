@@ -3,7 +3,9 @@
 
 Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
 Wave 32), tracing the native GS submissions, and rebuilding against the
-refreshed source.
+refreshed source. Latest update: the forced-level render dispatch trace below
+corrects the earlier model-attachment diagnosis; the current blocker is object
+inclusion in the render traversal.
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -39,10 +41,24 @@ scene primitives needed for a visible frame.
 The forced level probe remains useful for loader debugging but is not a game
 entry path. Its frame-list crash is fixed by draining both frame contexts and
 the three deferred lists before transient heap reset; the load reaches a
-populated world and stays alive. The traced world's class lists are populated,
-but the placed-object model/mesh attachments and render callbacks needed to
-submit scene geometry remain missing. All functional C replacements remain
-port-only under `hand/native_c/` or `hand/overrides_c/`.
+populated world and stays alive. The model reader has populated the level's
+class-4 object at `0xa811f0` with 1,962 parts (`drawParts=0x00dc41a0`,
+`partStates=0x00df9c00`). Those records are not missing. The latest dispatch
+trace shows `DrawCollider` (`func_001261c0`) is called only for two class-0x51
+objects (`0xa7dcb0` and `0xa7e2d0`, both with zero parts); the class-4 owner is
+not sent through that draw path, and its descriptor's specialized draw and
+queue methods (`0x001b93d8` and `func_0018F9D8`) are not entered. The owner has
+position `(0,0,0)`, flags `0x2115ffff00`, and null frame/range records at
+`+0x224` and `+0x284`. No traced range-record helpers run in the 12-second
+window. This corrects prior notes that inferred missing mesh attachments
+from unrelated class-0x51 objects. Next trace the world/render-list traversal
+and object activation that decide which objects receive draw callbacks.
+The temporary tracing change to the existing port-only `func_001261C0`
+backfill logs its dispatch arguments, then preserves its current retail-style
+callback forwarding. Keep this diagnostic wrapper isolated and remove it when
+the renderer traversal is fixed or its trace is no longer needed. All
+functional C replacements remain port-only under `hand/native_c/` or
+`hand/overrides_c/`.
 
 Upstream Wave 32 newly matches `func_00142278` (`IntersectSegmentWithCapsule`)
 in `src/main/collider_span.cpp`. Hostgen includes it in the refreshed source,
@@ -80,7 +96,9 @@ list, not representative placed models in the forced level. Their zero fields
 do not show that level model records are missing. Likewise, the earlier claim
 that `func_00153328` was not entered is not established by that trace hook;
 the opt-in hook records the address arguments but did not print function-entry
-events in the saved run.
+events in the saved run. The newer generic native entry trace now shows neither
+`func_00153328` nor `func_0018F9D8` entered during the forced-level run. Log:
+`/tmp/sly-wave32-owner-state-12s-20261112.log`.
 
 A fresh normal 15-second trace with
 `OPENRAC_TRACE_MODEL_FIELDS=1 OPENRAC_DUMP_MODEL_ENTRY=1` directly observes
