@@ -110,33 +110,38 @@ def lower_gcc_minmax(text):
         lambda m: m.group("lhs") + " = sly1_host_max(" + m.group("lhs") +
         ", " + m.group("rhs") + ")", text)
     compound_used |= count != 0
-    points = []
-    state = "code"
-    escaped = False
-    i = 0
-    while i < len(text):
-        c = text[i]
-        n = text[i + 1] if i + 1 < len(text) else ""
-        if state == "line":
-            if c == "\n": state = "code"
-            i += 1; continue
-        if state == "comment":
-            if c == "*" and n == "/": state = "code"; i += 2; continue
-            i += 1; continue
-        if state in ("string", "char"):
-            if escaped: escaped = False
-            elif c == "\\": escaped = True
-            elif (state == "string" and c == '"') or (state == "char" and c == "'"): state = "code"
-            i += 1; continue
-        if c == "/" and n == "/": state = "line"; i += 2; continue
-        if c == "/" and n == "*": state = "comment"; i += 2; continue
-        if c == '"': state = "string"; i += 1; continue
-        if c == "'": state = "char"; i += 1; continue
-        if c in "<>" and n == "?": points.append((i, c)); i += 2; continue
-        i += 1
+    changed = False
+    while True:
+        points = []
+        state = "code"
+        escaped = False
+        i = 0
+        while i < len(text):
+            c = text[i]
+            n = text[i + 1] if i + 1 < len(text) else ""
+            if state == "line":
+                if c == "\n": state = "code"
+                i += 1; continue
+            if state == "comment":
+                if c == "*" and n == "/": state = "code"; i += 2; continue
+                i += 1; continue
+            if state in ("string", "char"):
+                if escaped: escaped = False
+                elif c == "\\": escaped = True
+                elif (state == "string" and c == '"') or (state == "char" and c == "'"): state = "code"
+                i += 1; continue
+            if c == "/" and n == "/": state = "line"; i += 2; continue
+            if c == "/" and n == "*": state = "comment"; i += 2; continue
+            if c == '"': state = "string"; i += 1; continue
+            if c == "'": state = "char"; i += 1; continue
+            if c in "<>" and n == "?": points.append((i, c)); i += 2; continue
+            i += 1
+        if not points:
+            break
 
-    spans = []
-    for op, operator in points:
+        # Lower one operator at a time, from the right. Re-scanning after
+        # each replacement keeps nested min/max expressions' offsets valid.
+        op, operator = points[-1]
         left = op - 1
         while left >= 0 and text[left].isspace(): left -= 1
         paren = bracket = 0
@@ -186,15 +191,14 @@ def lower_gcc_minmax(text):
             end += 1
         while end > right and text[end - 1].isspace(): end -= 1
         if left == op or right == end:
-            continue
-        spans.append((replace_left, left, op, right, end, prefix, operator))
-    for replace_left, left, op, right, end, prefix, operator in reversed(spans):
+            break
         lhs = text[left:op].strip()
         rhs = text[right:end].strip()
         helper_name = "sly1_host_max" if operator == ">" else "sly1_host_min"
         replacement = prefix + helper_name + "((" + lhs + "), (" + rhs + "))"
         text = text[:replace_left] + replacement + text[end:]
-    if spans or compound_used:
+        changed = True
+    if changed or compound_used:
         helper = ("template<class A, class B> static inline auto sly1_host_max(A a, B b) "
                   "-> decltype(a + b) { return a > b ? a : b; }\n"
                   "template<class A, class B> static inline auto sly1_host_min(A a, B b) "
@@ -323,8 +327,12 @@ def lower_host_vu0(text):
             opening = text.find("{", match.start(), match.end())
             closing = matching_brace(text, opening)
             if "__asm__" in text[opening:closing]:
-                text = text[:opening + 1] + "\n        " + body + "\n    " + text[closing:]
-                cursor = opening + len(body) + 2
+                replacement = body
+                signature = text[match.start():opening]
+                if name == "StoreX" and re.search(r"\(T& dst,\s*u32 bits\)", signature):
+                    replacement = "*(u32*)&dst = bits;"
+                text = text[:opening + 1] + "\n        " + replacement + "\n    " + text[closing:]
+                cursor = opening + len(replacement) + 2
             else:
                 cursor = closing + 1
     return text
@@ -512,7 +520,7 @@ def main(argv=None):
     }
     host_include = port / "sly1" / "host32" / "include"
     flags = [
-        "-m32", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
+        "-m32", "-malign-double", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
         "-O2",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
@@ -546,6 +554,11 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        # The retail ABI uses 64-bit s64/u64 even where the decomp unit spells
+        # those aliases with `long`; on host i386, long is only 32 bits.
+        adapted = re.sub(
+            r"(?m)^\s*typedef\s+(?:signed|unsigned)\s+long\s+[su]64\s*;\s*$",
+            "", adapted)
         adapted = align_host_quad_arrays(adapted)
         if rel.as_posix() == "lib/graph.c":
             # This upstream C file relies on old C's implicit function
@@ -569,10 +582,17 @@ def main(argv=None):
             adapted = adapted.replace(" throw(bad_alloc)", "")
         elif rel.as_posix() == "main/pad_input.cpp":
             adapted = adapted.replace("fabsf(", "__builtin_fabsf(")
-        elif rel.as_posix() == "main/file_1B7968.cpp":
+        elif rel.as_posix() in ("main/file_1B7968.cpp", "main/collider.cpp"):
             # This helper manually walks the original EE 8-byte vararg slots.
             # The host32 C++ ABI places each word argument in a 4-byte stack
             # slot, so lower just this staged helper to the host layout.
+            adapted = adapted.replace(
+                "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 8) - 8))",
+                "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 4) - 4))")
+            adapted = adapted.replace(
+                "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
+                "(char*)__builtin_next_arg(size)")
+        elif rel.as_posix() == "main/file_1C1190.cpp":
             adapted = adapted.replace(
                 "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 8) - 8))",
                 "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 4) - 4))")
