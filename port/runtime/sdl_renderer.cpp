@@ -485,6 +485,13 @@ extern "C" int openrac_native_window_poll_input(void) {
     static unsigned traced_key_events = 0;
     std::scoped_lock lock(g_input_mutex);
     while (SDL_PollEvent(&event)) {
+        static unsigned traced_window_events = 0;
+        if (std::getenv("OPENRAC_TRACE_PAD") != nullptr &&
+            event.type == SDL_EVENT_WINDOW_FOCUS_GAINED && traced_window_events < 16u) {
+            std::fprintf(stderr, "[window-focus] gained window=%u keyboard_focus=%p\n",
+                         event.window.windowID, static_cast<void*>(SDL_GetKeyboardFocus()));
+            ++traced_window_events;
+        }
         if (std::getenv("OPENRAC_TRACE_PAD") != nullptr &&
             (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) &&
             traced_key_events < 64u) {

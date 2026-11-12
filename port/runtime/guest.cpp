@@ -388,6 +388,18 @@ void openrac_guest_trace_function_entry(gaddr address) {
                 0x001B2790u, // collect range records in reach
                 0x001B93D8u, // class-4 DrawCollider
                 0x0018F9D8u, // QueueModelPartDraws
+                0x001AA060u, // HideScreenElements
+                0x001AA0C0u, // ResetScreenElements
+                0x001AA110u, // QueueEachScreenElementDraw
+                0x001AA178u, // DrawScreenElements
+                0x001AA4F0u, // SetScreenElementText
+                0x001AA8F0u, // ShowScreenElement
+                0x001AA958u, // HideScreenElement
+                0x001AA998u, // SetScreenElementMode
+                0x001A9C68u, // InstallScreenElements
+                0x001A9FD0u, // UpdateScreenElements
+                0x00146470u, // StartStateNotifier
+                0x00146484u, // InitializeStateNotifier callback dispatch
             };
             static std::array<std::atomic<unsigned>, std::size(targets)> counts{};
             for (std::size_t i = 0; i < std::size(targets); ++i) {

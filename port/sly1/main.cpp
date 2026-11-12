@@ -227,6 +227,48 @@ extern "C" void game_sly1_native_trace_font(std::uint32_t stage, std::uint32_t a
                       << " b=0x" << a1 << " m=0x" << a2 << std::dec << '\n';
         }
     }
+    if (stage == 203u) {
+        std::uint32_t frame_offset = 0;
+        std::uint32_t globals_offset = 0;
+        if (trace_guest_range(a0, 0x30u, &frame_offset) &&
+            trace_guest_range(0x00262C68u, 8u, &globals_offset)) {
+            std::int32_t state = 0, frame_count = 0, item = 0;
+            std::uint32_t state_selector = 0, global_flags = 0, state_data = 0;
+            std::uint16_t input_flags = 0, held = 0;
+            float state_time = 0.0f, elapsed = 0.0f;
+            std::memcpy(&state, openrac_guest_base + frame_offset + 4u, 4u);
+            std::memcpy(&state_time, openrac_guest_base + frame_offset + 8u, 4u);
+            std::memcpy(&frame_count, openrac_guest_base + frame_offset + 0x2Cu, 4u);
+            std::memcpy(&state_selector, openrac_guest_base + globals_offset, 4u);
+            std::memcpy(&global_flags, openrac_guest_base + globals_offset + 4u, 4u);
+            state_data = (state_selector & 4u) != 0 ? 0x00262C70u : 0x00262D38u;
+            std::uint32_t data_offset = 0;
+            if (trace_guest_range(state_data, 0xACu, &data_offset)) {
+                std::memcpy(&input_flags, openrac_guest_base + data_offset + 0xAAu, 2u);
+                std::memcpy(&held, openrac_guest_base + data_offset + 0xA8u, 2u);
+                std::int32_t code = 0;
+                std::memcpy(&code, openrac_guest_base + data_offset + 0x14u, 4u);
+                if (frame_count >= 0 && frame_count < 8) {
+                    std::memcpy(&item, openrac_guest_base + frame_offset + 8u +
+                                static_cast<std::uint32_t>(frame_count) * 4u, 4u);
+                }
+                std::uint32_t clock_offset = 0;
+                if (trace_guest_range(0x00261868u, 4u, &clock_offset)) {
+                    float now = 0.0f;
+                    std::memcpy(&now, openrac_guest_base + clock_offset, 4u);
+                    elapsed = now - state_time;
+                }
+                std::cerr << "[element-state] frame=0x" << std::hex << a0
+                          << " state=" << std::dec << state << " elapsed=" << elapsed
+                          << " code=" << code << " data=0x" << std::hex << state_data
+                          << " selector=0x" << state_selector << " global_flags=0x"
+                          << global_flags << " input_flags=0x"
+                          << input_flags << " held=0x" << held << " pressed=0x"
+                          << input_flags << " item=" << std::dec << frame_count << ":0x"
+                          << std::hex << static_cast<std::uint32_t>(item) << std::dec << '\n';
+            }
+        }
+    }
     if (stage == 64u && (a0 & 0xFFFFFF00u) == 0xBAC30000u &&
         (a0 & 0xFFu) == 9u) {
         std::uint32_t cursor_offset = 0;

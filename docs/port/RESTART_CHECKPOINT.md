@@ -100,6 +100,32 @@ events in the saved run. The newer generic native entry trace now shows neither
 `func_00153328` nor `func_0018F9D8` entered during the forced-level run. Log:
 `/tmp/sly-wave32-owner-state-12s-20261112.log`.
 
+The unforced path reproduces the missing draw callbacks: the Splash world's
+class-4 root `0x847870` has no model parts, while the only logged object draw
+callbacks are for class `0x53` and `0x7d` objects with zero parts. A 25-second
+bounded normal run reaches 11.98 guest seconds and remains in element-stack
+state 3; it still has `visible_text=0`, no image tags/qwords, and only the
+synthetic 240-vertex UI point draw. The 37 screen elements all remain in mode
+0; hide/mode-reset calls occur, but no `ShowScreenElement` entry is observed.
+The UI update/draw dispatch runs, but its mode-zero elements are skipped. The
+countdown notifier starts, but no scene or menu graphics appear. This puts the
+next visual investigation at screen-element activation and title-scene startup,
+alongside the forced-level world-render traversal. Logs:
+`/tmp/sly-wave32-normal-render-dispatch-12s-20261112.log` and
+`/tmp/sly-wave32-normal-menu-progression-25s-20261112.log`.
+
+The follow-up 15-second native run confirms the dispatcher remains in state 3
+with selector 7, global pad flags zero, and no pressed/held guest buttons. The
+window reports keyboard focus and the adapter emits a connected active-low pad
+report. No key-down event occurred during this unattended run, so it still
+cannot establish what happened during the user's earlier manual Return press.
+The Start mapping itself matches the guest's active-low bit conversion. The
+countdown notifier setter runs; the state-notifier transition is still not
+captured, so continue from constructor/callback entries rather than assuming
+the notifier set it. Logs:
+`/tmp/sly-wave32-notifier-chain-corrected-15s-20261112.log` and
+`/tmp/sly-wave32-focus-key-trace-15s-20261112.log`.
+
 A fresh normal 15-second trace with
 `OPENRAC_TRACE_MODEL_FIELDS=1 OPENRAC_DUMP_MODEL_ENTRY=1` directly observes
 `func_00162890` parsing model data on thread 1: 32 reader entries, 34 part

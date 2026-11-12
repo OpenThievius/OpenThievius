@@ -231,6 +231,22 @@ traversal before changing mesh parsing or packet generation. Use
 `OPENRAC_TRACE_RENDER_CALLBACKS=1` with `OPENRAC_TRACE_FONT=1` to capture the
 callback entries and object descriptors. Latest log:
 `/tmp/sly-wave32-owner-state-12s-20261112.log`.
+The unforced Splash world shows the same dispatch gap: its class-4 root has no
+model parts, and the class-4 draw/queue methods are not entered. A 25-second
+normal trace remains in element-stack state 3 at 11.98 guest seconds, with no
+visible text or image uploads. All 37 screen elements remain in mode 0; the
+hide/mode-reset path runs, but `ShowScreenElement` is never entered. The next
+normal-startup trace should follow the activation path that should expose the
+title or another startup element. Log:
+`/tmp/sly-wave32-normal-menu-progression-25s-20261112.log`.
+The follow-up notifier trace confirms state 3, selector 7, zero global pad
+flags, and zero guest pressed/held flags in an unattended run. The native
+Return-to-Start mapping and active-low pad report conversion match the guest's
+Start bit by inspection. SDL reports keyboard focus and a connected pad, but no
+key-down event occurred during this unattended run. The countdown notifier
+callback is observed, but the screen-element activation path is still
+unresolved. Logs: `/tmp/sly-wave32-notifier-chain-corrected-15s-20261112.log`
+and `/tmp/sly-wave32-focus-key-trace-15s-20261112.log`.
 The same review found the class-0x51 ConeVolume attach/update/remove callbacks
 were still no-ops. Selecting their exact US assembly translations for
 `func_00183D88`, `func_00183DF8`, and `func_00183E70` raises the live world's
