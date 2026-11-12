@@ -43,27 +43,29 @@ absent. A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
 `0x250` bytes through a two-record (`0x50` byte) retail display context,
 overwriting the GIF channel global with display height `0xe0`. It now writes
 only the two records. A bounded host32 run kept the channel at `0x082ffee8`
-and submitted 735/735 DMAs with zero rejections. The later ABI mismatch
-diagnosis and readable, cropped warning capture above supersede the initial
-all-black conclusion. The pause-menu callback reaches page 3 and submits
-`Continue`. A title or playable scene has not been demonstrated. No format
-action was taken.
+and submitted 735/735 DMAs with zero rejections. The later ABI and Sly
+frame-size fixes supersede the initial all-black and cropped-frame conclusions.
+The pause-menu callback reaches page 3 and renders the full warning panel and
+selected `Continue` item. A fresh eight-second trace stays on the Splash world
+with no world-load, movie, or fade request; title and gameplay remain
+unverified. The input adapter maps Space to Cross and Return to Start, but the
+synthetic X11 input attempt did not reach SDL. No format action was taken.
 
 The user-confirmed visible memory-card format prompt came from the separate
 experimental guest-runtime launcher. The no-emulation host32 run reaches the
-retail no-card warning and now renders readable text, though it remains
-cropped. No format action was taken. Guest-runtime GS/Splash traces below
-remain separate research, not evidence of native gameplay.
+retail no-card warning and renders it fully. No format action was taken.
+Guest-runtime GS/Splash traces below remain separate research, not evidence of
+native gameplay.
 Do not extend that runtime's CPU or PS2-device models as port features. Keep
 port-only functional replacements in the OpenThievius tree and replace them
 with matching decomp source when available.
 
-The eight black files mentioned above sampled early startup. A later capture
-uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
-`OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the no-card warning in a narrow
-band. The next host32 task is to trace display sizing and clipping, then follow
-normal activation toward the title. Do not use `visible_ui=0` or `text_ui=0`
-as a substitute for checking the pause-menu layer or framebuffer.
+The eight black files mentioned above sampled early startup. The corrected
+capture uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
+`OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the full no-card warning. The
+next host32 task is to trace normal Splash-to-title progression after the
+warning is dismissed. Do not use `visible_ui=0` or `text_ui=0` as a substitute
+for checking the pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
 

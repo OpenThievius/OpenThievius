@@ -28,11 +28,15 @@ inside `D_00262C70`. Port-only no-card service replies let retail startup reach
 the no-card warning. A host ABI mismatch in the staged `AddGifRegisterWrite`
 declarations truncated GS register writes and clipped the framebuffer to one
 row; the staging generator now normalizes the writer to a 32-bit register and
-64-bit value. A bounded native run now renders readable warning text, although
-the display remains cropped and no title or playable scene has been
-demonstrated. No card-format action was taken. A previous run also exposed
-invalid DMA channel value `0xe0`; the port boundary now avoids dereferencing
-unknown channels, and host channel 2 is routed to the renderer.
+64-bit value. The Sly SDL renderer uses the retail 640x224 field dimensions.
+A bounded native capture now renders the full no-card warning panel and its
+selected `Continue` item. An eight-second trace remains on the Splash world
+with no world-load, movie, or fade request; no title or playable scene has
+been demonstrated. Space maps to Cross and Return maps to Start, though a
+synthetic X11 key attempt did not reach SDL in the diagnostic run. No
+card-format action was taken. A previous run also exposed invalid DMA channel
+value `0xe0`; the port boundary now avoids dereferencing unknown channels, and
+host channel 2 is routed to the renderer.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from
