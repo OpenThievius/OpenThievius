@@ -1286,9 +1286,10 @@ reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
 
 A 12-second run after that recovery reaches global element-stack state 5
-and submits the memory-card menu. The user confirmed the native window
-displays the readable “Memory Card (PS2) in Memory Card Slot 1 is
-unformatted” prompt and its format question.
+and submits the memory-card menu in the separate experimental guest-runtime
+launcher. The user-confirmed screenshot shows the readable “Memory Card (PS2)
+in Memory Card Slot 1 is unformatted” prompt and its format question; this is
+not evidence from the no-emulation host32 target.
 The two menu choices appear as small placeholder/button glyphs instead of
 readable “Yes” and “No” labels.
 The current native SIF memory-card probe deliberately reports unavailable,

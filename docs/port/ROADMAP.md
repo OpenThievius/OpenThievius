@@ -16,11 +16,12 @@ samples. The exact decomp stream-reader unit `00134000.cpp` is now host-readable
 selected for the native build, including its LZ and buffered-byte readers. A
 port-only native ISO adapter reads the 150,849-byte Splash resource from the
 retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
-Its font atlas and palette data are present and match the decoded Splash bytes,
-but the submitted text remains malformed and no normal title/gameplay path is
-visible in the native launcher.
+Its font atlas and palette data are present and match the decoded Splash bytes.
+Malformed text refers to the separate experimental guest-runtime renderer;
+the no-emulation host32 path now displays the complete no-card warning panel,
+but no title or gameplay scene has been demonstrated.
 
-## Experimental guest-runtime visual blocker (2026-11-12)
+## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 
 Normal startup reaches the retail Splash world and the main frame loop, but it
 does not start the title sequence. The active UI stack is in its ordinary state
@@ -34,12 +35,11 @@ Do not force an element visible as a workaround: trace the retail producer that
 should load/arm the title scene. Logs and field notes are in
 [RESTART_CHECKPOINT.md](RESTART_CHECKPOINT.md).
 
-The renderer's black clear and swap path is active. The only recurring 2,128-
-byte UI draw packet was captured identically across frames with zero/black
-vertex attributes, and the resulting 960x720 frame was entirely black. Normal
-startup emits no scene mesh vertices or image transfers. This makes title/scene
-activation and its source packet contents the next blockers; it is not yet a
-playable build.
+In this experimental path, the renderer's black clear and swap path is active.
+The only recurring 2,128-byte UI draw packet was captured identically across
+frames with zero/black vertex attributes, and the resulting 960x720 frame was
+entirely black. These observations do not describe the no-emulation host32
+renderer below. Do not extend this runtime as the gameplay path.
 
 ## Current no-emulation build (2026-11-12)
 
@@ -68,11 +68,12 @@ caused pad startup to read `D_00262D18` from address `0xa8`; data aliases now
 resolve after final host data placement. The linked symbol is now at
 `0x082fcee8`, within `D_00262C70`. Native memory-card backfills let retail
 startup reach page 3 of the no-card prompt. A hard-bounded 10-second run
-reached about 600 frames without a fatal fault. Eight captured native SDL
-frames after reaching page 3 are completely black, and no title or gameplay
-scene has been demonstrated. The global UI/text counters do not include the
-pause-menu layer. No card-format action was taken. Unknown DMA channels still avoid host register
-dereferences, and host32 compilation retains stack realignment.
+reached about 600 frames without a fatal fault. The current 640x224 host32
+renderer displays the complete no-card warning panel, border, and highlighted
+Continue option. No title or gameplay scene has been demonstrated. The global
+UI/text counters do not include the pause-menu layer. No card-format action
+was taken. Unknown DMA channels still avoid host register dereferences, and
+host32 compilation retains stack realignment.
 
 ### Decomp refresh (2026-11-11)
 

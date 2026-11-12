@@ -47,6 +47,15 @@ functional native service replacements in
 `port/game/sly1-us/native/`, separate from decomp source. Do not format a card,
 force UI visibility, or alter matching game logic to fabricate a scene.
 
+**Host32 Splash graph trace (2026-11-12):** staging-only tracing in the
+compiled no-emulation path confirms graph `0x25f` loads four states and seven
+edges. Its initial walker enters state key `0x261` (index 2) and selects the
+`2 -> 2` self-edge; no `SetStateWalkerTarget` call is observed. The title edge
+exists in the graph, but the trace does not identify what should request it.
+Keep the next investigation on the retail producer/event path. The trace adds
+diagnostics only; no game state or matching decomp source was changed. Log:
+`/tmp/sly-splash-graph-8s.log`.
+
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed
 Enter several times and saw no response. No format was selected. Do not extend

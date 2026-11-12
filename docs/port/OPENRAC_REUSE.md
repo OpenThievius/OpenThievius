@@ -58,10 +58,12 @@ and exact-rate frame pacer. The native launcher now also embeds OpenRAC's
 generic `DirectRenderer` and its texture/shader support. A port-only Sly
 backfill dispatches GIF channel 2 and VIF1 channel 1 separately. Current
 tracing shows accepted channel-2 DMA chains, uploaded font atlas/CLUT data, and
-two decoded menu draws with changing glyph positions. The rendered window is
-still black or garbled; indexed texture conversion, UVs and GS blend/state
-mapping are under investigation. The raw-stream parser is only for a genuinely
-raw GIF input.
+two decoded menu draws with changing glyph positions. The no-emulation
+host32 window now shows a correctly proportioned no-card warning panel and
+highlighted Continue option. The separate experimental guest-runtime output
+remains black or garbled; its indexed texture conversion, UVs and GS blend/state
+mapping are not the target gameplay renderer. The raw-stream parser is only
+for a genuinely raw GIF input.
 The launcher also still
 has experimental VIF/VU services for diagnostic work. The full
 keyboard/controller input system is not imported.
@@ -76,7 +78,7 @@ keyboard/controller input system is not imported.
 The DirectRenderer integration is compiled and linked into the C-only
 launcher. `func_00152810` initializes the expected channel addresses, and
 `func_00202A80` routes GIF channel 2 to the DMA-chain parser while VIF1 uses
-its own translator. The latest sampled run accepts submitted chains and
+its own translator. The experimental runtime accepts submitted chains and
 decodes two menu draws per frame. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for measured texture,
 geometry, and visual results.

@@ -28,17 +28,18 @@ mismatch in `AddGifRegisterWrite` shifted the GS value by one word because its
 writer used a 64-bit register argument while callers passed 32-bit registers.
 This reduced full SCISSOR_1 values to `0xde0001` and `0xdf0000`, clipping all
 output to one row. The host staging adapter now normalizes the writer
-signature; the trace shows full scissor bounds and textured draws. A six-second
-bounded capture now shows readable no-card warning text in a narrow horizontal
-band. No title or playable scene has been demonstrated. See the
+signature; the trace shows full scissor bounds and textured draws. The renderer
+now uses Sly's 640x224 field dimensions. A bounded capture shows the complete
+no-card warning panel, border, and highlighted Continue option at normal
+proportions. No title or playable scene has been demonstrated. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
-The user-confirmed visible unformatted-memory-card prompt was observed in the
-separate experimental guest-runtime launcher. The no-emulation host32 path
-reaches the retail no-card warning and renders readable text, but remains
-cropped and has not reached a demonstrated title or playable scene. No format
-action was taken. The graphics findings below are guest-runtime research only,
-not playable milestones. See the
+The user-confirmed visible unformatted-memory-card format prompt was observed
+in the separate experimental guest-runtime launcher. The no-emulation host32
+path reaches the retail no-card warning and renders its full panel and
+highlighted Continue option at normal proportions, but has not reached a
+demonstrated title or playable scene. No format action was taken. The graphics
+findings below are guest-runtime research only, not playable milestones. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current architecture and next work.
 
