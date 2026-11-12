@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-12): the renderer now uses Sly's
+Latest no-emulation host32 result (2026-11-13): the renderer now uses Sly's
 retail 640x224 field dimensions instead of OpenRAC's 512x448 default. A staged
 host ABI mismatch in `AddGifRegisterWrite` caused the prior black framebuffer.
 The function body used a
@@ -16,15 +16,28 @@ has been demonstrated and no card-format action was taken. Run log:
 `/tmp/sly-display-profile-640x224.log`; frame:
 `/tmp/sly-display-profile-640x224.png`. Matching decomp source was not edited.
 
-Updated: 2026-11-12. The public decomp master is `647da5d6` (Wave 33); the
-sibling checkout is 65 commits behind. Wave 33 fully matches
-`func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
-assembly disabled translates 799 functions, with 2 stubs and 4,127 functions
-without C across 280 units. The read-only snapshot compiles all 190 Sly units
-and 65 port-only host32 backfills. The combined object has 811 of 817
-functions in its direct-call frontier; indirect callbacks are outside the
-scan. Host staging adds zero returns to two matched non-void wrappers that
-call void functions; the decomp source stays unchanged. `WrapTextLines`
+The follow-up `OPENRAC_STARTUP_TRACE=1` run confirms the screen is the retail
+page-3 no-card warning and remains open during a 10-second native run. The
+trace logs `HandleCountdownNotifierNotification` receiving kind `0x14` for
+walker `0x7d2b60`, followed by mode `2` and `SetStateNotifierState(2)`. This is
+consistent with notifier completion, but the current key was not directly
+logged; the earlier note overstated that evidence. A separate Down-input run
+produced a black framebuffer after the warning disappeared, while the Splash
+world remained active. Treat this as a regression: the prompt is gone but no
+title or gameplay appears. No memory card was formatted. Startup log:
+`/tmp/sly1-latest-native-startup.log`; input/capture log:
+`/tmp/sly-wave39-post-dismiss-capture.log`.
+
+Updated: 2026-11-13. Public decomp master is `f38f0113` (Wave 39); the sibling
+checkout is `bfc74817`, 100 commits behind. US coverage is 4,778/4,807
+functions and 98.05% of code. Hostgen still translates 799 functions, with 2
+stubs and 4,127 functions without C across 280 units. The Wave 39 snapshot
+compiles all 190 Sly units and 65 port-only host32 backfills. The combined
+object defines 4,355 catalogued functions and has 811 of 817 functions in its
+direct-call frontier; indirect callbacks are outside the scan. Host staging
+adds zero returns to two matched non-void wrappers that call void functions,
+plus a host lowering for `Vu0::ScalarInGprAt`; decomp source stays unchanged.
+`WrapTextLines`
 rewrites strings in the main executable's read-only segment, so SDL now makes
 only that non-executable segment writable. A relocated-data alias bug was
 found during this run: `D_00262D18` was emitted as absolute `0xa8` during the

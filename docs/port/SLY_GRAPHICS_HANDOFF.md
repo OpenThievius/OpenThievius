@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-12, after the GS writer ABI fix. Current decomp master
-is `647da5d6` (Wave 33, PR #124).
+Last checked: 2026-11-13, after the GS writer ABI fix. Current decomp master
+is `f38f0113` (Wave 39, PR #128).
 The no-emulation host32 path compiles all 190 Sly units and 65 port-only
-backfills, combines 4,345 catalogued native function entries, and links the SDL
+backfills, combines 4,355 catalogued native function entries, and links the SDL
 launcher. Its direct-call frontier resolves 811/817 functions; indirect
 callbacks are outside the scan. Two staging-only returns prevent matched
 non-void wrappers from falling through after void calls; the decomp source
@@ -31,7 +31,11 @@ output to one row. The host staging adapter now normalizes the writer
 signature; the trace shows full scissor bounds and textured draws. The renderer
 now uses Sly's 640x224 field dimensions. A bounded capture shows the complete
 no-card warning panel, border, and highlighted Continue option at normal
-proportions. No title or playable scene has been demonstrated. See the
+proportions. A follow-up confirms the no-card prompt's notifier receives key
+`0x263`, passes its retail completion gate, and destroys the state walker; the
+previous self-loop-only diagnosis was incomplete. One Down input closes page
+3 and advances the memory-card display state, but the Splash world remains
+active. No title or playable scene has been demonstrated. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
 The user-confirmed visible unformatted-memory-card format prompt was observed

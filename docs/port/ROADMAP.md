@@ -41,17 +41,17 @@ frames with zero/black vertex attributes, and the resulting 960x720 frame was
 entirely black. These observations do not describe the no-emulation host32
 renderer below. Do not extend this runtime as the gameplay path.
 
-## Current no-emulation build (2026-11-12)
+## Current no-emulation build (2026-11-13)
 
-The public decomp `master` is `647da5d6` (Wave 33); the sibling working tree
-remains at `bfc74817`, 65 commits behind. The latest report matches
-4,763/4,807 functions, 93.461% of code and 99.616% of data. This update fully
-matches `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
-assembly disabled now translates 799 functions, with 2 stubs and 4,127
-functions without C across 280 units. This improves the movie path but does
-not change the observed Splash/title activation path.
+The public decomp `master` is `f38f0113` (Wave 39); the sibling working tree
+remains at `bfc74817`, 100 commits behind. The latest US report matches
+4,778/4,807 functions, 98.046% of code and 99.676% of data, up from
+4,763/4,807 functions and 93.461% of code at Wave 33. Hostgen with assembly
+disabled still translates 799 functions, with 2 stubs and 4,127 functions
+without C across 280 units. The new snapshot does not change the current
+startup path's matched notifier, pause-menu, or pad-input sources.
 
-A read-only snapshot of `647da5d6` compiles all 190 units and all 65
+A read-only Wave 33 snapshot of `647da5d6` compiles all 190 units and all 65
 port-only host32 backfills. The combined native object records 4,345
 catalogued function entries, and the direct-call frontier has 811/817
 definitions (6 missing; indirect calls are not covered). The freestanding
@@ -74,6 +74,15 @@ Continue option. No title or gameplay scene has been demonstrated. The global
 UI/text counters do not include the pause-menu layer. No card-format action
 was taken. Unknown DMA channels still avoid host register dereferences, and
 host32 compilation retains stack realignment.
+
+A 2026-11-13 Wave 39 snapshot (`f38f0113`) also compiles all 190 units and 65
+port-only backfills. A host-only lowering for the new `Vu0::ScalarInGprAt`
+helper keeps the decomp header untouched. The combined object defines 4,355
+catalogued entries, up from 4,345, while the direct-call frontier remains
+811/817. A bounded native run reaches the same no-card warning. A held Down
+input closes page 3 and advances the memory-card display state; the Splash
+world remains active and title/gameplay are still unverified. Log:
+`/tmp/sly1-wave39-after-continue.log`.
 
 ### Decomp refresh (2026-11-11)
 

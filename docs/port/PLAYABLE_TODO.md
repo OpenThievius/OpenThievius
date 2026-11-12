@@ -1,20 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Latest native visual evidence (2026-11-12):** the host32 Sly renderer now
+**Latest native visual evidence (2026-11-13):** the host32 Sly renderer now
 uses its retail 640x224 field dimensions instead of OpenRAC's 512x448 default.
 With the earlier staging-only `AddGifRegisterWrite` ABI fix, a fresh bounded
 capture displays the complete no-card warning panel, border, and highlighted
 Continue option at normal proportions. No title or playable scene has been
-demonstrated and no card-format action was taken. The source decomp was not
-changed. Capture: `/tmp/sly-display-profile-640x224.png`; log:
-`/tmp/sly-display-profile-640x224.log`.
+demonstrated and no card-format action was taken. A 10-second run shows the
+retail no-card warning remains open until input. The notifier handler receives
+walker key `0x263`, passes its retail gate, queues completion, and destroys the
+walker; the earlier self-loop-only diagnosis was incomplete. In a separate
+bounded run, one Down input closed page 3 and advanced the memory-card display
+state, but did not leave the Splash world. Capture:
+`/tmp/sly-display-profile-640x224.png`; startup log:
+`/tmp/sly1-latest-native-startup.log`. The trace logs notifier kind `0x14`
+followed by mode `2` and `SetStateNotifierState(2)`, consistent with its
+completion path, but did not directly log the current walker key. A separate
+Down-input capture showed a black framebuffer afterward while Splash remained
+active. Treat it as a regression: the prompt disappears, but no title or
+gameplay transition is demonstrated. Input/capture log:
+`/tmp/sly-wave39-post-dismiss-capture.log`.
 
-**Build baseline (2026-11-12):** upstream `sly1-decomp` master is
-`647da5d6` (Wave 33); the sibling checkout remains at `bfc74817`, 65 commits
-behind. The source fully matches `func_0020A190` (`GetStreamId`) in the MPEG
-demultiplexer. Hostgen with assembly disabled translates 799 functions, with
-2 stubs and 4,127 functions without C across 280 units. The Wave 33 snapshot
+**Build baseline (2026-11-13):** upstream `sly1-decomp` master is
+`f38f0113` (Wave 39); the sibling checkout remains at `bfc74817`, 100 commits
+behind. US coverage is 4,778/4,807 functions (99.40%) and 98.05% of code, up
+from 4,763/4,807 functions (99.08%) and 93.46% of code at Wave 33. Hostgen
+still translates 799 functions, with 2 stubs and 4,127 functions without C
+across 280 units. The Wave 39 snapshot
 compiles 190/190 Sly units and 65/65 port-only host32 backfills. The combined
 object resolves 811/817 functions in its direct frame-call frontier, leaving
 6 missing; indirect callbacks are not covered. Two staging-only returns adapt
@@ -40,21 +52,12 @@ rejections. The later `AddGifRegisterWrite` ABI diagnosis and visible warning
 capture supersede the earlier all-black conclusion. See the restart checkpoint
 for current evidence.
 
-**Immediate host32 task:** follow normal startup from the visible no-card
-warning to the title and gameplay. The display-context overrun, host
-`AddGifRegisterWrite` ABI mismatch, and Sly frame-size mismatch are fixed. Keep
-functional native service replacements in
-`port/game/sly1-us/native/`, separate from decomp source. Do not format a card,
-force UI visibility, or alter matching game logic to fabricate a scene.
-
-**Host32 Splash graph trace (2026-11-12):** staging-only tracing in the
-compiled no-emulation path confirms graph `0x25f` loads four states and seven
-edges. Its initial walker enters state key `0x261` (index 2) and selects the
-`2 -> 2` self-edge; no `SetStateWalkerTarget` call is observed. The title edge
-exists in the graph, but the trace does not identify what should request it.
-Keep the next investigation on the retail producer/event path. The trace adds
-diagnostics only; no game state or matching decomp source was changed. Log:
-`/tmp/sly-splash-graph-8s.log`.
+**Immediate host32 task:** trace Splash/title progression after the no-card
+page closes. The display-context overrun, host `AddGifRegisterWrite` ABI
+mismatch, and Sly frame-size mismatch are fixed. Keep functional native service
+replacements in `port/game/sly1-us/native/`, separate from decomp source. Do
+not format a card, force UI visibility, or alter matching game logic to
+fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed
