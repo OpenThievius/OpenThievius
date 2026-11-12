@@ -1736,6 +1736,18 @@ void LoadEffectSpawner"""
                 adapted = definition.sub(
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
+        # Matching units declare AddGifRegisterWrite with inconsistent host
+        # types. The retail ABI is (writer, 32-bit register, 64-bit value);
+        # normalize every staged declaration and definition to that layout.
+        # Without this, a u64 register shifts the value by one stack word on
+        # i386 and GS writes such as SCISSOR_1 become corrupt.
+        gif_writer_signature = re.compile(
+            r"(?m)(void\s+AddGifRegisterWrite\s*\(\s*"
+            r"(?:PacketWriter|void)\s*\*\s*\w+\s*,\s*)"
+            r"(?:s32|u64)\s+(\w+)\s*,\s*"
+            r"(?:s32|s64|u64)\s+(\w+)(\s*\))")
+        adapted, normalized_gif_writers = gif_writer_signature.subn(
+            r"\1s32 \2, u64 \3\4", adapted)
         if rel.as_posix() == "main/placed_object.cpp":
             # This matched non-void wrapper calls a void function and falls
             # through. GCC -O2 omits its epilogue, so host execution enters the

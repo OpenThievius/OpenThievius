@@ -901,6 +901,21 @@ sly1_native_trace_memory_update(u32 stage, u32 state, u32 target,
 #endif
 }
 
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_display_setup(u32 width, u32 height, u32 context,
+                                u64 scissor1, u64 scissor2) {
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr)
+        std::fprintf(stderr,
+                     "[native display setup] width=%u height=%u context=%#x scissor1=%#llx scissor2=%#llx\n",
+                     width, height, context,
+                     static_cast<unsigned long long>(scissor1),
+                     static_cast<unsigned long long>(scissor2));
+#else
+    (void)width; (void)height; (void)context; (void)scissor1; (void)scissor2;
+#endif
+}
+
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_startup_callback(unsigned int index) {
     sly1_native_startup_callback_index = index + 1;

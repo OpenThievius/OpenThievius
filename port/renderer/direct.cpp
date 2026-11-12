@@ -447,6 +447,15 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
             break;
         case gs::kScissor1:
             c1.scissor = gs::Scissor::decode(value);
+            if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
+                static unsigned scissor_traces = 0;
+                if (scissor_traces < 32) {
+                    log::info("{}: scissor1 raw={:#018x} bounds={},{},{},{}", "native 2d",
+                              value, c1.scissor.x0, c1.scissor.x1,
+                              c1.scissor.y0, c1.scissor.y1);
+                    ++scissor_traces;
+                }
+            }
             break;
         case gs::kScissor2:
             c2.scissor = gs::Scissor::decode(value);
@@ -1766,11 +1775,12 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
                         ++draw_traces;
                     }
                     log::info(
-                        "{}: draw={} first={} count={} target={:#x} source={:#x} texture={:#x} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} first_vertex=xy:{:.3f},{:.3f} stq:{:.3f},{:.3f},{:.3f} rgba:{},{},{},{}",
+                        "{}: draw={} first={} count={} target={:#x} source={:#x} texture={:#x} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} scissor={},{},{},{} zwrite={} first_vertex=xy:{:.3f},{:.3f} stq:{:.3f},{:.3f},{:.3f} rgba:{},{},{},{}",
                         name(), i, draw.first, draw.count, s.target, s.source, s.texture,
                         s.textured, s.tcc, static_cast<int>(s.tfx), s.blend,
                         s.alpha.a, s.alpha.b, s.alpha.c, s.alpha.d, s.alpha.fix,
-                        s.fbmsk, test_text(s.test), vertex.x, vertex.y, vertex.s,
+                        s.fbmsk, test_text(s.test), s.scissor.x0, s.scissor.x1,
+                        s.scissor.y0, s.scissor.y1, s.depth_write, vertex.x, vertex.y, vertex.s,
                         vertex.t, vertex.q, vertex.rgba[0], vertex.rgba[1],
                         vertex.rgba[2], vertex.rgba[3]);
                 }
