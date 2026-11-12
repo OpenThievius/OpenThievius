@@ -1,18 +1,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-12): a staged host ABI mismatch in
-`AddGifRegisterWrite` caused the black framebuffer. The function body used a
+Latest no-emulation host32 result (2026-11-12): the renderer now uses Sly's
+retail 640x224 field dimensions instead of OpenRAC's 512x448 default. A staged
+host ABI mismatch in `AddGifRegisterWrite` caused the prior black framebuffer.
+The function body used a
 64-bit register argument while callers passed a 32-bit register and 64-bit
 value; on i386 this shifted the value by one word. The host staging adapter
 now normalizes declarations and the definition to a 32-bit register plus
 64-bit value. `OPENRAC_TRACE_DIRECT=1` reports full scissor values
 `0x00de0001027f0000` and `0x00df0000027f0000`, and textured draws. A bounded
-six-second capture shows readable no-card warning text, but only in a narrow
-horizontal band. No title or gameplay scene has been demonstrated and no
-card-format action was taken. Run log: `/tmp/sly-gifabi-capture.log`; frame:
-`/tmp/sly1-native-frame-00.ppm` (locally previewed as
-`/tmp/sly1-native-frame-00.png`). Matching decomp source was not edited.
+six-second capture shows the full no-card warning panel, border, and
+highlighted Continue option at normal proportions. No title or gameplay scene
+has been demonstrated and no card-format action was taken. Run log:
+`/tmp/sly-display-profile-640x224.log`; frame:
+`/tmp/sly-display-profile-640x224.png`. Matching decomp source was not edited.
 
 Updated: 2026-11-12. The public decomp master is `647da5d6` (Wave 33); the
 sibling checkout is 65 commits behind. Wave 33 fully matches

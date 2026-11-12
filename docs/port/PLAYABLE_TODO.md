@@ -1,15 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Latest native visual evidence (2026-11-12):** host32 now renders the retail
-no-card warning as readable text. A trace caught a host ABI mismatch in the
-staged `AddGifRegisterWrite`: its 64-bit register argument shifted 64-bit GS
-values by one word on i386, reducing `SCISSOR_1` to a one-row clip. The staging
-adapter now normalizes that signature; traces confirm full scissor bounds and
-textured draws. The captured warning remains cropped to a narrow horizontal
-band. No title or playable scene has been demonstrated and no card-format
-action was taken. The source decomp was not changed. See
-`/tmp/sly-gifabi-capture.log` and the restart checkpoint.
+**Latest native visual evidence (2026-11-12):** the host32 Sly renderer now
+uses its retail 640x224 field dimensions instead of OpenRAC's 512x448 default.
+With the earlier staging-only `AddGifRegisterWrite` ABI fix, a fresh bounded
+capture displays the complete no-card warning panel, border, and highlighted
+Continue option at normal proportions. No title or playable scene has been
+demonstrated and no card-format action was taken. The source decomp was not
+changed. Capture: `/tmp/sly-display-profile-640x224.png`; log:
+`/tmp/sly-display-profile-640x224.log`.
 
 **Build baseline (2026-11-12):** upstream `sly1-decomp` master is
 `647da5d6` (Wave 33); the sibling checkout remains at `bfc74817`, 65 commits
@@ -41,10 +40,10 @@ rejections. The later `AddGifRegisterWrite` ABI diagnosis and visible warning
 capture supersede the earlier all-black conclusion. See the restart checkpoint
 for current evidence.
 
-**Immediate host32 task:** trace why the visible no-card warning is cropped
-and follow normal startup from that retail state to the title and gameplay.
-The display-context overrun and host `AddGifRegisterWrite` ABI mismatch are
-fixed. Keep functional native service replacements in
+**Immediate host32 task:** follow normal startup from the visible no-card
+warning to the title and gameplay. The display-context overrun, host
+`AddGifRegisterWrite` ABI mismatch, and Sly frame-size mismatch are fixed. Keep
+functional native service replacements in
 `port/game/sly1-us/native/`, separate from decomp source. Do not format a card,
 force UI visibility, or alter matching game logic to fabricate a scene.
 
