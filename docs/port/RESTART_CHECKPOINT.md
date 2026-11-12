@@ -28,8 +28,10 @@ plus `func_00148E18`, `func_00148EF8`, and the handler dependency
 `func_001B6598` (`GetStateWalkerCurrentKey`). The rebuilt launcher reaches the
 same Splash graph and still shows no image uploads; warnings for this cluster
 are gone. Hostgen now reports 798 translated functions, 527 from assembly,
-and 2 stubs. The latest 10-second run remains at state 2 with zero image
-uploads. Log: `/tmp/sly-wip-notifier-key-10s-20261112.log`.
+and 2 stubs. A 12-second trace confirms callback stages 209, 211, 207, and
+206 continue to dispatch while the graph self-loops at state 2; sampled frames
+still report zero vertices and image uploads. Log:
+`/tmp/sly-wip-notifier-final-12s-20261112.log`.
 
 Work in
 `/home/reaper/sly/OpenThievius` on branch

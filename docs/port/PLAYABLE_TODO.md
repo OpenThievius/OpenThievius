@@ -58,9 +58,10 @@ showed `func_00148E40` (CountdownNotifier message handler) and
 Exact US assembly is now selected for both, plus `func_00148E18` (completion),
 `func_00148EF8` (timer), and `func_001B6598` (`GetStateWalkerCurrentKey`).
 The native build reports 527 assembly functions and links successfully. A
-10-second startup trace removes the warnings for
-this cluster but still observes the graph on its state-2 self-edge, with no
-image uploads. Log: `/tmp/sly-wip-notifier-asm-recovery-10s-20261112.log`.
+12-second startup trace removes the warnings for this cluster and confirms the
+animation callback stages dispatch, but the graph remains on its state-2
+self-edge; sampled frames show zero vertices and image uploads. Log:
+`/tmp/sly-wip-notifier-final-12s-20261112.log`.
 
 **Latest graphics-path correction (2026-11-12):** the current port-only
 `func_0019D6C0` follows Wave 32's `RunWorldFrameLists`: it reads slot 40 from
