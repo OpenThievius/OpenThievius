@@ -1171,6 +1171,27 @@ def main(argv=None):
                 raise RuntimeError("expected CreateAnimationPlayer definition")
             adapted = adapted.replace(needle, replacement, 1)
             needle = (
+                "    for (s32 m = 0; m < self->startCount; m++) {\n"
+                "        RunAnimationEvent(obj, &self->startList[m], &tmp);\n"
+                "    }")
+            replacement = (
+                "    for (s32 m = 0; m < self->startCount; m++) {\n"
+                "        sly1_port_trace_value(0x12c28820u, (u32)m);\n"
+                "        sly1_port_trace_value(0x12c28821u, (u32)self->startList[m].kind);\n"
+                "        RunAnimationEvent(obj, &self->startList[m], &tmp);\n"
+                "        sly1_port_trace_value(0x12c28822u, (u32)m);\n"
+                "    }")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected animation start event loop")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "    TriggerScriptEvent(self, 9, 1, &pobj);"
+            replacement = (
+                "    sly1_port_trace_value(0x12c28823u, (u32)self);\n" + needle + "\n"
+                "    sly1_port_trace_value(0x12c28824u, (u32)self);")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected animation player script notification")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = (
                 "s32 CreateAnimationPlayerWithoutPresetTargets(void* a, void* b, s32 c, s32 d)\n{\n")
             replacement = needle + (
                 "    sly1_port_trace_value(0x12c7d801u, (u32)__builtin_return_address(0));\n"
@@ -1187,6 +1208,11 @@ def main(argv=None):
                 "    sly1_port_trace_value(0x12c7d822u, (u32)self);\n"
                 "    sly1_port_trace_value(0x12c7d823u, (u32)key);\n"
                 "    sly1_port_trace_value(0x12c7d824u, (u32)a2);\n")
+            replacement += (
+                "    volatile u32* trace_frame = (volatile u32*)__builtin_frame_address(0);\n"
+                "    for (u32 i = 0; i < 8; ++i) {\n"
+                "        sly1_port_trace_value(0x12c7d830u + i, trace_frame[i]);\n"
+                "    }\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected returned animation-player wrapper")
             adapted = adapted.replace(needle, replacement, 1)
@@ -1229,6 +1255,27 @@ def main(argv=None):
             )
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected script animation-player host function")
+            adapted = adapted.replace(needle, replacement, 1)
+        elif rel.as_posix() == "main/script_machine.cpp" and args.trace_functions:
+            # Catch script builtin/host dispatch around the animation helper.
+            # Native helpers filter by target or receiver class, keeping normal
+            # script execution quiet in the startup trace.
+            hook = ('extern "C" void sly1_native_trace_script_host_call(u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_script_builtin(u32, u32, u32, u32);\n')
+            adapted = hook + adapted
+            needle = "        ent->fn(&t, count, arr, scope);"
+            replacement = (
+                "        sly1_native_trace_script_builtin((u32)ent->fn, (u32)count, "
+                "(u32)arr, (u32)scope);\n" + needle)
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected script builtin function dispatch")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "        host->fn(&t, host->self, count, arr);"
+            replacement = (
+                "        sly1_native_trace_script_host_call((u32)host->fn, "
+                "(u32)host->self, (u32)count);\n" + needle)
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected script host function dispatch")
             adapted = adapted.replace(needle, replacement, 1)
         elif rel.as_posix() == "main/file_184D78.cpp":
             # Retain the most recent one-based startup callback index in the
@@ -1316,8 +1363,74 @@ def main(argv=None):
             # A single guest callback can wait indefinitely, so the before /
             # after pair identifies the exact callback without global
             # function instrumentation, which changes several EE ABI cases.
-            hook = 'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
+            hook = ('#include "screen_element.h"\n'
+                    'extern void* const g_screenElements[];\n'
+                    'extern s32 g_padRouting;\n'
+                    'extern s32 g_padSelectFlags;\n'
+                    'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_frame_stage(u32);\n'
+                    'extern "C" void sly1_native_trace_frame_state(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                    'extern "C" void sly1_native_host32_wait_frame(void);\n')
             adapted = hook + adapted
+            loop = "void RunMainLoop(s32 a, s32 b)\n{"
+            if adapted.count(loop) != 1:
+                raise RuntimeError("expected RunMainLoop definition")
+            adapted = adapted.replace(loop, loop + "\n    sly1_native_trace_frame_stage(0);", 1)
+            frame_stages = (
+                ("        UpdatePadConnection(&g_padRecord);", 1),
+                ("            UpdateCameraLocation(g_camera);", 2),
+                ("            RunWorldFrameLists(g_currentWorld, g_camera);", 3),
+                ("            QueueScreenElementDraws(g_elementStack);", 4),
+                ("            DrawAllScreenElements(g_elementStack);", 5),
+                ("            SubmitRenderFrame();", 6),
+            )
+            for statement, stage in frame_stages:
+                if adapted.count(statement) != 1:
+                    raise RuntimeError("expected RunMainLoop stage " + str(stage))
+                adapted = adapted.replace(
+                    statement,
+                    "            sly1_native_trace_frame_stage(" + str(stage) + ");\n" + statement
+                    if stage > 1 else
+                    "        sly1_native_trace_frame_stage(" + str(stage) + ");\n" + statement,
+                    1)
+            end_frame = "            SubmitRenderFrame();\n        }\n        g_frameCount++;"
+            end_frame_replacement = (
+                "            SubmitRenderFrame();\n"
+                "            sly1_native_trace_frame_stage(7);\n"
+                "        }\n"
+                "        g_frameCount++;\n"
+                "        if ((g_frameCount % 60) == 0) {\n"
+                "            u32 visible_ui = 0;\n"
+                "            u32 text_ui = 0;\n"
+                "            for (u32 i = 0; i < 37; ++i) {\n"
+                "                const u32 element = (u32)g_screenElements[i];\n"
+                "                if (element < 0x00800000u || element >= 0x00900000u) continue;\n"
+                "                if (*(volatile s32*)(element + 0x250u) != 0) ++visible_ui;\n"
+                "                if (*(volatile u8*)(element + 0x08u) != 0) ++text_ui;\n"
+                "            }\n"
+                "            volatile u32* stack = (volatile u32*)g_elementStack;\n"
+                "            u32 stack_top = stack[11] > 0 && stack[11] <= 8 ? stack[3 + stack[11] - 1] : 0;\n"
+                "            u32 stack_top_vt = 0, stack_top_mode = 0, stack_top_text = 0;\n"
+                "            if (stack_top >= 0x00200000u && stack_top < 0x09000000u) {\n"
+                "                volatile u32* item = (volatile u32*)stack_top;\n"
+                "                stack_top_vt = item[0];\n"
+                "                stack_top_text = *(volatile u8*)(stack_top + 0x08u);\n"
+                "                stack_top_mode = *(volatile u32*)(stack_top + 0x250u);\n"
+                "            }\n"
+                "            sly1_native_trace_frame_state((u32)g_currentWorld, stack[1], stack[11],\n"
+                "                stack[12], (u32)g_worldLoadRequest, (u32)g_moviePlayer.queued,\n"
+                "                visible_ui, text_ui, (u32)g_padRecord.f14, (u32)g_padRecord.f18,\n"
+                "                (u32)g_padRecord.flags, (u32)g_pauseMenuElement.open,\n"
+                "                (u32)g_pauseMenuElement.page, (u32)g_pauseMenuElement.mode,\n"
+                "                (u32)g_screenFade.mode, stack_top, stack_top_vt,\n"
+                "                stack_top_mode, stack_top_text, (u32)g_padRouting,\n"
+                "                (u32)g_padSelectFlags, (u32)g_blankPadRecord.f14);\n"
+                "        }\n"
+                "        sly1_native_host32_wait_frame();\n"
+                "        sly1_native_trace_frame_stage(8);")
+            if adapted.count(end_frame) != 1:
+                raise RuntimeError("expected RunMainLoop frame completion")
+            adapted = adapted.replace(end_frame, end_frame_replacement, 1)
             before = "    RunConstructorsOnce();"
             if adapted.count(before) != 1:
                 raise RuntimeError("expected RunConstructorsOnce in " + rel.as_posix())
@@ -1588,6 +1701,17 @@ void LoadEffectSpawner"""
                 adapted = definition.sub(
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
+        if rel.as_posix() == "main/placed_object.cpp":
+            # This matched non-void wrapper calls a void function and falls
+            # through. GCC -O2 omits its epilogue, so host execution enters the
+            # next retail function body with the previous arguments still on
+            # the stack. Keep this host ABI adaptation in the generated copy;
+            # the decompilation source remains unchanged.
+            needle = "    CreateAnimationPlayer(a, b, 0, 0, c, d);\n}"
+            replacement = "    CreateAnimationPlayer(a, b, 0, 0, c, d);\n    return 0;\n}"
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected host32 animation-player wrapper fallthrough")
+            adapted = adapted.replace(needle, replacement, 1)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":

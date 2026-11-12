@@ -11,7 +11,10 @@ extern "C" char* getenv(const char*);
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include <cstdlib>
+#include <link.h>
+#include <signal.h>
 #include <thread>
+#include <ucontext.h>
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
 extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
 extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
@@ -45,6 +48,11 @@ extern "C" void sly1_native_host32_trace_dma_channel(
     std::fprintf(stderr,
                  "[native direct DMA channel] index=%u address=%#010x caller=%#010x\n",
                  index, address, caller);
+}
+extern "C" void sly1_native_host32_wait_frame(void) {
+    // The retail main loop is paced by the PS2 display cycle. SDL owns the
+    // native display cadence here, so keep the game thread at that cadence.
+    SDL_Delay(16);
 }
 #endif
 void func_00185758(int, int);
@@ -97,6 +105,55 @@ void write_hex(const char* prefix, int value) {
     syscall3(4, 2, (int)line, (int)n);
 }
 
+bool syscall_failed(int result);
+
+#if defined(OPENRAC_SLY1_WITH_SDL)
+__attribute__((no_instrument_function)) void native_fault_trace(
+    int signal_number, siginfo_t* info, void* context) {
+    const auto* state = static_cast<const ucontext_t*>(context);
+    write_hex("native host32: fatal signal ", signal_number);
+    write_hex("native host32: fault address ", (int)info->si_addr);
+    write_hex("native host32: fault eip ", state->uc_mcontext.gregs[REG_EIP]);
+    write_hex("native host32: fault esp ", state->uc_mcontext.gregs[REG_ESP]);
+    write_hex("native host32: fault ebp ", state->uc_mcontext.gregs[REG_EBP]);
+    syscall1(252, 128 + signal_number);
+}
+
+void install_fault_trace() {
+    struct sigaction action{};
+    action.sa_sigaction = native_fault_trace;
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGSEGV, &action, nullptr);
+    sigaction(SIGBUS, &action, nullptr);
+}
+
+int make_game_constants_writable(dl_phdr_info* image, size_t, void*) {
+    if (image->dlpi_name != nullptr && image->dlpi_name[0] != '\0') return 0;
+    for (ElfW(Half) i = 0; i < image->dlpi_phnum; ++i) {
+        const ElfW(Phdr)& segment = image->dlpi_phdr[i];
+        if (segment.p_type != PT_LOAD || (segment.p_flags & PF_R) == 0 ||
+            (segment.p_flags & (PF_W | PF_X)) != 0) continue;
+        const u32 begin = (u32)(image->dlpi_addr + segment.p_vaddr) & ~(kPage - 1);
+        const u32 limit = (u32)(image->dlpi_addr + segment.p_vaddr + segment.p_memsz);
+        const u32 end = (limit + kPage - 1) & ~(kPage - 1);
+        const int result = syscall3(125, (int)begin, (int)(end - begin),
+                                    kProtRead | kProtWrite);
+        if (syscall_failed(result)) {
+            write_hex("native host32: writable constants mprotect error ", result);
+        } else {
+            write_hex("native host32: writable constants begin ", (int)begin);
+            write_hex("native host32: writable constants end ", (int)end);
+        }
+    }
+    return 1;
+}
+
+void make_game_constants_writable() {
+    dl_iterate_phdr(make_game_constants_writable, nullptr);
+}
+#endif
+
 u32 resolve_native(u32 address) {
     for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
         const auto& entry = sly1::sly1_native_function_addresses[i];
@@ -136,32 +193,32 @@ volatile u32 g_disc_read_count = 0;
 volatile u32 g_disc_sectors_read = 0;
 extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
 extern "C" volatile u32 sly1_native_startup_callback_index = 0;
-volatile u32 g_trace_last_guest_function = 0;
-volatile u32 g_trace_function_entries = 0;
+extern "C" volatile u32 D_002613F0;
 bool g_startup_trace_enabled = false;
-constexpr u32 kTraceThreadSlots = 32;
-volatile u32 g_trace_thread_count = 0;
-volatile u32 g_trace_thread_tid[kTraceThreadSlots]{};
-volatile u32 g_trace_thread_function[kTraceThreadSlots]{};
-volatile u32 g_trace_thread_entries[kTraceThreadSlots]{};
-volatile u32 g_trace_thread_depth[kTraceThreadSlots]{};
-volatile u32 g_trace_thread_stack[kTraceThreadSlots][128]{};
-
-__attribute__((no_instrument_function)) u32 trace_current_tid() {
-    int result;
-    __asm__ __volatile__("int $0x80" : "=a"(result) : "0"(224) : "memory", "cc");
-    return static_cast<u32>(result);
-}
-
-u32 trace_slot_for_tid(u32 tid) {
-    u32 count = __atomic_load_n(&g_trace_thread_count, __ATOMIC_RELAXED);
-    for (u32 i = 0; i < count && i < kTraceThreadSlots; ++i) {
-        if (__atomic_load_n(&g_trace_thread_tid[i], __ATOMIC_RELAXED) == tid) return i;
-    }
-    const u32 slot = __atomic_fetch_add(&g_trace_thread_count, 1u, __ATOMIC_RELAXED);
-    if (slot < kTraceThreadSlots) __atomic_store_n(&g_trace_thread_tid[slot], tid, __ATOMIC_RELAXED);
-    return slot;
-}
+volatile u32 g_native_frame_stage = 0;
+volatile u32 g_native_frame_count = 0;
+volatile u32 g_native_world = 0;
+volatile u32 g_native_ui_state = 0;
+volatile u32 g_native_ui_stack_count = 0;
+volatile u32 g_native_ui_resume_state = 0;
+volatile u32 g_native_world_load_request = 0;
+volatile u32 g_native_movie_queued = 0;
+volatile u32 g_native_active_ui = 0;
+volatile u32 g_native_text_ui = 0;
+volatile u32 g_native_pad_status = 0;
+volatile u32 g_native_pad_mode = 0;
+volatile u32 g_native_pad_flags = 0;
+volatile u32 g_native_pause_open = 0;
+volatile u32 g_native_pause_page = 0;
+volatile u32 g_native_pause_mode = 0;
+volatile u32 g_native_fade_mode = 0;
+volatile u32 g_native_stack_top = 0;
+volatile u32 g_native_stack_top_vt = 0;
+volatile u32 g_native_stack_top_mode = 0;
+volatile u32 g_native_stack_top_text = 0;
+volatile u32 g_native_pad_routing = 0;
+volatile u32 g_native_pad_select = 0;
+volatile u32 g_native_blank_pad_status = 0;
 
 bool probe_disc_signature(u32 offset) {
     u8 signature[6]{};
@@ -325,11 +382,17 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
     }
     g_startup_trace_enabled = argc == 4 && argv[3][0] == '-' && argv[3][1] == '-' &&
                               argv[3][2] == 't';
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    if (g_startup_trace_enabled) install_fault_trace();
+#endif
     if (!load_retail_image(argv[1])) return 1;
     if (!open_disc_image(argv[2])) {
         write_text("native host32: cannot open ISO 9660 disc image\n");
         return 1;
     }
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    make_game_constants_writable();
+#endif
     write_text("native host32: retail data and ISO mapped; starting compiled Sly frame path\n");
 #if defined(OPENRAC_SLY1_WITH_SDL)
     if (!openrac_native_window_create()) {
@@ -361,27 +424,35 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
                          openrac_native_renderer_dma_reject_count(),
                          openrac_native_renderer_dma_bytes());
             std::fprintf(stderr,
-                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u last_func=0x%08x calls=%u\n",
+                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u game_frames=%u frame_stage=%u world=%#x ui_state=%u ui_stack=%u resume=%d load=%u movie=%u visible_ui=%u text_ui=%u pad_status=%u pad_mode=%u pad_flags=%#x pad_route=%u pad_select=%u blank_pad_status=%u pause_open=%u pause_page=%d pause_mode=%u fade=%u stack_top=%#x top_vt=%#x top_mode=%u top_text=%u\n",
                          game_finished.load(std::memory_order_acquire) ? 1u : 0u,
                          sly1_native_startup_callback_index,
                          sly1_native_iop_boot_stage,
                          g_disc_read_count, g_disc_sectors_read,
-                         __atomic_load_n(&g_trace_last_guest_function, __ATOMIC_RELAXED),
-                         __atomic_load_n(&g_trace_function_entries, __ATOMIC_RELAXED));
-            const u32 trace_threads = __atomic_load_n(&g_trace_thread_count, __ATOMIC_RELAXED);
-            for (u32 i = 0; i < trace_threads && i < kTraceThreadSlots; ++i) {
-                std::fprintf(stderr, "[native thread %u tid=%u] active_func=0x%08x calls=%u stack=",
-                             i, __atomic_load_n(&g_trace_thread_tid[i], __ATOMIC_RELAXED),
-                             __atomic_load_n(&g_trace_thread_function[i], __ATOMIC_RELAXED),
-                             __atomic_load_n(&g_trace_thread_entries[i], __ATOMIC_RELAXED));
-                const u32 depth = __atomic_load_n(&g_trace_thread_depth[i], __ATOMIC_RELAXED);
-                for (u32 n = 0; n < depth && n < 8; ++n) {
-                    const u32 at = depth - n - 1;
-                    std::fprintf(stderr, "%s%08x", n == 0 ? "" : "/",
-                                 __atomic_load_n(&g_trace_thread_stack[i][at], __ATOMIC_RELAXED));
-                }
-                std::fprintf(stderr, "\n");
-            }
+                         __atomic_load_n(&g_native_frame_count, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_frame_stage, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_world, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_ui_state, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_ui_stack_count, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_ui_resume_state, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_world_load_request, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_movie_queued, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_active_ui, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_text_ui, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pad_status, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pad_mode, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pad_flags, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pad_routing, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pad_select, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_blank_pad_status, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pause_open, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_pause_page, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_pause_mode, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_fade_mode, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_stack_top, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_stack_top_vt, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_stack_top_mode, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_stack_top_text, __ATOMIC_RELAXED));
             std::fprintf(stderr, "[native critical] owner=%d depth=%u spins=%u\n",
                          sly1_native_critical_owner(), sly1_native_critical_depth(),
                          sly1_native_critical_spins());
@@ -542,6 +613,45 @@ extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_script_host_call(u32 function, u32 self, u32 count) {
+    if (!g_startup_trace_enabled || self < 0x00100000u || self >= 0x12000000u)
+        return;
+    const auto* object = reinterpret_cast<volatile const u32*>(self);
+    const u32 descriptor = object[0];
+    if (descriptor < 0x00100000u || descriptor >= 0x12000000u) return;
+    const auto* head = reinterpret_cast<volatile const u32*>(descriptor);
+    if (head[1] != 0x57u) return;
+    write_hex("native host32: notifier script host function ", (int)function);
+    write_hex("native host32: notifier script host self ", (int)self);
+    write_hex("native host32: notifier script host argument count ", (int)count);
+    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
+        const auto& entry = sly1::sly1_native_function_addresses[i];
+        if (entry.native_address == function) {
+            write_hex("native host32: notifier script host retail function ",
+                      (int)entry.retail_address);
+            break;
+        }
+    }
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_script_builtin(u32 function, u32 count, u32 args, u32 scope) {
+    if (!g_startup_trace_enabled) return;
+    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
+        const auto& entry = sly1::sly1_native_function_addresses[i];
+        if (entry.native_address != function) continue;
+        if (entry.retail_address != 0x0012c7d8u &&
+            entry.retail_address != 0x00101a90u) return;
+        write_hex("native host32: animation script builtin target ",
+                  (int)entry.retail_address);
+        write_hex("native host32: animation script builtin count ", (int)count);
+        write_hex("native host32: animation script builtin args ", (int)args);
+        write_hex("native host32: animation script builtin scope ", (int)scope);
+        return;
+    }
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_startup(u32 index, u32 phase, u32 callback) {
     if (!g_startup_trace_enabled) return;
     write_hex("native host32: startup callback index ", (int)index);
@@ -646,50 +756,43 @@ sly1_native_trace_sorter(u32 stage, u32 world, u32 axis, u32 value) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
-__cyg_profile_func_enter(void* function, void*) {
-    const u32 native_address = reinterpret_cast<u32>(function);
-    const u32 slot = trace_slot_for_tid(trace_current_tid());
-    if (slot < kTraceThreadSlots)
-        __atomic_add_fetch(&g_trace_thread_entries[slot], 1u, __ATOMIC_RELAXED);
-    u32 guest_address = 0;
-    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
-        const auto& entry = sly1::sly1_native_function_addresses[i];
-        if (entry.native_address == native_address) {
-            guest_address = entry.retail_address;
-            break;
-        }
-    }
-    __atomic_store_n(&g_trace_last_guest_function, guest_address, __ATOMIC_RELAXED);
-    u32 depth = 0;
-    if (slot < kTraceThreadSlots) {
-        depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
-        if (depth < 128) {
-            __atomic_store_n(&g_trace_thread_stack[slot][depth], guest_address,
-                             __ATOMIC_RELAXED);
-            __atomic_store_n(&g_trace_thread_depth[slot], depth + 1,
-                             __ATOMIC_RELAXED);
-        }
-    }
-    if (g_startup_trace_enabled && guest_address != 0) {
-        write_hex("native host32: call depth ", (int)depth);
-        write_hex("native host32: entered function ", (int)guest_address);
-    }
-    if (slot < kTraceThreadSlots)
-        __atomic_store_n(&g_trace_thread_function[slot], guest_address, __ATOMIC_RELAXED);
-    __atomic_add_fetch(&g_trace_function_entries, 1u, __ATOMIC_RELAXED);
+sly1_native_trace_frame_stage(u32 stage) {
+    __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
+    if (stage == 8)
+        __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
 }
 
 extern "C" __attribute__((no_instrument_function)) void
-__cyg_profile_func_exit(void*, void*) {
-    const u32 slot = trace_slot_for_tid(trace_current_tid());
-    if (slot >= kTraceThreadSlots) return;
-    u32 depth = __atomic_load_n(&g_trace_thread_depth[slot], __ATOMIC_RELAXED);
-    if (depth == 0) return;
-    --depth;
-    __atomic_store_n(&g_trace_thread_depth[slot], depth, __ATOMIC_RELAXED);
-    const u32 parent = depth == 0 ? 0 : __atomic_load_n(
-        &g_trace_thread_stack[slot][depth - 1], __ATOMIC_RELAXED);
-    __atomic_store_n(&g_trace_thread_function[slot], parent, __ATOMIC_RELAXED);
+sly1_native_trace_frame_state(u32 world, u32 state, u32 count, u32 resume,
+                              u32 load_request, u32 movie, u32 visible_ui,
+                              u32 text_ui, u32 pad_status, u32 pad_mode,
+                              u32 pad_flags, u32 pause_open, u32 pause_page,
+                              u32 pause_mode, u32 fade_mode, u32 stack_top,
+                              u32 stack_top_vt, u32 stack_top_mode,
+                              u32 stack_top_text, u32 pad_routing,
+                              u32 pad_select, u32 blank_pad_status) {
+    __atomic_store_n(&g_native_world, world, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_ui_state, state, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_ui_stack_count, count, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_ui_resume_state, resume, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_world_load_request, load_request, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_movie_queued, movie, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_active_ui, visible_ui, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_text_ui, text_ui, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pad_status, pad_status, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pad_mode, pad_mode, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pad_flags, pad_flags, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pause_open, pause_open, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pause_page, pause_page, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pause_mode, pause_mode, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_fade_mode, fade_mode, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_stack_top, stack_top, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_stack_top_vt, stack_top_vt, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_stack_top_mode, stack_top_mode, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_stack_top_text, stack_top_text, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pad_routing, pad_routing, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_pad_select, pad_select, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_blank_pad_status, blank_pad_status, __ATOMIC_RELAXED);
 }
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
@@ -705,7 +808,7 @@ extern "C" void sly1_native_startup_callback(unsigned int index) {
 
 extern "C" int sly1_native_host32_iop_boot(void) {
     if (g_disc_sector_count == 0) return 0;
-    *(volatile u32*)0x002613F0u = 0x14u;
+    D_002613F0 = 0x14u;
     return 1;
 }
 
@@ -731,9 +834,10 @@ int main(int argc, char** argv) {
 // Host32 diagnostic shims: SDL builds bind these services to the native
 // runtime. The freestanding launcher has no input or renderer, but still
 // needs to execute startup far enough to inspect resource loading.
+extern "C" void sly1_native_host32_wait_frame(void) {}
 extern "C" int sly1_native_host32_iop_boot(void) {
     if (g_disc_sector_count == 0) return 0;
-    *(volatile u32*)0x002613F0u = 0x14u;
+    D_002613F0 = 0x14u;
     sly1_native_iop_boot_stage = 1;
     return 1;
 }
