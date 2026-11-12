@@ -48,11 +48,12 @@ decomp worktree is still at `bfc74817`, 59 commits behind. The latest report
 matches 4,762/4,807 functions, 93.449% of code and 99.616% of data. Wave 32
 reorganized the C++ source into 190 units and added two matched functions.
 
-A read-only snapshot of `86682ddd` now compiles all 190 units and all 58
-port-only host32 backfills. A port-only `TransformVector4` implementation
-resolves one function in the direct frame path. The combined native object
-records 4,340 catalogued function entries, and that frontier has 810/822
-definitions (12 missing). The freestanding i386 launcher links, with
+A read-only snapshot of `86682ddd` compiles all 190 units and all 61
+port-only host32 backfills. Since the previously reported 810/822 frontier,
+the bounded-copy and perpendicular-basis backfills plus two cache-coherency
+APIs add four definitions. The combined native object records 4,344 catalogued function entries,
+and that frontier has 814/822 definitions (8 missing). The freestanding i386
+launcher links, with
 unresolved retail functions routed to address-reporting traps. This is a
 compile/link milestone; the new launcher has not yet demonstrated a title,
 scene, or controllable gameplay. The visible memory-card format prompt came

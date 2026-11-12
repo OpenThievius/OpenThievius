@@ -7,7 +7,7 @@ OpenThievius/
 ├── games/                  one directory per game
 │   └── sly1/
 │       └── game.json       discs, checksums, roles, where the decompilation lives
-├── port/                   the native PC port (not started)
+├── port/                   the experimental native PC port and host tools
 ├── tools/                  repository-wide tools: openthievius.py, disc.py
 ├── tests/                  the tools' tests and the repository check
 ├── docs/                   knowledge and rules that span the project

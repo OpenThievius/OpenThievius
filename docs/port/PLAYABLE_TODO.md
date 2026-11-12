@@ -3,11 +3,13 @@
 
 **Current status (2026-11-12):** upstream `sly1-decomp` master is
 `86682ddd` (Wave 32); the sibling checkout remains at `bfc74817`, 59 commits
-behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 58/58
-port-only host32 backfills. A native `TransformVector4` backfill closes one
-frame-path gap; the combined object resolves 810/822 direct frame calls,
-leaving 12 missing, and the freestanding i386 launcher links. It has not
-yet been run against the disc or shown a title, scene, or controllable game.
+behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 61/61
+port-only host32 backfills. Since the previous 810/822 frontier, the bounded
+copy and perpendicular-basis backfills plus two cache-coherency APIs add four
+direct frame-path definitions. The combined object resolves 814/822 direct
+frame calls, leaving 8 missing, and the freestanding i386 launcher links. The
+launcher has not yet been run against the disc or shown a title, scene, or
+controllable game. The direct-call scan does not follow indirect callbacks.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed
@@ -52,8 +54,8 @@ animation callback stages dispatch, but the graph remains on its state-2
 self-edge; sampled frames show zero vertices and image uploads. Log:
 `/tmp/sly-wip-notifier-final-12s-20261112.log`.
 
-**First visible native startup prompt (2026-11-12):** the user confirmed
-that the native window now displays the unformatted-memory-card prompt with
+**First visible experimental startup prompt (2026-11-12):** the user confirmed
+that the guest-runtime window displays the unformatted-memory-card prompt with
 readable message text. The choice labels appear as button/placeholder glyphs.
 The current memory-card RPC probe returns “unavailable”, matching the game’s
 normal no-card flow; formatting was not selected. The framebuffer dump remains

@@ -2,11 +2,11 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-12. Current decomp master is `86682ddd` (Wave 32, PR #123).
-The no-emulation host32 path compiles all 190 Sly units and 58 port-only
-backfills, combines 4,340 catalogued native function entries, and links a
-freestanding launcher. A `TransformVector4` backfill resolved one frame-path
-call; 12 direct calls remain. The launcher has not yet produced a verified
-title or scene.
+The no-emulation host32 path compiles all 190 Sly units and 61 port-only
+backfills, combines 4,344 catalogued native function entries, and links a
+freestanding launcher. Its direct frame-call scan resolves 814/822 functions,
+leaving 8; indirect callbacks are outside the scan. The launcher has not yet
+produced a verified title or scene.
 
 The unformatted-memory-card prompt was observed in the separate experimental
 guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
@@ -144,8 +144,9 @@ confirmed game graphics yet.
 
 Older SDL traces reached the initial resource, set `g_currentWorld=0x006abdd0`,
 and briefly reported 240 raw vertices; those samples were not confirmed game
-art. The current canonical host32 run remains visually black with zero scene
-vertices, visible text, and GIF submissions. The resource tables contain 61
+art. The latest experimental guest-runtime run remains visually black with
+zero scene vertices, visible text, and GIF submissions. This is not a report
+from the no-emulation host32 launcher. The resource tables contain 61
 image records and 63 palette records; four font IDs are registered. Port-only
 `QueueWorldLoad` and image record readers remain separate under
 `hand/native_c/` and `hand/backfills.tsv`. Exact US assembly is enabled for the

@@ -9,50 +9,24 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Canonical `sly1-decomp` master is `674b40e` (PR #122, Wave 29). The checkout at
-`/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; its remote
-tracking ref was fetched, not checked out. The latest read-only source archive
-is `/tmp/sly1-decomp-674b40e-source`; the build keeps using US assembly from
-`/tmp/sly1-decomp-wave24-asm`, since the new source archive does not contain
-that directory. Wave 29 splits the source into named files and adds PAL
-version tracking and data; `ReadPlacedObjectModel` is unchanged. Hostgen against
-the latest archive yields 789 C functions, 501 retail assembly functions, 2
-stubs, and 3,635 without C in 276 units. Four reachable
-VIF writer helpers use exact US retail assembly because their staged C is not
-matching. The `build/port` launcher was rebuilt after the port-only VIF1 TTE
-correction; all functional backfills remain separate from `sly1-decomp`.
+Canonical `sly1-decomp` master is `86682ddd` (Wave 32). The sibling checkout
+at `/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; the build
+uses a separate Wave 32 source snapshot and the older US assembly snapshot
+because current upstream no longer ships that tree. The Wave 32 host32 build
+compiles all 190 source units and 61 port-only backfills. Its combined object
+contains 4,344 catalogued function entries. The direct frame-call scan finds
+814 of 822 definitions and eight unresolved addresses; this scan does not
+follow indirect callbacks. The freestanding i386 launcher links, routing
+unresolved functions to diagnostic traps.
 
-The 15-second normal startup run against Wave 29 still shows a black window,
-37 inactive UI objects, no visible text, no vertices, and no image transfers.
-The element stack remains in state 3; accepted GIF-chain submissions do not
-produce visible art. See `docs/port/PLAYABLE_TODO.md` for the current trace.
-
-The current Splash trace resolves the CountdownNotifier's graph pointer to
-StateGraph ID `0x25f` and creates its walker. The graph's animation player
-advances, but remains on the `0x261` state-2 self-edge. The notifier stays in
-state 0 with a null `+0x338` gate. A fresh trace found 22 reached visual/UI
-functions running as empty stubs; they are now selected from exact US retail
-assembly. The initialized font count rose from 35 to 37, but every screen
-element remains mode 0 and the renderer reports zero vertices, visible text,
-image tags, or GIF submissions. Trace:
-`/tmp/sly-renderer-retail-asm-20s.log`. A second exact-assembly pass restores
-11 reached UI state callbacks; those warnings are gone, but the next trace
-still shows all 37 elements inactive and zero graphics output. Trace:
-`/tmp/sly-ui-state-retail-asm-20s.log`. A 65-second run reached 32.15 guest
-seconds but remained in the normal element-stack state with no pad input,
-movie queue, world load, or graphics. The latest trace reaches object-tree and
-placed-object update callbacks, but never prepares a range record or builds a
-range packet. Splash prepares text layout and starts its notifier, but never
-reaches text drawing or glyph emission. The pad remains neutral until a user
-presses a key or controller button. Log:
-`/tmp/sly-current-canonical-asm-interactive.log`.
-All behavior replacements remain isolated from `sly1-decomp`. See
-[`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) for the current
-blocker and next trace target.
-
-These build counts measure host compatibility, not decomp coverage. The port
-is not playable. The direct host32 diagnostic is separate from the SDL graphics
-frontend.
+This is a no-emulation compile/link diagnostic, not a playable graphics
+frontend. It has not been run against the disc. The separate experimental
+guest-runtime launcher displayed the retail unformatted-memory-card prompt,
+but it is not evidence of native gameplay and no format action was taken.
+See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
+[`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
+current evidence and blockers. Backfills remain isolated from
+`sly1-decomp` and must be retired when matching source becomes hostable.
 
 ## Backfill policy
 
@@ -88,5 +62,5 @@ build/port/host32/launcher/sly1_host32 <SCUS_971.98> <Sly 1 ISO or BIN>
 ```
 
 The current diagnostic build lives under
-`build/port/canonical-2e00ac70-host32/`. It is an experimental source
-compatibility path, not the SDL graphics frontend.
+`build/port/host32/upstream-86682ddd/`. It is an experimental source
+compatibility path, not a playable frontend.
