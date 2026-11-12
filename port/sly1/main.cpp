@@ -506,9 +506,9 @@ std::uint32_t trace_world_list_count(std::uint32_t world, std::uint32_t list_off
     return count;
 }
 
-std::array<std::uint32_t, 32> trace_world_list_classes(std::uint32_t world,
+std::array<std::uint32_t, 64> trace_world_list_classes(std::uint32_t world,
                                                        std::uint32_t list_offset) {
-    std::array<std::uint32_t, 32> classes{};
+    std::array<std::uint32_t, 64> classes{};
     std::uint32_t list_address = 0;
     if (!trace_guest_range(world + list_offset, 12u, &list_address)) return classes;
     std::uint32_t node = 0;
@@ -527,6 +527,25 @@ std::array<std::uint32_t, 32> trace_world_list_classes(std::uint32_t world,
         if (!trace_guest_range(descriptor, 8u, &descriptor_address)) break;
         std::memcpy(&classes[i], openrac_guest_base + descriptor_address + 4u,
                     sizeof(classes[i]));
+        if (list_offset == 0x60u && classes[i] == 4u &&
+            std::getenv("OPENRAC_TRACE_OBJECTS") != nullptr) {
+            std::uint32_t object_id = 0, slot40 = 0, slot42 = 0, next = 0;
+            std::uint64_t flags = 0;
+            std::memcpy(&object_id, openrac_guest_base + object_address + 8u, 4u);
+            std::memcpy(&slot40, openrac_guest_base + descriptor_address + 0xA0u, 4u);
+            std::memcpy(&slot42, openrac_guest_base + descriptor_address + 0xA8u, 4u);
+            std::memcpy(&flags, openrac_guest_base + object_address + 0x2C8u, 8u);
+            std::uint32_t link_address = 0;
+            if (trace_guest_range(node + static_cast<std::uint32_t>(link_offset),
+                                  sizeof(next), &link_address))
+                std::memcpy(&next, openrac_guest_base + link_address, 4u);
+            std::cerr << "[active-class4] world=0x" << std::hex << world
+                      << " list=0x" << list_offset << " index=" << std::dec << i
+                      << " object=0x" << std::hex << node << " id=0x" << object_id
+                      << " slot40=0x" << slot40 << " slot42=0x" << slot42
+                      << " flags=0x" << flags << " next=0x" << next << std::dec
+                      << '\n';
+        }
         std::uint32_t link_address = 0;
         if (!trace_guest_range(node + static_cast<std::uint32_t>(link_offset),
                                sizeof(node), &link_address)) break;
