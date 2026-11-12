@@ -259,6 +259,9 @@ def lower_host_vu0(text):
         "Splat": "return HostPack(f,f,f,f);",
         "FromFloats": "return HostPack(x,y,z,z);",
         "ScalarInGpr": "return HostPack(f,0,0,0);",
+        # The Wave 39 script machine loads a float's bits straight from memory
+        # into a GPR before treating it as a scalar VU value.
+        "ScalarInGprAt": "return HostPack(f,0,0,0);",
         "ScalarInGprReg": "return HostPack(f,0,0,0);",
         "MulX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)*scale,HostLane(a,1)*scale,HostLane(a,2)*scale,HostLane(a,3)*scale);",
         "MulAddX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)+HostLane(b,0)*scale,HostLane(a,1)+HostLane(b,1)*scale,HostLane(a,2)+HostLane(b,2)*scale,HostLane(a,3)+HostLane(b,3)*scale);",
