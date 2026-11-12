@@ -25,6 +25,8 @@ def run(command):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--object", required=True, type=Path)
+    parser.add_argument("--aliases", required=True, type=Path,
+                        help="retail data aliases, resolved after host data placement")
     parser.add_argument("--runtime", required=True, type=Path,
                         help="32-bit libsly1_port_runtime.a built with direct retail memory")
     parser.add_argument("--out", required=True, type=Path)
@@ -82,6 +84,7 @@ def main(argv=None):
 
     executable = args.out / "sly1_native_sdl32"
     command = compiler + common + ["-no-pie", "-Wl,--build-id=none", "-o", str(executable),
+                                   "-Wl,-T," + str(args.aliases),
                                    *map(str, objects), str(args.object), str(args.runtime),
                                    "-lSDL3", "-pthread", "-ldl"]
     if args.sdl_libdir:

@@ -46,6 +46,22 @@ def nm_function_definitions(nm, path):
     return symbols
 
 
+def nm_data_definitions(nm, path):
+    """Return retail-named data definitions with their host object sizes."""
+    result = subprocess.run([nm, "-S", "--defined-only", str(path)],
+                            check=True, text=True, capture_output=True)
+    definitions = []
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 4 or fields[-2].upper() not in "BDRSGC":
+            continue
+        match = DATA_ADDRESS.fullmatch(fields[-1])
+        if match:
+            definitions.append((int(match.group(1), 16), int(fields[1], 16),
+                                fields[-1]))
+    return definitions
+
+
 def reachable_function_frontier(objdump, nm, path, roots):
     """Follow function-address relocations from roots in the combined object.
 
@@ -127,9 +143,14 @@ def main(argv=None):
     defined_by_address = defaultdict(set)
     decomp_definitions = defaultdict(set)
     backfill_definitions = defaultdict(set)
+    data_definitions = defaultdict(set)
+    defined_data_symbols = set()
     undefined = set()
     for obj in objects:
         is_backfill = "port_native" in obj.parts
+        for address, size, symbol in nm_data_definitions(args.nm, obj):
+            data_definitions[address].add((size, symbol))
+            defined_data_symbols.add(symbol)
         for symbol in nm_function_definitions(args.nm, obj):
             match = function_address_match(symbol)
             if match:
@@ -145,9 +166,10 @@ def main(argv=None):
         print("remove the backfill once matching C/C++ is available", file=sys.stderr)
         return 1
 
-    aliases = []
-    function_aliases = 0
-    data_aliases = 0
+    function_alias_lines = []
+    data_alias_lines = []
+    function_alias_count = 0
+    data_alias_count = 0
     ambiguous = []
     for symbol in sorted(undefined):
         match = function_address_match(symbol)
@@ -157,16 +179,41 @@ def main(argv=None):
             if len(candidates) == 1:
                 target = next(iter(candidates))
                 if symbol != target:
-                    aliases.append(f"PROVIDE({symbol} = {target});")
-                    function_aliases += 1
+                    function_alias_lines.append(f"PROVIDE({symbol} = {target});")
+                    function_alias_count += 1
             elif len(candidates) > 1:
                 ambiguous.append({"address": f"0x{address:08x}", "references": symbol,
                                   "definitions": sorted(candidates)})
             continue
         match = DATA_ADDRESS.fullmatch(symbol)
         if match:
-            aliases.append(f"PROVIDE({symbol} = 0x{int(match.group(1), 16):08x});")
-            data_aliases += 1
+            # nm reports symbols as undefined per object even when another
+            # object in the combined link defines the same retail datum.
+            # Emitting PROVIDE(name = name) makes linker-script expressions
+            # that use this symbol resolve against the zero-valued script
+            # alias instead of the relocated data definition.
+            if symbol in defined_data_symbols:
+                continue
+            address = int(match.group(1), 16)
+            exact = data_definitions.get(address, set())
+            containing = [
+                (base, size, target)
+                for base, definitions in data_definitions.items()
+                for size, target in definitions
+                if base < address < base + size
+            ]
+            if len(exact) == 1:
+                target = next(iter(exact))[1]
+                data_alias_lines.append(f"PROVIDE({symbol} = {target});")
+            elif not exact and len(containing) == 1:
+                base, _, target = containing[0]
+                data_alias_lines.append(
+                    f"PROVIDE({symbol} = {target} + 0x{address - base:x});")
+                data_alias_count += 1
+                continue
+            else:
+                data_alias_lines.append(f"PROVIDE({symbol} = 0x{address:08x});")
+            data_alias_count += 1
 
     function_rows = []
     for line in args.functions.read_text(encoding="utf-8").splitlines():
@@ -262,11 +309,17 @@ def main(argv=None):
     layout_script = args.out / "retail-data-layout.ld"
     layout_script.write_text(("SECTIONS {\n" + "\n".join(layout) + "\n}\n"
                               if layout else ""), encoding="utf-8")
-    script = args.out / "retail-address-aliases.ld"
-    script.write_text("\n".join(aliases) + "\n", encoding="utf-8")
+    function_script = args.out / "native-function-aliases.ld"
+    function_script.write_text("\n".join(function_alias_lines) + "\n", encoding="utf-8")
+    data_script = args.out / "retail-address-aliases.ld"
+    data_script.write_text("\n".join(data_alias_lines) + "\n", encoding="utf-8")
+    sdl_data_script = args.out / "retail-address-aliases-sdl.ld"
+    sdl_data_script.write_text(
+        "SECTIONS { .sly1_alias_anchor : { } } INSERT AFTER .bss;\n" +
+        "\n".join(data_alias_lines) + "\n", encoding="utf-8")
     combined = args.out / "decomp-native32.o"
     cmd = [args.ld, "-m", "elf_i386", "-r", "-T", str(layout_script),
-           "-T", str(script), "-o", str(combined)]
+           "-T", str(function_script), "-o", str(combined)]
     cmd.extend(map(str, objects))
     cmd.append(str(map_object))
     result = subprocess.run(cmd, text=True, capture_output=True)
@@ -290,8 +343,8 @@ def main(argv=None):
         "catalogued_function_addresses": catalogued_row_count,
         "native_function_addresses": native_count,
         "native_extra_backfill_addresses": extra_native_count,
-        "function_reference_aliases": function_aliases,
-        "retail_data_address_aliases": data_aliases,
+        "function_reference_aliases": function_alias_count,
+        "retail_data_address_aliases": data_alias_count,
         "ambiguous_function_addresses": ambiguous,
         "unresolved_symbols": len(remaining),
         "unresolved_function_addresses": [f"0x{x:08x}" for x in missing_addresses],
@@ -300,7 +353,7 @@ def main(argv=None):
     }
     (args.out / "link-frontier.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"combined {len(objects)} decomp objects and the native function map")
-    print(f"resolved {function_aliases} function references and {data_aliases} retail data symbols")
+    print(f"resolved {function_alias_count} function references and {data_alias_count} retail data symbols")
     print(f"native function entries: {native_count}/{catalogued_row_count} catalogued"
           f" (+ {extra_native_count} non-catalogued backfill addresses)")
     print(f"unresolved function addresses: {len(missing_addresses)} ({len(remaining)} symbol names)")

@@ -187,6 +187,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 4)
     add_custom_target(port_native_sdl_host32
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/link_native_sdl_host32.py
                 --object ${CMAKE_CURRENT_BINARY_DIR}/host32/link/decomp-native32.o
+                --aliases ${CMAKE_CURRENT_BINARY_DIR}/host32/link/retail-address-aliases-sdl.ld
                 --runtime $<TARGET_FILE:sly1_port_runtime>
                 --out ${CMAKE_CURRENT_BINARY_DIR}/host32/sdl-launcher
                 --source ${CMAKE_CURRENT_SOURCE_DIR}/sly1/native_host32
