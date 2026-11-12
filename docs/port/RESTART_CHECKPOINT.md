@@ -10,8 +10,13 @@ and 61 port-only host32 backfills. Since the previous 810/822 frontier,
 bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
 add four direct frame-path entries. The combined object has 814 of 822
 functions in its direct-call frontier; the freestanding i386 launcher links.
-This scan omits indirect callbacks. The launcher has not demonstrated a
-playable scene. This is the current no-emulation path.
+This scan omits indirect callbacks. The latest host32 staging build adds a
+zero return to the matched `SetIopSoundOptionFlag` body because it is declared
+non-void but only queues a command; the decomp source stays unchanged. A
+bounded native run now passes its prior `0xb` IOP fault and reaches
+`func_0012C288` (`CreateAnimationPlayer`), then faults reading a track through
+a null `Animation::tracks` pointer while the track count is nonzero. The cause
+is not yet established, and no playable scene has been demonstrated.
 
 The visible memory-card format prompt and all GS/Splash traces below came from
 the separate experimental guest-runtime launcher. Its memory-card probe
@@ -59,7 +64,7 @@ replacements in `/home/reaper/sly/sly1-decomp`. Use the direct compiled host32
 path for port progress; the experimental guest-runtime launcher is not the
 no-emulation target.
 
-## Current status (2026-11-12)
+## Earlier Wave 32 status (superseded by the host32 run above)
 
 The latest native build uses an immutable Wave 32 source snapshot at
 `build/port/decomp-source-wave32/` (upstream `86682dd`, PR #123); the sibling

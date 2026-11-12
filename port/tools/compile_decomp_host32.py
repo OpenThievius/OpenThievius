@@ -640,6 +640,19 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one HSV output register call in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/iop_commands.cpp":
+            # The matching body queues a command but is declared s32 and has
+            # no return statement. At -O2 GCC may omit its epilogue entirely,
+            # falling into the next function. Callers use it for side effects;
+            # return zero in this host staging copy to preserve control flow.
+            old = ("s32 SetIopSoundOptionFlag(s32 arg)\n{\n"
+                   "    s32 local = arg;\n"
+                   "    QueueIopCommand(11, 4, &local, 0, 0);\n"
+                   "}")
+            new = old[:-2] + "\n    return 0;\n}"
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected one side-effect-only IOP option helper")
+            adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/pose_source.cpp":
             # These closure byte arrays hold Mat02 values passed to VU0
             # routines. Their retail stack layout is quadword-aligned even
