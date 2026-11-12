@@ -24,10 +24,12 @@ no-controller auto-pause branch is not active. Latest reproduction:
 A further trace found that the CountdownNotifier message handler
 `func_00148E40` and generic queued-call append `func_001DBCC8` were still
 no-op stubs despite being reached. Exact US assembly is now selected for those
-plus `func_00148E18` and `func_00148EF8`. The rebuilt launcher reaches the same
-Splash graph and still shows no image uploads; the warnings for this cluster
-are gone. Hostgen now reports 798 translated functions, 526 from assembly,
-and 2 stubs. Log: `/tmp/sly-wip-notifier-asm-recovery-10s-20261112.log`.
+plus `func_00148E18`, `func_00148EF8`, and the handler dependency
+`func_001B6598` (`GetStateWalkerCurrentKey`). The rebuilt launcher reaches the
+same Splash graph and still shows no image uploads; warnings for this cluster
+are gone. Hostgen now reports 798 translated functions, 527 from assembly,
+and 2 stubs. The latest 10-second run remains at state 2 with zero image
+uploads. Log: `/tmp/sly-wip-notifier-key-10s-20261112.log`.
 
 Work in
 `/home/reaper/sly/OpenThievius` on branch
@@ -1197,13 +1199,13 @@ latest `ReadPlacedObjectModel` source. Evidence:
 
 ### Current checkpoint (2026-11-12)
 
-Branch `wip/native-sly-port` is pushed through `19d4343`; the notifier
-assembly selection and this checkpoint update are the remaining local changes.
+Branch `wip/native-sly-port` is pushed through `dc07875`; the notifier key
+helper selection and checkpoint update are the remaining local changes.
 Upstream
 `sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
 (Wave 32); verified with `git ls-remote`. The sibling working checkout remains
 untouched. Hostgen from the staged Wave 32 source reports 798 translated
-functions, 526 retail-assembly functions, and 2 stubs. The latest build
+functions, 527 retail-assembly functions, and 2 stubs. The latest build
 succeeds; no new matching decomp source addresses Splash activation.
 
 The latest native 15-second trace confirms the frame's draw dispatch is
