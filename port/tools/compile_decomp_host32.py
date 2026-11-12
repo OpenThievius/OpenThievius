@@ -843,6 +843,106 @@ def main(argv=None):
             if declaration_count != 1 or call_count != 1:
                 raise RuntimeError("expected callback pool world carryover in " +
                                    rel.as_posix())
+            if args.trace_functions:
+                # The Splash graph emits script events through this shared
+                # path. Record whether event 0x11/0xE exists, queues, and
+                # actually runs for graph 0x25F. This observes the retail
+                # script path without changing its decisions.
+                trace_decl = 'extern "C" void sly1_port_trace_value(u32, u32);\n'
+                adapted = trace_decl + adapted
+                trigger = "void TriggerScriptEvent(BaseObject* self, s32 idx, s32 flag, s32* out)\n{"
+                trigger_trace = trigger + """
+    const s32 trace_graph = self != 0 && self->desc != 0 &&
+        *(s32*)((u8*)self->desc + 4) == 0x88 && self->id == 0x25F;
+    if (trace_graph) {
+        sly1_port_trace_value(0x183a0001u, (u32)idx);
+        sly1_port_trace_value(0x183a0002u, (u32)flag);
+        sly1_port_trace_value(0x183a0003u, (u32)self->f2C);
+        sly1_port_trace_value(0x183a0004u, (u32)out);
+    }
+"""
+                if adapted.count(trigger) != 1:
+                    raise RuntimeError("expected TriggerScriptEvent definition")
+                adapted = adapted.replace(trigger, trigger_trace, 1)
+                lookup_miss = """    if (self->f2C == 0 || LookupScriptVariable(self->f2C, idx, 1, &r) == 0) {
+        DestroyScriptValue(&r, 2);"""
+                lookup_miss_trace = """    if (self->f2C == 0 || LookupScriptVariable(self->f2C, idx, 1, &r) == 0) {
+        if (trace_graph) sly1_port_trace_value(0x183a0005u, (u32)idx);
+        DestroyScriptValue(&r, 2);"""
+                if adapted.count(lookup_miss) != 1:
+                    raise RuntimeError("expected graph script lookup miss path")
+                adapted = adapted.replace(lookup_miss, lookup_miss_trace, 1)
+                queue_call = """        AppendQueuedCall(self->world, (void*)(void (*)(void*, s32, void*))RunScriptEventHandler, self, idx, a4);"""
+                queue_trace = """        if (trace_graph) sly1_port_trace_value(0x183a0006u, (u32)idx);
+""" + queue_call
+                if adapted.count(queue_call) != 1:
+                    raise RuntimeError("expected graph script queue call")
+                adapted = adapted.replace(queue_call, queue_trace, 1)
+                handler = "void RunScriptEventHandler(BaseObject* self, s32 key, R11B008Node* list)\n{"
+                handler_trace = handler + """
+    const s32 trace_graph = self != 0 && self->desc != 0 &&
+        *(s32*)((u8*)self->desc + 4) == 0x88 && self->id == 0x25F;
+    if (trace_graph) {
+        sly1_port_trace_value(0x183b0001u, (u32)key);
+        sly1_port_trace_value(0x183b0002u, (u32)self->f2C);
+    }
+"""
+                if adapted.count(handler) != 1:
+                    raise RuntimeError("expected RunScriptEventHandler definition")
+                adapted = adapted.replace(handler, handler_trace, 1)
+                eval_body = "    EvalScriptBody(&q3, rec->body, slot);"
+                eval_trace = """    if (trace_graph) sly1_port_trace_value(0x183b0003u, (u32)key);
+""" + eval_body
+                if adapted.count(eval_body) != 1:
+                    raise RuntimeError("expected graph script body evaluation")
+                adapted = adapted.replace(eval_body, eval_trace, 1)
+        elif rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
+            # Log the retail notifier objects that select camera/state-graph
+            # keys. This is diagnostic staging only; notifier decisions stay
+            # in matching source.
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            signature = "void SetStateNotifierState(Camera* self, s32 state)\n{"
+            replacement = signature + """
+    sly1_port_trace_value(0x147ab001u, (u32)self);
+    sly1_port_trace_value(0x147ab002u, self != 0 ? (u32)self->desc : 0);
+    sly1_port_trace_value(0x147ab003u, self != 0 ? (u32)self->id : 0);
+    sly1_port_trace_value(0x147ab004u, (u32)state);
+    sly1_port_trace_value(0x147ab005u, self != 0 ? (u32)CAMERA_AT(s32, self, 0x2D0) : 0);
+    sly1_port_trace_value(0x147ab006u, self != 0 ? (u32)CAMERA_AT(s32, self, 0x2DC) : 0);
+    sly1_port_trace_value(0x147ab007u, self != 0 ? (u32)CAMERA_AT(u32, self, 0x2E4) : 0);
+    sly1_port_trace_value(0x147ab008u, self != 0 ? (u32)CAMERA_AT(u32, self, 0x2E8) : 0);
+    sly1_port_trace_value(0x147ab009u, self != 0 ? (u32)CAMERA_AT(u32, self, 0x2EC) : 0);
+    sly1_port_trace_value(0x147ab00au, self != 0 ? (u32)CAMERA_AT(u32, self, 0x334) : 0);
+    sly1_port_trace_value(0x147ab00bu, self != 0 ? (u32)CAMERA_AT(u32, self, 0x338) : 0);
+"""
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected SetStateNotifierState definition")
+            adapted = adapted.replace(signature, replacement, 1)
+            countdown_signature = "void SetCountdownNotifierState(CountdownNotifier* self, s32 mode)\n{"
+            countdown_trace = countdown_signature + """
+    sly1_port_trace_value(0x148ff001u, (u32)self);
+    sly1_port_trace_value(0x148ff002u, self != 0 ? (u32)self->id : 0);
+    sly1_port_trace_value(0x148ff003u, (u32)mode);
+    sly1_port_trace_value(0x148ff004u, self != 0 ? (u32)self->state : 0);
+    sly1_port_trace_value(0x148ff005u, self != 0 ? (u32)self->f338 : 0);
+    sly1_port_trace_value(0x148ff006u, self != 0 ? (u32)self->f2E8 : 0);
+"""
+            if adapted.count(countdown_signature) != 1:
+                raise RuntimeError("expected SetCountdownNotifierState definition")
+            adapted = adapted.replace(countdown_signature, countdown_trace, 1)
+            notification_signature = (
+                "void HandleCountdownNotifierNotification(CountdownNotifier* self, "
+                "s32 kind, void* msg)\n{")
+            notification_trace = notification_signature + """
+    sly1_port_trace_value(0x148e4001u, (u32)self);
+    sly1_port_trace_value(0x148e4002u, self != 0 ? (u32)self->id : 0);
+    sly1_port_trace_value(0x148e4003u, (u32)kind);
+    sly1_port_trace_value(0x148e4004u, (u32)msg);
+    sly1_port_trace_value(0x148e4005u, self != 0 ? (u32)self->f2E8 : 0);
+"""
+            if adapted.count(notification_signature) != 1:
+                raise RuntimeError("expected countdown notification handler")
+            adapted = adapted.replace(notification_signature, notification_trace, 1)
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.
