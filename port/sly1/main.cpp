@@ -684,29 +684,72 @@ void trace_world_class_objects(std::uint32_t world, std::uint32_t class_id) {
                           << state_table << " edges=" << std::dec << edges << "@0x"
                           << std::hex << edge_table << " armed=" << std::dec << armed
                           << " walker_head=0x" << std::hex << walker;
+                if (states > 0 && states <= 64 &&
+                    trace_guest_range(state_table,
+                                      static_cast<std::size_t>(states) * 8u,
+                                      &slot_address)) {
+                    std::cerr << " state_table={";
+                    for (std::int32_t i = 0; i < states; ++i) {
+                        std::int32_t key = 0, next = 0;
+                        const std::size_t entry = slot_address +
+                            static_cast<std::size_t>(i) * 8u;
+                        std::memcpy(&key, openrac_guest_base + entry, 4u);
+                        std::memcpy(&next, openrac_guest_base + entry + 4u, 4u);
+                        if (i != 0) std::cerr << ';';
+                        std::cerr << i << ':' << key << "->" << next;
+                    }
+                    std::cerr << '}';
+                }
+                if (edges > 0 && edges <= 128 &&
+                    trace_guest_range(edge_table,
+                                      static_cast<std::size_t>(edges) * 0x14u,
+                                      &slot_address)) {
+                    std::cerr << " edge_table={";
+                    for (std::int32_t i = 0; i < edges; ++i) {
+                        const std::size_t entry = slot_address +
+                            static_cast<std::size_t>(i) * 0x14u;
+                        std::uint32_t anim = 0, flags = 0;
+                        std::int32_t from = 0, to = 0;
+                        float weight = 0.0f;
+                        std::memcpy(&anim, openrac_guest_base + entry, 4u);
+                        std::memcpy(&from, openrac_guest_base + entry + 4u, 4u);
+                        std::memcpy(&to, openrac_guest_base + entry + 8u, 4u);
+                        std::memcpy(&flags, openrac_guest_base + entry + 0xCu, 4u);
+                        std::memcpy(&weight, openrac_guest_base + entry + 0x10u, 4u);
+                        if (i != 0) std::cerr << ';';
+                        std::cerr << std::dec << i << ':' << from << "->" << to
+                                  << ",anim=0x" << std::hex << anim << ",flags=0x"
+                                  << flags << std::dec << ",w=" << weight;
+                    }
+                    std::cerr << '}';
+                }
                 if (walker != 0) {
                     std::uint32_t wa = 0, owner = 0, player = 0, edge = 0;
-                    std::int32_t driven = 0, target = 0, current = 0;
+                    std::int32_t driven = 0, arg3 = 0;
+                    std::int32_t current = -1, next = -1, target = -1;
                     if (trace_guest_range(walker, 0x40u, &wa)) {
                         std::memcpy(&owner, openrac_guest_base + wa + 0x18u, 4u);
                         std::memcpy(&driven, openrac_guest_base + wa + 0x1Cu, 4u);
-                        std::memcpy(&target, openrac_guest_base + wa + 0x20u, 4u);
+                        std::memcpy(&arg3, openrac_guest_base + wa + 0x20u, 4u);
                         std::memcpy(&player, openrac_guest_base + wa + 0x24u, 4u);
-                        std::memcpy(&current, openrac_guest_base + wa + 0x30u, 4u);
+                        std::memcpy(&current, openrac_guest_base + wa + 0x28u, 4u);
+                        std::memcpy(&next, openrac_guest_base + wa + 0x2Cu, 4u);
+                        std::memcpy(&target, openrac_guest_base + wa + 0x30u, 4u);
                         std::memcpy(&edge, openrac_guest_base + wa + 0x34u, 4u);
                         std::cerr << " walker_owner=0x" << owner << " driven=0x" << driven
-                                  << " target=0x" << target << " player=0x" << player
-                                  << std::dec << " current=" << current << " edge=0x"
+                                  << " arg3=0x" << arg3 << " player=0x" << player
+                                  << std::dec << " current=" << current << " next=" << next
+                                  << " target_index=" << target << " edge=0x"
                                   << std::hex << edge;
                         std::uint32_t state_address = 0, edge_address = 0;
-                        if (current >= 0 && current < states &&
-                            trace_guest_range(state_table + static_cast<std::uint32_t>(current) * 8u,
+                        if (target >= 0 && target < states &&
+                            trace_guest_range(state_table + static_cast<std::uint32_t>(target) * 8u,
                                               8u, &state_address)) {
                             std::int32_t key = 0, next_key = 0;
                             std::memcpy(&key, openrac_guest_base + state_address, 4u);
                             std::memcpy(&next_key, openrac_guest_base + state_address + 4u, 4u);
-                            std::cerr << " state_key=" << std::dec << key
-                                      << " state_next=" << next_key;
+                            std::cerr << " target_key=" << std::dec << key
+                                      << " target_fallback=" << next_key;
                         }
                         if (trace_guest_range(edge, 0x14u, &edge_address)) {
                             std::uint32_t animation = 0, flags = 0;

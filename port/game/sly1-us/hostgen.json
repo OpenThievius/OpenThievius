@@ -164,6 +164,10 @@
       "func_0012F7E0": {
         "function": "game_sly1_native_trace_font",
         "args": ["210", "a0", "a1", "a2", "0", "0"]
+      },
+      "func_001B64D8": {
+        "function": "game_sly1_native_trace_font",
+        "args": ["213", "a0", "a1", "0", "0", "0"]
       }
     },
     "trace_sites": {
@@ -319,6 +323,7 @@
       "func_001B6290",
       "func_001B63F8",
       "func_001B63C0",
+      "func_001B64D8",
       "func_001B5EA0",
       "func_001B5EC0",
       "func_001B5EE0",
