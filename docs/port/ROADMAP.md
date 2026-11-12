@@ -43,24 +43,25 @@ playable build.
 
 ## Current no-emulation build (2026-11-12)
 
-The public decomp `master` is `86682ddd` (Wave 32); this checkout's sibling
-decomp worktree is still at `bfc74817`, 59 commits behind. The latest report
-matches 4,762/4,807 functions, 93.449% of code and 99.616% of data. Wave 32
-reorganized the C++ source into 190 units and added two matched functions.
+The public decomp `master` is `647da5d6` (Wave 33); the sibling working tree
+remains at `bfc74817`, 65 commits behind. The latest report matches
+4,763/4,807 functions, 93.461% of code and 99.616% of data. This update fully
+matches `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
+assembly disabled now translates 799 functions, with 2 stubs and 4,127
+functions without C across 280 units. This improves the movie path but does
+not change the observed Splash/title activation path.
 
-A read-only snapshot of `86682ddd` compiles all 190 units and all 61
-port-only host32 backfills. Since the previously reported 810/822 frontier,
-the bounded-copy and perpendicular-basis backfills plus two cache-coherency
-APIs add four definitions. The combined native object records 4,344 catalogued function entries,
-and that frontier has 814/822 definitions (8 missing). The freestanding i386
-launcher links, with
-unresolved retail functions routed to address-reporting traps. This is a
-compile/link milestone; the new launcher has not yet demonstrated a title,
-scene, or controllable gameplay. The visible memory-card format prompt came
-from the separate
-experimental guest-runtime launcher, whose memory-card probe reports no card.
-No format was selected. Backfills remain in the port tree and do not change
-matching decomp source.
+A read-only snapshot of `647da5d6` compiles all 190 units and all 61
+port-only host32 backfills. Since the previous 810/822 frontier, the
+bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
+add four definitions. The combined native object records 4,345 catalogued
+function entries, and the direct-call frontier has 814/822 definitions (8
+missing). The freestanding i386 launcher links, with unresolved retail
+functions routed to address-reporting traps. This is a compile/link
+milestone; the launcher has not demonstrated a title, scene, or controllable
+gameplay. The visible memory-card prompt came from the separate experimental
+guest-runtime launcher; no format was selected. Backfills remain in the port
+tree and do not change matching decomp source.
 
 ### Decomp refresh (2026-11-11)
 

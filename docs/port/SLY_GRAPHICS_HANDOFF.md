@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-12. Current decomp master is `86682ddd` (Wave 32, PR #123).
+Last checked: 2026-11-12. Current decomp master is `647da5d6` (Wave 33, PR #124).
 The no-emulation host32 path compiles all 190 Sly units and 61 port-only
-backfills, combines 4,344 catalogued native function entries, and links a
+backfills, combines 4,345 catalogued native function entries, and links a
 freestanding launcher. Its direct frame-call scan resolves 814/822 functions,
 leaving 8; indirect callbacks are outside the scan. The launcher has not yet
 produced a verified title or scene.

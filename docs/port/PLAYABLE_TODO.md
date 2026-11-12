@@ -2,13 +2,16 @@
 # Concrete plan for a playable native Sly 1
 
 **Current status (2026-11-12):** upstream `sly1-decomp` master is
-`86682ddd` (Wave 32); the sibling checkout remains at `bfc74817`, 59 commits
-behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 61/61
-port-only host32 backfills. Since the previous 810/822 frontier, the bounded
-copy and perpendicular-basis backfills plus two cache-coherency APIs add four
-direct frame-path definitions. The combined object resolves 814/822 direct
-frame calls, leaving 8 missing, and the freestanding i386 launcher links. The
-launcher has not yet been run against the disc or shown a title, scene, or
+`647da5d6` (Wave 33); the sibling checkout remains at `bfc74817`, 65 commits
+behind. The new source fully matches `func_0020A190` (`GetStreamId`) in the
+MPEG demultiplexer. Hostgen with assembly disabled translates 799 functions,
+with 2 stubs and 4,127 functions without C across 280 units. The source refresh
+does not change the Splash/title activation path. A read-only Wave 33 snapshot
+compiles 190/190 Sly units and 61/61 port-only host32 backfills. Since the
+previous 810/822 frontier, bounded-copy and perpendicular-basis backfills plus
+two cache-coherency APIs add four direct frame-path definitions. The combined
+object resolves 814/822 direct frame calls, leaving 8 missing, and the
+freestanding i386 launcher links. It has not demonstrated a title, scene, or
 controllable game. The direct-call scan does not follow indirect callbacks.
 
 The visible unformatted-memory-card prompt came from the separate experimental

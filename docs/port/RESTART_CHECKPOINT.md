@@ -1,15 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-12. The public decomp master is `86682ddd` (Wave 32); the
-sibling checkout is 59 commits behind. A read-only snapshot compiles all 190
-Sly C++ units and 61 port-only host32 backfills. Since the previous 810/822
-frontier, bounded-copy and perpendicular-basis backfills plus two cache
-coherency APIs add four direct frame-path entries. The combined object has
-814 of 822 functions in its direct-call frontier; the freestanding i386
-launcher links. This scan omits indirect callbacks. The launcher has not been
-run against the disc or shown a playable scene. This is the current
-no-emulation path.
+Updated: 2026-11-12. The public decomp master is `647da5d6` (Wave 33); the
+sibling checkout is 65 commits behind. Wave 33 fully matches
+`func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
+assembly disabled translates 799 functions, with 2 stubs and 4,127 functions
+without C across 280 units. A read-only snapshot compiles all 190 Sly C++ units
+and 61 port-only host32 backfills. Since the previous 810/822 frontier,
+bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
+add four direct frame-path entries. The combined object has 814 of 822
+functions in its direct-call frontier; the freestanding i386 launcher links.
+This scan omits indirect callbacks. The launcher has not demonstrated a
+playable scene. This is the current no-emulation path.
 
 The visible memory-card format prompt and all GS/Splash traces below came from
 the separate experimental guest-runtime launcher. Its memory-card probe

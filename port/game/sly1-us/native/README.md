@@ -9,12 +9,12 @@ never edited by the host staging adapter.
 
 ## Current build state
 
-Canonical `sly1-decomp` master is `86682ddd` (Wave 32). The sibling checkout
+Canonical `sly1-decomp` master is `647da5d6` (Wave 33). The sibling checkout
 at `/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; the build
-uses a separate Wave 32 source snapshot and the older US assembly snapshot
-because current upstream no longer ships that tree. The Wave 32 host32 build
+uses a separate Wave 33 source snapshot and the older US assembly snapshot
+because current upstream no longer ships that tree. The Wave 33 host32 build
 compiles all 190 source units and 61 port-only backfills. Its combined object
-contains 4,344 catalogued function entries. The direct frame-call scan finds
+contains 4,345 catalogued function entries. The direct frame-call scan finds
 814 of 822 definitions and eight unresolved addresses; this scan does not
 follow indirect callbacks. The freestanding i386 launcher links, routing
 unresolved functions to diagnostic traps.
@@ -62,5 +62,5 @@ build/port/host32/launcher/sly1_host32 <SCUS_971.98> <Sly 1 ISO or BIN>
 ```
 
 The current diagnostic build lives under
-`build/port/host32/upstream-86682ddd/`. It is an experimental source
+`build/port/host32/upstream-647da5d6/`. It is an experimental source
 compatibility path, not a playable frontend.

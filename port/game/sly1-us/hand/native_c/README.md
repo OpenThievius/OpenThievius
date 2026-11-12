@@ -9,12 +9,13 @@ listed in `../overrides.tsv`; otherwise hostgen keeps the decomp definition
 when both are present. Entries in `backfills.tsv` cover functions supplied
 where matching C is absent.
 
-Latest source check (2026-11-12): hostgen was rebuilt from the Wave 32 staged
-decomp snapshot (`86682dd`), yielding 798 translated C functions, 512 retail
-assembly functions, 2 stubs, and 3,616 functions without C across 280 units.
-This is a generated hostability report, not the decomp project's byte-match
-progress. New readable names and matched C in this snapshot do not yet cover
-the Splash activation/transition path described below.
+Latest source check (2026-11-12): hostgen was rebuilt from the Wave 33 source
+snapshot (`647da5d6`) with assembly disabled, yielding 799 translated
+functions, 2 stubs, and 4,127 functions without C across 280 units. Wave 33
+fully matches `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. This
+is a generated hostability report, not the decomp project's byte-match
+progress. The new source does not cover the Splash activation/transition path
+described below.
 
 `func_001B5EA0.c` implements the state-walker free-pool pop, and
 `func_001B6D78.c` dispatches a walker's class and registered listeners. They
