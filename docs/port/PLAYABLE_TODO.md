@@ -1,7 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Current status (2026-11-12):** upstream `sly1-decomp` master is
+**Latest native visual evidence (2026-11-12):** host32 now renders the retail
+no-card warning as readable text. A trace caught a host ABI mismatch in the
+staged `AddGifRegisterWrite`: its 64-bit register argument shifted 64-bit GS
+values by one word on i386, reducing `SCISSOR_1` to a one-row clip. The staging
+adapter now normalizes that signature; traces confirm full scissor bounds and
+textured draws. The captured warning remains cropped to a narrow horizontal
+band. No title or playable scene has been demonstrated and no card-format
+action was taken. The source decomp was not changed. See
+`/tmp/sly-gifabi-capture.log` and the restart checkpoint.
+
+**Build baseline (2026-11-12):** upstream `sly1-decomp` master is
 `647da5d6` (Wave 33); the sibling checkout remains at `bfc74817`, 65 commits
 behind. The source fully matches `func_0020A190` (`GetStreamId`) in the MPEG
 demultiplexer. Hostgen with assembly disabled translates 799 functions, with
@@ -18,26 +28,25 @@ objects through the final link; this fixed a startup fault where
 native no-card memory-card services now let retail startup reach pause page 3
 after about 0.35 seconds. A hard-bounded 10-second run reached about 600 frames
 with no fatal fault. A later native framebuffer capture saved eight frames
-after page 3 was reached; all eight were black. The `visible_ui` and `text_ui`
-trace counters cover only the 37 global screen elements, not the pause-menu
+after page 3 was reached; those eight startup frames were black. The
+`visible_ui` and `text_ui` trace counters cover only the 37 global screen
+elements, not the pause-menu
 layer. A title or playable scene has not been demonstrated. No card-format
 action was taken. A 2026-11-12 follow-up found and fixed a display-context
 overrun that changed the GIF channel global to `0xe0`: the native
 `func_00201D60` backfill wrote `0x250` bytes through a two-record (`0x50` byte)
 retail context. It now writes only those two records. A bounded host32 run
 kept the channel at `0x082ffee8` and submitted 735/735 renderer DMAs with zero
-rejections. A fresh capture after the fix is still all black. The renderer
-decodes the repeated pause frame into 2,250 vertices and two untextured draws,
-but produces no non-black pixels. See the restart checkpoint for evidence.
+rejections. The later `AddGifRegisterWrite` ABI diagnosis and visible warning
+capture supersede the earlier all-black conclusion. See the restart checkpoint
+for current evidence.
 
-**Immediate host32 task:** trace why decoded draws produce black pixels and
-why the pause-menu `Continue` text is not visible. The display-context
-overrun is fixed; the retail pause-menu callback reaches page 3 and submits
-its `Continue` choice. Inspect draw state, viewport/scissor, and texture
-packets, then follow normal title/resource activation. Keep functional native
-service replacements in `port/game/sly1-us/native/`, separate from decomp
-source. Do not format a card, force UI visibility, or alter matching game
-logic to fabricate a scene.
+**Immediate host32 task:** trace why the visible no-card warning is cropped
+and follow normal startup from that retail state to the title and gameplay.
+The display-context overrun and host `AddGifRegisterWrite` ABI mismatch are
+fixed. Keep functional native service replacements in
+`port/game/sly1-us/native/`, separate from decomp source. Do not format a card,
+force UI visibility, or alter matching game logic to fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

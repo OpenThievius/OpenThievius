@@ -25,11 +25,14 @@ interior data alias initially resolved the pad field `D_00262D18` to absolute
 address `0xa8`, causing a startup fault. The linker now defers data aliases
 until final host data placement; `nm` confirms the field at `0x082fcee8`,
 inside `D_00262C70`. Port-only no-card service replies let retail startup reach
-pause page 3, and a hard-bounded 10-second run reached about 600 frames without
-a fatal fault. Frame telemetry reports no visible UI/text, and no title or
-scene has been demonstrated. No card-format action was taken. A previous run
-also exposed invalid DMA channel value `0xe0`; the port boundary now avoids
-dereferencing unknown channels, and host channel 2 is routed to the renderer.
+the no-card warning. A host ABI mismatch in the staged `AddGifRegisterWrite`
+declarations truncated GS register writes and clipped the framebuffer to one
+row; the staging generator now normalizes the writer to a 32-bit register and
+64-bit value. A bounded native run now renders readable warning text, although
+the display remains cropped and no title or playable scene has been
+demonstrated. No card-format action was taken. A previous run also exposed
+invalid DMA channel value `0xe0`; the port boundary now avoids dereferencing
+unknown channels, and host channel 2 is routed to the renderer.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from

@@ -1,6 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+Latest no-emulation host32 result (2026-11-12): a staged host ABI mismatch in
+`AddGifRegisterWrite` caused the black framebuffer. The function body used a
+64-bit register argument while callers passed a 32-bit register and 64-bit
+value; on i386 this shifted the value by one word. The host staging adapter
+now normalizes declarations and the definition to a 32-bit register plus
+64-bit value. `OPENRAC_TRACE_DIRECT=1` reports full scissor values
+`0x00de0001027f0000` and `0x00df0000027f0000`, and textured draws. A bounded
+six-second capture shows readable no-card warning text, but only in a narrow
+horizontal band. No title or gameplay scene has been demonstrated and no
+card-format action was taken. Run log: `/tmp/sly-gifabi-capture.log`; frame:
+`/tmp/sly1-native-frame-00.ppm` (locally previewed as
+`/tmp/sly1-native-frame-00.png`). Matching decomp source was not edited.
+
 Updated: 2026-11-12. The public decomp master is `647da5d6` (Wave 33); the
 sibling checkout is 65 commits behind. Wave 33 fully matches
 `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
@@ -20,37 +33,34 @@ fixed: native CD services report the mounted ISO ready and unchanged and
 update relocated `D_002613F0`. The port-only no-card reply lets retail startup
 reach memory-card pause page 3 after about 0.35 seconds. A 10-second bounded
 run reached about 600 frames without a fatal fault and accepted DMA frames.
-A later native framebuffer capture saved eight frames after the page-3 state
-was reached; all eight were completely black. The trace's `visible_ui` and
+A later native framebuffer capture saved eight startup frames after the page-3
+state was reached; these were black. The trace's `visible_ui` and
 `text_ui` counters cover only the 37 global screen elements, not the pause
 menu layer, so those counters alone did not establish that the prompt was
 absent. A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
 `0x250` bytes through a two-record (`0x50` byte) retail display context,
 overwriting the GIF channel global with display height `0xe0`. It now writes
 only the two records. A bounded host32 run kept the channel at `0x082ffee8`
-and submitted 735/735 DMAs with zero rejections. A fresh capture after the
-fix is still all black. The direct renderer decodes the recurring pause frame
-into 2,250 vertices and two untextured draws but produces no non-black pixels.
-The pause-menu callback reaches page 3 and submits `Continue`. A title or
-playable scene has not been demonstrated. No format action was taken.
+and submitted 735/735 DMAs with zero rejections. The later ABI mismatch
+diagnosis and readable, cropped warning capture above supersede the initial
+all-black conclusion. The pause-menu callback reaches page 3 and submits
+`Continue`. A title or playable scene has not been demonstrated. No format
+action was taken.
 
 The user-confirmed visible memory-card format prompt came from the separate
 experimental guest-runtime launcher. The no-emulation host32 run reaches the
-corresponding retail page-3 state. The DMA-channel-overwrite regression is
-fixed, but the post-fix SDL framebuffer remains black. No format action was
-taken. Guest-runtime GS/Splash traces below remain separate research, not
-evidence of native gameplay.
+retail no-card warning and now renders readable text, though it remains
+cropped. No format action was taken. Guest-runtime GS/Splash traces below
+remain separate research, not evidence of native gameplay.
 Do not extend that runtime's CPU or PS2-device models as port features. Keep
 port-only functional replacements in the OpenThievius tree and replace them
 with matching decomp source when available.
 
-Native capture used `OPENRAC_DUMP_NATIVE_FRAMES=1` and
-`OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=1`; the eight files
-`/tmp/sly1-native-frame-00.ppm` through `-07.ppm` each had mean pixel value 0.
-The capture threshold matters because normal packets were smaller than the
-default 512-byte minimum. The next host32 task is to inspect the renderer's
-draw state, viewport/scissor, and texture packets to determine why the decoded
-draws leave the captured frame black. Do not use `visible_ui=0` or `text_ui=0`
+The eight black files mentioned above sampled early startup. A later capture
+uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
+`OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the no-card warning in a narrow
+band. The next host32 task is to trace display sizing and clipping, then follow
+normal activation toward the title. Do not use `visible_ui=0` or `text_ui=0`
 as a substitute for checking the pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
