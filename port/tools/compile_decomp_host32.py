@@ -1358,17 +1358,45 @@ def main(argv=None):
                 if adapted.count(end) != 1:
                     raise RuntimeError("expected world-load completion in " + rel.as_posix())
                 adapted = adapted.replace(end, end_replacement, 1)
+        elif rel.as_posix() == "main/memory_card.cpp" and args.trace_functions:
+            hook = ('extern "C" void sly1_native_trace_memory_update(u32, u32, u32, u32, float, float, u32, s32);\n')
+            adapted = hook + adapted
+            signature = "void UpdateMemoryCard(MemoryCard* self)\n{"
+            replacement = (
+                signature + "\n"
+                "    sly1_native_trace_memory_update(0, (u32)self->state, "
+                "(u32)self->targetState, (u32)self->displayMode, "
+                "g_elapsedTime[0], self->stateTime, (u32)g_pauseMenuElement.open, "
+                "g_pauseMenuElement.page);")
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected UpdateMemoryCard definition")
+            adapted = adapted.replace(signature, replacement, 1)
+            needle = "    }\n}\n\ns32 CompareMemoryCardEntryTimes"
+            replacement = (
+                "    }\n"
+                "    sly1_native_trace_memory_update(1, (u32)self->state, "
+                "(u32)self->targetState, (u32)self->displayMode, "
+                "g_elapsedTime[0], self->stateTime, (u32)g_pauseMenuElement.open, "
+                "g_pauseMenuElement.page);\n"
+                "}\n\ns32 CompareMemoryCardEntryTimes")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected UpdateMemoryCard end")
+            adapted = adapted.replace(needle, replacement, 1)
         elif rel.as_posix() == "main/main_loop.cpp" and args.trace_functions:
             # Mark the retail constructor phase and each startup initializer.
             # A single guest callback can wait indefinitely, so the before /
             # after pair identifies the exact callback without global
             # function instrumentation, which changes several EE ABI cases.
             hook = ('#include "screen_element.h"\n'
+                    '#include "background_job.h"\n'
                     'extern void* const g_screenElements[];\n'
                     'extern s32 g_padRouting;\n'
                     'extern s32 g_padSelectFlags;\n'
+                    'extern s32 D_002701B8;\n'
                     'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_frame_stage(u32);\n'
+                    'extern "C" void sly1_native_trace_memory_gate(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                    'extern "C" void sly1_native_trace_memory_timing(float, float, float);\n'
                     'extern "C" void sly1_native_trace_frame_state(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
                     'extern "C" void sly1_native_host32_wait_frame(void);\n')
             adapted = hook + adapted
@@ -1425,6 +1453,13 @@ def main(argv=None):
                 "                (u32)g_screenFade.mode, stack_top, stack_top_vt,\n"
                 "                stack_top_mode, stack_top_text, (u32)g_padRouting,\n"
                 "                (u32)g_padSelectFlags, (u32)g_blankPadRecord.f14);\n"
+                "            sly1_native_trace_memory_gate((u32)g_memoryCard.state,\n"
+                "                (u32)g_memoryCard.targetState, (u32)g_memoryCard.displayMode,\n"
+                "                (u32)g_memoryCard.i4F44, (u32)D_002701B8, stack[1],\n"
+                "                (u32)g_backgroundJob.thread, (u32)g_backgroundJob.job,\n"
+                "                (u32)g_backgroundJob.result, (u32)g_backgroundJob.semaphore);\n"
+                "            sly1_native_trace_memory_timing(g_gameClock.elapsed,\n"
+                "                g_memoryCard.stateTime, g_memoryCard.displayModeTime);\n"
                 "        }\n"
                 "        sly1_native_host32_wait_frame();\n"
                 "        sly1_native_trace_frame_stage(8);")

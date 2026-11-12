@@ -219,6 +219,19 @@ volatile u32 g_native_stack_top_text = 0;
 volatile u32 g_native_pad_routing = 0;
 volatile u32 g_native_pad_select = 0;
 volatile u32 g_native_blank_pad_status = 0;
+volatile u32 g_native_card_state = 0;
+volatile u32 g_native_card_target = 0;
+volatile u32 g_native_card_display = 0;
+volatile u32 g_native_card_progress = 0;
+volatile u32 g_native_memory_gate = 0;
+volatile u32 g_native_element_state = 0;
+volatile u32 g_native_card_thread = 0;
+volatile u32 g_native_card_job = 0;
+volatile u32 g_native_card_result = 0;
+volatile u32 g_native_card_semaphore = 0;
+volatile u32 g_native_elapsed_bits = 0;
+volatile u32 g_native_card_state_time_bits = 0;
+volatile u32 g_native_card_display_time_bits = 0;
 
 bool probe_disc_signature(u32 offset) {
     u8 signature[6]{};
@@ -424,7 +437,7 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
                          openrac_native_renderer_dma_reject_count(),
                          openrac_native_renderer_dma_bytes());
             std::fprintf(stderr,
-                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u game_frames=%u frame_stage=%u world=%#x ui_state=%u ui_stack=%u resume=%d load=%u movie=%u visible_ui=%u text_ui=%u pad_status=%u pad_mode=%u pad_flags=%#x pad_route=%u pad_select=%u blank_pad_status=%u pause_open=%u pause_page=%d pause_mode=%u fade=%u stack_top=%#x top_vt=%#x top_mode=%u top_text=%u\n",
+                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u game_frames=%u frame_stage=%u world=%#x ui_state=%u ui_stack=%u resume=%d load=%u movie=%u visible_ui=%u text_ui=%u pad_status=%u pad_mode=%u pad_flags=%#x pad_route=%u pad_select=%u blank_pad_status=%u pause_open=%u pause_page=%d pause_mode=%u fade=%u stack_top=%#x top_vt=%#x top_mode=%u top_text=%u card_state=%d card_target=%d card_display=%u card_progress=%d memory_gate=%u element_state=%u card_thread=%u card_job=%#x card_result=%d card_semaphore=%u game_elapsed_bits=%#x card_state_time_bits=%#x card_display_time_bits=%#x\n",
                          game_finished.load(std::memory_order_acquire) ? 1u : 0u,
                          sly1_native_startup_callback_index,
                          sly1_native_iop_boot_stage,
@@ -452,7 +465,20 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
                          __atomic_load_n(&g_native_stack_top, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_native_stack_top_vt, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_native_stack_top_mode, __ATOMIC_RELAXED),
-                         __atomic_load_n(&g_native_stack_top_text, __ATOMIC_RELAXED));
+                         __atomic_load_n(&g_native_stack_top_text, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_card_state, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_card_target, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_display, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_card_progress, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_memory_gate, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_element_state, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_thread, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_job, __ATOMIC_RELAXED),
+                         (int)__atomic_load_n(&g_native_card_result, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_semaphore, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_elapsed_bits, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_state_time_bits, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_card_display_time_bits, __ATOMIC_RELAXED));
             std::fprintf(stderr, "[native critical] owner=%d depth=%u spins=%u\n",
                          sly1_native_critical_owner(), sly1_native_critical_depth(),
                          sly1_native_critical_spins());
@@ -793,6 +819,86 @@ sly1_native_trace_frame_state(u32 world, u32 state, u32 count, u32 resume,
     __atomic_store_n(&g_native_pad_routing, pad_routing, __ATOMIC_RELAXED);
     __atomic_store_n(&g_native_pad_select, pad_select, __ATOMIC_RELAXED);
     __atomic_store_n(&g_native_blank_pad_status, blank_pad_status, __ATOMIC_RELAXED);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_memory_gate(u32 card_state, u32 card_target,
+                              u32 card_display, u32 card_progress,
+                              u32 memory_gate, u32 element_state,
+                              u32 card_thread, u32 card_job,
+                              u32 card_result, u32 card_semaphore) {
+    __atomic_store_n(&g_native_card_state, card_state, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_target, card_target, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_display, card_display, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_progress, card_progress, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_memory_gate, memory_gate, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_element_state, element_state, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_thread, card_thread, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_job, card_job, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_result, card_result, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_semaphore, card_semaphore, __ATOMIC_RELAXED);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_memory_timing(float elapsed, float state_time,
+                                float display_time) {
+    union FloatBits { float f; u32 u; };
+    const FloatBits elapsed_bits{elapsed};
+    const FloatBits state_bits{state_time};
+    const FloatBits display_bits{display_time};
+    __atomic_store_n(&g_native_elapsed_bits, elapsed_bits.u, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_state_time_bits, state_bits.u, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_native_card_display_time_bits, display_bits.u, __ATOMIC_RELAXED);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_memory_update(u32 stage, u32 state, u32 target,
+                                u32 display, float elapsed,
+                                float state_time, u32 pause_open,
+                                int pause_page) {
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    if (!g_startup_trace_enabled) return;
+    static u32 last_state = 0xffffffffu;
+    static u32 last_target = 0xffffffffu;
+    static u32 last_display = 0xffffffffu;
+    static u32 last_page = 0x7fffffffu;
+    static u32 last_open = 0xffffffffu;
+    static bool threshold_reported = false;
+    static u32 calls = 0;
+    ++calls;
+    const bool state_changed = state != last_state || target != last_target ||
+                               display != last_display;
+    const bool page_changed = pause_page != last_page || pause_open != last_open;
+    const bool threshold = elapsed - state_time >= 0.3f;
+    if ((stage == 0 && (state_changed || (threshold && !threshold_reported) ||
+                        (calls % 120u) == 1)) ||
+        (stage == 1 && page_changed)) {
+        std::fprintf(stderr,
+                     "[native memory update] stage=%u state=%d target=%d display=%u elapsed=%.3f state_time=%.3f threshold=%u pause_open=%u page=%d\n",
+                     stage, (int)state, (int)target, display,
+                     (double)elapsed, (double)state_time, threshold ? 1u : 0u,
+                     pause_open, pause_page);
+    }
+    if (state_changed) {
+        last_state = state;
+        last_target = target;
+        last_display = display;
+    }
+    if (page_changed) {
+        last_page = (u32)pause_page;
+        last_open = pause_open;
+    }
+    if (stage == 0 && threshold) threshold_reported = true;
+#else
+    (void)stage;
+    (void)state;
+    (void)target;
+    (void)display;
+    (void)elapsed;
+    (void)state_time;
+    (void)pause_open;
+    (void)pause_page;
+#endif
 }
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
