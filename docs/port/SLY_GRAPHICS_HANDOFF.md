@@ -1,18 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-11. Canonical `sly1-decomp` master is now
-`782e2899` (PR #121); the checked-out source at
-`/home/reaper/sly/sly1-decomp` remains at `bfc74817` and was not modified.
-The read-only snapshot at `/tmp/sly1-decomp-782e2899-source` supplies the
-latest source to hostgen. Waves 25–27 add readable names, five `.data` labels,
-shared type/declaration cleanup, and classify the 21,840-byte `.vutext`
-section as original VU microcode. They add no matched functions or code bytes
-(4,760/4,807 functions; 93.252% code unchanged). Data coverage increases to
-99.628% by classifying existing VU microcode and data labels, not new game C.
-Hostgen against this snapshot yields 734 C functions, 501 retail assembly
-functions, 2 stubs, and 3,674 without C in 256 units. The source changes add
-no matched implementation for the current startup/UI path.
+Last checked: 2026-11-12. Current decomp master is `86682dd` (Wave 32, PR #123)
+and the OpenThievius port is built against an immutable snapshot at
+`build/port/decomp-source-wave32/`. A fresh fetch confirmed that master has not
+advanced beyond this snapshot. The graphics findings and build counts below
+are historical notes from 2026-11-11 and are superseded where they conflict
+with [the current restart checkpoint](RESTART_CHECKPOINT.md). The current port
+build reports 798 translated functions, including 519 selected from US retail
+assembly; startup still reaches a black Splash world with inactive UI and no
+image uploads. See the checkpoint for the current trace and next steps.
 
 The native VIF1 DMA backfill now preserves the TTE bit set by the retail
 caller. Previously it overwrote CHCR with `0x105`, dropping inline VIF codes,

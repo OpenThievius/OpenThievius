@@ -2,8 +2,10 @@
 # Sly 1 port restart checkpoint
 
 Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
-Wave 32), tracing native GS submissions, and rebuilding against the refreshed
-source. An opt-in boot-transition trace confirms retail startup queues and
+Wave 32), tracing native GS submissions and Splash state, and rebuilding
+against the refreshed source. Upstream `master` was fetched again and remains
+at `86682dd`; there is no newer decomp source to consume. An opt-in
+boot-transition trace confirms retail startup queues and
 consumes the initial Splash fade/world request; the black output is downstream
 of that successful Splash load. The normal path remains at frame state 3 with
 37 inactive UI elements and no visible game graphics. The forced-level probe
@@ -26,6 +28,18 @@ The latest native build uses an immutable Wave 32 source snapshot at
 assembly source remains the older `wave24` snapshot because upstream no longer
 ships that assembly tree. Build command:
 `cmake --build build/port --target port_native -j2`.
+
+The 2026-11-12 callback follow-up selected exact US assembly for four reached
+functions previously executing as no-op stubs: `func_00138828`,
+`func_001DC7D0`, `func_0019E168`, and `func_001BB580`. Build coverage is now
+798 translated functions (519 from assembly, two stubs). A fresh 15-second
+native run removed all four warnings but still reaches the same black Splash
+state. The staged state-walker callbacks `func_001B6C68`, `func_001B6CA8`, and
+`func_001B6CF0` were selected from assembly and instrumented; trace stages
+206–208 did not fire. The callback remains unobserved, so investigate which
+retail update path should advance or complete the Splash track. Camera probe
+stage 47 is unrelated. Log:
+`/tmp/sly-wave32-noop-callback-asm-15s-20261112.log`.
 
 A normal 15-second native launch against the US ELF and ISO reaches the main
 frame loop without crashing. Current trace: 15 samples, world `0x6abdd0`,
