@@ -1166,3 +1166,28 @@ inside retail ASM around part 1,093 and compare each variable payload with the
 latest `ReadPlacedObjectModel` source. Evidence:
 `/tmp/sly-model-strip-detail-20261111.log`,
 `/tmp/sly-heap-large-allocations-20261111.log`.
+
+### Current checkpoint (2026-11-12)
+
+Branch `wip/native-sly-port` is pushed through commit `d6b122c`. Upstream
+`sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
+(Wave 32); verified with `git ls-remote`. The sibling working checkout remains
+untouched. Hostgen from the staged Wave 32 source reports 798 translated C
+functions, 512 retail-assembly functions, 2 stubs, and 3,616 without C across
+280 units. This adds no matching source for the Splash activation issue.
+
+The latest native 15-second trace confirms the frame's draw dispatch is
+running, with calls for Splash objects `0x847dc0` (class `0x53`) and
+`0x863ca0` (class `0x7d`), both with zero model parts. The Splash class-4
+owner `0x847870` has an empty model header. The direct `0x0100` model owner
+with 1,962 parts remains a separate forced-level parser failure and is not
+reached by Splash. Latest log:
+`/tmp/sly-render-trace-15s-20261112.log`.
+
+Next work: trace why the Splash graph/sequence and all 37 screen elements stay
+inactive after loading, then continue the independent direct-level strip
+reader investigation. Preserve retail startup behavior; do not force a title,
+movie, or gameplay state. Keep replacement C only in `hand/native_c/` or
+`hand/overrides_c/`. The frame-list wrappers remain port-only and no mismatch
+was established in this run. The last documentation checkpoint is commit
+`d6b122c`.
