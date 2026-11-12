@@ -3,12 +3,13 @@
 
 Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
 Wave 32), tracing native GS submissions, and rebuilding against the refreshed
-source. Latest update: an opt-in boot-transition trace confirms retail startup
-queues and consumes the initial Splash fade/world request; the black output is
-downstream of the successful Splash load. SDL focus and pad traces show the
-window/input bridge is alive. The forced-level render trace below corrects the
-earlier model-attachment diagnosis; object inclusion still blocks level
-rendering.
+source. An opt-in boot-transition trace confirms retail startup queues and
+consumes the initial Splash fade/world request; the black output is downstream
+of that successful Splash load. The normal path remains at frame state 3 with
+37 inactive UI elements and no visible game graphics. The forced-level probe
+is not a gameplay entry path; its loaded class-4 object has retail flag bit 32
+set, and the matching transform method returns before drawing it. The generic
+world-list dispatcher itself is reaching the expected method.
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -59,24 +60,20 @@ scene primitives needed for a visible frame.
 The forced level probe remains useful for loader debugging but is not a game
 entry path. Its frame-list crash is fixed by draining both frame contexts and
 the three deferred lists before transient heap reset; the load reaches a
-populated world and stays alive. The model reader has populated the level's
+populated world and stays alive. The model reader populates the level's
 class-4 object at `0xa811f0` with 1,962 parts (`drawParts=0x00dc41a0`,
-`partStates=0x00df9c00`). Those records are not missing. The latest dispatch
-trace shows `DrawCollider` (`func_001261c0`) is called only for two class-0x51
-objects (`0xa7dcb0` and `0xa7e2d0`, both with zero parts); the class-4 owner is
-not sent through that draw path, and its descriptor's specialized draw and
-queue methods (`0x001b93d8` and `func_0018F9D8`) are not entered. The owner has
-position `(0,0,0)`, flags `0x2115ffff00`, and null frame/range records at
-`+0x224` and `+0x284`. No traced range-record helpers run in the 12-second
-window. This corrects prior notes that inferred missing mesh attachments
-from unrelated class-0x51 objects. Next trace the world/render-list traversal
-and object activation that decide which objects receive draw callbacks.
-The temporary tracing change to the existing port-only `func_001261C0`
-backfill logs its dispatch arguments, then preserves its current retail-style
-callback forwarding. Keep this diagnostic wrapper isolated and remove it when
-the renderer traversal is fixed or its trace is no longer needed. All
-functional C replacements remain port-only under `hand/native_c/` or
-`hand/overrides_c/`.
+`partStates=0x00df9c00`). The latest trace confirms that object is in list
+`+0x60` and that `func_0019D6C0` dispatches its descriptor slot 40
+(`func_00125C90`) with the active camera. The US class-4 descriptor's later
+methods are `DrawCollider` (`func_001B93D8`) and `func_0018F9D8`, but they are
+not reached: `ApplyPlacedObjectTransform` returns immediately when flags bit
+32 (`0x100000000`) is set, and this forced object's flags are `0x2115ffff00`.
+This explains the absent draw callback without implicating the list walk or
+missing model records. The two class-0x51 callbacks logged nearby are separate
+objects with no model parts. Do not clear bit 32 as a rendering workaround.
+The next useful render investigation is the normal Splash/title transition,
+which remains stuck with inactive UI and no next-world request. Full trace:
+`/tmp/sly-wave32-direct0100-render-12s-20261112.log`.
 
 Upstream Wave 32 newly matches `func_00142278` (`IntersectSegmentWithCapsule`)
 in `src/main/collider_span.cpp`. Hostgen includes it in the refreshed source,

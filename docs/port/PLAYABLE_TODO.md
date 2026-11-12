@@ -1,20 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Current status (2026-11-11):** branch `wip/native-sly-port` is pushed through
-`06dd5e3`. The native build uses decomp source `674b40e` from
-`/tmp/sly1-decomp-674b40e-source` plus US retail assembly from
-`/tmp/sly1-decomp-wave24-asm`; hostgen translates 789 C and 501 assembly
-functions, with 2 stubs across 276 units. Normal launch still shows a black
-window after 15 seconds: 37 UI objects remain inactive, and there is no visible
-text, geometry, or image transfer. A forced level `0x0100` load fails at model
-part 512 when the retail ASM reader consumes `nstrips=0xFF02`; that heap
-failure is resolved by moving the port-only large-resource ring outside the
-unchanged retail heap. Forced-level loading now parses the model through part
-1,100 and reaches loader stages 13/14 before a `BeginRenderFrame` fault at
-`0x66002e34`. The current blocker is render-frame list/pool initialization,
-not model decompression. Keep missing-function backfills in the
-separate port-only directories so matching decomp C can replace them cleanly.
+**Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
+`7ceb10f`; the current native build uses immutable decomp source Wave 32 at
+`86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
+the older Wave 24 snapshot. The upstream `master` was checked again today and
+still points to `86682dd`; the separate `/home/reaper/sly/sly1-decomp` checkout
+is clean and 59 commits behind its configured origin, while the build snapshot
+is current. Normal launch reaches frame state 3, loads Splash, but remains
+black with 37 inactive UI objects and no visible game graphics. The forced
+`0x0100` diagnostic now parses the large model and reaches loader/render setup;
+the old part-512 `nstrips=0xff02` failure is not reproducible. Its class-4
+object at `0xa811f0` has 1,962 model parts, but its retail flag bit 32 is set.
+The current decomp's `ApplyPlacedObjectTransform` returns immediately for that
+bit, so this forced level object is intentionally skipped; clearing it would
+change game state and would not fix normal startup. Treat forced-level mode as
+a loader probe, not a route to gameplay. The next task is to trace why the
+normally loaded Splash world never activates its UI/title or requests the next
+world. Work this in order: (1) trace Splash's state graph and element stack
+from the first frame after its fade completes, (2) identify the callback or
+event gate that should activate its title/movie/UI, and (3) follow that gate to
+the first world-load request. Keep each functional replacement in the port's
+`hand/native_c/` or `hand/overrides_c/` area and register it in the port table;
+replace it with matching decomp C once that code becomes hostable. Keep missing-
+function backfills separate so decomp fixes can replace them cleanly.
+
+**Latest graphics-path correction (2026-11-12):** the current port-only
+`func_0019D6C0` follows Wave 32's `RunWorldFrameLists`: it reads slot 40 from
+each object's descriptor (`descriptor + 0xA0`) and dispatches it with the
+camera, then updates color fades. That callback reaches the class-4 object's
+retail `ApplyPlacedObjectTransform`, which exits on its special bit 32 before
+its draw/queue methods. The previous note that the generic dispatcher skipped
+the drawable object was incorrect. See
+`/tmp/sly-wave32-direct0100-render-12s-20261112.log`; do not bypass the retail
+flag to make this diagnostic level appear to render.
 
 **Historical decomp refresh (Night 26, 2026-11-11):** fetched `origin/master` through
 `1bd176fe` (Night 26, PR #119), 14 commits ahead of the clean local checkout
