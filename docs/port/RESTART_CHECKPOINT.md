@@ -20,18 +20,31 @@ fixed: native CD services report the mounted ISO ready and unchanged and
 update relocated `D_002613F0`. The port-only no-card reply lets retail startup
 reach memory-card pause page 3 after about 0.35 seconds. A 10-second bounded
 run reached about 600 frames without a fatal fault and accepted DMA frames.
-Frame telemetry still reports no visible UI or text; a title or playable
-scene has not been demonstrated. No format action was taken.
+A later native framebuffer capture saved eight frames after the page-3 state
+was reached; all eight were completely black. The trace's `visible_ui` and
+`text_ui` counters cover only the 37 global screen elements, not the pause
+menu layer, so those counters alone did not establish that the prompt was
+absent. The captured black frames do establish that this host32 run produced
+no visible prompt. A title or playable scene has not been demonstrated. No
+format action was taken.
 
 The user-confirmed visible memory-card format prompt came from the separate
-experimental guest-runtime launcher. The current no-emulation host32 run
-reaches the corresponding retail page-3 state, but its frame telemetry still
-reports no visible UI/text and the desktop-control surface was unavailable for
-a visual capture. No format action was taken. Guest-runtime GS/Splash traces
-below remain separate research, not evidence of native gameplay.
+experimental guest-runtime launcher. The no-emulation host32 run reaches the
+corresponding retail page-3 state, but its captured SDL framebuffer frames are
+black. No format action was taken. Guest-runtime GS/Splash traces below remain
+separate research, not evidence of native gameplay.
 Do not extend that runtime's CPU or PS2-device models as port features. Keep
 port-only functional replacements in the OpenThievius tree and replace them
 with matching decomp source when available.
+
+Native capture used `OPENRAC_DUMP_NATIVE_FRAMES=1` and
+`OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=1`; the eight files
+`/tmp/sly1-native-frame-00.ppm` through `-07.ppm` each had mean pixel value 0.
+The capture threshold matters because normal packets were smaller than the
+default 512-byte minimum. The next task is to trace whether the pause-menu draw
+callback runs and what it submits, then follow the missing title/resource
+activation path. Do not use `visible_ui=0` or `text_ui=0` as a substitute for
+checking the pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
 

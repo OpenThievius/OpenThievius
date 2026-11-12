@@ -14,14 +14,16 @@ update relocated `D_002613F0`. The latest native run also fixed an interior
 data alias that had resolved the pad field `D_00262D18` to `0xa8`; it now
 resolves to `0x082fcee8` inside `D_00262C70`. Native no-card service
 backfills let retail startup reach pause page 3, and a bounded 10-second run
-reached about 600 frames without a fatal fault. The trace reports no visible
-UI or text and no title or scene has been demonstrated. See the
+reached about 600 frames without a fatal fault. A later native capture saved
+eight SDL framebuffer frames after that state was reached; all eight were
+black. The trace's global UI/text counters do not include the pause-menu layer.
+No title or scene has been demonstrated. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
 The user-confirmed visible unformatted-memory-card prompt was observed in the
 separate experimental guest-runtime launcher. The host32 path now reaches the
-matching retail page-3 state, but telemetry reports no visible UI/text and no
-visual capture was possible. No format action was taken. The graphics findings
+matching retail page-3 state, but its captured framebuffer is black. No format
+action was taken. The graphics findings
 below are guest-runtime research only, not playable milestones. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current architecture and next work.

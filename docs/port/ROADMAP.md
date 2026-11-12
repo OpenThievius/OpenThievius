@@ -68,9 +68,10 @@ caused pad startup to read `D_00262D18` from address `0xa8`; data aliases now
 resolve after final host data placement. The linked symbol is now at
 `0x082fcee8`, within `D_00262C70`. Native memory-card backfills let retail
 startup reach page 3 of the no-card prompt. A hard-bounded 10-second run
-reached about 600 frames without a fatal fault. Telemetry still reports no
-visible UI or text, and no title or gameplay scene has been demonstrated. No
-card-format action was taken. Unknown DMA channels still avoid host register
+reached about 600 frames without a fatal fault. Eight captured native SDL
+frames after reaching page 3 are completely black, and no title or gameplay
+scene has been demonstrated. The global UI/text counters do not include the
+pause-menu layer. No card-format action was taken. Unknown DMA channels still avoid host register
 dereferences, and host32 compilation retains stack realignment.
 
 ### Decomp refresh (2026-11-11)

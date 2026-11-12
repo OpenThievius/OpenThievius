@@ -17,17 +17,19 @@ objects through the final link; this fixed a startup fault where
 `D_00262D18` had resolved to `0xa8` instead of the relocated pad field. The
 native no-card memory-card services now let retail startup reach pause page 3
 after about 0.35 seconds. A hard-bounded 10-second run reached about 600 frames
-with no fatal fault; telemetry reports no visible UI or text, and no title or
-playable scene has been demonstrated. No card-format action was taken. See the
-restart checkpoint for evidence.
+with no fatal fault. A later native framebuffer capture saved eight frames
+after page 3 was reached; all eight were black. The `visible_ui` and `text_ui`
+trace counters cover only the 37 global screen elements, not the pause-menu
+layer. A title or playable scene has not been demonstrated. No card-format
+action was taken. See the restart checkpoint for evidence.
 
-**Immediate host32 task:** inspect why the retail no-card flow reaches pause
-page 3 while the frame telemetry still reports no visible UI or text. Verify
-the displayed prompt and its controls on the native window, then follow the
-normal title/resource activation path. Keep functional native service
-replacements in `port/game/sly1-us/native/`, separate from decomp source. Do
-not format a card, force UI visibility, or alter matching game logic to
-fabricate a scene.
+**Immediate host32 task:** trace whether the retail pause-menu draw callback
+runs after the no-card flow reaches page 3, and inspect what it submits to the
+native renderer. The captured framebuffer is black, despite the retail page
+state being set. Then follow the normal title/resource activation path. Keep
+functional native service replacements in `port/game/sly1-us/native/`,
+separate from decomp source. Do not format a card, force UI visibility, or
+alter matching game logic to fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed
