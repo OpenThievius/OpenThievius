@@ -461,7 +461,7 @@ extern "C" int openrac_native_window_create(void) {
     openrac::renderer::RenderState state{*g_textures, {0, 960, 720}};
     g_direct = std::make_unique<openrac::renderer::DirectRenderer>(
         "sly1-direct", openrac::renderer::Bucket::Hud,
-        openrac::renderer::DirectConfig{512, 448, 0},
+        openrac::renderer::DirectConfig{640, 224, 0},
         openrac::renderer::DirectRenderer::Input::Gif);
     if (!g_direct->init(state, error)) {
         g_direct.reset(); g_textures.reset(); g_window.reset(); g_platform.reset(); return 0;
