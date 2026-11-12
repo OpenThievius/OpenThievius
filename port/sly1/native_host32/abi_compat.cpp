@@ -2,6 +2,17 @@
 // Host ABI adapters for compiler-generated C++ methods in the Sly sources.
 using u32 = unsigned int;
 
+// The host32 translator skips the retail exception runtime, which uses
+// console-specific type information. Keep a stable diagnostic implementation
+// for the base class's missing virtual method so the native launcher links.
+class exception {
+public:
+    virtual ~exception();
+    virtual const char* what() const;
+};
+
+const char* exception::what() const { return "Sly runtime exception"; }
+
 namespace sly1 {
 struct NativeFunctionAddress {
     u32 retail_address;

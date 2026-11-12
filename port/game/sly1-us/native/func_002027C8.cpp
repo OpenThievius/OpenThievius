@@ -9,6 +9,16 @@ NativeDmaChannel g_channels[10]{};
 } // namespace
 
 extern "C" void openrac_native_renderer_submit_dma_chain(unsigned int source_address);
+extern "C" void openrac_native_renderer_trace_dma_call(
+    unsigned int channel_address, unsigned int source_address);
+extern unsigned int D_00279340[10];
+extern unsigned int D_00261F1C;
+extern "C" __attribute__((weak)) void
+openrac_native_renderer_trace_dma_call(unsigned int, unsigned int) {}
+extern "C" __attribute__((weak)) void sly1_native_host32_trace_dma_call(
+    unsigned int, unsigned int, unsigned int, unsigned int) {}
+extern "C" __attribute__((weak)) void sly1_native_host32_trace_dma_channel(
+    unsigned int, unsigned int, unsigned int) {}
 
 extern "C" unsigned int openrac_native_dma_channel_address(unsigned int index) {
     if (index >= 10) return 0;
@@ -16,15 +26,24 @@ extern "C" unsigned int openrac_native_dma_channel_address(unsigned int index) {
 }
 
 extern "C" unsigned int func_002027A0(unsigned int index) {
-    return openrac_native_dma_channel_address(index);
+    const unsigned int address = openrac_native_dma_channel_address(index);
+    sly1_native_host32_trace_dma_channel(
+        index, address, reinterpret_cast<unsigned int>(__builtin_return_address(0)));
+    return address;
+}
+
+extern "C" unsigned int decomp_func_002027A0(unsigned int index) {
+    const unsigned int address = openrac_native_dma_channel_address(index);
+    sly1_native_host32_trace_dma_channel(
+        index, address, reinterpret_cast<unsigned int>(__builtin_return_address(0)));
+    return address;
 }
 
 extern "C" unsigned int func_002027C8(unsigned int mode) {
-    auto* channel_table = reinterpret_cast<unsigned int*>(0x00279340u);
     for (unsigned int i = 0; i < 10; ++i) {
         for (unsigned int j = 0; j < 0x84 / 4; ++j)
             g_channels[i].registers[j] = 0;
-        channel_table[i] = reinterpret_cast<unsigned int>(&g_channels[i]);
+        D_00279340[i] = reinterpret_cast<unsigned int>(&g_channels[i]);
     }
     (void)mode;
     return 0;
@@ -39,22 +58,32 @@ extern "C" void func_00201A18(int mode, int source, int mask, int enable) {
 }
 
 extern "C" void func_00202A80(unsigned int channel_address, void* source) {
+    openrac_native_renderer_trace_dma_call(
+        channel_address, reinterpret_cast<unsigned int>(source));
+    sly1_native_host32_trace_dma_call(
+        channel_address, reinterpret_cast<unsigned int>(source),
+        reinterpret_cast<unsigned int>(__builtin_return_address(0)), D_00261F1C);
     if (channel_address == 0) return;
-    if (channel_address == 0x1000A000u) {
+    const unsigned int native_gif_channel =
+        reinterpret_cast<unsigned int>(&g_channels[2]);
+    if (channel_address == 0x1000A000u || channel_address == native_gif_channel) {
         // GIF channel 2 completes synchronously by handing its chain to the
-        // native renderer. No guest DMA registers or hardware state are used.
+        // native renderer. The direct host32 build stores a host channel
+        // record in g_gifChannel instead of the retail MMIO address.
         openrac_native_renderer_submit_dma_chain(reinterpret_cast<unsigned int>(source));
         return;
+    }
+    for (unsigned int i = 0; i < 10; ++i) {
+        if (channel_address == reinterpret_cast<unsigned int>(&g_channels[i]))
+            return;
     }
     if (channel_address >= 0x10000000u && channel_address < 0x11000000u) {
         // Other EE DMA channels have no native consumer yet. Leave the
         // corresponding operation complete instead of dereferencing MMIO.
         return;
     }
-    auto* registers = reinterpret_cast<unsigned int*>(channel_address);
-    registers[0x30 / 4] = reinterpret_cast<unsigned int>(source);
-    registers[0x20 / 4] = (registers[0x20 / 4] & ~0xDu) | 0x105u;
-    registers[0x20 / 4] &= ~0x100u;
+    // Startup can reach this service before a game channel handle is ready.
+    // Never treat an arbitrary small value as a native register pointer.
 }
 
 // The native DMA boundary completes a submitted packet before returning, so

@@ -520,7 +520,8 @@ def main(argv=None):
     }
     host_include = port / "sly1" / "host32" / "include"
     flags = [
-        "-m32", "-malign-double", "-msse2", "-std=gnu++20", "-fno-exceptions", "-fno-rtti",
+        "-m32", "-malign-double", "-msse2", "-mstackrealign", "-std=gnu++20",
+        "-fno-exceptions", "-fno-rtti",
         "-O2",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",

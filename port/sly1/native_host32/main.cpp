@@ -28,6 +28,25 @@ extern const u32 sly1_native_function_address_count;
 }
 extern "C" void func_001FAE18();
 extern "C" int sly1_native_host32_crt_initialized = 0;
+#if defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" void sly1_native_host32_trace_dma_call(
+    unsigned int channel, unsigned int source, unsigned int caller,
+    unsigned int gif_channel) {
+    const char* enabled = std::getenv("OPENRAC_TRACE_DMA_CALL");
+    if (enabled == nullptr || enabled[0] == '0') return;
+    std::fprintf(stderr,
+                 "[native direct DMA] channel=%#010x source=%#010x caller=%#010x gif=%#010x\n",
+                 channel, source, caller, gif_channel);
+}
+extern "C" void sly1_native_host32_trace_dma_channel(
+    unsigned int index, unsigned int address, unsigned int caller) {
+    const char* enabled = std::getenv("OPENRAC_TRACE_DMA_CALL");
+    if (enabled == nullptr || enabled[0] == '0') return;
+    std::fprintf(stderr,
+                 "[native direct DMA channel] index=%u address=%#010x caller=%#010x\n",
+                 index, address, caller);
+}
+#endif
 void func_00185758(int, int);
 extern "C" int sly1_i386_syscall6(int, int, int, int, int, int, int);
 #if !defined(OPENRAC_SLY1_WITH_SDL)
