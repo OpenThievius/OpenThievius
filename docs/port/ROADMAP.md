@@ -64,8 +64,12 @@ adds a zero return to the matched `SetIopSoundOptionFlag` body, which is
 declared non-void but only queues a command. This fixes GCC `-O2` fallthrough
 without changing the decomp checkout. The latest bounded run passes the old
 `0xb` IOP fault and reaches `func_0012C288` (`CreateAnimationPlayer`), then
-faults reading a track through a null `Animation::tracks` pointer while its
-track count is nonzero. The cause is under investigation. The DMA boundary
+faults reading address `0x1c` as a track. Core inspection shows the function's
+`self` is a class-`0x57` CountdownNotifier (`D_0021CAD8`), not animation class
+`0x83`. The first StateWalker call uses a valid class-0x83 animation; the
+faulting second call goes through `CreateAnimationPlayerReturned`, whose trace
+return address is heap data (`0x84d420`). Identify this indirect caller before
+changing the object flow. The DMA boundary
 also encountered channel value `0xe0`; unknown values no longer cause an
 invalid host register dereference. A prior core exposed misaligned host stack
 use in generated code, so host32 compilation requests stack realignment. The

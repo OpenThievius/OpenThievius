@@ -537,8 +537,8 @@ extern "C" void sly1_port_trace_nested_counts(
 
 extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
     if (!g_startup_trace_enabled) return;
-    write_hex("native host32: GLOBSET value tag ", (int)tag);
-    write_hex("native host32: GLOBSET value ", (int)value);
+    write_hex("native host32: trace tag ", (int)tag);
+    write_hex("native host32: trace value ", (int)value);
 }
 
 extern "C" __attribute__((no_instrument_function)) void

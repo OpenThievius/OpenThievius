@@ -18,17 +18,23 @@ The staged host32 copy now supplies `return 0` for matched
 non-void function. This avoids GCC `-O2` falling through into the next body;
 the decomp source remains unchanged. A bounded native run passes the former
 `0xb` IOP fault and reaches `func_0012C288` (`CreateAnimationPlayer`), where it
-faults reading a track through a null `Animation::tracks` pointer while the
-track count is nonzero. The cause is not yet established. The combined
-frontier scan does not follow indirect callbacks.
+faults reading address `0x1c` as a track. The saved core shows its `self`
+pointer is `0x847ef0`, descriptor `D_0021CAD8`, class `0x57`
+(CountdownNotifier), not animation class `0x83`. The trace narrows this down:
+the first `StateWalker` call receives a valid class-0x83 animation at
+`0x84d420` and creates its player; a later call through
+`CreateAnimationPlayerReturned` passes the notifier as `self`. Its recorded
+return address is `0x84d420`, which is heap data rather than executable code,
+so the caller is still unresolved. The combined frontier scan does not follow
+indirect callbacks.
 
-**Immediate host32 task:** determine why `CreateAnimationPlayer` sees a
-nonzero animation track count with a null track pointer. Inspect the parsed
-animation object and the caller's arguments immediately before the call, then
-compare the resource-reader writes and host32 ABI against the retail layout.
-Do not mask the count, synthesize tracks, or change matched decompilation to
-make startup continue. If a missing vanilla behavior needs a functional
-replacement, keep it in the port's registered `hand/native_c/` backfills.
+**Immediate host32 task:** identify the indirect caller of
+`CreateAnimationPlayerReturned` and determine why it supplies the
+CountdownNotifier. The ordinary StateWalker animation call is valid, so do not
+change its object reference, mask notifier fields, synthesize tracks, or alter
+matched decompilation to make startup continue. If a missing vanilla behavior
+needs a functional replacement, keep it in the port's registered
+`hand/native_c/` backfills.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

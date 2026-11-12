@@ -1099,26 +1099,30 @@ def main(argv=None):
                 # behavior. The invalid value is reported at parse time and
                 # again at the attachment DMA consumer, which separates a bad
                 # stream/global base from later record corruption.
-                adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+                # These model-reader bodies moved from file_15F678.cpp to
+                # placed_object_model.cpp in Wave 33. Inject only at a body
+                # that exists in this source unit so both source snapshots
+                # remain traceable.
+                hook = 'extern "C" void sly1_port_trace_value(u32, u32);\n'
+                if "strip->mesh = mesh;" in adapted or "            switch (*c->f18) {" in adapted:
+                    adapted = hook + adapted
                 needle = "                strip->mesh = mesh;"
-                replacement = (
-                    needle + '\n'
-                    '                if ((u32)mesh < 0x10000u || (u32)mesh > 0x09000000u) {\n'
-                    '                    sly1_port_trace_value(0x16620001u, (u32)mesh);\n'
-                    '                    sly1_port_trace_value(0x16620002u, (u32)g_animRecords);\n'
-                    '                }')
-                if adapted.count(needle) != 1:
-                    raise RuntimeError("expected parsed strip mesh assignment in " + rel.as_posix())
-                adapted = adapted.replace(needle, replacement)
+                if adapted.count(needle) == 1:
+                    replacement = (
+                        needle + '\n'
+                        '                if ((u32)mesh < 0x10000u || (u32)mesh > 0x09000000u) {\n'
+                        '                    sly1_port_trace_value(0x16620001u, (u32)mesh);\n'
+                        '                    sly1_port_trace_value(0x16620002u, (u32)g_animRecords);\n'
+                        '                }')
+                    adapted = adapted.replace(needle, replacement, 1)
                 needle = "            switch (*c->f18) {"
-                replacement = (
-                    '            if ((u32)c->f18 < 0x10000u || (u32)c->f18 > 0x09000000u) {\n'
-                    '                sly1_port_trace_value(0x1662a801u, (u32)c);\n'
-                    '                sly1_port_trace_value(0x1662a802u, (u32)c->f18);\n'
-                    '            }\n' + needle)
-                if adapted.count(needle) != 1:
-                    raise RuntimeError("expected attachment DMA kind switch in " + rel.as_posix())
-                adapted = adapted.replace(needle, replacement)
+                if adapted.count(needle) == 1:
+                    replacement = (
+                        '            if ((u32)c->f18 < 0x10000u || (u32)c->f18 > 0x09000000u) {\n'
+                        '                sly1_port_trace_value(0x1662a801u, (u32)c);\n'
+                        '                sly1_port_trace_value(0x1662a802u, (u32)c->f18);\n'
+                        '            }\n' + needle)
+                    adapted = adapted.replace(needle, replacement, 1)
         elif rel.as_posix() == "main/state_walker.cpp" and args.trace_functions:
             # Follow serialized state-graph animation IDs through object
             # creation and into playback. This is diagnostics only; it makes
@@ -1142,6 +1146,90 @@ def main(argv=None):
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected state-walker animation player creation")
             adapted = adapted.replace(needle, replacement)
+        elif rel.as_posix() == "main/placed_object.cpp" and args.trace_functions:
+            # Record the exact arguments and class fields at the animation
+            # player boundary. This distinguishes a malformed Animation
+            # record from a call-site passing a different object class.
+            adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+            needle = (
+                "void CreateAnimationPlayer(Animation* self, Animation* alt, s32 npairs, "
+                "TargetBinding* pairs, s32 flags, AnimationPlayer** out, f32 fa, f32 fb)\n{\n")
+            replacement = needle + (
+                "    sly1_port_trace_value(0x12c28801u, (u32)self);\n"
+                "    sly1_port_trace_value(0x12c28802u, (u32)__builtin_return_address(0));\n"
+                "    sly1_port_trace_value(0x12c28803u, self != 0 ? (u32)self->desc : 0);\n"
+                "    sly1_port_trace_value(0x12c28804u, self != 0 ? (u32)self->id : 0);\n"
+                "    sly1_port_trace_value(0x12c28805u, self != 0 ? (u32)self->world : 0);\n"
+                "    sly1_port_trace_value(0x12c28806u, self != 0 ? (u32)self->trackCount : 0);\n"
+                "    sly1_port_trace_value(0x12c28807u, self != 0 ? (u32)self->tracks : 0);\n"
+                "    sly1_port_trace_value(0x12c28808u, self != 0 ? (u32)self->targetCount : 0);\n"
+                "    sly1_port_trace_value(0x12c28809u, self != 0 ? (u32)self->targets : 0);\n"
+                "    sly1_port_trace_value(0x12c2880au, (u32)alt);\n"
+                "    sly1_port_trace_value(0x12c2880bu, (u32)npairs);\n"
+                "    sly1_port_trace_value(0x12c2880cu, (u32)pairs);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected CreateAnimationPlayer definition")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = (
+                "s32 CreateAnimationPlayerWithoutPresetTargets(void* a, void* b, s32 c, s32 d)\n{\n")
+            replacement = needle + (
+                "    sly1_port_trace_value(0x12c7d801u, (u32)__builtin_return_address(0));\n"
+                "    sly1_port_trace_value(0x12c7d802u, (u32)a);\n"
+                "    sly1_port_trace_value(0x12c7d803u, (u32)b);\n"
+                "    sly1_port_trace_value(0x12c7d804u, (u32)c);\n"
+                "    sly1_port_trace_value(0x12c7d805u, (u32)d);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected CreateAnimationPlayer wrapper")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "void* CreateAnimationPlayerReturned(void* self, s32 key, s32 a2)\n{\n"
+            replacement = needle + (
+                "    sly1_port_trace_value(0x12c7d821u, (u32)__builtin_return_address(0));\n"
+                "    sly1_port_trace_value(0x12c7d822u, (u32)self);\n"
+                "    sly1_port_trace_value(0x12c7d823u, (u32)key);\n"
+                "    sly1_port_trace_value(0x12c7d824u, (u32)a2);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected returned animation-player wrapper")
+            adapted = adapted.replace(needle, replacement, 1)
+        elif rel.as_posix() == "main/placed_object_model.cpp" and args.trace_functions:
+            # Wave 33 moved this model-reader body out of file_15F678.cpp.
+            # Keep the invalid strip pointer trace attached to its new owner.
+            adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+            needle = "                strip->mesh = mesh;"
+            replacement = (
+                needle + '\n'
+                '                if ((u32)mesh < 0x10000u || (u32)mesh > 0x09000000u) {\n'
+                '                    sly1_port_trace_value(0x16620001u, (u32)mesh);\n'
+                '                    sly1_port_trace_value(0x16620002u, (u32)g_animRecords);\n'
+                '                }')
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected Wave 33 strip mesh assignment")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "            switch (*c->f18) {"
+            replacement = (
+                '            if ((u32)c->f18 < 0x10000u || (u32)c->f18 > 0x09000000u) {\n'
+                '                sly1_port_trace_value(0x1662a801u, (u32)c);\n'
+                '                sly1_port_trace_value(0x1662a802u, (u32)c->f18);\n'
+                '            }\n' + needle)
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected Wave 33 attachment DMA kind switch")
+            adapted = adapted.replace(needle, replacement, 1)
+        elif rel.as_posix() == "main/object_host_functions.cpp" and args.trace_functions:
+            # Identify the script host-call object that reaches the returned
+            # animation-player wrapper. The declared Animation* can be a
+            # misleading alias for a different runtime class.
+            adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+            needle = (
+                "ScriptValue* CreateScriptAnimationPlayer(ScriptValue* ret, Animation* obj, "
+                "s32 unused, ScriptValue* args)\n{")
+            replacement = needle + (
+                "\n    sly1_port_trace_value(0x12c7d811u, (u32)__builtin_return_address(0));"
+                "\n    sly1_port_trace_value(0x12c7d812u, (u32)obj);"
+                "\n    sly1_port_trace_value(0x12c7d813u, obj != 0 ? (u32)obj->desc : 0);"
+                "\n    sly1_port_trace_value(0x12c7d814u, obj != 0 ? (u32)obj->id : 0);"
+            )
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected script animation-player host function")
+            adapted = adapted.replace(needle, replacement, 1)
         elif rel.as_posix() == "main/file_184D78.cpp":
             # Retain the most recent one-based startup callback index in the
             # native launcher diagnostics. This isolates a startup spin loop
@@ -1197,31 +1285,32 @@ def main(argv=None):
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected mismatched resource-key wrapper in " +
                                    rel.as_posix())
-        elif rel.as_posix() == "main/file_1E08F8.cpp" and args.trace_functions:
+        elif rel.as_posix() in {"main/file_1E08F8.cpp", "main/file_1E2420.cpp"} and args.trace_functions:
             # Capture the pending key/blob and current world when the direct
             # native startup path handles a resource request.
-            hook = ('extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
-                    'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n')
-            adapted = hook + adapted
             signature = "void RunPendingWorldLoad(WorldLoadRequest* self)\n{"
-            replacement = (
-                signature + "\n"
-                "    sly1_native_trace_startup(0xFFFFFFFDu, 0, 0);\n"
-                "    sly1_native_trace_resource_state((u32)self, (u32)self->key, "
-                "(u32)D_00275710);"
-            )
-            if adapted.count(signature) != 1:
-                raise RuntimeError("expected one resource request handler in " + rel.as_posix())
-            adapted = adapted.replace(signature, replacement)
-            end = "    self->state = 0;\n}\n\nvoid RequestWorldLoadByMode"
-            end_replacement = (
-                "    self->state = 0;\n"
-                "    sly1_native_trace_startup(0xFFFFFFFDu, 1, 0);\n"
-                "}\n\nvoid RequestWorldLoadByMode"
-            )
-            if adapted.count(end) != 1:
-                raise RuntimeError("expected world-load completion in " + rel.as_posix())
-            adapted = adapted.replace(end, end_replacement, 1)
+            if signature in adapted:
+                hook = ('extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
+                        'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n')
+                adapted = hook + adapted
+                replacement = (
+                    signature + "\n"
+                    "    sly1_native_trace_startup(0xFFFFFFFDu, 0, 0);\n"
+                    "    sly1_native_trace_resource_state((u32)self, (u32)self->key, "
+                    "(u32)D_00275710);"
+                )
+                if adapted.count(signature) != 1:
+                    raise RuntimeError("expected one resource request handler in " + rel.as_posix())
+                adapted = adapted.replace(signature, replacement)
+                end = "    self->state = 0;\n}\n\nvoid RequestWorldLoadByMode"
+                end_replacement = (
+                    "    self->state = 0;\n"
+                    "    sly1_native_trace_startup(0xFFFFFFFDu, 1, 0);\n"
+                    "}\n\nvoid RequestWorldLoadByMode"
+                )
+                if adapted.count(end) != 1:
+                    raise RuntimeError("expected world-load completion in " + rel.as_posix())
+                adapted = adapted.replace(end, end_replacement, 1)
         elif rel.as_posix() == "main/main_loop.cpp" and args.trace_functions:
             # Mark the retail constructor phase and each startup initializer.
             # A single guest callback can wait indefinitely, so the before /

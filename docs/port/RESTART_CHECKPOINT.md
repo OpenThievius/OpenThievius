@@ -14,9 +14,13 @@ This scan omits indirect callbacks. The latest host32 staging build adds a
 zero return to the matched `SetIopSoundOptionFlag` body because it is declared
 non-void but only queues a command; the decomp source stays unchanged. A
 bounded native run now passes its prior `0xb` IOP fault and reaches
-`func_0012C288` (`CreateAnimationPlayer`), then faults reading a track through
-a null `Animation::tracks` pointer while the track count is nonzero. The cause
-is not yet established, and no playable scene has been demonstrated.
+`func_0012C288` (`CreateAnimationPlayer`), then faults reading address `0x1c`
+as a track. Core inspection shows its `self` is `0x847ef0`, descriptor
+`D_0021CAD8`, class `0x57` (CountdownNotifier), not animation class `0x83`.
+The first StateWalker animation call uses a valid class-0x83 object; the later
+faulting call comes through `CreateAnimationPlayerReturned`. Its trace reports
+return address `0x84d420` (heap data), so identify that indirect caller before
+changing any object reference. No playable scene has been demonstrated.
 
 The visible memory-card format prompt and all GS/Splash traces below came from
 the separate experimental guest-runtime launcher. Its memory-card probe

@@ -8,8 +8,12 @@ freestanding launcher. Its direct frame-call scan resolves 814/822 functions,
 leaving 8; indirect callbacks are outside the scan. The latest native run
 passes the previous `0xb` IOP fault after a staging-only return fix for
 `SetIopSoundOptionFlag`, then faults in `CreateAnimationPlayer` while reading
-tracks through a null `Animation::tracks` pointer with a nonzero track count.
-The cause is not known; no title or scene has been verified.
+address `0x1c` as a track. The core identifies its `self` as class-`0x57`
+CountdownNotifier (`D_0021CAD8`) rather than animation class `0x83`. The first
+StateWalker animation call is valid; the failing call is through
+`CreateAnimationPlayerReturned`, whose trace return address is heap data
+(`0x84d420`), leaving its indirect caller unresolved. No title or scene is
+verified.
 
 The unformatted-memory-card prompt was observed in the separate experimental
 guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
