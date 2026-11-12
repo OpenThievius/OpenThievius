@@ -20,7 +20,7 @@ Its font atlas and palette data are present and match the decoded Splash bytes,
 but the submitted text remains malformed and no normal title/gameplay path is
 visible in the native launcher.
 
-## Current visual blocker (2026-11-12)
+## Experimental guest-runtime visual blocker (2026-11-12)
 
 Normal startup reaches the retail Splash world and the main frame loop, but it
 does not start the title sequence. The active UI stack is in its ordinary state
@@ -28,10 +28,11 @@ does not start the title sequence. The active UI stack is in its ordinary state
 is never called. The Splash world's class-`0x57` CountdownNotifier has no
 listener and a disabled timer gate, so it cannot request the transition. The
 window reports focus, and the native adapter provides a connected active-low
-pad report; the unattended key trace saw no key press, so manual input delivery
-remains unverified. Do not force an element visible as a workaround: trace the
-retail producer that should load/arm the title scene. Logs and field notes are
-in [RESTART_CHECKPOINT.md](RESTART_CHECKPOINT.md).
+pad report. The user pressed Enter several times in the visible experimental
+launcher and saw no response, so keyboard-to-pad delivery is not working yet.
+Do not force an element visible as a workaround: trace the retail producer that
+should load/arm the title scene. Logs and field notes are in
+[RESTART_CHECKPOINT.md](RESTART_CHECKPOINT.md).
 
 The renderer's black clear and swap path is active. The only recurring 2,128-
 byte UI draw packet was captured identically across frames with zero/black
@@ -39,6 +40,24 @@ vertex attributes, and the resulting 960x720 frame was entirely black. Normal
 startup emits no scene mesh vertices or image transfers. This makes title/scene
 activation and its source packet contents the next blockers; it is not yet a
 playable build.
+
+## Current no-emulation build (2026-11-12)
+
+The public decomp `master` is `86682ddd` (Wave 32); this checkout's sibling
+decomp worktree is still at `bfc74817`, 59 commits behind. The latest report
+matches 4,762/4,807 functions, 93.449% of code and 99.616% of data. Wave 32
+reorganized the C++ source into 190 units and added two matched functions.
+
+A read-only snapshot of `86682ddd` now compiles all 190 units and all 57
+port-only host32 backfills. The combined native object records 4,339 catalogued
+function entries, and the direct frame-call frontier has 809/822 definitions
+(13 missing). The freestanding i386 launcher links, with unresolved retail
+functions routed to address-reporting traps. This is a compile/link milestone;
+the new launcher has not yet demonstrated a title, scene, or controllable
+gameplay. The visible memory-card format prompt came from the separate
+experimental guest-runtime launcher, whose memory-card probe reports no card.
+No format was selected. Backfills remain in the port tree and do not change
+matching decomp source.
 
 ### Decomp refresh (2026-11-11)
 

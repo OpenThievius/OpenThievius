@@ -1,22 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-12. Current decomp master is `86682dd` (Wave 32, PR #123)
-and the OpenThievius port is built against an immutable snapshot at
-`build/port/decomp-source-wave32/`. A fresh fetch confirmed that master has not
-advanced beyond this snapshot. The graphics findings and build counts below
-are historical notes from 2026-11-11 and are superseded where they conflict
-with [the current restart checkpoint](RESTART_CHECKPOINT.md). The current port
-build reports 798 translated functions, including 546 selected from US retail
-assembly. The user confirmed the native window displays the unformatted-memory-card
-prompt with readable message text. Yes/No choices
-appear as placeholder/button glyphs. The SIF memory-card probe currently
-reports no card; no format action was taken. A fresh native frame dump still
-reads black despite the visible prompt; investigate the readback mismatch. Animation and pose helpers use exact retail assembly, while
-the Splash graph remains on its state-2 self-edge. See the checkpoint for the
-current trace and next steps.
+Last checked: 2026-11-12. Current decomp master is `86682ddd` (Wave 32, PR #123).
+The no-emulation host32 path compiles all 190 Sly units and 57 port-only
+backfills, combines 4,339 catalogued native function entries, and links a
+freestanding launcher. Its direct frame-call frontier is missing 13 functions;
+it has not yet produced a verified title or scene.
 
-The native VIF1 DMA backfill now preserves the TTE bit set by the retail
+The unformatted-memory-card prompt was observed in the separate experimental
+guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
+probe reports no card; no format action was taken. The graphics findings below
+are guest-runtime research only, not playable milestones. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
+for the current architecture and next work.
+
+## Experimental guest-runtime graphics notes
+
+The following VIF1 and GS notes document the bounded device-model experiment.
+Do not extend it as the gameplay renderer.
+
+The experimental VIF1 DMA backfill preserves the TTE bit set by the retail
 caller. Previously it overwrote CHCR with `0x105`, dropping inline VIF codes,
 so the interpreter tried to decode VU microinstructions as commands. The
 fixed startup transfer parses as 64 bytes with one MPG and one MSCAL; the next

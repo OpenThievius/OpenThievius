@@ -1,17 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
-Wave 32), tracing native GS submissions and Splash state, and rebuilding
-against the refreshed source. Upstream `master` was fetched again and remains
-at `86682dd`; there is no newer decomp source to consume. An opt-in
-boot-transition trace confirms retail startup queues and
-consumes the initial Splash fade/world request; the black output is downstream
-of that successful Splash load. The normal path remains at frame state 3 with
-37 inactive UI elements and no visible game graphics. The forced-level probe
-is not a gameplay entry path; its loaded class-4 object has retail flag bit 32
-set, and the matching transform method returns before drawing it. The generic
-world-list dispatcher itself is reaching the expected method.
+Updated: 2026-11-12. The public decomp master is `86682ddd` (Wave 32); the
+sibling checkout is 59 commits behind. A read-only snapshot compiles all 190
+Sly C++ units and 57 port-only host32 backfills. The combined object has 809 of
+822 functions in the direct frame-call frontier, and the freestanding i386
+launcher links. It has not been run or shown a playable scene. This is the
+current no-emulation path.
+
+The visible memory-card format prompt and all GS/Splash traces below came from
+the separate experimental guest-runtime launcher. Its memory-card probe
+reports no card; the user pressed Enter several times with no visible response,
+and no format action was taken. Those runs do not establish native gameplay.
+Do not extend that runtime's CPU or PS2-device models as port features. Keep
+port-only functional replacements in the OpenThievius tree and replace them
+with matching decomp source when available.
+
+## Experimental guest-runtime trace history (not the playable path)
+
+An opt-in boot-transition trace confirms experimental startup queues and
+consumes the initial Splash fade/world request. The normal path reached frame
+state 3 with 37 inactive UI elements and no game graphics. The forced-level
+probe is not a gameplay entry path; its loaded class-4 object has retail flag
+bit 32 set, and the matching transform method returns before drawing it. The
+generic world-list dispatcher reaches the expected method.
 The latest callback trace restores the state-walker queue path from exact US
 assembly: animation callback delivery now reaches Splash event stages 209,
 211, 207, and 206. The graph still loops on state index 2 (`0x261`, edge
@@ -38,8 +50,9 @@ Work in
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
 port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
 `overrides_c/`, registered in the matching hand table; do not put those
-replacements in `/home/reaper/sly/sly1-decomp`. Continue using native runs
-only; no emulator is involved in the port work.
+replacements in `/home/reaper/sly/sly1-decomp`. Use the direct compiled host32
+path for port progress; the experimental guest-runtime launcher is not the
+no-emulation target.
 
 ## Current status (2026-11-12)
 

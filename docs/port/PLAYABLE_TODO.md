@@ -1,44 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
-the latest animation-path recovery checkpoint; the current native
-build uses immutable decomp source Wave 32 at
-`86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
-the older Wave 24 snapshot. The upstream `master` was checked again today and
-still points to `86682dd`; no newer decomp data is available. The separate
-`/home/reaper/sly/sly1-decomp` checkout is clean and 59 commits behind its
-configured origin, while the build snapshot is current. Normal launch reaches the memory-card menu state in the native trace, and the
-user confirmed that the native window displays the readable unformatted-card
-prompt. Yes/No choices appear as placeholder/button
-glyphs. The native SIF probe still reports no card; no format was selected.
-The Yes/No order is Yes then No. The host maps Right Arrow to right and
-Space to Cross/confirm, so the user can choose No with Right then Space. This
-key mapping is verified in source but has not been runtime-verified on the
-prompt. Keep the default Yes choice untouched; never auto-format. The Splash
-graph is still on its `0x261` state-2 self-edge; no playable gameplay is verified. A fresh native
-framebuffer dump is black despite the visible window, so fix the capture/readback
-mismatch. Exact US assembly is now restored for the reached CountdownNotifier
-handler, deferred-call queue, completion callback, timer, and the handler's
-`GetStateWalkerCurrentKey` dependency; this removes another no-op cluster but
-does not advance the current graph. The forced
-`0x0100` diagnostic now parses the large model and reaches loader/render setup;
-the old part-512 `nstrips=0xff02` failure is not reproducible. Its class-4
-object at `0xa811f0` has 1,962 model parts, but its retail flag bit 32 is set.
-The current decomp's `ApplyPlacedObjectTransform` returns immediately for that
-bit, so this forced level object is intentionally skipped; clearing it would
-change game state and would not fix normal startup. Treat forced-level mode as
-a loader probe, not a route to gameplay. The next task is to trace why the
-normally loaded Splash world never activates its UI/title or requests the next
-world. Work this in order: (1) trace Splash's state graph and element stack
-from the first frame after its fade completes, (2) identify the callback or
-event gate that should activate its title/movie/UI, and (3) follow that gate to
-the first world-load request. Keep each functional replacement in the port's
-`hand/native_c/` or `hand/overrides_c/` area and register it in the port table;
-replace it with matching decomp C once that code becomes hostable. Keep missing-
-function backfills separate so decomp fixes can replace them cleanly.
+**Current status (2026-11-12):** upstream `sly1-decomp` master is
+`86682ddd` (Wave 32); the sibling checkout remains at `bfc74817`, 59 commits
+behind. A read-only Wave 32 snapshot compiles 190/190 Sly units and 57/57
+port-only host32 backfills. The combined object resolves 809/822 direct frame
+calls, leaving 13 missing, and the freestanding i386 launcher links. It has not
+yet been run against the disc or shown a title, scene, or controllable game.
 
-**Latest startup callback recovery (2026-11-12):** a bounded native trace
+The visible unformatted-memory-card prompt came from the separate experimental
+guest-runtime launcher. Its memory-card probe reports no card; the user pressed
+Enter several times and saw no response. No format was selected. Do not extend
+the SIF/device model to suppress this prompt or claim gameplay from it. Keep
+that runtime's graphics traces as research only. Continue on the compiled
+host32 C/C++ path, keep functional missing-function replacements in the port
+tree, and replace them with matching decomp C when available.
+
+## Experimental guest-runtime trace history
+
+The following dated run notes describe the old guest-runtime experiment. They
+are not results from the no-emulation host32 launcher and are not playable
+milestones.
+
+**Latest startup callback recovery (2026-11-12):** a bounded guest-runtime trace
 identified four reached assembly-only functions that had been falling through
 as no-op host stubs: `func_00138828`, `func_001DC7D0`, `func_0019E168`, and
 `func_001BB580`. Exact US retail assembly is now selected for them in
