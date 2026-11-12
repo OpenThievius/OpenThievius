@@ -2,7 +2,7 @@
 # Concrete plan for a playable native Sly 1
 
 **Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
-`73359b4` (latest trace code; documentation update pending); the current native
+`19d4343` (latest pushed trace checkpoint; notifier assembly recovery pending); the current native
 build uses immutable decomp source Wave 32 at
 `86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
 the older Wave 24 snapshot. The upstream `master` was checked again today and
@@ -14,7 +14,9 @@ black with 37 inactive UI objects and no visible game graphics. Startup
 animation callbacks now dispatch, but the Splash graph remains on its `0x261`
 state-2 self-edge; no target-change or screen-element Show call occurs. The
 pad's `f14` is connection mode 3, so the no-controller auto-pause branch is
-inactive. The forced
+inactive. Exact US assembly is now restored for the reached CountdownNotifier
+handler, deferred-call queue, completion callback, and timer; this removes
+another no-op cluster but does not advance the current graph. The forced
 `0x0100` diagnostic now parses the large model and reaches loader/render setup;
 the old part-512 `nstrips=0xff02` failure is not reproducible. Its class-4
 object at `0xa811f0` has 1,962 model parts, but its retail flag bit 32 is set.
@@ -36,7 +38,7 @@ identified four reached assembly-only functions that had been falling through
 as no-op host stubs: `func_00138828`, `func_001DC7D0`, `func_0019E168`, and
 `func_001BB580`. Exact US retail assembly is now selected for them in
 `port/game/sly1-us/hostgen.json`; this is build configuration, not replacement
-C. The rebuild reports 522 assembly translations (up from 515), and a 15-second
+C. The rebuild reports 526 assembly translations (up from 515), and a 15-second
 run has no more warnings for those four functions. It still reaches Splash at
 frame state 3 with 37 inactive UI objects, no image uploads, and the same
 black output. The callback queue helpers `func_001B5EA0`, `func_001B5EC0`, and
@@ -48,6 +50,15 @@ calls, but no Show call. The trace does not implicate the renderer's window
 presentation. Keep `func_0019E418` unselected: its exact retail body is just
 `jr $ra; nop`, so its no-op warning is expected. Follow-up log:
 `/tmp/sly-wip-followup-state-ui-12s-20261112.log`.
+
+**CountdownNotifier callback recovery (2026-11-12):** the fresh warning trace
+showed `func_00148E40` (CountdownNotifier message handler) and
+`func_001DBCC8` (generic deferred-call append) still executing as no-op stubs.
+Exact US assembly is now selected for both, plus `func_00148E18` (completion)
+and `func_00148EF8` (timer). The native build reports 526 assembly functions
+and links successfully. A 10-second startup trace removes the warnings for
+this cluster but still observes the graph on its state-2 self-edge, with no
+image uploads. Log: `/tmp/sly-wip-notifier-asm-recovery-10s-20261112.log`.
 
 **Latest graphics-path correction (2026-11-12):** the current port-only
 `func_0019D6C0` follows Wave 32's `RunWorldFrameLists`: it reads slot 40 from

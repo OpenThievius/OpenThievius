@@ -21,6 +21,14 @@ connection mode: the native controller is in mode 3, so the five-second
 no-controller auto-pause branch is not active. Latest reproduction:
 `/tmp/sly-wip-followup-state-ui-12s-20261112.log`.
 
+A further trace found that the CountdownNotifier message handler
+`func_00148E40` and generic queued-call append `func_001DBCC8` were still
+no-op stubs despite being reached. Exact US assembly is now selected for those
+plus `func_00148E18` and `func_00148EF8`. The rebuilt launcher reaches the same
+Splash graph and still shows no image uploads; the warnings for this cluster
+are gone. Hostgen now reports 798 translated functions, 526 from assembly,
+and 2 stubs. Log: `/tmp/sly-wip-notifier-asm-recovery-10s-20261112.log`.
+
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -41,7 +49,7 @@ ships that assembly tree. Build command:
 The 2026-11-12 callback follow-up selected exact US assembly for four reached
 functions previously executing as no-op stubs: `func_00138828`,
 `func_001DC7D0`, `func_0019E168`, and `func_001BB580`. Build coverage is now
-798 translated functions (522 from assembly, two stubs). A fresh 15-second
+798 translated functions (526 from assembly, two stubs). A fresh 15-second
 native run removed all four warnings but still reaches the same black Splash
 state. The callback queue allocation helpers `func_001B5EA0`,
 `func_001B5EC0`, and `func_001DBBD8` were also selected from exact assembly;
@@ -1189,12 +1197,13 @@ latest `ReadPlacedObjectModel` source. Evidence:
 
 ### Current checkpoint (2026-11-12)
 
-Branch `wip/native-sly-port` includes implementation commit `73359b4`; this
-documentation update is the remaining local commit. Upstream
+Branch `wip/native-sly-port` is pushed through `19d4343`; the notifier
+assembly selection and this checkpoint update are the remaining local changes.
+Upstream
 `sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
 (Wave 32); verified with `git ls-remote`. The sibling working checkout remains
 untouched. Hostgen from the staged Wave 32 source reports 798 translated
-functions, 522 retail-assembly functions, and 2 stubs. The latest build
+functions, 526 retail-assembly functions, and 2 stubs. The latest build
 succeeds; no new matching decomp source addresses Splash activation.
 
 The latest native 15-second trace confirms the frame's draw dispatch is
