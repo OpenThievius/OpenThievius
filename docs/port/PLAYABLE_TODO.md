@@ -2673,16 +2673,22 @@ The user's Enter presses were captured by the native pad bridge as Start
 consumes R1 (`0x0800`) for the pause layer and L2 (`0x0100`) for an available
 map, not Start. The keyboard bridge maps Q to R1 and `1` to L2. Current trace
 still has no queued movie, world load, text draw, UI draw callback, or graphics
-submission after startup reaches the main loop. The native Splash world has no
-world-class trace reports no class-`0x65` StepSequence objects, so no sequence
-can queue movie message type 7 through `HandleStepSequenceMessage`. The
-class-`0x57` CountdownNotifier is state 0 with a null `+0x338` gate pointer;
-retail `CountDownNotifierTimer` returns without ticking while that pointer is
-null. Its state graph is unarmed on the `0x261` self-edge and there is no movie
-queued. Next trace why the expected StepSequence is absent and why the
-notifier gate is null, then follow normal resource/state activation. Do not
-force a menu or movie. Keep all implementation in `hand/native_c/` separate
-from matching decomp C. Latest run: `/tmp/sly-title-step-sequence-final.log`.
+submission after startup reaches the main loop. The opt-in boot-transition
+trace at `/tmp/sly-wave32-boot-transition-12s-20261112.log` confirms
+`RunResetGameSession` queues and services the first Splash fade/world request
+(key `0x247ab0`, resource sector 820372), so the retail boot request is not
+missing. After Splash loads, no further world or movie request occurs; all 37
+screen elements remain inactive and graphics/text uploads remain absent. The
+Splash world has no class-`0x65` StepSequence objects, so no sequence can queue
+movie message type 7 through `HandleStepSequenceMessage`. The class-`0x57`
+CountdownNotifier is state 0 with a null `+0x338` gate pointer;
+`CountDownNotifierTimer` returns while that pointer is null. Its state graph
+stays on the `0x261` self-edge. These are observed inactive Splash contents,
+not evidence of a missing transition request. Next trace how the loaded
+Splash objects and graph are expected to activate, and why object render
+traversal skips drawable records. Do not force a menu/movie or change vanilla
+state. Keep functional backfills in `hand/native_c/` separate from matching
+decomp C.
 
 ## VIF startup-buffer trace (2026-11-11)
 

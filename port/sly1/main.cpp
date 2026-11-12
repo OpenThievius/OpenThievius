@@ -1033,6 +1033,8 @@ int main(int argc, char** argv) {
         trace_thread = std::thread([&trace_stop] {
             std::uint32_t previous_range_state[8]{};
             bool have_previous_range_state = false;
+            std::array<std::uint32_t, 11> previous_fade_state{};
+            bool have_previous_fade_state = false;
             bool wrote_object_snapshot = false;
             bool wrote_ui_callback_snapshot = false;
             auto last_full_trace = std::chrono::steady_clock::now() -
@@ -1514,6 +1516,27 @@ int main(int argc, char** argv) {
                             sizeof(screen_fade_request));
                 std::memcpy(world_load_request, openrac_guest_base + 0x00275AF0u,
                             sizeof(world_load_request));
+                if (std::getenv("OPENRAC_TRACE_BOOT_TRANSITIONS") != nullptr) {
+                    const std::array<std::uint32_t, 11> state = {
+                        static_cast<std::uint32_t>(screen_fade_mode),
+                        screen_fade_request[0], screen_fade_request[1],
+                        screen_fade_request[2], screen_fade_request[3],
+                        screen_fade_request[4], screen_fade_request[5],
+                        world_load_request[0], world_load_request[1],
+                        world_load_request[2], world_load_request[4]};
+                    if (!have_previous_fade_state || state != previous_fade_state) {
+                        std::cerr << "[boot-transition] game_mode=0x" << std::hex
+                                  << game_mode << " fade=" << state[0] << ','
+                                  << state[1] << ",key=0x" << state[2]
+                                  << ",arg=0x" << state[3] << ",flags=0x"
+                                  << state[5] << ",style=0x" << state[6]
+                                  << " world=" << state[7] << ",key=0x"
+                                  << state[8] << ",arg=0x" << state[9]
+                                  << ",flags=0x" << state[10] << std::dec << '\n';
+                        previous_fade_state = state;
+                        have_previous_fade_state = true;
+                    }
+                }
                 std::memcpy(last_world_key, openrac_guest_base + 0x00275B04u,
                             sizeof(last_world_key));
                 std::memcpy(&frame_flags_a, openrac_guest_base + 0x00262D38u + 0xAAu,

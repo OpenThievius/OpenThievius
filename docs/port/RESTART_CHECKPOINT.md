@@ -3,10 +3,12 @@
 
 Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
 Wave 32), tracing native GS submissions, and rebuilding against the refreshed
-source. Latest update: SDL focus and pad traces show the window/input bridge is
-alive while startup remains in retail Splash state. The forced-level render
-trace below corrects the earlier model-attachment diagnosis; object inclusion
-still blocks level rendering.
+source. Latest update: an opt-in boot-transition trace confirms retail startup
+queues and consumes the initial Splash fade/world request; the black output is
+downstream of the successful Splash load. SDL focus and pad traces show the
+window/input bridge is alive. The forced-level render trace below corrects the
+earlier model-attachment diagnosis; object inclusion still blocks level
+rendering.
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -31,6 +33,21 @@ and no bitblt writes. The occasional 240-vertex count is not level geometry:
 the lightweight trace parser expands 40 GS point primitives into six-vertex
 placeholder quads, with sampled points near the upper-left corner. The window
 still has no real game graphics and is not playable.
+
+The short transition trace in `/tmp/sly-wave32-boot-transition-12s-20261112.log`
+shows `RunResetGameSession` working as intended: the retail `StartObjectFade`
+queues key `0x247ab0` (Splash), the world request is serviced, Splash data is
+read from sector 820372, and the fade request returns to idle. This closes the
+earlier suspicion that startup failed to request its first world. The active
+Splash world then remains in element-stack state 3 with all 37 screen elements
+inactive, no movie/world request, no visible text or image upload, and no
+rendered scene geometry. The new opt-in `OPENRAC_TRACE_BOOT_TRANSITIONS=1`
+trace reports changes in fade and world-load request fields alongside the
+existing startup samples. Next follow the Splash world's state graph and
+object-list activation through their actual retail update callbacks, and
+separately trace why normal placed-object render traversal skips drawable
+objects. Do not inject a movie, force a UI state, or treat the diagnostic
+forced-level path as normal progression.
 
 The current `OPENRAC_TRACE_DIRECT=1` run confirms the renderer sees only a
 single 240-vertex untextured draw on the 2,128-byte packet; its first point is
