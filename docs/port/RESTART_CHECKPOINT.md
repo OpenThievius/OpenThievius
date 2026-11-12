@@ -1221,11 +1221,19 @@ reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
 
 A 12-second run after that recovery reaches global element-stack state 5
-(with Splash UI active) and submits 240 vertices per sampled frame. Their RGBA
-values are alpha-only (`0x80000000`), and image transfers remain zero, so the
-window is still black. The state graph remains on event `0x261`, state 2,
-self-edge `2 -> 2`; it does not account for the new global stack state. Log:
-`/tmp/sly-wip-animation-cluster-12s-20261112.log`.
+and submits the memory-card menu. The user then confirmed a visible native
+frame showing the readable “Memory Card (PS2) in Memory Card Slot 1 is
+unformatted” prompt and its format question. The two menu choices appear as
+small placeholder/button glyphs instead of readable “Yes” and “No” labels.
+The current native SIF memory-card probe deliberately reports unavailable,
+which produces this retail prompt; no format action has been taken. Do not
+select “Yes” or add an automatic format. Native keyboard controls map arrows
+to directions and Space to Cross/confirm; the input path has not yet been
+verified on this prompt. The earlier framebuffer dumper still captured black
+frames, so its readback is not authoritative for the user-visible window.
+The startup graph remains at event `0x261`, state 2, self-edge `2 -> 2`. Run
+trace: `/tmp/sly-wip-animation-cluster-12s-20261112.log`; the user-provided
+screenshot confirms the visible prompt.
 
 The follow-up trace confirms queued animation callbacks are now delivered
 (stages 209, 211, 207, 206), but the graph stays at state index 2 (`0x261`) on

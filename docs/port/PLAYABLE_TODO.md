@@ -8,14 +8,15 @@ build uses immutable decomp source Wave 32 at
 the older Wave 24 snapshot. The upstream `master` was checked again today and
 still points to `86682dd`; no newer decomp data is available. The separate
 `/home/reaper/sly/sly1-decomp` checkout is clean and 59 commits behind its
-configured origin, while the build snapshot is current. Normal launch reaches
-frame state 3, loads Splash, but remains
-black with 37 inactive UI objects and no visible game graphics. Startup
-animation callbacks now dispatch, but the Splash graph remains on its `0x261`
-state-2 self-edge. The UI now submits 240 vertices with alpha-only black
-color and no image transfers; the screen remains black. The
-pad's `f14` is connection mode 3, so the no-controller auto-pause branch is
-inactive. Exact US assembly is now restored for the reached CountdownNotifier
+configured origin, while the build snapshot is current. Normal launch now reaches a visible memory-card startup prompt: the user
+confirmed readable text asking about an unformatted card. The two Yes/No
+choices render as small placeholder/button glyphs. The native SIF probe still
+reports no card; no format was selected. Keyboard arrows move selection and
+Space maps to Cross/confirm, but input on this prompt remains unverified. The
+Splash graph is still on its `0x261` state-2 self-edge; visible startup UI is
+progress, not a playable game. The prior native framebuffer dump returned
+black despite the user-visible prompt, so that readback is not reliable for
+confirming window output. Exact US assembly is now restored for the reached CountdownNotifier
 handler, deferred-call queue, completion callback, timer, and the handler's
 `GetStateWalkerCurrentKey` dependency; this removes another no-op cluster but
 does not advance the current graph. The forced
@@ -63,6 +64,17 @@ The native build reports 527 assembly functions and links successfully. A
 animation callback stages dispatch, but the graph remains on its state-2
 self-edge; sampled frames show zero vertices and image uploads. Log:
 `/tmp/sly-wip-notifier-final-12s-20261112.log`.
+
+**First visible native startup prompt (2026-11-12):** the user confirmed
+that the native window now displays the unformatted-memory-card prompt with
+readable message text. The choice labels appear as button/placeholder glyphs.
+The current memory-card RPC probe returns “unavailable”, matching the game’s
+normal no-card flow; formatting was not selected. The framebuffer dump remains
+black even though the window was visibly rendering, so do not rely on that
+capture path as evidence that the UI is absent. Next: inspect why the Yes/No
+labels become glyphs, verify arrow/Cross input through this prompt without
+automating game input, and implement a safe native save-card backend before
+claiming saves work. Upstream decomp remains at Wave 32 (`86682dd`).
 
 **Animation and pose-path assembly recovery (2026-11-12):** selected exact
 US retail assembly for the reached linked-animation, pose-source, tangent

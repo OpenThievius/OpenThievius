@@ -8,12 +8,14 @@ advanced beyond this snapshot. The graphics findings and build counts below
 are historical notes from 2026-11-11 and are superseded where they conflict
 with [the current restart checkpoint](RESTART_CHECKPOINT.md). The current port
 build reports 798 translated functions, including 546 selected from US retail
-assembly; startup still reaches a black Splash world with inactive UI and no
-image uploads. Animation and pose helpers now use exact retail assembly. A 12-second run
-advances the global element stack to state 5 and submits 240 UI vertices, but
-their color is alpha-only black and there are no image transfers. The state
-graph still loops on its state-2 self-edge. See the checkpoint
-for the current trace and next steps.
+assembly. The user has now confirmed that the native window displays the
+unformatted-memory-card prompt with readable message text. Yes/No choices
+appear as placeholder/button glyphs. The SIF memory-card probe currently
+reports no card; no format action was taken. A native frame dump still reads
+black, so investigate its readback timing/buffer before treating it as a
+faithful capture. Animation and pose helpers use exact retail assembly, while
+the Splash graph remains on its state-2 self-edge. See the checkpoint for the
+current trace and next steps.
 
 The native VIF1 DMA backfill now preserves the TTE bit set by the retail
 caller. Previously it overwrote CHCR with `0x105`, dropping inline VIF codes,
