@@ -246,7 +246,10 @@ Start bit by inspection. SDL reports keyboard focus and a connected pad, but no
 key-down event occurred during this unattended run. The countdown notifier
 callback is observed, but the screen-element activation path is still
 unresolved. Logs: `/tmp/sly-wave32-notifier-chain-corrected-15s-20261112.log`
-and `/tmp/sly-wave32-focus-key-trace-15s-20261112.log`.
+and `/tmp/sly-wave32-focus-key-trace-15s-20261112.log`. The Splash class-0x57
+countdown notifier stays at state -1 before startup and state 0 afterward, with
+no listener and a disabled timer gate. It cannot produce the missing title
+transition; continue with the world's transition producer.
 The same review found the class-0x51 ConeVolume attach/update/remove callbacks
 were still no-ops. Selecting their exact US assembly translations for
 `func_00183D88`, `func_00183DF8`, and `func_00183E70` raises the live world's

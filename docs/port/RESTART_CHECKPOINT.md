@@ -2,10 +2,11 @@
 # Sly 1 port restart checkpoint
 
 Updated: 2026-11-12, after refreshing decomp through `86682dd` (PR #123,
-Wave 32), tracing the native GS submissions, and rebuilding against the
-refreshed source. Latest update: the forced-level render dispatch trace below
-corrects the earlier model-attachment diagnosis; the current blocker is object
-inclusion in the render traversal.
+Wave 32), tracing native GS submissions, and rebuilding against the refreshed
+source. Latest update: SDL focus and pad traces show the window/input bridge is
+alive while startup remains in retail Splash state. The forced-level render
+trace below corrects the earlier model-attachment diagnosis; object inclusion
+still blocks level rendering.
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -117,14 +118,15 @@ alongside the forced-level world-render traversal. Logs:
 The follow-up 15-second native run confirms the dispatcher remains in state 3
 with selector 7, global pad flags zero, and no pressed/held guest buttons. The
 window reports keyboard focus and the adapter emits a connected active-low pad
-report. No key-down event occurred during this unattended run, so it still
-cannot establish what happened during the user's earlier manual Return press.
-The Start mapping itself matches the guest's active-low bit conversion. The
-countdown notifier setter runs; the state-notifier transition is still not
-captured, so continue from constructor/callback entries rather than assuming
-the notifier set it. Logs:
-`/tmp/sly-wave32-notifier-chain-corrected-15s-20261112.log` and
-`/tmp/sly-wave32-focus-key-trace-15s-20261112.log`.
+report. No key-down event occurred during this unattended run, so it cannot
+establish what happened during the user's earlier manual Return press. The
+Start mapping matches the guest's active-low bit conversion. A separate trace
+shows the Splash class-`0x57` countdown notifier does run, but remains at state
+`-1` before startup and state `0` afterward; it has no listener and its timer
+gate is disabled. It is not the missing title-transition producer. Logs:
+`/tmp/sly-wave32-notifier-chain-corrected-15s-20261112.log`,
+`/tmp/sly-wave32-focus-key-trace-15s-20261112.log`, and
+`/tmp/sly-wave32-notifier-messages-12s-20261112.log`.
 
 A fresh normal 15-second trace with
 `OPENRAC_TRACE_MODEL_FIELDS=1 OPENRAC_DUMP_MODEL_ENTRY=1` directly observes

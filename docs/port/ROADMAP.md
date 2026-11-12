@@ -20,7 +20,25 @@ Its font atlas and palette data are present and match the decoded Splash bytes,
 but the submitted text remains malformed and no normal title/gameplay path is
 visible in the native launcher.
 
-## Current visual blocker (2026-11-11)
+## Current visual blocker (2026-11-12)
+
+Normal startup reaches the retail Splash world and the main frame loop, but it
+does not start the title sequence. The active UI stack is in its ordinary state
+3, all 37 global screen elements stay hidden at mode 0, and `ShowScreenElement`
+is never called. The Splash world's class-`0x57` CountdownNotifier has no
+listener and a disabled timer gate, so it cannot request the transition. The
+window reports focus, and the native adapter provides a connected active-low
+pad report; the unattended key trace saw no key press, so manual input delivery
+remains unverified. Do not force an element visible as a workaround: trace the
+retail producer that should load/arm the title scene. Logs and field notes are
+in [RESTART_CHECKPOINT.md](RESTART_CHECKPOINT.md).
+
+The renderer's black clear and swap path is active. The only recurring 2,128-
+byte UI draw packet was captured identically across frames with zero/black
+vertex attributes, and the resulting 960x720 frame was entirely black. Normal
+startup emits no scene mesh vertices or image transfers. This makes title/scene
+activation and its source packet contents the next blockers; it is not yet a
+playable build.
 
 ### Decomp refresh (2026-11-11)
 
