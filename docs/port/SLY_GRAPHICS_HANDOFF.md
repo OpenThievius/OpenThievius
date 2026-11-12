@@ -2,27 +2,27 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-12. Current decomp master is `647da5d6` (Wave 33, PR #124).
-The no-emulation host32 path compiles all 190 Sly units and 63 port-only
-backfills, combines 4,345 catalogued native function entries, and links a
-freestanding launcher. Its direct frame-call scan resolves 814/822 functions,
-leaving 8; indirect callbacks are outside the scan. Two staging-only returns
-now prevent matched non-void wrappers from falling through after void calls;
-the decomp source remains untouched. This corrects the earlier false
-CountdownNotifier diagnosis. The latest run passes the animation-player
-calls and reaches the final startup callback. `WrapTextLines` rewrites strings in the executable's read-only segment, so the
-SDL launcher makes only the main executable's non-executable read-only segment
-writable; a targeted trace proved wrapping completes. A false page-22
-disc-change pause was traced to absent native IOP services and a status shim
-writing to the wrong address space. Port-only backfills now report the host ISO
-ready and unchanged and update relocated `D_002613F0`. The normal stack reaches
-state 0 with one item at about 60 accepted DMA frames per second. The window
-remains black with no visible UI, title, or scene. See the
+The no-emulation host32 path compiles all 190 Sly units and 65 port-only
+backfills, combines 4,345 catalogued native function entries, and links the SDL
+launcher. Its direct-call frontier resolves 811/817 functions; indirect
+callbacks are outside the scan. Two staging-only returns prevent matched
+non-void wrappers from falling through after void calls; the decomp source
+remains untouched. A previous false page-22 disc-change pause was traced to
+absent native IOP services and a status shim writing to the wrong address
+space. Port-only CD services now report the host ISO ready and unchanged and
+update relocated `D_002613F0`. The latest native run also fixed an interior
+data alias that had resolved the pad field `D_00262D18` to `0xa8`; it now
+resolves to `0x082fcee8` inside `D_00262C70`. Native no-card service
+backfills let retail startup reach pause page 3, and a bounded 10-second run
+reached about 600 frames without a fatal fault. The trace reports no visible
+UI or text and no title or scene has been demonstrated. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and next steps.
 
-The unformatted-memory-card prompt was observed in the separate experimental
-guest-runtime launcher, not the host32 no-emulation path. That runtime's SIF
-probe reports no card; no format action was taken. The graphics findings below
-are guest-runtime research only, not playable milestones. See the
+The user-confirmed visible unformatted-memory-card prompt was observed in the
+separate experimental guest-runtime launcher. The host32 path now reaches the
+matching retail page-3 state, but telemetry reports no visible UI/text and no
+visual capture was possible. No format action was taken. The graphics findings
+below are guest-runtime research only, not playable milestones. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current architecture and next work.
 

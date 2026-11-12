@@ -6,24 +6,29 @@ sibling checkout is 65 commits behind. Wave 33 fully matches
 `func_0020A190` (`GetStreamId`) in the MPEG demultiplexer. Hostgen with
 assembly disabled translates 799 functions, with 2 stubs and 4,127 functions
 without C across 280 units. The read-only snapshot compiles all 190 Sly units
-and 63 port-only host32 backfills. The combined object has 814 of 822 functions
-in its direct-call frontier; the freestanding i386 launcher links. Host staging
-adds zero returns to two matched non-void wrappers that call void functions;
-the decomp source stays unchanged. `WrapTextLines` rewrites strings in the
-main executable's read-only segment, so SDL now makes only that non-executable
-segment writable. A targeted trace proved the wrapping path completes without
-a fault. The false page-22 disc-change pause came from missing native IOP
-services and an address-space bug: an old shim wrote retail `0x002613F0`
-instead of the relocated host datum. Port-only services now report the mounted
-ISO ready and unchanged and update relocated `D_002613F0`. A 12-second SDL run
-no longer opens the false pause; the normal element stack reaches state 0 with
-one item and submits about 60 DMA frames per second. The window remains black,
-with no visible UI or scene; no playable scene has been demonstrated.
+and 65 port-only host32 backfills. The combined object has 811 of 817
+functions in its direct-call frontier; indirect callbacks are outside the
+scan. Host staging adds zero returns to two matched non-void wrappers that
+call void functions; the decomp source stays unchanged. `WrapTextLines`
+rewrites strings in the main executable's read-only segment, so SDL now makes
+only that non-executable segment writable. A relocated-data alias bug was
+found during this run: `D_00262D18` was emitted as absolute `0xa8` during the
+relocatable link, so pad initialization faulted. Data aliases now resolve at
+the final executable link; `nm` confirms `D_00262D18` at `0x082fcee8`, exactly
+`D_00262C70 + 0xa8`. The previous false page-22 disc-change pause is also
+fixed: native CD services report the mounted ISO ready and unchanged and
+update relocated `D_002613F0`. The port-only no-card reply lets retail startup
+reach memory-card pause page 3 after about 0.35 seconds. A 10-second bounded
+run reached about 600 frames without a fatal fault and accepted DMA frames.
+Frame telemetry still reports no visible UI or text; a title or playable
+scene has not been demonstrated. No format action was taken.
 
-The visible memory-card format prompt and all GS/Splash traces below came from
-the separate experimental guest-runtime launcher. Its memory-card probe
-reports no card; the user pressed Enter several times with no visible response,
-and no format action was taken. Those runs do not establish native gameplay.
+The user-confirmed visible memory-card format prompt came from the separate
+experimental guest-runtime launcher. The current no-emulation host32 run
+reaches the corresponding retail page-3 state, but its frame telemetry still
+reports no visible UI/text and the desktop-control surface was unavailable for
+a visual capture. No format action was taken. Guest-runtime GS/Splash traces
+below remain separate research, not evidence of native gameplay.
 Do not extend that runtime's CPU or PS2-device models as port features. Keep
 port-only functional replacements in the OpenThievius tree and replace them
 with matching decomp source when available.
@@ -60,10 +65,11 @@ still report zero vertices and image uploads. Log:
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
-port-only functional C backfills under `port/game/sly1-us/hand/native_c/` or
-`overrides_c/`, registered in the matching hand table; do not put those
-replacements in `/home/reaper/sly/sly1-decomp`. Use the direct compiled host32
-path for port progress; the experimental guest-runtime launcher is not the
+direct host32 behavior backfills under `port/game/sly1-us/native/`; keep
+hostgen backfills and matched-source overrides under `hand/native_c/` and
+`hand/overrides_c/` with their registry entries. Keep every replacement out
+of `/home/reaper/sly/sly1-decomp`. Use the direct compiled host32 path for
+port progress; the experimental guest-runtime launcher is not the
 no-emulation target.
 
 ## Earlier Wave 32 status (superseded by the host32 run above)

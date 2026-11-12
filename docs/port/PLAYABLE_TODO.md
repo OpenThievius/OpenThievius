@@ -6,27 +6,28 @@
 behind. The source fully matches `func_0020A190` (`GetStreamId`) in the MPEG
 demultiplexer. Hostgen with assembly disabled translates 799 functions, with
 2 stubs and 4,127 functions without C across 280 units. The Wave 33 snapshot
-compiles 190/190 Sly units and 63/63 port-only host32 backfills. The combined
-object resolves 814/822 direct frame calls, leaving 8 missing; the SDL host32
-launcher links and runs at about 60 frames per second. Two staging-only
-returns adapt matched non-void wrappers that call void functions; decomp source
-is unchanged. The launcher makes the main executable's non-executable
-read-only segment writable because `WrapTextLines` rewrites wrapped strings
-there; a targeted trace confirmed that path completes without a fault. The
-latest trace exposed and fixed a false page-22 disc-change pause: the old native
-shim wrote retail address `0x002613F0` in guest RAM instead of the relocated
-host datum. Port-only services now report the mounted ISO ready and unchanged
-and update relocated `D_002613F0`. The pause is gone and the normal element
-stack reaches state 0 with one item. The window remains black, with no visible
-UI or scene; no title or playable state has been demonstrated. See the restart
-checkpoint for evidence.
+compiles 190/190 Sly units and 65/65 port-only host32 backfills. The combined
+object resolves 811/817 functions in its direct frame-call frontier, leaving
+6 missing; indirect callbacks are not covered. Two staging-only returns adapt
+matched non-void wrappers that call void functions; decomp source is unchanged.
+The launcher makes the main executable's non-executable read-only segment
+writable because `WrapTextLines` rewrites wrapped strings there. A relocated
+retail data alias fix now keeps interior fields attached to their host data
+objects through the final link; this fixed a startup fault where
+`D_00262D18` had resolved to `0xa8` instead of the relocated pad field. The
+native no-card memory-card services now let retail startup reach pause page 3
+after about 0.35 seconds. A hard-bounded 10-second run reached about 600 frames
+with no fatal fault; telemetry reports no visible UI or text, and no title or
+playable scene has been demonstrated. No card-format action was taken. See the
+restart checkpoint for evidence.
 
-**Immediate host32 task:** trace why normal startup remains at element-stack
-state 0 with an inactive screen stack after the disc-status correction. Follow
-the retail memory-card/subgroup startup decision and pending title/resource
-activation. Keep functional native service replacements in
-`port/game/sly1-us/native/`, separate from decomp source. Do not force UI
-visibility or alter matching game logic to fabricate a scene.
+**Immediate host32 task:** inspect why the retail no-card flow reaches pause
+page 3 while the frame telemetry still reports no visible UI or text. Verify
+the displayed prompt and its controls on the native window, then follow the
+normal title/resource activation path. Keep functional native service
+replacements in `port/game/sly1-us/native/`, separate from decomp source. Do
+not format a card, force UI visibility, or alter matching game logic to
+fabricate a scene.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

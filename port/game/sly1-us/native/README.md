@@ -13,22 +13,23 @@ Canonical `sly1-decomp` master is `647da5d6` (Wave 33). The sibling checkout
 at `/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; the build
 uses a separate Wave 33 source snapshot and the older US assembly snapshot
 because current upstream no longer ships that tree. The Wave 33 host32 build
-compiles all 190 source units and 61 port-only backfills. Its combined object
+compiles all 190 source units and 65 port-only backfills. Its combined object
 contains 4,345 catalogued function entries. The direct frame-call scan finds
-814 of 822 definitions and eight unresolved addresses; this scan does not
-follow indirect callbacks. The freestanding i386 launcher links, routing
+811 of 817 definitions and six unresolved addresses; this scan does not follow
+indirect callbacks. The freestanding i386 and SDL launchers link, routing
 unresolved functions to diagnostic traps.
 
 This is a no-emulation host build, not a playable graphics frontend. The SDL
-host32 launcher was run against the retail ELF and ISO on 2026-11-12. It opens
-the native SDL/OpenGL window and starts compiled game code, but it still
-crashes during sound/IOP startup: the latest core shows an invalid jump to
-address `0xb` from the queue-command path. A previous run also exposed an
-invalid DMA channel value (`0xe0`); the port boundary now avoids dereferencing
-unknown channel values, and host channel 2 is routed to the renderer. No title
-or scene has been demonstrated. The separate experimental guest-runtime
-launcher displayed the retail unformatted-memory-card prompt, but that is not
-evidence of native gameplay and no format action was taken.
+host32 launcher was run against the retail ELF and ISO on 2026-11-12. An
+interior data alias initially resolved the pad field `D_00262D18` to absolute
+address `0xa8`, causing a startup fault. The linker now defers data aliases
+until final host data placement; `nm` confirms the field at `0x082fcee8`,
+inside `D_00262C70`. Port-only no-card service replies let retail startup reach
+pause page 3, and a hard-bounded 10-second run reached about 600 frames without
+a fatal fault. Frame telemetry reports no visible UI/text, and no title or
+scene has been demonstrated. No card-format action was taken. A previous run
+also exposed invalid DMA channel value `0xe0`; the port boundary now avoids
+dereferencing unknown channels, and host channel 2 is routed to the renderer.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from
