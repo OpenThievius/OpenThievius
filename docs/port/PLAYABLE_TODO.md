@@ -2,14 +2,19 @@
 # Concrete plan for a playable native Sly 1
 
 **Current status (2026-11-12):** branch `wip/native-sly-port` is pushed through
-`1160364`; the current native build uses immutable decomp source Wave 32 at
+`73359b4` (latest trace code; documentation update pending); the current native
+build uses immutable decomp source Wave 32 at
 `86682dd` from `build/port/decomp-source-wave32/` and US retail assembly from
 the older Wave 24 snapshot. The upstream `master` was checked again today and
 still points to `86682dd`; no newer decomp data is available. The separate
 `/home/reaper/sly/sly1-decomp` checkout is clean and 59 commits behind its
 configured origin, while the build snapshot is current. Normal launch reaches
 frame state 3, loads Splash, but remains
-black with 37 inactive UI objects and no visible game graphics. The forced
+black with 37 inactive UI objects and no visible game graphics. Startup
+animation callbacks now dispatch, but the Splash graph remains on its `0x261`
+state-2 self-edge; no target-change or screen-element Show call occurs. The
+pad's `f14` is connection mode 3, so the no-controller auto-pause branch is
+inactive. The forced
 `0x0100` diagnostic now parses the large model and reaches loader/render setup;
 the old part-512 `nstrips=0xff02` failure is not reproducible. Its class-4
 object at `0xa811f0` has 1,962 model parts, but its retail flag bit 32 is set.
@@ -31,15 +36,18 @@ identified four reached assembly-only functions that had been falling through
 as no-op host stubs: `func_00138828`, `func_001DC7D0`, `func_0019E168`, and
 `func_001BB580`. Exact US retail assembly is now selected for them in
 `port/game/sly1-us/hostgen.json`; this is build configuration, not replacement
-C. The rebuild reports 519 assembly translations (up from 515), and a 15-second
+C. The rebuild reports 522 assembly translations (up from 515), and a 15-second
 run has no more warnings for those four functions. It still reaches Splash at
 frame state 3 with 37 inactive UI objects, no image uploads, and the same
-black output. Diagnostic stages 206–208 for the state-walker completion
-callbacks do not appear, so this run does not show those callbacks executing.
-The repeated stage-47 samples were from the camera probe and are not evidence
-about the state walker. Keep `func_0019E418` unselected: its exact retail body
-is just `jr $ra; nop`, so its no-op warning is expected. Log:
-`/tmp/sly-wave32-noop-callback-asm-15s-20261112.log`.
+black output. The callback queue helpers `func_001B5EA0`, `func_001B5EC0`, and
+`func_001DBBD8` were then selected from exact US retail assembly. The follow-up
+trace confirms the callback now dispatches (stages 209, 211, 207, 206), but the
+walker remains on state index 2 / event `0x261` / self-edge `2 -> 2`; no target
+setter call occurs. A separate screen-element trace sees mode resets and Hide
+calls, but no Show call. The trace does not implicate the renderer's window
+presentation. Keep `func_0019E418` unselected: its exact retail body is just
+`jr $ra; nop`, so its no-op warning is expected. Follow-up log:
+`/tmp/sly-wip-followup-state-ui-12s-20261112.log`.
 
 **Latest graphics-path correction (2026-11-12):** the current port-only
 `func_0019D6C0` follows Wave 32's `RunWorldFrameLists`: it reads slot 40 from
@@ -2877,8 +2885,7 @@ crossing a packet boundary. Latest logs:
 
 **Splash draw dispatch checkpoint (2026-11-12):** Rechecked the latest staged
 decomp snapshot, Wave 32 (`86682dd`), and rebuilt hostgen output: 798 translated
-C functions, 512 retail-assembly functions, 2 stubs, and 3,616 functions without
-C across 280 units. The recent decomp updates improve names and matched source
+functions, 522 retail-assembly functions, and 2 stubs. The recent decomp updates improve names and matched source
 coverage, but add no implementation for the unresolved Splash activation path.
 The canonical sibling checkout was left untouched.
 

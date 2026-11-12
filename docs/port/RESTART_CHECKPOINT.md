@@ -12,6 +12,15 @@ of that successful Splash load. The normal path remains at frame state 3 with
 is not a gameplay entry path; its loaded class-4 object has retail flag bit 32
 set, and the matching transform method returns before drawing it. The generic
 world-list dispatcher itself is reaching the expected method.
+The latest callback trace restores the state-walker queue path from exact US
+assembly: animation callback delivery now reaches Splash event stages 209,
+211, 207, and 206. The graph still loops on state index 2 (`0x261`, edge
+`2 -> 2`), and the retail target setter is not called. A screen-element trace
+sees only mode resets and Hide calls; Show is never called. Pad `f14` is the
+connection mode: the native controller is in mode 3, so the five-second
+no-controller auto-pause branch is not active. Latest reproduction:
+`/tmp/sly-wip-followup-state-ui-12s-20261112.log`.
+
 Work in
 `/home/reaper/sly/OpenThievius` on branch
 `wip/native-sly-port`. The user wants frequent commits and pushes. Keep the
@@ -32,14 +41,14 @@ ships that assembly tree. Build command:
 The 2026-11-12 callback follow-up selected exact US assembly for four reached
 functions previously executing as no-op stubs: `func_00138828`,
 `func_001DC7D0`, `func_0019E168`, and `func_001BB580`. Build coverage is now
-798 translated functions (519 from assembly, two stubs). A fresh 15-second
+798 translated functions (522 from assembly, two stubs). A fresh 15-second
 native run removed all four warnings but still reaches the same black Splash
-state. The staged state-walker callbacks `func_001B6C68`, `func_001B6CA8`, and
-`func_001B6CF0` were selected from assembly and instrumented; trace stages
-206–208 did not fire. The callback remains unobserved, so investigate which
-retail update path should advance or complete the Splash track. Camera probe
-stage 47 is unrelated. Log:
-`/tmp/sly-wave32-noop-callback-asm-15s-20261112.log`.
+state. The callback queue allocation helpers `func_001B5EA0`,
+`func_001B5EC0`, and `func_001DBBD8` were also selected from exact assembly;
+the callback now dispatches. The graph nevertheless continues its `2 -> 2`
+self-edge and no target request is observed. Keep `func_0019E418` unselected:
+its exact retail body is just `jr $ra; nop`, so its no-op warning is expected.
+Latest build and trace are described above.
 
 A normal 15-second native launch against the US ELF and ISO reaches the main
 frame loop without crashing. Current trace: 15 samples, world `0x6abdd0`,
@@ -1180,12 +1189,13 @@ latest `ReadPlacedObjectModel` source. Evidence:
 
 ### Current checkpoint (2026-11-12)
 
-Branch `wip/native-sly-port` is pushed through commit `d6b122c`. Upstream
+Branch `wip/native-sly-port` includes implementation commit `73359b4`; this
+documentation update is the remaining local commit. Upstream
 `sly1-decomp` master is still `86682ddd4bc17eb6fae868d914346433e14a1b31`
 (Wave 32); verified with `git ls-remote`. The sibling working checkout remains
-untouched. Hostgen from the staged Wave 32 source reports 798 translated C
-functions, 512 retail-assembly functions, 2 stubs, and 3,616 without C across
-280 units. This adds no matching source for the Splash activation issue.
+untouched. Hostgen from the staged Wave 32 source reports 798 translated
+functions, 522 retail-assembly functions, and 2 stubs. The latest build
+succeeds; no new matching decomp source addresses Splash activation.
 
 The latest native 15-second trace confirms the frame's draw dispatch is
 running, with calls for Splash objects `0x847dc0` (class `0x53`) and
@@ -1195,10 +1205,19 @@ with 1,962 parts remains a separate forced-level parser failure and is not
 reached by Splash. Latest log:
 `/tmp/sly-render-trace-15s-20261112.log`.
 
-Next work: trace why the Splash graph/sequence and all 37 screen elements stay
-inactive after loading, then continue the independent direct-level strip
-reader investigation. Preserve retail startup behavior; do not force a title,
-movie, or gameplay state. Keep replacement C only in `hand/native_c/` or
-`hand/overrides_c/`. The frame-list wrappers remain port-only and no mismatch
-was established in this run. The last documentation checkpoint is commit
-`d6b122c`.
+The follow-up trace confirms queued animation callbacks are now delivered
+(stages 209, 211, 207, 206), but the graph stays at state index 2 (`0x261`) on
+its `2 -> 2` self-edge. `SetStateWalkerTarget` is never called. All 37 screen
+elements remain mode 0; the game calls mode-reset and Hide routines but never
+Show. The pad's `f14` field is its connection mode; the native pad is mode 3,
+so the five-second auto-pause condition for mode 1 is not responsible. Latest
+reproduction: `/tmp/sly-wip-followup-state-ui-12s-20261112.log`.
+
+Next work: identify which Splash object/event should request state 3 or show
+the title elements, tracing object startup and event registration without
+forcing state. Continue the independent direct-level strip reader investigation
+only when it can inform the normal rendering path. Preserve retail startup
+behavior; do not force a title, movie, or gameplay state. Keep replacement C
+only in `hand/native_c/` or `hand/overrides_c/`. The frame-list wrappers remain
+port-only; no mismatch was established in this run. Push implementation and
+checkpoint commits after this documentation update.

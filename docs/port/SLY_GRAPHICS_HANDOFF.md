@@ -7,9 +7,11 @@ and the OpenThievius port is built against an immutable snapshot at
 advanced beyond this snapshot. The graphics findings and build counts below
 are historical notes from 2026-11-11 and are superseded where they conflict
 with [the current restart checkpoint](RESTART_CHECKPOINT.md). The current port
-build reports 798 translated functions, including 519 selected from US retail
+build reports 798 translated functions, including 522 selected from US retail
 assembly; startup still reaches a black Splash world with inactive UI and no
-image uploads. See the checkpoint for the current trace and next steps.
+image uploads. Animation callbacks now dispatch, but the graph loops on its
+state-2 self-edge and no screen-element Show call occurs. See the checkpoint
+for the current trace and next steps.
 
 The native VIF1 DMA backfill now preserves the TTE bit set by the retail
 caller. Previously it overwrote CHCR with `0x105`, dropping inline VIF codes,
