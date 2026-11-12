@@ -1128,6 +1128,65 @@ def main(argv=None):
             # creation and into playback. This is diagnostics only; it makes
             # no change to the staged state machine or its decisions.
             adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
+            graph_load_end = """    for (j = 0; j < self->edgeCount; j++) {
+        StateEdge* e = &self->edges[j];
+        if (e->anim != 0) {
+            s32 kind = ReadBufferedS16(s);
+            s32 b = ReadBufferedS16(s);
+            s32 c = ReadBufferedS16(s);
+            BaseObject* o = CreateTypedRecord(kind, self->world, self->parent, b, c);
+            e->anim = (Animation*)o;
+            o->desc->m0A(o, s);
+            ResolveAndStartObject(o);
+        }
+    }
+}
+
+void StartStateGraph"""
+            graph_trace = """
+    if (self->id == 0x25F) {
+        sly1_port_trace_value(0x1b250001u, (u32)self);
+        sly1_port_trace_value(0x1b250002u, (u32)self->id);
+        sly1_port_trace_value(0x1b250003u, (u32)self->f34);
+        sly1_port_trace_value(0x1b250004u, (u32)self->edgeCount);
+        sly1_port_trace_value(0x1b250005u, (u32)self->armed);
+        for (s32 k = 0; k < self->f34; ++k) {
+            sly1_port_trace_value(0x1b251000u + (u32)k * 2u,
+                                  (u32)self->f38[k].key);
+            sly1_port_trace_value(0x1b251001u + (u32)k * 2u,
+                                  (u32)self->f38[k].extra);
+        }
+        for (s32 k = 0; k < self->edgeCount; ++k) {
+            StateEdge* edge = &self->edges[k];
+            const u32 tag = 0x1b252000u + (u32)k * 4u;
+            sly1_port_trace_value(tag, (u32)edge->a);
+            sly1_port_trace_value(tag + 1u, (u32)edge->b);
+            sly1_port_trace_value(tag + 2u, edge->flags);
+            sly1_port_trace_value(tag + 3u,
+                                  edge->anim != 0 ? (u32)edge->anim->id : 0xFFFFFFFFu);
+        }
+    }
+"""
+            graph_load_traced = graph_load_end.replace(
+                "\n}\n\nvoid StartStateGraph",
+                "\n" + graph_trace + "}\n\nvoid StartStateGraph")
+            if graph_load_traced == graph_load_end:
+                raise RuntimeError("expected state-graph loader end")
+            if adapted.count(graph_load_end) != 1:
+                raise RuntimeError("expected one completed state-graph loader")
+            adapted = adapted.replace(graph_load_end, graph_load_traced, 1)
+            start_graph_signature = "void StartStateGraph(StateGraph* self)\n{"
+            start_graph_trace = start_graph_signature + """
+    if (self->id == 0x25F) {
+        sly1_port_trace_value(0x1b255001u, (u32)self);
+        sly1_port_trace_value(0x1b255002u, (u32)self->armed);
+        sly1_port_trace_value(0x1b255003u, (u32)self->f34);
+        sly1_port_trace_value(0x1b255004u, (u32)self->edgeCount);
+    }
+"""
+            if adapted.count(start_graph_signature) != 1:
+                raise RuntimeError("expected StartStateGraph definition")
+            adapted = adapted.replace(start_graph_signature, start_graph_trace, 1)
             needle = "            BaseObject* o = CreateTypedRecord(kind, self->world, self->parent, b, c);"
             replacement = (
                 needle + '\n'
@@ -1146,6 +1205,68 @@ def main(argv=None):
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected state-walker animation player creation")
             adapted = adapted.replace(needle, replacement)
+            target_signature = "void SetStateWalkerTarget(StateWalker* self, s32 key)\n{"
+            target_trace = target_signature + """
+    if (self->owner != 0 && self->owner->id == 0x25F) {
+        sly1_port_trace_value(0x1b253001u, (u32)self);
+        sly1_port_trace_value(0x1b253002u, (u32)key);
+        sly1_port_trace_value(0x1b253003u, (u32)self->f28);
+        sly1_port_trace_value(0x1b253004u, (u32)self->f2C);
+        sly1_port_trace_value(0x1b253005u, (u32)self->index);
+        sly1_port_trace_value(0x1b253006u, (u32)self->edge);
+        sly1_port_trace_value(0x1b253007u, (u32)self->player);
+    }
+"""
+            if adapted.count(target_signature) != 1:
+                raise RuntimeError("expected SetStateWalkerTarget definition")
+            adapted = adapted.replace(target_signature, target_trace, 1)
+            next_edge_signature = "void StartNextStateWalkerEdge(StateWalker* self)\n{"
+            next_edge_trace = next_edge_signature + """
+    if (self->owner != 0 && self->owner->id == 0x25F) {
+        sly1_port_trace_value(0x1b254001u, (u32)self);
+        sly1_port_trace_value(0x1b254002u, (u32)self->f28);
+        sly1_port_trace_value(0x1b254003u, (u32)self->f2C);
+        sly1_port_trace_value(0x1b254004u, (u32)self->index);
+        sly1_port_trace_value(0x1b254005u, (u32)self->edge);
+        sly1_port_trace_value(0x1b254006u, (u32)self->player);
+    }
+"""
+            if adapted.count(next_edge_signature) != 1:
+                raise RuntimeError("expected StartNextStateWalkerEdge definition")
+            adapted = adapted.replace(next_edge_signature, next_edge_trace, 1)
+            state_change_signature = (
+                "void NotifyStateWalkerChange(StateWalker* self, s32 idx1, s32 idx2)\n{")
+            state_change_trace = state_change_signature + """
+    if (self->owner != 0 && self->owner->id == 0x25F) {
+        sly1_port_trace_value(0x1b256001u, (u32)self);
+        sly1_port_trace_value(0x1b256002u, (u32)idx1);
+        sly1_port_trace_value(0x1b256003u, (u32)idx2);
+        sly1_port_trace_value(0x1b256004u,
+            idx1 >= 0 && idx1 < self->owner->f34
+                ? (u32)self->owner->f38[idx1].key : 0xFFFFFFFFu);
+        sly1_port_trace_value(0x1b256005u,
+            idx2 >= 0 && idx2 < self->owner->f34
+                ? (u32)self->owner->f38[idx2].key : 0xFFFFFFFFu);
+    }
+"""
+            if adapted.count(state_change_signature) != 1:
+                raise RuntimeError("expected NotifyStateWalkerChange definition")
+            adapted = adapted.replace(state_change_signature, state_change_trace, 1)
+            chosen_edge = "            self->edge = e;\n            self->player = 0;"
+            chosen_edge_trace = """            if (g->id == 0x25F) {
+                sly1_port_trace_value(0x1b254010u, (u32)e->a);
+                sly1_port_trace_value(0x1b254011u, (u32)e->b);
+                sly1_port_trace_value(0x1b254012u, e->flags);
+                sly1_port_trace_value(0x1b254013u,
+                                      e->anim != 0 ? (u32)e->anim->id : 0xFFFFFFFFu);
+                sly1_port_trace_value(0x1b254014u, (u32)self->f28);
+                sly1_port_trace_value(0x1b254015u, (u32)self->index);
+                sly1_port_trace_value(0x1b254016u, (u32)self->f2C);
+            }
+""" + chosen_edge
+            if adapted.count(chosen_edge) != 1:
+                raise RuntimeError("expected one selected state-graph edge")
+            adapted = adapted.replace(chosen_edge, chosen_edge_trace, 1)
         elif rel.as_posix() == "main/placed_object.cpp" and args.trace_functions:
             # Record the exact arguments and class fields at the animation
             # player boundary. This distinguishes a malformed Animation
