@@ -9,6 +9,13 @@ listed in `../overrides.tsv`; otherwise hostgen keeps the decomp definition
 when both are present. Entries in `backfills.tsv` cover functions supplied
 where matching C is absent.
 
+Latest source check (2026-11-12): hostgen was rebuilt from the Wave 32 staged
+decomp snapshot (`86682dd`), yielding 798 translated C functions, 512 retail
+assembly functions, 2 stubs, and 3,616 functions without C across 280 units.
+This is a generated hostability report, not the decomp project's byte-match
+progress. New readable names and matched C in this snapshot do not yet cover
+the Splash activation/transition path described below.
+
 `func_001B5EA0.c` implements the state-walker free-pool pop, and
 `func_001B6D78.c` dispatches a walker's class and registered listeners. They
 are port-only backfills for the current state-graph startup path. Exact US
@@ -231,7 +238,8 @@ traversal before changing mesh parsing or packet generation. Use
 `OPENRAC_TRACE_RENDER_CALLBACKS=1` with `OPENRAC_TRACE_FONT=1` to capture the
 callback entries and object descriptors. Latest log:
 `/tmp/sly-wave32-owner-state-12s-20261112.log`.
-The unforced Splash world shows the same dispatch gap: its class-4 root has no
+The unforced Splash world does reach draw callbacks for class-0x53 and
+class-0x7D objects, but both have zero model parts. Its class-4 root has no
 model parts, and the class-4 draw/queue methods are not entered. A 25-second
 normal trace remains in element-stack state 3 at 11.98 guest seconds, with no
 visible text or image uploads. All 37 screen elements remain in mode 0; the

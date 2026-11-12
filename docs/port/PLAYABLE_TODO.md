@@ -2839,3 +2839,33 @@ crossing a packet boundary. Latest logs:
 `/tmp/sly-wave29-direct0100-20261111.log`,
 `/tmp/sly-wave29-normal-15s-20261111.log`, and
 `/tmp/sly-nap-direct0100-vif-cursor-20261111.log`.
+
+**Splash draw dispatch checkpoint (2026-11-12):** Rechecked the latest staged
+decomp snapshot, Wave 32 (`86682dd`), and rebuilt hostgen output: 798 translated
+C functions, 512 retail-assembly functions, 2 stubs, and 3,616 functions without
+C across 280 units. The recent decomp updates improve names and matched source
+coverage, but add no implementation for the unresolved Splash activation path.
+The canonical sibling checkout was left untouched.
+
+A fresh 15-second native run with
+`OPENRAC_TRACE_RENDER_CALLBACKS=1 OPENRAC_TRACE_FONT=1
+OPENRAC_TRACE_OBJECTS=1 OPENRAC_TRACE_BOOT_TRANSITIONS=1` confirms that the
+frame render dispatch is running: the Splash world repeatedly reaches
+`DrawCollider` / placed-object draw for objects `0x847dc0` (class `0x53`) and
+`0x863ca0` (class `0x7d`). Both have zero model parts. The world also contains
+many class-2 placed objects with one linked record apiece, but the populated
+class-4 model owner (`0x847870`) has an empty model header in Splash. This
+separates the current black screen from a stalled frame loop: draw dispatch is
+active, while the active Splash content does not provide visible geometry or
+activated UI. The separate forced-level probe's 1,962-part class-4 owner still
+does not reach its draw callback and still fails during mesh packet creation;
+do not conflate that forced-level result with the normal Splash world.
+
+This does not overturn the transition-path evidence above: normal startup
+still queues and loads only the Splash world, the CountdownNotifier timer gate
+is null, and no movie or subsequent world request is observed. Next, trace why
+the Splash graph/sequence and screen elements remain inactive, and separately
+trace why forced-level model owners fail before draw. Do not force a title,
+movie, or gameplay state. The frame-list wrappers are port-only and remain
+isolated; this run did not establish a semantic mismatch in them. Log:
+`/tmp/sly-render-trace-15s-20261112.log`.
