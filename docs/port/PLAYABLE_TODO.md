@@ -11,8 +11,14 @@ compiles 190/190 Sly units and 61/61 port-only host32 backfills. Since the
 previous 810/822 frontier, bounded-copy and perpendicular-basis backfills plus
 two cache-coherency APIs add four direct frame-path definitions. The combined
 object resolves 814/822 direct frame calls, leaving 8 missing, and the
-freestanding i386 launcher links. It has not demonstrated a title, scene, or
-controllable game. The direct-call scan does not follow indirect callbacks.
+freestanding i386 launcher links. The SDL host32 launcher now opens a native
+OpenGL window, but has not demonstrated a title, scene, or controllable game.
+Against the retail ELF and ISO, its latest run reaches a fault at address `0xb`
+in the IOP command queue path during sound startup. The prior DMA fault was
+traced to channel value `0xe0`; unknown channel values no longer cause an
+invalid host register dereference. Host32 compilation now enables stack
+realignment after a core showed a generated SSE store with a misaligned stack.
+The direct-call scan does not follow indirect callbacks.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

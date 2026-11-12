@@ -57,11 +57,17 @@ bounded-copy and perpendicular-basis backfills plus two cache-coherency APIs
 add four definitions. The combined native object records 4,345 catalogued
 function entries, and the direct-call frontier has 814/822 definitions (8
 missing). The freestanding i386 launcher links, with unresolved retail
-functions routed to address-reporting traps. This is a compile/link
-milestone; the launcher has not demonstrated a title, scene, or controllable
-gameplay. The visible memory-card prompt came from the separate experimental
-guest-runtime launcher; no format was selected. Backfills remain in the port
-tree and do not change matching decomp source.
+functions routed to address-reporting traps. The SDL host32 launcher now opens
+a native OpenGL window and runs compiled game code against the retail ELF and
+ISO. It has not demonstrated a title or scene: the latest core shows an
+invalid jump to `0xb` during the IOP command queue path after sound startup
+begins. The DMA boundary also encountered channel value `0xe0`; it now avoids
+dereferencing unknown channel addresses, and routes the host GIF record to the
+renderer. A prior core exposed misaligned host stack use in generated code, so
+the host32 compiler now requests stack realignment. These are port-only host
+ABI/service changes; the decomp sources remain untouched. The visible memory-
+card prompt came from the separate experimental guest-runtime launcher; no
+format was selected.
 
 ### Decomp refresh (2026-11-11)
 

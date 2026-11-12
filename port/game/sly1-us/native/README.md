@@ -19,10 +19,16 @@ contains 4,345 catalogued function entries. The direct frame-call scan finds
 follow indirect callbacks. The freestanding i386 launcher links, routing
 unresolved functions to diagnostic traps.
 
-This is a no-emulation compile/link diagnostic, not a playable graphics
-frontend. It has not been run against the disc. The separate experimental
-guest-runtime launcher displayed the retail unformatted-memory-card prompt,
-but it is not evidence of native gameplay and no format action was taken.
+This is a no-emulation host build, not a playable graphics frontend. The SDL
+host32 launcher was run against the retail ELF and ISO on 2026-11-12. It opens
+the native SDL/OpenGL window and starts compiled game code, but it still
+crashes during sound/IOP startup: the latest core shows an invalid jump to
+address `0xb` from the queue-command path. A previous run also exposed an
+invalid DMA channel value (`0xe0`); the port boundary now avoids dereferencing
+unknown channel values, and host channel 2 is routed to the renderer. No title
+or scene has been demonstrated. The separate experimental guest-runtime
+launcher displayed the retail unformatted-memory-card prompt, but that is not
+evidence of native gameplay and no format action was taken.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from
