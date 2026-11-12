@@ -5,6 +5,13 @@ using u32 = unsigned int;
 // The freestanding builtins object supplies the exception::what ABI symbol;
 // this file keeps only the game-specific value-list adapters below.
 
+#if defined(OPENRAC_SLY1_WITH_SDL)
+// The SDL launcher does not link the freestanding compiler-support object,
+// but staged retail exception vtables still reference this unused method.
+extern "C" const char* sly1_exception_what(const void*) asm("_ZNK9exception4whatEv");
+extern "C" const char* sly1_exception_what(const void*) { return "Sly exception"; }
+#endif
+
 namespace sly1 {
 struct NativeFunctionAddress {
     u32 retail_address;
