@@ -39,17 +39,28 @@ A later native framebuffer capture saved eight startup frames after the page-3
 state was reached; these were black. The trace's `visible_ui` and
 `text_ui` counters cover only the 37 global screen elements, not the pause
 menu layer, so those counters alone did not establish that the prompt was
-absent. A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
+absent. A follow-up framebuffer capture shows the page-3 no-card warning at
+the same proportions as the user's screenshot. The earlier synthetic Down-key
+run did not prove dismissal: its `pause_open=0` snapshot was a transient
+startup state, and a later capture after the warning opened again showed page
+3. The direct synthetic-key harness also failed to create its uinput device,
+so no Cross input was verified. Do not describe the page as dismissed or the
+next Splash state as a post-dismiss result. No format action was taken.
+
+A 2026-11-12 follow-up found the native `func_00201D60` backfill wrote
 `0x250` bytes through a two-record (`0x50` byte) retail display context,
 overwriting the GIF channel global with display height `0xe0`. It now writes
 only the two records. A bounded host32 run kept the channel at `0x082ffee8`
 and submitted 735/735 DMAs with zero rejections. The later ABI and Sly
 frame-size fixes supersede the initial all-black and cropped-frame conclusions.
 The pause-menu callback reaches page 3 and renders the full warning panel and
-selected `Continue` item. A fresh eight-second trace stays on the Splash world
-with no world-load, movie, or fade request; title and gameplay remain
-unverified. The input adapter maps Space to Cross and Return to Start, but the
-synthetic X11 input attempt did not reach SDL. No format action was taken.
+selected `Continue` item. A fresh trace stays on the Splash world with no
+world-load, movie, or fade request; title and gameplay remain unverified. The
+menu page has one Continue row and its retail activation uses the Cross bit.
+The SDL keyboard adapter maps Space to Cross, but synthetic X11/uinput tests
+did not deliver a verified Cross press to the guest. No dismissal or format
+action is claimed. Continue tracing the retail Splash-to-title path separately
+from this unresolved input check.
 
 The user-confirmed visible memory-card format prompt came from the separate
 experimental guest-runtime launcher. The no-emulation host32 run reaches the
