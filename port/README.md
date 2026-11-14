@@ -46,7 +46,7 @@ Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 
 ## Current decomp input (2026-11-14)
 
-The sibling `sly1-decomp` checkout tracks public master `1fdd36d7` and is
+The sibling `sly1-decomp` checkout tracks public master `83f2b50d` and is
 read-only from this repository. Its report gives NTSC-U 4,807/4,807 functions
 and 1,112,400/1,112,400 code bytes matched (100%); 140 US data bytes remain
 unmatched. PAL also has 100% of its code matched. This does not mean all code
@@ -59,8 +59,11 @@ this hostgen configuration. Ten legacy hostgen overrides were found to shadow
 matched C and have been retired. Their old port C remains in
 `game/sly1-us/hand/superseded_backfills/`. The no-emulation host32 build has
 already consumed matched source for the camera, mesh-table, spawn, and placed
-object transform paths. Its current startup result remains the retail no-card
-warning, with title transition and gameplay not yet demonstrated. See
+object transform paths. Recent upstream commits since the prior port refresh
+rename five boss implementations and make a PAL comment correction; they add
+no new US C implementation needed by the current startup path. Its current
+startup result remains the retail no-card warning, with title transition and
+gameplay not yet demonstrated. See
 [`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for current
 runtime evidence. The hostgen count is five lower than before retirement
 because that older C-only frontend lacks usable translations for five of the

@@ -2131,6 +2131,24 @@ void LoadEffectSpawner"""
             if adapted.count(callsite) != 1:
                 raise RuntimeError("expected state-0 subgroup call site")
             adapted = adapted.replace(callsite, callsite_trace, 1)
+        if rel.as_posix() == "main/warp_menu.cpp":
+            # Retail passes ElementStack* in the integer argument register and
+            # the scale in the EE floating-point argument register. The
+            # matched one-argument ApplyStackTimeScale body reads that float
+            # from $f12, so the extra pointer is harmless on the PS2 ABI. On
+            # the host ABI it becomes the first argument and corrupts the
+            # clock scale. Drop this unused object argument only in staged
+            # host source; never alter the matching decompilation.
+            adapted, removed_scale_receivers = re.subn(
+                r"\bApplyStackTimeScale\((?:obj|self),\s*([^;\n]+?)\);",
+                r"ApplyStackTimeScale(\1);",
+                adapted,
+            )
+            if removed_scale_receivers != 7:
+                raise RuntimeError(
+                    "expected seven EE float-register ApplyStackTimeScale call sites, "
+                    f"found {removed_scale_receivers}"
+                )
         if args.trace_functions and rel.as_posix() == "main/game_clock.cpp":
             adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
             signature = "void SetGameClockScale(f32 x)\n{"

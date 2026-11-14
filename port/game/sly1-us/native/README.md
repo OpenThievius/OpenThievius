@@ -17,16 +17,23 @@ world bosses and rename the corresponding source/header files; no new US
 functions or code bytes were added by that cleanup. The native host32 build has
 been rebuilt successfully against this snapshot.
 
-The native host32 Wave 58 build
-compiles 194 source units and 61 port-only
+The native host32 build compiles 194 Sly source units and 61 port-only
 backfills. Its combined object contains 255 objects and defines 4,380
-catalogued function entries; the direct
-call frontier resolves 827/835 functions, without following indirect calls.
+catalogued function entries; the direct call frontier resolves 826/834
+functions, without following indirect calls.
 The freestanding launcher now supplies Itanium C++ local-static guard
 primitives required by the current matched source. The combiner preserves the
 48-byte game clock block's internal data offsets and 16-byte section alignment.
-A bounded SDL run reaches pause page 3 and records over 400 frames without a
-fatal fault; it has not yet rechecked Continue after the clock-layout fix.
+A bounded SDL run reaches pause page 3 and records 427 frames and 1,290
+accepted DMAs with zero rejections; it has not rechecked Continue after the
+clock-layout fix. The next confirmed blocker is the thread syscall boundary.
+The matched retail wrappers contain EE `syscall` instructions, while the
+generic guest-kernel runtime reads `CreateThread` parameters as guest-RAM
+addresses and the direct SDL build passes a host stack pointer there. A broad
+syscall bridge was removed after tracing showed it did not map direct-compiled
+entry points correctly. Do not extend the guest-kernel bridge for SDL; provide
+a separate native service for the direct build and keep it under `native/` or
+`hand/native_c/` until equivalent source is decompiled.
 
 The packet writers `BeginDmaTag`, `AddDmaRefTag`, `AddDmaReturnTag`, and
 `CloseDmaTag` now compile from matched decomp C. Their stale hostgen backfill

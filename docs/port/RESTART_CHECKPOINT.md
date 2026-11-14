@@ -1,6 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+## Current checkpoint (2026-11-14, after decomp 100% refresh)
+
+Branch `wip/native-sly-port`, based at `e8fa5ea`; the sibling decomp is clean
+at public master `83f2b50d586602f67e03e42343737a0dd9072a3e`. It remains 100%
+matched for US and PAL code. Since the previous refresh, upstream renamed the
+five boss implementations and corrected a PAL comment; it added no new US
+function body needed by the current native startup path. US data remains
+99.9675% matched (140 bytes unmatched).
+
+The SDL host32 target rebuilds from the current source: 194 Sly units plus 61
+separate port backfills, 4,380 catalogued function entries, and a direct-call
+frontier of 826/834 (eight missing; indirect calls are not counted). The clock
+layout correction preserves both clock scales at 1.0 and advances game time.
+A no-input run reaches the retail no-card page and reports 427 game frames,
+1,290 accepted DMAs, and zero DMA rejections. It remains non-playable; no title
+or gameplay scene is confirmed. No card-format action was taken.
+
+The next blocker is the direct-build thread syscall boundary. A brief native
+bridge experiment identified a pointer-model mismatch, so the broad bridge
+was removed and the known generic guest-kernel behavior restored. `CreateThread`
+receives a native stack-local `ThreadParams*` in the SDL build, but the generic
+runtime normalizes that argument as guest RAM. Retail entry values also cannot
+be invoked by blindly casting them to host function pointers; the linker has a
+retail-to-host mapping that must be applied. Thread startup needs a dedicated
+port-native bridge using the direct function map and native stacks. Keep this
+implementation separate under `native/` or `hand/native_c/`; do not change
+matched decomp functions. The failed broad-bridge trace is retained at
+`/tmp/sly-direct-kernel-run.log`; the baseline run is at
+`/tmp/sly-clock-fix-startup.log`.
+
+The current worktree also keeps the staging-only `ApplyStackTimeScale` host
+ABI fix, which drops the unused receiver argument from seven call sites while
+leaving the decomp untouched. It rebuilds successfully. No input was injected
+in either run.
+
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
