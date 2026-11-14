@@ -407,7 +407,30 @@ def align_host_quad_arrays(text):
                 " __attribute__((aligned(16))) " + match.group("name") +
                 match.group("array") + match.group("tail"))
 
-    return pattern.sub(replace, text)
+    # Struct members and function locals must keep their declared layout.
+    # In particular, aligning ModelStrip::keys changes the record from its
+    # retail 0x50 bytes and makes the host compiler index past the allocation.
+    # Only align file-scope arrays (also allowing namespace and extern-C
+    # scopes, which contain file-scope declarations).
+    result = []
+    scopes = []
+    for line in text.splitlines(keepends=True):
+        file_scope = all(scope in ("namespace", "linkage") for scope in scopes)
+        result.append(pattern.sub(replace, line) if file_scope else line)
+        scrubbed = re.sub(r'//.*|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', "", line)
+        opens = scrubbed.count("{")
+        closes = scrubbed.count("}")
+        if opens:
+            if re.match(r"\s*namespace(?:\s+\w+)?\s*\{", scrubbed):
+                kind = "namespace"
+            elif re.match(r'\s*extern\s+"C"\s*\{', line):
+                kind = "linkage"
+            else:
+                kind = "other"
+            scopes.extend([kind] * opens)
+        for _ in range(min(closes, len(scopes))):
+            scopes.pop()
+    return "".join(result)
 
 
 def main(argv=None):
