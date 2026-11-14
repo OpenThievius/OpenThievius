@@ -34,7 +34,7 @@ the upstream function body for future replacement. Wave 62 rebuilt and
 confirmed the null rumble fault is gone. Evidence:
 `/tmp/sly-wave61-raw-rpc.log`, `/tmp/sly-wave62-rumble-guard.log`.
 
-## Latest Continue trace: fog property callback ABI (2026-11-14)
+## Resolved fog property callback ABI (2026-11-14)
 
 Wave 62 passed the block-header read and the pad rumble call, then faulted at
 `0x080768e8` in `SetCameraFogColor` (`func_00143A08`) on the value pointer
@@ -47,6 +47,22 @@ and forwards the pointer to the matched setter. The host build and linked-code
 disassembly confirm this route; the next runtime must confirm the callback
 succeeds and identify any further world-construction faults.
 Evidence: `/tmp/sly-wave62-rumble-guard.log`.
+
+## Latest Continue trace: empty attachment notification (2026-11-14)
+
+Wave 63 passed the fog callback and the block-header stage, then faulted at
+`0x08048f7f` in matched `HandleAttachedSetNotification`
+(`func_001EF3D8`). The callback received a kind-2 detach for an object that was
+not in the attached set; `self->links` was null, but the matching C reads
+`n->target` before its null check. A port-only wrapper now guards only this
+empty-list case and still calls the base placed-object notification handler.
+All normal notifications continue through the matched implementation. The
+host build and linked disassembly confirm that route; runtime verification
+remains. Evidence:
+`/tmp/sly-wave63-fog-callback.log`.
+
+**Next:** continue once from page 3, then inspect whether world construction
+finishes and renders a title or level.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with
