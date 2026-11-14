@@ -143,32 +143,271 @@ def forward_load_collider_stream(text, label):
     return text
 
 
-def forward_effect_spawner_copy_source(text):
-    """Forward the generic copy slot's source through the staged spawner copy."""
-    old_signature = "void CopyEffectSpawner(EffectSpawner* self)"
-    new_signature = "void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)"
+def forward_placed_object_load_stream(text, label):
+    """Forward the descriptor load stream through staged base-loader calls."""
+    calls = list(re.finditer(
+        r"\b(?P<base>LoadPlacedObject|LoadObjectSet)"
+        r"\((?P<object>(?!void\b)[A-Za-z_]\w*)\);", text))
+    if not calls:
+        return text
+    definition = re.compile(
+        r"(?m)^[ \t]*[A-Za-z_][\w:*&<> ]*?\s+"
+        r"(?P<name>[A-Za-z_]\w*)\s*\((?P<args>[^{};]*)\)\s*\{")
+    function_edits = {}
+    call_edits = []
+    callback_names = set()
+    for item in calls:
+        preceding = list(definition.finditer(text, 0, item.start()))
+        if not preceding:
+            raise RuntimeError("cannot find descriptor loader in " + label)
+        caller = preceding[-1]
+        args = caller.group("args").strip()
+        if "," in args:
+            raise RuntimeError("unexpected base-loader parameters in " + label +
+                               ": " + caller.group("name"))
+        callback_names.add(caller.group("name"))
+        function_edits[caller.start("args")] = (
+            caller.end("args"), caller.group("args") + ", void* load_stream")
+        call_edits.append((item.start(), item.end(),
+                           item.group("base") + "(" + item.group("object") +
+                           ", load_stream);"))
+    edits = [(start, end, value)
+             for start, (end, value) in function_edits.items()]
+    edits.extend(call_edits)
+    for start, end, value in sorted(edits, reverse=True):
+        text = text[:start] + value + text[end:]
+
+    for base in ("LoadPlacedObject", "LoadObjectSet"):
+        prototype = re.compile(
+            rf"(?m)^(?P<prefix>[ \t]*(?:extern\s+)?void\s+{base}\()"
+            rf"(?P<arg>[^,;\n()]*)\)(?P<tail>\s*;)")
+        def add_stream(m):
+            arg = m.group("arg").strip()
+            if not arg or arg == "void":
+                return m.group(0)
+            return (m.group("prefix") + m.group("arg") +
+                    ", void* load_stream)" + m.group("tail"))
+        text = prototype.sub(add_stream, text)
+
+    for name in callback_names:
+        prototype = re.compile(
+            rf"(?m)^(?P<prefix>[ \t]*(?:extern\s+)?void\s+{re.escape(name)}\()"
+            rf"(?P<arg>[^,;\n()]*)\)(?P<tail>\s*;)")
+        text = prototype.sub(
+            lambda m: (m.group(0) if not m.group("arg").strip() or
+                       m.group("arg").strip() == "void" else
+                       m.group("prefix") + m.group("arg") +
+                       ", void* load_stream)" + m.group("tail")), text)
+    return text
+
+
+def forward_copy_callback_source(text, label):
+    """Forward slot-9's source through base-copy calls in staged host code."""
+    call = re.compile(
+        r"\b(?P<base>CopyCollider|CopyPlacedObject|CopyObjectData)"
+        r"\((?P<object>(?!void\b)[A-Za-z_]\w*)\);")
+    calls = list(call.finditer(text))
+    if not calls:
+        return text
+
+    definition = re.compile(
+        r"(?m)^[ \t]*[A-Za-z_][\w:*&<> ]*?\s+"
+        r"(?P<name>[A-Za-z_]\w*)\s*\((?P<args>[^{};]*)\)\s*\{")
+    function_edits = {}
+    call_edits = []
+    callback_names = set()
+    for item in calls:
+        preceding = list(definition.finditer(text, 0, item.start()))
+        if not preceding:
+            raise RuntimeError("cannot find copy callback in " + label)
+        caller = preceding[-1]
+        args = caller.group("args").strip()
+        if "," in args:
+            raise RuntimeError("unexpected copy callback parameters in " +
+                               label + ": " + caller.group("name"))
+        name = caller.group("name")
+        callback_names.add(name)
+        function_edits[caller.start("args")] = (
+            caller.end("args"), caller.group("args") + ", void* copy_source")
+        call_edits.append((item.start(), item.end(),
+                           item.group("base") + "(" + item.group("object") +
+                           ", copy_source);"))
+
+    edits = [(start, end, value)
+             for start, (end, value) in function_edits.items()]
+    edits.extend(call_edits)
+    for start, end, value in sorted(edits, reverse=True):
+        text = text[:start] + value + text[end:]
+
+    for base in ("CopyCollider", "CopyPlacedObject", "CopyObjectData"):
+        prototype = re.compile(
+            rf"(?m)^(?P<prefix>[ \t]*(?:extern\s+)?void\s+{base}\()"
+            rf"(?P<arg>[^,;\n()]*)\)(?P<tail>\s*;)")
+        def add_base_source(m):
+            arg = m.group("arg").strip()
+            if not arg or arg == "void":
+                return m.group(0)
+            return (m.group("prefix") + m.group("arg") +
+                    ", void* copy_source)" + m.group("tail"))
+        text = prototype.sub(add_base_source, text)
+
+    for name in callback_names:
+        prototype = re.compile(
+            rf"(?m)^(?P<prefix>[ \t]*(?:extern\s+)?void\s+{re.escape(name)}\()"
+            rf"(?P<arg>[^,;\n()]*)\)(?P<tail>\s*;)")
+        def add_callback_source(m):
+            arg = m.group("arg").strip()
+            if not arg or arg == "void":
+                return m.group(0)
+            return (m.group("prefix") + m.group("arg") +
+                    ", void* copy_source)" + m.group("tail"))
+        text = prototype.sub(add_callback_source, text)
+    if label == "main/effect_spawner.cpp":
+        old = "CopyPlacedObject(self, copy_source);\n    self->rec->uses++;"
+        new = ("CopyPlacedObject(self, copy_source);\n"
+               "    self->rec = ((EffectSpawner*)copy_source)->rec;\n"
+               "    self->rec->uses++;")
+        if text.count(old) != 1:
+            raise RuntimeError("expected EffectSpawner shared-record copy in " + label)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def forward_animation_marker_arguments(text, label):
+    """Make the EE-carried animation and key explicit in the host copy."""
+    if label != "main/placed_object.cpp":
+        return text
+    old_decl = "void* FindAnimationMarkerEvent(void);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected animation marker forward declaration")
+    text = text.replace(old_decl, "", 1)
+    old_signature = "f32 GetAnimationMarkerTime(void)"
+    new_signature = "f32 GetAnimationMarkerTime(Animation* self, s32 key)"
     if text.count(old_signature) != 1:
-        raise RuntimeError("expected one EffectSpawner copy implementation")
-    old_declaration = "void CopyPlacedObject(void* self);"
-    new_declaration = "void CopyPlacedObject(void* self, void* src);"
-    if text.count(old_declaration) != 1:
-        raise RuntimeError("expected one EffectSpawner base-copy declaration")
-    text = text.replace(old_declaration, new_declaration, 1)
+        raise RuntimeError("expected animation marker wrapper")
     text = text.replace(old_signature, new_signature, 1)
-    old_body = """void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)
-{
-    CopyPlacedObject(self);
-    self->rec->uses++;
-}"""
-    new_body = """void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)
-{
-    CopyPlacedObject(self, src);
-    self->rec = src->rec;
-    self->rec->uses++;
-}"""
-    if text.count(old_body) != 1:
-        raise RuntimeError("expected EffectSpawner copy body")
-    return text.replace(old_body, new_body, 1)
+    old_call = "(f32*)FindAnimationMarkerEvent();"
+    new_call = "(f32*)FindAnimationMarkerEvent(self, key);"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected animation marker call")
+    text = text.replace(old_call, new_call, 1)
+
+    # MoveObjectAnimationTrackToEnd is called with the owner in a1 on EE and
+    # carries that key into FindEntryByObjectId. Make both values explicit.
+    old_move = "void MoveObjectAnimationTrackToEnd(Animation* a0)"
+    new_move = "void MoveObjectAnimationTrackToEnd(Animation* a0, void* owner)"
+    if text.count(old_move) != 1:
+        raise RuntimeError("expected animation track move wrapper")
+    text = text.replace(old_move, new_move, 1)
+    old_lookup = "void* r = FindEntryByObjectId();"
+    new_lookup = "void* r = FindEntryByObjectId((BlendAnimationView*)a0, owner);"
+    if text.count(old_lookup) != 1:
+        raise RuntimeError("expected animation track lookup")
+    return text.replace(old_lookup, new_lookup, 1)
+
+
+def forward_blend_entry_flag_arguments(text, label):
+    """Forward the EE-carried blend view and object id to its lookup."""
+    if label != "main/blend_animation.cpp":
+        return text
+    old_decl = "void* FindEntryByObjectId(void);"
+    new_decl = "void* FindEntryByObjectId(BlendAnimationView* self, void* key);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected blend entry lookup declaration")
+    text = text.replace(old_decl, new_decl, 1)
+    old_signature = "void SetBlendEntryRecordFlag(void)"
+    new_signature = "void SetBlendEntryRecordFlag(BlendAnimationView* self, void* key)"
+    if text.count(old_signature) != 1:
+        raise RuntimeError("expected blend entry flag callback")
+    text = text.replace(old_signature, new_signature, 1)
+    old_call = "(BlendSourceEntry*)FindEntryByObjectId();"
+    new_call = "(BlendSourceEntry*)FindEntryByObjectId(self, key);"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected blend entry lookup call")
+    return text.replace(old_call, new_call, 1)
+
+
+def canonicalize_hermite_vector_calls(text, label):
+    """Route legacy EE-signature call sites through the matched host ABI."""
+    order = {
+        "main/effect.cpp": (7, 0, 1, 2, 3, 8, 9, 4, 5, 6),
+        "main/path_curve.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 8, 9),
+        "main/movie_player.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 8, 9),
+        "main/world_listed_object.cpp": (4, 0, 1, 2, 3, 5, 6, 7, 8, 9),
+        "main/agent.cpp": (7, 0, 1, 2, 3, 8, 9, 4, 5, 6),
+        "main/player_state2.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 9, None),
+        "main/pose_source.cpp": (4, 0, 1, 2, 3, 5, 6, 7, 8, 9),
+        "main/object_cycler.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 8, 9),
+        "main/player.cpp": (4, 0, 1, 2, 3, 5, 6, 7, None, None),
+        "main/player_target.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 8, 9),
+    }
+    indexes = order.get(label)
+    if indexes is None:
+        return text
+
+    canonical = (
+        "void EvaluateHermiteVectorSegment(f32 dur, void* p0, void* m0, "
+        "void* p1, void* m1, f32 time, f32 scale, void* pos, void* vel, "
+        "void* acc);"
+    )
+    text, declarations = re.subn(
+        r"(?m)^void EvaluateHermiteVectorSegment\([^\n;]*\);$",
+        canonical, text)
+    if declarations < 1:
+        raise RuntimeError("expected Hermite vector declaration in " + label)
+
+    def split_args(args):
+        parts = []
+        start = 0
+        depth = 0
+        for index, char in enumerate(args):
+            if char in "([":
+                depth += 1
+            elif char in ")]" and depth:
+                depth -= 1
+            elif char == "," and depth == 0:
+                parts.append(args[start:index].strip())
+                start = index + 1
+        parts.append(args[start:].strip())
+        return parts
+
+    pattern = re.compile(r"EvaluateHermiteVectorSegment\(([^;\n]*)\);")
+    calls = 0
+    def reorder(match):
+        nonlocal calls
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        if text[line_start:match.start()].strip().startswith("void"):
+            return match.group(0)
+        args = split_args(match.group(1))
+        if len(args) != len(indexes):
+            raise RuntimeError("unexpected Hermite vector argument count in " + label)
+        calls += 1
+        return "EvaluateHermiteVectorSegment(" + ", ".join(
+            args[index] if index is not None else "0" for index in indexes) + ");"
+    text = pattern.sub(reorder, text)
+    if calls == 0:
+        raise RuntimeError("expected Hermite vector call in " + label)
+    return text
+
+
+def forward_keyed_rotation_get_arguments(text, label):
+    """Forward the rotation-get virtual arguments to the keyed evaluator."""
+    if label != "main/pose_source.cpp":
+        return text
+    old_signature = "void GetKeyedRotationCurve(KeyedRotationCurve* self)"
+    new_signature = (
+        "void GetKeyedRotationCurve(KeyedRotationCurve* self, PlacedObject* owner, "
+        "s32 mode, void* outAngles, void* outVec, f32 key, f32 scale)")
+    if text.count(old_signature) != 1:
+        raise RuntimeError("expected keyed rotation getter")
+    text = text.replace(old_signature, new_signature, 1)
+    old_call = "EvaluateVectorKeyCurve(self->count, self->keys);"
+    new_call = (
+        "EvaluateVectorKeyCurve(self->count, (s32)self->keys, mode, "
+        "(s32)outAngles, (s32)outVec, key, scale);")
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected keyed rotation evaluation")
+    return text.replace(old_call, new_call, 1)
 
 
 def lower_gcc_minmax(text):
@@ -684,6 +923,11 @@ def main(argv=None):
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
         adapted = forward_load_collider_stream(adapted, rel.as_posix())
+        adapted = forward_placed_object_load_stream(adapted, rel.as_posix())
+        adapted = forward_animation_marker_arguments(adapted, rel.as_posix())
+        adapted = forward_blend_entry_flag_arguments(adapted, rel.as_posix())
+        adapted = canonicalize_hermite_vector_calls(adapted, rel.as_posix())
+        adapted = forward_keyed_rotation_get_arguments(adapted, rel.as_posix())
         if rel.as_posix() == "lib/system_calls.cpp":
             # The US kernel veneers execute EE `syscall` instructions, which
             # cannot be used by the direct native build. Route only the
@@ -727,12 +971,7 @@ def main(argv=None):
             adapted = adapted.replace(
                 declaration,
                 "u8 g_elementStack[sizeof(ElementStack)] = {0};")
-        if rel.as_posix() == "main/effect_spawner.cpp":
-            # CreateObjectCopy invokes descriptor slot 9 with (clone, source).
-            # The source-level matched implementation lost both the second
-            # argument and the source record assignment in its host signature.
-            # Preserve the retail copy semantics in this staged host copy.
-            adapted = forward_effect_spawner_copy_source(adapted)
+        adapted = forward_copy_callback_source(adapted, rel.as_posix())
         # The retail ABI uses 64-bit s64/u64 even where the decomp unit spells
         # those aliases with `long`; on host i386, long is only 32 bits.
         adapted = re.sub(
