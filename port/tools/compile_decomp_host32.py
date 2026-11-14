@@ -96,6 +96,81 @@ def escape_literal_newlines(text):
     return "".join(out)
 
 
+def forward_load_collider_stream(text, label):
+    """Make the EE's carried load-stream argument explicit in staged code."""
+    calls = list(re.finditer(r"\bLoadCollider\(self\);", text))
+    if not calls:
+        return text
+
+    declaration = re.compile(
+        r"(?m)^(?P<indent>[ \t]*void\s+LoadCollider\()"
+        r"(?P<arg>[^,;\n()]*)\)(?P<tail>\s*;)")
+    declarations = list(declaration.finditer(text))
+    if not declarations:
+        raise RuntimeError("LoadCollider calls lack a declaration in " + label)
+
+    definition = re.compile(
+        r"(?m)^[ \t]*[A-Za-z_][\w:*&<> ]*?\s+"
+        r"(?P<name>[A-Za-z_]\w*)\s*\((?P<args>[^{};]*)\)\s*\n[ \t]*\{")
+    signature_edits = {}
+    call_edits = []
+    for call in calls:
+        preceding = [m for m in definition.finditer(text, 0, call.start())]
+        if not preceding:
+            raise RuntimeError("cannot find LoadCollider caller in " + label)
+        caller = preceding[-1]
+        args = caller.group("args")
+        if "," in args or re.search(r"\breader\b", args):
+            raise RuntimeError("unexpected implicit-stream caller in " + label +
+                               ": " + caller.group("name"))
+        signature_edits[caller.start("args")] = (
+            caller.end("args"), args + ", void* reader")
+        call_edits.append((call.start(), call.end(), "LoadCollider(self, reader);"))
+
+    edits = list(signature_edits.items())
+    edits = [(start, end, value) for start, (end, value) in edits]
+    edits.extend(call_edits)
+    for start, end, value in sorted(edits, reverse=True):
+        text = text[:start] + value + text[end:]
+
+    # The declaration syntax varies between units (Collider* and void*), but
+    # all single-argument forms represent the same EE load callback.
+    text, changed = declaration.subn(
+        lambda m: m.group("indent") + m.group("arg") +
+        ", void* reader);", text)
+    if changed != len(declarations):
+        raise RuntimeError("failed to stage LoadCollider declarations in " + label)
+    return text
+
+
+def forward_effect_spawner_copy_source(text):
+    """Forward the generic copy slot's source through the staged spawner copy."""
+    old_signature = "void CopyEffectSpawner(EffectSpawner* self)"
+    new_signature = "void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)"
+    if text.count(old_signature) != 1:
+        raise RuntimeError("expected one EffectSpawner copy implementation")
+    old_declaration = "void CopyPlacedObject(void* self);"
+    new_declaration = "void CopyPlacedObject(void* self, void* src);"
+    if text.count(old_declaration) != 1:
+        raise RuntimeError("expected one EffectSpawner base-copy declaration")
+    text = text.replace(old_declaration, new_declaration, 1)
+    text = text.replace(old_signature, new_signature, 1)
+    old_body = """void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)
+{
+    CopyPlacedObject(self);
+    self->rec->uses++;
+}"""
+    new_body = """void CopyEffectSpawner(EffectSpawner* self, EffectSpawner* src)
+{
+    CopyPlacedObject(self, src);
+    self->rec = src->rec;
+    self->rec->uses++;
+}"""
+    if text.count(old_body) != 1:
+        raise RuntimeError("expected EffectSpawner copy body")
+    return text.replace(old_body, new_body, 1)
+
+
 def lower_gcc_minmax(text):
     """Lower the old GCC ``>?`` maximum operator in staged C++ units."""
     compound_used = False
@@ -608,6 +683,7 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        adapted = forward_load_collider_stream(adapted, rel.as_posix())
         if rel.as_posix() == "lib/system_calls.cpp":
             # The US kernel veneers execute EE `syscall` instructions, which
             # cannot be used by the direct native build. Route only the
@@ -651,6 +727,12 @@ def main(argv=None):
             adapted = adapted.replace(
                 declaration,
                 "u8 g_elementStack[sizeof(ElementStack)] = {0};")
+        if rel.as_posix() == "main/effect_spawner.cpp":
+            # CreateObjectCopy invokes descriptor slot 9 with (clone, source).
+            # The source-level matched implementation lost both the second
+            # argument and the source record assignment in its host signature.
+            # Preserve the retail copy semantics in this staged host copy.
+            adapted = forward_effect_spawner_copy_source(adapted)
         # The retail ABI uses 64-bit s64/u64 even where the decomp unit spells
         # those aliases with `long`; on host i386, long is only 32 bits.
         adapted = re.sub(
@@ -696,6 +778,40 @@ def main(argv=None):
             adapted = adapted.replace(
                 "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
                 "(char*)__builtin_next_arg(size)")
+            if rel.as_posix() == "main/object_properties.cpp":
+                # StoreScriptArgumentsVa uses the EE's 8-byte vararg slots.
+                # Use the host i386 varargs ABI in this staging copy; otherwise
+                # it reads unrelated stack words as output destinations.
+                old = '''ScriptValue* StoreScriptArgumentsVa(ScriptValue* ret, s32 count, ScriptValue* args, const void* kinds, ...)
+{
+    void* arr[32];
+    void* ap = (char*)__builtin_next_arg(kinds) - 32;
+    if (count > 0) {
+        void** d = arr;
+        s32 i = count;
+        do {
+            ap = (char*)ap + 8;
+            *d = *(void**)((char*)ap - 8);
+            d++;
+            i--;
+        } while (i != 0);
+    }
+    StoreScriptArguments(ret, count, args, (const u32*)kinds, arr);
+    return ret;
+}'''
+                new = '''ScriptValue* StoreScriptArgumentsVa(ScriptValue* ret, s32 count, ScriptValue* args, const void* kinds, ...)
+{
+    void* arr[32];
+    __builtin_va_list ap;
+    __builtin_va_start(ap, kinds);
+    for (s32 i = 0; i < count; ++i) arr[i] = __builtin_va_arg(ap, void*);
+    __builtin_va_end(ap);
+    StoreScriptArguments(ret, count, args, (const u32*)kinds, arr);
+    return ret;
+}'''
+                if adapted.count(old) != 1:
+                    raise RuntimeError("expected EE StoreScriptArgumentsVa body")
+                adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() in ("main/file_1E88D0.cpp", "main/warp_menu.cpp"):
             # AreFloatsNearlyEqual has a separate native replacement; retain
             # its public address prototype while renaming the upstream body.
@@ -785,6 +901,22 @@ def main(argv=None):
                 if adapted.count(old) != 1:
                     raise RuntimeError("expected one matrix closure: " + closure)
                 adapted = adapted.replace(old, new, 1)
+            # GCC 2.95 walks backward from the separate `ret` local through
+            # the 32-element args array. Comparing those unrelated pointers
+            # is undefined in modern C++, and host GCC removes the stop test,
+            # walking off the stack. Keep the retail order with defined array
+            # indexing in the staging copy.
+            old_cleanup = """        e = rp;
+        while (sc.buf != e) {
+            e--;
+            DestroyScriptValue(e, 0);
+        }"""
+            new_cleanup = """        for (s32 cleanup = 32; cleanup != 0; --cleanup) {
+            DestroyScriptValue(&sc.buf[cleanup - 1], 0);
+        }"""
+            if adapted.count(old_cleanup) != 1:
+                raise RuntimeError("expected property-value cleanup loop")
+            adapted = adapted.replace(old_cleanup, new_cleanup, 1)
             # The three concrete weight-curve methods are installed in a
             # WeightCurveEval table, whose host-call signature is
             # (curve, owner, key, scale, flags, outValue, outSlope). The EE
@@ -891,6 +1023,17 @@ def main(argv=None):
             if replacements != 1 or second != 1:
                 raise RuntimeError("expected two Hermite register-order calls in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/pooled_object.cpp":
+            # InitStepSequence calls the PS2 method InitPlacedObject with an
+            # implicit this pointer in a0. The host C ABI needs that pointer
+            # as an explicit argument, or the base initializer reads stale
+            # stack data as its object.
+            old = "void InitStepSequence(StepSequence* state)\n{\n\tInitPlacedObject();"
+            new = ("void InitStepSequence(StepSequence* state)\n{\n"
+                   "\tInitPlacedObject((void*)state);")
+            if adapted.count(old) != 1:
+                raise RuntimeError("expected InitStepSequence base-init call")
+            adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/script_machine.cpp":
             # EE GCC 2.95 emits the intended reverse destruction loop when the
             # pointer walks from a neighboring local into arr. Modern GCC
