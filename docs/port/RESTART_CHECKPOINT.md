@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 55): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 56): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -30,6 +30,16 @@ the target host32 build compiles the C++ source directly. No runtime was
 launched during this refresh, so the latest observed screen remains the
 no-card warning page from Wave 53. Wave 55's light collector backfill compiles
 and links but has not been exercised by a runtime scene.
+
+Wave 56 refreshes the CMake cache to point at the current sibling checkout and
+adds freestanding Itanium ABI guard functions for compiler-emitted
+function-local statics. The current source now compiles 194/194 units and
+61/61 port backfills, combines 255 objects, and links the non-rendering
+host32 diagnostic launcher. Its 12-second startup trace reaches the Splash
+resource callbacks without a missing-function trap. The diagnostic's
+no-render frame shim means this is not evidence of a displayed page or
+playable state. The latest visual evidence remains the no-card warning and
+the separately reproduced black-after-Continue regression.
 
 The Wave 49 source adds a Sly-only byte swap in `func_002042C8`: the shared
 OpenRAC SDL pad report serializes the button word high-byte first, while

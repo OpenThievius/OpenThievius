@@ -12,10 +12,14 @@ never edited by the host staging adapter.
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 Wave 55 build compiles 194 source units and 61 port-only
+The native host32 Wave 56 build compiles 194 source units and 61 port-only
 backfills. Its combined object contains 255 objects and defines 4,380
 catalogued function entries; the direct
 call frontier resolves 827/835 functions, without following indirect calls.
+The freestanding launcher now supplies Itanium C++ local-static guard
+primitives required by the current matched source. Its bounded no-render
+diagnostic run reached startup callbacks without a missing-function trap; this
+does not verify the SDL window path or change the last observed image.
 
 Wave 47 passes the prior world-loader fault via a port-only staged-source
 adaptation for `ReadBufferedU32`'s i386 return ABI. Register capture then found

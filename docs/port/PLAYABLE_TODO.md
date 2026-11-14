@@ -35,7 +35,7 @@ to forcing a title or level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest Wave 55 host32 build compiles 194 Sly units and 61 port-only
+The latest Wave 56 host32 build compiles 194 Sly units and 61 port-only
 backfills. Its combined object defines 4,380 catalogued function entries and
 resolves 827/835 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact

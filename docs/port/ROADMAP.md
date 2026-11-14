@@ -67,7 +67,7 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The Wave 55 host32 staging build compiles all 194 Sly source units and 61
+The Wave 56 host32 staging build compiles all 194 Sly source units and 61
 port-only backfills. Its combined object contains 255 objects and defines
 4,380 catalogued function entries; the direct-call frontier has 827/835
 definitions (8 missing, with indirect calls not covered). These counts
@@ -75,6 +75,10 @@ describe translation and call
 reachability, not playable coverage. The reorganized `effect_spawner.cpp`
 uses a port-only i386 ABI adaptation for `ReadBufferedU32`'s one-word return,
 which gets past the `LoadGroupMembers`/`ReadCappedWordList` fault.
+The freestanding diagnostic launcher also supplies C++ local-static guard
+functions, allowing it to link against the current source snapshot. A
+12-second no-render run reached startup callbacks without a missing-function
+trap; it does not verify the SDL renderer or screen output.
 
 The newly complete decomp header documents `ElementStack` as 0x34 bytes:
 `items[8]` at `+0x0C`, count at `+0x2C`, and `resumeState` at `+0x30`. Its
