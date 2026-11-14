@@ -1890,7 +1890,7 @@ void StartStateGraph"""
                 adapted)
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected one DMA channel lookup in " + rel.as_posix())
-        if rel.as_posix() == "main/file_1549C8.cpp":
+        if rel.as_posix() == "main/effect_spawner.cpp":
             # The decomp models ReadBufferedU32 as a one-word aggregate in this
             # unit. On the i386 SysV host that adds a hidden result pointer,
             # but the retail reader returns the word in EAX. Keep the same
@@ -1906,7 +1906,7 @@ void StartStateGraph"""
             if locals_ != 1:
                 raise RuntimeError("expected one stream-word reader use in " + rel.as_posix())
             adapted = adapted.replace(local, "s32 tmp = ReadBufferedU32(src);")
-        if args.trace_functions and rel.as_posix() == "main/file_1549C8.cpp":
+        if args.trace_functions and rel.as_posix() == "main/effect_spawner.cpp":
             # Identify a malformed nested class read slot before the retail
             # virtual dispatch in LoadGroupMembers faults.
             hook = ('extern "C" void sly1_native_trace_group_child(\n'

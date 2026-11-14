@@ -116,6 +116,15 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault eip ", state->uc_mcontext.gregs[REG_EIP]);
     write_hex("native host32: fault esp ", state->uc_mcontext.gregs[REG_ESP]);
     write_hex("native host32: fault ebp ", state->uc_mcontext.gregs[REG_EBP]);
+    write_hex("native host32: fault eax ", state->uc_mcontext.gregs[REG_EAX]);
+    write_hex("native host32: fault ebx ", state->uc_mcontext.gregs[REG_EBX]);
+    write_hex("native host32: fault ecx ", state->uc_mcontext.gregs[REG_ECX]);
+    write_hex("native host32: fault edx ", state->uc_mcontext.gregs[REG_EDX]);
+    write_hex("native host32: fault esi ", state->uc_mcontext.gregs[REG_ESI]);
+    write_hex("native host32: fault edi ", state->uc_mcontext.gregs[REG_EDI]);
+    u32* stack = reinterpret_cast<u32*>(state->uc_mcontext.gregs[REG_ESP]);
+    for (u32 index = 0; index < 16; ++index)
+        write_hex("native host32: fault stack word ", stack[index]);
     u32* frame = reinterpret_cast<u32*>(state->uc_mcontext.gregs[REG_EBP]);
     for (u32 depth = 0; depth < 8 && frame != nullptr; ++depth) {
         const u32 previous = frame[0];

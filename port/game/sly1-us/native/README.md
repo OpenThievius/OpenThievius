@@ -16,14 +16,15 @@ The native host32 build compiles 194 source units and 65 port-only backfills.
 The combined object defines 4,380 catalogued function entries; the direct
 call frontier resolves 822/830 functions, without following indirect calls.
 
-Wave 41 links the SDL launcher, but its latest bounded run faults at address
-`0x556` before graphics. The staging adapter for `game_progress.cpp` now gives
-the key lookup an explicit host parameter after the decomp source reorganization;
-this is a port-side ABI adaptation and does not modify matching source. The
-last confirmed visual milestone is the complete native no-card warning panel
-and highlighted Continue option from Wave 40. No title or playable scene has
-been demonstrated. No card-format action was taken. See the roadmap and
-restart checkpoint for evidence and current blockers.
+Wave 47 passes the prior world-loader fault via a port-only staged-source
+adaptation for `ReadBufferedU32`'s i386 return ABI. It reaches retail
+`UpdateElementStack` but faults while selecting the active screen element. The
+complete decomp defines `items[8]` at `+0x0C`, count at `+0x2C`, and resume
+state at `+0x30`; the fault trace is being extended to identify the invalid
+stack state. The last confirmed visual milestone is the complete native
+no-card warning panel and highlighted Continue option. No title or playable
+scene has been demonstrated. No card-format action was taken. See the roadmap
+and restart checkpoint for evidence and current blockers.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from

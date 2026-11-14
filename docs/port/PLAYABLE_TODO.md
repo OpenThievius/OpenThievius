@@ -2,13 +2,19 @@
 # Concrete plan for a playable native Sly 1
 
 **Current evidence (2026-11-14):** the last confirmed native image is the full
-640x224 no-card warning panel with highlighted Continue (Wave 40). Wave 41 and
-Wave 42 builds compile and link, but bounded startup faults before graphics at
-`0x556`. The Wave 42 trace records two entries to
-`HandleCountdownNotifierNotification` (`kind=3`, then `kind=4`) and a fault
-caller of `0x1`, so the instruction path after that point still needs
-isolation. No title or gameplay scene is confirmed and no card-format action
-was taken. Run log: `/tmp/sly1-wave42-run.log`.
+640x224 no-card warning panel with highlighted Continue (Wave 40). Wave 47
+passes the prior world-loader fault after a port-only staging adaptation
+corrected the i386 ABI for `ReadBufferedU32` in the reorganized
+`effect_spawner.cpp`. It reaches retail `UpdateElementStack`, then faults while
+selecting `items[count - 1]`. The complete decomp documents `ElementStack` in
+`include/screen_element.h`: items at `+0x0C`, count at `+0x2C`, resume state at
+`+0x30`; its initializer sets count to one and item zero to null. The next
+diagnostic is to capture `ElementStack*`, count, and its item pointer at the
+fault, then trace the writer that corrupts the structure. The attempted launcher
+relink for register capture is blocked because this host lacks 32-bit glibc
+development files and the staged sysroot lacks its glibc link targets. No title
+or gameplay scene is confirmed and no card-format action was taken. Run log:
+`/tmp/sly1-wave47-run.log`.
 
 **Build baseline:** public `sly1-decomp` master is `dd7a1860` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
@@ -20,9 +26,11 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. Resolve the `0x556` startup fault after the countdown-notifier handler and
-   restore the native no-card warning. Then verify dismissal, title and the
-   first world render without forcing game state.
+1. Capture the `ElementStack` pointer/count/item values at the Wave 47 fault
+   using a working i386 link environment. Trace the retail stack writer that
+   leaves an invalid count or item pointer; do not clamp the count or force a
+   menu element visible. Then verify the warning-to-title transition and first
+   world render without fabricating game state.
 2. After startup works, implement port-only C replacements for
    `FilterParticleVerticesVu0` and `CollectLightsForSphere`. The latest
    [`sly1-decomp porting guide`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)

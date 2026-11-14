@@ -60,28 +60,27 @@ port-only backfills. Its combined object defines 4,380 catalogued function
 entries; the direct-call frontier has 822/830 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
 reachability, not playable coverage. A decomp reorganization moved
-`game_progress.cpp` to its semantic filename, leaving a staging-only ABI
-adaptation aimed at its retired filename. The adaptation now passes the
-world-key pointer explicitly through `GetEntryIdByKey`/`FindKeyEntry`; the
-generated i386 object confirms the parameter reaches the lookup. This affects
-only generated native build source and leaves `sly1-decomp` unchanged.
+`effect_spawner.cpp` into the semantic source tree, leaving a staging-only
+`ReadBufferedU32` ABI adaptation aimed at its retired filename. The adapter
+has now been retargeted in `compile_decomp_host32.py`: the one-word aggregate
+return is lowered to an `s32` EAX return in generated host source, matching
+the retail i386 calling convention and preserving the 4-byte reader value.
+This fix is port-only and leaves `sly1-decomp` unchanged. It gets execution
+past the prior `LoadGroupMembers`/`ReadCappedWordList` fault.
 
-The latest Wave 42 launcher links, but a bounded native run still faults at
-address `0x556` before graphics. Traces show two entries to
-`HandleCountdownNotifierNotification` before the fault; the fault caller is
-not yet resolved, so the pointer adaptation is not a verified startup fix.
-The host staging layer also contains no-op fallbacks for VU0 particle-filter
-and light-group methods. Those keep the native build compilable but do not
-reproduce their PS2 microprogram behavior, so particle effects and lighting
-remain incomplete. The last confirmed visual milestone remains the native
-640x224 no-card warning panel with its highlighted Continue option (Wave 40).
-No title or gameplay scene has been demonstrated, and no card-format action
-was taken. Next, resolve the `0x556` fault, then verify the warning-to-title
-transition and first world render. After startup is stable, implement the two
-VU0 call-site replacements in `port/game/sly1-us/hand/native_c/` and remove
-the matching no-op VU0 staging shims. The source and link artifacts are in
-ignored `build/port/host32-wave42/`; see `/tmp/sly1-wave42-run.log` for the
-latest launch trace.
+The current Wave 47 native run reaches `UpdateElementStack` and faults while
+loading `items[count - 1]`. The newly complete decomp header confirms the
+layout: `items[8]` at `+0x0C`, `count` at `+0x2C`, and `resumeState` at `+0x30`;
+the retail initializer sets the base item to null and count to one. The fault
+registers and stack dump are being captured to determine whether the active
+stack pointer, its count, or the stack storage was corrupted. See
+`/tmp/sly1-wave47-run.log` for the current trace. The no-op staging fallbacks
+for the two VU0 particle-filter and light-collection methods remain incomplete;
+the upstream [porting guide](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
+recommends implementing those as native call-site C after startup is stable.
+The last confirmed visual milestone remains the native 640x224 no-card
+warning panel with its highlighted Continue option. No title or gameplay
+scene has been demonstrated, and no card-format action was taken.
 
 ### Decomp refresh (2026-11-11)
 
