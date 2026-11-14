@@ -67,10 +67,11 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The current Wave 53 host32 staging build compiles all 194 Sly source units and 60
-port-only backfills. Its combined object defines 4,380 catalogued function
-entries; the direct-call frontier has 827/835 definitions (8 missing, with
-indirect calls not covered). These counts describe translation and call
+The Wave 55 host32 staging build compiles all 194 Sly source units and 61
+port-only backfills. Its combined object contains 255 objects and defines
+4,380 catalogued function entries; the direct-call frontier has 827/835
+definitions (8 missing, with indirect calls not covered). These counts
+describe translation and call
 reachability, not playable coverage. The reorganized `effect_spawner.cpp`
 uses a port-only i386 ABI adaptation for `ReadBufferedU32`'s one-word return,
 which gets past the `LoadGroupMembers`/`ReadCappedWordList` fault.
@@ -144,8 +145,11 @@ reflect hostability and selected roots, not decomp match coverage: 100% code
 includes original assembly that still needs a native port implementation.
 The decomp's `docs/PORTING.md` specifically identifies `FilterParticleVerticesVu0`
 and `CollectLightsForSphere` as call sites whose VU0 microprogram work belongs
-in native replacements. The first remains an approximate port backfill; the
-second remains a staging no-op. Keep both separate from the matching source.
+in native replacements. Both now have separate port-only CPU backfills on the
+direct host32 path. The light collector covers point ranges and six-plane
+volumes, but VU0 boundary/rounding behavior and runtime scene use remain
+unverified. The legacy C-only hostgen route still has no-op adapters. Keep both
+backfills separate from matching source.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
 `/tmp/sly1-wave47-regtrace.log`.
 

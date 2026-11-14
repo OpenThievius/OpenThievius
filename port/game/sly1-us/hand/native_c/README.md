@@ -259,7 +259,8 @@ were still no-ops. Selecting their exact US assembly translations for
 ConeVolume list from zero to two objects in the normal startup trace. The
 15-second run remains stable, but image tags and actual scene geometry are
 still absent; this fixes world registration, not the rendering path.
-`func_00185150` (`CollectLightsForSphere`) remains a no-op: its retail body
+`func_00185150` (`CollectLightsForSphere`) remains a no-op in this legacy
+C-only hostgen route: its retail body
 contains VU0 `vcallms` microprogram calls that the assembly translator cannot
 translate. A scalar port backfill may be needed when populated model parts
 reach `func_00166690`.

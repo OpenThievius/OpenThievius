@@ -12,8 +12,9 @@ never edited by the host staging adapter.
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 build compiles 194 source units and 60 port-only backfills.
-The combined object defines 4,380 catalogued function entries; the direct
+The native host32 Wave 55 build compiles 194 source units and 61 port-only
+backfills. Its combined object contains 255 objects and defines 4,380
+catalogued function entries; the direct
 call frontier resolves 827/835 functions, without following indirect calls.
 
 Wave 47 passes the prior world-loader fault via a port-only staged-source
@@ -41,9 +42,17 @@ based on the sibling effect path. The VU0 microprogram's precise arithmetic
 is undocumented, so this is explicitly an approximation and is not a
 decompilation claim. The staged host source adds a declaration for the
 backfill after renaming the matched implementation; neither the decomp
-checkout nor its match score changes. The other porting-guide VU0 site,
-`CollectLightsForSphere`, still has host no-op behavior. Re-run visual/startup
-checks before treating the particle approximation as correct.
+checkout nor its match score changes.
+
+Wave 55 adds a port-only `func_00185150` CPU implementation for
+`CollectLightsForSphere`. It tests kind-1 point-light ranges and kind-2
+six-plane volumes, then preserves retail group filtering, mask ordering, the
+light cap and result fields. This replaces the VU0 no-op adapters on the direct
+host32 path; the legacy C-only hostgen path still has no VU0 implementation.
+Plane tests use scalar floating point, so exact VU0 boundary/rounding behavior
+is not verified. The function compiles and links, but no runtime scene has
+exercised it. Both VU0 replacements remain port-only and are not decompilation
+claims.
 
 Wave 51 removes the port overrides for `SuppressScriptEvent` and `InitGauge`;
 both now compile from the matched US C in the decomp. This keeps newly recovered

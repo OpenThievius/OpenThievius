@@ -35,7 +35,7 @@ to forcing a title or level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest Wave 53 host32 build compiles 194 Sly units and 60 port-only
+The latest Wave 55 host32 build compiles 194 Sly units and 61 port-only
 backfills. Its combined object defines 4,380 catalogued function entries and
 resolves 827/835 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
@@ -54,13 +54,17 @@ diagnostics are documented in the port roadmap.
    from the matched caller, while its particle transform/integration is based
    on the sibling effect path because the VU microprogram's exact arithmetic
    is unknown. Validate it only once particles are reached; replace it with
-   exact recovered behavior when available. Implement `CollectLightsForSphere`
-   as the remaining port-only C replacement. The latest
+   exact recovered behavior when available. Wave 55 adds a port-only CPU
+   implementation of `CollectLightsForSphere` for point-light ranges and
+   six-plane volumes. Its VU0 boundary and rounding behavior is not runtime
+   verified; exercise it when normal startup reaches rendered scene objects.
+   The latest
    [`sly1-decomp porting guide`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
    explains those two VU0 microprogram call sites and says to reimplement
    their work there, not add a VU0 execution model. Keep replacements under
-   `port/game/sly1-us/native/` and remove the compile-only no-op staging
-   methods when the replacements are wired in.
+   `port/game/sly1-us/native/`; the direct host32 path now routes this call
+   site to its backfill, while the legacy C-only hostgen route still uses
+   no-op adapters.
 3. Replace remaining missing-function traps along the observed boot, frame
    and render path with narrow port-only C backfills. Retire each one when
    matching decomp C becomes available.
