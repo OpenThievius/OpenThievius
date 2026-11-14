@@ -58,7 +58,9 @@ before retail `PollPadInput` reads them. This is a Sly-only adaptation: retail
 forms `(buf[2] << 8) | buf[3]` and consumes Cross as `0x0040`, while the shared
 OpenRAC SDL serializer emits the standard DualShock word high-byte first.
 Wave 57 confirmed Space reaches the selected Continue row and dismisses the
-warning. Retest that transition after the Wave 58 clock-layout correction.
+warning, but that trace used the split clock layout. Retest that transition
+after the Wave 58 clock-layout correction with pad tracing enabled; the later
+one-shot Space attempt did not log whether input reached Sly.
 Wave 50 adds a port-only `func_0013A498` CPU backfill for the particle-filter
 VU0 call site. It uses the matched caller's expiry test, compaction, bounds,
 and spin-angle behavior, and applies CPU-side matrix/velocity integration

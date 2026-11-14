@@ -6,10 +6,13 @@ retail pause page 3 and remains there through at least 427 game frames, with
 1,290 accepted DMA submissions and zero rejected. Its scale traces now read
 1.0 for both clock factors and `GameClock.time` advances from zero. The
 earlier Wave 57 Continue trace ran with a split host clock block, so its
-post-Continue timer conclusion is stale. Recheck Continue and the Splash
-transition against the corrected layout before drawing conclusions. No title
-or gameplay scene has been demonstrated and no card-format action was taken.
-Run log: `/tmp/sly-wave58-aligned-run.log`.
+post-Continue timer conclusion is stale. A later no-input run again reached
+page 3; its startup samples confirm workers and rendering are active but do
+not record the subgroup timer probes. The approved single Space event was
+attempted earlier without input tracing, so delivery remains unconfirmed. Do
+not infer the fade result from that run. No title or gameplay scene has been
+demonstrated and no card-format action was taken. Run log:
+`/tmp/sly-wave58-aligned-run.log`.
 
 The current decomp header defines `ElementStack` as 0x34 bytes, but
 `warp_menu.cpp` still
@@ -54,11 +57,13 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. Recheck a single Continue dismissal on Wave 58 and trace the matched
-   `UpdateElementStack`, subgroup timer, `StartObjectSubGroupFade`, and ensuing
-   world request. Wave 57's post-Continue trace used the split clock object and
-   cannot establish the corrected behavior. Do not clamp stack fields or force
-   a menu element visible.
+1. Recheck Continue on Wave 58 with `OPENRAC_TRACE_PAD=1`, then capture the
+   matched `UpdateElementStack`, subgroup timer, `StartObjectSubGroupFade`, and
+   ensuing world request with `OPENRAC_NATIVE_FUNCTION_TRACE=ON`. First verify
+   that the build cache is enabled for those probes: the launcher's `--trace`
+   option only enables periodic runtime samples. Wave 57's post-Continue trace
+   used the split clock object and cannot establish the corrected behavior.
+   Do not clamp stack fields or force a menu element visible.
 2. The Wave 50 port-only C backfill for `FilterParticleVerticesVu0` is an
    approximation: its expiry, compaction, bounds and spin-angle behavior come
    from the matched caller, while its particle transform/integration is based

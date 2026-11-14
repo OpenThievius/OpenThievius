@@ -30,13 +30,22 @@ the game remained stable through 2,500 frames. It still has not demonstrated a
 title or gameplay scene. The bridge is a port-only backfill and must be removed
 if equivalent native-hostable source is added to the decomp.
 
+Decomp status was checked again for this checkpoint: current master is 100%
+matched for US and PAL code. Recent changes only rename five boss
+implementations and correct a PAL comment; no new US body can replace a
+startup backfill. US data remains 99.9675% matched, with 140 bytes unmatched.
+
 One XTest Space event was sent to the X11 launcher while the trace showed
 pause page 3. The next samples still reported page 3, but the run did not enable
 the pad-event trace and the synthetic key press was too brief to establish
 whether Sly received Cross. Do not count that as a confirmed game response.
 The latest thread trace is `/tmp/sly-native-thread-x11.log`; the bounded
-service trace is `/tmp/sly-native-thread-service-trace.log`. The earlier broad
-bridge failure remains at `/tmp/sly-direct-kernel-run.log`.
+service trace is `/tmp/sly-native-thread-service-trace.log`. A later no-input
+capture with the corrected binary reaches page 3 at 427 frames and stays there.
+The first attempt to launch that binary under the current Wayland/X11 desktop
+did not provide a usable 12-second capture; its short log reached page 3 but
+did not contain the subgroup probes. No key was injected in that attempt. The
+earlier broad bridge failure remains at `/tmp/sly-direct-kernel-run.log`.
 
 The staging-only `ApplyStackTimeScale` host ABI fix drops the unused receiver
 argument from seven call sites while leaving the decomp untouched.
@@ -69,6 +78,11 @@ already complete. The host32 target rebuilt from this snapshot: 194 Sly source
 units and 61 port backfills compiled; the direct-call frontier remains 827/835.
 No runtime input was used for this refresh. Backfills remain isolated in
 `port/game/sly1-us/native/`.
+
+This master revision is 100% for both US and PAL code. Recent upstream commits
+only rename five boss implementations and correct a PAL comment; no new US
+function body is available to replace a current startup backfill. US data is
+99.9675% matched, with 140 bytes unmatched.
 
 Wave 57 rechecked sibling decomp master `1fdd36d7`: US code is 100% matched
 (4,807 functions, 1,112,400 bytes; 4,498 exact C and 311 original assembly),
