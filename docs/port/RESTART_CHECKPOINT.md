@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 330)
+## Current checkpoint (2026-11-14, Wave 341)
 
 The current upstream decomp is `241a7865` (`master`), clean in the sibling
 checkout. Its status is 515 C++ source files, 4,807/4,807 matched functions,
@@ -11,28 +11,29 @@ not host readiness.
 The host32 launcher builds 194/194 matched C++ units and 71/71 separate native
 backfills, with 130 unresolved-function traps. A hidden run injects one Cross
 press inside the launcher process. It passes the retail no-card warning and
-enters world loading; it does not reach the normal game frame loop
-(`game_frames=0`). The run crashes in matched `RefreshOscillatorFrames`
-(`func_001F2840`) while reading oscillator vertex data. The fault address is
-`0xd8621000`, beyond the function's temporary vertex buffer; an invalid range
-or buffer description is the current lead, not yet a proven root cause. Latest
-normal run and core: `/tmp/sly-wave326-run.log` and
-`/tmp/sly-wave326.core`. A focused probe build (Wave 329) reproduced the same
-crash but emitted no oscillator probe values; its log is
-`/tmp/sly-wave329-run.log`.
+enters world loading; it does not reach the normal game frame loop. The
+ordinary, non-oscillator-instrumented launcher crashes in matched
+`RefreshOscillatorFrames` (`func_001F2840`) while reading its local vertex
+array. The fault is a SIGSEGV at `0xd8721000`, with EIP `0x080d6507`, in
+`/tmp/sly-wave335-clean-run.log`. A separate minimal trace-only count guard
+confirms the computed range count is at most 256, but the function still walks
+past the local array and crashes (`/tmp/sly-wave337-osc-count.log`). This rules
+out a simply oversized range count; the loop state or preceding host data
+setup remains unresolved. Do not treat the previous Wave 334 register
+interpretation as a proven root cause.
 
 No title or level graphics have been confirmed, and the port is not playable.
 The earlier memory-card screen remains the only user-confirmed visual state.
-The host-only `CollectMeshHits` adapter now leaves the current typed radius-first
-signature intact, matching the decomp header and every call site. The focused
-oscillator trace option builds, but the latest run did not emit its probe
-values, so improve that trace before changing oscillator behavior. Keep host
+The host-only `CollectMeshHits` adapter leaves the current typed radius-first
+signature intact, matching the decomp header and every call site. The optional
+oscillator diagnostic now only traps a count outside the 256-vertex temporary
+buffer before copying; it makes no calls from inside the worker loop. Keep host
 ABI adapters and functional C backfills in this port repository; do not edit
 the sibling decomp.
 
 Branch: `wip/native-sly-port`, based on `origin/wip/native-sly-port`. Host
-staging and callback changes are committed as `c91da89`; this checkpoint is
-the follow-up documentation commit. Standard build:
+staging and callback changes are committed as `c91da89`; the latest pushed
+checkpoint is `997e733`. Standard build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
 The focused diagnostic build uses
 `-DOPENRAC_NATIVE_OSCILLATOR_TRACE=ON`; turn it off for an ordinary launcher.
