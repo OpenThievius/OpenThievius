@@ -67,9 +67,9 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The current Wave 52 host32 staging build compiles all 194 Sly source units and 63
+The current Wave 53 host32 staging build compiles all 194 Sly source units and 60
 port-only backfills. Its combined object defines 4,380 catalogued function
-entries; the direct-call frontier has 822/830 definitions (8 missing, with
+entries; the direct-call frontier has 827/835 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
 reachability, not playable coverage. The reorganized `effect_spawner.cpp`
 uses a port-only i386 ABI adaptation for `ReadBufferedU32`'s one-word return,
@@ -115,6 +115,14 @@ confirms the native object now defines `func_00125C90(PlacedObject*, Camera*,
 ScaledTransform*)` from `main/placed_object.o`; the native override object is
 absent. A bounded no-input run reaches page 3 at frame 60 and remains there
 through frame 305 without a fault. Log: `/tmp/sly1-wave52-startup.log`.
+
+Wave 53 removes the port overrides for `ReadMeshTables` (`func_001E4C48`),
+`UpdateCameraMatrices` (`func_00144540`), and `InitSpawnRecord`
+(`func_001549C8`). The decomp report marks all three 100% matched; `nm -C`
+confirms their native definitions now come from `main/on_off_object.o`,
+`main/camera.o`, and `main/effect_spawner.o`. The launcher still reaches the
+no-card page and remains there through frame 305 without a fault. Log:
+`/tmp/sly1-wave53-startup.log`.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
 `/tmp/sly1-wave47-regtrace.log`.
 

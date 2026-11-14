@@ -1,15 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-14, Wave 52, against decomp master `1fdd36d7`.
-The no-emulation host32 path compiles 194 Sly units and 63 port-only backfills,
+Last checked: 2026-11-14, Wave 53, against decomp master `1fdd36d7`.
+The no-emulation host32 path compiles 194 Sly units and 60 port-only backfills,
 combines 4,380 catalogued native function entries, and links the SDL launcher.
-Its direct-call frontier resolves 822/830 functions; indirect callbacks are
-outside the scan. Wave 52 now uses the matched 100% US C implementation of
-`ApplyPlacedObjectTransform` rather than the port's old 99.7% near-match. The
-launcher still reaches the retail no-card warning page; no title or gameplay
-scene has been confirmed. See the [restart checkpoint](RESTART_CHECKPOINT.md)
-for the latest trace.
+Its direct-call frontier resolves 827/835 functions; indirect callbacks are
+outside the scan. Waves 52 and 53 now use matched 100% US C implementations of
+`ApplyPlacedObjectTransform`, `ReadMeshTables`, `UpdateCameraMatrices`, and
+`InitSpawnRecord` rather than port overrides. The launcher still reaches the
+retail no-card warning page; no title or gameplay scene has been confirmed.
+See the [restart checkpoint](RESTART_CHECKPOINT.md) for the latest trace.
 
 Historical Wave 39 context: two staging-only returns prevent matched
 non-void wrappers from falling through after void calls; the decomp source

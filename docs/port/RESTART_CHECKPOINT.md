@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 52): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 53): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -12,7 +12,7 @@ two stack entries. It submits native graphics each frame. A fresh Wave 48
 capture confirms the full 640x224 warning panel and highlighted Continue at
 the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
 scene has been demonstrated; no card-format action was taken. Latest run:
-`/tmp/sly1-wave52-startup.log`; prior interactive Wave 49 run:
+`/tmp/sly1-wave53-startup.log`; prior interactive Wave 49 run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
 
@@ -27,12 +27,14 @@ the page transition.
 Wave 51 removes the port-only `SuppressScriptEvent` and `InitGauge` overrides
 because both now use matched US C implementations from the decomp. Wave 52
 also removes the old 99.7% `ApplyPlacedObjectTransform` near-match override;
-the host build now compiles the matched 100% source from `placed_object.cpp`.
-All 194 host32 Sly units and 63 remaining port backfills compile and link. A
-six-second no-input trace reaches the no-card page at frame 60 and remains
-there through frame 305 without a fault. No input was injected, so this
+the host build compiles the matched 100% source from `placed_object.cpp`. Wave
+53 removes the `ReadMeshTables`, `UpdateCameraMatrices`, and `InitSpawnRecord`
+overrides in favor of their matched US C bodies. All 194 host32 Sly units and
+60 remaining port backfills compile and link. The direct-call frontier is
+827/835. A six-second no-input trace reaches the no-card page at frame 60 and
+remains through frame 305 without a fault. No input was injected, so this
 confirms startup but not Continue dismissal. Log:
-`/tmp/sly1-wave52-startup.log`.
+`/tmp/sly1-wave53-startup.log`.
 
 The retail sequence to trace is specific: `UpdatePauseMenu` page 3 accepts
 `flags & 0x0040`; `ActivatePauseMenuSelection` closes the page and sets memory

@@ -12,9 +12,9 @@ never edited by the host staging adapter.
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 build compiles 194 source units and 63 port-only backfills.
+The native host32 build compiles 194 source units and 60 port-only backfills.
 The combined object defines 4,380 catalogued function entries; the direct
-call frontier resolves 822/830 functions, without following indirect calls.
+call frontier resolves 827/835 functions, without following indirect calls.
 
 Wave 47 passes the prior world-loader fault via a port-only staged-source
 adaptation for `ReadBufferedU32`'s i386 return ABI. Register capture then found
@@ -52,6 +52,10 @@ Wave 52 removes the old 99.7% near-match override for `ApplyPlacedObjectTransfor
 (`func_00125C90`); the native build now uses its 100%-matched C from
 `placed_object.cpp`. The no-input startup run still reaches the no-card warning
 without an immediate fault.
+Wave 53 also removes the port overrides for `ReadMeshTables`,
+`UpdateCameraMatrices`, and `InitSpawnRecord`; all three now compile from
+100%-matched US C. The direct-call frontier rises to 827/835, and startup
+remains on the no-card warning without an immediate fault.
 
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
