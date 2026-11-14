@@ -1,24 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 114)
+## Current checkpoint (2026-11-14, Wave 128)
 
-The launcher reaches the retail no-card screen. A hidden run injected one
-Cross press through the native pad adapter and resumed world loading. The
-staged `CopyEffectSpawner` callback now forwards its source to
-`CopyPlacedObject`, shares `src->rec`, and increments the record use count;
-this clears the previous null `Rec50` crash without changing the decomp.
-Wave 114 also adds the port-only `ScaleQuadword` (`func_00118D30`) CPU
-replacement for the handwritten VU0 `vmulx.xyzw` operation.
+Branch `wip/native-sly-port` is building from the sibling decomp at public
+master `83f2b50d586602f67e03e42343737a0dd9072a3e`. The hidden host32 build
+compiles 194/194 matched units and 68/68 separate native backfills; it maps
+4,384/4,807 function entries and resolves 825/831 functions in its direct-call
+frontier. One in-process Cross press dismisses the retail no-card warning and
+reaches world loading. No title, visible scene, or gameplay is confirmed.
 
-The latest hidden run passed those paths and faulted in matched
-`CopyObjectData` (`func_001830D8`) with source pointer `0x3f800000`, which is a
-float bit pattern rather than an object address. Its caller is
-`CopyCollider` (`func_001BA130`). Trace the copy callback arguments and
-descriptor slot; do not mask the invalid pointer. The build compiled 194/194
-matched source units and 67/67 port backfills, with 4,383/4,807 catalogued
-functions and a direct-call frontier of 825/831. No title or gameplay scene is
-confirmed. Latest log: `/tmp/sly-wave114-vmulx.log`.
+Since Wave 114, staging now forwards the copy source and descriptor load stream
+through the matched base callbacks. A separate native `func_001B1AC8`
+implementation initializes the 0x2E0-byte `RangeRecord` using the decomp's
+field notes and layout. Other staged host-only ABI adapters now forward
+animation marker and blend lookup arguments, pass the keyed-rotation callback
+arguments into its evaluator, and put matched Hermite-vector calls into the
+decomp function's semantic argument order. None of these changes edit
+`sly1-decomp` or affect its match score.
+
+Wave 128, built after removing temporary trace probes, passes those earlier
+faults and reaches matched `BuildMatrixFromRotationAndTranslation`
+(`func_00188B08`) from `BindAttachmentTargets`. It faults at linked EIP
+`0x080ab719` while reading source address `0x49`. Inspect the
+`BindAttachmentTargets` receiver and matrix arguments at the call boundary; do
+not replace or guard the bad pointer. Run log:
+`/tmp/sly-wave128-clean-run.log`. Clean build:
+`/tmp/sly-wave127-clean-build.log`.
 
 Wave 97 repeated the same `InitObject` virtual-dispatch crash in
 `func_00182C18` and captured the receiver at `0x013cbcc0`. Its first word is

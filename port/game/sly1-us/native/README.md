@@ -17,10 +17,10 @@ world bosses and rename the corresponding source/header files; no new US
 functions or code bytes were added by that cleanup. The native host32 build has
 been rebuilt successfully against this snapshot.
 
-The native host32 build compiles 194 Sly source units and 67 port-only
-backfills. Its latest combined object contains 261 decomp objects and defines
-4,383 catalogued function entries; the direct call frontier resolves 825/831
-functions, without following indirect calls.
+The native host32 build compiles 194 Sly source units and 68 port-only
+backfills. Its latest combined object contains 262 compiled objects and
+defines 4,384 catalogued function entries; the direct call frontier resolves
+825/831 functions, without following indirect calls.
 The freestanding launcher now supplies Itanium C++ local-static guard
 primitives required by the current matched source. The combiner preserves the
 48-byte game clock block's internal data offsets and 16-byte section alignment.
@@ -100,11 +100,13 @@ been checked. `scale_quadword.cpp` implements the original VU0
 port-only and should be removed if matching hostable source becomes available.
 
 The latest hidden startup run reaches the no-card page and resumes after an
-in-process Cross press. The staged `CopyEffectSpawner` callback now forwards
-its source object and shared record. Startup then faults in matched
-`CopyObjectData` with source pointer `0x3f800000`, likely a callback argument
-or dispatch mismatch; see the restart checkpoint before changing this path.
-No title or gameplay scene has been demonstrated.
+in-process Cross press. Staged callbacks now forward copy sources and object
+load streams; a separate `func_001B1AC8` backfill initializes `RangeRecord`,
+and host ABI adapters forward animation and blend arguments and normalize
+matched Hermite call order. The run now reaches attachment target binding, then
+faults in `BuildMatrixFromRotationAndTranslation` on source address `0x49`.
+See the restart checkpoint before changing that path. No title or gameplay
+scene has been demonstrated.
 
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for

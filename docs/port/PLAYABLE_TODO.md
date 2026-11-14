@@ -1,29 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Native loading checkpoint (2026-11-14, Wave 114)
+## Native loading checkpoint (2026-11-14, Wave 128)
 
-The hidden host32 launcher reaches the no-card screen, accepts an in-process
-Cross press, and resumes world loading. The earlier `CopyEffectSpawner` crash
-was caused by the staged copy callback dropping its source argument and failing
-to share the source `Rec50`. The host staging adapter now forwards the source
-through `CopyPlacedObject`, assigns `self->rec = src->rec`, then increments the
-record use count. This changes only the generated host copy, not
-`sly1-decomp`.
+The hidden host32 launcher compiles 194 matched source units and 68 isolated
+port backfills. It maps 4,384/4,807 catalogued functions, and the direct-call
+frontier resolves 825/831. One in-process Cross press dismisses the retail
+no-card warning and resumes world loading. No title, gameplay scene, or visible
+graphics are confirmed.
 
-Wave 114 also added an isolated `func_00118D30` backfill for the handwritten
-VU0 `vmulx.xyzw` helper `ScaleQuadword`. The build now resolves 4,383/4,807
-catalogued functions and the direct-call frontier remains 825/831. The hidden
-run injected one Cross press, progressed past EffectSpawner copying and then
-faulted in matched `CopyObjectData` (`func_001830D8`) while reading source
-pointer `0x3f800000`, a float bit pattern rather than a mapped object. The
-faulting copy was called from `CopyCollider` (`func_001BA130`). This is the
-current startup blocker; do not add a null or range guard that hides the wrong
-callback arguments. Latest log: `/tmp/sly-wave114-vmulx.log`.
+Waves 119–127 fixed several native-host ABI gaps in the generated staging copy:
+the `CopyEffectSpawner` source and shared record are forwarded, placed-object
+load streams are forwarded through base loaders, and the missing source for
+`CopyObjectData` no longer arrives as a float bit pattern. A separate native
+`func_001B1AC8` backfill initializes `RangeRecord` from decomp notes and layout;
+the assembly remains unchanged in `sly1-decomp`. Staging also makes the
+EE-carried arguments explicit for animation marker lookup, blend-entry lookup,
+keyed rotation lookup, and canonicalizes call-site argument order for matched
+`EvaluateHermiteVectorSegment` C.
 
-No title or gameplay scene has been confirmed. The window was hidden during
-testing, and input was sent through the in-process native pad adapter. Continue
-tracing the callback signature and copy source before modifying behavior.
+The current run passes those paths, then faults in matched
+`BuildMatrixFromRotationAndTranslation` (`func_00188B08`, linked EIP
+`0x080ab719`) while `BindAttachmentTargets` builds a relative transform. The
+source pointer observed by the faulting load is `0x49`. Trace the receiver and
+the three matrix arguments at the call boundary; do not guard or substitute
+the invalid pointer. Latest run: `/tmp/sly-wave128-clean-run.log`; cleaned
+build: `/tmp/sly-wave127-clean-build.log`.
+
+Runs keep the SDL window hidden and inject Cross inside the game process, so
+they do not take desktop focus or send operating-system input. No card-format
+action was taken. Keep functional replacements in `port/game/sly1-us/native/`;
+when equivalent hostable matching C becomes available, remove the port copy.
 
 ## Resolved RPC wait diagnosis (2026-11-14)
 

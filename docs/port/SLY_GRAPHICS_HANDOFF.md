@@ -2,17 +2,18 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-14 against decomp master `83f2b50d`.
-The no-emulation host32 path compiles 194 Sly units and 61 port-only backfills,
-combines 4,380 catalogued native function entries, and links the SDL launcher.
-Its direct-call frontier resolves 826/834 functions; indirect callbacks are
-outside the scan. Matched 100% US C implementations now provide
-`ApplyPlacedObjectTransform`, `ReadMeshTables`, `UpdateCameraMatrices`, and
-`InitSpawnRecord`. Port-only Linux thread and semaphore services now replace
-the staged EE syscall veneers and start the direct-build render and background
-workers. The launcher still reaches the retail no-card warning page; no title
-or gameplay scene has been confirmed. A single synthetic Space event did not
-change the trace state, and its delivery was not verified. See the
-[restart checkpoint](RESTART_CHECKPOINT.md) for the latest trace.
+The no-emulation host32 path compiles 194 Sly units and 68 port-only backfills,
+combines 4,384 catalogued native function entries, and links the SDL launcher.
+Its direct-call frontier resolves 825/831 functions; indirect callbacks are
+outside the scan. The hidden launcher reaches the no-card page, accepts one
+in-process Cross press, and resumes world loading. It now faults in matched
+`BuildMatrixFromRotationAndTranslation` while binding an attachment target.
+No title, level scene, or playable state is confirmed. Matched 100% US C
+implementations now provide `ApplyPlacedObjectTransform`, `ReadMeshTables`,
+`UpdateCameraMatrices`, and `InitSpawnRecord`. Port-only Linux thread and
+semaphore services now replace the staged EE syscall veneers and start the
+direct-build render and background workers. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) for the latest trace and blocker.
 
 Historical Wave 39 context: two staging-only returns prevent matched
 non-void wrappers from falling through after void calls; the decomp source

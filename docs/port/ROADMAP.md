@@ -59,6 +59,17 @@ as the two call sites that need portable replacements for their VU0
 microprograms. It recommends implementing those functions in the port rather
 than building a VU0 execution model.
 
+**Latest startup checkpoint (Wave 128):** the host32 build compiles 194
+matched units and 68 port-only backfills, maps 4,384 catalogued functions,
+and resolves 825/831 functions in the direct-call frontier. A hidden run
+accepts one in-process Cross press on the no-card page and resumes world
+loading. It then faults in matched `BuildMatrixFromRotationAndTranslation`
+(`func_00188B08`) inside `BindAttachmentTargets` on source address `0x49`.
+No title, gameplay scene, or visible level graphics are confirmed. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) for the exact trace and next
+diagnostic. Backfills and host ABI adapters remain in the port; the sibling
+decomp checkout stays clean.
+
 Wave 49 adds a Sly-only byte-order adaptation at the libpad boundary. The
 shared SDL controller report is high-byte first, while standard Sly menu masks
 expect Cross as `0x0040` after `PollPadInput` combines the report bytes. Wave
