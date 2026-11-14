@@ -13,6 +13,8 @@ typedef unsigned int u32;
 typedef signed long long s64;
 typedef unsigned long long u64;
 typedef float f32;
+typedef s32 sptr;
+typedef u32 uptr;
 
 /* GCC i386 lacks scalar TImode; Sly uses mode(TI) values for 16-byte copies. */
 #define mode(x) vector_size(16)

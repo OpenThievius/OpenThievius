@@ -30,6 +30,12 @@ extern "C" void func_001686E8_i32p(s32 dma, s32* source) {
     func_001686E8(dma, source);
 }
 
+extern "C" void func_001686E8_i32v(s32 dma, void* source)
+    __asm__("_Z13func_001686E8iPv");
+extern "C" void func_001686E8_i32v(s32 dma, void* source) {
+    func_001686E8(dma, source);
+}
+
 extern "C" void func_001686E8_method(u32 dma, void* source)
     __asm__("_Z13func_001686E8P11Self_1686E8Pv");
 extern "C" void func_001686E8_method(u32 dma, void* source) {

@@ -330,3 +330,5 @@ func_001B7C40	overrides_c/func_001B7C40.c
 func_001E4E80	overrides_c/func_001E4E80.c
 func_001DCEA0	native_c/func_001DCEA0.c
 func_00152600	native_c/func_00152600.c
+func_0019BB10	native_c/func_0019BB10.c
+func_0019BB90	native_c/func_0019BB90.c

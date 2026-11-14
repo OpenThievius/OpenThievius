@@ -94,6 +94,7 @@ extern "C" volatile u32 sly1_native_contact_end = 0;
 extern "C" volatile u32 sly1_native_camera_target = 0;
 extern "C" volatile u32 sly1_native_camera_target_descriptor = 0;
 extern "C" volatile u32 sly1_native_camera_target_callback = 0;
+extern "C" volatile u32 sly1_native_oscillator_debug[24] = {};
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_host32_trace_dma_call(
     unsigned int channel, unsigned int source, unsigned int caller,
@@ -195,6 +196,9 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault edx ", state->uc_mcontext.gregs[REG_EDX]);
     write_hex("native host32: fault esi ", state->uc_mcontext.gregs[REG_ESI]);
     write_hex("native host32: fault edi ", state->uc_mcontext.gregs[REG_EDI]);
+    for (u32 i = 0; i < 24; ++i)
+        write_hex("native host32: oscillator probe ",
+                  (int)sly1_native_oscillator_debug[i]);
         write_hex("native host32: arrival world ", (int)sly1_native_arrival_world);
         write_hex("native host32: arrival id ", (int)sly1_native_arrival_id);
         write_hex("native host32: arrival parent ", (int)sly1_native_arrival_parent);
@@ -881,9 +885,16 @@ extern "C" void sly1_port_trace_nested_counts(
 }
 
 extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
-    if (!g_startup_trace_enabled) return;
+    if (!g_startup_trace_enabled && (tag & 0xFFFF0000u) != 0x1F280000u)
+        return;
     write_hex("native host32: trace tag ", (int)tag);
     write_hex("native host32: trace value ", (int)value);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_oscillator_probe(u32 tag, u32 value) {
+    std::fprintf(stderr, "[native oscillator] tag=%#010x value=%#010x\n",
+                 tag, value);
 }
 
 extern "C" __attribute__((no_instrument_function)) void

@@ -277,6 +277,14 @@ def forward_animation_marker_arguments(text, label):
     """Make the EE-carried animation and key explicit in the host copy."""
     if label != "main/placed_object.cpp":
         return text
+    current_form = (
+        "AnimEvent* FindAnimationMarkerEvent(Animation* self, s32 key)",
+        "f32 GetAnimationMarkerTime(Animation* self, s32 key)",
+        "void MoveObjectAnimationTrackToEnd(Animation* a0, BaseObject* owner)",
+        "FindEntryByObjectId((BlendAnimationView*)a0, owner)",
+    )
+    if all(text.count(item) == 1 for item in current_form):
+        return text
     old_decl = "void* FindAnimationMarkerEvent(void);"
     if text.count(old_decl) != 1:
         raise RuntimeError("expected animation marker forward declaration")
@@ -312,23 +320,40 @@ def forward_blend_entry_flag_arguments(text, label):
         return text
     old_decl = "void* FindEntryByObjectId(void);"
     new_decl = "void* FindEntryByObjectId(BlendAnimationView* self, void* key);"
-    if text.count(old_decl) != 1:
-        raise RuntimeError("expected blend entry lookup declaration")
-    text = text.replace(old_decl, new_decl, 1)
     old_signature = "void SetBlendEntryRecordFlag(void)"
     new_signature = "void SetBlendEntryRecordFlag(BlendAnimationView* self, void* key)"
-    if text.count(old_signature) != 1:
-        raise RuntimeError("expected blend entry flag callback")
-    text = text.replace(old_signature, new_signature, 1)
     old_call = "(BlendSourceEntry*)FindEntryByObjectId();"
     new_call = "(BlendSourceEntry*)FindEntryByObjectId(self, key);"
-    if text.count(old_call) != 1:
-        raise RuntimeError("expected blend entry lookup call")
-    return text.replace(old_call, new_call, 1)
+    old_counts = (text.count(old_decl), text.count(old_signature), text.count(old_call))
+    if old_counts == (1, 1, 1):
+        text = text.replace(old_decl, new_decl, 1)
+        text = text.replace(old_signature, new_signature, 1)
+        return text.replace(old_call, new_call, 1)
+    current = (
+        "void* FindEntryByObjectId(BlendAnimationView* self, void* key);",
+        "void SetBlendEntryRecordFlag(BlendAnimationView* blend, void* key)",
+        "(BlendSourceEntry*)FindEntryByObjectId(blend, key);",
+    )
+    if tuple(text.count(item) for item in current) == (1, 1, 1):
+        return text
+    raise RuntimeError("expected blend entry lookup and callback ABI")
 
 
 def canonicalize_hermite_vector_calls(text, label):
     """Route legacy EE-signature call sites through the matched host ABI."""
+    # Recent decomp source already declares the helper with its host C
+    # argument order (duration, four vectors, time/scale, outputs). Keep those
+    # calls intact; the permutations below are for older EE-register-order
+    # source only.
+    if ("void EvaluateHermiteVectorSegment(f32 dur, const Vec02* p0, "
+            "const Vec02* m0, const Vec02* p1, const Vec02* m1, f32 t, "
+            "f32 k, Vec02* pos, Vec02* vel, Vec02* acc);" in text):
+        return text
+    # The current decomp emits cross-file prototypes into generated function
+    # headers and includes that header from each source unit. Typed calls in
+    # those units already use the declared semantic order.
+    if re.search(r'(?m)^#include\s+"functions/curve_segment\.h"', text):
+        return text
     order = {
         "main/effect.cpp": (7, 0, 1, 2, 3, 8, 9, 4, 5, 6),
         "main/path_curve.cpp": (0, 3, 4, 5, 6, 1, 2, 7, 8, 9),
@@ -394,6 +419,11 @@ def forward_keyed_rotation_get_arguments(text, label):
     """Forward the rotation-get virtual arguments to the keyed evaluator."""
     if label != "main/pose_source.cpp":
         return text
+    current_signature = (
+        "void GetKeyedRotationCurve(KeyedRotationCurve* self, PlacedObject* other, "
+        "s32 flags, f32* values, f32* slopes, f32 key, f32 scale)")
+    if current_signature in text and "EvaluateVectorKeyCurve(self->count, self->keys, flags, values, slopes, key, scale);" in text:
+        return text
     old_signature = "void GetKeyedRotationCurve(KeyedRotationCurve* self)"
     new_signature = (
         "void GetKeyedRotationCurve(KeyedRotationCurve* self, PlacedObject* owner, "
@@ -413,6 +443,12 @@ def forward_keyed_rotation_get_arguments(text, label):
 def refresh_attachment_target_matrix_context(text, label):
     """Reload the context after lookup before building its target matrix."""
     if label != "main/placed_object_model.cpp":
+        return text
+    # The current decomp has a typed matrix return and keeps the matrix
+    # operation in a single expression. The older host32 workaround below
+    # rewrites its untyped output-pointer ABI, so it does not apply here.
+    if ("QuadMatrix MultiplyMatrices(const QuadMatrix& a, const QuadMatrix& b);" in text and
+            "e->m = MultiplyMatrices(b, a);" in text):
         return text
     declarations = (
         'extern "C" {\n'
@@ -494,14 +530,28 @@ def preserve_postload_attachment_context(text, label):
     replacement = (
         "    sly1_native_postload_bind = (unsigned int)attachment_context;\n"
         "    BindAttachmentTargets(attachment_context->sub22C, attachment_context);")
-    if text.count(call) != 1:
+    latest_call = "    BindAttachmentTargets((AttachmentTargets*)self->sub22C, self);"
+    latest_replacement = (
+        "    sly1_native_postload_bind = (unsigned int)attachment_context;\n"
+        "    BindAttachmentTargets((AttachmentTargets*)attachment_context->sub22C, "
+        "attachment_context);")
+    if text.count(call) == 1:
+        return text.replace(call, replacement, 1)
+    if text.count(latest_call) == 1:
+        return text.replace(latest_call, latest_replacement, 1)
+    else:
         raise RuntimeError("expected PostLoadPlacedObject attachment call in " + label)
-    return text.replace(call, replacement, 1)
 
 
 def supply_player_collider_position(text, label):
     """Pass the player's current position to its two-argument collider update."""
     if label != "main/player.cpp":
+        return text
+    if ("void SetColliderPosition(Collider* self, Vec02* pos);" in text and
+            "SetColliderPosition(self, pos);" in text):
+        return text
+    if (re.search(r'(?m)^#include\s+"functions/collider\.h"', text) and
+            "SetColliderPosition(self, pos);" in text):
         return text
     old_decl = "void SetColliderPosition(void* self);"
     new_decl = "void SetColliderPosition(void* self, void* pos);"
@@ -518,6 +568,12 @@ def supply_player_collider_position(text, label):
 def normalize_turning_collider_matrix_abi(text, label):
     """Use the host matrix function's axis/output/angle C++ call order."""
     if label != "main/turning_collider.cpp":
+        return text
+    if ("void BuildAxisAngleMatrix(const Vec02* v, Mat02* out, f32 angle);" in text and
+            "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)((u8*)self + 0x660), self->heading);" in text):
+        return text
+    if (re.search(r'(?m)^#include\s+"functions/matrix\.h"', text) and
+            "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)((u8*)self + 0x660), self->heading);" in text):
         return text
     old_decl = "void BuildAxisAngleMatrix(const Vec02* t, f32 x, void* p);"
     new_decl = "void BuildAxisAngleMatrix(const Vec02* axis, void* out, f32 angle);"
@@ -547,6 +603,9 @@ def normalize_placed_object_sound_abi(text, label):
         "void StartSoundEffect(void* a0, f32 f12, f32 f13, f32 f14, f32 f15, "
         "f32 f16, void* a1, void* a2, s32 a3, void* a4, s32 a5);",
     )
+    if (sum(text.count(old) for old in old_decls) == 0 and
+            text.count("void StartSoundEffect(s32 id, PlayingSound** out, ") >= 1):
+        return text
     new_decl = (
         "struct PlayingSound;\n"
         "void StartSoundEffect(s32 id, PlayingSound** out, s32 p2, s32 p3, "
@@ -667,7 +726,13 @@ def make_null_memory_copy_deterministic(text, label):
     """Model the cleared EE address-zero page for native host memory copies."""
     if label != "main/heap.cpp":
         return text
-    signature = "void CopyMemory(u8* dst, u8* src, u32 size)\n{\n"
+    signatures = (
+        "void CopyMemory(u8* dst, u8* src, u32 size)\n{\n",
+        "void CopyMemory(void* dst, void* src, u32 size)\n{\n",
+    )
+    signature = next((item for item in signatures if text.count(item) == 1), None)
+    if signature is None or sum(text.count(item) for item in signatures) != 1:
+        raise RuntimeError("expected CopyMemory definition in " + label)
     replacement = (
         signature
         + "    if (src == 0) {\n"
@@ -675,8 +740,6 @@ def make_null_memory_copy_deterministic(text, label):
         + "        return;\n"
         + "    }\n"
     )
-    if text.count(signature) != 1:
-        raise RuntimeError("expected CopyMemory definition in " + label)
     return text.replace(signature, replacement, 1)
 
 
@@ -879,6 +942,30 @@ def trace_turning_mesh_copy_state(text, label):
     """Preserve the turning-collider copy hook's hidden MIPS ABI arguments on x86."""
     if label != "main/turning_collider.cpp":
         return text
+    current_signature = (
+        "void CopyTurningColliderMeshesInFrame(TurningCollider* self, "
+        "Collider* other, s32 mode)\n{\n")
+    if current_signature in text:
+        declarations = (
+            'extern "C" {\n'
+            'extern volatile unsigned int sly1_native_motion_copy_calls;\n'
+            'extern volatile unsigned int sly1_native_motion_copy_self;\n'
+            'extern volatile unsigned int sly1_native_motion_copy_vertices;\n'
+            'extern volatile unsigned int sly1_native_motion_copy_entry_return;\n'
+            'extern volatile unsigned int sly1_native_motion_copy_entry_arg1;\n'
+            'extern volatile unsigned int sly1_native_motion_copy_entry_arg2;\n'
+            '}\n\n')
+        probe = (current_signature
+                 + "    sly1_native_motion_copy_calls++;\n"
+                 + "    sly1_native_motion_copy_self = (unsigned int)self;\n"
+                 + "    sly1_native_motion_copy_vertices = (unsigned int)self->mesh.vertCount;\n"
+                 + "    unsigned int* copy_frame = (unsigned int*)__builtin_frame_address(0);\n"
+                 + "    sly1_native_motion_copy_entry_return = (unsigned int)copy_frame[1];\n"
+                 + "    sly1_native_motion_copy_entry_arg1 = (unsigned int)other;\n"
+                 + "    sly1_native_motion_copy_entry_arg2 = (unsigned int)mode;\n")
+        if text.count(current_signature) != 1:
+            raise RuntimeError("expected current turning-collider mesh-copy definition")
+        return (declarations + text).replace(current_signature, probe, 1)
     declarations = (
         'extern "C" {\n'
         'extern volatile unsigned int sly1_native_motion_copy_calls;\n'
@@ -921,7 +1008,12 @@ def lower_gcc_minmax(text):
     """Lower the old GCC ``>?`` maximum operator in staged C++ units."""
     compound_used = False
     text, count = re.subn(
-        r"\b(?P<lhs>[A-Za-z_]\w*)\s*>\?=\s*(?P<rhs>[A-Za-z_]\w*)",
+        r"(?P<lhs>\*\(f32\*\)&self->[A-Za-z_]\w*)\s*>\?=\s*(?P<rhs>[^;]+);",
+        lambda m: m.group("lhs") + " = sly1_host_max(" + m.group("lhs") +
+        ", " + m.group("rhs") + ");", text)
+    compound_used |= count != 0
+    text, count = re.subn(
+        r"(?<!->)\b(?P<lhs>[A-Za-z_]\w*)\s*>\?=\s*(?P<rhs>[A-Za-z_]\w*)",
         lambda m: m.group("lhs") + " = sly1_host_max(" + m.group("lhs") +
         ", " + m.group("rhs") + ")", text)
     compound_used |= count != 0
@@ -1028,6 +1120,41 @@ def lower_gcc_minmax(text):
     return text
 
 
+def return_appended_call_record(text, label):
+    """Complete the matched append helper's return in the staged host copy."""
+    if label != "main/world.cpp":
+        return text
+    signature = "QueuedCall* AppendQueuedCall(World* self, void* code, void* arg, s32 c, s32 d)"
+    start = -1
+    search = 0
+    body_start = -1
+    while True:
+        candidate = text.find(signature, search)
+        if candidate < 0:
+            break
+        brace = text.find("{", candidate + len(signature))
+        if brace >= 0 and not text[candidate + len(signature):brace].strip():
+            start = candidate
+            body_start = brace
+            break
+        search = candidate + len(signature)
+    if start < 0:
+        raise RuntimeError("expected AppendQueuedCall definition in " + label)
+    body_end = text.find("\n}", body_start)
+    if body_start < 0 or body_end < 0:
+        raise RuntimeError("expected AppendQueuedCall body in " + label)
+    body = text[body_start:body_end]
+    if "return e;" in body:
+        return text
+    if "self->queuedCallTail = e;" not in body:
+        raise RuntimeError("expected AppendQueuedCall tail update in " + label)
+    # The matched body falls off a non-void function. That is undefined in C++;
+    # GCC 16 optimized away the tail update on the empty-queue path. The return
+    # value is the record just appended, and this host-only completion preserves
+    # the source body while making its existing queue update well-defined.
+    return text[:body_end] + "\n    return e;" + text[body_end:]
+
+
 def trace_arrival_lookup(text, label):
     """Capture the exact world/lookup/object values before arrival transforms."""
     if label != "main/oscillator.cpp":
@@ -1054,8 +1181,8 @@ def trace_arrival_lookup(text, label):
         ("void PlaceAtArrivalPoint(TransformSet* self)\n{\n",
          "void PlaceAtArrivalPoint(TransformSet* self)\n{\n"
          "    sly1_native_arrival_place_self = (unsigned int)self;\n"),
-        ("s32 GetObjectWorldRotation(BaseObject* self, s32 arg)\n{\n",
-         "s32 GetObjectWorldRotation(BaseObject* self, s32 arg)\n{\n"
+        ("void GetObjectWorldRotation(BaseObject* self, Mat02* out)\n{\n",
+         "void GetObjectWorldRotation(BaseObject* self, Mat02* out)\n{\n"
          "    sly1_native_arrival_rotation_self = (unsigned int)self;\n")]
     for old, new in replacements:
         if text.count(old) != 1:
@@ -1076,15 +1203,52 @@ def return_from_world_transform_wrappers(text, label):
          "    TransformRotationBetweenFrames(self->parent, 0, (u8*)self + 0x50, arg);\n"
          "    return 0;\n}")]
     for old, new in replacements:
-        if text.count(old) != 1:
+        count = text.count(old)
+        if count > 1:
             raise RuntimeError("expected world transform wrapper in " + label)
-        text = text.replace(old, new, 1)
+        if count == 1:
+            text = text.replace(old, new, 1)
     return text
 
 
 def normalize_player_probe_call_abi(text, label):
     """Pass probe outputs and radius in the matched helper's C argument order."""
     if label != "main/player.cpp":
+        return text
+    current_decl = (
+        "void BuildPartProbeTowardLink(void* unused0, PlacedObject* self, "
+        "void* unused2, PlacedObject* obj, f32 radius, FollowProbe* out);")
+    current_native_decl = (
+        "void BuildPartProbeTowardLink(void* unused0, PlacedObject* self, "
+        "void* unused2, PlacedObject* obj, FollowProbe* out, f32 radius);")
+    if text.count(current_decl) == 1:
+        text = text.replace(current_decl, current_native_decl, 1)
+        typed_calls = [
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, k, (FollowProbe*)((u8*)&self->f1190));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, (FollowProbe*)((u8*)&self->f1190), k);"),
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)self->f614, self->f614, "
+             "(PlacedObject*)self->f624, k, (FollowProbe*)((u8*)&self->f1290));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)self->f614, self->f614, "
+             "(PlacedObject*)self->f624, (FollowProbe*)((u8*)&self->f1290), k);")]
+        if all(text.count(old) == 1 for old, _ in typed_calls):
+            for old, new in typed_calls:
+                text = text.replace(old, new, 1)
+            return text
+        replacements = [
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, k, (FollowProbe*)((u8*)self + 0x1190));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, (FollowProbe*)((u8*)self + 0x1190), k);"),
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)self->f614, self->f614, "
+             "(PlacedObject*)self->f624, k, (FollowProbe*)((u8*)self + 0x1290));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)self->f614, self->f614, "
+             "(PlacedObject*)self->f624, (FollowProbe*)((u8*)self + 0x1290), k);")]
+        for old, new in replacements:
+            if text.count(old) != 1:
+                raise RuntimeError("expected current player probe call")
+            text = text.replace(old, new, 1)
         return text
     old_decl = "void BuildPartProbeTowardLink(Player* self, void* a1, void* a2, s32 a3, f32 f12, void* a4);"
     new_decl = "void BuildPartProbeTowardLink(s32 a0, void* self, s32 a2, void* obj, void* out, f32 radius);"
@@ -1106,6 +1270,12 @@ def normalize_player_probe_call_abi(text, label):
 def forward_ground_contact_arguments(text, label):
     """Forward the PS2 caller's live contact/index arguments on native x86."""
     if label != "main/player.cpp":
+        return text
+    if ("s32 IsTurningColliderGroundContact(TurningCollider* self, Contact03* a, s32 idx);" in text and
+            "return IsTurningColliderGroundContact(self, e, idx);" in text):
+        return text
+    if (re.search(r'(?m)^#include\s+"functions/turning_collider\.h"', text) and
+            "return IsTurningColliderGroundContact(self, e, idx);" in text):
         return text
     old_decl = "s32 IsTurningColliderGroundContact(void* self);"
     new_decl = "s32 IsTurningColliderGroundContact(void* self, Contact03* contact, s32 idx);"
@@ -1196,12 +1366,28 @@ def forward_switched_pose_arguments(text, label):
         return text
     prototype = "void CaptureColliderPose(void);"
     call = "    CaptureColliderPose();"
-    if text.count(prototype) != 1 or text.count(call) != 1:
+    if text.count(prototype) == 1 and text.count(call) == 1:
+        text = text.replace(prototype, "void CaptureColliderPose(void* self, void* out);", 1)
+        text = text.replace(call, "    CaptureColliderPose(self, out);", 1)
+    elif not (("void CaptureColliderPose(Collider* self, ColliderPose* out);" in text and
+               "CaptureColliderPose(self, (ColliderPose*)out);" in text) or
+              (re.search(r'(?m)^#include\s+"functions/collider\.h"', text) and
+               "CaptureColliderPose(self, (ColliderPose*)out);" in text)):
         raise RuntimeError("expected switched-collider pose call")
-    text = text.replace(prototype, "void CaptureColliderPose(void* self, void* out);", 1)
-    text = text.replace(call, "    CaptureColliderPose(self, out);", 1)
     ramp_decl = "f32 ApproachValueWithRamp(f32 a, f32 b, f32 c, Quad16* p, s32 zero);"
     ramp_call = "ApproachValueWithRamp(self->v560.z, self->v140.z, a, (Quad16*)D_00269BC0, 0)"
+    current_ramp_decl = (
+        "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);")
+    current_ramp_call = (
+        "ApproachValueWithRamp(self->focusPoint.z, self->v140.z, a, "
+        "(RampProfile*)g_followZRamp, 0)")
+    if text.count(current_ramp_decl) == 1 and text.count(current_ramp_call) == 1:
+        text = text.replace(current_ramp_decl,
+                            "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);", 1)
+        return text.replace(
+            current_ramp_call,
+            "ApproachValueWithRamp((RampProfile*)g_followZRamp, 0, "
+            "self->focusPoint.z, self->v140.z, a)", 1)
     if text.count(ramp_decl) != 1 or text.count(ramp_call) != 1:
         raise RuntimeError("expected switched-collider ramp call")
     text = text.replace(
@@ -1226,12 +1412,40 @@ def normalize_update_camera_target_pose_abi(text, label):
     new_tracking_decl = "void UpdateCameraTargetTracking(Camera* c, void* n, void* x, f32 dt);"
     old_tracking_call = "UpdateCameraTargetTracking(self, o, dt, x);"
     new_tracking_call = "UpdateCameraTargetTracking(self, o, x, dt);"
-    if (text.count(old_type) != 1 or text.count(old_call) != 1 or
-            text.count(old_tracking_decl) != 1 or text.count(old_tracking_call) != 1):
+    latest_tracking_decl = (
+        "void UpdateCameraTargetTracking(Spring_00143208* self, void* target, "
+        "f32 dt, Record_00143208* rec);"
+    )
+    latest_tracking_call = (
+        "UpdateCameraTargetTracking((Spring_00143208*)self, o, dt, "
+        "(Record_00143208*)x);"
+    )
+    latest_tracking_decl_new = (
+        "void UpdateCameraTargetTracking(Spring_00143208* self, void* target, "
+        "Record_00143208* rec, f32 dt);"
+    )
+    latest_tracking_call_new = (
+        "UpdateCameraTargetTracking((Spring_00143208*)self, o, "
+        "(Record_00143208*)x, dt);"
+    )
+    if text.count(old_type) != 1 or text.count(old_call) != 1:
         raise RuntimeError("expected UpdateCamera target-pose call")
     text = text.replace(old_type, new_type, 1).replace(old_call, new_call, 1)
-    return text.replace(old_tracking_decl, new_tracking_decl, 1).replace(
-        old_tracking_call, new_tracking_call, 1)
+    current_tracking_definition = (
+        "void UpdateCameraTargetTracking(Spring_00143208* self, void* target, "
+        "f32 dt, Record_00143208* rec)\n{")
+    if (text.count(current_tracking_definition) == 1 and
+            text.count(latest_tracking_call) == 1):
+        # The current decomp defines this function in the same unit with the
+        # same typed order as its caller. Keep that pair consistent on host.
+        return text
+    if text.count(old_tracking_decl) == 1 and text.count(old_tracking_call) == 1:
+        return text.replace(old_tracking_decl, new_tracking_decl, 1).replace(
+            old_tracking_call, new_tracking_call, 1)
+    if text.count(latest_tracking_decl) == 1 and text.count(latest_tracking_call) == 1:
+        return text.replace(latest_tracking_decl, latest_tracking_decl_new, 1).replace(
+            latest_tracking_call, latest_tracking_call_new, 1)
+    raise RuntimeError("expected UpdateCamera target-pose call")
 
 
 def normalize_on_off_camera_ramp_abi(text, label):
@@ -1242,21 +1456,207 @@ def normalize_on_off_camera_ramp_abi(text, label):
     new_decl = "f32 ApproachValueWithRamp(RampProfile* profile, f32* speed, f32 value, f32 target, f32 dt);"
     old_call = "ApproachValueWithRamp(view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt, &D_00275A80, 0)"
     new_call = "ApproachValueWithRamp(&D_00275A80, 0, view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt)"
-    if text.count(old_decl) != 1 or text.count(old_call) != 1:
-        raise RuntimeError("expected on-off camera ramp call")
-    return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+    latest_decl = "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
+    latest_new_decl = "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
+    latest_call = (
+        "ApproachValueWithRamp(view->turnScale, "
+        "(*(s32*)&eye->q[0] & 1) ? 0.0f : block->turnRate, dt, "
+        "&g_onOffCameraFadeRamp, 0)"
+    )
+    latest_new_call = (
+        "ApproachValueWithRamp(&g_onOffCameraFadeRamp, 0, view->turnScale, "
+        "(*(s32*)&eye->q[0] & 1) ? 0.0f : block->turnRate, dt)"
+    )
+    if text.count(old_decl) == 1 and text.count(old_call) == 1:
+        return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+    if text.count(latest_decl) == 1 and text.count(latest_call) == 1:
+        return text.replace(latest_decl, latest_new_decl, 1).replace(
+            latest_call, latest_new_call, 1)
+    raise RuntimeError("expected on-off camera ramp call")
 
 
 def forward_mesh_contact_radius(text, label):
     if label != "main/collider_contact.cpp":
         return text
+    # Current decomp source carries the shared typed prototype and all call
+    # sites use the same radius-second order. The reorder below is only for
+    # older sources where the radius was implicit in the collider wrapper.
+    if re.search(r'(?m)^#include\s+"functions/collider_contact\.h"', text):
+        return text
     old_decl = "s32 CollectMeshHits(void* a0, void* a1, void* a2, void* a3, void* a4, s32 a5, MeshHitEntry* a6);"
     new_decl = "s32 CollectMeshHits(void* a0, void* a1, void* a2, void* a3, void* a4, s32 a5, MeshHitEntry* a6, f32 radius);"
     old_call = "CollectMeshHits(a1, a3, a4, a5, (u8*)a2 + 0x3A4, 0x40, ents)"
     new_call = "CollectMeshHits(a1, a3, a4, a5, (u8*)a2 + 0x3A4, 0x40, ents, radius)"
-    if text.count(old_decl) != 1 or text.count(old_call) != 1:
-        raise RuntimeError("expected implicit mesh-contact radius")
-    return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+    latest_decl = (
+        "s32 CollectMeshHits(Vec02* center, f32 radius, s32 count, FaceRef* list, "
+        "FaceRef* cursor, Mesh03* mesh, s32 cap, MeshHitEntry* out)"
+    )
+    latest_new_decl = (
+        "s32 CollectMeshHits(Vec02* center, s32 count, FaceRef* list, "
+        "FaceRef* cursor, Mesh03* mesh, s32 cap, MeshHitEntry* out, f32 radius)"
+    )
+    latest_call = (
+        "CollectMeshHits(a1, radius, a3, a4, a5, "
+        "(Mesh03*)((u8*)a2 + 0x3A4), 0x40, ents)"
+    )
+    latest_new_call = (
+        "CollectMeshHits(a1, a3, a4, a5, "
+        "(Mesh03*)((u8*)a2 + 0x3A4), 0x40, ents, radius)"
+    )
+    if text.count(old_decl) == 1 and text.count(old_call) == 1:
+        return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+    if text.count(latest_decl) == 1 and text.count(latest_call) == 1:
+        return text.replace(latest_decl, latest_new_decl, 1).replace(
+            latest_call, latest_new_call, 1)
+    raise RuntimeError("expected implicit mesh-contact radius")
+
+
+def normalize_camera_mesh_contact_abi(text, label):
+    """Put the camera's mesh-hit call into the host definition's argument order."""
+    if label != "main/camera.cpp":
+        return text
+    # Current decomp source uses the shared typed signature and the definition
+    # keeps radius second, so leave its call in that order.
+    if re.search(r'(?m)^#include\s+"functions/collider_contact\.h"', text):
+        return text
+    old_decl = (
+        "s32 CollectMeshHits(void* a0, f32 r, s32 a1, TreeNode03* a2, "
+        "s32 a3, void* a4, s32 a5, MeshHit* a6);"
+    )
+    new_decl = (
+        "s32 CollectMeshHits(void* a0, s32 a1, TreeNode03* a2, s32 a3, "
+        "void* a4, s32 a5, MeshHit* a6, f32 r);"
+    )
+    old_call = (
+        "CollectMeshHits(a4, r, c->tree2.count2, c->tree2.nodes, 0, "
+        "&c->mesh2Copy, 0x40 - total, &hits[total])"
+    )
+    new_call = (
+        "CollectMeshHits(a4, c->tree2.count2, c->tree2.nodes, 0, "
+        "&c->mesh2Copy, 0x40 - total, &hits[total], r)"
+    )
+    latest_decl = (
+        "s32 CollectMeshHits(Vec02* center, f32 radius, s32 count, FaceRef* list, "
+        "FaceRef* cursor, Mesh03* mesh, s32 cap, MeshHitEntry* out);"
+    )
+    latest_new_decl = (
+        "s32 CollectMeshHits(Vec02* center, s32 count, FaceRef* list, "
+        "FaceRef* cursor, Mesh03* mesh, s32 cap, MeshHitEntry* out, f32 radius);"
+    )
+    latest_call = (
+        "CollectMeshHits((Vec02*)a4, r, c->tree2.count2, "
+        "(FaceRef*)c->tree2.nodes, 0, &c->mesh2Copy, 0x40 - total, "
+        "(MeshHitEntry*)&hits[total])"
+    )
+    latest_new_call = (
+        "CollectMeshHits((Vec02*)a4, c->tree2.count2, "
+        "(FaceRef*)c->tree2.nodes, 0, &c->mesh2Copy, 0x40 - total, "
+        "(MeshHitEntry*)&hits[total], r)"
+    )
+    if text.count(old_decl) == 1 and text.count(old_call) == 1:
+        return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+    if text.count(latest_decl) == 1 and text.count(latest_call) == 1:
+        return text.replace(latest_decl, latest_new_decl, 1).replace(
+            latest_call, latest_new_call, 1)
+    raise RuntimeError("expected camera mesh-hit ABI call")
+
+
+def trace_oscillator_outputs(text, label, enabled):
+    """Record the first oscillator mesh/output records before their writes."""
+    if label != "main/oscillator.cpp" or not enabled:
+        return text
+    declaration = ('extern "C" void sly1_native_oscillator_probe(u32, u32);\n'
+                   'extern "C" volatile u32 sly1_native_oscillator_debug[24];\n')
+    part_target = "        OscMesh* mesh = part->mesh;"
+    part_replacement = """        OscMesh* mesh = part->mesh;
+        sly1_native_oscillator_debug[3] = (u32)part;
+        sly1_native_oscillator_debug[4] = (u32)part->obj;
+        sly1_native_oscillator_debug[5] = (u32)mesh;
+        sly1_native_oscillator_debug[6] = mesh != 0 ? (u32)mesh->blockCount : 0;
+        sly1_native_oscillator_debug[7] = mesh != 0 ? (u32)mesh->blocks : 0;
+        sly1_native_oscillator_debug[8] = (u32)part->mode;
+        if (mesh != 0) {
+            u32 tag = 0x1f282000u;
+            sly1_port_trace_value(tag + 0u, (u32)self);
+            sly1_port_trace_value(tag + 1u, (u32)part);
+            sly1_port_trace_value(tag + 2u, (u32)part->obj);
+            sly1_port_trace_value(tag + 3u, (u32)mesh);
+            sly1_port_trace_value(tag + 4u, (u32)mesh->blockCount);
+            sly1_port_trace_value(tag + 5u, (u32)mesh->blocks);
+            sly1_port_trace_value(tag + 6u, (u32)part->mode);
+            sly1_port_trace_value(tag + 7u, (u32)self->entryCount);
+        }"""
+    range_target = "            s32 n = (r->end - r->start) / r->stride;"
+    range_replacement = """            if (i < 4096) {
+                u32 tag = 0x1f283000u;
+                sly1_port_trace_value(tag + 15u, (u32)i);
+                sly1_port_trace_value(tag + 0u, (u32)part);
+                sly1_port_trace_value(tag + 1u, (u32)mesh);
+                sly1_port_trace_value(tag + 2u, (u32)block);
+                sly1_port_trace_value(tag + 3u, (u32)data);
+                sly1_port_trace_value(tag + 5u, (u32)r);
+                sly1_port_trace_value(tag + 4u, data != 0 ? (u32)data->verts : 0);
+                sly1_port_trace_value(tag + 12u, r != 0 ? (u32)r->start : 0);
+                sly1_port_trace_value(tag + 13u, r != 0 ? (u32)r->end : 0);
+                sly1_port_trace_value(tag + 14u, r != 0 ? (u32)r->stride : 0);
+            }
+            s32 n = (r->end - r->start) / r->stride;
+            sly1_native_oscillator_debug[9] = (u32)i;
+            sly1_native_oscillator_debug[10] = (u32)block;
+            sly1_native_oscillator_debug[11] = (u32)data;
+            sly1_native_oscillator_debug[12] = data != 0 ? (u32)data->verts : 0;
+            sly1_native_oscillator_debug[13] = (u32)r;
+            sly1_native_oscillator_debug[14] = r != 0 ? (u32)r->start : 0;
+            sly1_native_oscillator_debug[15] = r != 0 ? (u32)r->end : 0;
+            sly1_native_oscillator_debug[16] = r != 0 ? (u32)r->stride : 0;
+            sly1_native_oscillator_debug[17] = (u32)n;
+            sly1_native_oscillator_debug[23] = 1;
+            if (i < 4096) {
+                u32 tag = 0x1f283000u;
+                sly1_port_trace_value(tag + 6u, (u32)r->start);
+                sly1_port_trace_value(tag + 7u, (u32)r->end);
+                sly1_port_trace_value(tag + 8u, (u32)r->stride);
+                sly1_port_trace_value(tag + 9u, (u32)n);
+                sly1_port_trace_value(tag + 10u, (u32)mesh->blockCount);
+                sly1_port_trace_value(tag + 11u, (u32)part->mode);
+            }"""
+    target = "                OscOut* out = data->outs[ent->out];"
+    replacement = """                if (i == 0 && j == 0) {
+                    u32 tag = 0x1f284000u;
+                    sly1_native_oscillator_probe(tag + 0u, (u32)self);
+                    sly1_native_oscillator_probe(tag + 1u, (u32)part);
+                    sly1_native_oscillator_probe(tag + 2u, (u32)mesh);
+                    sly1_native_oscillator_probe(tag + 3u, (u32)data);
+                    sly1_native_oscillator_probe(tag + 4u, (u32)data->outs);
+                    sly1_native_oscillator_probe(tag + 5u, (u32)ent);
+                    sly1_native_oscillator_probe(tag + 6u, (u32)ent->out);
+                    sly1_native_oscillator_probe(tag + 7u, (u32)ent->index);
+                }
+                OscOut* out = data->outs[ent->out];"""
+    entry_target = "void RefreshOscillatorFrames(Oscillator* self)\n{"
+    copy_target = "            CopyMemory(verts, data->verts, n * sizeof(Vec02));"
+    copy_replacement = (copy_target + "\n"
+                       "            sly1_native_oscillator_debug[23] = 2;")
+    entry_replacement = """void RefreshOscillatorFrames(Oscillator* self)
+{
+    sly1_native_oscillator_debug[0] = (u32)self;
+    sly1_native_oscillator_debug[1] =
+        (u32)*(OscPart**)((u8*)self + 0x8E0);
+    sly1_native_oscillator_debug[2] = (u32)self->entryCount;
+    sly1_port_trace_value(0x1f281000u, (u32)self);
+    sly1_port_trace_value(0x1f281001u,
+        (u32)*(OscPart**)((u8*)self + 0x8E0));
+    sly1_port_trace_value(0x1f281002u, (u32)self->entryCount);"""
+    if (text.count(entry_target) != 1 or text.count(part_target) != 1 or text.count(range_target) != 1 or
+            text.count(copy_target) != 1 or
+            text.count(target) != 1):
+        raise RuntimeError("expected oscillator mesh output selection")
+    text = text.replace(entry_target, entry_replacement, 1)
+    text = text.replace(part_target, part_replacement, 1)
+    text = text.replace(range_target, range_replacement, 1)
+    text = text.replace(copy_target, copy_replacement, 1)
+    text = text.replace("sly1_port_trace_value(", "sly1_native_oscillator_probe(")
+    return declaration + text.replace(target, replacement, 1)
 
 
 def lower_host_vu0(text):
@@ -1493,6 +1893,8 @@ def main(argv=None):
     parser.add_argument("--cxx", default="c++")
     parser.add_argument("--trace-functions", action="store_true",
                         help="add targeted startup state traces without instrumenting game calls")
+    parser.add_argument("--trace-oscillator", action="store_true",
+                        help="probe RefreshOscillatorFrames without enabling other probes")
     args = parser.parse_args(argv)
 
     source = args.source.expanduser().resolve()
@@ -1630,6 +2032,7 @@ def main(argv=None):
         "-O2",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
+        "-flax-vector-conversions",
         "-include", str(port / "sly1" / "host_abi.h"),
         "-I", str(host_include),
         "-I", str(staged_include),
@@ -1660,6 +2063,15 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        adapted = return_appended_call_record(adapted, rel.as_posix())
+        if rel.as_posix() == "main/text_panel.cpp":
+            # These generated Layout methods are inline in the matching C++
+            # but their retail entry points are called from other files.
+            # Emit host symbols for the address table without changing the
+            # decompilation source.
+            adapted = re.sub(
+                r"(?m)^inline (void Layout_137228::(?:Pos|Size|Color|SetF14|SetF18)\()",
+                r"\1", adapted)
         adapted = forward_load_collider_stream(adapted, rel.as_posix())
         adapted = forward_placed_object_load_stream(adapted, rel.as_posix())
         adapted = forward_animation_marker_arguments(adapted, rel.as_posix())
@@ -1691,6 +2103,9 @@ def main(argv=None):
         adapted = normalize_update_camera_target_pose_abi(adapted, rel.as_posix())
         adapted = normalize_on_off_camera_ramp_abi(adapted, rel.as_posix())
         adapted = forward_mesh_contact_radius(adapted, rel.as_posix())
+        adapted = normalize_camera_mesh_contact_abi(adapted, rel.as_posix())
+        adapted = trace_oscillator_outputs(
+            adapted, rel.as_posix(), args.trace_functions or args.trace_oscillator)
         if rel.as_posix() == "lib/system_calls.cpp":
             # The US kernel veneers execute EE `syscall` instructions, which
             # cannot be used by the direct native build. Route only the
@@ -1821,12 +2236,27 @@ def main(argv=None):
                 '#include "common.h"',
                 '#include "common.h"\n'
                 'extern "C" s32 func_001EAC68(f32, f32, f32);', 1)
-            adapted = adapted.replace(
-                "void ComputeSinCos(f32* a, f32* b);",
-                "void ComputeSinCos(f32 angle, f32* a, f32* b);")
-            adapted = adapted.replace(
-                "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle)",
-                "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut)")
+            if (rel.as_posix() == "main/warp_menu.cpp" and
+                    "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle)\n{" in adapted):
+                # This is the actual C ABI of the matched helper. Some callers
+                # preserve the EE register order (angle, outputs); rewrite
+                # those host-only call sites to the function's pointer-first
+                # signature instead of changing the function body ABI.
+                adapted = adapted.replace(
+                    "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut);",
+                    "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle);")
+                adapted, reordered_sincos = re.subn(
+                    r"ComputeSinCos\(([^,]+),\s*(&[^,]+),\s*(&[^)]+)\);",
+                    r"ComputeSinCos(\2, \3, \1);", adapted)
+                if reordered_sincos != 5:
+                    raise RuntimeError("expected five angle-first ComputeSinCos calls")
+            else:
+                adapted = adapted.replace(
+                    "void ComputeSinCos(f32* a, f32* b);",
+                    "void ComputeSinCos(f32 angle, f32* a, f32* b);")
+                adapted = adapted.replace(
+                    "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle)",
+                    "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut)")
             adapted = adapted.replace(
                 "ComputeSinCos(&p.sine, &p.cosine);",
                 "ComputeSinCos(unused, &p.sine, &p.cosine);")
@@ -1840,7 +2270,9 @@ def main(argv=None):
                 "        size = WriteVifUnpackHeader(s, (s32)unused1, size, "
                 "(s32)unused3);",
                 adapted)
-            if replacements != 1:
+            if replacements == 0 and adapted.count("size = WriteVifUnpackHeader(s, a, size, d);") == 1:
+                pass
+            elif replacements != 1:
                 raise RuntimeError("expected one EE register-residue call in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/mode_walker.cpp":
@@ -1855,11 +2287,12 @@ def main(argv=None):
             # ConvertHsvToRgb keeps its second output pointer in EE a1 while
             # the C call supplies only the source pointer. Preserve that
             # register flow explicitly for the host stack ABI.
-            adapted, replacements = re.subn(
-                r"ConvertHsvToRgb\(&tmp\);",
-                "ConvertHsvToRgb(&tmp, (Quad_001B4580*)dst);",
-                adapted)
-            if replacements != 1:
+            old_call = "ConvertHsvToRgb(&tmp);"
+            new_call = "ConvertHsvToRgb(&tmp, (Quad_001B4580*)dst);"
+            replacements = adapted.count(old_call)
+            if replacements == 1:
+                adapted = adapted.replace(old_call, new_call, 1)
+            elif replacements != 0 or adapted.count(new_call) != 1:
                 raise RuntimeError("expected one HSV output register call in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/world_listed_object.cpp":
@@ -1953,13 +2386,23 @@ def main(argv=None):
                    "void* outValue, void* outSlope)\n{\n"
                    "    EvaluateAxisCurves(self->axis, other, mode, &self->base, "
                    "(f32*)outValue, (f32*)outSlope, key, scale);")
-            if adapted.count(old) != 1:
+            current = ("void EvaluateAxisPositionCurve(AxisPositionCurve* self, "
+                       "PlacedObject* other, s32 c, f32* e, f32* f, f32 p12, f32 p13)\n{\n"
+                       "    EvaluateAxisCurves(self->axis, other, c, &self->base, e, f, p12, p13);")
+            if adapted.count(current) == 1:
+                adapted = adapted.replace(current, new, 1)
+                adapted = adapted.replace(
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, e, f);",
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                    "(s32)outValue, (s32)outSlope);", 1)
+            elif adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+                adapted = adapted.replace(
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, e, f);",
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                    "(s32)outValue, (s32)outSlope);", 1)
+            else:
                 raise RuntimeError("expected one host axis-position callback")
-            adapted = adapted.replace(old, new, 1)
-            adapted = adapted.replace(
-                "((VectorCurveToldFn)other->desc02()->m28)(other, e, f);",
-                "((VectorCurveToldFn)other->desc02()->m28)(other, "
-                "(s32)outValue, (s32)outSlope);")
             old = ("void EvaluateVectorKeyPositionCurve(VectorKeyPositionCurve* self, "
                    "PlacedObject* other, s32 a2, s32 a3, s32 a4, f32 p12, f32 p13)\n{\n"
                    "    EvaluateVectorKeyCurve(self->count, (s32)self->keys, a2, a3, a4, p12, p13);")
@@ -1968,9 +2411,23 @@ def main(argv=None):
                    "void* outValue, void* outSlope)\n{\n"
                    "    EvaluateVectorKeyCurve(self->count, (s32)self->keys, mode, "
                    "(s32)outValue, (s32)outSlope, key, scale);")
-            if adapted.count(old) != 1:
+            current = ("void EvaluateVectorKeyPositionCurve(VectorKeyPositionCurve* self, "
+                       "PlacedObject* other, s32 a2, f32* a3, f32* a4, f32 p12, f32 p13)\n{\n"
+                       "    EvaluateVectorKeyCurve(self->count, self->keys, a2, a3, a4, p12, p13);")
+            if adapted.count(current) == 1:
+                adapted = adapted.replace(current, new, 1)
+                adapted = adapted.replace(
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, a3, a4);",
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                    "(s32)outValue, (s32)outSlope);", 1)
+            elif adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+                adapted = adapted.replace(
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, a3, a4);",
+                    "((VectorCurveToldFn)other->desc02()->m28)(other, "
+                    "(s32)outValue, (s32)outSlope);", 1)
+            else:
                 raise RuntimeError("expected one host keyed-position callback")
-            adapted = adapted.replace(old, new, 1)
             adapted = adapted.replace(
                 "((VectorCurveToldFn)other->desc02()->m28)(other, a3, a4);",
                 "((VectorCurveToldFn)other->desc02()->m28)(other, "
@@ -1990,9 +2447,18 @@ def main(argv=None):
                    "    AngleSample tmp;\n"
                    "    EvaluateAxisCurves(self->axis, other, c, &self->base, "
                    "p3 ? (f32*)&tmp : 0, p4 ? (f32*)tmp.b : 0, key, scale);")
-            if adapted.count(old) != 1:
+            current = ("void EvaluateAxisRotationCurve(AxisRotationCurve* self, "
+                       "PlacedObject* other, s32 c, void* p3, void* p4, "
+                       "f32 key, f32 scale)\n{\n"
+                       "    AngleSample tmp;\n"
+                       "    EvaluateAxisCurves(self->axis, other, c, &self->base, "
+                       "p3 ? (f32*)&tmp : 0, p4 ? (f32*)tmp.b : 0, key, scale);")
+            if adapted.count(current) == 1:
+                pass
+            elif adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+            else:
                 raise RuntimeError("expected one host rotation-curve callback")
-            adapted = adapted.replace(old, new, 1)
             # The matching Hermite implementation at 0x001303F0 takes its
             # output pointers first. Reorder the two source calls that express
             # the same register flow as scalar inputs followed by outputs.
@@ -2003,6 +2469,11 @@ def main(argv=None):
                 "void EvaluateHermiteSegment(f32* outF, f32* outI, f32* out2, "
                 "f32 delta, f32 diff, f32 scale, f32 p4, f32 p14, f32 p1C, "
                 "f32 p24);")
+            adapted = adapted.replace(
+                "void EvaluateHermiteSegment(f32 dur, f32 t, f32 e, f32 a, "
+                "f32 b, f32 c, f32 dd, f32* p0, f32* p1, f32* p2);",
+                "void EvaluateHermiteSegment(f32* p0, f32* p1, f32* p2, "
+                "f32 dur, f32 t, f32 e, f32 a, f32 b, f32 c, f32 dd);")
             adapted, replacements = re.subn(
                 r"EvaluateHermiteSegment\(delta, diff, scale, "
                 r"\(\(TangentWeightKey\*\)p\)->value, "
@@ -2016,16 +2487,21 @@ def main(argv=None):
                 adapted)
             adapted, second = re.subn(
                 r"EvaluateHermiteSegment\(left, dt, 1\.0f, "
-                r"owner->f224->f90, owner->f224->f94, value, slope, "
-                r"&owner->f224->f90, &owner->f224->f94, 0\);",
-                "EvaluateHermiteSegment(&owner->f224->f90, "
-                "&owner->f224->f94, 0, left, dt, 1.0f, owner->f224->f90, "
-                "owner->f224->f94, value, slope);",
+                r"owner->linkRecord->angle, owner->linkRecord->angleSlope, "
+                r"value, slope, &owner->linkRecord->angle, "
+                r"&owner->linkRecord->angleSlope, 0\);",
+                "EvaluateHermiteSegment(&owner->linkRecord->angle, "
+                "&owner->linkRecord->angleSlope, 0, left, dt, 1.0f, "
+                "owner->linkRecord->angle, owner->linkRecord->angleSlope, "
+                "value, slope);",
                 adapted)
             if replacements != 1 or second != 1:
                 raise RuntimeError("expected two Hermite register-order calls in " +
                                    rel.as_posix())
         elif rel.as_posix() == "main/pooled_object.cpp":
+            adapted = adapted.replace(
+                "void* GetListLinks(void* a, void* b);",
+                "ListLink* GetListLinks(List01* a, void* b);")
             # InitStepSequence calls the PS2 method InitPlacedObject with an
             # implicit this pointer in a0. The host C ABI needs that pointer
             # as an explicit argument, or the base initializer reads stale
@@ -2033,9 +2509,14 @@ def main(argv=None):
             old = "void InitStepSequence(StepSequence* state)\n{\n\tInitPlacedObject();"
             new = ("void InitStepSequence(StepSequence* state)\n{\n"
                    "\tInitPlacedObject((void*)state);")
-            if adapted.count(old) != 1:
+            if "void InitStepSequence(StepSequence* state)\n{\n\tInitPlacedObject(state);" in adapted:
+                old = ""
+            if not old:
+                pass
+            elif adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+            else:
                 raise RuntimeError("expected InitStepSequence base-init call")
-            adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/script_machine.cpp":
             # EE GCC 2.95 emits the intended reverse destruction loop when the
             # pointer walks from a neighboring local into arr. Modern GCC
@@ -2071,25 +2552,34 @@ def main(argv=None):
                 ("s32 GetEntryIdByKey(void)\n{\n    s32 v;\n    KeyedEntry* r = FindKeyEntry();",
                  "s32 GetEntryIdByKey(KeyedEntry* key)\n{\n    s32 v;\n    KeyedEntry* r = FindKeyEntry(key);")]
             for old, new in replacements:
-                if adapted.count(old) != 1:
+                old_count = adapted.count(old)
+                new_count = adapted.count(new)
+                if old_count == 1:
+                    adapted = adapted.replace(old, new, 1)
+                elif old_count == 0 and new_count == 1:
+                    continue
+                else:
                     raise RuntimeError("expected one keyed-entry ABI site in " +
                                        rel.as_posix() + ": " + old.splitlines()[0])
-                adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/base_object.cpp":
             # The reworked matching source now owns both helpers. Its second
             # overload calls the first with output pointers last, while the
             # implementation at 0x00183F40 takes them first. Preserve the
             # intended function and make that argument order explicit for the
             # host compiler; the former adapter targeted a retired backfill.
-            adapted, replacements = re.subn(
-                r"FitLineThroughPoints\(x, b \* 0\.003921569f, y, "
-                r"d \* 0\.003921569f, out0, out1\);",
-                "FitLineThroughPoints(out0, (f32*)out1, x, "
-                "b * 0.003921569f, y, d * 0.003921569f);",
-                adapted)
-            if replacements != 1:
-                raise RuntimeError("expected one line-fit overload call in " +
-                                   rel.as_posix())
+            current_line_fit = (
+                "void FitLineThroughPoints(f32 a, f32 b, f32 c, f32 d, "
+                "f32* out0, f32* out1)")
+            if current_line_fit not in adapted:
+                adapted, replacements = re.subn(
+                    r"FitLineThroughPoints\(x, b \* 0\.003921569f, y, "
+                    r"d \* 0\.003921569f, out0, out1\);",
+                    "FitLineThroughPoints(out0, (f32*)out1, x, "
+                    "b * 0.003921569f, y, d * 0.003921569f);",
+                    adapted)
+                if replacements != 1:
+                    raise RuntimeError("expected one line-fit overload call in " +
+                                       rel.as_posix())
             # The EE compiler carries the world's first argument in a register
             # into TakeCallRecord even though this source omits it. Native x86
             # does not preserve that convention, so make it explicit in the
@@ -2100,7 +2590,13 @@ def main(argv=None):
             adapted, call_count = re.subn(
                 r"(Callback01\* n = \(Callback01\*\)TakeCallRecord)\(\);",
                 r"\1(world);", adapted)
-            if declaration_count != 1 or call_count != 1:
+            latest_declaration = "void* TakeCallRecord(World* self);"
+            latest_call = "Callback01* n = (Callback01*)TakeCallRecord(world);"
+            if declaration_count == 0 and call_count == 0 and \
+                    adapted.count(latest_declaration) == 1 and \
+                    adapted.count(latest_call) == 1:
+                pass
+            elif declaration_count != 1 or call_count != 1:
                 raise RuntimeError("expected callback pool world carryover in " +
                                    rel.as_posix())
             if args.trace_functions:
@@ -2110,8 +2606,11 @@ def main(argv=None):
                 # script path without changing its decisions.
                 trace_decl = 'extern "C" void sly1_port_trace_value(u32, u32);\n'
                 adapted = trace_decl + adapted
-                trigger = "void TriggerScriptEvent(BaseObject* self, s32 idx, s32 flag, s32* out)\n{"
-                trigger_trace = trigger + """
+                trigger_pattern = (
+                    r"(void TriggerScriptEvent\(BaseObject\* self, s32 idx, "
+                    r"s32 flag, (?:s32\*|void\*) out\)\n\{)"
+                )
+                trigger_trace = """
     const s32 trace_graph = self != 0 && self->desc != 0 &&
         *(s32*)((u8*)self->desc + 4) == 0x88 && self->id == 0x25F;
     if (trace_graph) {
@@ -2121,17 +2620,29 @@ def main(argv=None):
         sly1_port_trace_value(0x183a0004u, (u32)out);
     }
 """
-                if adapted.count(trigger) != 1:
+                adapted, trigger_count = re.subn(
+                    trigger_pattern, lambda match: match.group(1) + trigger_trace,
+                    adapted)
+                if trigger_count != 1:
                     raise RuntimeError("expected TriggerScriptEvent definition")
-                adapted = adapted.replace(trigger, trigger_trace, 1)
                 lookup_miss = """    if (self->f2C == 0 || LookupScriptVariable(self->f2C, idx, 1, &r) == 0) {
         DestroyScriptValue(&r, 2);"""
                 lookup_miss_trace = """    if (self->f2C == 0 || LookupScriptVariable(self->f2C, idx, 1, &r) == 0) {
         if (trace_graph) sly1_port_trace_value(0x183a0005u, (u32)idx);
         DestroyScriptValue(&r, 2);"""
-                if adapted.count(lookup_miss) != 1:
+                latest_lookup_miss = """    if (self->scriptScope == 0 || LookupScriptVariable((ScriptScope*)self->scriptScope, idx, 1, &r) == 0) {
+        if (trace_graph) sly1_port_trace_value(0x183a0005u, (u32)idx);
+        DestroyScriptValue(&r, 2);"""
+                if adapted.count(lookup_miss) == 1:
+                    adapted = adapted.replace(lookup_miss, lookup_miss_trace, 1)
+                elif adapted.count(latest_lookup_miss.replace(
+                        "        if (trace_graph) sly1_port_trace_value(0x183a0005u, (u32)idx);\n", "")) == 1:
+                    adapted = adapted.replace(
+                        latest_lookup_miss.replace(
+                            "        if (trace_graph) sly1_port_trace_value(0x183a0005u, (u32)idx);\n", ""),
+                        latest_lookup_miss, 1)
+                else:
                     raise RuntimeError("expected graph script lookup miss path")
-                adapted = adapted.replace(lookup_miss, lookup_miss_trace, 1)
                 queue_call = """        AppendQueuedCall(self->world, (void*)(void (*)(void*, s32, void*))RunScriptEventHandler, self, idx, a4);"""
                 queue_trace = """        if (trace_graph) sly1_port_trace_value(0x183a0006u, (u32)idx);
 """ + queue_call
@@ -2151,11 +2662,14 @@ def main(argv=None):
                     raise RuntimeError("expected RunScriptEventHandler definition")
                 adapted = adapted.replace(handler, handler_trace, 1)
                 eval_body = "    EvalScriptBody(&q3, rec->body, slot);"
+                latest_eval_body = "    EvalScriptBody(&q3, (R11B008Node*)rec->body, slot);"
+                selected_eval_body = (eval_body if adapted.count(eval_body) == 1
+                                      else latest_eval_body)
                 eval_trace = """    if (trace_graph) sly1_port_trace_value(0x183b0003u, (u32)key);
-""" + eval_body
-                if adapted.count(eval_body) != 1:
+""" + selected_eval_body
+                if adapted.count(selected_eval_body) != 1:
                     raise RuntimeError("expected graph script body evaluation")
-                adapted = adapted.replace(eval_body, eval_trace, 1)
+                adapted = adapted.replace(selected_eval_body, eval_trace, 1)
         elif rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
             # Log the retail notifier objects that select camera/state-graph
             # keys. This is diagnostic staging only; notifier decisions stay
@@ -2219,9 +2733,9 @@ def main(argv=None):
             find_body = find_body.replace(find_return, """    static u32 trace_count;
     if (trace_count++ < 24) {
         sly1_port_trace_value(0x1f437801u, (u32)found);
-        sly1_port_trace_value(0x1f437802u, found != 0 ? (u32)found->f2D0 : 0);
-        sly1_port_trace_value(0x1f437803u, found != 0 ? (u32)found->f2E4 : 0);
-        sly1_port_trace_value(0x1f437804u, found != 0 ? *(u32*)&found->f31C : 0);
+        sly1_port_trace_value(0x1f437802u, found != 0 ? (u32)found->selected : 0);
+        sly1_port_trace_value(0x1f437803u, found != 0 ? (u32)found->state : 0);
+        sly1_port_trace_value(0x1f437804u, found != 0 ? *(u32*)&found->fadeTime : 0);
         sly1_port_trace_value(0x1f437805u, found != 0 ? (u32)found->count : 0);
     }
     return found;""")
@@ -2232,9 +2746,9 @@ def main(argv=None):
     static u32 trace_count;
     if (trace_count++ < 24) {
         sly1_port_trace_value(0x1f480801u, (u32)self);
-        sly1_port_trace_value(0x1f480802u, self != 0 ? (u32)self->f2D0 : 0);
-        sly1_port_trace_value(0x1f480803u, self != 0 ? (u32)self->f2E4 : 0);
-        sly1_port_trace_value(0x1f480804u, self != 0 ? *(u32*)&self->f31C : 0);
+        sly1_port_trace_value(0x1f480802u, self != 0 ? (u32)self->selected : 0);
+        sly1_port_trace_value(0x1f480803u, self != 0 ? (u32)self->state : 0);
+        sly1_port_trace_value(0x1f480804u, self != 0 ? *(u32*)&self->fadeTime : 0);
         sly1_port_trace_value(0x1f480805u, self != 0 ? (u32)self->count : 0);
         sly1_port_trace_value(0x1f480806u, self != 0 ? (u32)self->f2D8 : 0);
     }
@@ -2243,14 +2757,14 @@ def main(argv=None):
                 raise RuntimeError("expected subgroup finish implementation")
             adapted = adapted.replace(finish_signature, finish_trace, 1)
 
-            update_signature = "void UpdateObjectSubGroup(ObjectSubGroup* self)\n{"
+            update_signature = "void UpdateObjectSubGroup(ObjectSubGroup* self, f32 dt)\n{"
             update_trace = update_signature + """
     static u32 trace_count;
-    if (self != 0 && self->f2E4 == 5 && trace_count++ % 60 == 0) {
+    if (self != 0 && self->state == 5 && trace_count++ % 60 == 0) {
         sly1_port_trace_value(0x1f4c0101u, (u32)self);
-        sly1_port_trace_value(0x1f4c0102u, (u32)self->f2D0);
-        sly1_port_trace_value(0x1f4c0103u, (u32)self->f2E4);
-        sly1_port_trace_value(0x1f4c0104u, *(u32*)&self->f31C);
+        sly1_port_trace_value(0x1f4c0102u, (u32)self->selected);
+        sly1_port_trace_value(0x1f4c0103u, (u32)self->state);
+        sly1_port_trace_value(0x1f4c0104u, *(u32*)&self->fadeTime);
         sly1_port_trace_value(0x1f4c0105u, *(u32*)&g_gameClock.time);
         sly1_port_trace_value(0x1f4c0106u, (u32)self->count);
     }
@@ -2284,9 +2798,18 @@ def main(argv=None):
     sly1_port_trace_value(0x1f4fa006u, (u32)g_screenFade.style);
     sly1_port_trace_value(0x1f4fa007u, *(u32*)&g_screenFade.modeStartTime);
 """
-            if adapted.count(fade_call) != 1:
+            latest_fade_call = "    StartScreenFade(&g_screenFade, &m, self->exitTarget);"
+            latest_fade_call_trace = latest_fade_call + """
+    sly1_port_trace_value(0x1f4fa005u, (u32)g_screenFade.mode);
+    sly1_port_trace_value(0x1f4fa006u, (u32)g_screenFade.style);
+    sly1_port_trace_value(0x1f4fa007u, *(u32*)&g_screenFade.modeStartTime);
+"""
+            if adapted.count(fade_call) == 1:
+                adapted = adapted.replace(fade_call, fade_call_trace, 1)
+            elif adapted.count(latest_fade_call) == 1:
+                adapted = adapted.replace(latest_fade_call, latest_fade_call_trace, 1)
+            else:
                 raise RuntimeError("expected subgroup fade request")
-            adapted = adapted.replace(fade_call, fade_call_trace, 1)
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.
@@ -2643,9 +3166,16 @@ void StartStateGraph"""
                 raise RuntimeError("expected state-graph animation record creation")
             adapted = adapted.replace(needle, replacement)
             needle = "                CreateAnimationPlayerWithoutPresetTargets(e->anim, self->f1C, self->f20, &self->player, fa, fb);"
+            current_needle = (
+                "                CreateAnimationPlayerWithoutPresetTargets(e->anim, "
+                "(BaseObject*)self->object, self->playerFlags, &self->player, fa, fb);")
+            owner_expr = "self->owner"
+            if adapted.count(current_needle) == 1:
+                needle = current_needle
+                owner_expr = "self->object"
             replacement = (
                 '                sly1_port_trace_value(0x1b66a001u, (u32)e->anim);\n'
-                '                sly1_port_trace_value(0x1b66a002u, (u32)self->owner);\n' + needle + '\n'
+                '                sly1_port_trace_value(0x1b66a002u, (u32)' + owner_expr + ');\n' + needle + '\n'
                 '                sly1_port_trace_value(0x1b66a003u, (u32)self->player);\n'
                 '                sly1_port_trace_value(0x1b66a004u, (u32)(self->player != 0 ? self->player->anim : 0));\n'
                 '                sly1_port_trace_value(0x1b66a005u, (u32)(self->player != 0 && self->player->anim != 0 ? self->player->anim->world : 0));')
@@ -2719,9 +3249,13 @@ void StartStateGraph"""
             # player boundary. This distinguishes a malformed Animation
             # record from a call-site passing a different object class.
             adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted)
-            needle = (
+            old_needle = (
                 "void CreateAnimationPlayer(Animation* self, Animation* alt, s32 npairs, "
                 "TargetBinding* pairs, s32 flags, AnimationPlayer** out, f32 fa, f32 fb)\n{\n")
+            latest_needle = (
+                "void CreateAnimationPlayer(Animation* self, BaseObject* alt, s32 npairs, "
+                "TargetBinding* pairs, s32 flags, AnimationPlayer** out, f32 fa, f32 fb)\n{\n")
+            needle = old_needle if adapted.count(old_needle) == 1 else latest_needle
             replacement = needle + (
                 "    sly1_port_trace_value(0x12c28801u, (u32)self);\n"
                 "    sly1_port_trace_value(0x12c28802u, (u32)__builtin_return_address(0));\n"
@@ -2759,8 +3293,12 @@ void StartStateGraph"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected animation player script notification")
             adapted = adapted.replace(needle, replacement, 1)
-            needle = (
+            old_wrapper = (
                 "s32 CreateAnimationPlayerWithoutPresetTargets(void* a, void* b, s32 c, s32 d)\n{\n")
+            latest_wrapper = (
+                "void CreateAnimationPlayerWithoutPresetTargets(Animation* self, "
+                "BaseObject* alt, s32 flags, AnimationPlayer** out, f32 fa, f32 fb)\n{\n")
+            needle = old_wrapper if adapted.count(old_wrapper) == 1 else latest_wrapper
             replacement = needle + (
                 "    sly1_port_trace_value(0x12c7d801u, (u32)__builtin_return_address(0));\n"
                 "    sly1_port_trace_value(0x12c7d802u, (u32)a);\n"
@@ -2769,8 +3307,19 @@ void StartStateGraph"""
                 "    sly1_port_trace_value(0x12c7d805u, (u32)d);\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected CreateAnimationPlayer wrapper")
+            if needle == latest_wrapper:
+                replacement = needle + (
+                    "    sly1_port_trace_value(0x12c7d801u, (u32)__builtin_return_address(0));\n"
+                    "    sly1_port_trace_value(0x12c7d802u, (u32)self);\n"
+                    "    sly1_port_trace_value(0x12c7d803u, (u32)alt);\n"
+                    "    sly1_port_trace_value(0x12c7d804u, (u32)flags);\n"
+                    "    sly1_port_trace_value(0x12c7d805u, (u32)out);\n")
             adapted = adapted.replace(needle, replacement, 1)
-            needle = "void* CreateAnimationPlayerReturned(void* self, s32 key, s32 a2)\n{\n"
+            old_returned = "void* CreateAnimationPlayerReturned(void* self, s32 key, s32 a2)\n{\n"
+            latest_returned = (
+                "AnimationPlayer* CreateAnimationPlayerReturned(Animation* self, "
+                "BaseObject* owner, f32 fa, f32 fb, s32 flags)\n{\n")
+            needle = old_returned if adapted.count(old_returned) == 1 else latest_returned
             replacement = needle + (
                 "    sly1_port_trace_value(0x12c7d821u, (u32)__builtin_return_address(0));\n"
                 "    sly1_port_trace_value(0x12c7d822u, (u32)self);\n"
@@ -2783,6 +3332,12 @@ void StartStateGraph"""
                 "    }\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected returned animation-player wrapper")
+            if needle == latest_returned:
+                replacement = needle + (
+                    "    sly1_port_trace_value(0x12c7d821u, (u32)__builtin_return_address(0));\n"
+                    "    sly1_port_trace_value(0x12c7d822u, (u32)self);\n"
+                    "    sly1_port_trace_value(0x12c7d823u, (u32)owner);\n"
+                    "    sly1_port_trace_value(0x12c7d824u, (u32)flags);\n")
             adapted = adapted.replace(needle, replacement, 1)
         elif rel.as_posix() == "main/placed_object_model.cpp" and args.trace_functions:
             # Wave 33 moved this model-reader body out of file_15F678.cpp.
@@ -3011,8 +3566,8 @@ void StartStateGraph"""
                 ("        UpdatePadConnection(&g_padRecord);", 1),
                 ("            UpdateCameraLocation(g_camera);", 2),
                 ("            RunWorldFrameLists(g_currentWorld, g_camera);", 3),
-                ("            QueueScreenElementDraws(g_elementStack);", 4),
-                ("            DrawAllScreenElements(g_elementStack);", 5),
+                ("            QueueScreenElementDraws((ElementStack*)g_elementStack);", 4),
+                ("            DrawAllScreenElements((ElementStack*)g_elementStack);", 5),
                 ("            SubmitRenderFrame();", 6),
             )
             for statement, stage in frame_stages:
@@ -3181,17 +3736,23 @@ void StartStateGraph"""
             # unit. On the i386 SysV host that adds a hidden result pointer,
             # but the retail reader returns the word in EAX. Keep the same
             # four bytes while matching the actual host call ABI.
-            declaration = "StreamWord ReadBufferedU32(void* src);"
-            declarations = adapted.count(declaration)
-            if declarations != 1:
+            declaration_patterns = (
+                "StreamWord ReadBufferedU32(void* src);",
+                "StreamWord ReadBufferedU32(BufferedStream* self);",
+            )
+            declaration = next((item for item in declaration_patterns
+                                if adapted.count(item) == 1), None)
+            if declaration is None or sum(adapted.count(item)
+                                          for item in declaration_patterns) != 1:
                 raise RuntimeError("expected one stream-word reader declaration in " +
                                    rel.as_posix())
-            adapted = adapted.replace(declaration, "s32 ReadBufferedU32(void* src);")
-            local = "StreamWord tmp = ReadBufferedU32(src);"
-            locals_ = adapted.count(local)
+            scalar_decl = declaration.replace("StreamWord", "s32")
+            adapted = adapted.replace(declaration, scalar_decl, 1)
+            local_pattern = r"StreamWord tmp = ReadBufferedU32\(([^;]+)\);"
+            adapted, locals_ = re.subn(
+                local_pattern, r"s32 tmp = ReadBufferedU32(\1);", adapted)
             if locals_ != 1:
                 raise RuntimeError("expected one stream-word reader use in " + rel.as_posix())
-            adapted = adapted.replace(local, "s32 tmp = ReadBufferedU32(src);")
         if args.trace_functions and rel.as_posix() == "main/effect_spawner.cpp":
             # Identify a malformed nested class read slot before the retail
             # virtual dispatch in LoadGroupMembers faults.
@@ -3252,9 +3813,15 @@ void LoadEffectSpawner"""
             callsite = """        ReadCappedWordList((u8*)m + 0x130, t, self, stream);"""
             callsite_new = """        sly1_native_trace_capped_list(1, (u32)t, (u32)((u8*)m + 0x130), (u32)stream);
         ReadCappedWordList((u8*)m + 0x130, t, self, stream);"""
-            if adapted.count(callsite) != 1:
+            latest_callsite = """        ReadCappedWordList((CappedWordList*)((u8*)m + 0x130), t, self, stream);"""
+            latest_callsite_new = """        sly1_native_trace_capped_list(1, (u32)t, (u32)((u8*)m + 0x130), (u32)stream);
+        ReadCappedWordList((CappedWordList*)((u8*)m + 0x130), t, self, stream);"""
+            if adapted.count(callsite) == 1:
+                adapted = adapted.replace(callsite, callsite_new, 1)
+            elif adapted.count(latest_callsite) == 1:
+                adapted = adapted.replace(latest_callsite, latest_callsite_new, 1)
+            else:
                 raise RuntimeError("expected capped-list call site in " + rel.as_posix())
-            adapted = adapted.replace(callsite, callsite_new, 1)
         if args.trace_functions and rel.as_posix() in {
                 "main/00124000.cpp", "main/001B4000.cpp", "main/001B8000.cpp"}:
             # Global -finstrument-functions changes behavior where the decomp
@@ -3354,7 +3921,16 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(signature, trace, 1)
             callsite = """        if (a2) {
             StartObjectSubGroupFinish(FindActiveObjectSubGroup());"""
+            current_callsite = """        if (a2) {
+            StartObjectSubGroupFinish((ObjectSubGroup*)FindActiveObjectSubGroup());"""
+            if adapted.count(current_callsite) == 1:
+                callsite = current_callsite
             callsite_trace = """        sly1_port_trace_value(0x1eea0006u, (u32)a2);
+        if (a2) {
+            StartObjectSubGroupFinish((ObjectSubGroup*)FindActiveObjectSubGroup());"""
+            if callsite == """        if (a2) {
+            StartObjectSubGroupFinish(FindActiveObjectSubGroup());""":
+                callsite_trace = """        sly1_port_trace_value(0x1eea0006u, (u32)a2);
         if (a2) {
             StartObjectSubGroupFinish(FindActiveObjectSubGroup());"""
             if adapted.count(callsite) != 1:
@@ -3368,16 +3944,17 @@ void LoadEffectSpawner"""
             # the host ABI it becomes the first argument and corrupts the
             # clock scale. Drop this unused object argument only in staged
             # host source; never alter the matching decompilation.
-            adapted, removed_scale_receivers = re.subn(
-                r"\bApplyStackTimeScale\((?:obj|self),\s*([^;\n]+?)\);",
-                r"ApplyStackTimeScale(\1);",
-                adapted,
-            )
-            if removed_scale_receivers != 7:
-                raise RuntimeError(
-                    "expected seven EE float-register ApplyStackTimeScale call sites, "
-                    f"found {removed_scale_receivers}"
+            if "void ApplyStackTimeScale(ElementStack* stack, f32 x)" not in adapted:
+                adapted, removed_scale_receivers = re.subn(
+                    r"\bApplyStackTimeScale\((?:obj|self),\s*([^;\n]+?)\);",
+                    r"ApplyStackTimeScale(\1);",
+                    adapted,
                 )
+                if removed_scale_receivers != 7:
+                    raise RuntimeError(
+                        "expected seven EE float-register ApplyStackTimeScale call sites, "
+                        f"found {removed_scale_receivers}"
+                    )
         if args.trace_functions and rel.as_posix() == "main/game_clock.cpp":
             adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
             signature = "void SetGameClockScale(f32 x)\n{"
@@ -3397,7 +3974,8 @@ void LoadEffectSpawner"""
                 names.add(address_names[address])
             for name in names:
                 definition = re.compile(
-                    r"(?m)^(?P<header>\s*(?:[A-Za-z_][\w:*&<>]*\s+)+\b" +
+                    r"(?m)^(?P<header>\s*(?:extern\s+\"C\"\s+)?"
+                    r"(?:[A-Za-z_][\w:*&<>]*\s+)+\b" +
                     re.escape(name) + r"\s*\([^{};]*\)[^{};]*)\s*(?=\{)")
                 adapted = definition.sub(
                     lambda match: match.group("header").replace(
@@ -3422,9 +4000,15 @@ void LoadEffectSpawner"""
             # the decompilation source remains unchanged.
             needle = "    CreateAnimationPlayer(a, b, 0, 0, c, d);\n}"
             replacement = "    CreateAnimationPlayer(a, b, 0, 0, c, d);\n    return 0;\n}"
-            if adapted.count(needle) != 1:
+            latest_wrapper = (
+                "void CreateAnimationPlayerWithoutPresetTargets(Animation* self, "
+                "BaseObject* alt, s32 flags, AnimationPlayer** out, f32 fa, f32 fb)"
+            )
+            if adapted.count(needle) == 1:
+                adapted = adapted.replace(needle, replacement, 1)
+            elif (adapted.count(latest_wrapper) < 1 or
+                  adapted.count("CreateAnimationPlayer(self, alt, 0, 0, flags, out, fa, fb);") != 1):
                 raise RuntimeError("expected host32 animation-player wrapper fallthrough")
-            adapted = adapted.replace(needle, replacement, 1)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":
