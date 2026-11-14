@@ -11,15 +11,22 @@ never edited by the host staging adapter.
 
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
-report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 Wave 56 build compiles 194 source units and 61 port-only
+report matches 4,807/4,807 functions and 100% of code (4,498 exact C and 311
+original assembly), plus 99.9675% of data. The native host32 Wave 58 build
+compiles 194 source units and 61 port-only
 backfills. Its combined object contains 255 objects and defines 4,380
 catalogued function entries; the direct
 call frontier resolves 827/835 functions, without following indirect calls.
 The freestanding launcher now supplies Itanium C++ local-static guard
-primitives required by the current matched source. Its bounded no-render
-diagnostic run reached startup callbacks without a missing-function trap; this
-does not verify the SDL window path or change the last observed image.
+primitives required by the current matched source. The combiner preserves the
+48-byte game clock block's internal data offsets and 16-byte section alignment.
+A bounded SDL run reaches pause page 3 and records over 400 frames without a
+fatal fault; it has not yet rechecked Continue after the clock-layout fix.
+
+The packet writers `BeginDmaTag`, `AddDmaRefTag`, `AddDmaReturnTag`, and
+`CloseDmaTag` now compile from matched decomp C. Their stale hostgen backfill
+selections were removed; other packet helpers in
+`hand/native_c/display_packets.c` remain port-owned.
 
 Wave 47 passes the prior world-loader fault via a port-only staged-source
 adaptation for `ReadBufferedU32`'s i386 return ABI. Register capture then found
@@ -37,8 +44,8 @@ The Sly libpad backfill `func_002042C8` now swaps the report's two button bytes
 before retail `PollPadInput` reads them. This is a Sly-only adaptation: retail
 forms `(buf[2] << 8) | buf[3]` and consumes Cross as `0x0040`, while the shared
 OpenRAC SDL serializer emits the standard DualShock word high-byte first.
-Wave 49 compiles and links this fix; Cross/Space still needs a live runtime
-check before menu progress is confirmed.
+Wave 57 confirmed Space reaches the selected Continue row and dismisses the
+warning. Retest that transition after the Wave 58 clock-layout correction.
 Wave 50 adds a port-only `func_0013A498` CPU backfill for the particle-filter
 VU0 call site. It uses the matched caller's expiry test, compaction, bounds,
 and spin-angle behavior, and applies CPU-side matrix/velocity integration

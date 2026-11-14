@@ -24,10 +24,6 @@ func_001683E8	native_c/display_context.c
 func_001684E8	native_c/display_context.c
 func_001688B8	native_c/display_context.c
 func_00202098	native_c/display_context.c
-func_00152D70	native_c/display_packets.c
-func_00152CA0	native_c/display_packets.c
-func_00152B38	native_c/display_packets.c
-func_00152B80	native_c/display_packets.c
 func_00152AE0	native_c/display_packets.c
 func_001529E0	native_c/display_packets.c
 func_00152D30	native_c/display_packets.c

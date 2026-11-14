@@ -30,6 +30,11 @@ launcher uses them; same-address C++ versions under `native/` only serve the
 freestanding host32 diagnostic and do not feed the SDL build. Remove both
 port-side versions when matching decompilation code becomes available.
 
+The packet writers `BeginDmaTag`, `AddDmaRefTag`, `AddDmaReturnTag`, and
+`CloseDmaTag` now have matched C in the decomp's `pooled_object.cpp`. Their
+stale hostgen backfill selections were removed; hostgen now uses those matched
+definitions. Other packet helpers in `display_packets.c` remain port-owned.
+
 `collision_contact_tables.c` provides contact-pair flags, row-pool operations,
 the collider compatibility check, and retry-counter reset after a collider is
 loaded. These are port-only replacements for missing matching host C and can
