@@ -23,6 +23,14 @@ window and process-local Cross input. Log:
 `/tmp/sly-wave95-strip-layout.log`. Wave 94 log:
 `/tmp/sly-wave94-model-backfill.log`.
 
+Wave 97 repeated the same `InitObject` virtual-dispatch crash in
+`func_00182C18` and captured the receiver at `0x013cbcc0`. Its first word is
+`0x44af424e`; the next two are `0x44cc5c0d` and `0xc4aef6eb`, which look like
+position floats, not a class descriptor followed by base-object fields. The
+fault is now narrowed to an incorrect object pointer or class-object setup
+before `InitStepSequence`. The one-off signal dump was removed after use.
+Log: `/tmp/sly-wave97-object-vtable.log`.
+
 ## Current checkpoint (2026-11-14, after native thread service)
 
 Branch `wip/native-sly-port`, based at `e8fa5ea`; the sibling decomp is clean

@@ -31,6 +31,14 @@ retail, and continue until native graphics show a title or gameplay scene.
 Do not claim playability until visible graphics and interactive gameplay are
 confirmed.
 
+Wave 97's bounded fault-time dump confirms the receiver passed to
+`func_00182C18` is `0x013cbcc0`, but its first word is `0x44af424e` and its
+following words look like three position floats (`0x44cc5c0d`, `0xc4aef6eb`).
+The virtual dispatch therefore reads a non-descriptor as `BaseObject::desc`.
+This narrows the fault to the caller's object pointer or object initialization;
+it does not yet prove which one is wrong. The temporary signal dump was removed
+after capture. Evidence: `/tmp/sly-wave97-object-vtable.log`.
+
 ## Resolved RPC wait diagnosis (2026-11-14)
 
 The user pressed Space once on retail no-card page 3. The trace confirms Cross
