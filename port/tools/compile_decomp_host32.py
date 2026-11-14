@@ -263,6 +263,15 @@ def lower_host_vu0(text):
         # into a GPR before treating it as a scalar VU value.
         "ScalarInGprAt": "return HostPack(f,0,0,0);",
         "ScalarInGprReg": "return HostPack(f,0,0,0);",
+        "ScalarMovedReg": "return HostPack(f,0,0,0);",
+        # These helpers drive EE VU0 registers and microprograms. Keep the
+        # direct-host copy buildable; the currently supported native path has
+        # no VU0 execution service, so light collection reports an empty mask.
+        "LoadVf": "(void)p;",
+        "CallMs": "",
+        "MoveToVi": "(void)v;",
+        "ReadViWait": "return 0;",
+        "NextLightGroup": "(void)firstSlot; (void)count; return 0;",
         "MulX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)*scale,HostLane(a,1)*scale,HostLane(a,2)*scale,HostLane(a,3)*scale);",
         "MulAddX": "f32 scale=HostLane(s,0); return HostPack(HostLane(a,0)+HostLane(b,0)*scale,HostLane(a,1)+HostLane(b,1)*scale,HostLane(a,2)+HostLane(b,2)*scale,HostLane(a,3)+HostLane(b,3)*scale);",
         "MulAddX2": "f32 sx=HostLane(s,0),tx=HostLane(t,0); return HostPack(HostLane(a,0)+HostLane(b,0)*sx+HostLane(c,0)*tx,HostLane(a,1)+HostLane(b,1)*sx+HostLane(c,1)*tx,HostLane(a,2)+HostLane(b,2)*sx+HostLane(c,2)*tx,HostLane(a,3)+HostLane(b,3)*sx+HostLane(c,3)*tx);",
@@ -282,6 +291,7 @@ def lower_host_vu0(text):
         "TransformRows": "u128 v4=HostPack(HostLane(v,0),HostLane(v,1),HostLane(v,2),w); return HostWeighted4(r0,r1,r2,r3,v4);",
         "Transform4": "return HostWeighted4(m0,m1,m2,m3,v);",
         "RotateTransposed": "const u128* r=(const u128*)&m; return HostPack(HostLane(r[0],0)*HostLane(v,0)+HostLane(r[0],1)*HostLane(v,1)+HostLane(r[0],2)*HostLane(v,2),HostLane(r[1],0)*HostLane(v,0)+HostLane(r[1],1)*HostLane(v,1)+HostLane(r[1],2)*HostLane(v,2),HostLane(r[2],0)*HostLane(v,0)+HostLane(r[2],1)*HostLane(v,1)+HostLane(r[2],2)*HostLane(v,2),HostLane(v,3));",
+        "RotateTransposedMembers": "const Vec* r=(const Vec*)&m; return HostPack(HostLane(r[0].q,0)*HostLane(v,0)+HostLane(r[0].q,1)*HostLane(v,1)+HostLane(r[0].q,2)*HostLane(v,2),HostLane(r[1].q,0)*HostLane(v,0)+HostLane(r[1].q,1)*HostLane(v,1)+HostLane(r[1].q,2)*HostLane(v,2),HostLane(r[2].q,0)*HostLane(v,0)+HostLane(r[2].q,1)*HostLane(v,1)+HostLane(r[2].q,2)*HostLane(v,2),HostLane(v,3));",
         "MulXSum": "f32 sx=HostLane(s,0),tx=HostLane(t,0); return HostPack(HostLane(a,0)*sx+HostLane(b,0)*tx,HostLane(a,1)*sx+HostLane(b,1)*tx,HostLane(a,2)*sx+HostLane(b,2)*tx,HostLane(a,3)*sx+HostLane(b,3)*tx);",
         "PlaneSigns": "u128 d=HostPack(HostLane(r0,0)*HostLane(v,0)+HostLane(r1,0)*HostLane(v,1)+HostLane(r2,0)*HostLane(v,2),HostLane(r0,1)*HostLane(v,0)+HostLane(r1,1)*HostLane(v,1)+HostLane(r2,1)*HostLane(v,2),HostLane(r0,2)*HostLane(v,0)+HostLane(r1,2)*HostLane(v,1)+HostLane(r2,2)*HostLane(v,2),HostLane(r0,3)*HostLane(v,0)+HostLane(r1,3)*HostLane(v,1)+HostLane(r2,3)*HostLane(v,2)); u32 f=0; for(int i=0;i<4;i++) if(HostLane(d,i)-HostLane(ones,i)*HostLane(s,0)<0) f|=(0x80u>>i); return f;",
         "MulXSum3": "f32 sx=HostLane(s,0),tx=HostLane(t,0),ux=HostLane(u,0); return HostPack(HostLane(a,0)*sx+HostLane(b,0)*tx+HostLane(c,0)*ux,HostLane(a,1)*sx+HostLane(b,1)*tx+HostLane(c,1)*ux,HostLane(a,2)*sx+HostLane(b,2)*tx+HostLane(c,2)*ux,HostLane(a,3)*sx+HostLane(b,3)*tx+HostLane(c,3)*ux);",
@@ -318,6 +328,23 @@ def lower_host_vu0(text):
                 depth -= 1
                 if depth == 0: return i
         raise RuntimeError("unclosed VU0 method while staging")
+
+    # The particle filter is an EE VU0 microprogram, not host inline
+    # assembly. Leave its CPU-visible particle records intact in the native
+    # staging copy until a dedicated host implementation is added.
+    particle_marker = "struct ParticleFilter {"
+    if particle_marker in text:
+        start = text.index(particle_marker)
+        opening = text.index("{", start)
+        closing = matching_brace(text, opening)
+        replacement = """struct ParticleFilter {
+        static void Start(u128, u128, u128, u128, u128, u128, u128, u128, u128) {}
+        static void Next(u128, u128) {}
+        static void Wait() {}
+        static void Results(u128&, u128&) {}
+        static void Bounds(u128&, u128&) {}
+    };"""
+        text = text[:start] + replacement + text[closing + 1:]
 
     for name, body in bodies.items():
         pattern = re.compile(
@@ -596,14 +623,14 @@ def main(argv=None):
             adapted = adapted.replace(
                 "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
                 "(char*)__builtin_next_arg(size)")
-        elif rel.as_posix() == "main/file_1C1190.cpp":
+        elif rel.as_posix() in ("main/file_1C1190.cpp", "main/object_properties.cpp"):
             adapted = adapted.replace(
                 "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 8) - 8))",
                 "#define VA_ARG_WORD(ap, T) (*(T*)((ap += 4) - 4))")
             adapted = adapted.replace(
                 "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
                 "(char*)__builtin_next_arg(size)")
-        elif rel.as_posix() == "main/file_1E88D0.cpp":
+        elif rel.as_posix() in ("main/file_1E88D0.cpp", "main/warp_menu.cpp"):
             # AreFloatsNearlyEqual has a separate native replacement; retain
             # its public address prototype while renaming the upstream body.
             adapted = adapted.replace(
@@ -632,6 +659,14 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one EE register-residue call in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/mode_walker.cpp":
+            adapted, replacements = re.subn(
+                r"SetMatrixRows\(rot, x, y, z\);",
+                "SetMatrixRows(rot, *(const s128*)&x, *(const s128*)&y, "
+                "*(const s128*)&z);",
+                adapted)
+            if replacements != 1:
+                raise RuntimeError("expected one host vector signedness conversion")
         elif rel.as_posix() == "main/anim_record.cpp":
             # ConvertHsvToRgb keeps its second output pointer in EE a1 while
             # the C call supplies only the source pointer. Preserve that
@@ -795,12 +830,13 @@ def main(argv=None):
                 raise RuntimeError("expected EvalScriptCall cleanup loop in " +
                                    rel.as_posix())
             adapted = adapted.replace(old, new, 1)
-        elif rel.as_posix() == "main/file_15F678.cpp":
+        elif rel.as_posix() == "main/game_progress.cpp":
             # SetCurrentLevelEntry carries the WorldKeyBlock in an EE argument
             # register through GetEntryIdByKey and FindKeyEntry. Give that
-            # value an explicit host parameter at both calls; otherwise the
-            # host ABI reads unrelated stack bytes (the current crash is
-            # 0x30303030 in the key pointer).
+            # value an explicit host parameter at both calls. The decomp
+            # currently represents the helpers as zero-argument functions,
+            # which is valid for EE register conventions but makes the host
+            # ABI read an unrelated stack word as the key pointer.
             replacements = [
                 ("s32 GetEntryIdByKey(s32 a0);",
                  "s32 GetEntryIdByKey(KeyedEntry* key);"),
@@ -1610,7 +1646,10 @@ void StartStateGraph"""
             if replacements != 1 and not (files_table.is_file() and replacements == 0):
                 raise RuntimeError("expected mismatched resource-key wrapper in " +
                                    rel.as_posix())
-        elif rel.as_posix() in {"main/file_1E08F8.cpp", "main/file_1E2420.cpp"} and args.trace_functions:
+        elif rel.as_posix() in {
+            "main/file_1E08F8.cpp", "main/file_1E2420.cpp",
+            "main/on_off_object.cpp",
+        } and args.trace_functions:
             # Capture the pending key/blob and current world when the direct
             # native startup path handles a resource request.
             signature = "void RunPendingWorldLoad(WorldLoadRequest* self)\n{"

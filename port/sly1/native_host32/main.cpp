@@ -116,6 +116,14 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault eip ", state->uc_mcontext.gregs[REG_EIP]);
     write_hex("native host32: fault esp ", state->uc_mcontext.gregs[REG_ESP]);
     write_hex("native host32: fault ebp ", state->uc_mcontext.gregs[REG_EBP]);
+    u32* frame = reinterpret_cast<u32*>(state->uc_mcontext.gregs[REG_EBP]);
+    for (u32 depth = 0; depth < 8 && frame != nullptr; ++depth) {
+        const u32 previous = frame[0];
+        const u32 caller = frame[1];
+        write_hex("native host32: fault caller ", caller);
+        if (previous <= (u32)frame || previous - (u32)frame > 0x10000u) break;
+        frame = reinterpret_cast<u32*>(previous);
+    }
     syscall1(252, 128 + signal_number);
 }
 
