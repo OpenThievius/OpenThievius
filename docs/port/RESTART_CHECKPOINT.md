@@ -84,8 +84,9 @@ values were absent even though the wrapper is installed in the descriptor, so
 the failing callback's route and arguments remain unresolved. Do not treat the
 guard as effective yet. The SDL host now has an opt-in one-frame Cross test
 input (`OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N`) that stays inside the game
-process and does not steal desktop focus. Wave 67 verified this hook and
-reached the same fault. Waves 68 and 69 emitted no wrapper-entry or guest
+process. Pair it with `OPENRAC_TEST_HIDDEN_WINDOW=1` so the test window remains
+hidden and the window manager cannot activate it. Wave 67 verified the input
+hook and reached the same fault. Waves 68 and 69 emitted no wrapper-entry or guest
 callback-thunk trace. Wave 70 recorded EBX `0x00a808a8`, word 0 `0x01000021`,
 and attachment head `0` at `+0x550`; EBX is only a candidate object pointer
 until the callback ABI is established. Next, trace the callback's actual entry
@@ -96,18 +97,20 @@ Logs:
 `/tmp/sly-wave62-rumble-guard.log`, `/tmp/sly-wave63-fog-callback.log`, and
 `/tmp/sly-wave64-empty-attach.log`, `/tmp/sly-wave65-attach-list-guard.log`,
 `/tmp/sly-wave66-detach-trace.log`, `/tmp/sly-wave67-local-input.log`,
-`/tmp/sly-wave68-wrapper-entry.log`, `/tmp/sly-wave69-thunk-map.log`, and
-`/tmp/sly-wave70-crash-object.log`.
+`/tmp/sly-wave68-wrapper-entry.log`, `/tmp/sly-wave69-thunk-map.log`,
+`/tmp/sly-wave70-crash-object.log`, and `/tmp/sly-wave71-hidden-input.log`.
 
-Latest no-emulation host32 result (2026-11-14, Wave 70): the launcher reaches
+Latest no-emulation host32 result (2026-11-14, Wave 71): the launcher reaches
 retail no-card page 3. The isolated one-frame Cross input advances world load
 past the block header and rumble request, then faults at `0x08048f7f` in the
-matched attached-set notification body before load completes. Waves 68 and 69
-show no port-wrapper or guest callback-thunk entry trace. Wave 70 captures the
-faulting EBX value, its first word, and attachment head for ABI investigation;
-do not assume EBX is the object until the callback signature is established.
-No title or gameplay scene has been demonstrated and no card-format action was
-taken. Latest log: `/tmp/sly-wave70-crash-object.log`.
+matched attached-set notification body before load completes. The window was
+hidden, no Sly window appeared on the desktop, and the renderer still submitted
+native DMA. Waves 68 and 69 show no port-wrapper or guest callback-thunk entry
+trace. Wave 70 captures the faulting EBX value, its first word, and attachment
+head for ABI investigation; do not assume EBX is the object until the callback
+signature is established. No title or gameplay scene has been demonstrated
+and no card-format action was taken. Latest log:
+`/tmp/sly-wave71-hidden-input.log`.
 
 ## Latest decomp refresh (2026-11-14)
 

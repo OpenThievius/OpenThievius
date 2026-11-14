@@ -76,21 +76,23 @@ callback ABI is established. Evidence:
 
 The SDL launcher supports a process-local, one-frame Cross input for
 non-interfering tests: set `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N` to inject
-the press after N native input polls. It does not send a desktop key event or
-take keyboard focus.
+the press after N native input polls. It does not send a desktop key event.
+Pair it with `OPENRAC_TEST_HIDDEN_WINDOW=1` to keep the test window hidden and
+prevent the window manager from activating it. Wave 71 verifies the hidden
+launcher still submits native DMA and the local press reaches the same fault.
 
 **Next:** trace the actual callback entry and argument layout for the matched
 detach body, correct the port-only shim or dispatch route, then continue
 through world construction and confirm visible title or level graphics.
 
-**Current evidence (2026-11-14, Wave 70):** the SDL host32 launcher reaches
+**Current evidence (2026-11-14, Wave 71):** the SDL host32 launcher reaches
 retail no-card page 3. Its process-local one-frame Cross test input is observed
 by the native pad adapter and advances world loading past the block-header and
-rumble calls. It then faults at `0x08048f7f` in the matched attached-set
-notification body before world load returns. No title or gameplay scene has
-been demonstrated and no card-format action was taken. Latest log:
-`/tmp/sly-wave70-crash-object.log`; Waves 67–69 isolate the input and callback
-route in the preceding sections.
+rumble calls. The hidden-window run still submits native graphics but then
+faults at `0x08048f7f` in the matched attached-set notification body before
+world load returns. No Sly window appeared on the desktop during this test; no
+title or gameplay scene has been demonstrated and no card-format action was
+taken. Latest log: `/tmp/sly-wave71-hidden-input.log`.
 
 The current decomp header defines `ElementStack` as 0x34 bytes, but
 `warp_menu.cpp` still

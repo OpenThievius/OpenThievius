@@ -446,6 +446,7 @@ extern "C" int openrac_native_window_create(void) {
     config.height = 720;
     config.vsync = false;
     config.software = openrac::platform::SoftwareRenderer::Allow;
+    config.hidden = std::getenv("OPENRAC_TEST_HIDDEN_WINDOW") != nullptr;
     std::string error;
     g_window = openrac::platform::Window::open(config, error);
     if (!g_window) { g_platform.reset(); return 0; }
