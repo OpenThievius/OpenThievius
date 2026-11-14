@@ -7,6 +7,24 @@ remain unavailable to the native build. They are separate from
 when hostable matching source becomes available. The source decomp checkout is
 never edited by the host staging adapter.
 
+## Current state (2026-11-14, Wave 200)
+
+The decomp checkout is clean and current at
+`83f2b50d586602f67e03e42343737a0dd9072a3e`; its US and PAL code remain 100%
+matched. The native host32 target builds from 194 matched source units plus
+port-owned support. It is not playable: a hidden run reaches world startup
+after one in-process Cross press, then crashes in `AdvanceColliderMeshMotion`
+because a collider's mesh-motion hook contains invalid pointers. The exact
+register and object dump is in
+[`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
+
+Recent host-only staging work fixed several earlier startup faults, including
+MIPS-oriented sound-call ordering, retail-address callback resolution, and
+unaligned vector inputs. The current mesh-motion reset attempt did not fix the
+hook; inspect allocator results before changing collider behavior. The
+zero-page accommodations are provisional host-memory approximations, not
+verified retail semantics. No scene graphics or gameplay have been confirmed.
+
 ## Current build state (2026-11-14)
 
 The sibling decomp checkout is up to date at
@@ -124,6 +142,9 @@ normalizes animation callbacks to their vtable signatures.
 
 `func_001F5B08.cpp` implements overlap-safe `memmove` for a still-assembly
 libc function used during camera-controller stack insertion.
+`func_001BF398.cpp` supplies a provisional Euclidean listener-distance helper
+for a still-assembly function; its 3D interpretation is inferred from the two
+vector arguments and should be checked against retail behavior.
 `SuppressScriptEvent` (`func_00183668`) and `InitGauge` (`func_001ABE70`) now
 use matched C from the decomp; their obsolete port copies were removed in
 Wave 51. Other active files provide platform boundaries (CD reads, Linux
