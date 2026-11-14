@@ -52,17 +52,17 @@ Evidence: `/tmp/sly-wave62-rumble-guard.log`.
 
 Wave 63 passed the fog callback and the block-header stage, then faulted at
 `0x08048f7f` in matched `HandleAttachedSetNotification`
-(`func_001EF3D8`). The callback received a kind-2 detach for an object that was
-not in the attached set; `self->links` was null, but the matching C reads
-`n->target` before its null check. A port-only wrapper now guards only this
-empty-list case and still calls the base placed-object notification handler.
-All normal notifications continue through the matched implementation. The
-host build and linked disassembly confirm that route; runtime verification
-remains. Evidence:
-`/tmp/sly-wave63-fog-callback.log`.
+(`func_001EF3D8`). The callback received a kind-2 detach for a target absent
+from the attached set; the matching C loop ended with a null link and read
+`n->target` before its null check. The first port guard handled an empty list
+but Wave 64 showed the same case with a nonempty list and no matching target.
+The guard now searches the full owner-link chain, sends only missing-target
+detaches to the base notification handler, and lets real links use the matched
+detach logic. It needs a rebuild and runtime check. Evidence:
+`/tmp/sly-wave63-fog-callback.log`, `/tmp/sly-wave64-empty-attach.log`.
 
-**Next:** continue once from page 3, then inspect whether world construction
-finishes and renders a title or level.
+**Next:** rebuild with the full link-chain check, continue once from page 3,
+then inspect whether world construction finishes and renders a title or level.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with

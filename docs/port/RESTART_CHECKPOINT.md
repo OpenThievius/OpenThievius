@@ -76,15 +76,16 @@ argument with `g_camera` and forwards the second; a new port-only
 two-argument wrapper mirrors that ABI. The rebuilt linked wrapper matches the
 retail register behavior, and Wave 63 confirmed the fog setter returned. That
 run then faulted in matched `HandleAttachedSetNotification` on a null link for
-an empty kind-2 detach. A separate `func_001EF3D8` port wrapper now routes only
-that empty-list case to the base notification handler while retaining the
-matching implementation for ordinary notifications. The host build and
-disassembly confirm the branch; runtime verification remains.
+an unmatched kind-2 detach. The first `func_001EF3D8` guard handled an empty
+list, but Wave 64 reproduced the fault with a nonempty list lacking the target.
+The updated port wrapper searches the whole owner-link chain, routes only a
+missing target to the base notification handler, and keeps the matched
+implementation for valid links. It needs a build and runtime check.
 Logs:
 `/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`,
 `/tmp/sly-wave60-rpc-retest.log`, `/tmp/sly-wave61-raw-rpc.log`, and
-`/tmp/sly-wave62-rumble-guard.log` and
-`/tmp/sly-wave63-fog-callback.log`.
+`/tmp/sly-wave62-rumble-guard.log`, `/tmp/sly-wave63-fog-callback.log`, and
+`/tmp/sly-wave64-empty-attach.log`.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
