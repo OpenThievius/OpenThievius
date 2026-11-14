@@ -692,6 +692,19 @@ def main(argv=None):
             if replacements != 1:
                 raise RuntimeError("expected one HSV output register call in " +
                                    rel.as_posix())
+        elif rel.as_posix() == "main/world_listed_object.cpp":
+            # A port-only particle-filter backfill replaces the matching
+            # function body in this staged unit. Keep the public declaration
+            # available to its later call site after renaming that body.
+            declaration = (
+                "extern f32 g_gameTime;\n"
+                "s32 func_0013A498(const f32*, u128, Vec02*, Vec02*, Vec02*, "
+                "s32, s32, void*, void*);\n")
+            anchor = "extern f32 g_gameTime;\n"
+            if backfill_root.joinpath("func_0013A498.cpp").is_file():
+                if adapted.count(anchor) != 1:
+                    raise RuntimeError("expected particle filter host declaration point")
+                adapted = adapted.replace(anchor, declaration, 1)
         elif rel.as_posix() == "main/iop_commands.cpp":
             # The matching body queues a command but is declared s32 and has
             # no return statement. At -O2 GCC may omit its epilogue entirely,
