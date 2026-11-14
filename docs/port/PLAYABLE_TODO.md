@@ -1,23 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-14, Wave 400)
+## Latest status (2026-11-15, Wave 445)
 
-The hidden host32 launcher reaches the retail memory-card warning. One
-in-process Cross press dismisses it and starts world loading. The host-only
-unaligned matrix reader passes its earlier SIMD alignment fault. The current
-ordinary build still faults in matched `RefreshOscillatorFrames` while walking
-the first mesh block: EIP `0x080d687b` attempts a weight store using ECX
-`0x08712e40` as the loop index, producing write address `0xfa4ee400`.
-Volatile indexed loops and a reload of the stack-array base have not resolved
-the host-state corruption. The complete register trace is in
-`/tmp/sly-wave400-latest-decomp-run.log`.
+The current native host32 build compiles 194 matched source units and 78
+port-only backfills, defines 4,393/4,807 catalogued entries, and resolves
+774/777 functions on its direct-call frontier. It links 114 missing-function
+traps. Visible Wave 445 startup reaches a native crash in matched
+`RunActiveSetSolver` (`func_00153EC0`) at `0x0806794a`, while reading through a
+value that looks like a float where the solver pointer is expected. The
+position and rotation null-output faults from Waves 442 and 444 are passed by
+host-only staging adapters. Latest trace: `/tmp/sly-wave445-visible.log`.
 
-There are no confirmed title or level graphics, and the port is not playable.
-The user-confirmed no-card prompt remains the latest visible state. There are
-no confirmed title or level graphics, and the port is not playable. Next,
-identify what corrupts the oscillator loop state without skipping oscillator
-updates.
+No title or level graphics are confirmed, and the port is not playable. The
+latest user-confirmed image remains the no-card warning; the visible Wave
+445 process closed on the solver fault before a new state was confirmed. Next,
+trace the actual call arguments into `RunActiveSetSolver` and fix the host
+calling convention or caller staging without changing the matched decomp.
 Keep every adapter or functional C replacement in this repository so matched
 decompilation can replace it cleanly.
 

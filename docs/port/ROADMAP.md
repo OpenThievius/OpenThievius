@@ -18,8 +18,12 @@ port-only native ISO adapter reads the 150,849-byte Splash resource from the
 retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
 Malformed text refers to the separate experimental guest-runtime renderer;
-the no-emulation host32 path now displays the complete no-card warning panel,
-but no title or gameplay scene has been demonstrated.
+the no-emulation host32 path has displayed the complete no-card warning panel,
+but no title or gameplay scene has been demonstrated. The 2026-11-15 build
+compiles 194 matched units and 78 port-only backfills. Its visible startup run
+now faults in matched `RunActiveSetSolver` after earlier pose-source faults
+were passed with staging-only null-output adapters. See
+[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for the current trace.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 
@@ -62,13 +66,14 @@ as the two call sites that need portable replacements for their VU0
 microprograms. It recommends implementing those functions in the port rather
 than building a VU0 execution model.
 
-**Latest startup checkpoint (Wave 128):** the host32 build compiles 194
-matched units and 68 port-only backfills, maps 4,384 catalogued functions,
-and resolves 825/831 functions in the direct-call frontier. A hidden run
+**Latest startup checkpoint (Wave 424):** the host32 build compiles 194
+matched units and 71 port-only backfills, maps 4,387 catalogued functions,
+and resolves 794/799 functions in the direct-call frontier. A hidden run
 accepts one in-process Cross press on the no-card page and resumes world
-loading. It then faults in matched `BuildMatrixFromRotationAndTranslation`
-(`func_00188B08`) inside `BindAttachmentTargets` on source address `0x49`.
-No title, gameplay scene, or visible level graphics are confirmed. See the
+loading. The host-only oscillator compiler adapter passes the former bad
+weight store, then faults in matched `GetOscillatorEntryPeriod`
+(`func_001F38A0`) at `0x08048e94` while reading address `0x64`. No title,
+gameplay scene, or visible level graphics are confirmed. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) for the exact trace and next
 diagnostic. Backfills and host ABI adapters remain in the port; the sibling
 decomp checkout stays clean.

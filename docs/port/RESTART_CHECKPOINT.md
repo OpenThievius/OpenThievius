@@ -1,52 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 400)
+## Current checkpoint (2026-11-15, Wave 445)
 
 The sibling `sly1-decomp` checkout is clean on `master` at
 `9489f7a0c3e9142accb8662da5897a39043c57e5`. It has 4,807/4,807 matched US
 functions (100% code bytes). This is decompilation coverage, not native-host
 readiness.
 
-The host32 launcher compiles 194/194 matched C++ units and 71/71 port-only
-backfills, with a 794/799 direct-call frontier. A hidden run with one
-in-process Cross press passes the retail no-card warning and begins world
-loading. It still has no title or level graphics and is not playable; the
-no-card prompt is the latest user-confirmed visible state.
+The host32 build compiles 194/194 matched C++ units and 78/78 port-only
+backfills; it defines 4,393/4,807 catalogued entries, resolves 774/777
+functions in the direct-call frontier, and links 114 missing-function traps.
+The native launcher was run visibly with one process-local Cross scheduled.
+Wave 445 progressed past the earlier owner-position, owner-rotation and
+child-rotation faults using host-only output-storage adapters, then faulted in
+matched `RunActiveSetSolver` (`func_00153EC0`) at `0x0806794a`. At the fault,
+the function treats a float-like value (`0x3d088889`) as its solver pointer,
+pointing to a host call-argument mismatch or bad caller state. Trace the
+`SolveColliderGroupContacts` call boundary and correct the staged ABI without
+altering the matched decomp. Log: `/tmp/sly-wave445-visible.log`.
 
-The Wave 400 build against current decomp compiles 194/194 matched C++ units
-and 71/71 port-only backfills; it defines 4,387/4,807 catalogued function
-entries and resolves 794/799 functions in the direct-call frontier. Hidden
-startup with one process-local Cross press enters world loading, then faults
-in matched `RefreshOscillatorFrames`. At EIP `0x080d687b`, ECX is
-`0x08712e40` and the fault address is `0xfa4ee400`, consistent with a
-corrupted weight-loop index. The exact trace is
-`/tmp/sly-wave400-latest-decomp-run.log`. No title or level graphics are
-confirmed; the latest user-confirmed visual remains the no-card screen.
+The last user-confirmed image remains the no-card warning. These visible runs
+closed when the native process faulted; no title or level graphics are
+confirmed and the port is not playable. The sibling decomp is still clean at
+`9489f7a0c3e9142accb8662da5897a39043c57e5`. Keep all C backfills and host
+adapters in this port repository so matched decomp can replace them cleanly.
 
-Recent host-only staging changed both vertex walks in matched
-`RefreshOscillatorFrames` (`func_001F2840`) to indexed loops with volatile
-indices and reloads the stack-array base after `CopyMemory`. A separate
-adapter copies unaligned matrix inputs bytewise, which passed the earlier
-`movdqa` alignment fault. The current run faults at EIP `0x080d687b` during
-the oscillator weight store. These adapters have not resolved the corrupted
-loop state. Earlier logs: `/tmp/sly-wave392-fixed-scratch-run.log` and
-`/tmp/sly-wave394-reloaded-verts-run.log`. No title or level graphics are
-confirmed.
-
-The loop rewrite and volatile object pointer are port-side compiler adapters;
-they do not change `sly1-decomp` and must be replaced or removed if matched
-source or a proper host ABI fix makes them unnecessary. Keep functional C
-backfills and host ABI work in this repository. Do not patch or backfill a
-vanilla function in place without recording the port-only replacement
-separately.
-
-Branch: `wip/native-sly-port`, based on its remote. The current experiment is
-uncommitted while this checkpoint is being updated. Standard build:
+Branch: `wip/native-sly-port`. Standard build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
-For ordinary builds, keep `OPENRAC_NATIVE_OSCILLATOR_TRACE=OFF`. Trace runs use
-`OPENRAC_TEST_HIDDEN_WINDOW=1`; one Cross is injected inside the process, so
-they do not focus the desktop window or send operating-system input.
+Visible trace runs use `OPENRAC_STARTUP_TRACE=1`; `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES`
+sends Cross inside the game process, without desktop keyboard events.
 
 Notes below this checkpoint are historical investigation records and may
 describe older blockers or source revisions.
