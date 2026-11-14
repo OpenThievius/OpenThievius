@@ -10,9 +10,14 @@ never edited by the host staging adapter.
 ## Current build state (2026-11-14)
 
 The sibling decomp checkout is up to date at
-`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
+`83f2b50d586602f67e03e42343737a0dd9072a3e` (public master, 2026-11-14). Its US
 report matches 4,807/4,807 functions and 100% of code (4,498 exact C and 311
-original assembly), plus 99.9675% of data. The native host32 Wave 58 build
+original assembly), plus 99.9675% of data. Recent decomp commits name the five
+world bosses and rename the corresponding source/header files; no new US
+functions or code bytes were added by that cleanup. The native host32 build has
+been rebuilt successfully against this snapshot.
+
+The native host32 Wave 58 build
 compiles 194 source units and 61 port-only
 backfills. Its combined object contains 255 objects and defines 4,380
 catalogued function entries; the direct

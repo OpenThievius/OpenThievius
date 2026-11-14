@@ -44,11 +44,11 @@ renderer below. Do not extend this runtime as the gameplay path.
 ## Current no-emulation build (2026-11-14)
 
 The sibling checkout is up to date with public `sly1-decomp` master
-`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (2026-11-13), clean on `master`.
-The newest upstream merge is PR #145 (`feat(eu): credit PAL's alignment
-padding and its class descriptor table`). It changes PAL data accounting and
-PAL-only descriptors; there are no changes under the US source/config paths,
-so the host build inputs remain the same.
+`83f2b50d586602f67e03e42343737a0dd9072a3e` (2026-11-14), clean on
+`master`. Since PR #145, PR #146 names the five world bosses and renames their
+US source/header files. PR #147 fixes a PAL comment. The US match totals are unchanged. Those names make the boss
+logic easier to navigate for later port work. The host32 target rebuilt
+successfully from the renamed US source files with no staging changes.
 The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
 (100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
 unmatched data is 140 bytes. The nine commits since `b482e857` classify nine

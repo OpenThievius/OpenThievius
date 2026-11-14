@@ -17,6 +17,19 @@ scene has been demonstrated; no card-format action was taken. Latest run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
 
+## Latest decomp refresh (2026-11-14)
+
+The sibling checkout is clean on `master` at
+`83f2b50d586602f67e03e42343737a0dd9072a3e`. Public US progress is 4,807/4,807
+functions and 1,112,400/1,112,400 code bytes (100%); data is 430,919/431,059
+bytes (99.9675%), leaving 140 bytes unmatched. The recent upstream changes
+rename and clarify boss code (`world2_boss.cpp`, `world5_boss.cpp`, and related
+headers) and fix a PAL comment. No new US code was added because matching was
+already complete. The host32 target rebuilt from this snapshot: 194 Sly source
+units and 61 port backfills compiled; the direct-call frontier remains 827/835.
+No runtime input was used for this refresh. Backfills remain isolated in
+`port/game/sly1-us/native/`.
+
 Wave 57 rechecked sibling decomp master `1fdd36d7`: US code is 100% matched
 (4,807 functions, 1,112,400 bytes; 4,498 exact C and 311 original assembly),
 with 140 US data bytes still unmatched; PAL code is also 100%. Recent upstream

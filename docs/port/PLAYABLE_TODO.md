@@ -42,11 +42,12 @@ used the split Wave 57 clock layout and must be repeated before relying on the
 following subgroup timer result. Do not skip directly to forcing a title or
 level.
 
-**Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
+**Build baseline:** public `sly1-decomp` master is `83f2b50d` (2026-11-14),
 with 4,807/4,807 US functions and 100% of code matched (4,498 exact C and 311
-original assembly), plus 99.9675% of data. The latest Wave 58 host32 build
-compiles 194 Sly units and 61 port-only
-backfills. Its combined object defines 4,380 catalogued function entries and
+original assembly), plus 99.9675% of data (140 bytes remain unmatched). Recent
+upstream commits name the five world bosses and reorganize their matched source
+files; they add no matched code. The host32 build compiles against those paths.
+The latest Wave 58 build compiles 194 Sly units and 61 port-only backfills. Its combined object defines 4,380 catalogued function entries and
 resolves 827/835 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
 diagnostics are documented in the port roadmap.
