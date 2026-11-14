@@ -24,6 +24,13 @@ with a Cross/Space input. The current interactive launcher has pad tracing
 enabled; do not infer menu progress until the log records the button edge and
 the page transition.
 
+The retail sequence to trace is specific: `UpdatePauseMenu` page 3 accepts
+`flags & 0x0040`; `ActivatePauseMenuSelection` closes the page and sets memory
+card display mode 2; then `UpdateElementStack` state 0 calls
+`StartObjectSubGroupFinish` once `D_002701B8` is zero. Record each transition
+and the Splash subgroup's completion/title request. No-format remains the
+required choice on the no-card prompt.
+
 The sibling decomp checkout is now at public master
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (PR #145). That update adds PAL
 alignment-padding accounting and PAL-specific class descriptor data; it has

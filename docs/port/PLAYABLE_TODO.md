@@ -25,6 +25,14 @@ the generic OpenRAC pad serializer and decomp source remain unchanged. Wave 49
 compiles and links this change. It still needs one runtime input check before
 we can claim Continue advances.
 
+The retail post-input path is now clear from the matched sources: page-3
+`UpdatePauseMenu` activates the selected Continue row on `flags & 0x0040`;
+`ActivatePauseMenuSelection` closes that page and sets the card display mode to
+2. Then `UpdateElementStack` state 0 calls `StartObjectSubGroupFinish` when
+`D_002701B8` is clear. The next trace should record those stages in order and
+follow the subgroup's completion into the title request. Do not skip directly
+to forcing a title or level.
+
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
 The latest host32 build compiles 194 Sly units and 65 port-only backfills. Its
