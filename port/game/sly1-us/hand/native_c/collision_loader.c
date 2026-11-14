@@ -16,32 +16,6 @@ void func_00138BE0(void* unused, void* collider, u32 mask)
         *(u32*)(root + 0x4B8) &= ~mask;
 }
 
-/* Port-only translation of the retail Collider post-load callback. */
-void func_001B89B8(void* collider)
-{
-    u8* self = (u8*)collider;
-    u32 root;
-    u32 world;
-    u32 root_vtable;
-    u32 root_update;
-
-    func_00125108(collider);
-    root = *(u32*)(self + 0x50);
-    world = *(u32*)(self + 0x14);
-    root_vtable = root >= 0x00100000u && root < 0x02000000u
-        ? *(u32*)root : 0;
-    root_update = root_vtable >= 0x00100000u && root_vtable < 0x02000000u
-        ? *(u32*)(root_vtable + 0xD8) : 0;
-    sly1_native_trace_font(152, (u32)collider, root, world, root_vtable,
-                           root_update);
-    if (root_update != 0)
-        (void)sly1_native_call_regs4(root_update, root, 0, 0, 0);
-    if (world >= 0x00100000u && world < 0x02000000u) {
-        func_00138BE0((void*)world, collider, 7);
-        *(s32*)(world + 0x1AEC) = 0;
-    }
-}
-
 void func_001BB4A0(void* collider)
 {
     u8* self = (u8*)collider;

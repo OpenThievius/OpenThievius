@@ -315,7 +315,6 @@ func_001615F0	native_c/display_packets.c
 func_0019DDA0	native_c/display_packets.c
 func_0011ECB8	native_c/resource_object_record_loop.c
 func_00160CE8	native_c/func_00160CE8.c
-func_0015C1C0	overrides_c/func_0015C1C0.c
 func_0018D500	overrides_c/native_heap.c
 func_0018D568	overrides_c/func_0018D568.c
 func_0018D5C0	overrides_c/native_heap.c
