@@ -3,9 +3,12 @@
 // services are absent. The matching implementation remains in sly1-decomp
 // and is not changed by this host backfill.
 static int complete_native_iop_call(void* rpc, void* receive, int receive_size) {
+    const auto address = reinterpret_cast<unsigned int>(rpc);
     // The command-channel client is polled by IsIopReplyReady. Supply the
-    // reply-buffer sentinels that its retail completion check expects.
-    if (rpc == reinterpret_cast<void*>(0x0827B4C8u)) {
+    // reply-buffer sentinels that its retail completion check expects. Some
+    // staged C calls pass the raw retail address; translated callers pass the
+    // host-mapped guest address.
+    if (address == 0x0027B4C8u || address == 0x0827B4C8u) {
         if (receive != nullptr && receive_size >= 3 * static_cast<int>(sizeof(int))) {
             auto* words = static_cast<int*>(receive);
             words[0] = -1;
@@ -17,7 +20,7 @@ static int complete_native_iop_call(void* rpc, void* receive, int receive_size) 
 
     // The bank-load client has no IOP peer either; its one-word result does
     // not use the command reply-buffer sentinel protocol.
-    if (rpc == reinterpret_cast<void*>(0x0827B4F0u)) {
+    if (address == 0x0027B4F0u || address == 0x0827B4F0u) {
         if (receive != nullptr && receive_size >= static_cast<int>(sizeof(int)))
             *static_cast<int*>(receive) = 0;
         return 0;

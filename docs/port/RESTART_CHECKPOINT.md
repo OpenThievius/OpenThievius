@@ -60,10 +60,12 @@ after that call. The active thread repeatedly prints the retail
 `Sif says RPC isn't busy, but we still don't have returns from the IOP!`
 message from `IsIopReplyReady`. A first port-only sentinel fix at the legacy
 `func_001F8290` entry did not change this because decompiled callers use the
-source-level `CallRemoteService` implementation. The backfill now covers both
-host call paths and builds, but this correction has not yet been exercised in a
-new Continue run. The test input was the user's single Space press; no
-additional input was sent. Trace logs:
+source-level `CallRemoteService` implementation. Link disassembly then showed
+that source-level callers pass raw client address `0x0027b4c8`, while the first
+backfill compared only against mapped address `0x0827b4c8`. The port backfill
+now recognizes both address forms; the rebuilt launcher still needs a
+post-Continue runtime check. The test input was the user's single Space press;
+no additional input was sent. Trace logs:
 `/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`, and
 `/tmp/sly-wave60-rpc-retest.log`.
 

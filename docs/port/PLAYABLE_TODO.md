@@ -13,10 +13,12 @@ don't have returns from the IOP!` warning from `IsIopReplyReady`.
 The first port-only completion attempt wrote reply sentinels only through the
 legacy `func_001F8290` address and did not resolve this call path. Current
 decomp callers reach the source-level `CallRemoteService` body, so the isolated
-port backfill now covers both that name and the legacy address. It builds, but
-the corrected service still needs a post-Continue runtime confirmation. Keep
-this implementation in `native/`; do not edit matching source in
-`sly1-decomp`. The latest trace is `/tmp/sly-wave60-rpc-retest.log`.
+port backfill covers that name and the legacy address. Link disassembly showed
+those source callers pass raw client address `0x0027b4c8`, not the mapped
+`0x0827b4c8`; the backfill now accepts both. The rebuilt service still needs a
+post-Continue runtime confirmation. Keep this implementation in `native/`; do
+not edit matching source in `sly1-decomp`. The latest trace is
+`/tmp/sly-wave60-rpc-retest.log`.
 
 **Next:** rerun with the corrected backfill, press Space once on page 3, and
 confirm the reply-check loop exits and the block header returns. Then follow
