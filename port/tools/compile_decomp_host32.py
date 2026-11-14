@@ -1741,7 +1741,8 @@ void StartStateGraph"""
             signature = "void RunPendingWorldLoad(WorldLoadRequest* self)\n{"
             if signature in adapted:
                 hook = ('extern "C" void sly1_native_trace_resource_state(u32, u32, u32);\n'
-                        'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n')
+                        'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
+                        'extern "C" void sly1_port_trace_value(u32, u32);\n')
                 adapted = hook + adapted
                 replacement = (
                     signature + "\n"
@@ -1761,6 +1762,37 @@ void StartStateGraph"""
                 if adapted.count(end) != 1:
                     raise RuntimeError("expected world-load completion in " + rel.as_posix())
                 adapted = adapted.replace(end, end_replacement, 1)
+                # The confirmed Continue transition enters this function and
+                # stops advancing before its completion callback. Bracket the
+                # key lookup, sector stream, block header, and typed world read
+                # in staged host source only; never alter matching source.
+                load_probes = (
+                    ("    SetScreenOwner(2);\n",
+                     "    SetScreenOwner(2);\n"
+                     "    sly1_port_trace_value(0x1e4ea801u, (u32)self->key);\n"),
+                    ("        if (key.second == 0) goto end;\n",
+                     "        sly1_port_trace_value(0x1e4ea802u, (u32)key.first);\n"
+                     "        sly1_port_trace_value(0x1e4ea803u, (u32)key.second);\n"
+                     "        if (key.second == 0) goto end;\n"),
+                    ("            if (OpenBufferedSectorStreamRange(&sub, &key) == 0) {\n",
+                     "            s32 stream_open = OpenBufferedSectorStreamRange(&sub, &key);\n"
+                     "            sly1_port_trace_value(0x1e4ea804u, (u32)stream_open);\n"
+                     "            if (stream_open == 0) {\n"),
+                    ("            ReadBufferedBlockHeader(ne, &sub);\n",
+                     "            ReadBufferedBlockHeader(ne, &sub);\n"
+                     "            sly1_port_trace_value(0x1e4ea805u, (u32)sub.remaining);\n"),
+                    ("            g_currentWorld->desc->m0A(g_currentWorld, &sub);\n",
+                     "            g_currentWorld->desc->m0A(g_currentWorld, &sub);\n"
+                     "            sly1_port_trace_value(0x1e4ea806u, (u32)sub.remaining);\n"),
+                    ("            CloseBufferedStream(&sub);\n",
+                     "            CloseBufferedStream(&sub);\n"
+                     "            sly1_port_trace_value(0x1e4ea807u, (u32)g_currentWorld);\n"),
+                )
+                for old_probe, new_probe in load_probes:
+                    if adapted.count(old_probe) != 1:
+                        raise RuntimeError("expected one world-load probe site in " +
+                                           rel.as_posix())
+                    adapted = adapted.replace(old_probe, new_probe, 1)
         elif rel.as_posix() == "main/memory_card.cpp" and args.trace_functions:
             hook = ('extern "C" void sly1_native_trace_memory_update(u32, u32, u32, u32, float, float, u32, s32);\n')
             adapted = hook + adapted
