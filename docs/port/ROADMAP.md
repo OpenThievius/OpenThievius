@@ -67,7 +67,7 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The current Wave 50 host32 staging build compiles all 194 Sly source units and 66
+The current Wave 51 host32 staging build compiles all 194 Sly source units and 64
 port-only backfills. Its combined object defines 4,380 catalogued function
 entries; the direct-call frontier has 822/830 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
@@ -102,6 +102,12 @@ unknown; see the native backfill README for its evidence and limitations. The
 light-collection VU0 call site still has a staging no-op. The upstream
 [porting guide](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
 recommends native call-site C replacements after startup is stable.
+
+Wave 51 removes the `SuppressScriptEvent` and `InitGauge` host overrides now
+that their matched US C implementations compile in the native build. A fresh
+Wave 51 startup trace still reaches page 3 of the no-card warning and stays
+there with all pad buttons released; no menu input was injected. The matched C
+swap does not change that startup state. Log: `/tmp/sly1-wave51-startup.log`.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
 `/tmp/sly1-wave47-regtrace.log`.
 

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 50): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 51): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -11,8 +11,8 @@ neighboring host BSS. The port compiler now sizes the staged global as
 two stack entries. It submits native graphics each frame. A fresh Wave 48
 capture confirms the full 640x224 warning panel and highlighted Continue at
 the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
-scene has been demonstrated; no card-format action was taken. Current run:
-`/tmp/sly1-wave49-interactive.log`; prior Wave 48 run:
+scene has been demonstrated; no card-format action was taken. Latest run:
+`/tmp/sly1-wave51-startup.log`; prior interactive Wave 49 run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
 
@@ -23,6 +23,13 @@ as `0x0040`. This correction compiles and links, but has not yet been proven
 with a Cross/Space input. The current interactive launcher has pad tracing
 enabled; do not infer menu progress until the log records the button edge and
 the page transition.
+
+Wave 51 removes the port-only `SuppressScriptEvent` and `InitGauge` overrides
+because both now use matched US C implementations from the decomp. All 194
+host32 Sly units and 64 remaining port backfills compile and link. The fresh
+trace reaches the no-card page at frame 60 and remains there; all observed pad
+reports are released (`held=0x0000`). No input was injected, so this confirms
+startup but not Continue dismissal. Log: `/tmp/sly1-wave51-startup.log`.
 
 The retail sequence to trace is specific: `UpdatePauseMenu` page 3 accepts
 `flags & 0x0040`; `ActivatePauseMenuSelection` closes the page and sets memory

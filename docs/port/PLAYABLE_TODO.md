@@ -35,15 +35,15 @@ to forcing a title or level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest host32 build compiles 194 Sly units and 66 port-only backfills. Its
-combined object defines 4,380 catalogued function entries and resolves
+The latest Wave 51 host32 build compiles 194 Sly units and 64 port-only
+backfills. Its combined object defines 4,380 catalogued function entries and resolves
 822/830 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
 diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. With the Wave 50 build, verify Cross/Space moves from the no-card warning
+1. With the Wave 51 build, verify Cross/Space moves from the no-card warning
    through the normal Continue dismissal into the Splash finish and title
    transition. Earlier input traces show that
    dismissing Continue can leave a black frame while Splash remains active, so
