@@ -1562,101 +1562,24 @@ def normalize_camera_mesh_contact_abi(text, label):
 
 
 def trace_oscillator_outputs(text, label, enabled):
-    """Record the first oscillator mesh/output records before their writes."""
+    """Trap invalid oscillator vertex counts before they can overwrite the host stack."""
     if label != "main/oscillator.cpp" or not enabled:
         return text
-    declaration = ('extern "C" void sly1_native_oscillator_probe(u32, u32);\n'
-                   'extern "C" volatile u32 sly1_native_oscillator_debug[24];\n')
-    part_target = "        OscMesh* mesh = part->mesh;"
-    part_replacement = """        OscMesh* mesh = part->mesh;
-        sly1_native_oscillator_debug[3] = (u32)part;
-        sly1_native_oscillator_debug[4] = (u32)part->obj;
-        sly1_native_oscillator_debug[5] = (u32)mesh;
-        sly1_native_oscillator_debug[6] = mesh != 0 ? (u32)mesh->blockCount : 0;
-        sly1_native_oscillator_debug[7] = mesh != 0 ? (u32)mesh->blocks : 0;
-        sly1_native_oscillator_debug[8] = (u32)part->mode;
-        if (mesh != 0) {
-            u32 tag = 0x1f282000u;
-            sly1_port_trace_value(tag + 0u, (u32)self);
-            sly1_port_trace_value(tag + 1u, (u32)part);
-            sly1_port_trace_value(tag + 2u, (u32)part->obj);
-            sly1_port_trace_value(tag + 3u, (u32)mesh);
-            sly1_port_trace_value(tag + 4u, (u32)mesh->blockCount);
-            sly1_port_trace_value(tag + 5u, (u32)mesh->blocks);
-            sly1_port_trace_value(tag + 6u, (u32)part->mode);
-            sly1_port_trace_value(tag + 7u, (u32)self->entryCount);
-        }"""
     range_target = "            s32 n = (r->end - r->start) / r->stride;"
-    range_replacement = """            if (i < 4096) {
-                u32 tag = 0x1f283000u;
-                sly1_port_trace_value(tag + 15u, (u32)i);
-                sly1_port_trace_value(tag + 0u, (u32)part);
-                sly1_port_trace_value(tag + 1u, (u32)mesh);
-                sly1_port_trace_value(tag + 2u, (u32)block);
-                sly1_port_trace_value(tag + 3u, (u32)data);
-                sly1_port_trace_value(tag + 5u, (u32)r);
-                sly1_port_trace_value(tag + 4u, data != 0 ? (u32)data->verts : 0);
-                sly1_port_trace_value(tag + 12u, r != 0 ? (u32)r->start : 0);
-                sly1_port_trace_value(tag + 13u, r != 0 ? (u32)r->end : 0);
-                sly1_port_trace_value(tag + 14u, r != 0 ? (u32)r->stride : 0);
-            }
-            s32 n = (r->end - r->start) / r->stride;
-            sly1_native_oscillator_debug[9] = (u32)i;
-            sly1_native_oscillator_debug[10] = (u32)block;
-            sly1_native_oscillator_debug[11] = (u32)data;
-            sly1_native_oscillator_debug[12] = data != 0 ? (u32)data->verts : 0;
-            sly1_native_oscillator_debug[13] = (u32)r;
-            sly1_native_oscillator_debug[14] = r != 0 ? (u32)r->start : 0;
-            sly1_native_oscillator_debug[15] = r != 0 ? (u32)r->end : 0;
-            sly1_native_oscillator_debug[16] = r != 0 ? (u32)r->stride : 0;
-            sly1_native_oscillator_debug[17] = (u32)n;
-            sly1_native_oscillator_debug[23] = 1;
-            if (i < 4096) {
-                u32 tag = 0x1f283000u;
-                sly1_port_trace_value(tag + 6u, (u32)r->start);
-                sly1_port_trace_value(tag + 7u, (u32)r->end);
-                sly1_port_trace_value(tag + 8u, (u32)r->stride);
-                sly1_port_trace_value(tag + 9u, (u32)n);
-                sly1_port_trace_value(tag + 10u, (u32)mesh->blockCount);
-                sly1_port_trace_value(tag + 11u, (u32)part->mode);
+    range_replacement = range_target + """
+            if (n < 0 || n > 0x100) {
+                // Record the count, range record, packed bounds and stride
+                // in saved registers without calling out of the render thread.
+                const u32 range_limits = ((u32)r->start << 16) | r->end;
+                const u32 range_stride = r->stride;
+                __asm__ volatile("ud2" : :
+                    "a"(n), "b"((u32)r), "c"(range_limits), "d"(range_stride) :
+                    "memory");
+                __builtin_unreachable();
             }"""
-    target = "                OscOut* out = data->outs[ent->out];"
-    replacement = """                if (i == 0 && j == 0) {
-                    u32 tag = 0x1f284000u;
-                    sly1_native_oscillator_probe(tag + 0u, (u32)self);
-                    sly1_native_oscillator_probe(tag + 1u, (u32)part);
-                    sly1_native_oscillator_probe(tag + 2u, (u32)mesh);
-                    sly1_native_oscillator_probe(tag + 3u, (u32)data);
-                    sly1_native_oscillator_probe(tag + 4u, (u32)data->outs);
-                    sly1_native_oscillator_probe(tag + 5u, (u32)ent);
-                    sly1_native_oscillator_probe(tag + 6u, (u32)ent->out);
-                    sly1_native_oscillator_probe(tag + 7u, (u32)ent->index);
-                }
-                OscOut* out = data->outs[ent->out];"""
-    entry_target = "void RefreshOscillatorFrames(Oscillator* self)\n{"
-    copy_target = "            CopyMemory(verts, data->verts, n * sizeof(Vec02));"
-    copy_replacement = (copy_target + "\n"
-                       "            sly1_native_oscillator_debug[23] = 2;")
-    entry_replacement = """void RefreshOscillatorFrames(Oscillator* self)
-{
-    sly1_native_oscillator_debug[0] = (u32)self;
-    sly1_native_oscillator_debug[1] =
-        (u32)*(OscPart**)((u8*)self + 0x8E0);
-    sly1_native_oscillator_debug[2] = (u32)self->entryCount;
-    sly1_port_trace_value(0x1f281000u, (u32)self);
-    sly1_port_trace_value(0x1f281001u,
-        (u32)*(OscPart**)((u8*)self + 0x8E0));
-    sly1_port_trace_value(0x1f281002u, (u32)self->entryCount);"""
-    if (text.count(entry_target) != 1 or text.count(part_target) != 1 or text.count(range_target) != 1 or
-            text.count(copy_target) != 1 or
-            text.count(target) != 1):
-        raise RuntimeError("expected oscillator mesh output selection")
-    text = text.replace(entry_target, entry_replacement, 1)
-    text = text.replace(part_target, part_replacement, 1)
-    text = text.replace(range_target, range_replacement, 1)
-    text = text.replace(copy_target, copy_replacement, 1)
-    text = text.replace("sly1_port_trace_value(", "sly1_native_oscillator_probe(")
-    return declaration + text.replace(target, replacement, 1)
+    if text.count(range_target) != 1:
+        raise RuntimeError("expected oscillator vertex range count")
+    return text.replace(range_target, range_replacement, 1)
 
 
 def lower_host_vu0(text):
