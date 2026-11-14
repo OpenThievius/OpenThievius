@@ -35,7 +35,7 @@ to forcing a title or level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest Wave 51 host32 build compiles 194 Sly units and 64 port-only
+The latest Wave 52 host32 build compiles 194 Sly units and 63 port-only
 backfills. Its combined object defines 4,380 catalogued function entries and resolves
 822/830 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
@@ -43,7 +43,7 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. With the Wave 51 build, verify Cross/Space moves from the no-card warning
+1. With the Wave 52 build, verify Cross/Space moves from the no-card warning
    through the normal Continue dismissal into the Splash finish and title
    transition. Earlier input traces show that
    dismissing Continue can leave a black frame while Splash remains active, so
@@ -657,12 +657,12 @@ is rejected. Traces: `/tmp/sly-screen-resource-tables.log`,
 crash. Next, inspect why the accepted texture streams do not produce GIF image
 tags and why visible UI geometry has color `0x80000000`.
 
-The port-only `func_00125C90` implementation remains based on the current
-99.7% upstream near-match, still not exact. Its active copy stays in
-`port/game/sly1-us/native/` and separate from decomp source. The same directory
-now holds the small text-layout setter backfills for `func_00137228` and its
-adjacent entries. Retire these when the corresponding hostable decomp code is
-available.
+Wave 52 removes the port-only 99.7% near-match for `func_00125C90`
+(`ApplyPlacedObjectTransform`) and compiles the 100%-matched body in
+`placed_object.cpp`. A bounded no-input run reaches and stays on the no-card
+warning through frame 305 without a fault. The text-layout setters at
+`func_00137228` and adjacent entries remain separate port backfills because
+the direct host build does not emit those inline methods as standalone symbols.
 
 **Next:** follow the ordinary Splash-to-title/state transition now that the
 graph and initial walker path run. Trace its state/event callbacks and the

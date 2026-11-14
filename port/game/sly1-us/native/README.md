@@ -12,7 +12,7 @@ never edited by the host staging adapter.
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 build compiles 194 source units and 64 port-only backfills.
+The native host32 build compiles 194 source units and 63 port-only backfills.
 The combined object defines 4,380 catalogued function entries; the direct
 call frontier resolves 822/830 functions, without following indirect calls.
 
@@ -48,6 +48,10 @@ checks before treating the particle approximation as correct.
 Wave 51 removes the port overrides for `SuppressScriptEvent` and `InitGauge`;
 both now compile from the matched US C in the decomp. This keeps newly recovered
 game logic authoritative and leaves platform-specific adapters separate.
+Wave 52 removes the old 99.7% near-match override for `ApplyPlacedObjectTransform`
+(`func_00125C90`); the native build now uses its 100%-matched C from
+`placed_object.cpp`. The no-input startup run still reaches the no-card warning
+without an immediate fault.
 
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for

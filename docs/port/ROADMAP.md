@@ -67,7 +67,7 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The current Wave 51 host32 staging build compiles all 194 Sly source units and 64
+The current Wave 52 host32 staging build compiles all 194 Sly source units and 63
 port-only backfills. Its combined object defines 4,380 catalogued function
 entries; the direct-call frontier has 822/830 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
@@ -108,6 +108,13 @@ that their matched US C implementations compile in the native build. A fresh
 Wave 51 startup trace still reaches page 3 of the no-card warning and stays
 there with all pad buttons released; no menu input was injected. The matched C
 swap does not change that startup state. Log: `/tmp/sly1-wave51-startup.log`.
+
+Wave 52 also retires the 99.7% native near-match for `ApplyPlacedObjectTransform`
+(`func_00125C90`) in favor of the decomp's 100%-matched US C body. `nm -C`
+confirms the native object now defines `func_00125C90(PlacedObject*, Camera*,
+ScaledTransform*)` from `main/placed_object.o`; the native override object is
+absent. A bounded no-input run reaches page 3 at frame 60 and remains there
+through frame 305 without a fault. Log: `/tmp/sly1-wave52-startup.log`.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
 `/tmp/sly1-wave47-regtrace.log`.
 
