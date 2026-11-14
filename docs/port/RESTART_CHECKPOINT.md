@@ -1,7 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 200)
+## Current checkpoint (2026-11-14, Wave 236)
+
+The hidden host32 launcher builds and reaches the retail memory-card warning.
+One in-process Cross press dismisses it and enters world setup. Host-only
+staging now normalizes the target-pose and camera-tracking callback argument
+orders, passes the switched-collider pose arguments explicitly, and forwards
+the inherited radius to `CollectMeshHits`. The normal-boot run enters mesh
+contact generation and performs six CD reads (2,426 sectors), but then stops
+making observable progress. It was terminated by the 20-second timeout with
+no fatal-signal report; `game_frames` remained zero. No title, level graphics,
+or playable state has been confirmed. Latest run:
+`/tmp/sly-wave236-normal-run.log`.
+
+The next task is to locate the stall after mesh contact generation and verify
+that world setup reaches its normal frame loop. Do not bypass contact or
+force graphics. Keep all host ABI adapters and functional C backfills in this
+port repository; the `sly1-decomp` checkout remains untouched.
+
+The current tree also contains earlier host32 adapters for collider mesh
+copying, property callback mapping, and world-load argument handling. Some
+fault and call-site tracing remains in the staging compiler and native host;
+review and remove diagnostics that are no longer needed before treating this
+as a clean contributor checkpoint.
+
+Branch: `wip/native-sly-port`, based on `origin/wip/native-sly-port`. Build:
+`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j2`.
+Hidden test runs inject one Cross in the launcher process and do not focus the
+desktop window. No source files in `sly1-decomp` were changed.
+
+The details below this current checkpoint are historical investigation notes;
+their run status predates Wave 236.
 
 Branch `wip/native-sly-port` is based on `origin/wip/native-sly-port`; the
 working tree has uncommitted host staging and diagnostic changes. The sibling
