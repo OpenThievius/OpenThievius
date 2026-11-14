@@ -65,12 +65,12 @@ normalizes animation callbacks to their vtable signatures.
 
 `func_001F5B08.cpp` implements overlap-safe `memmove` for a still-assembly
 libc function used during camera-controller stack insertion.
-`func_00183668.cpp` is a separate behavior backfill for the still-unmatched
-script-event filter; retire it once matching C is hostable. The other active
-files provide platform boundaries (CD reads, Linux threads/semaphores, timer
-and DMA services), still-missing retail routines, or host translations of
-handwritten EE/VU0 code. Keep each replacement narrow and document its retail
-address and evidence in the source.
+`SuppressScriptEvent` (`func_00183668`) and `InitGauge` (`func_001ABE70`) now
+use matched C from the decomp; their obsolete port copies were removed in
+Wave 51. Other active files provide platform boundaries (CD reads, Linux
+threads/semaphores, timer and DMA services), still-missing retail routines, or
+host translations of handwritten EE/VU0 code. Keep each replacement narrow
+and document its retail address and evidence in the source.
 
 Functions that acquired matched source in the rework were moved to
 [`hand/superseded_backfills/`](../hand/superseded_backfills/). Those preserved

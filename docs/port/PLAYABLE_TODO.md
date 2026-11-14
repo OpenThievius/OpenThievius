@@ -674,9 +674,9 @@ remain unachieved. Keep each functional
 replacement in the port backfill area and retire it when matching source is
 hostable. The port is not playable yet.
 
-`func_00183668` (`SuppressScriptEvent`) is still unmatched (88.8% near-match).
-A native C++ behavior backfill now lives in `port/game/sly1-us/native/` and is
-counted only in the port build; replace it when matching source becomes hostable.
+Wave 51 now compiles `SuppressScriptEvent` (`func_00183668`) from its matched
+US C source. The earlier 88.8% near-match and port behavior backfill described
+in the historical trace notes are superseded; the backfill was removed.
 
 Host-only ABI compatibility adjustments stay in this repository's staging
 script: four-word globals retain EE quadword alignment; selected functions make
