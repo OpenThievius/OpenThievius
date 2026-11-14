@@ -96,6 +96,39 @@ extern "C" int __cxa_atexit(void (*)(void*), void*, void*) {
     return 0;
 }
 
+// GCC emits the Itanium C++ ABI guard calls for function-local statics. This
+// freestanding launcher has no libstdc++, so provide the initialized/pending
+// bits directly. The acquire/release atomics also cover statics first reached
+// from the native worker thread after startup.
+extern "C" int __cxa_guard_acquire(unsigned long long* guard) {
+    auto* state = reinterpret_cast<unsigned int*>(guard);
+    for (;;) {
+        unsigned int observed = __atomic_load_n(state, __ATOMIC_ACQUIRE);
+        if (observed & 1u)
+            return 0;
+        if (observed & 0x100u) {
+            while (__atomic_load_n(state, __ATOMIC_ACQUIRE) & 0x100u) {
+            }
+            continue;
+        }
+        unsigned int expected = observed;
+        if (__atomic_compare_exchange_n(state, &expected, observed | 0x100u,
+                                        false, __ATOMIC_ACQUIRE,
+                                        __ATOMIC_RELAXED))
+            return 1;
+    }
+}
+
+extern "C" void __cxa_guard_release(unsigned long long* guard) {
+    auto* state = reinterpret_cast<unsigned int*>(guard);
+    __atomic_store_n(state, 1u, __ATOMIC_RELEASE);
+}
+
+extern "C" void __cxa_guard_abort(unsigned long long* guard) {
+    auto* state = reinterpret_cast<unsigned int*>(guard);
+    __atomic_store_n(state, 0u, __ATOMIC_RELEASE);
+}
+
 extern "C" float sqrtf(float value) {
     float result;
     __asm__ volatile("flds %1; fsqrt; fstps %0" : "=m"(result) : "m"(value));
