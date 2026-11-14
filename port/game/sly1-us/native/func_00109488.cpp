@@ -1209,8 +1209,10 @@ extern "C" void func_00109488(void) {
     memcpy(D_002505D8, kPropertyDescriptors, sizeof(kPropertyDescriptors));
     auto* properties = reinterpret_cast<PropertyDescriptor*>(D_002505D8);
     for (u32 i = 0; i < 1179; ++i) {
-        if (properties[i].flags & 0x400u)
+        if (properties[i].flags & (0x400u | 0x4u))
             properties[i].callback = native_function(properties[i].callback);
+        if (properties[i].flags & 0x20u)
+            properties[i].count = native_function(properties[i].count);
         if (properties[i].flags & 0x100u)
             properties[i].offset = native_function(properties[i].offset);
         if (properties[i].flags & 0x1000u)

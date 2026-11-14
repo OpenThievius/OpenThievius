@@ -410,6 +410,513 @@ def forward_keyed_rotation_get_arguments(text, label):
     return text.replace(old_call, new_call, 1)
 
 
+def refresh_attachment_target_matrix_context(text, label):
+    """Reload the context after lookup before building its target matrix."""
+    if label != "main/placed_object_model.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_bind_self;\n'
+        'extern volatile unsigned int sly1_native_bind_context;\n'
+        'extern volatile unsigned int sly1_native_bind_world;\n'
+        'extern volatile unsigned int sly1_native_bind_key;\n'
+        'extern volatile unsigned int sly1_native_find_world;\n'
+        'extern volatile unsigned int sly1_native_find_id;\n'
+        'extern volatile unsigned int sly1_native_find_context;\n'
+        'extern volatile unsigned int sly1_native_find_esp_before;\n'
+        'extern volatile unsigned int sly1_native_find_esp_after;\n'
+        'extern volatile unsigned int sly1_native_matrix_source;\n'
+        'extern volatile unsigned int sly1_native_matrix_output;\n'
+        'extern volatile unsigned int sly1_native_bind_ebp_entry;\n'
+        'extern volatile unsigned int sly1_native_bind_ebp_after_find;\n'
+        '}\n\n')
+    text = declarations + text
+    function = "void BindAttachmentTargets(AttachmentTargets* self, PlacedObject* ctx)\n{\n"
+    instrumented = (
+        function +
+        "    sly1_native_bind_self = (unsigned int)self;\n"
+        "    sly1_native_bind_context = (unsigned int)ctx;\n"
+        "    sly1_native_bind_world = (unsigned int)ctx->world;\n"
+        "    __asm__ volatile(\"movl %%ebp, %0\" : \"=m\"(sly1_native_bind_ebp_entry));\n")
+    if text.count(function) != 1:
+        raise RuntimeError("expected BindAttachmentTargets definition")
+    text = text.replace(function, instrumented, 1)
+    lookup = (
+        "        TargetObject* r = (TargetObject*)FindFirstObjectByIdMode4("
+        "ctx->world, self->keys[i], ctx);")
+    lookup_replacement = (
+        "        sly1_native_bind_key = (unsigned int)self->keys[i];\n"
+        "        sly1_native_find_world = (unsigned int)ctx->world;\n"
+        "        sly1_native_find_id = (unsigned int)self->keys[i];\n"
+        "        sly1_native_find_context = (unsigned int)ctx;\n"
+        "        __asm__ volatile(\"movl %%esp, %0\" : \"=m\"(sly1_native_find_esp_before));\n"
+        "        TargetObject* r = (TargetObject*)FindFirstObjectByIdMode4("
+        "ctx->world, self->keys[i], ctx);\n"
+        "        __asm__ volatile(\"movl %%esp, %0\" : \"=m\"(sly1_native_find_esp_after));\n"
+        "        __asm__ volatile(\"movl %%ebp, %0\" : \"=m\"(sly1_native_bind_ebp_after_find));\n"
+        "        sly1_native_matrix_source = (unsigned int)&ctx->m110;\n"
+        "        sly1_native_matrix_output = (unsigned int)&f.a;")
+    if text.count(lookup) != 1:
+        raise RuntimeError("expected attachment target lookup in " + label)
+    text = text.replace(lookup, lookup_replacement, 1)
+    old_decl = "void MultiplyMatrices(void* out, void* b, void* in); // stays void: retail returns a value, but declared so func_00165828 differs in registers"
+    new_decl = "QuadMatrix MultiplyMatrices(Quad16* b, Quad16* in);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected retail attachment matrix prototype in " + label)
+    text = text.replace(old_decl, new_decl, 1)
+    old_call = "            MultiplyMatrices(&f.m, &f.b, &f.a);"
+    new_call = "            f.m = MultiplyMatrices(&f.b, &f.a);"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected attachment matrix multiply in " + label)
+    return text.replace(old_call, new_call, 1)
+
+
+def preserve_postload_attachment_context(text, label):
+    """Keep the host object pointer across the attachment callback boundary."""
+    if label != "main/placed_object.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_postload_entry;\n'
+        'extern volatile unsigned int sly1_native_postload_bind;\n'
+        '}\n\n')
+    text = declarations + text
+    function = "void PostLoadPlacedObject(PlacedObject* self)\n{\n"
+    if text.count(function) != 1:
+        raise RuntimeError("expected PostLoadPlacedObject definition in " + label)
+    text = text.replace(
+        function,
+        function +
+        "    PlacedObject* volatile attachment_context = self;\n"
+        "    sly1_native_postload_entry = (unsigned int)self;\n",
+        1)
+    call = "    BindAttachmentTargets(self->sub22C, self);"
+    replacement = (
+        "    sly1_native_postload_bind = (unsigned int)attachment_context;\n"
+        "    BindAttachmentTargets(attachment_context->sub22C, attachment_context);")
+    if text.count(call) != 1:
+        raise RuntimeError("expected PostLoadPlacedObject attachment call in " + label)
+    return text.replace(call, replacement, 1)
+
+
+def supply_player_collider_position(text, label):
+    """Pass the player's current position to its two-argument collider update."""
+    if label != "main/player.cpp":
+        return text
+    old_decl = "void SetColliderPosition(void* self);"
+    new_decl = "void SetColliderPosition(void* self, void* pos);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected player collider position prototype")
+    text = text.replace(old_decl, new_decl, 1)
+    old_call = "    SetColliderPosition(self);"
+    new_call = "    SetColliderPosition(self, (u8*)self + 0x100);"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected player collider position call")
+    return text.replace(old_call, new_call, 1)
+
+
+def normalize_turning_collider_matrix_abi(text, label):
+    """Use the host matrix function's axis/output/angle C++ call order."""
+    if label != "main/turning_collider.cpp":
+        return text
+    old_decl = "void BuildAxisAngleMatrix(const Vec02* t, f32 x, void* p);"
+    new_decl = "void BuildAxisAngleMatrix(const Vec02* axis, void* out, f32 angle);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected turning collider matrix prototype")
+    text = text.replace(old_decl, new_decl, 1)
+    replacements = (
+        ("BuildAxisAngleMatrix(&g_unitZVector, self->f638, (u8*)self + 0x660);",
+         "BuildAxisAngleMatrix(&g_unitZVector, (u8*)self + 0x660, self->f638);"),
+        ("BuildAxisAngleMatrix(&g_unitZVector, angle, matrix);",
+         "BuildAxisAngleMatrix(&g_unitZVector, matrix, angle);"),
+    )
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected turning collider matrix call: " + old)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_placed_object_sound_abi(text, label):
+    """Reorder retail's MIPS-oriented sound call declarations for host calls."""
+    if label != "main/placed_object.cpp":
+        return text
+    old_decls = (
+        "void StartSoundEffect(s32 a0, f32 f12, f32 f13, f32 f14, f32 f15, "
+        "f32 f16, void* a1, PlacedObject* a2, s32 a3, void* a4, s32 a5);",
+        "void StartSoundEffect(void* a0, f32 f12, f32 f13, f32 f14, f32 f15, "
+        "f32 f16, void* a1, void* a2, s32 a3, void* a4, s32 a5);",
+    )
+    new_decl = (
+        "struct PlayingSound;\n"
+        "void StartSoundEffect(s32 id, PlayingSound** out, s32 p2, s32 p3, "
+        "f32 farRange, f32 nearRange, f32 baseVolume, f32 pitch, f32 f16, "
+        "f32* interval, s32 p5);"
+    )
+    for old in old_decls:
+        if text.count(old) != 1:
+            raise RuntimeError("expected MIPS-oriented placed-object sound prototype")
+        text = text.replace(old, new_decl, 1)
+
+    calls = (
+        ("StartSoundEffect(q->f00, q->f04, q->f08, q->f0C, q->f10, q->f20, "
+         "&q->f1C, self, 0, &q->b14, 0);",
+         "StartSoundEffect(q->f00, (PlayingSound**)&q->f1C, 0, (s32)self, q->f04, q->f08, "
+         "q->f0C, q->f10, q->f20, (f32*)&q->b14, 0);"),
+        ("StartSoundEffect(p->p00, p->f04, p->f08, p->f0C, p->f10, p->f20, "
+         "&p->p1C, self, 0, &p->b14, 0);",
+         "StartSoundEffect((s32)p->p00, (PlayingSound**)&p->p1C, 0, (s32)self, p->f04, p->f08, "
+         "p->f0C, p->f10, p->f20, (f32*)&p->b14, 0);"),
+    )
+    for old, new in calls:
+        if text.count(old) != 2 and old.startswith("StartSoundEffect(p->"):
+            raise RuntimeError("expected two placed-object sound-record calls")
+        if old.startswith("StartSoundEffect(q->") and text.count(old) != 1:
+            raise RuntimeError("expected placed-object initial sound call")
+        text = text.replace(old, new)
+    return text
+
+
+def normalize_script_host_call_abi(text, label):
+    """Translate retail-address host callbacks before a direct native call."""
+    if label != "main/script_machine.cpp":
+        return text
+    call = "        host->fn(&t, host->self, count, arr);"
+    if text.count(call) != 1:
+        raise RuntimeError("expected script host-function dispatch")
+    text = text.replace(
+        call,
+        "        unsigned int native_host_fn = "
+        "sly1_native_resolve_function((unsigned int)host->fn);\n"
+        "        if (native_host_fn != 0)\n"
+        "            host->fn = reinterpret_cast<decltype(host->fn)>(native_host_fn);\n"
+        + call,
+        1)
+    return ('extern "C" unsigned int sly1_native_resolve_function(unsigned int);\n' + text)
+
+
+def make_point_frame_transform_unaligned_safe(text, label):
+    """Keep 16-byte vector copies safe for host callers with Vec3 temporaries."""
+    if label != "main/placed_object.cpp":
+        return text
+    old = (
+        "void TransformPointBetweenFrames(PlacedObject* from, PlacedObject* to, Vec02* in, Vec02* out)\n"
+        "{\n"
+        "    Vec02 world;\n"
+        "    Vec02 local;\n"
+        "    if (from != to) {\n"
+        "        if (from != 0) {\n"
+        "            Vu0::Q(world) = Vu0::Rotate(from->m110, Vu0::Q(*in));\n"
+        "            Vu0::Q(world) = Vu0::Add(Vu0::Q(from->v140), Vu0::Q(world));\n"
+        "            in = &world;\n"
+        "        }\n"
+        "        if (to != 0) {\n"
+        "            Vu0::Q(local) = Vu0::Sub(Vu0::Q(*in), Vu0::Q(to->v140));\n"
+        "            Vu0::Q(*out) = Vu0::RotateTransposed(to->m110, Vu0::Q(local));\n"
+        "            return;\n"
+        "        }\n"
+        "    }\n"
+        "    *out = *in;\n"
+        "}\n"
+    )
+    new = (
+        "void TransformPointBetweenFrames(PlacedObject* from, PlacedObject* to, Vec02* in, Vec02* out)\n"
+        "{\n"
+        "    Vec02 input;\n"
+        "    Vec02 world;\n"
+        "    Vec02 local;\n"
+        "    __builtin_memcpy(&input, in, sizeof(input));\n"
+        "    if (from != to) {\n"
+        "        if (from != 0) {\n"
+        "            Vu0::Q(world) = Vu0::Rotate(from->m110, Vu0::Q(input));\n"
+        "            Vu0::Q(world) = Vu0::Add(Vu0::Q(from->v140), Vu0::Q(world));\n"
+        "            input = world;\n"
+        "        }\n"
+        "        if (to != 0) {\n"
+        "            Vu0::Q(local) = Vu0::Sub(Vu0::Q(input), Vu0::Q(to->v140));\n"
+        "            Vu0::Q(local) = Vu0::RotateTransposed(to->m110, Vu0::Q(local));\n"
+        "            __builtin_memcpy(out, &local, sizeof(local));\n"
+        "            return;\n"
+        "        }\n"
+        "    }\n"
+        "    __builtin_memcpy(out, &input, sizeof(input));\n"
+        "}\n"
+    )
+    if text.count(old) != 1:
+        raise RuntimeError("expected point-frame transform definition")
+    return text.replace(old, new, 1)
+
+
+def align_collider_position_argument(text, label):
+    """Copy an EE quadword input to aligned host storage before SIMD reads."""
+    if label != "main/collider.cpp":
+        return text
+    signature = "void SetColliderPosition(Collider* self, Vec02* pos)\n{\n"
+    replacement = (
+        signature
+        + "    Vec02 aligned_pos;\n"
+        + "    __builtin_memcpy(&aligned_pos, pos, sizeof(aligned_pos));\n"
+        + "    pos = &aligned_pos;\n"
+    )
+    if text.count(signature) != 1:
+        raise RuntimeError("expected SetColliderPosition definition in " + label)
+    return text.replace(signature, replacement, 1)
+
+
+def make_null_memory_copy_deterministic(text, label):
+    """Model the cleared EE address-zero page for native host memory copies."""
+    if label != "main/heap.cpp":
+        return text
+    signature = "void CopyMemory(u8* dst, u8* src, u32 size)\n{\n"
+    replacement = (
+        signature
+        + "    if (src == 0) {\n"
+        + "        __builtin_memset(dst, 0, size);\n"
+        + "        return;\n"
+        + "    }\n"
+    )
+    if text.count(signature) != 1:
+        raise RuntimeError("expected CopyMemory definition in " + label)
+    return text.replace(signature, replacement, 1)
+
+
+def map_null_turning_collider_face_reads(text, label):
+    """Use a zeroed host buffer where EE code reads its address-zero RAM."""
+    if label != "main/turning_collider.cpp":
+        return text
+    needle = (
+        "                    MeshFace* f = &((MeshFace*)self->mesh.faces)[j];")
+    replacement = (
+        "                    static MeshFace host_zero_page[2048];\n"
+        "                    MeshFace* face_base = (MeshFace*)self->mesh.faces;\n"
+        "                    if (face_base == 0) face_base = host_zero_page;\n"
+        "                    MeshFace* f = &face_base[j];")
+    if text.count(needle) != 1:
+        raise RuntimeError("expected turning-collider face read in " + label)
+    return text.replace(needle, replacement, 1)
+
+
+def rebuild_collider_mesh_motion_hook(text, label):
+    """Drop the old host hook before rebuilding it from newly copied meshes."""
+    if label != "main/collider.cpp":
+        return text
+    call = "    InitColliderMeshMotion(self);"
+    replacement = "    self->hook = 0;\n" + call
+    if text.count(call) != 1:
+        raise RuntimeError("expected collider mesh-motion initialization in " + label)
+    return text.replace(call, replacement, 1)
+
+
+def trace_collider_mesh_motion_allocations(text, label):
+    """Capture mesh-motion allocation results for the next native fault dump."""
+    if label != "main/collider.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_motion_stage;\n'
+        'extern volatile unsigned int sly1_native_motion_self;\n'
+        'extern volatile unsigned int sly1_native_motion_hook;\n'
+        'extern volatile unsigned int sly1_native_motion_velocity;\n'
+        'extern volatile unsigned int sly1_native_motion_accel;\n'
+        'extern volatile unsigned int sly1_native_motion_tris;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_hook;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_velocity;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_accel;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_tris;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_id;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_id;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_desc;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_desc;\n'
+        'extern volatile unsigned int sly1_native_motion_helper_src;\n'
+        'extern volatile unsigned int sly1_native_motion_helper_extra;\n'
+        'extern volatile unsigned int sly1_native_motion_helper_src_id;\n'
+        'extern volatile unsigned int sly1_native_motion_helper_src_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_all;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_faces;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_face_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_vert_ptr;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_copy_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_faces;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_face_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_return;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_calls;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_self;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_vertices;\n'
+        '}\n\n')
+    text = declarations + text
+    copy_signature = "void CopyColliderMeshesInFrame(Collider* self, Collider* src, s32 extra)\n{\n"
+    if text.count(copy_signature) != 1:
+        raise RuntimeError("expected CopyColliderMeshesInFrame definition")
+    text = text.replace(
+        copy_signature,
+        copy_signature
+        + "    sly1_native_motion_helper_src = (unsigned int)src;\n"
+        + "    sly1_native_motion_helper_extra = (unsigned int)extra;\n"
+        + "    sly1_native_motion_helper_src_id = (unsigned int)src->id;\n"
+        + "    sly1_native_motion_helper_src_vertices = (unsigned int)src->mesh.vertCount;\n",
+        1)
+    signature = "void InitColliderMeshMotion(Collider* self)\n{\n"
+    if text.count(signature) != 1:
+        raise RuntimeError("expected InitColliderMeshMotion definition")
+    text = text.replace(
+        signature,
+        signature
+        + "    sly1_native_motion_stage = 1;\n"
+        + "    sly1_native_motion_self = (unsigned int)self;\n",
+        1)
+    updates = (
+        ("    self->hook = h;\n",
+         "    self->hook = h;\n"
+         "    sly1_native_motion_hook = (unsigned int)h;\n"
+         "    sly1_native_motion_stage = 2;\n"),
+        ("    h->velocity = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n",
+         "    h->velocity = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n"
+         "    sly1_native_motion_velocity = (unsigned int)h->velocity;\n"
+         "    sly1_native_motion_stage = 3;\n"),
+        ("    h->accel = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n",
+         "    h->accel = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n"
+         "    sly1_native_motion_accel = (unsigned int)h->accel;\n"
+         "    sly1_native_motion_stage = 4;\n"),
+        ("    h->tris = (MeshMotion::Tri*)AllocateZeroedFrontMemory(self->meshCopy.faceCount * 12);\n",
+         "    h->tris = (MeshMotion::Tri*)AllocateZeroedFrontMemory(self->meshCopy.faceCount * 12);\n"
+         "    sly1_native_motion_tris = (unsigned int)h->tris;\n"
+         "    sly1_native_motion_stage = 5;\n"),
+    )
+    for old, new in updates:
+        if text.count(old) != 1:
+            raise RuntimeError("expected mesh-motion allocation assignment")
+        text = text.replace(old, new, 1)
+    return text
+
+
+def trace_turning_mesh_hook_use(text, label):
+    """Record hook fields at the transfer call and immediately before motion."""
+    if label != "main/turning_collider.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_motion_stage;\n'
+        'extern volatile unsigned int sly1_native_motion_self;\n'
+        'extern volatile unsigned int sly1_native_motion_hook;\n'
+        'extern volatile unsigned int sly1_native_motion_velocity;\n'
+        'extern volatile unsigned int sly1_native_motion_accel;\n'
+        'extern volatile unsigned int sly1_native_motion_tris;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_hook;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_velocity;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_accel;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_tris;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_id;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_id;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_desc;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_desc;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_all;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_faces;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_face_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_vert_ptr;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_self_copy_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_faces;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_other_face_count;\n'
+        'extern volatile unsigned int sly1_native_motion_entry_return;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_calls;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_self;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_vertices;\n'
+        '}\n\n')
+    text = declarations + text
+    signature = "void SetTurningColliderFollowedMesh(TurningCollider* self, Collider* other, s32 all)\n{\n"
+    entry_probe = (
+        signature
+        + "    sly1_native_motion_stage = 6;\n"
+        + "    sly1_native_motion_self = (unsigned int)self;\n"
+        + "    sly1_native_motion_hook = (unsigned int)self->hook;\n"
+        + "    sly1_native_motion_entry_other = (unsigned int)other;\n"
+        + "    sly1_native_motion_entry_self_id = (unsigned int)self->id;\n"
+        + "    sly1_native_motion_entry_other_id = (unsigned int)other->id;\n"
+        + "    sly1_native_motion_entry_self_vertices = (unsigned int)self->mesh.vertCount;\n"
+        + "    sly1_native_motion_entry_other_vertices = (unsigned int)other->mesh.vertCount;\n"
+        + "    sly1_native_motion_entry_self_desc = (unsigned int)self->desc;\n"
+        + "    sly1_native_motion_entry_other_desc = (unsigned int)other->desc;\n"
+        + "    sly1_native_motion_entry_all = (unsigned int)all;\n"
+        + "    sly1_native_motion_entry_self_faces = (unsigned int)self->mesh.faces;\n"
+        + "    sly1_native_motion_entry_self_face_count = (unsigned int)self->mesh.faceCount;\n"
+        + "    sly1_native_motion_entry_self_vert_ptr = (unsigned int)self->mesh.verts;\n"
+        + "    sly1_native_motion_entry_self_copy_count = (unsigned int)self->meshCopy.vertCount;\n"
+        + "    sly1_native_motion_entry_other_faces = (unsigned int)other->mesh.faces;\n"
+        + "    sly1_native_motion_entry_other_face_count = (unsigned int)other->mesh.faceCount;\n"
+        + "    sly1_native_motion_entry_return = (unsigned int)__builtin_return_address(0);\n"
+        + "    if (self->hook != 0) {\n"
+        + "        unsigned int* motion = (unsigned int*)self->hook;\n"
+        + "        sly1_native_motion_entry_hook = (unsigned int)self->hook;\n"
+        + "        sly1_native_motion_entry_velocity = motion[0];\n"
+        + "        sly1_native_motion_entry_accel = motion[1];\n"
+        + "        sly1_native_motion_entry_tris = motion[2];\n"
+        + "    }\n")
+    if text.count(signature) != 1:
+        raise RuntimeError("expected SetTurningColliderFollowedMesh definition")
+    text = text.replace(signature, entry_probe, 1)
+    call = "            AdvanceColliderMeshMotion(self, 0.0f);"
+    pre_call = (
+        "            sly1_native_motion_stage = 7;\n"
+        "            sly1_native_motion_hook = (unsigned int)self->hook;\n"
+        "            if (self->hook != 0) {\n"
+        "                unsigned int* motion = (unsigned int*)self->hook;\n"
+        "                sly1_native_motion_velocity = motion[0];\n"
+        "                sly1_native_motion_accel = motion[1];\n"
+        "                sly1_native_motion_tris = motion[2];\n"
+        "            }\n"
+        + call)
+    if text.count(call) != 1:
+        raise RuntimeError("expected turning-collider mesh-motion call")
+    return text.replace(call, pre_call, 1)
+
+
+def trace_turning_mesh_copy_state(text, label):
+    """Preserve the turning-collider copy hook's hidden MIPS ABI arguments on x86."""
+    if label != "main/turning_collider.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_motion_copy_calls;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_self;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_vertices;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_entry_return;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_entry_arg1;\n'
+        'extern volatile unsigned int sly1_native_motion_copy_entry_arg2;\n'
+        '}\n\n')
+    text = declarations + text
+    copy_declaration = "void CopyColliderMeshesInFrame(void* self);"
+    if text.count(copy_declaration) != 1:
+        raise RuntimeError("expected one-argument collider mesh-copy declaration")
+    text = text.replace(
+        copy_declaration,
+        "void CopyColliderMeshesInFrame(Collider* self, Collider* src, s32 extra);",
+        1)
+    signature = "void CopyTurningColliderMeshesInFrame(TurningCollider* self)\n{\n"
+    adapted_signature = (
+        "void CopyTurningColliderMeshesInFrame(TurningCollider* self, Collider* src, s32 extra)\n{\n")
+    replacement = (
+        adapted_signature
+        + "    sly1_native_motion_copy_calls++;\n"
+        + "    sly1_native_motion_copy_self = (unsigned int)self;\n"
+        + "    sly1_native_motion_copy_vertices = (unsigned int)self->mesh.vertCount;\n"
+        + "    unsigned int* copy_frame = (unsigned int*)__builtin_frame_address(0);\n"
+        + "    sly1_native_motion_copy_entry_return = (unsigned int)copy_frame[1];\n"
+        + "    sly1_native_motion_copy_entry_arg1 = (unsigned int)src;\n"
+        + "    sly1_native_motion_copy_entry_arg2 = (unsigned int)extra;\n")
+    if text.count(signature) != 1:
+        raise RuntimeError("expected CopyTurningColliderMeshesInFrame definition")
+    text = text.replace(signature, replacement, 1)
+    call = "    CopyColliderMeshesInFrame(self);"
+    if text.count(call) != 1:
+        raise RuntimeError("expected one-argument turning-collider mesh-copy call")
+    return text.replace(call, "    CopyColliderMeshesInFrame(self, src, extra);", 1)
+
+
 def lower_gcc_minmax(text):
     """Lower the old GCC ``>?`` maximum operator in staged C++ units."""
     compound_used = False
@@ -519,6 +1026,237 @@ def lower_gcc_minmax(text):
                   "-> decltype(a + b) { return a < b ? a : b; }\n")
         text = helper + text
     return text
+
+
+def trace_arrival_lookup(text, label):
+    """Capture the exact world/lookup/object values before arrival transforms."""
+    if label != "main/oscillator.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_arrival_world;\n'
+        'extern volatile unsigned int sly1_native_arrival_id;\n'
+        'extern volatile unsigned int sly1_native_arrival_parent;\n'
+        'extern volatile unsigned int sly1_native_arrival_result;\n'
+        'extern volatile unsigned int sly1_native_arrival_place_self;\n'
+        'extern volatile unsigned int sly1_native_arrival_rotation_self;\n'
+        '}\n\n')
+    text = declarations + text
+    replacements = [
+        ("HoldingMember* FindArrivalPoint(s32 id, s32 parent)\n{\n",
+         "HoldingMember* FindArrivalPoint(s32 id, s32 parent)\n{\n"
+         "    sly1_native_arrival_world = (unsigned int)g_currentWorld;\n"
+         "    sly1_native_arrival_id = (unsigned int)id;\n"
+         "    sly1_native_arrival_parent = (unsigned int)parent;\n"),
+        ("    return found;\n}\n\nvoid LoadArrivalPoint(",
+         "    sly1_native_arrival_result = (unsigned int)found;\n"
+         "    return found;\n}\n\nvoid LoadArrivalPoint("),
+        ("void PlaceAtArrivalPoint(TransformSet* self)\n{\n",
+         "void PlaceAtArrivalPoint(TransformSet* self)\n{\n"
+         "    sly1_native_arrival_place_self = (unsigned int)self;\n"),
+        ("s32 GetObjectWorldRotation(BaseObject* self, s32 arg)\n{\n",
+         "s32 GetObjectWorldRotation(BaseObject* self, s32 arg)\n{\n"
+         "    sly1_native_arrival_rotation_self = (unsigned int)self;\n")]
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected arrival trace site in " + label)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def return_from_world_transform_wrappers(text, label):
+    """Give non-returning decomp declarations a host return instruction."""
+    if label != "main/oscillator.cpp":
+        return text
+    replacements = [
+        ("    TransformPointBetweenFrames(self->parent, 0, (u8*)self + 0x40, arg);\n}",
+         "    TransformPointBetweenFrames(self->parent, 0, (u8*)self + 0x40, arg);\n"
+         "    return 0;\n}"),
+        ("    TransformRotationBetweenFrames(self->parent, 0, (u8*)self + 0x50, arg);\n}",
+         "    TransformRotationBetweenFrames(self->parent, 0, (u8*)self + 0x50, arg);\n"
+         "    return 0;\n}")]
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected world transform wrapper in " + label)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_player_probe_call_abi(text, label):
+    """Pass probe outputs and radius in the matched helper's C argument order."""
+    if label != "main/player.cpp":
+        return text
+    old_decl = "void BuildPartProbeTowardLink(Player* self, void* a1, void* a2, s32 a3, f32 f12, void* a4);"
+    new_decl = "void BuildPartProbeTowardLink(s32 a0, void* self, s32 a2, void* obj, void* out, f32 radius);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected player probe declaration")
+    text = text.replace(old_decl, new_decl, 1)
+    replacements = [
+        ("BuildPartProbeTowardLink(self, a1, a1, (s32)self->f620, k, (u8*)self + 0x1190);",
+         "BuildPartProbeTowardLink(0, a1, 0, a1, (u8*)self + 0x1190, k);"),
+        ("BuildPartProbeTowardLink(self, self->f614, self->f614, (s32)self->f624, k, (u8*)self + 0x1290);",
+         "BuildPartProbeTowardLink(0, self->f614, 0, self->f614, (u8*)self + 0x1290, k);")]
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected player probe call")
+        text = text.replace(old, new, 1)
+    return text
+
+
+def forward_ground_contact_arguments(text, label):
+    """Forward the PS2 caller's live contact/index arguments on native x86."""
+    if label != "main/player.cpp":
+        return text
+    old_decl = "s32 IsTurningColliderGroundContact(void* self);"
+    new_decl = "s32 IsTurningColliderGroundContact(void* self, Contact03* contact, s32 idx);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected turning-collider contact declaration")
+    text = text.replace(old_decl, new_decl, 1)
+    old_call = "        return IsTurningColliderGroundContact(self);"
+    new_call = "        return IsTurningColliderGroundContact(self, e, idx);"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected turning-collider contact call")
+    return text.replace(old_call, new_call, 1)
+
+
+def forward_player_slide_contact_index(text, label):
+    """Carry the contact side index across the player's nested vtable call."""
+    if label != "main/player.cpp":
+        return text
+    old_typedef = "typedef s32 (*VFn_170410)(Player* self, void* out);"
+    new_typedef = "typedef s32 (*VFn_170410)(Player* self, void* out, s32 idx);"
+    if text.count(old_typedef) != 1:
+        raise RuntimeError("expected player slide callback typedef")
+    text = text.replace(old_typedef, new_typedef, 1)
+    old_signature = "void ComputePlayerSlideRates(Player* self, Contact03* out)"
+    new_signature = "void ComputePlayerSlideRates(Player* self, Contact03* out, s32 idx)"
+    if text.count(old_signature) != 1:
+        raise RuntimeError("expected player slide-rate definition")
+    text = text.replace(old_signature, new_signature, 1)
+    old_call = "((VFn_170410*)self->desc)[90](self, out)"
+    new_call = "((VFn_170410*)self->desc)[90](self, out, idx)"
+    if text.count(old_call) != 1:
+        raise RuntimeError("expected player slide callback call")
+    return text.replace(old_call, new_call, 1)
+
+
+def trace_contact_notification_callback(text, label):
+    """Record the exact contact end object and slot-63 callback target."""
+    if label != "main/collider_contact.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_contact_object;\n'
+        'extern volatile unsigned int sly1_native_contact_descriptor;\n'
+        'extern volatile unsigned int sly1_native_contact_callback;\n'
+        'extern volatile unsigned int sly1_native_contact_end;\n'
+        '}\n\n')
+    text = declarations + text
+    old = (
+        "                ((void (*)(Collider*, Contact03*, s32))"
+        "c->end[e].part->desc03()->m3B)(c->end[e].part, c, e);")
+    new = (
+        "                sly1_native_contact_object = (unsigned int)c->end[e].part;\n"
+        "                sly1_native_contact_descriptor = (unsigned int)c->end[e].part->desc03();\n"
+        "                sly1_native_contact_callback = (unsigned int)c->end[e].part->desc03()->m3B;\n"
+        "                sly1_native_contact_end = (unsigned int)e;\n"
+        "                ((void (*)(Collider*, Contact03*, s32))"
+        "c->end[e].part->desc03()->m3B)(c->end[e].part, c, e);")
+    if text.count(old) != 1:
+        raise RuntimeError("expected contact notification callback")
+    return text.replace(old, new, 1)
+
+
+def trace_camera_target_callback(text, label):
+    """Capture a camera target's slot-73 function before invoking it."""
+    if label != "main/camera.cpp":
+        return text
+    declarations = (
+        'extern "C" {\n'
+        'extern volatile unsigned int sly1_native_camera_target;\n'
+        'extern volatile unsigned int sly1_native_camera_target_descriptor;\n'
+        'extern volatile unsigned int sly1_native_camera_target_callback;\n'
+        '}\n\n')
+    text = declarations + text
+    old = (
+        "        ((VFn_143418)(*(void***)o)[0x124 / 4])(o, out, dt);")
+    new = (
+        "        sly1_native_camera_target = (unsigned int)o;\n"
+        "        sly1_native_camera_target_descriptor = (unsigned int)*(void**)o;\n"
+        "        sly1_native_camera_target_callback = (unsigned int)(*(void***)o)[0x124 / 4];\n"
+        "        ((VFn_143418)(*(void***)o)[0x124 / 4])(o, out, dt);")
+    if text.count(old) != 1:
+        raise RuntimeError("expected camera target callback")
+    return text.replace(old, new, 1)
+
+
+def forward_switched_pose_arguments(text, label):
+    """Restore the PS2 argument registers consumed by the nested pose call."""
+    if label != "main/switched_collider.cpp":
+        return text
+    prototype = "void CaptureColliderPose(void);"
+    call = "    CaptureColliderPose();"
+    if text.count(prototype) != 1 or text.count(call) != 1:
+        raise RuntimeError("expected switched-collider pose call")
+    text = text.replace(prototype, "void CaptureColliderPose(void* self, void* out);", 1)
+    text = text.replace(call, "    CaptureColliderPose(self, out);", 1)
+    ramp_decl = "f32 ApproachValueWithRamp(f32 a, f32 b, f32 c, Quad16* p, s32 zero);"
+    ramp_call = "ApproachValueWithRamp(self->v560.z, self->v140.z, a, (Quad16*)D_00269BC0, 0)"
+    if text.count(ramp_decl) != 1 or text.count(ramp_call) != 1:
+        raise RuntimeError("expected switched-collider ramp call")
+    text = text.replace(
+        ramp_decl,
+        "f32 ApproachValueWithRamp(Quad16* p, f32* out, f32 a, f32 b, f32 c);",
+        1)
+    return text.replace(
+        ramp_call,
+        "ApproachValueWithRamp((Quad16*)D_00269BC0, 0, self->v560.z, self->v140.z, a)",
+        1)
+
+
+def normalize_update_camera_target_pose_abi(text, label):
+    """Normalize the PS2 f12/output order for a target pose callback on x86."""
+    if label != "main/camera.cpp":
+        return text
+    old_type = "typedef void (*VFn_143E40)(void* self, f32 dt, void* a);"
+    new_type = "typedef void (*VFn_143E40)(void* self, void* out, f32 dt);"
+    old_call = "((VFn_143E40)(*(void***)o)[0x124 / 4])(o, dt, x);"
+    new_call = "((VFn_143E40)(*(void***)o)[0x124 / 4])(o, x, dt);"
+    old_tracking_decl = "void UpdateCameraTargetTracking(Camera* c, void* n, f32 dt, void* x);"
+    new_tracking_decl = "void UpdateCameraTargetTracking(Camera* c, void* n, void* x, f32 dt);"
+    old_tracking_call = "UpdateCameraTargetTracking(self, o, dt, x);"
+    new_tracking_call = "UpdateCameraTargetTracking(self, o, x, dt);"
+    if (text.count(old_type) != 1 or text.count(old_call) != 1 or
+            text.count(old_tracking_decl) != 1 or text.count(old_tracking_call) != 1):
+        raise RuntimeError("expected UpdateCamera target-pose call")
+    text = text.replace(old_type, new_type, 1).replace(old_call, new_call, 1)
+    return text.replace(old_tracking_decl, new_tracking_decl, 1).replace(
+        old_tracking_call, new_tracking_call, 1)
+
+
+def normalize_on_off_camera_ramp_abi(text, label):
+    """Match the shared ramp helper's host signature in the camera controller."""
+    if label != "main/on_off_object.cpp":
+        return text
+    old_decl = "f32 ApproachValueWithRamp(f32 value, f32 target, f32 dt, RampProfile* profile, f32* speed);"
+    new_decl = "f32 ApproachValueWithRamp(RampProfile* profile, f32* speed, f32 value, f32 target, f32 dt);"
+    old_call = "ApproachValueWithRamp(view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt, &D_00275A80, 0)"
+    new_call = "ApproachValueWithRamp(&D_00275A80, 0, view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt)"
+    if text.count(old_decl) != 1 or text.count(old_call) != 1:
+        raise RuntimeError("expected on-off camera ramp call")
+    return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
+
+
+def forward_mesh_contact_radius(text, label):
+    if label != "main/collider_contact.cpp":
+        return text
+    old_decl = "s32 CollectMeshHits(void* a0, void* a1, void* a2, void* a3, void* a4, s32 a5, MeshHitEntry* a6);"
+    new_decl = "s32 CollectMeshHits(void* a0, void* a1, void* a2, void* a3, void* a4, s32 a5, MeshHitEntry* a6, f32 radius);"
+    old_call = "CollectMeshHits(a1, a3, a4, a5, (u8*)a2 + 0x3A4, 0x40, ents)"
+    new_call = "CollectMeshHits(a1, a3, a4, a5, (u8*)a2 + 0x3A4, 0x40, ents, radius)"
+    if text.count(old_decl) != 1 or text.count(old_call) != 1:
+        raise RuntimeError("expected implicit mesh-contact radius")
+    return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
 
 
 def lower_host_vu0(text):
@@ -928,6 +1666,31 @@ def main(argv=None):
         adapted = forward_blend_entry_flag_arguments(adapted, rel.as_posix())
         adapted = canonicalize_hermite_vector_calls(adapted, rel.as_posix())
         adapted = forward_keyed_rotation_get_arguments(adapted, rel.as_posix())
+        adapted = refresh_attachment_target_matrix_context(adapted, rel.as_posix())
+        adapted = preserve_postload_attachment_context(adapted, rel.as_posix())
+        adapted = supply_player_collider_position(adapted, rel.as_posix())
+        adapted = normalize_turning_collider_matrix_abi(adapted, rel.as_posix())
+        adapted = normalize_placed_object_sound_abi(adapted, rel.as_posix())
+        adapted = normalize_script_host_call_abi(adapted, rel.as_posix())
+        adapted = make_point_frame_transform_unaligned_safe(adapted, rel.as_posix())
+        adapted = align_collider_position_argument(adapted, rel.as_posix())
+        adapted = make_null_memory_copy_deterministic(adapted, rel.as_posix())
+        adapted = map_null_turning_collider_face_reads(adapted, rel.as_posix())
+        adapted = rebuild_collider_mesh_motion_hook(adapted, rel.as_posix())
+        adapted = trace_collider_mesh_motion_allocations(adapted, rel.as_posix())
+        adapted = trace_turning_mesh_hook_use(adapted, rel.as_posix())
+        adapted = trace_turning_mesh_copy_state(adapted, rel.as_posix())
+        adapted = trace_arrival_lookup(adapted, rel.as_posix())
+        adapted = return_from_world_transform_wrappers(adapted, rel.as_posix())
+        adapted = normalize_player_probe_call_abi(adapted, rel.as_posix())
+        adapted = forward_ground_contact_arguments(adapted, rel.as_posix())
+        adapted = forward_player_slide_contact_index(adapted, rel.as_posix())
+        adapted = trace_contact_notification_callback(adapted, rel.as_posix())
+        adapted = trace_camera_target_callback(adapted, rel.as_posix())
+        adapted = forward_switched_pose_arguments(adapted, rel.as_posix())
+        adapted = normalize_update_camera_target_pose_abi(adapted, rel.as_posix())
+        adapted = normalize_on_off_camera_ramp_abi(adapted, rel.as_posix())
+        adapted = forward_mesh_contact_radius(adapted, rel.as_posix())
         if rel.as_posix() == "lib/system_calls.cpp":
             # The US kernel veneers execute EE `syscall` instructions, which
             # cannot be used by the direct native build. Route only the

@@ -31,6 +31,69 @@ extern const u32 sly1_native_function_address_count;
 }
 extern "C" void func_001FAE18();
 extern "C" int sly1_native_host32_crt_initialized = 0;
+extern "C" volatile u32 sly1_native_postload_entry = 0;
+extern "C" volatile u32 sly1_native_postload_bind = 0;
+extern "C" volatile u32 sly1_native_bind_self = 0;
+extern "C" volatile u32 sly1_native_bind_context = 0;
+extern "C" volatile u32 sly1_native_bind_world = 0;
+extern "C" volatile u32 sly1_native_bind_key = 0;
+extern "C" volatile u32 sly1_native_find_world = 0;
+extern "C" volatile u32 sly1_native_find_id = 0;
+extern "C" volatile u32 sly1_native_find_context = 0;
+extern "C" volatile u32 sly1_native_find_esp_before = 0;
+extern "C" volatile u32 sly1_native_find_esp_after = 0;
+extern "C" volatile u32 sly1_native_matrix_source = 0;
+extern "C" volatile u32 sly1_native_matrix_output = 0;
+extern "C" volatile u32 sly1_native_bind_ebp_entry = 0;
+extern "C" volatile u32 sly1_native_bind_ebp_after_find = 0;
+extern "C" volatile u32 sly1_native_motion_stage = 0;
+extern "C" volatile u32 sly1_native_motion_self = 0;
+extern "C" volatile u32 sly1_native_motion_hook = 0;
+extern "C" volatile u32 sly1_native_motion_velocity = 0;
+extern "C" volatile u32 sly1_native_motion_accel = 0;
+extern "C" volatile u32 sly1_native_motion_tris = 0;
+extern "C" volatile u32 sly1_native_motion_entry_hook = 0;
+extern "C" volatile u32 sly1_native_motion_entry_velocity = 0;
+extern "C" volatile u32 sly1_native_motion_entry_accel = 0;
+extern "C" volatile u32 sly1_native_motion_entry_tris = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_id = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other_id = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_vertices = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other_vertices = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_desc = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other_desc = 0;
+extern "C" volatile u32 sly1_native_motion_entry_all = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_faces = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_face_count = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_vert_ptr = 0;
+extern "C" volatile u32 sly1_native_motion_entry_self_copy_count = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other_faces = 0;
+extern "C" volatile u32 sly1_native_motion_entry_other_face_count = 0;
+extern "C" volatile u32 sly1_native_motion_entry_return = 0;
+extern "C" volatile u32 sly1_native_motion_copy_calls = 0;
+extern "C" volatile u32 sly1_native_motion_copy_self = 0;
+extern "C" volatile u32 sly1_native_motion_copy_vertices = 0;
+extern "C" volatile u32 sly1_native_motion_helper_src = 0;
+extern "C" volatile u32 sly1_native_motion_helper_extra = 0;
+extern "C" volatile u32 sly1_native_motion_helper_src_id = 0;
+extern "C" volatile u32 sly1_native_motion_helper_src_vertices = 0;
+extern "C" volatile u32 sly1_native_motion_copy_entry_return = 0;
+extern "C" volatile u32 sly1_native_motion_copy_entry_arg1 = 0;
+extern "C" volatile u32 sly1_native_motion_copy_entry_arg2 = 0;
+extern "C" volatile u32 sly1_native_arrival_world = 0;
+extern "C" volatile u32 sly1_native_arrival_id = 0;
+extern "C" volatile u32 sly1_native_arrival_parent = 0;
+extern "C" volatile u32 sly1_native_arrival_result = 0;
+extern "C" volatile u32 sly1_native_arrival_place_self = 0;
+extern "C" volatile u32 sly1_native_arrival_rotation_self = 0;
+extern "C" volatile u32 sly1_native_contact_object = 0;
+extern "C" volatile u32 sly1_native_contact_descriptor = 0;
+extern "C" volatile u32 sly1_native_contact_callback = 0;
+extern "C" volatile u32 sly1_native_contact_end = 0;
+extern "C" volatile u32 sly1_native_camera_target = 0;
+extern "C" volatile u32 sly1_native_camera_target_descriptor = 0;
+extern "C" volatile u32 sly1_native_camera_target_callback = 0;
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_host32_trace_dma_call(
     unsigned int channel, unsigned int source, unsigned int caller,
@@ -105,6 +168,16 @@ void write_hex(const char* prefix, int value) {
     syscall3(4, 2, (int)line, (int)n);
 }
 
+void write_stack_value(u32 offset, u32 value) {
+    char label[] = "native host32: fault stack +0000 ";
+    const char hex[] = "0123456789abcdef";
+    label[28] = hex[(offset >> 12) & 15];
+    label[29] = hex[(offset >> 8) & 15];
+    label[30] = hex[(offset >> 4) & 15];
+    label[31] = hex[offset & 15];
+    write_hex(label, (int)value);
+}
+
 bool syscall_failed(int result);
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
@@ -122,16 +195,167 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault edx ", state->uc_mcontext.gregs[REG_EDX]);
     write_hex("native host32: fault esi ", state->uc_mcontext.gregs[REG_ESI]);
     write_hex("native host32: fault edi ", state->uc_mcontext.gregs[REG_EDI]);
-    u32* frame = reinterpret_cast<u32*>(state->uc_mcontext.gregs[REG_EBP]);
-    // The signal frame may not point at mapped game memory if the fault came
-    // from a worker stack. Log callers only; leave detailed object inspection
-    // to an explicit pre-fault probe in normal process context.
-    for (u32 depth = 0; depth < 8 && frame != nullptr; ++depth) {
-        const u32 previous = frame[0];
-        const u32 caller = frame[1];
-        write_hex("native host32: fault caller ", caller);
-        if (previous <= (u32)frame || previous - (u32)frame > 0x10000u) break;
-        frame = reinterpret_cast<u32*>(previous);
+        write_hex("native host32: arrival world ", (int)sly1_native_arrival_world);
+        write_hex("native host32: arrival id ", (int)sly1_native_arrival_id);
+        write_hex("native host32: arrival parent ", (int)sly1_native_arrival_parent);
+        write_hex("native host32: arrival result ", (int)sly1_native_arrival_result);
+        write_hex("native host32: arrival place self ", (int)sly1_native_arrival_place_self);
+        write_hex("native host32: arrival rotation self ", (int)sly1_native_arrival_rotation_self);
+        write_hex("native host32: contact object ", (int)sly1_native_contact_object);
+        write_hex("native host32: contact descriptor ", (int)sly1_native_contact_descriptor);
+        write_hex("native host32: contact callback ", (int)sly1_native_contact_callback);
+        write_hex("native host32: contact end ", (int)sly1_native_contact_end);
+        write_hex("native host32: camera target ", (int)sly1_native_camera_target);
+        write_hex("native host32: camera target descriptor ", (int)sly1_native_camera_target_descriptor);
+        write_hex("native host32: camera target callback ", (int)sly1_native_camera_target_callback);
+    write_hex("native host32: last PostLoad entry ", (int)sly1_native_postload_entry);
+    write_hex("native host32: last PostLoad bind ", (int)sly1_native_postload_bind);
+    write_hex("native host32: Bind self ", (int)sly1_native_bind_self);
+    write_hex("native host32: Bind context ", (int)sly1_native_bind_context);
+    write_hex("native host32: Bind world ", (int)sly1_native_bind_world);
+    write_hex("native host32: Bind key ", (int)sly1_native_bind_key);
+    write_hex("native host32: Find world ", (int)sly1_native_find_world);
+    write_hex("native host32: Find id ", (int)sly1_native_find_id);
+    write_hex("native host32: Find context ", (int)sly1_native_find_context);
+    write_hex("native host32: Find ESP before ", (int)sly1_native_find_esp_before);
+    write_hex("native host32: Find ESP after ", (int)sly1_native_find_esp_after);
+    write_hex("native host32: matrix source ", (int)sly1_native_matrix_source);
+    write_hex("native host32: matrix output ", (int)sly1_native_matrix_output);
+    write_hex("native host32: Bind EBP entry ", (int)sly1_native_bind_ebp_entry);
+    write_hex("native host32: Bind EBP after Find ", (int)sly1_native_bind_ebp_after_find);
+    write_hex("native host32: motion init stage ", (int)sly1_native_motion_stage);
+    write_hex("native host32: motion init self ", (int)sly1_native_motion_self);
+    write_hex("native host32: motion init hook ", (int)sly1_native_motion_hook);
+    write_hex("native host32: motion init velocity ", (int)sly1_native_motion_velocity);
+    write_hex("native host32: motion init accel ", (int)sly1_native_motion_accel);
+    write_hex("native host32: motion init tris ", (int)sly1_native_motion_tris);
+    write_hex("native host32: motion entry hook ", (int)sly1_native_motion_entry_hook);
+    write_hex("native host32: motion entry velocity ", (int)sly1_native_motion_entry_velocity);
+    write_hex("native host32: motion entry accel ", (int)sly1_native_motion_entry_accel);
+    write_hex("native host32: motion entry tris ", (int)sly1_native_motion_entry_tris);
+    write_hex("native host32: motion entry other ", (int)sly1_native_motion_entry_other);
+    write_hex("native host32: motion entry self id ", (int)sly1_native_motion_entry_self_id);
+    write_hex("native host32: motion entry other id ", (int)sly1_native_motion_entry_other_id);
+    write_hex("native host32: motion entry self vertices ", (int)sly1_native_motion_entry_self_vertices);
+    write_hex("native host32: motion entry other vertices ", (int)sly1_native_motion_entry_other_vertices);
+    write_hex("native host32: motion entry self desc ", (int)sly1_native_motion_entry_self_desc);
+    write_hex("native host32: motion entry other desc ", (int)sly1_native_motion_entry_other_desc);
+    write_hex("native host32: motion entry all ", (int)sly1_native_motion_entry_all);
+    write_hex("native host32: motion entry self faces ", (int)sly1_native_motion_entry_self_faces);
+    write_hex("native host32: motion entry self face count ", (int)sly1_native_motion_entry_self_face_count);
+    write_hex("native host32: motion entry self verts ptr ", (int)sly1_native_motion_entry_self_vert_ptr);
+    write_hex("native host32: motion entry self meshCopy count ", (int)sly1_native_motion_entry_self_copy_count);
+    write_hex("native host32: motion entry other faces ", (int)sly1_native_motion_entry_other_faces);
+    write_hex("native host32: motion entry other face count ", (int)sly1_native_motion_entry_other_face_count);
+    write_hex("native host32: motion entry return ", (int)sly1_native_motion_entry_return);
+    write_hex("native host32: motion copy calls ", (int)sly1_native_motion_copy_calls);
+    write_hex("native host32: motion copy self ", (int)sly1_native_motion_copy_self);
+    write_hex("native host32: motion copy vertices ", (int)sly1_native_motion_copy_vertices);
+    write_hex("native host32: mesh helper source ", (int)sly1_native_motion_helper_src);
+    write_hex("native host32: mesh helper extra ", (int)sly1_native_motion_helper_extra);
+    write_hex("native host32: mesh helper source id ", (int)sly1_native_motion_helper_src_id);
+    write_hex("native host32: mesh helper source vertices ", (int)sly1_native_motion_helper_src_vertices);
+    write_hex("native host32: mesh copy entry return ", (int)sly1_native_motion_copy_entry_return);
+    write_hex("native host32: mesh copy entry arg1 ", (int)sly1_native_motion_copy_entry_arg1);
+    write_hex("native host32: mesh copy entry arg2 ", (int)sly1_native_motion_copy_entry_arg2);
+    const u32 fault_esp = (u32)state->uc_mcontext.gregs[REG_ESP];
+    if (fault_esp >= 0xC0000000u && fault_esp < 0xF0000000u) {
+        const u32* stack = reinterpret_cast<const u32*>(fault_esp);
+        write_hex("native host32: fault stack +00 ", stack[0]);
+        write_hex("native host32: fault stack +04 ", stack[1]);
+        write_hex("native host32: fault stack +08 ", stack[2]);
+        write_hex("native host32: fault stack +0c ", stack[3]);
+        write_hex("native host32: fault stack +10 ", stack[4]);
+        write_hex("native host32: fault stack +14 ", stack[5]);
+        write_hex("native host32: fault stack +1c ", stack[7]);
+        write_hex("native host32: fault stack +20 ", stack[8]);
+        write_hex("native host32: fault stack +24 ", stack[9]);
+        write_hex("native host32: fault stack +28 ", stack[10]);
+        write_hex("native host32: fault stack +2c ", stack[11]);
+        write_hex("native host32: fault stack +30 ", stack[12]);
+        write_hex("native host32: fault stack +34 ", stack[13]);
+        write_hex("native host32: fault stack +3c ", stack[0x3c / 4]);
+        write_hex("native host32: fault stack +40 ", stack[0x40 / 4]);
+        write_hex("native host32: fault stack +44 ", stack[0x44 / 4]);
+        write_hex("native host32: fault stack +48 ", stack[0x48 / 4]);
+        write_hex("native host32: fault stack +4c ", stack[0x4c / 4]);
+        write_hex("native host32: fault stack +50 ", stack[0x50 / 4]);
+        write_hex("native host32: fault stack +54 ", stack[0x54 / 4]);
+        write_hex("native host32: fault stack +7c ", stack[0x7c / 4]);
+        write_hex("native host32: fault stack +80 ", stack[0x80 / 4]);
+        write_hex("native host32: fault stack +84 ", stack[0x84 / 4]);
+        write_hex("native host32: fault stack +88 ", stack[0x88 / 4]);
+        for (u32 offset = 0x70; offset <= 0xc0; offset += 4) {
+            write_stack_value(offset, stack[offset / 4]);
+        }
+        for (u32 offset = 0x1d0; offset <= 0x230; offset += 4) {
+            write_stack_value(offset, stack[offset / 4]);
+        }
+        const u32 suspected_collider = stack[0x0c / 4];
+        const u32 suspected_other = (u32)state->uc_mcontext.gregs[REG_EBX];
+        if (suspected_collider >= 0x01000000u && suspected_collider < 0x08000000u) {
+            const u32* collider = reinterpret_cast<const u32*>(suspected_collider);
+            write_hex("native host32: suspected collider ", (int)suspected_collider);
+            write_hex("native host32: collider verts count ", (int)collider[0x384 / 4]);
+            write_hex("native host32: collider verts ", (int)collider[0x388 / 4]);
+            write_hex("native host32: collider faces count ", (int)collider[0x38c / 4]);
+            write_hex("native host32: collider faces ", (int)collider[0x390 / 4]);
+        }
+        if (suspected_other >= 0x01000000u && suspected_other < 0x08000000u) {
+            const u32* other = reinterpret_cast<const u32*>(suspected_other);
+            write_hex("native host32: suspected other ", (int)suspected_other);
+            write_hex("native host32: other verts count ", (int)other[0x384 / 4]);
+            write_hex("native host32: other verts ", (int)other[0x388 / 4]);
+            write_hex("native host32: other faces count ", (int)other[0x38c / 4]);
+            write_hex("native host32: other faces ", (int)other[0x390 / 4]);
+        }
+        const u32 suspected_edi = (u32)state->uc_mcontext.gregs[REG_EDI];
+        if (suspected_edi >= 0x01000000u && suspected_edi < 0x08000000u) {
+            const u32* object = reinterpret_cast<const u32*>(suspected_edi);
+            const u32 hook = object[0x3c8 / 4];
+            write_hex("native host32: edi object ", (int)suspected_edi);
+            write_hex("native host32: object hook ", (int)hook);
+            if (hook >= 0x01000000u && hook < 0x08000000u) {
+                const u32* motion = reinterpret_cast<const u32*>(hook);
+                write_hex("native host32: motion velocity ", (int)motion[0]);
+                write_hex("native host32: motion accel ", (int)motion[1]);
+                write_hex("native host32: motion tris ", (int)motion[2]);
+            }
+            write_hex("native host32: mesh copy verts count ", (int)object[0x3a8 / 4]);
+            write_hex("native host32: mesh copy verts ", (int)object[0x3ac / 4]);
+            write_hex("native host32: mesh copy faces count ", (int)object[0x3b0 / 4]);
+            write_hex("native host32: mesh copy faces ", (int)object[0x3b4 / 4]);
+            write_hex("native host32: mesh copy edges ", (int)object[0x3bc / 4]);
+        }
+        const u32 context_pointer = stack[0x4c / 4];
+        if (context_pointer >= fault_esp && context_pointer < fault_esp + 0x4000u) {
+            const u32* object = reinterpret_cast<const u32*>(context_pointer);
+            write_hex("native host32: stack object +00 ", object[0x00 / 4]);
+            write_hex("native host32: stack object +04 ", object[0x04 / 4]);
+            write_hex("native host32: stack object +08 ", object[0x08 / 4]);
+            write_hex("native host32: stack object +14 ", object[0x14 / 4]);
+            write_hex("native host32: stack object +18 ", object[0x18 / 4]);
+            write_hex("native host32: stack object +34 ", object[0x34 / 4]);
+        }
+        const u32 linked_object = stack[0x1e8 / 4];
+        if (linked_object >= 0x01000000u && linked_object < 0x10000000u) {
+            const u32* object = reinterpret_cast<const u32*>(linked_object);
+            const u32 descriptor = object[0];
+            write_hex("native host32: linked object ", (int)linked_object);
+            write_hex("native host32: linked descriptor ", (int)descriptor);
+            write_hex("native host32: linked object id ", (int)object[2]);
+            write_hex("native host32: linked object world ", (int)object[0x14 / 4]);
+            if (descriptor >= 0x08040000u && descriptor < 0x09000000u) {
+                write_hex("native host32: linked m0f ",
+                          (int)*(const u32*)(descriptor + 0x4c));
+            }
+        }
+        for (u32 offset = 0x8c; offset <= 0x800; offset += 4) {
+            const u32 value = stack[offset / 4];
+            if (value >= 0x08040000u && value < 0x09000000u) {
+                write_stack_value(offset, value);
+            }
+        }
     }
     syscall1(252, 128 + signal_number);
 }
@@ -143,6 +367,9 @@ void install_fault_trace() {
     sigemptyset(&action.sa_mask);
     sigaction(SIGSEGV, &action, nullptr);
     sigaction(SIGBUS, &action, nullptr);
+    sigaction(SIGILL, &action, nullptr);
+    sigaction(SIGFPE, &action, nullptr);
+    sigaction(SIGABRT, &action, nullptr);
 }
 
 int make_game_constants_writable(dl_phdr_info* image, size_t, void*) {
@@ -404,6 +631,10 @@ bool load_retail_image(const char* path) {
 }
 
 } // namespace
+
+extern "C" u32 sly1_native_resolve_function(u32 address) {
+    return resolve_native(address);
+}
 
 extern "C" int sly1_native_host32_main(int argc, char** argv) {
     if (argc != 3 && argc != 4) {
