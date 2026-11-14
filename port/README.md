@@ -44,17 +44,27 @@ path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
 Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 `game/sly1-us/native/`, outside `sly1-decomp`.
 
-## Canonical decomp rework check (2026-11-10)
+## Current decomp input (2026-11-14)
 
-Canonical `OpenThievius/sly1-decomp` master is `2e00ac70` (PR #109). The
-isolated `build/port/canonical-sdl` configuration uses a read-only snapshot at
-`/tmp/sly1-decomp-2e00ac70` for C and the older local checkout only for its US
-retail assembly. Hostgen translates 562 functions, including 252 from
-assembly, with 2 stubs and 4,069 functions without C. This proves the new
-layout can be consumed by the current hostgen pipeline, but its native launch
-still crashes during resource loading at guest address `0xFFFF0626`; it is
-not ready to replace the default launcher configuration. See
-[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for the trace.
+The sibling `sly1-decomp` checkout tracks public master `1fdd36d7` and is
+read-only from this repository. Its report gives NTSC-U 4,807/4,807 functions
+and 1,112,400/1,112,400 code bytes matched (100%); 140 US data bytes remain
+unmatched. PAL also has 100% of its code matched. This does not mean all code
+is portable C: the US report still classifies 311 functions as original
+assembly, and the VU microprogram section has no C implementation.
+
+Hostgen reads 278 current US source units and translates 804 functions with
+assembly translation disabled; 2 functions are stubs and 4,128 have no C in
+this hostgen configuration. Ten legacy hostgen overrides were found to shadow
+matched C and have been retired. Their old port C remains in
+`game/sly1-us/hand/superseded_backfills/`. The no-emulation host32 build has
+already consumed matched source for the camera, mesh-table, spawn, and placed
+object transform paths. Its current startup result remains the retail no-card
+warning, with title transition and gameplay not yet demonstrated. See
+[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for current
+runtime evidence. The hostgen count is five lower than before retirement
+because that older C-only frontend lacks usable translations for five of the
+matched addresses; direct host32 compilation uses the canonical C++ source.
 
 To translate the selected assembly functions into the native build output
 directly, hostgen also supports:

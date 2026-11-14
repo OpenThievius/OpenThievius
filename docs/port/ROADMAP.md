@@ -123,6 +123,29 @@ confirms their native definitions now come from `main/on_off_object.o`,
 `main/camera.o`, and `main/effect_spawner.o`. The launcher still reaches the
 no-card page and remains there through frame 305 without a fault. Log:
 `/tmp/sly1-wave53-startup.log`.
+
+Wave 54 refreshes against public `sly1-decomp` master `1fdd36d7`. Its US report
+now shows all 4,807 functions and all 1,112,400 code bytes matched; 140 US data
+bytes remain unmatched. The latest upstream commits classify nine VU0 code
+fragments as linker leftovers and add a porting guide for the VU0 helper
+boundary. Hostgen confirms ten older port overrides now shadow matched US C;
+those overrides have been removed from the active table and their C preserved
+under `hand/superseded_backfills/`. These are hostgen-path replacements; the
+no-emulation Wave 53 build had already been using the matched camera, mesh,
+spawn, and transform bodies described above. No new visual or gameplay
+milestone is implied by the decomp score.
+
+Latest hostgen check with assembly translation disabled reads 278 units and
+translates 804 functions, with 2 stubs and 4,128 functions without C. Removing
+the ten matched-C overrides reduces this legacy C-only frontend's translated
+count by five because it still lacks usable translations for five matched
+addresses. The target host32 build compiles the canonical C++ directly. These counts
+reflect hostability and selected roots, not decomp match coverage: 100% code
+includes original assembly that still needs a native port implementation.
+The decomp's `docs/PORTING.md` specifically identifies `FilterParticleVerticesVu0`
+and `CollectLightsForSphere` as call sites whose VU0 microprogram work belongs
+in native replacements. The first remains an approximate port backfill; the
+second remains a staging no-op. Keep both separate from the matching source.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
 `/tmp/sly1-wave47-regtrace.log`.
 

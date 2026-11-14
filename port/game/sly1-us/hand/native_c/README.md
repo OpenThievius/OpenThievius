@@ -9,13 +9,13 @@ listed in `../overrides.tsv`; otherwise hostgen keeps the decomp definition
 when both are present. Entries in `backfills.tsv` cover functions supplied
 where matching C is absent.
 
-Latest source check (2026-11-13): the public Wave 39 source snapshot
-(`f38f0113`) reports 4,778/4,807 US functions matched and 98.05% code
-coverage. Hostgen with assembly disabled still translates 799 functions,
-with 2 stubs and 4,127 functions without C across 280 units. The new source
-does not change the matched notifier, pause-menu, or pad-input units on the
-Splash startup path. This is a generated hostability report, not the decomp
-project's byte-match progress. Keep native replacements in this repository.
+Latest source check (2026-11-14): public `sly1-decomp` master
+`1fdd36d7` reports 4,807/4,807 US functions and all 1,112,400 US code bytes
+matched. Its 140 unmatched US data bytes are separate from code progress.
+Hostgen with assembly disabled reads 278 source units and translates 804
+functions, with 2 stubs and 4,128 functions without C. This is a generated
+hostability report, not the decomp project's byte-match progress. Keep native
+replacements in this repository.
 
 `func_001B5EA0.c` implements the state-walker free-pool pop, and
 `func_001B6D78.c` dispatches a walker's class and registered listeners. They
@@ -86,18 +86,12 @@ unresolved engine callbacks remain the next rendering blockers.
 dispatcher. Its earlier C reconstruction is retained under `hand/reference_c/`
 for comparison, but is excluded from the active hostgen C set.
 
-`func_0011E580` is a port-only object-factory replacement listed in
-`overrides.tsv`. It reads the retail descriptor table and uses the native
-constructor dispatcher. Remove its override row when matching C for this
-function is hostable. Its invalid-class checks are not evidence that the
-resource parser is correct; the current startup trace shows the input bytes
-and cursor need investigation.
-
-`func_00154EE0` is a separate port-only override for a cross-file type
-disagreement: its local source declares a one-word record return while the
-canonical host prototype is a 32-bit scalar. The backfill stores the returned
-word into the same four-byte item slots. Remove it when the matching sources
-agree on the callable type.
+The former `func_0011E580` object-factory fallback and `func_00154EE0`
+cross-file type workaround are now superseded by their matched decomp C bodies.
+The same applies to the former list append, font lookup, temporary arena,
+animator reader, collider callback, and collider draw overrides listed in
+`../superseded_backfills/README.md`. Their old C is retained there for review;
+the active override table no longer replaces the matched implementations.
 
 `native_heap.c` overrides the retail bump allocator's `func_0018D500` and
 `func_0018D5C0` only to reject allocations that would cross the guest heap

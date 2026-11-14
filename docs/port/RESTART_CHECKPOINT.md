@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 53): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 54): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -15,6 +15,20 @@ scene has been demonstrated; no card-format action was taken. Latest run:
 `/tmp/sly1-wave53-startup.log`; prior interactive Wave 49 run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
+
+Wave 54 rechecked the sibling decomp at public master `1fdd36d7`: US code is
+100% matched (4,807 functions, 1,112,400 bytes), with 140 US data bytes still
+unmatched; PAL code is also 100%. The direct native build compiles all 194 Sly
+source units and 60 separate port backfills. Combining 254 objects resolves
+3,770 function references and 171 retail data symbols; the direct-call
+frontier remains 827/835 (eight missing). This is not a new graphics result.
+Ten old hostgen overrides that shadowed matched C have been removed from its
+table; their former port bodies are preserved under
+`port/game/sly1-us/hand/superseded_backfills/`. The legacy C-only hostgen route
+now translates 804 functions and cannot read five of those exact C++ bodies;
+the target host32 build compiles the C++ source directly. No runtime was
+launched during this refresh, so the latest observed screen remains the
+no-card warning page from Wave 53.
 
 The Wave 49 source adds a Sly-only byte swap in `func_002042C8`: the shared
 OpenRAC SDL pad report serializes the button word high-byte first, while
@@ -43,10 +57,11 @@ card display mode 2; then `UpdateElementStack` state 0 calls
 and the Splash subgroup's completion/title request. No-format remains the
 required choice on the no-card prompt.
 
-The sibling decomp checkout is now at public master
-`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (PR #145). That update adds PAL
-alignment-padding accounting and PAL-specific class descriptor data; it has
-no US source/config changes, so it does not change the Wave 49 US build inputs.
+The sibling decomp checkout is at public master
+`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (PR #145). The latest US progress
+includes the prior 100% code/function match; PR #145 itself adds PAL
+alignment-padding accounting and PAL-specific class descriptor data, without
+changing US source/config inputs.
 
 Visual baseline (2026-11-13, Wave 40): the renderer now uses Sly's retail
 640x224 field dimensions instead of OpenRAC's 512x448 default. A staged host
@@ -87,7 +102,7 @@ logic is unchanged. The later Wave 48 local sysroot repair restored i386
 linking and confirmed page 3 remains active. Baseline log:
 `/tmp/sly1-wave39-subgroup-continue-baseline.log`.
 
-Updated: 2026-11-13. Public decomp master is `f38f0113` (Wave 39); the sibling
+Updated: 2026-11-14. Public decomp master is `1fdd36d7` (Wave 54); the sibling
 checkout is `bfc74817`, 100 commits behind. US coverage is 4,778/4,807
 functions and 98.05% of code. Hostgen still translates 799 functions, with 2
 stubs and 4,127 functions without C across 280 units. The Wave 39 snapshot
