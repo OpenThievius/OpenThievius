@@ -1,34 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 236)
+## Current checkpoint (2026-11-14, Wave 330)
 
-The hidden host32 launcher builds and reaches the retail memory-card warning.
-One in-process Cross press dismisses it and enters world setup. Host-only
-staging now normalizes the target-pose and camera-tracking callback argument
-orders, passes the switched-collider pose arguments explicitly, and forwards
-the inherited radius to `CollectMeshHits`. The normal-boot run enters mesh
-contact generation and performs six CD reads (2,426 sectors), but then stops
-making observable progress. It was terminated by the 20-second timeout with
-no fatal-signal report; `game_frames` remained zero. No title, level graphics,
-or playable state has been confirmed. Latest run:
-`/tmp/sly-wave236-normal-run.log`.
+The current upstream decomp is `241a7865` (`master`), clean in the sibling
+checkout. Its status is 515 C++ source files, 4,807/4,807 matched functions,
+100% code bytes, and no functions without C. This is source-matching coverage,
+not host readiness.
 
-The next task is to locate the stall after mesh contact generation and verify
-that world setup reaches its normal frame loop. Do not bypass contact or
-force graphics. Keep all host ABI adapters and functional C backfills in this
-port repository; the `sly1-decomp` checkout remains untouched.
+The host32 launcher builds 194/194 matched C++ units and 71/71 separate native
+backfills, with 130 unresolved-function traps. A hidden run injects one Cross
+press inside the launcher process. It passes the retail no-card warning and
+enters world loading; it does not reach the normal game frame loop
+(`game_frames=0`). The run crashes in matched `RefreshOscillatorFrames`
+(`func_001F2840`) while reading oscillator vertex data. The fault address is
+`0xd8621000`, beyond the function's temporary vertex buffer; an invalid range
+or buffer description is the current lead, not yet a proven root cause. Latest
+normal run and core: `/tmp/sly-wave326-run.log` and
+`/tmp/sly-wave326.core`. A focused probe build (Wave 329) reproduced the same
+crash but emitted no oscillator probe values; its log is
+`/tmp/sly-wave329-run.log`.
 
-The current tree also contains earlier host32 adapters for collider mesh
-copying, property callback mapping, and world-load argument handling. Some
-fault and call-site tracing remains in the staging compiler and native host;
-review and remove diagnostics that are no longer needed before treating this
-as a clean contributor checkpoint.
+No title or level graphics have been confirmed, and the port is not playable.
+The earlier memory-card screen remains the only user-confirmed visual state.
+The host-only `CollectMeshHits` adapter now leaves the current typed radius-first
+signature intact, matching the decomp header and every call site. The focused
+oscillator trace option builds, but the latest run did not emit its probe
+values, so improve that trace before changing oscillator behavior. Keep host
+ABI adapters and functional C backfills in this port repository; do not edit
+the sibling decomp.
 
-Branch: `wip/native-sly-port`, based on `origin/wip/native-sly-port`. Build:
-`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j2`.
-Hidden test runs inject one Cross in the launcher process and do not focus the
-desktop window. No source files in `sly1-decomp` were changed.
+Branch: `wip/native-sly-port`, based on `origin/wip/native-sly-port`. Host
+staging and callback changes are committed as `c91da89`; this checkpoint is
+the follow-up documentation commit. Standard build:
+`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
+The focused diagnostic build uses
+`-DOPENRAC_NATIVE_OSCILLATOR_TRACE=ON`; turn it off for an ordinary launcher.
+Hidden runs do not focus the desktop window. The user's prior approval covers
+one in-process Cross press for startup diagnosis.
 
 The details below this current checkpoint are historical investigation notes;
 their run status predates Wave 236.
