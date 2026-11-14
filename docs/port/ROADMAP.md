@@ -48,7 +48,7 @@ The sibling checkout is up to date with public `sly1-decomp` master
 The newest upstream merge is PR #145 (`feat(eu): credit PAL's alignment
 padding and its class descriptor table`). It changes PAL data accounting and
 PAL-only descriptors; there are no changes under the US source/config paths,
-so Wave 49's US host build inputs remain the same.
+so the host build inputs remain the same.
 The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
 (100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
 unmatched data is 140 bytes. The nine commits since `b482e857` classify nine
@@ -61,13 +61,12 @@ than building a VU0 execution model.
 
 Wave 49 adds a Sly-only byte-order adaptation at the libpad boundary. The
 shared SDL controller report is high-byte first, while standard Sly menu masks
-expect Cross as `0x0040` after `PollPadInput` combines the report bytes. This
-build compiles and links the correction; the open interactive run
-`/tmp/sly1-wave49-interactive.log` is waiting for a manual Space/Cross check.
-Do not claim Continue advances until that input result and the following title
-transition are observed.
+expect Cross as `0x0040` after `PollPadInput` combines the report bytes. Wave
+57 confirmed one Space reaches the selected Continue row and clears the
+warning. That run used the split clock layout, so repeat the handoff after the
+Wave 58 data-layout correction before claiming the title transition.
 
-The Wave 56 host32 staging build compiles all 194 Sly source units and 61
+The Wave 58 host32 staging build compiles all 194 Sly source units and 61
 port-only backfills. Its combined object contains 255 objects and defines
 4,380 catalogued function entries; the direct-call frontier has 827/835
 definitions (8 missing, with indirect calls not covered). These counts
@@ -76,9 +75,16 @@ reachability, not playable coverage. The reorganized `effect_spawner.cpp`
 uses a port-only i386 ABI adaptation for `ReadBufferedU32`'s one-word return,
 which gets past the `LoadGroupMembers`/`ReadCappedWordList` fault.
 The freestanding diagnostic launcher also supplies C++ local-static guard
-functions, allowing it to link against the current source snapshot. A
-12-second no-render run reached startup callbacks without a missing-function
-trap; it does not verify the SDL renderer or screen output.
+functions, allowing it to link against the current source snapshot. Wave 58
+also places the separate scale-factor, `GameClock`, and tick-counter globals
+inside the catalogued 48-byte `D_00261850` block, and aligns the combined
+retail-data section to 16 bytes while preserving each retail offset. This
+fixes a split clock object and an aligned-vector load fault. `nm` confirms the
+scale factors and clock at `+0/+4/+8`, and the camera globals keep retail
+alignment. An eight-second SDL run reaches page 3, reports 427 game frames and
+1,290 accepted DMAs with none rejected, and remains on the no-card warning.
+The run did not inject input; Continue still needs verification with this
+corrected data layout.
 
 The newly complete decomp header documents `ElementStack` as 0x34 bytes:
 `items[8]` at `+0x0C`, count at `+0x2C`, and `resumeState` at `+0x30`. Its

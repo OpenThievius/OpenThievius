@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 56): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -12,13 +12,18 @@ two stack entries. It submits native graphics each frame. A fresh Wave 48
 capture confirms the full 640x224 warning panel and highlighted Continue at
 the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
 scene has been demonstrated; no card-format action was taken. Latest run:
+`/tmp/sly-wave58-aligned-run.log`; earlier startup run:
 `/tmp/sly1-wave53-startup.log`; prior interactive Wave 49 run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
 
-Wave 55 rechecked the sibling decomp at public master `1fdd36d7`: US code is
-100% matched (4,807 functions, 1,112,400 bytes), with 140 US data bytes still
-unmatched; PAL code is also 100%. The direct native build compiles all 194 Sly
+Wave 57 rechecked sibling decomp master `1fdd36d7`: US code is 100% matched
+(4,807 functions, 1,112,400 bytes; 4,498 exact C and 311 original assembly),
+with 140 US data bytes still unmatched; PAL code is also 100%. Recent upstream
+work adds exact C packet writers, starts `DrawPlacedObjectParts` in C, and
+corrects the element stack's resume-state data boundary. Four old hostgen
+backfill selections for packet writers were removed so generated builds use
+those matched definitions. The direct native build compiles all 194 Sly
 source units and 61 separate port backfills. Combining 255 objects resolves
 3,770 function references and 171 retail data symbols; the direct-call
 frontier remains 827/835 (eight missing). This is not a new graphics result.
@@ -27,27 +32,41 @@ table; their former port bodies are preserved under
 `port/game/sly1-us/hand/superseded_backfills/`. The legacy C-only hostgen route
 now translates 804 functions and cannot read five of those exact C++ bodies;
 the target host32 build compiles the C++ source directly. No runtime was
-launched during this refresh, so the latest observed screen remains the
-no-card warning page from Wave 53. Wave 55's light collector backfill compiles
-and links but has not been exercised by a runtime scene.
+launched during the decomp refresh itself. Wave 58 later rebuilt and ran the
+SDL host32 target for roughly eight seconds: it reached retail pause page 3,
+reported 427 game frames and 1,290 accepted DMAs with zero rejections, and
+remained on the no-card warning. It did not inject input or verify Continue.
+Wave 55's light collector backfill compiles and links but has not been
+exercised by a runtime scene.
 
-Wave 56 refreshes the CMake cache to point at the current sibling checkout and
+Wave 58 fixed a host data-layout bug exposed by the decomp's 48-byte
+`D_00261850` clock block. Its scale factors, `GameClock`, and adjacent tick
+counter were emitted as separate C++ sections, but the combiner only placed
+the first catalogued symbol. Host aliases into `GameClock` consequently
+pointed away from the object used by matched source. The combiner now places
+those symbols at their retail offsets and raises the combined section's ELF
+alignment to 16 bytes without changing internal offsets. `nm` confirms
+`D_00261850`, `D_00261854`, `D_00261858`, and `D_00261880` at the required
+offsets; startup traces show both scale factors at 1.0 and the clock advancing
+from zero. The run reaches the no-card page again. Continue through the Splash
+finish state remains to be checked with this corrected binary.
+
+Wave 56 refreshed the CMake cache to point at the current sibling checkout and
 adds freestanding Itanium ABI guard functions for compiler-emitted
 function-local statics. The current source now compiles 194/194 units and
 61/61 port backfills, combines 255 objects, and links the non-rendering
 host32 diagnostic launcher. Its 12-second startup trace reaches the Splash
 resource callbacks without a missing-function trap. The diagnostic's
 no-render frame shim means this is not evidence of a displayed page or
-playable state. The latest visual evidence remains the no-card warning and
-the separately reproduced black-after-Continue regression.
+playable state. That Wave 56 note predates the Wave 57 SDL run and the Wave 58
+clock-layout correction documented above.
 
 The Wave 49 source adds a Sly-only byte swap in `func_002042C8`: the shared
 OpenRAC SDL pad report serializes the button word high-byte first, while
 `PollPadInput` combines `buf[2] << 8 | buf[3]` and Sly's menu consumes Cross
-as `0x0040`. This correction compiles and links, but has not yet been proven
-with a Cross/Space input. The current interactive launcher has pad tracing
-enabled; do not infer menu progress until the log records the button edge and
-the page transition.
+as `0x0040`. Wave 57 confirms a single Space reaches the selected Continue
+row and clears the no-card page. The current interactive launcher has pad
+tracing enabled.
 
 Wave 51 removes the port-only `SuppressScriptEvent` and `InitGauge` overrides
 because both now use matched US C implementations from the decomp. Wave 52
@@ -61,12 +80,25 @@ remains through frame 305 without a fault. No input was injected, so this
 confirms startup but not Continue dismissal. Log:
 `/tmp/sly1-wave53-startup.log`.
 
-The retail sequence to trace is specific: `UpdatePauseMenu` page 3 accepts
+The retail sequence is confirmed: `UpdatePauseMenu` page 3 accepts
 `flags & 0x0040`; `ActivatePauseMenuSelection` closes the page and sets memory
 card display mode 2; then `UpdateElementStack` state 0 calls
-`StartObjectSubGroupFinish` once `D_002701B8` is zero. Record each transition
-and the Splash subgroup's completion/title request. No-format remains the
+`StartObjectSubGroupFinish` once `D_002701B8` is zero. The remaining trace is
+the Splash subgroup's fade and title/world request. No-format remains the
 required choice on the no-card prompt.
+
+Wave 57 rebuilt and ran current master with `--trace-functions`. After one
+Space on the no-card Continue prompt, matched `UpdateElementStack` reaches
+state 0 with display mode 2 and a clear gate (`D_002701B8 == 0`); local `a2`
+is 1 and calls `StartObjectSubGroupFinish` for subgroup `0x00863e40`. The group
+enters state 5 with count 0 and a 0.35-second timer. Splash remains the active
+world, no load/movie request appears, and the frame remains black. This closes
+the earlier uncertainty about whether the state-0 finish call was reached.
+The earlier trace used the split host clock layout described above, so its
+post-Continue timer conclusion is not authoritative. Recheck the Continue
+handoff and subgroup timer/fade through `StartObjectSubGroupFade` with the
+Wave 58 binary. The probes are staging-only; matching source and retail
+behavior were not changed.
 
 The sibling decomp checkout is at public master
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (PR #145). The latest US progress

@@ -1006,8 +1006,9 @@ def main(argv=None):
             if adapted.count(notification_signature) != 1:
                 raise RuntimeError("expected countdown notification handler")
             adapted = adapted.replace(notification_signature, notification_trace, 1)
-        elif rel.as_posix() == "main/file_1F2758.cpp" and args.trace_functions:
-            # Staging-only trace of subgroup completion after Continue.
+        elif rel.as_posix() == "main/oscillator.cpp" and args.trace_functions:
+            # This source now owns the subgroup routines previously traced in
+            # file_1F2758.cpp. Keep the probes out of matching source.
             adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
             find_signature = "ObjectSubGroup* FindActiveObjectSubGroup(void)\n{"
             if adapted.count(find_signature) != 1:
@@ -1048,7 +1049,7 @@ def main(argv=None):
             update_signature = "void UpdateObjectSubGroup(ObjectSubGroup* self)\n{"
             update_trace = update_signature + """
     static u32 trace_count;
-    if (self != 0 && self->f2E4 == 5 && trace_count++ < 24) {
+    if (self != 0 && self->f2E4 == 5 && trace_count++ % 60 == 0) {
         sly1_port_trace_value(0x1f4c0101u, (u32)self);
         sly1_port_trace_value(0x1f4c0102u, (u32)self->f2D0);
         sly1_port_trace_value(0x1f4c0103u, (u32)self->f2E4);
@@ -1060,6 +1061,35 @@ def main(argv=None):
             if adapted.count(update_signature) != 1:
                 raise RuntimeError("expected subgroup update implementation")
             adapted = adapted.replace(update_signature, update_trace, 1)
+            timer_call = """            if (t < g_gameClock.time) {
+                StartObjectSubGroupFade(self);"""
+            timer_trace = """            if (t < g_gameClock.time) {
+                sly1_port_trace_value(0x1f4c0107u, *(u32*)&t);
+                sly1_port_trace_value(0x1f4c0108u, *(u32*)&g_gameClock.time);
+                StartObjectSubGroupFade(self);"""
+            if adapted.count(timer_call) != 1:
+                raise RuntimeError("expected subgroup finish timer comparison")
+            adapted = adapted.replace(timer_call, timer_trace, 1)
+
+            fade_signature = "void StartObjectSubGroupFade(ObjectSubGroup* self)\n{"
+            fade_trace = fade_signature + """
+    sly1_port_trace_value(0x1f4fa001u, (u32)self);
+    sly1_port_trace_value(0x1f4fa002u, self != 0 ? (u32)self->f2FC : 0);
+    sly1_port_trace_value(0x1f4fa003u, self != 0 ? *(u32*)&self->f318 : 0);
+    sly1_port_trace_value(0x1f4fa004u, self != 0 ? (u32)self->f2E4 : 0);
+"""
+            if adapted.count(fade_signature) != 1:
+                raise RuntimeError("expected subgroup fade implementation")
+            adapted = adapted.replace(fade_signature, fade_trace, 1)
+            fade_call = "    StartScreenFade(&g_screenFade, &m, self->f318);"
+            fade_call_trace = fade_call + """
+    sly1_port_trace_value(0x1f4fa005u, (u32)g_screenFade.mode);
+    sly1_port_trace_value(0x1f4fa006u, (u32)g_screenFade.style);
+    sly1_port_trace_value(0x1f4fa007u, *(u32*)&g_screenFade.modeStartTime);
+"""
+            if adapted.count(fade_call) != 1:
+                raise RuntimeError("expected subgroup fade request")
+            adapted = adapted.replace(fade_call, fade_call_trace, 1)
         elif rel.as_posix() == "main/file_180EB0.cpp":
             # The EE compiler accepts implicit signed/unsigned vector
             # conversions for this helper; host GCC requires matching types.
@@ -2069,6 +2099,51 @@ void LoadEffectSpawner"""
             if adapted.count(old) != 1:
                 raise RuntimeError("expected C01 constructor list gate in " + rel.as_posix())
             adapted = adapted.replace(old, new, 1)
+        if args.trace_functions and rel.as_posix() == "main/warp_menu.cpp":
+            # Staging-only trace of the state-0 Continue handoff. Keep it
+            # separate from the source compatibility chain above.
+            adapted = ('extern "C" void sly1_port_trace_value(u32, u32);\n'
+                       'extern f32 D_00261850;\nextern f32 D_00261854;\n' + adapted)
+            signature = "void UpdateElementStack(ElementStack* obj)\n{"
+            trace = signature + """
+    if (obj->state == 0) {
+        sly1_port_trace_value(0x1eea0001u, (u32)obj);
+        sly1_port_trace_value(0x1eea0002u, (u32)obj->state);
+        sly1_port_trace_value(0x1eea0003u, (u32)D_002701B8);
+        sly1_port_trace_value(0x1eea0004u, (u32)g_memoryCard.displayMode);
+        sly1_port_trace_value(0x1eea0005u, (u32)g_memoryCard.state);
+        sly1_port_trace_value(0x1eea0007u, (u32)g_gameClock.running);
+        sly1_port_trace_value(0x1eea0008u, *(u32*)&g_gameClock.time);
+        sly1_port_trace_value(0x1eea0009u, *(u32*)&g_gameClock.elapsed);
+        sly1_port_trace_value(0x1eea000Au, *(u32*)&g_gameClock.dt);
+        sly1_port_trace_value(0x1eea000Bu, *(u32*)&D_00261850);
+        sly1_port_trace_value(0x1eea000Cu, *(u32*)&D_00261854);
+    }
+"""
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected UpdateElementStack definition")
+            adapted = adapted.replace(signature, trace, 1)
+            callsite = """        if (a2) {
+            StartObjectSubGroupFinish(FindActiveObjectSubGroup());"""
+            callsite_trace = """        sly1_port_trace_value(0x1eea0006u, (u32)a2);
+        if (a2) {
+            StartObjectSubGroupFinish(FindActiveObjectSubGroup());"""
+            if adapted.count(callsite) != 1:
+                raise RuntimeError("expected state-0 subgroup call site")
+            adapted = adapted.replace(callsite, callsite_trace, 1)
+        if args.trace_functions and rel.as_posix() == "main/game_clock.cpp":
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            signature = "void SetGameClockScale(f32 x)\n{"
+            trace = signature + """
+    static u32 trace_count;
+    if (trace_count++ < 32) {
+        sly1_port_trace_value(0x142ed001u, *(u32*)&x);
+        sly1_port_trace_value(0x142ed002u, (u32)__builtin_return_address(0));
+    }
+"""
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected game clock scale setter")
+            adapted = adapted.replace(signature, trace, 1)
         for address in backfill_addresses:
             names = {"func_" + address.upper()}
             if address in address_names:

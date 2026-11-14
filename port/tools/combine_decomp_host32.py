@@ -131,6 +131,7 @@ def main(argv=None):
                         help="US C data layout catalog from sly1-decomp/config/us/c_data.tsv")
     parser.add_argument("--nm", default="nm")
     parser.add_argument("--ld", default="ld")
+    parser.add_argument("--objcopy", default="objcopy")
     parser.add_argument("--objdump", default="objdump")
     parser.add_argument("--cxx", default="c++")
     parser.add_argument("--root", action="append",
@@ -145,12 +146,26 @@ def main(argv=None):
     backfill_definitions = defaultdict(set)
     data_definitions = defaultdict(set)
     defined_data_symbols = set()
+    data_input_sections = {}
     undefined = set()
     for obj in objects:
         is_backfill = "port_native" in obj.parts
         for address, size, symbol in nm_data_definitions(args.nm, obj):
             data_definitions[address].add((size, symbol))
             defined_data_symbols.add(symbol)
+        data_result = subprocess.run([args.nm, "-S", "--defined-only", str(obj)],
+                                     check=True, text=True, capture_output=True)
+        for line in data_result.stdout.splitlines():
+            fields = line.split()
+            if len(fields) < 4 or fields[-2].upper() not in "BDRSGC":
+                continue
+            match = DATA_ADDRESS.fullmatch(fields[-1])
+            if not match:
+                continue
+            prefix = {"B": ".bss", "D": ".data", "R": ".rodata",
+                      "S": ".data", "G": ".data", "C": ".bss"}[fields[-2].upper()]
+            data_input_sections[int(match.group(1), 16)] = (
+                prefix + "." + fields[-1], fields[-1])
         for symbol in nm_function_definitions(args.nm, obj):
             match = function_address_match(symbol)
             if match:
@@ -283,14 +298,28 @@ def main(argv=None):
     data_rows = []
     for line in args.data.read_text(encoding="utf-8").splitlines()[1:]:
         fields = line.split("\t")
-        if len(fields) < 4 or not re.fullmatch(r"[0-9A-Fa-f]{8}", fields[1]):
+        if (len(fields) < 5 or
+                not re.fullmatch(r"[0-9A-Fa-f]{8}", fields[1]) or
+                not fields[2].isdigit()):
             continue
-        section = fields[3]
-        # -fdata-sections gives address-specific input sections for globals.
-        # A plain .rodata/.data section may contain many variables and cannot
-        # be moved as one retail-addressed object without symbol-offset data.
-        if re.fullmatch(r"\.(?:rodata|data|bss)\.D_[0-9A-Fa-f]{8}", section):
-            data_rows.append((int(fields[1], 16), section))
+        start = int(fields[1], 16)
+        # game_clock.cpp declares adjacent retail globals separately, while
+        # c_data.tsv catalogs their 48-byte retail block as one range.
+        # Preserve their offsets together so aliases into GameClock refer to
+        # the same zero-initialized object as the named C++ globals.
+        if fields[4] == "src/main/game_clock.cpp":
+            end = start + int(fields[2])
+            data_rows.extend(
+                (address, section)
+                for address, (section, _) in data_input_sections.items()
+                if start <= address < end
+                and not any(base < address < base + size
+                            for base, definitions in data_definitions.items()
+                            for size, _ in definitions))
+        elif fields[0] == "D_" + fields[1].upper():
+            section = fields[3] + "." + fields[0]
+            if re.fullmatch(r"\.(?:rodata|data|bss)\.D_[0-9A-Fa-f]{8}", section):
+                data_rows.append((start, section))
     data_sections = sorted(set(data_rows))
     layout = []
     if data_sections:
@@ -301,7 +330,10 @@ def main(argv=None):
         # A distinct section keeps the final host linker from folding this
         # range into either regular data or read-only data. The -r object
         # preserves internal offsets while the final link maps it writable.
-        layout.append("  .sly1_retail_data 0 : SUBALIGN(1) {")
+        # Retail addresses and the host objects which use vector loads share
+        # their low alignment bits. Align the section base to 16, then retain
+        # exact per-symbol offsets (including deliberately unaligned fields).
+        layout.append("  .sly1_retail_data 0 : ALIGN(16) SUBALIGN(1) {")
         for address, section in data_sections:
             layout.append(f"    . = 0x{address - minimum:x};")
             layout.append(f"    *({section})")
@@ -326,6 +358,13 @@ def main(argv=None):
     if result.returncode:
         print(result.stderr, file=sys.stderr)
         return result.returncode
+    if data_sections:
+        aligned = subprocess.run(
+            [args.objcopy, "--set-section-alignment", ".sly1_retail_data=16",
+             str(combined)], text=True, capture_output=True)
+        if aligned.returncode:
+            print(aligned.stderr, file=sys.stderr)
+            return aligned.returncode
 
     remaining = nm_symbols(args.nm, "--undefined-only", combined)
     missing_addresses = sorted({int(m.group(1), 16) for name in remaining

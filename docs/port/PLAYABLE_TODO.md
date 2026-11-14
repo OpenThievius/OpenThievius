@@ -1,9 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Current evidence (2026-11-14):** the last confirmed native image is the full
-640x224 no-card warning panel with highlighted Continue (Wave 48). The current
-decomp header defines `ElementStack` as 0x34 bytes, but `warp_menu.cpp` still
+**Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
+retail pause page 3 and remains there through at least 427 game frames, with
+1,290 accepted DMA submissions and zero rejected. Its scale traces now read
+1.0 for both clock factors and `GameClock.time` advances from zero. The
+earlier Wave 57 Continue trace ran with a split host clock block, so its
+post-Continue timer conclusion is stale. Recheck Continue and the Splash
+transition against the corrected layout before drawing conclusions. No title
+or gameplay scene has been demonstrated and no card-format action was taken.
+Run log: `/tmp/sly-wave58-aligned-run.log`.
+
+The current decomp header defines `ElementStack` as 0x34 bytes, but
+`warp_menu.cpp` still
 declares its global backing array as four bytes. Wave 47 register capture
 confirmed the active stack pointer was `g_elementStack` and its `+0x2C` count
 had been overwritten by adjacent host BSS. The port staging adapter now sizes
@@ -25,17 +34,18 @@ the generic OpenRAC pad serializer and decomp source remain unchanged. Wave 49
 compiles and links this change. It still needs one runtime input check before
 we can claim Continue advances.
 
-The retail post-input path is now clear from the matched sources: page-3
-`UpdatePauseMenu` activates the selected Continue row on `flags & 0x0040`;
-`ActivatePauseMenuSelection` closes that page and sets the card display mode to
-2. Then `UpdateElementStack` state 0 calls `StartObjectSubGroupFinish` when
-`D_002701B8` is clear. The next trace should record those stages in order and
-follow the subgroup's completion into the title request. Do not skip directly
-to forcing a title or level.
+The prior build's post-input trace showed that page-3 `UpdatePauseMenu`
+activates Continue on `flags & 0x0040`; `ActivatePauseMenuSelection` closes the
+page and sets card display mode to 2. Then `UpdateElementStack` state 0 calls
+`StartObjectSubGroupFinish` when `D_002701B8` is clear. That post-input evidence
+used the split Wave 57 clock layout and must be repeated before relying on the
+following subgroup timer result. Do not skip directly to forcing a title or
+level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
-with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest Wave 56 host32 build compiles 194 Sly units and 61 port-only
+with 4,807/4,807 US functions and 100% of code matched (4,498 exact C and 311
+original assembly), plus 99.9675% of data. The latest Wave 58 host32 build
+compiles 194 Sly units and 61 port-only
 backfills. Its combined object defines 4,380 catalogued function entries and
 resolves 827/835 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
@@ -43,12 +53,11 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. With the Wave 53 build, verify Cross/Space moves from the no-card warning
-   through the normal Continue dismissal into the Splash finish and title
-   transition. Earlier input traces show that
-   dismissing Continue can leave a black frame while Splash remains active, so
-   trace the retail subgroup finish/deadline and ensuing world/title request.
-   Do not clamp stack fields or force a menu element visible.
+1. Recheck a single Continue dismissal on Wave 58 and trace the matched
+   `UpdateElementStack`, subgroup timer, `StartObjectSubGroupFade`, and ensuing
+   world request. Wave 57's post-Continue trace used the split clock object and
+   cannot establish the corrected behavior. Do not clamp stack fields or force
+   a menu element visible.
 2. The Wave 50 port-only C backfill for `FilterParticleVerticesVu0` is an
    approximation: its expiry, compaction, bounds and spin-angle behavior come
    from the matched caller, while its particle transform/integration is based
