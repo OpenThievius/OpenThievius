@@ -27,6 +27,13 @@ confirms the full warning panel and selected Continue; no title or playable
 scene has been demonstrated. No card-format action was taken. See the roadmap
 and restart checkpoint for evidence and
 current blockers.
+
+The Sly libpad backfill `func_002042C8` now swaps the report's two button bytes
+before retail `PollPadInput` reads them. This is a Sly-only adaptation: retail
+forms `(buf[2] << 8) | buf[3]` and consumes Cross as `0x0040`, while the shared
+OpenRAC SDL serializer emits the standard DualShock word high-byte first.
+Wave 49 compiles and links this fix; Cross/Space still needs a live runtime
+check before menu progress is confirmed.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from

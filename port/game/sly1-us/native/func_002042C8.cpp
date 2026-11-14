@@ -26,6 +26,14 @@ bool refresh(int port, int slot) {
         pad.connected = 0;
         return false;
     }
+    // The shared SDL Pad serializes the button word high-byte first, while
+    // Sly's retail PollPadInput reconstructs it as (report[2] << 8) |
+    // report[3]. Present the Sly libpad buffer low-byte first so standard
+    // DualShock masks land on the retail input masks: D-pad directions become
+    // 0x1000/0x4000 and Cross becomes the pause-menu accept bit 0x0040.
+    const unsigned char button_low = pad.report[2];
+    pad.report[2] = pad.report[3];
+    pad.report[3] = button_low;
     pad.connected = pad.report[0] == 0 ? 1 : 0;
     if (pad.report_buffer != 0) {
         auto* output = reinterpret_cast<unsigned char*>(pad.report_buffer);

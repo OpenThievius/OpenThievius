@@ -2,7 +2,7 @@
 # Concrete plan for a playable native Sly 1
 
 **Current evidence (2026-11-14):** the last confirmed native image is the full
-640x224 no-card warning panel with highlighted Continue (Wave 40). The current
+640x224 no-card warning panel with highlighted Continue (Wave 48). The current
 decomp header defines `ElementStack` as 0x34 bytes, but `warp_menu.cpp` still
 declares its global backing array as four bytes. Wave 47 register capture
 confirmed the active stack pointer was `g_elementStack` and its `+0x2C` count
@@ -15,6 +15,16 @@ and no card-format action was taken. Image: `/tmp/sly1-wave48-current.png`.
 Run log: `/tmp/sly1-wave48-run.log`; fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
 
+Retail `PollPadInput` and `UpdatePauseMenu` expose the next issue: the game
+forms its button mask as `(buf[2] << 8) | buf[3]`, then uses D-pad masks
+`0x1000/0x4000` and Cross mask `0x0040` for menu navigation/accept. The shared
+OpenRAC SDL report serializes the standard DualShock word high-byte first, so
+Cross and directions were landing in the wrong Sly masks. The Sly-only
+`func_002042C8` libpad backfill now swaps the two button bytes at this boundary;
+the generic OpenRAC pad serializer and decomp source remain unchanged. Wave 49
+compiles and links this change. It still needs one runtime input check before
+we can claim Continue advances.
+
 **Build baseline:** public `sly1-decomp` master is `dd7a1860` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
 The latest host32 build compiles 194 Sly units and 65 port-only backfills. Its
@@ -25,8 +35,9 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. Capture a fresh Wave 48 frame and follow the normal Continue dismissal into
-   the Splash finish and title transition. Earlier input traces show that
+1. With the Wave 49 build, verify Cross/Space moves from the no-card warning
+   through the normal Continue dismissal into the Splash finish and title
+   transition. Earlier input traces show that
    dismissing Continue can leave a black frame while Splash remains active, so
    trace the retail subgroup finish/deadline and ensuing world/title request.
    Do not clamp stack fields or force a menu element visible.
@@ -154,13 +165,13 @@ manual input check when the user is available, but does not explain or repair
 the missing automatic Splash/title transition. Latest trace:
 `/tmp/sly-title-transition-night26.log`.
 
-**Native input correction (2026-11-11):** retail `PollPadInput` combines
-button bytes as `(buf[2] << 8) | buf[3]`; the host adapter had written the
-opposite order, swapping button identities. The port now emits the high byte
-first, and `OPENRAC_TRACE_PAD=1` reports the same decoded held-button mask.
-The rebuilt launcher succeeds. Later logs capture keyboard Enter as Start and
-show it does not advance the current state-3 startup path. New trace stages
-record guest button edges and the state/menu transition handlers.
+**Historical native input correction (2026-11-11; superseded 2026-11-14):**
+the initial source read concluded that the host adapter should emit the button
+word high byte first. Cross-checking the retail masks against standard
+DualShock button values showed that conclusion was reversed. The current
+Sly-only boundary swap is described in the current evidence above; it keeps
+the shared OpenRAC serializer intact. Earlier Enter traces remain valid: Enter
+is Start, and Start does not advance the no-card Continue page.
 
 **Reached world-update recovery (2026-11-11):** exact US retail assembly now
 provides eight reached object/animation callbacks that were empty stubs:
