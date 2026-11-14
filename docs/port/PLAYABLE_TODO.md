@@ -65,15 +65,23 @@ Evidence: `/tmp/sly-wave63-fog-callback.log`,
 `/tmp/sly-wave64-empty-attach.log`, `/tmp/sly-wave65-attach-list-guard.log`,
 and `/tmp/sly-wave66-detach-trace.log`.
 
-The SDL launcher now supports a process-local, one-frame Cross input for
+Wave 67 verified that the process-local Cross input works: it reached the same
+fault without sending a desktop key event or taking keyboard focus. Waves 68
+and 69 found no entry trace from the port wrapper or guest callback thunk. Wave
+70's crash snapshot recorded EBX `0x00a808a8`, word 0 `0x01000021`, and an empty
+attachment head at `+0x550`; treat EBX as a candidate object pointer until the
+callback ABI is established. Evidence:
+`/tmp/sly-wave67-local-input.log`, `/tmp/sly-wave68-wrapper-entry.log`,
+`/tmp/sly-wave69-thunk-map.log`, and `/tmp/sly-wave70-crash-object.log`.
+
+The SDL launcher supports a process-local, one-frame Cross input for
 non-interfering tests: set `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N` to inject
 the press after N native input polls. It does not send a desktop key event or
-take keyboard focus. Wave 67 must verify the hook and trace the detach callback
-route before changing the backfill again.
+take keyboard focus.
 
-**Next:** run Wave 67 using only the launcher-local input hook, identify why the
-matched detach body still receives the unmatched link, then continue through
-world construction and confirm visible title or level graphics.
+**Next:** trace the actual callback entry and argument layout for the matched
+detach body, correct the port-only shim or dispatch route, then continue
+through world construction and confirm visible title or level graphics.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with

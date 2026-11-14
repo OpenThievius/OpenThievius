@@ -122,6 +122,26 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault edx ", state->uc_mcontext.gregs[REG_EDX]);
     write_hex("native host32: fault esi ", state->uc_mcontext.gregs[REG_ESI]);
     write_hex("native host32: fault edi ", state->uc_mcontext.gregs[REG_EDI]);
+    const u32 object_address = state->uc_mcontext.gregs[REG_EBX];
+    if (object_address >= 0x00100000u && object_address < 0x12000000u) {
+        const auto* object = reinterpret_cast<volatile const u32*>(object_address);
+        const u32 descriptor_address = object[0];
+        write_hex("native host32: fault object ", (int)object_address);
+        write_hex("native host32: fault object descriptor ", (int)descriptor_address);
+        if (descriptor_address >= 0x00100000u && descriptor_address < 0x12000000u) {
+            const auto* methods = reinterpret_cast<volatile const u32*>(descriptor_address + 0x10u);
+            write_hex("native host32: fault object notify method ", (int)methods[13]);
+        }
+        const u32 link_address = object[0x550u / sizeof(u32)];
+        write_hex("native host32: fault attachment head ", (int)link_address);
+        u32 current = link_address;
+        for (u32 index = 0; index < 8 && current >= 0x00100000u && current < 0x12000000u; ++index) {
+            const auto* link = reinterpret_cast<volatile const u32*>(current);
+            write_hex("native host32: fault attachment link ", (int)current);
+            write_hex("native host32: fault attachment target ", (int)link[1]);
+            current = link[3];
+        }
+    }
     u32* stack = reinterpret_cast<u32*>(state->uc_mcontext.gregs[REG_ESP]);
     for (u32 index = 0; index < 16; ++index)
         write_hex("native host32: fault stack word ", stack[index]);
