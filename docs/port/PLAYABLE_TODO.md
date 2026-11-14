@@ -67,8 +67,10 @@ and `/tmp/sly-wave66-detach-trace.log`.
 
 Wave 67 verified that the process-local Cross input works: it reached the same
 fault without sending a desktop key event or taking keyboard focus. Waves 68
-and 69 found no entry trace from the port wrapper or guest callback thunk. Wave
-70's crash snapshot recorded EBX `0x00a808a8`, word 0 `0x01000021`, and an empty
+and 69 emitted no entry trace from the port wrapper or guest callback thunk.
+Wave 68's bounded counter advanced even before trace output was enabled, so its
+empty trace is inconclusive; Wave 69 only excludes that guest callback-thunk
+route. Wave 70's crash snapshot recorded EBX `0x00a808a8`, word 0 `0x01000021`, and an empty
 attachment head at `+0x550`; treat EBX as a candidate object pointer until the
 callback ABI is established. Evidence:
 `/tmp/sly-wave67-local-input.log`, `/tmp/sly-wave68-wrapper-entry.log`,
@@ -139,9 +141,10 @@ are documented in the port roadmap.
 **Immediate tasks:**
 
 1. Trace how the matched attached-set notification body is entered during
-   `ReadBufferedBlockHeader`; Wave 68 showed the port wrapper entry is not seen
-   on the failing path. Verify the callback ABI and object descriptor before
-   changing the backfill or dispatch route. Do not edit matching source.
+   `ReadBufferedBlockHeader`; Wave 68's missing wrapper trace is inconclusive
+   because its counter could advance before logging was enabled. Verify the
+   callback ABI and object descriptor before changing the backfill or dispatch
+   route. Do not edit matching source.
 2. The Wave 50 port-only C backfill for `FilterParticleVerticesVu0` is an
    approximation: its expiry, compaction, bounds and spin-angle behavior come
    from the matched caller, while its particle transform/integration is based

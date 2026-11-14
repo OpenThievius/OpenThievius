@@ -87,7 +87,9 @@ input (`OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N`) that stays inside the game
 process. Pair it with `OPENRAC_TEST_HIDDEN_WINDOW=1` so the test window remains
 hidden and the window manager cannot activate it. Wave 67 verified the input
 hook and reached the same fault. Waves 68 and 69 emitted no wrapper-entry or guest
-callback-thunk trace. Wave 70 recorded EBX `0x00a808a8`, word 0 `0x01000021`,
+callback-thunk trace, but Wave 68's counter could advance before trace output
+was enabled, so that absence is inconclusive; Wave 69 only excludes that thunk
+route. Wave 70 recorded EBX `0x00a808a8`, word 0 `0x01000021`,
 and attachment head `0` at `+0x550`; EBX is only a candidate object pointer
 until the callback ABI is established. Next, trace the callback's actual entry
 and arguments, then fix the port-only shim or dispatch route.
@@ -106,7 +108,8 @@ past the block header and rumble request, then faults at `0x08048f7f` in the
 matched attached-set notification body before load completes. The window was
 hidden, no Sly window appeared on the desktop, and the renderer still submitted
 native DMA. Waves 68 and 69 show no port-wrapper or guest callback-thunk entry
-trace. Wave 70 captures the faulting EBX value, its first word, and attachment
+trace. Wave 68's trace counter could advance before tracing was enabled, so
+the missing wrapper trace is inconclusive. Wave 70 captures the faulting EBX value, its first word, and attachment
 head for ABI investigation; do not assume EBX is the object until the callback
 signature is established. No title or gameplay scene has been demonstrated
 and no card-format action was taken. Latest log:

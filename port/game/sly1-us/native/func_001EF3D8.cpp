@@ -7,6 +7,7 @@ struct AttachedSet;
 extern void decomp_HandleAttachedSetNotification(AttachedSet* self, int kind,
                                                   void* message);
 extern void func_00127378(void* self, int kind, void* message);
+extern "C" void sly1_port_trace_value(unsigned int tag, unsigned int value);
 
 struct Attach03View {
     void* owner;
@@ -16,6 +17,11 @@ struct Attach03View {
 };
 
 extern "C" void func_001EF3D8(AttachedSet* self, int kind, void* message) {
+    if (kind == 2) {
+        sly1_port_trace_value(0x1ef3d802u, reinterpret_cast<unsigned int>(self));
+        sly1_port_trace_value(0x1ef3d803u, static_cast<unsigned int>(kind));
+        sly1_port_trace_value(0x1ef3d804u, reinterpret_cast<unsigned int>(message));
+    }
     if (self == nullptr) return;
 
     if (kind == 2 && message != self) {
