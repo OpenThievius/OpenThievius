@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Native loading checkpoint (2026-11-14, Wave 95)
+
+Continue on the hidden native launcher reaches world model loading, but still
+does not render a title or level. Wave 93 traced a crash in
+`BuildLitStripMeshPacket` to `ModelStrip` records stepping by 0x60 even though
+the loader allocated 0x50 bytes per strip. The host staging helper intended to
+align file-scope VU arrays, but also aligned four-element arrays inside
+structures. That changed `ModelStrip::keys` and several other record layouts.
+The staging rule now aligns file-scope arrays only; matching decomp source is
+unchanged. Wave 95 passes the model-strip crash and advances into typed world
+object construction, then faults in `func_00182C18` while calling a virtual
+method through an invalid address for an object initialized by
+`func_001504E0` (`StepSequence`). This is the next startup fault to trace.
+
+The `func_001EEA40` native backfill is still separate from matched source. Its
+leaf-mask helper is implemented locally because the decomp helper is named
+`ExpandMaskThroughTable`, not the generated `func_001EE9D0` alias. Wave 94
+passed the prior mesh fault but still showed the bad strip stride; Wave 95
+rebuilt all 194 matched units and 65 port backfills, then confirmed the stride
+fix moved execution farther. Both runtime checks used a hidden window and
+process-local Cross input. Latest logs:
+`/tmp/sly-wave94-model-backfill.log` and
+`/tmp/sly-wave95-strip-layout.log`.
+
+**Next:** trace the object pointer and descriptor before `func_00182C18`'s
+virtual dispatch, check class construction and object-record layout against
+retail, and continue until native graphics show a title or gameplay scene.
+Do not claim playability until visible graphics and interactive gameplay are
+confirmed.
+
 ## Resolved RPC wait diagnosis (2026-11-14)
 
 The user pressed Space once on retail no-card page 3. The trace confirms Cross

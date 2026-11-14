@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+## Current checkpoint (2026-11-14, Wave 95)
+
+The native launcher now clears the prior model-strip crash and reaches
+world-object construction, but still faults before showing a title or level.
+Wave 93 exposed a host staging layout bug: `align_host_quad_arrays` applied
+16-byte alignment to four-element arrays inside structures as well as global
+VU arrays. This expanded `ModelStrip` beyond the 0x50-byte allocation and
+caused its strip pointer to advance by 0x60. The helper now limits alignment to
+file-scope declarations, keeping record layouts intact; staged
+`ModelStrip::keys` is again at 0x28 without forced alignment. Wave 95 rebuilt
+194 Sly units and 65 native backfills and passed that crash. The next fault is
+at `0x0807232b` in `func_00182C18` (`BaseObject` virtual setup), reached from
+`func_001504E0` (`StepSequence`); the object vtable yields invalid method
+address `0x44af424e`. Trace object initialization and class descriptor setup.
+
+The separate native `func_001EEA40` backfill now includes the leaf mask
+expansion locally rather than calling the ungenerated `func_001EE9D0` name.
+Its purpose remains isolated from matching source. Wave 95 used the hidden
+window and process-local Cross input. Log:
+`/tmp/sly-wave95-strip-layout.log`. Wave 94 log:
+`/tmp/sly-wave94-model-backfill.log`.
+
 ## Current checkpoint (2026-11-14, after native thread service)
 
 Branch `wip/native-sly-port`, based at `e8fa5ea`; the sibling decomp is clean
