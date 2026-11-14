@@ -1,6 +1,49 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+## Current checkpoint (2026-11-14, Wave 200)
+
+Branch `wip/native-sly-port` is based on `origin/wip/native-sly-port`; the
+working tree has uncommitted host staging and diagnostic changes. The sibling
+`sly1-decomp` checkout is clean on `master` at
+`83f2b50d586602f67e03e42343737a0dd9072a3e` (2026-11-13), still reporting
+100% US/PAL code. No decomp files were changed.
+
+Build command:
+`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j2`.
+Wave 199 builds successfully and includes 141 missing-function traps. The
+current native UI is still black before input; the hidden run injects one
+Cross through the native pad after 260 frames. No title, level graphics, or
+playable state has been reached.
+
+The latest run, `/tmp/sly-wave200-hook-reset-run.log`, exits 139 after the
+single injected Cross. Prior faults now passed: the placed-object sound call
+ABI, a missing listener-distance helper, a raw retail-address script callback,
+and host reads from unaligned vectors. The current fault is in
+`AdvanceColliderMeshMotion` (`func_001BBEB8`) at linked EIP `0x08081d50`,
+address zero. The active collider is `0x016c8ed0`; its hook is `0x01dc7250`,
+but the hook words read as velocity `0`, acceleration `0x42624625`, and
+triangles `0x41da6320`. Its mesh-copy counts are one vertex and zero faces.
+The host staging transform currently clears the hook before rebuilding it in
+`CopyColliderMeshesInFrame`, but the fault remains. Inspect the allocator
+return values and the hook immediately after `InitColliderMeshMotion`; do not
+hide this by skipping the mesh update. Wave 198 has the matching pre-reset
+fault details in `/tmp/sly-wave198-layout-diag-run.log`.
+
+Host-only adapters added during this trace are in
+`port/tools/compile_decomp_host32.py`; the one missing-function C backfill is
+`port/game/sly1-us/native/func_001BF398.cpp`. Keep these out of the decomp
+checkout. The compiler adapter also maps a null EE face-array read to a
+zeroed host buffer and clears null-source copies. These are approximations of
+the host memory model and need review before treating them as established
+semantics. Fault dump instrumentation in `port/sly1/native_host32/main.cpp`
+is temporary and should be removed or narrowed after the hook issue is
+understood.
+
+All automated runs in this worktree use
+`OPENRAC_TEST_HIDDEN_WINDOW=1`; the single Cross press is injected into the
+launcher process and does not focus or send input to the desktop window.
+
 ## Current checkpoint (2026-11-14, Wave 128)
 
 Branch `wip/native-sly-port` is building from the sibling decomp at public
