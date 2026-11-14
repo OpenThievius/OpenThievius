@@ -63,11 +63,14 @@ message from `IsIopReplyReady`. A first port-only sentinel fix at the legacy
 source-level `CallRemoteService` implementation. Link disassembly then showed
 that source-level callers pass raw client address `0x0027b4c8`, while the first
 backfill compared only against mapped address `0x0827b4c8`. The port backfill
-now recognizes both address forms; the rebuilt launcher still needs a
-post-Continue runtime check. The test input was the user's single Space press;
-no additional input was sent. Trace logs:
-`/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`, and
-`/tmp/sly-wave60-rpc-retest.log`.
+now recognizes both address forms. The next native run with the user's Space
+press passed the block-header read and returned from the streaming stages,
+then faulted in matched `SetPadActuatorBytes` (`func_002049E8`) at a null pad
+DMA slot. Native SDL input does not create PS2 pad DMA state; a port-only
+backfill now suppresses unavailable rumble requests and returns 0. That new
+backfill still needs a rebuild and runtime check. Logs:
+`/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`,
+`/tmp/sly-wave60-rpc-retest.log`, and `/tmp/sly-wave61-raw-rpc.log`.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still

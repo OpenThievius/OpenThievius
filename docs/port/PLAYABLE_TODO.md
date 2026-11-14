@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest native Continue trace (2026-11-14)
+## Resolved RPC wait diagnosis (2026-11-14)
 
 The user pressed Space once on retail no-card page 3. The trace confirms Cross
 was observed and dismissed the warning. `RunPendingWorldLoad` decoded the
@@ -17,13 +17,25 @@ port backfill covers that name and the legacy address. Link disassembly showed
 those source callers pass raw client address `0x0027b4c8`, not the mapped
 `0x0827b4c8`; the backfill now accepts both. The rebuilt service still needs a
 post-Continue runtime confirmation. Keep this implementation in `native/`; do
-not edit matching source in `sly1-decomp`. The latest trace is
+not edit matching source in `sly1-decomp`. The failing trace is
 `/tmp/sly-wave60-rpc-retest.log`.
 
-**Next:** rerun with the corrected backfill, press Space once on page 3, and
-confirm the reply-check loop exits and the block header returns. Then follow
-the next load stage. The user's one-press authorization has been used; obtain
-fresh authorization before injecting another scripted game input.
+## Latest Continue trace: native pad boundary (2026-11-14)
+
+The raw-address RPC correction was exercised with the user's Space press. The
+trace now passes `ReadBufferedBlockHeader` (markers `0x1e4ea805` through
+`0x1e4ea807`) and returns from that stage, resolving the previous IOP reply
+spin. It then faults at `0x0805af6a` inside the matched `SetPadActuatorBytes`
+body (`func_002049E8`): `GetNewerPadFrame` returned null because the SDL pad
+adapter does not allocate a PS2 pad DMA slot. The null slot is a hardware
+rumble path, not game input. A separate native backfill now returns the
+retail “pad frame not ready” result (0) for rumble requests while preserving
+the upstream function body for future replacement. It still needs a rebuild
+and a new Continue run. Latest evidence: `/tmp/sly-wave61-raw-rpc.log`.
+
+**Next:** rebuild with `func_002049E8` in the port backfills, open the native
+launcher, and continue once from page 3. Check whether world construction
+returns and whether the title or gameplay scene submits visible geometry.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with
