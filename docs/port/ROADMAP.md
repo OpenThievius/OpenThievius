@@ -44,7 +44,11 @@ renderer below. Do not extend this runtime as the gameplay path.
 ## Current no-emulation build (2026-11-14)
 
 The sibling checkout is up to date with public `sly1-decomp` master
-`dd7a1860970436d8127639f766b394b4c0db5751` (2026-11-13), clean on `master`.
+`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (2026-11-13), clean on `master`.
+The newest upstream merge is PR #145 (`feat(eu): credit PAL's alignment
+padding and its class descriptor table`). It changes PAL data accounting and
+PAL-only descriptors; there are no changes under the US source/config paths,
+so Wave 49's US host build inputs remain the same.
 The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
 (100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
 unmatched data is 140 bytes. The nine commits since `b482e857` classify nine
@@ -54,6 +58,14 @@ That guide identifies `FilterParticleVerticesVu0` and `CollectLightsForSphere`
 as the two call sites that need portable replacements for their VU0
 microprograms. It recommends implementing those functions in the port rather
 than building a VU0 execution model.
+
+Wave 49 adds a Sly-only byte-order adaptation at the libpad boundary. The
+shared SDL controller report is high-byte first, while standard Sly menu masks
+expect Cross as `0x0040` after `PollPadInput` combines the report bytes. This
+build compiles and links the correction; the open interactive run
+`/tmp/sly1-wave49-interactive.log` is waiting for a manual Space/Cross check.
+Do not claim Continue advances until that input result and the following title
+transition are observed.
 
 The current host32 staging build compiles all 194 Sly source units and 65
 port-only backfills. Its combined object defines 4,380 catalogued function

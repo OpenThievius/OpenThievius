@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-14, Wave 48): current decomp
+Latest no-emulation host32 result (2026-11-14, Wave 49): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
 a four-byte placeholder. The Wave 47 register trace showed `EBX` at
 `g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
@@ -12,8 +12,22 @@ two stack entries. It submits native graphics each frame. A fresh Wave 48
 capture confirms the full 640x224 warning panel and highlighted Continue at
 the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
 scene has been demonstrated; no card-format action was taken. Current run:
+`/tmp/sly1-wave49-interactive.log`; prior Wave 48 run:
 `/tmp/sly1-wave48-run.log`; previous fault registers:
 `/tmp/sly1-wave47-regtrace.log`.
+
+The Wave 49 source adds a Sly-only byte swap in `func_002042C8`: the shared
+OpenRAC SDL pad report serializes the button word high-byte first, while
+`PollPadInput` combines `buf[2] << 8 | buf[3]` and Sly's menu consumes Cross
+as `0x0040`. This correction compiles and links, but has not yet been proven
+with a Cross/Space input. The current interactive launcher has pad tracing
+enabled; do not infer menu progress until the log records the button edge and
+the page transition.
+
+The sibling decomp checkout is now at public master
+`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (PR #145). That update adds PAL
+alignment-padding accounting and PAL-specific class descriptor data; it has
+no US source/config changes, so it does not change the Wave 49 US build inputs.
 
 Visual baseline (2026-11-13, Wave 40): the renderer now uses Sly's retail
 640x224 field dimensions instead of OpenRAC's 512x448 default. A staged host
@@ -112,8 +126,9 @@ with matching decomp source when available.
 The eight black files mentioned above sampled early startup. The corrected
 capture uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
 `OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the full no-card warning. The
-next host32 task is to capture a fresh Wave 48 framebuffer and trace the
-normal Continue dismissal through the Splash subgroup finish and title request.
+next host32 task is to verify Continue with a real Cross/Space input, then
+trace the Splash subgroup finish and title request. The game still has no
+confirmed title or playable scene.
 Do not use `visible_ui=0` or `text_ui=0` as a substitute for checking the
 pause-menu layer or framebuffer.
 

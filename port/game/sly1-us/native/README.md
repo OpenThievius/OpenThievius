@@ -10,7 +10,7 @@ never edited by the host staging adapter.
 ## Current build state (2026-11-14)
 
 The sibling decomp checkout is up to date at
-`dd7a1860970436d8127639f766b394b4c0db5751` (public master, 2026-11-13). Its US
+`1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
 The native host32 build compiles 194 source units and 65 port-only backfills.
 The combined object defines 4,380 catalogued function entries; the direct
