@@ -67,10 +67,18 @@ now recognizes both address forms. The next native run with the user's Space
 press passed the block-header read and returned from the streaming stages,
 then faulted in matched `SetPadActuatorBytes` (`func_002049E8`) at a null pad
 DMA slot. Native SDL input does not create PS2 pad DMA state; a port-only
-backfill now suppresses unavailable rumble requests and returns 0. That new
-backfill still needs a rebuild and runtime check. Logs:
+backfill suppresses unavailable rumble requests and returns 0. Wave 62 rebuilt
+with that guard, passed the pad call, then faulted in `SetCameraFogColor`
+(`func_00143A08`) with an invalid color pointer. Retail `ApplyPropertyRecord`
+calls `SetCurrentCameraFogColor` with target and color pointer, but the
+matching source declaration drops both arguments. Retail replaces the first
+argument with `g_camera` and forwards the second; a new port-only
+two-argument wrapper mirrors that ABI. The rebuilt linked wrapper matches the
+retail register behavior; runtime verification remains.
+Logs:
 `/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`,
-`/tmp/sly-wave60-rpc-retest.log`, and `/tmp/sly-wave61-raw-rpc.log`.
+`/tmp/sly-wave60-rpc-retest.log`, `/tmp/sly-wave61-raw-rpc.log`, and
+`/tmp/sly-wave62-rumble-guard.log`.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still

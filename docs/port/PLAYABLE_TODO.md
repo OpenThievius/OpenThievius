@@ -20,7 +20,7 @@ post-Continue runtime confirmation. Keep this implementation in `native/`; do
 not edit matching source in `sly1-decomp`. The failing trace is
 `/tmp/sly-wave60-rpc-retest.log`.
 
-## Latest Continue trace: native pad boundary (2026-11-14)
+## Resolved native pad boundary (2026-11-14)
 
 The raw-address RPC correction was exercised with the user's Space press. The
 trace now passes `ReadBufferedBlockHeader` (markers `0x1e4ea805` through
@@ -30,12 +30,23 @@ body (`func_002049E8`): `GetNewerPadFrame` returned null because the SDL pad
 adapter does not allocate a PS2 pad DMA slot. The null slot is a hardware
 rumble path, not game input. A separate native backfill now returns the
 retail “pad frame not ready” result (0) for rumble requests while preserving
-the upstream function body for future replacement. It still needs a rebuild
-and a new Continue run. Latest evidence: `/tmp/sly-wave61-raw-rpc.log`.
+the upstream function body for future replacement. Wave 62 rebuilt and
+confirmed the null rumble fault is gone. Evidence:
+`/tmp/sly-wave61-raw-rpc.log`, `/tmp/sly-wave62-rumble-guard.log`.
 
-**Next:** rebuild with `func_002049E8` in the port backfills, open the native
-launcher, and continue once from page 3. Check whether world construction
-returns and whether the title or gameplay scene submits visible geometry.
+## Latest Continue trace: fog property callback ABI (2026-11-14)
+
+Wave 62 passed the block-header read and the pad rumble call, then faulted at
+`0x080768e8` in `SetCameraFogColor` (`func_00143A08`) on the value pointer
+`0x20`. Retail `ApplyPropertyRecord` calls this type-13 property callback with
+`(target, color_pointer)`. The matching `SetCurrentCameraFogColor` source is
+declared with no parameters and drops the color pointer in its host C call;
+the retail MIPS wrapper replaces the first argument with `g_camera` while
+preserving the second. A port-only two-argument wrapper now mirrors that ABI
+and forwards the pointer to the matched setter. The host build and linked-code
+disassembly confirm this route; the next runtime must confirm the callback
+succeeds and identify any further world-construction faults.
+Evidence: `/tmp/sly-wave62-rumble-guard.log`.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with
