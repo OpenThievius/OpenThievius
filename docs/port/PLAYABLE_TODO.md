@@ -83,18 +83,14 @@ take keyboard focus.
 detach body, correct the port-only shim or dispatch route, then continue
 through world construction and confirm visible title or level graphics.
 
-**Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
-retail pause page 3 and remains there through at least 427 game frames, with
-1,290 accepted DMA submissions and zero rejected. Its scale traces now read
-1.0 for both clock factors and `GameClock.time` advances from zero. The
-earlier Wave 57 Continue trace ran with a split host clock block, so its
-post-Continue timer conclusion is stale. A later no-input run again reached
-page 3; its startup samples confirm workers and rendering are active but do
-not record the subgroup timer probes. The approved single Space event was
-attempted earlier without input tracing, so delivery remains unconfirmed. Do
-not infer the fade result from that run. No title or gameplay scene has been
-demonstrated and no card-format action was taken. Run log:
-`/tmp/sly-wave58-aligned-run.log`.
+**Current evidence (2026-11-14, Wave 70):** the SDL host32 launcher reaches
+retail no-card page 3. Its process-local one-frame Cross test input is observed
+by the native pad adapter and advances world loading past the block-header and
+rumble calls. It then faults at `0x08048f7f` in the matched attached-set
+notification body before world load returns. No title or gameplay scene has
+been demonstrated and no card-format action was taken. Latest log:
+`/tmp/sly-wave70-crash-object.log`; Waves 67–69 isolate the input and callback
+route in the preceding sections.
 
 The current decomp header defines `ElementStack` as 0x34 bytes, but
 `warp_menu.cpp` still
@@ -132,20 +128,18 @@ with 4,807/4,807 US functions and 100% of code matched (4,498 exact C and 311
 original assembly), plus 99.9675% of data (140 bytes remain unmatched). Recent
 upstream commits name the five world bosses and reorganize their matched source
 files; they add no matched code. The host32 build compiles against those paths.
-The latest Wave 58 build compiles 194 Sly units and 61 port-only backfills. Its combined object defines 4,380 catalogued function entries and
-resolves 827/835 direct-call frontier functions; indirect calls are not included.
-These are build counts, not runtime coverage. The native trace and exact
-diagnostics are documented in the port roadmap.
+The latest Wave 70 build compiles 194 Sly units and 64 port-only backfills. Its
+combined object defines 4,380 catalogued function entries and resolves
+825/831 direct-call frontier functions; indirect calls are not included. These
+are build counts, not runtime coverage. The native trace and exact diagnostics
+are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. Recheck Continue on Wave 58 with `OPENRAC_TRACE_PAD=1`, then capture the
-   matched `UpdateElementStack`, subgroup timer, `StartObjectSubGroupFade`, and
-   ensuing world request with `OPENRAC_NATIVE_FUNCTION_TRACE=ON`. First verify
-   that the build cache is enabled for those probes: the launcher's `--trace`
-   option only enables periodic runtime samples. Wave 57's post-Continue trace
-   used the split clock object and cannot establish the corrected behavior.
-   Do not clamp stack fields or force a menu element visible.
+1. Trace how the matched attached-set notification body is entered during
+   `ReadBufferedBlockHeader`; Wave 68 showed the port wrapper entry is not seen
+   on the failing path. Verify the callback ABI and object descriptor before
+   changing the backfill or dispatch route. Do not edit matching source.
 2. The Wave 50 port-only C backfill for `FilterParticleVerticesVu0` is an
    approximation: its expiry, compaction, bounds and spin-angle behavior come
    from the matched caller, while its particle transform/integration is based

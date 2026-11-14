@@ -99,21 +99,15 @@ Logs:
 `/tmp/sly-wave68-wrapper-entry.log`, `/tmp/sly-wave69-thunk-map.log`, and
 `/tmp/sly-wave70-crash-object.log`.
 
-Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
-`ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
-a four-byte placeholder. The Wave 47 register trace showed `EBX` at
-`g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
-neighboring host BSS. The port compiler now sizes the staged global as
-`sizeof(ElementStack)`, leaving matching source untouched. Wave 48 runs over
-3,100 frames without crashing and remains on retail no-card pause page 3 with
-two stack entries. It submits native graphics each frame. A fresh Wave 48
-capture confirms the full 640x224 warning panel and highlighted Continue at
-the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
-scene has been demonstrated; no card-format action was taken. Latest run:
-`/tmp/sly-wave58-aligned-run.log`; earlier startup run:
-`/tmp/sly1-wave53-startup.log`; prior interactive Wave 49 run:
-`/tmp/sly1-wave48-run.log`; previous fault registers:
-`/tmp/sly1-wave47-regtrace.log`.
+Latest no-emulation host32 result (2026-11-14, Wave 70): the launcher reaches
+retail no-card page 3. The isolated one-frame Cross input advances world load
+past the block header and rumble request, then faults at `0x08048f7f` in the
+matched attached-set notification body before load completes. Waves 68 and 69
+show no port-wrapper or guest callback-thunk entry trace. Wave 70 captures the
+faulting EBX value, its first word, and attachment head for ABI investigation;
+do not assume EBX is the object until the callback signature is established.
+No title or gameplay scene has been demonstrated and no card-format action was
+taken. Latest log: `/tmp/sly-wave70-crash-object.log`.
 
 ## Latest decomp refresh (2026-11-14)
 
@@ -124,7 +118,7 @@ bytes (99.9675%), leaving 140 bytes unmatched. The recent upstream changes
 rename and clarify boss code (`world2_boss.cpp`, `world5_boss.cpp`, and related
 headers) and fix a PAL comment. No new US code was added because matching was
 already complete. The host32 target rebuilt from this snapshot: 194 Sly source
-units and 61 port backfills compiled; the direct-call frontier remains 827/835.
+units and 64 port backfills compiled; the latest direct-call frontier is 825/831.
 No runtime input was used for this refresh. Backfills remain isolated in
 `port/game/sly1-us/native/`.
 
