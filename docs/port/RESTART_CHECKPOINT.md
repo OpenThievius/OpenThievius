@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, after decomp 100% refresh)
+## Current checkpoint (2026-11-14, after native thread service)
 
 Branch `wip/native-sly-port`, based at `e8fa5ea`; the sibling decomp is clean
 at public master `83f2b50d586602f67e03e42343737a0dd9072a3e`. It remains 100%
@@ -18,23 +18,28 @@ A no-input run reaches the retail no-card page and reports 427 game frames,
 1,290 accepted DMAs, and zero DMA rejections. It remains non-playable; no title
 or gameplay scene is confirmed. No card-format action was taken.
 
-The next blocker is the direct-build thread syscall boundary. A brief native
-bridge experiment identified a pointer-model mismatch, so the broad bridge
-was removed and the known generic guest-kernel behavior restored. `CreateThread`
-receives a native stack-local `ThreadParams*` in the SDL build, but the generic
-runtime normalizes that argument as guest RAM. Retail entry values also cannot
-be invoked by blindly casting them to host function pointers; the linker has a
-retail-to-host mapping that must be applied. Thread startup needs a dedicated
-port-native bridge using the direct function map and native stacks. Keep this
-implementation separate under `native/` or `hand/native_c/`; do not change
-matched decomp functions. The failed broad-bridge trace is retained at
-`/tmp/sly-direct-kernel-run.log`; the baseline run is at
-`/tmp/sly-clock-fix-startup.log`.
+The direct-build thread syscall boundary now has a separate port service.
+Generated host source routes the 11 thread/semaphore EE syscall veneers to
+`sly1_native_*` functions in `native/linux_threads.cpp` and
+`native/linux_semaphores.cpp`. The thread service reads stack-local parameters,
+resolves the entry through the generated retail-to-host function map, and
+starts it on a native stack using the existing i386 clone helper. The generic
+guest-kernel path is unchanged. A bounded native run traced the render worker
+and movie/background workers starting successfully and reached no-card page 3;
+the game remained stable through 2,500 frames. It still has not demonstrated a
+title or gameplay scene. The bridge is a port-only backfill and must be removed
+if equivalent native-hostable source is added to the decomp.
 
-The current worktree also keeps the staging-only `ApplyStackTimeScale` host
-ABI fix, which drops the unused receiver argument from seven call sites while
-leaving the decomp untouched. It rebuilds successfully. No input was injected
-in either run.
+One XTest Space event was sent to the X11 launcher while the trace showed
+pause page 3. The next samples still reported page 3, but the run did not enable
+the pad-event trace and the synthetic key press was too brief to establish
+whether Sly received Cross. Do not count that as a confirmed game response.
+The latest thread trace is `/tmp/sly-native-thread-x11.log`; the bounded
+service trace is `/tmp/sly-native-thread-service-trace.log`. The earlier broad
+bridge failure remains at `/tmp/sly-direct-kernel-run.log`.
+
+The staging-only `ApplyStackTimeScale` host ABI fix drops the unused receiver
+argument from seven call sites while leaving the decomp untouched.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still

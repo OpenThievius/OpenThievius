@@ -28,12 +28,13 @@ A bounded SDL run reaches pause page 3 and records 427 frames and 1,290
 accepted DMAs with zero rejections; it has not rechecked Continue after the
 clock-layout fix. The next confirmed blocker is the thread syscall boundary.
 The matched retail wrappers contain EE `syscall` instructions, while the
-generic guest-kernel runtime reads `CreateThread` parameters as guest-RAM
-addresses and the direct SDL build passes a host stack pointer there. A broad
-syscall bridge was removed after tracing showed it did not map direct-compiled
-entry points correctly. Do not extend the guest-kernel bridge for SDL; provide
-a separate native service for the direct build and keep it under `native/` or
-`hand/native_c/` until equivalent source is decompiled.
+generic guest-kernel runtime expects guest-RAM parameter pointers. The SDL
+build now stages those 11 veneers to separate port-only Linux thread and
+semaphore services. They read native stack parameters, resolve the compiled
+thread entry through the retail-to-host map, and start it on native stacks. A
+bounded trace confirms render, movie, and background workers start; the
+launcher remains at the no-card page. These services stay under `native/` and
+must be replaced if equivalent native-hostable source is decompiled.
 
 The packet writers `BeginDmaTag`, `AddDmaRefTag`, `AddDmaReturnTag`, and
 `CloseDmaTag` now compile from matched decomp C. Their stale hostgen backfill
