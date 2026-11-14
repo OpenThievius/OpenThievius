@@ -15,8 +15,11 @@ separate port backfills, 4,380 catalogued function entries, and a direct-call
 frontier of 826/834 (eight missing; indirect calls are not counted). The clock
 layout correction preserves both clock scales at 1.0 and advances game time.
 A no-input run reaches the retail no-card page and reports 427 game frames,
-1,290 accepted DMAs, and zero DMA rejections. It remains non-playable; no title
-or gameplay scene is confirmed. No card-format action was taken.
+1,290 accepted DMAs, and zero DMA rejections. A traced Space press reached
+retail Cross and dismissed the warning. The Splash subgroup then requested a
+world load; game frames stopped at 112 while the SDL window continued showing
+black. No title or gameplay scene is confirmed. No card-format action was
+taken.
 
 The direct-build thread syscall boundary now has a separate port service.
 Generated host source routes the 11 thread/semaphore EE syscall veneers to
@@ -48,7 +51,21 @@ did not contain the subgroup probes. No key was injected in that attempt. The
 earlier broad bridge failure remains at `/tmp/sly-direct-kernel-run.log`.
 
 The staging-only `ApplyStackTimeScale` host ABI fix drops the unused receiver
-argument from seven call sites while leaving the decomp untouched.
+argument from seven call sites while leaving the decomp untouched. A new
+staging-only trace brackets key decoding, sector-stream open, block-header
+read, and typed world construction in `RunPendingWorldLoad`; it is committed as
+`9bd1440`. The post-Continue trace reaches the key and successfully opens its
+sector stream, then stalls inside `ReadBufferedBlockHeader` before the marker
+after that call. The active thread repeatedly prints the retail
+`Sif says RPC isn't busy, but we still don't have returns from the IOP!`
+message from `IsIopReplyReady`. A first port-only sentinel fix at the legacy
+`func_001F8290` entry did not change this because decompiled callers use the
+source-level `CallRemoteService` implementation. The backfill now covers both
+host call paths and builds, but this correction has not yet been exercised in a
+new Continue run. The test input was the user's single Space press; no
+additional input was sent. Trace logs:
+`/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`, and
+`/tmp/sly-wave60-rpc-retest.log`.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still

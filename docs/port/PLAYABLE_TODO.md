@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Latest native Continue trace (2026-11-14)
+
+The user pressed Space once on retail no-card page 3. The trace confirms Cross
+was observed and dismissed the warning. `RunPendingWorldLoad` decoded the
+queued world key and opened the sector stream (`stream_open=1`), but game
+frames stopped at 112 before `ReadBufferedBlockHeader` returned. The active
+thread repeatedly formatted the retail `Sif says RPC isn't busy, but we still
+don't have returns from the IOP!` warning from `IsIopReplyReady`.
+
+The first port-only completion attempt wrote reply sentinels only through the
+legacy `func_001F8290` address and did not resolve this call path. Current
+decomp callers reach the source-level `CallRemoteService` body, so the isolated
+port backfill now covers both that name and the legacy address. It builds, but
+the corrected service still needs a post-Continue runtime confirmation. Keep
+this implementation in `native/`; do not edit matching source in
+`sly1-decomp`. The latest trace is `/tmp/sly-wave60-rpc-retest.log`.
+
+**Next:** rerun with the corrected backfill, press Space once on page 3, and
+confirm the reply-check loop exits and the block header returns. Then follow
+the next load stage. The user's one-press authorization has been used; obtain
+fresh authorization before injecting another scripted game input.
+
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with
 1,290 accepted DMA submissions and zero rejected. Its scale traces now read
