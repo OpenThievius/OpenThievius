@@ -7,36 +7,23 @@ remain unavailable to the native build. They are separate from
 when hostable matching source becomes available. The source decomp checkout is
 never edited by the host staging adapter.
 
-## Current build state
+## Current build state (2026-11-14)
 
-Canonical `sly1-decomp` master is `647da5d6` (Wave 33). The sibling checkout
-at `/home/reaper/sly/sly1-decomp` remains read-only at `bfc74817`; the build
-uses a separate Wave 33 source snapshot and the older US assembly snapshot
-because current upstream no longer ships that tree. The Wave 33 host32 build
-compiles all 190 source units and 65 port-only backfills. Its combined object
-contains 4,345 catalogued function entries. The direct frame-call scan finds
-811 of 817 definitions and six unresolved addresses; this scan does not follow
-indirect callbacks. The freestanding i386 and SDL launchers link, routing
-unresolved functions to diagnostic traps.
+The sibling decomp checkout is up to date at
+`b482e857d7000d881041d551eec3ea31fc78862f` (public master, 2026-11-13). Its US
+report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
+The native host32 build compiles 194 source units and 65 port-only backfills.
+The combined object defines 4,380 catalogued function entries; the direct
+call frontier resolves 822/830 functions, without following indirect calls.
 
-This is a no-emulation host build, not a playable graphics frontend. The SDL
-host32 launcher was run against the retail ELF and ISO on 2026-11-12. An
-interior data alias initially resolved the pad field `D_00262D18` to absolute
-address `0xa8`, causing a startup fault. The linker now defers data aliases
-until final host data placement; `nm` confirms the field at `0x082fcee8`,
-inside `D_00262C70`. Port-only no-card service replies let retail startup reach
-the no-card warning. A host ABI mismatch in the staged `AddGifRegisterWrite`
-declarations truncated GS register writes and clipped the framebuffer to one
-row; the staging generator now normalizes the writer to a 32-bit register and
-64-bit value. The Sly SDL renderer uses the retail 640x224 field dimensions.
-A bounded native capture now renders the full no-card warning panel and its
-selected `Continue` item. An eight-second trace remains on the Splash world
-with no world-load, movie, or fade request; no title or playable scene has
-been demonstrated. Space maps to Cross and Return maps to Start, though a
-synthetic X11 key attempt did not reach SDL in the diagnostic run. No
-card-format action was taken. A previous run also exposed invalid DMA channel
-value `0xe0`; the port boundary now avoids dereferencing unknown channels, and
-host channel 2 is routed to the renderer.
+Wave 41 links the SDL launcher, but its latest bounded run faults at address
+`0x556` before graphics. The staging adapter for `game_progress.cpp` now gives
+the key lookup an explicit host parameter after the decomp source reorganization;
+this is a port-side ABI adaptation and does not modify matching source. The
+last confirmed visual milestone is the complete native no-card warning panel
+and highlighted Continue option from Wave 40. No title or playable scene has
+been demonstrated. No card-format action was taken. See the roadmap and
+restart checkpoint for evidence and current blockers.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from

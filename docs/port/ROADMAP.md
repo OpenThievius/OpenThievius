@@ -41,48 +41,41 @@ frames with zero/black vertex attributes, and the resulting 960x720 frame was
 entirely black. These observations do not describe the no-emulation host32
 renderer below. Do not extend this runtime as the gameplay path.
 
-## Current no-emulation build (2026-11-13)
+## Current no-emulation build (2026-11-14)
 
-The public decomp `master` is `f38f0113` (Wave 39); the sibling working tree
-remains at `bfc74817`, 100 commits behind. The latest US report matches
-4,778/4,807 functions, 98.046% of code and 99.676% of data, up from
-4,763/4,807 functions and 93.461% of code at Wave 33. Hostgen with assembly
-disabled still translates 799 functions, with 2 stubs and 4,127 functions
-without C across 280 units. The new snapshot does not change the current
-startup path's matched notifier, pause-menu, or pad-input sources.
+The sibling checkout is up to date with public `sly1-decomp` master
+`b482e857d7000d881041d551eec3ea31fc78862f` (2026-11-13), clean on `master`.
+The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
+(100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
+unmatched data is 140 bytes. The latest change corrected the declared size of
+the element stack resume-state global; it is a layout correction, not a fix
+for the memory-card prompt or graphics path.
 
-A read-only Wave 33 snapshot of `647da5d6` compiles all 190 units and all 65
-port-only host32 backfills. The combined native object records 4,345
-catalogued function entries, and the direct-call frontier has 811/817
-definitions (6 missing; indirect calls are not covered). The freestanding
-i386 launcher links, with unresolved retail functions routed to
-address-reporting traps. The SDL host32 launcher opens a native OpenGL window
-and runs compiled game code against the retail ELF and ISO. Staging-only host
-ABI returns keep two matched non-void wrappers from falling through after
-calling void functions; the decomp checkout remains unchanged. The launcher
-makes only the main executable's non-executable read-only segment writable
-because `WrapTextLines` rewrites wrapped strings there. A false page-22 pause
-was fixed by native CD services reporting the mounted ISO ready and unchanged
-and by updating relocated `D_002613F0`. A separate interior-data alias bug
-caused pad startup to read `D_00262D18` from address `0xa8`; data aliases now
-resolve after final host data placement. The linked symbol is now at
-`0x082fcee8`, within `D_00262C70`. Native memory-card backfills let retail
-startup reach page 3 of the no-card prompt. A hard-bounded 10-second run
-reached about 600 frames without a fatal fault. The current 640x224 host32
-renderer displays the complete no-card warning panel, border, and highlighted
-Continue option. No title or gameplay scene has been demonstrated. The global
-UI/text counters do not include the pause-menu layer. No card-format action
-was taken. Unknown DMA channels still avoid host register dereferences, and
-host32 compilation retains stack realignment.
+The current host32 staging build compiles all 194 Sly source units and 65
+port-only backfills. Its combined object defines 4,380 catalogued function
+entries; the direct-call frontier has 822/830 definitions (8 missing, with
+indirect calls not covered). These counts describe translation and call
+reachability, not playable coverage. A decomp reorganization moved
+`game_progress.cpp` to its semantic filename, leaving a staging-only ABI
+adaptation aimed at its retired filename. The adaptation now passes the
+world-key pointer explicitly through `GetEntryIdByKey`/`FindKeyEntry`; the
+generated i386 object confirms the parameter reaches the lookup. This affects
+only generated native build source and leaves `sly1-decomp` unchanged.
 
-A 2026-11-13 Wave 39 snapshot (`f38f0113`) also compiles all 190 units and 65
-port-only backfills. A host-only lowering for the new `Vu0::ScalarInGprAt`
-helper keeps the decomp header untouched. The combined object defines 4,355
-catalogued entries, up from 4,345, while the direct-call frontier remains
-811/817. A bounded native run reaches the same no-card warning. A held Down
-input closes page 3 and advances the memory-card display state; the Splash
-world remains active and title/gameplay are still unverified. Log:
-`/tmp/sly1-wave39-after-continue.log`.
+The latest Wave 41 launcher links, but a bounded native run still faults at
+address `0x556` before graphics. Traces show two entries to
+`HandleCountdownNotifierNotification` before the fault; the fault caller is
+not yet resolved, so the pointer adaptation is not a verified startup fix.
+The host staging layer also contains no-op fallbacks for VU0 particle-filter
+and light-group methods. Those keep the native build compilable but do not
+reproduce their PS2 microprogram behavior, so particle effects and lighting
+remain incomplete. The last confirmed visual milestone remains the native
+640x224 no-card warning panel with its highlighted Continue option (Wave 40).
+No title or gameplay scene has been demonstrated, and no card-format action
+was taken. Next, use the targeted startup probes to resolve the `0x556` fault,
+then verify the warning-to-title transition and first world render. The source
+and link artifacts are in ignored `build/port/host32-wave41-trace/`; see
+`/tmp/sly1-wave41-trace-run.log` for the latest launch trace.
 
 ### Decomp refresh (2026-11-11)
 
