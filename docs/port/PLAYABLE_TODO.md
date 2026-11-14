@@ -1,76 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-**Latest native visual evidence (2026-11-13):** the host32 Sly renderer now
-uses its retail 640x224 field dimensions instead of OpenRAC's 512x448 default.
-With the earlier staging-only `AddGifRegisterWrite` ABI fix, a fresh bounded
-capture displays the complete no-card warning panel, border, and highlighted
-Continue option at normal proportions. No title or playable scene has been
-demonstrated and no card-format action was taken. A 10-second run shows the
-retail no-card warning remains open until input. The notifier handler receives
-walker key `0x263`, passes its retail gate, queues completion, and destroys the
-walker; the earlier self-loop-only diagnosis was incomplete. In a separate
-bounded run, one Down input closed page 3 and advanced the memory-card display
-state, but did not leave the Splash world. Capture:
-`/tmp/sly-display-profile-640x224.png`; startup log:
-`/tmp/sly1-latest-native-startup.log`. The trace logs notifier kind `0x14`
-followed by mode `2` and `SetStateNotifierState(2)`, consistent with its
-completion path, but did not directly log the current walker key. A separate
-Down-input capture showed a black framebuffer afterward while Splash remained
-active. Treat it as a regression: the prompt disappears, but no title or
-gameplay transition is demonstrated. Input/capture log:
-`/tmp/sly-wave39-post-dismiss-capture.log`.
+**Current evidence (2026-11-14):** the last confirmed native image is the full
+640x224 no-card warning panel with highlighted Continue (Wave 40). Wave 41 and
+Wave 42 builds compile and link, but bounded startup faults before graphics at
+`0x556`. The Wave 42 trace records two entries to
+`HandleCountdownNotifierNotification` (`kind=3`, then `kind=4`) and a fault
+caller of `0x1`, so the instruction path after that point still needs
+isolation. No title or gameplay scene is confirmed and no card-format action
+was taken. Run log: `/tmp/sly1-wave42-run.log`.
 
-The latest bounded X11 trace confirms the input path: one Down key produces
-`held=0x0040`, closes the page (`element_state=5 -> 0`), and changes card
-display mode `1 -> 2`. The `D_002701B8` gate is zero afterward, but Splash
-remains active with no load, movie, or fade request; the captured framebuffer
-is black. Wave 39's matched `UpdateElementStack` says this state should finish
-the active `ObjectSubGroup`. An opt-in staging probe now records the subgroup
-lookup, finish call, and state-5 timer updates without changing game logic.
-All 190 Sly units and 65 port-only backfills compile with the probe. Runtime
-verification is blocked by the missing i386 development CRT (`gnu/stubs-32.h`)
-at launcher link time; the valid uninstrumented host32 launcher remains the
-baseline. See the restart checkpoint for the exact log and next trace step.
+**Build baseline:** public `sly1-decomp` master is `dd7a1860` (2026-11-13),
+with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
+The latest host32 build compiles 194 Sly units and 65 port-only backfills. Its
+combined object defines 4,380 catalogued function entries and resolves
+822/830 direct-call frontier functions; indirect calls are not included.
+These are build counts, not runtime coverage. The native trace and exact
+diagnostics are documented in the port roadmap.
 
-**Build baseline (2026-11-13):** upstream `sly1-decomp` master is
-`f38f0113` (Wave 39); the sibling checkout remains at `bfc74817`, 100 commits
-behind. US coverage is 4,778/4,807 functions (99.40%) and 98.05% of code, up
-from 4,763/4,807 functions (99.08%) and 93.46% of code at Wave 33. Hostgen
-still translates 799 functions, with 2 stubs and 4,127 functions without C
-across 280 units. The Wave 39 snapshot
-compiles 190/190 Sly units and 65/65 port-only host32 backfills. The combined
-object resolves 811/817 functions in its direct frame-call frontier, leaving
-6 missing; indirect callbacks are not covered. Two staging-only returns adapt
-matched non-void wrappers that call void functions; decomp source is unchanged.
-The launcher makes the main executable's non-executable read-only segment
-writable because `WrapTextLines` rewrites wrapped strings there. A relocated
-retail data alias fix now keeps interior fields attached to their host data
-objects through the final link; this fixed a startup fault where
-`D_00262D18` had resolved to `0xa8` instead of the relocated pad field. The
-native no-card memory-card services now let retail startup reach pause page 3
-after about 0.35 seconds. A hard-bounded 10-second run reached about 600 frames
-with no fatal fault. A later native framebuffer capture saved eight frames
-after page 3 was reached; those eight startup frames were black. The
-`visible_ui` and `text_ui` trace counters cover only the 37 global screen
-elements, not the pause-menu
-layer. A title or playable scene has not been demonstrated. No card-format
-action was taken. A 2026-11-12 follow-up found and fixed a display-context
-overrun that changed the GIF channel global to `0xe0`: the native
-`func_00201D60` backfill wrote `0x250` bytes through a two-record (`0x50` byte)
-retail context. It now writes only those two records. A bounded host32 run
-kept the channel at `0x082ffee8` and submitted 735/735 renderer DMAs with zero
-rejections. The later `AddGifRegisterWrite` ABI diagnosis and visible warning
-capture supersede the earlier all-black conclusion. See the restart checkpoint
-for current evidence.
+**Immediate tasks:**
 
-**Immediate host32 task:** restore the i386 development CRT or otherwise link
-the instrumented launcher, then capture the active subgroup lookup, finish
-state, and fade timer after Continue. The display-context overrun, host
-`AddGifRegisterWrite` ABI mismatch, and Sly frame-size mismatch are fixed.
-Keep functional native service replacements in
-`port/game/sly1-us/native/`, separate from decomp source. Do not format a
-card, force UI visibility, or alter matching game logic to fabricate a scene.
+1. Resolve the `0x556` startup fault after the countdown-notifier handler and
+   restore the native no-card warning. Then verify dismissal, title and the
+   first world render without forcing game state.
+2. After startup works, implement port-only C replacements for
+   `FilterParticleVerticesVu0` and `CollectLightsForSphere`. The latest
+   [`sly1-decomp porting guide`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
+   explains those two VU0 microprogram call sites and says to reimplement
+   their work there, not add a VU0 execution model. Keep replacements under
+   `port/game/sly1-us/hand/native_c/` and remove the compile-only no-op staging
+   methods when the replacements are wired in.
+3. Replace remaining missing-function traps along the observed boot, frame
+   and render path with narrow port-only C backfills. Retire each one when
+   matching decomp C becomes available.
+
+Do not format a card, force UI visibility, or alter matching source to
+fabricate a scene. Keep saves and rendering work in the port repository.
 
 The visible unformatted-memory-card prompt came from the separate experimental
 guest-runtime launcher. Its memory-card probe reports no card; the user pressed

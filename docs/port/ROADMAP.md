@@ -44,12 +44,16 @@ renderer below. Do not extend this runtime as the gameplay path.
 ## Current no-emulation build (2026-11-14)
 
 The sibling checkout is up to date with public `sly1-decomp` master
-`b482e857d7000d881041d551eec3ea31fc78862f` (2026-11-13), clean on `master`.
+`dd7a1860970436d8127639f766b394b4c0db5751` (2026-11-13), clean on `master`.
 The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
 (100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
-unmatched data is 140 bytes. The latest change corrected the declared size of
-the element stack resume-state global; it is a layout correction, not a fix
-for the memory-card prompt or graphics path.
+unmatched data is 140 bytes. The nine commits since `b482e857` classify nine
+VU0 fragments as linker leftovers, make minor name cleanup and add
+[`sly1-decomp/docs/PORTING.md`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md).
+That guide identifies `FilterParticleVerticesVu0` and `CollectLightsForSphere`
+as the two call sites that need portable replacements for their VU0
+microprograms. It recommends implementing those functions in the port rather
+than building a VU0 execution model.
 
 The current host32 staging build compiles all 194 Sly source units and 65
 port-only backfills. Its combined object defines 4,380 catalogued function
@@ -62,7 +66,7 @@ world-key pointer explicitly through `GetEntryIdByKey`/`FindKeyEntry`; the
 generated i386 object confirms the parameter reaches the lookup. This affects
 only generated native build source and leaves `sly1-decomp` unchanged.
 
-The latest Wave 41 launcher links, but a bounded native run still faults at
+The latest Wave 42 launcher links, but a bounded native run still faults at
 address `0x556` before graphics. Traces show two entries to
 `HandleCountdownNotifierNotification` before the fault; the fault caller is
 not yet resolved, so the pointer adaptation is not a verified startup fix.
@@ -72,10 +76,12 @@ reproduce their PS2 microprogram behavior, so particle effects and lighting
 remain incomplete. The last confirmed visual milestone remains the native
 640x224 no-card warning panel with its highlighted Continue option (Wave 40).
 No title or gameplay scene has been demonstrated, and no card-format action
-was taken. Next, use the targeted startup probes to resolve the `0x556` fault,
-then verify the warning-to-title transition and first world render. The source
-and link artifacts are in ignored `build/port/host32-wave41-trace/`; see
-`/tmp/sly1-wave41-trace-run.log` for the latest launch trace.
+was taken. Next, resolve the `0x556` fault, then verify the warning-to-title
+transition and first world render. After startup is stable, implement the two
+VU0 call-site replacements in `port/game/sly1-us/hand/native_c/` and remove
+the matching no-op VU0 staging shims. The source and link artifacts are in
+ignored `build/port/host32-wave42/`; see `/tmp/sly1-wave42-run.log` for the
+latest launch trace.
 
 ### Decomp refresh (2026-11-11)
 
