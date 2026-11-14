@@ -19,12 +19,14 @@ public:
 
     void handle_event(const SDL_Event& event);
     void update();
+    void test_press_cross_once();
     const openrac::platform::Pad& pad(int port) const;
 
 private:
     void refresh_pad(int port);
     std::array<SDL_Gamepad*, 2> m_gamepads{};
     std::array<openrac::platform::Pad, 2> m_pads{};
+    bool m_test_cross_pending{};
 };
 
 }  // namespace sly1::platform

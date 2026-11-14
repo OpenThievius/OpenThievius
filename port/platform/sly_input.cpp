@@ -39,6 +39,10 @@ void Input::update() {
     for (int port = 0; port < 2; ++port) refresh_pad(port);
 }
 
+void Input::test_press_cross_once() {
+    m_test_cross_pending = true;
+}
+
 const openrac::platform::Pad& Input::pad(int port) const {
     static const openrac::platform::Pad disconnected{};
     return port >= 0 && port < 2 ? m_pads[static_cast<std::size_t>(port)] : disconnected;
@@ -74,6 +78,10 @@ void Input::refresh_pad(int port) {
         pad.right_x = stick_byte(rx); pad.right_y = stick_byte(ry);
         pad.set(Button::L2, SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > 8000);
         pad.set(Button::R2, SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) > 8000);
+        if (port == 0 && m_test_cross_pending) {
+            pad.set(Button::Cross, true);
+            m_test_cross_pending = false;
+        }
         return;
     }
 
@@ -102,6 +110,10 @@ void Input::refresh_pad(int port) {
     pad.left_y = static_cast<std::uint8_t>(down(SDL_SCANCODE_S) ? 0xFF : down(SDL_SCANCODE_W) ? 0 : 0x80);
     pad.right_x = static_cast<std::uint8_t>(down(SDL_SCANCODE_L) ? 0xFF : down(SDL_SCANCODE_J) ? 0 : 0x80);
     pad.right_y = static_cast<std::uint8_t>(down(SDL_SCANCODE_K) ? 0xFF : down(SDL_SCANCODE_I) ? 0 : 0x80);
+    if (port == 0 && m_test_cross_pending) {
+        pad.set(Button::Cross, true);
+        m_test_cross_pending = false;
+    }
 }
 
 }  // namespace sly1::platform

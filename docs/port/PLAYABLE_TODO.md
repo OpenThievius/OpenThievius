@@ -56,13 +56,24 @@ Wave 63 passed the fog callback and the block-header stage, then faulted at
 from the attached set; the matching C loop ended with a null link and read
 `n->target` before its null check. The first port guard handled an empty list
 but Wave 64 showed the same case with a nonempty list and no matching target.
-The guard now searches the full owner-link chain, sends only missing-target
-detaches to the base notification handler, and lets real links use the matched
-detach logic. It needs a rebuild and runtime check. Evidence:
-`/tmp/sly-wave63-fog-callback.log`, `/tmp/sly-wave64-empty-attach.log`.
+The port wrapper now searches the full owner-link chain, but Waves 65 and 66
+still fault at the same matched-body null dereference. The descriptor points at
+the wrapper, yet conditional trace values in the wrapper were absent, so the
+runtime callback route and arguments remain unresolved. Do not count the guard
+as effective until a trace proves it intercepted the failing notification.
+Evidence: `/tmp/sly-wave63-fog-callback.log`,
+`/tmp/sly-wave64-empty-attach.log`, `/tmp/sly-wave65-attach-list-guard.log`,
+and `/tmp/sly-wave66-detach-trace.log`.
 
-**Next:** rebuild with the full link-chain check, continue once from page 3,
-then inspect whether world construction finishes and renders a title or level.
+The SDL launcher now supports a process-local, one-frame Cross input for
+non-interfering tests: set `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N` to inject
+the press after N native input polls. It does not send a desktop key event or
+take keyboard focus. Wave 67 must verify the hook and trace the detach callback
+route before changing the backfill again.
+
+**Next:** run Wave 67 using only the launcher-local input hook, identify why the
+matched detach body still receives the unmatched link, then continue through
+world construction and confirm visible title or level graphics.
 
 **Current evidence (2026-11-14, Wave 58):** the SDL host32 launcher reaches
 retail pause page 3 and remains there through at least 427 game frames, with

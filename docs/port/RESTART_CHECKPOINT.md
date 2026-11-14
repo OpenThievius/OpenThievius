@@ -78,14 +78,19 @@ retail register behavior, and Wave 63 confirmed the fog setter returned. That
 run then faulted in matched `HandleAttachedSetNotification` on a null link for
 an unmatched kind-2 detach. The first `func_001EF3D8` guard handled an empty
 list, but Wave 64 reproduced the fault with a nonempty list lacking the target.
-The updated port wrapper searches the whole owner-link chain, routes only a
-missing target to the base notification handler, and keeps the matched
-implementation for valid links. It needs a build and runtime check.
+The updated port wrapper searches the whole owner-link chain, but Waves 65 and
+66 still fault at the same matched-body null dereference. Its conditional trace
+values were absent even though the wrapper is installed in the descriptor, so
+the failing callback's route and arguments remain unresolved. Do not treat the
+guard as effective yet. The SDL host now has an opt-in one-frame Cross test
+input (`OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES=N`) that stays inside the game
+process and does not steal desktop focus.
 Logs:
 `/tmp/sly-wave58-x11-continue.log`, `/tmp/sly-wave59-loader-trace.log`,
 `/tmp/sly-wave60-rpc-retest.log`, `/tmp/sly-wave61-raw-rpc.log`, and
 `/tmp/sly-wave62-rumble-guard.log`, `/tmp/sly-wave63-fog-callback.log`, and
-`/tmp/sly-wave64-empty-attach.log`.
+`/tmp/sly-wave64-empty-attach.log`, `/tmp/sly-wave65-attach-list-guard.log`,
+and `/tmp/sly-wave66-detach-trace.log`.
 
 Latest no-emulation host32 result (2026-11-14, Wave 58): current decomp
 `ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still

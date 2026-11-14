@@ -483,6 +483,9 @@ extern "C" int openrac_native_window_poll_input(void) {
     SDL_Event event;
     bool quit = false;
     static unsigned traced_key_events = 0;
+    static unsigned test_input_frame = 0;
+    static bool test_space_checked = false;
+    static bool test_space_injected = false;
     std::scoped_lock lock(g_input_mutex);
     while (SDL_PollEvent(&event)) {
         static unsigned traced_window_events = 0;
@@ -507,6 +510,25 @@ extern "C" int openrac_native_window_poll_input(void) {
         if (event.type == SDL_EVENT_QUIT ||
             (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) quit = true;
         g_input->handle_event(event);
+    }
+    if (!test_space_checked) {
+        test_space_checked = true;
+        const char* delay = std::getenv("OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES");
+        if (delay != nullptr && delay[0] != '\0' && delay[0] != '0') {
+            char* end = nullptr;
+            const unsigned long after = std::strtoul(delay, &end, 10);
+            if (end != delay && *end == '\0') {
+                test_input_frame = static_cast<unsigned>(after);
+            }
+        }
+    }
+    if (test_input_frame > 0 && !test_space_injected) {
+        --test_input_frame;
+        if (test_input_frame == 0) {
+            g_input->test_press_cross_once();
+            test_space_injected = true;
+            std::fprintf(stderr, "[test-input] injected one Cross press into native pad 0\n");
+        }
     }
     g_input->update();
     return quit ? 1 : 0;
