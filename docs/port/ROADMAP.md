@@ -67,7 +67,7 @@ build compiles and links the correction; the open interactive run
 Do not claim Continue advances until that input result and the following title
 transition are observed.
 
-The current host32 staging build compiles all 194 Sly source units and 65
+The current Wave 50 host32 staging build compiles all 194 Sly source units and 66
 port-only backfills. Its combined object defines 4,380 catalogued function
 entries; the direct-call frontier has 822/830 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
@@ -96,8 +96,10 @@ task is to follow the normal Continue dismissal through the Splash finish and
 title transition, then render the first title/gameplay frame. Do not force a
 menu element visible or fabricate the transition.
 
-The two staging no-ops for the VU0 particle-filter and light-collection methods
-remain incomplete. The upstream
+Wave 50 adds a separate port-only approximate CPU implementation for the
+particle-filter VU0 call site. Its exact microprogram arithmetic remains
+unknown; see the native backfill README for its evidence and limitations. The
+light-collection VU0 call site still has a staging no-op. The upstream
 [porting guide](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
 recommends native call-site C replacements after startup is stable.
 Run log: `/tmp/sly1-wave48-run.log`; prior register trace:

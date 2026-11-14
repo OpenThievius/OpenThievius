@@ -35,7 +35,7 @@ to forcing a title or level.
 
 **Build baseline:** public `sly1-decomp` master is `1fdd36d7` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
-The latest host32 build compiles 194 Sly units and 65 port-only backfills. Its
+The latest host32 build compiles 194 Sly units and 66 port-only backfills. Its
 combined object defines 4,380 catalogued function entries and resolves
 822/830 direct-call frontier functions; indirect calls are not included.
 These are build counts, not runtime coverage. The native trace and exact
@@ -43,18 +43,23 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. With the Wave 49 build, verify Cross/Space moves from the no-card warning
+1. With the Wave 50 build, verify Cross/Space moves from the no-card warning
    through the normal Continue dismissal into the Splash finish and title
    transition. Earlier input traces show that
    dismissing Continue can leave a black frame while Splash remains active, so
    trace the retail subgroup finish/deadline and ensuing world/title request.
    Do not clamp stack fields or force a menu element visible.
-2. After startup works, implement port-only C replacements for
-   `FilterParticleVerticesVu0` and `CollectLightsForSphere`. The latest
+2. The Wave 50 port-only C backfill for `FilterParticleVerticesVu0` is an
+   approximation: its expiry, compaction, bounds and spin-angle behavior come
+   from the matched caller, while its particle transform/integration is based
+   on the sibling effect path because the VU microprogram's exact arithmetic
+   is unknown. Validate it only once particles are reached; replace it with
+   exact recovered behavior when available. Implement `CollectLightsForSphere`
+   as the remaining port-only C replacement. The latest
    [`sly1-decomp porting guide`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
    explains those two VU0 microprogram call sites and says to reimplement
    their work there, not add a VU0 execution model. Keep replacements under
-   `port/game/sly1-us/hand/native_c/` and remove the compile-only no-op staging
+   `port/game/sly1-us/native/` and remove the compile-only no-op staging
    methods when the replacements are wired in.
 3. Replace remaining missing-function traps along the observed boot, frame
    and render path with narrow port-only C backfills. Retire each one when

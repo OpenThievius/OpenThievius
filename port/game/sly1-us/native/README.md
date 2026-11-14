@@ -12,7 +12,7 @@ never edited by the host staging adapter.
 The sibling decomp checkout is up to date at
 `1fdd36d70c89730bc9e155e0bbd8638fca164f74` (public master, 2026-11-13). Its US
 report matches 4,807/4,807 functions and 100% of code, plus 99.9675% of data.
-The native host32 build compiles 194 source units and 65 port-only backfills.
+The native host32 build compiles 194 source units and 66 port-only backfills.
 The combined object defines 4,380 catalogued function entries; the direct
 call frontier resolves 822/830 functions, without following indirect calls.
 
@@ -34,6 +34,17 @@ forms `(buf[2] << 8) | buf[3]` and consumes Cross as `0x0040`, while the shared
 OpenRAC SDL serializer emits the standard DualShock word high-byte first.
 Wave 49 compiles and links this fix; Cross/Space still needs a live runtime
 check before menu progress is confirmed.
+Wave 50 adds a port-only `func_0013A498` CPU backfill for the particle-filter
+VU0 call site. It uses the matched caller's expiry test, compaction, bounds,
+and spin-angle behavior, and applies CPU-side matrix/velocity integration
+based on the sibling effect path. The VU0 microprogram's precise arithmetic
+is undocumented, so this is explicitly an approximation and is not a
+decompilation claim. The staged host source adds a declaration for the
+backfill after renaming the matched implementation; neither the decomp
+checkout nor its match score changes. The other porting-guide VU0 site,
+`CollectLightsForSphere`, still has host no-op behavior. Re-run visual/startup
+checks before treating the particle approximation as correct.
+
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from
