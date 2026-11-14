@@ -17,9 +17,9 @@ world bosses and rename the corresponding source/header files; no new US
 functions or code bytes were added by that cleanup. The native host32 build has
 been rebuilt successfully against this snapshot.
 
-The native host32 build compiles 194 Sly source units and 61 port-only
-backfills. Its combined object contains 255 objects and defines 4,380
-catalogued function entries; the direct call frontier resolves 826/834
+The native host32 build compiles 194 Sly source units and 67 port-only
+backfills. Its latest combined object contains 261 decomp objects and defines
+4,383 catalogued function entries; the direct call frontier resolves 825/831
 functions, without following indirect calls.
 The freestanding launcher now supplies Itanium C++ local-static guard
 primitives required by the current matched source. The combiner preserves the
@@ -91,6 +91,20 @@ Wave 53 also removes the port overrides for `ReadMeshTables`,
 `UpdateCameraMatrices`, and `InitSpawnRecord`; all three now compile from
 100%-matched US C. The direct-call frontier rises to 827/835, and startup
 remains on the no-card warning without an immediate fault.
+
+`placed_object_local_vectors.cpp` replaces the two handwritten VU0 routines
+that store a placed object's local velocity and spin in world space. Its
+scalar row combination preserves the input w lane; exact VU rounding has not
+been checked. `scale_quadword.cpp` implements the original VU0
+`vmulx.xyzw` operation used by `ScaleQuadword` (`func_00118D30`). Both remain
+port-only and should be removed if matching hostable source becomes available.
+
+The latest hidden startup run reaches the no-card page and resumes after an
+in-process Cross press. The staged `CopyEffectSpawner` callback now forwards
+its source object and shared record. Startup then faults in matched
+`CopyObjectData` with source pointer `0x3f800000`, likely a callback argument
+or dispatch mismatch; see the restart checkpoint before changing this path.
+No title or gameplay scene has been demonstrated.
 
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for

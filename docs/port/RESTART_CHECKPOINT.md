@@ -1,27 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 95)
+## Current checkpoint (2026-11-14, Wave 114)
 
-The native launcher now clears the prior model-strip crash and reaches
-world-object construction, but still faults before showing a title or level.
-Wave 93 exposed a host staging layout bug: `align_host_quad_arrays` applied
-16-byte alignment to four-element arrays inside structures as well as global
-VU arrays. This expanded `ModelStrip` beyond the 0x50-byte allocation and
-caused its strip pointer to advance by 0x60. The helper now limits alignment to
-file-scope declarations, keeping record layouts intact; staged
-`ModelStrip::keys` is again at 0x28 without forced alignment. Wave 95 rebuilt
-194 Sly units and 65 native backfills and passed that crash. The next fault is
-at `0x0807232b` in `func_00182C18` (`BaseObject` virtual setup), reached from
-`func_001504E0` (`StepSequence`); the object vtable yields invalid method
-address `0x44af424e`. Trace object initialization and class descriptor setup.
+The launcher reaches the retail no-card screen. A hidden run injected one
+Cross press through the native pad adapter and resumed world loading. The
+staged `CopyEffectSpawner` callback now forwards its source to
+`CopyPlacedObject`, shares `src->rec`, and increments the record use count;
+this clears the previous null `Rec50` crash without changing the decomp.
+Wave 114 also adds the port-only `ScaleQuadword` (`func_00118D30`) CPU
+replacement for the handwritten VU0 `vmulx.xyzw` operation.
 
-The separate native `func_001EEA40` backfill now includes the leaf mask
-expansion locally rather than calling the ungenerated `func_001EE9D0` name.
-Its purpose remains isolated from matching source. Wave 95 used the hidden
-window and process-local Cross input. Log:
-`/tmp/sly-wave95-strip-layout.log`. Wave 94 log:
-`/tmp/sly-wave94-model-backfill.log`.
+The latest hidden run passed those paths and faulted in matched
+`CopyObjectData` (`func_001830D8`) with source pointer `0x3f800000`, which is a
+float bit pattern rather than an object address. Its caller is
+`CopyCollider` (`func_001BA130`). Trace the copy callback arguments and
+descriptor slot; do not mask the invalid pointer. The build compiled 194/194
+matched source units and 67/67 port backfills, with 4,383/4,807 catalogued
+functions and a direct-call frontier of 825/831. No title or gameplay scene is
+confirmed. Latest log: `/tmp/sly-wave114-vmulx.log`.
 
 Wave 97 repeated the same `InitObject` virtual-dispatch crash in
 `func_00182C18` and captured the receiver at `0x013cbcc0`. Its first word is

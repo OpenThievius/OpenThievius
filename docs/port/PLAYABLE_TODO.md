@@ -1,43 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Native loading checkpoint (2026-11-14, Wave 95)
+## Native loading checkpoint (2026-11-14, Wave 114)
 
-Continue on the hidden native launcher reaches world model loading, but still
-does not render a title or level. Wave 93 traced a crash in
-`BuildLitStripMeshPacket` to `ModelStrip` records stepping by 0x60 even though
-the loader allocated 0x50 bytes per strip. The host staging helper intended to
-align file-scope VU arrays, but also aligned four-element arrays inside
-structures. That changed `ModelStrip::keys` and several other record layouts.
-The staging rule now aligns file-scope arrays only; matching decomp source is
-unchanged. Wave 95 passes the model-strip crash and advances into typed world
-object construction, then faults in `func_00182C18` while calling a virtual
-method through an invalid address for an object initialized by
-`func_001504E0` (`StepSequence`). This is the next startup fault to trace.
+The hidden host32 launcher reaches the no-card screen, accepts an in-process
+Cross press, and resumes world loading. The earlier `CopyEffectSpawner` crash
+was caused by the staged copy callback dropping its source argument and failing
+to share the source `Rec50`. The host staging adapter now forwards the source
+through `CopyPlacedObject`, assigns `self->rec = src->rec`, then increments the
+record use count. This changes only the generated host copy, not
+`sly1-decomp`.
 
-The `func_001EEA40` native backfill is still separate from matched source. Its
-leaf-mask helper is implemented locally because the decomp helper is named
-`ExpandMaskThroughTable`, not the generated `func_001EE9D0` alias. Wave 94
-passed the prior mesh fault but still showed the bad strip stride; Wave 95
-rebuilt all 194 matched units and 65 port backfills, then confirmed the stride
-fix moved execution farther. Both runtime checks used a hidden window and
-process-local Cross input. Latest logs:
-`/tmp/sly-wave94-model-backfill.log` and
-`/tmp/sly-wave95-strip-layout.log`.
+Wave 114 also added an isolated `func_00118D30` backfill for the handwritten
+VU0 `vmulx.xyzw` helper `ScaleQuadword`. The build now resolves 4,383/4,807
+catalogued functions and the direct-call frontier remains 825/831. The hidden
+run injected one Cross press, progressed past EffectSpawner copying and then
+faulted in matched `CopyObjectData` (`func_001830D8`) while reading source
+pointer `0x3f800000`, a float bit pattern rather than a mapped object. The
+faulting copy was called from `CopyCollider` (`func_001BA130`). This is the
+current startup blocker; do not add a null or range guard that hides the wrong
+callback arguments. Latest log: `/tmp/sly-wave114-vmulx.log`.
 
-**Next:** trace the object pointer and descriptor before `func_00182C18`'s
-virtual dispatch, check class construction and object-record layout against
-retail, and continue until native graphics show a title or gameplay scene.
-Do not claim playability until visible graphics and interactive gameplay are
-confirmed.
-
-Wave 97's bounded fault-time dump confirms the receiver passed to
-`func_00182C18` is `0x013cbcc0`, but its first word is `0x44af424e` and its
-following words look like three position floats (`0x44cc5c0d`, `0xc4aef6eb`).
-The virtual dispatch therefore reads a non-descriptor as `BaseObject::desc`.
-This narrows the fault to the caller's object pointer or object initialization;
-it does not yet prove which one is wrong. The temporary signal dump was removed
-after capture. Evidence: `/tmp/sly-wave97-object-vtable.log`.
+No title or gameplay scene has been confirmed. The window was hidden during
+testing, and input was sent through the in-process native pad adapter. Continue
+tracing the callback signature and copy source before modifying behavior.
 
 ## Resolved RPC wait diagnosis (2026-11-14)
 
