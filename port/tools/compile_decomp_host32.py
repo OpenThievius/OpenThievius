@@ -585,6 +585,35 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        if rel.as_posix() == "lib/system_calls.cpp":
+            # The US kernel veneers execute EE `syscall` instructions, which
+            # cannot be used by the direct native build. Route only the
+            # translated thread/semaphore veneers to separate port services;
+            # the matching source in sly1-decomp remains unchanged.
+            services = {
+                "func_001F6A10": ("sly1_native_make_thread", "const void* parameters", "parameters"),
+                "func_001F6A20": ("sly1_native_start_thread", "int id, void* argument", "id, argument"),
+                "func_001F6A50": ("sly1_native_set_thread_priority", "int id, int priority", "id, priority"),
+                "func_001F6A90": ("sly1_native_get_thread_id", "void", ""),
+                "func_001F6B20": ("sly1_native_create_semaphore", "const void* parameters", "parameters"),
+                "func_001F6B30": ("sly1_native_delete_semaphore", "int id", "id"),
+                "func_001F6B40": ("sly1_native_signal_semaphore", "int id", "id"),
+                "func_001F6B50": ("sly1_native_signal_semaphore", "int id", "id"),
+                "func_001F6B60": ("sly1_native_wait_semaphore", "int id", "id"),
+                "func_001F6B70": ("sly1_native_poll_semaphore", "int id", "id"),
+                "func_001F6B80": ("sly1_native_poll_semaphore", "int id", "id"),
+            }
+            declarations = []
+            for name, (service, parameters, arguments) in services.items():
+                declaration = f"ASM_FUNC({name});"
+                if adapted.count(declaration) != 1:
+                    raise RuntimeError("expected one retail kernel veneer " + name)
+                declarations.append(
+                    f'extern "C" int {service}({parameters});\n'
+                    f'extern "C" int {name}({parameters}) {{ return {service}('
+                    f'{arguments}); }}'
+                )
+                adapted = adapted.replace(declaration, declarations[-1], 1)
         if rel.as_posix() == "main/warp_menu.cpp":
             # The decomp now describes ElementStack as a 0x34-byte structure
             # in screen_element.h, but its global backing array still has a

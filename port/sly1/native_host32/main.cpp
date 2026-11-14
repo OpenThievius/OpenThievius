@@ -704,6 +704,15 @@ sly1_native_trace_startup(u32 index, u32 phase, u32 callback) {
 }
 
 extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_thread_service(u32 service, u32 result, u32 a0, u32 a1) {
+    if (!g_startup_trace_enabled) return;
+    write_hex("native host32: thread service ", (int)service);
+    write_hex("native host32: thread result ", (int)result);
+    write_hex("native host32: thread arg0 ", (int)a0);
+    write_hex("native host32: thread arg1 ", (int)a1);
+}
+
+extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_resource_state(u32 self, u32 pending, u32 world) {
     if (!g_startup_trace_enabled) return;
     write_hex("native host32: resource self ", (int)self);
