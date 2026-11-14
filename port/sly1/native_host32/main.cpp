@@ -470,6 +470,20 @@ extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
 extern "C" volatile u32 sly1_native_startup_callback_index = 0;
 extern "C" volatile u32 D_002613F0;
 bool g_startup_trace_enabled = false;
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_null_ramp(void* ramp, void* out, float x, float y, float z,
+                             u32 caller) {
+    if (!g_startup_trace_enabled) return;
+    union FloatBits { float value; u32 bits; };
+    write_hex("native host32: null ramp caller ", (int)caller);
+    write_hex("native host32: null ramp profile ", (int)ramp);
+    write_hex("native host32: null ramp output ", (int)out);
+    write_hex("native host32: null ramp x bits ", (int)FloatBits{x}.bits);
+    write_hex("native host32: null ramp y bits ", (int)FloatBits{y}.bits);
+    write_hex("native host32: null ramp z bits ", (int)FloatBits{z}.bits);
+}
+
 volatile u32 g_native_frame_stage = 0;
 volatile u32 g_native_frame_count = 0;
 volatile u32 g_native_world = 0;
@@ -483,6 +497,7 @@ volatile u32 g_native_text_ui = 0;
 volatile u32 g_native_pad_status = 0;
 volatile u32 g_native_pad_mode = 0;
 volatile u32 g_native_pad_flags = 0;
+
 volatile u32 g_native_pause_open = 0;
 volatile u32 g_native_pause_page = 0;
 volatile u32 g_native_pause_mode = 0;

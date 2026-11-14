@@ -1526,6 +1526,169 @@ def normalize_on_off_camera_ramp_abi(text, label):
     raise RuntimeError("expected on-off camera ramp call")
 
 
+def normalize_turning_collider_ramp_abi(text, label):
+    """Normalize this unit's PS2 mixed-register ramp calls for the host ABI."""
+    if label != "main/turning_collider.cpp":
+        return text
+    old_decl = "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
+    new_decl = "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
+    calls = (
+        (
+            "ApproachValueWithRamp((&cur->x)[k], (&world.x)[k], "
+            "g_gameClock.dt, (RampProfile*)D_00274B68, 0)",
+            "ApproachValueWithRamp((RampProfile*)D_00274B68, 0, "
+            "(&cur->x)[k], (&world.x)[k], g_gameClock.dt)",
+        ),
+        (
+            "ApproachValueWithRamp(cur, 0.0f, g_gameClock.dt, "
+            "(RampProfile*)&A, &out1)",
+            "ApproachValueWithRamp((RampProfile*)&A, &out1, cur, "
+            "0.0f, g_gameClock.dt)",
+        ),
+        (
+            "ApproachValueWithRamp(cur, -self->probeDepth, g_gameClock.dt, "
+            "(RampProfile*)&B, &out2)",
+            "ApproachValueWithRamp((RampProfile*)&B, &out2, cur, "
+            "-self->probeDepth, g_gameClock.dt)",
+        ),
+    )
+    if text.count(old_decl) != 1 or any(text.count(old) != 1 for old, _ in calls):
+        raise RuntimeError("expected turning-collider ramp declaration and calls")
+    text = text.replace(old_decl, new_decl, 1)
+    for old, new in calls:
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_pose_source_ramp_abi(text, label):
+    """Canonicalize float-first ramp calls in the pose-source host copy."""
+    if label != "main/pose_source.cpp":
+        return text
+    old_decl = "extern f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
+    new_decl = "extern f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
+    calls = (
+        (
+            "ApproachValueWithRamp(0.0f, dist, dt, &prof, &speed)",
+            "ApproachValueWithRamp(&prof, &speed, 0.0f, dist, dt)",
+        ),
+        (
+            "ApproachValueWithRamp(owner->linkRecord->angle, value, dt, "
+            "(RampProfile*)owner->p220, &owner->linkRecord->angleSlope)",
+            "ApproachValueWithRamp((RampProfile*)owner->p220, "
+            "&owner->linkRecord->angleSlope, owner->linkRecord->angle, value, dt)",
+        ),
+        (
+            "ApproachValueWithRamp(0.0f, angle, dt, (RampProfile*)&prof, &rate)",
+            "ApproachValueWithRamp((RampProfile*)&prof, &rate, 0.0f, angle, dt)",
+        ),
+    )
+    if text.count(old_decl) != 1 or any(text.count(old) != (2 if "owner->linkRecord" in old else 1)
+                                        for old, _ in calls):
+        raise RuntimeError("expected pose-source float-first ramp declarations and calls")
+    text = text.replace(old_decl, new_decl, 1)
+    for old, new in calls:
+        text = text.replace(old, new, 2 if "owner->linkRecord" in old else 1)
+    return text
+
+
+def normalize_optional_owner_position_outputs(text, label):
+    """Preserve null optional output pointers in the native host copy."""
+    if label != "main/pose_source.cpp":
+        return text
+    old = '''void GetOwnerPosition(Attachment* self, Vec02* out1, Vec02* out2)
+{
+    *out1 = self->owner->v190;
+    *out2 = *(Vec02*)D_00248D30;
+    if (self->owner->desc02()->m28 != 0) {
+        ((PositionOutToldFn)self->owner->desc02()->m28)(self->owner, out1);
+    }
+}'''
+    new = '''void GetOwnerPosition(Attachment* self, Vec02* out1, Vec02* out2)
+{
+    Vec02 fallback;
+    Vec02* position = out1 != 0 ? out1 : &fallback;
+    *position = self->owner->v190;
+    if (out2 != 0) {
+        *out2 = *(Vec02*)D_00248D30;
+    }
+    if (self->owner->desc02()->m28 != 0) {
+        ((PositionOutToldFn)self->owner->desc02()->m28)(self->owner, position);
+    }
+}'''
+    if text.count(old) != 1:
+        raise RuntimeError("expected GetOwnerPosition source body")
+    text = text.replace(old, new, 1)
+    old_rotation = '''void GetOwnerRotation(Attachment* self, Mat02* out1, Vec02* out2)
+{
+    *out1 = self->owner->m1A0;
+    *out2 = *(Vec02*)D_00248D30;
+    ((FrameOutToldFn)self->owner->desc02()->m29)(self->owner, out1, out2);
+}'''
+    new_rotation = '''void GetOwnerRotation(Attachment* self, Mat02* out1, Vec02* out2)
+{
+    Mat02 fallback_rotation;
+    Vec02 fallback_vector;
+    Mat02* rotation = out1 != 0 ? out1 : &fallback_rotation;
+    Vec02* vector = out2 != 0 ? out2 : &fallback_vector;
+    *rotation = self->owner->m1A0;
+    *vector = *(Vec02*)D_00248D30;
+    ((FrameOutToldFn)self->owner->desc02()->m29)(self->owner, rotation, vector);
+}'''
+    if text.count(old_rotation) != 1:
+        raise RuntimeError("expected GetOwnerRotation source body")
+    return text.replace(old_rotation, new_rotation, 1)
+
+
+def normalize_optional_child_rotation_outputs(text, label):
+    """Supply temporary result storage for omitted child-rotation outputs."""
+    if label != "main/player_aim.cpp":
+        return text
+    signature = (
+        "void CombineChildPoseRotations(ChildPoseSource* self, Mat02* outRot, "
+        "Vec02* outVec, f32 t)\n{")
+    if text.count(signature) != 1:
+        raise RuntimeError("expected CombineChildPoseRotations definition")
+    start = text.index(signature) + len(signature)
+    depth = 1
+    end = start
+    while end < len(text) and depth:
+        if text[end] == "{":
+            depth += 1
+        elif text[end] == "}":
+            depth -= 1
+        end += 1
+    if depth:
+        raise RuntimeError("unterminated CombineChildPoseRotations body")
+    body = text[start:end - 1]
+    body = body.replace("*outRot", "*rotation").replace("outRot,", "rotation,")
+    body = body.replace("*outVec", "*vector").replace("outVec,", "vector,")
+    body = ("\n    Mat02 fallbackRotation;\n    Vec02 fallbackVector;\n"
+            "    Mat02* rotation = outRot != 0 ? outRot : &fallbackRotation;\n"
+            "    Vec02* vector = outVec != 0 ? outVec : &fallbackVector;" + body)
+    return text[:start] + body + text[end - 1:]
+
+
+def trace_null_approach_ramp(text, label):
+    """Capture a host-only caller trace for null ramp profiles."""
+    if label != "main/warp_menu.cpp":
+        return text
+    signature = (
+        "f32 ApproachValueWithRamp(RampProfile* k, f32* out, "
+        "f32 x, f32 y, f32 z)\n{")
+    if text.count(signature) != 1:
+        raise RuntimeError("expected ApproachValueWithRamp definition")
+    replacement = (
+        'extern "C" void sly1_native_trace_null_ramp(\n'
+        "    void* ramp, void* out, f32 x, f32 y, f32 z, u32 caller);\n"
+        "__attribute__((noinline))\n"
+        + signature
+        + "\n    if (k == 0) {\n"
+        "        sly1_native_trace_null_ramp(\n"
+        "            k, out, x, y, z, (u32)__builtin_return_address(0));\n"
+        "    }")
+    return text.replace(signature, replacement, 1)
+
+
 def forward_mesh_contact_radius(text, label):
     if label != "main/collider_contact.cpp":
         return text
@@ -1634,7 +1797,7 @@ def trace_oscillator_outputs(text, label, enabled):
 
 
 def index_host_oscillator_vertex_loops(text, label):
-    """Use explicit host indices for the VU0-heavy oscillator vertex loops."""
+    """Keep VU0-heavy host loops from reusing clobbered index registers."""
     if label != "main/oscillator.cpp":
         return text
     object_pointer = "        PlacedObject* obj = part->obj;"
@@ -1646,26 +1809,47 @@ def index_host_oscillator_vertex_loops(text, label):
                  sly1_vertex_i < n; ++sly1_vertex_i) {
                 v = sly1_native_verts + sly1_vertex_i;
                 w = &weights[sly1_vertex_i];"""
+    weight_store = "                *w = weight;"
+    # Host VU lowering expands the vector math into scalar operations. Keep a
+    # compiler memory barrier before each indexed access so GCC reloads the
+    # volatile loop index after that math instead of reusing a scratch register.
+    indexed_weight_store = """                __asm__ volatile("" ::: "memory");
+                w = &weights[sly1_vertex_i];
+                *w = weight;"""
     output_loop = "                for (v = verts; v < end; v++, out++, w++) {"
     output_indexed = """                for (volatile s32 sly1_vertex_i = 0;
                      sly1_vertex_i < n;
                      ++sly1_vertex_i, ++out) {
                     v = sly1_native_verts + sly1_vertex_i;
                     w = &weights[sly1_vertex_i];"""
+    output_weight_reload = ("                    u128 qc = Vu0::Copy(q);\n"
+                            "                    __asm__ volatile(\"\" ::: \"memory\");\n"
+                            "                    w = &weights[sly1_vertex_i];")
     copy_target = "            CopyMemory(verts, data->verts, n * sizeof(Vec02));"
     copy_adapted = (copy_target
                     + "\n            Vec02* volatile sly1_native_verts = verts;")
     if (text.count(object_pointer) != 1 or text.count(mesh_pointer) != 1 or
             text.count(weight_loop) != 1 or
-            text.count(output_loop) != 1):
+            text.count(output_loop) != 1 or text.count(weight_store) != 1):
         raise RuntimeError("expected oscillator vertex loops")
-    if text.count(copy_target) != 1:
+    if text.count(copy_target) != 1 or text.count("                    u128 qc = Vu0::Copy(q);\n") != 1:
         raise RuntimeError("expected oscillator vertex copy")
-    return (text.replace(object_pointer, volatile_object_pointer, 1)
-            .replace(mesh_pointer, volatile_mesh_pointer, 1)
-            .replace(copy_target, copy_adapted, 1)
-            .replace(weight_loop, weight_indexed, 1)
-            .replace(output_loop, output_indexed, 1))
+    adapted = (text.replace(object_pointer, volatile_object_pointer, 1)
+               .replace(mesh_pointer, volatile_mesh_pointer, 1)
+               .replace(copy_target, copy_adapted, 1)
+               .replace(weight_loop, weight_indexed, 1)
+               .replace(weight_store, indexed_weight_store, 1)
+               .replace(output_loop, output_indexed, 1)
+               .replace("                    u128 qc = Vu0::Copy(q);\n",
+                        output_weight_reload, 1))
+    # At -O2 the translated vector math keeps the loop index in a register
+    # that it also uses as a vector scratch value. This is a host-only compiler
+    # workaround; the matched source and its behavior remain unchanged.
+    adapted = adapted.replace(
+        "void RefreshOscillatorFrames(Oscillator* self)\n{\n",
+        '__attribute__((optimize("O1")))\nvoid RefreshOscillatorFrames(Oscillator* self)\n{\n',
+        1)
+    return adapted
 
 
 def lower_host_vu0(text):
@@ -2111,11 +2295,16 @@ def main(argv=None):
         adapted = forward_switched_pose_arguments(adapted, rel.as_posix())
         adapted = normalize_update_camera_target_pose_abi(adapted, rel.as_posix())
         adapted = normalize_on_off_camera_ramp_abi(adapted, rel.as_posix())
+        adapted = normalize_turning_collider_ramp_abi(adapted, rel.as_posix())
+        adapted = normalize_pose_source_ramp_abi(adapted, rel.as_posix())
+        adapted = normalize_optional_owner_position_outputs(adapted, rel.as_posix())
+        adapted = normalize_optional_child_rotation_outputs(adapted, rel.as_posix())
         adapted = forward_mesh_contact_radius(adapted, rel.as_posix())
         adapted = normalize_camera_mesh_contact_abi(adapted, rel.as_posix())
         adapted = make_rotation_translation_matrix_unaligned_safe(
             adapted, rel.as_posix())
         adapted = index_host_oscillator_vertex_loops(adapted, rel.as_posix())
+        adapted = trace_null_approach_ramp(adapted, rel.as_posix())
         adapted = trace_oscillator_outputs(
             adapted, rel.as_posix(), args.trace_functions or args.trace_oscillator)
         if rel.as_posix() == "lib/system_calls.cpp":
