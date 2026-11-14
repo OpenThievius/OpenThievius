@@ -7,33 +7,34 @@ remain unavailable to the native build. They are separate from
 when hostable matching source becomes available. The source decomp checkout is
 never edited by the host staging adapter.
 
-## Current state (2026-11-14, Wave 200)
+## Current state (2026-11-14, Wave 400)
 
 The decomp checkout is clean and current at
-`83f2b50d586602f67e03e42343737a0dd9072a3e`; its US and PAL code remain 100%
+`9489f7a0c3e9142accb8662da5897a39043c57e5`; its US and PAL code remain 100%
 matched. The native host32 target builds from 194 matched source units plus
-port-owned support. It is not playable: a hidden run reaches world startup
-after one in-process Cross press, then crashes in `AdvanceColliderMeshMotion`
-because a collider's mesh-motion hook contains invalid pointers. The exact
-register and object dump is in
+71 port-only backfills. It is not playable: a hidden run reaches world loading
+after one in-process Cross press, then crashes in matched
+`RefreshOscillatorFrames` during the weight loop. EIP `0x080d687b` uses ECX
+`0x08712e40` as an invalid loop index, producing write address `0xfa4ee400`.
+The exact register dump is in
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
 
 Recent host-only staging work fixed several earlier startup faults, including
 MIPS-oriented sound-call ordering, retail-address callback resolution, and
-unaligned vector inputs. The current mesh-motion reset attempt did not fix the
-hook; inspect allocator results before changing collider behavior. The
-zero-page accommodations are provisional host-memory approximations, not
-verified retail semantics. No scene graphics or gameplay have been confirmed.
+unaligned matrix inputs. The current indexed oscillator loop and stack-base
+reload adapters do not fix the corrupted host loop state. The no-card warning
+is the latest user-confirmed visual; no title or level graphics are confirmed.
 
 ## Current build state (2026-11-14)
 
 The sibling decomp checkout is up to date at
-`83f2b50d586602f67e03e42343737a0dd9072a3e` (public master, 2026-11-14). Its US
+`9489f7a0c3e9142accb8662da5897a39043c57e5` (public master, 2026-11-14). Its US
 report matches 4,807/4,807 functions and 100% of code (4,498 exact C and 311
-original assembly), plus 99.9675% of data. Recent decomp commits name the five
-world bosses and rename the corresponding source/header files; no new US
-functions or code bytes were added by that cleanup. The native host32 build has
-been rebuilt successfully against this snapshot.
+original assembly), plus 99.9675% of data. The 28 commits since `241a7865`
+document functions and object fields; `Oscillator.entries` is now explicitly
+named as eight 0xD0-byte entries. These changes clarify the current source but
+do not change the function's behavior or matching totals. The host32 build has
+been refreshed against this snapshot.
 
 The native host32 build compiles 194 Sly source units and 68 port-only
 backfills. Its latest combined object contains 262 compiled objects and

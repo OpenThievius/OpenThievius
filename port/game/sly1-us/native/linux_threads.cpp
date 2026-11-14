@@ -13,6 +13,7 @@ using ThreadEntry = void (*)(void*);
 
 extern "C" int sly1_clone_thread(ThreadEntry entry, void* stack_top, void* argument);
 extern "C" void sly1_native_trace_thread_service(u32 service, u32 result, u32 a0, u32 a1);
+extern "C" void sly1_native_prepare_thread_fault_trace();
 
 namespace {
 constexpr unsigned int kThreadCapacity = 32;
@@ -48,6 +49,7 @@ NativeThread* find_thread(int identifier) {
 
 void thread_entry(void* opaque) {
     NativeThread* thread = static_cast<NativeThread*>(opaque);
+    sly1_native_prepare_thread_fault_trace();
     thread->entry(thread->argument);
     __atomic_store_n(&thread->active, 0, __ATOMIC_RELEASE);
 }

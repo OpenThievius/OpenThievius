@@ -1,19 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-14 against decomp master `83f2b50d`.
-The no-emulation host32 path compiles 194 Sly units and 68 port-only backfills,
-combines 4,384 catalogued native function entries, and links the SDL launcher.
-Its direct-call frontier resolves 825/831 functions; indirect callbacks are
-outside the scan. The hidden launcher reaches the no-card page, accepts one
-in-process Cross press, and resumes world loading. It now faults in matched
-`BuildMatrixFromRotationAndTranslation` while binding an attachment target.
-No title, level scene, or playable state is confirmed. Matched 100% US C
-implementations now provide `ApplyPlacedObjectTransform`, `ReadMeshTables`,
-`UpdateCameraMatrices`, and `InitSpawnRecord`. Port-only Linux thread and
-semaphore services now replace the staged EE syscall veneers and start the
-direct-build render and background workers. See the
-[restart checkpoint](RESTART_CHECKPOINT.md) for the latest trace and blocker.
+Last checked: 2026-11-14 against decomp master `9489f7a0`.
+The no-emulation host32 path compiles 194 matched Sly units and 71 port-only
+backfills; the latest link includes 130 missing-function traps. Its direct
+call frontier resolves 794/799 functions. The hidden launcher reaches the
+no-card page, accepts one in-process Cross press, and enters world loading.
+The Wave 400 ordinary run faults in matched `RefreshOscillatorFrames` at
+`0x080d687b`; ECX `0x08712e40` is used as the weight-loop index and produces
+write address `0xfa4ee400`. The indexed-loop and stack-base reload adapters
+have not fixed it. No title or level graphics are confirmed,
+and the port is not playable. The no-card prompt remains the latest
+user-confirmed visual. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) for the current trace and blocker.
 
 Historical Wave 39 context: two staging-only returns prevent matched
 non-void wrappers from falling through after void calls; the decomp source

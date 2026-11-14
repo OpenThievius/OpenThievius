@@ -44,11 +44,14 @@ renderer below. Do not extend this runtime as the gameplay path.
 ## Current no-emulation build (2026-11-14)
 
 The sibling checkout is up to date with public `sly1-decomp` master
-`83f2b50d586602f67e03e42343737a0dd9072a3e` (2026-11-14), clean on
-`master`. Since PR #145, PR #146 names the five world bosses and renames their
-US source/header files. PR #147 fixes a PAL comment. The US match totals are unchanged. Those names make the boss
-logic easier to navigate for later port work. The host32 target rebuilt
-successfully from the renamed US source files with no staging changes.
+`9489f7a0c3e9142accb8662da5897a39043c57e5` (2026-11-14), clean on
+`master`. The 28 commits since `241a7865` add function and object-field
+documentation and name fields behind raw offsets across game classes. The
+US match totals remain 4,807/4,807 functions and 100% of code; US data remains
+99.9675% matched (140 bytes unmatched). `Oscillator` now exposes its eight
+0xD0-byte entries as a named field, but `RefreshOscillatorFrames` retains the
+same behavior; these changes clarify source structure without resolving the
+native host fault. The host32 build has been refreshed against this snapshot.
 The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
 (100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
 unmatched data is 140 bytes. The nine commits since `b482e857` classify nine

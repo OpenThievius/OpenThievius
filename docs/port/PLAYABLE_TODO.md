@@ -1,23 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-14, Wave 236)
+## Latest status (2026-11-14, Wave 400)
 
 The hidden host32 launcher reaches the retail memory-card warning. One
-in-process Cross press dismisses it and starts world setup. Host-only staging
-adapters now carry the PS2 target-pose arguments, camera-tracking arguments,
-and inherited mesh-contact radius in the native ABI. The run proceeds into
-mesh contact generation and performs six CD reads (2,426 sectors); it then
-stops making observable progress and is terminated by the 20-second timeout.
-No fatal-signal report appeared during that run, but `game_frames` stayed at
-zero and no title, level graphics, or playable state were confirmed. No
-decompilation source was changed. Latest run:
-`/tmp/sly-wave236-normal-run.log`.
+in-process Cross press dismisses it and starts world loading. The host-only
+unaligned matrix reader passes its earlier SIMD alignment fault. The current
+ordinary build still faults in matched `RefreshOscillatorFrames` while walking
+the first mesh block: EIP `0x080d687b` attempts a weight store using ECX
+`0x08712e40` as the loop index, producing write address `0xfa4ee400`.
+Volatile indexed loops and a reload of the stack-array base have not resolved
+the host-state corruption. The complete register trace is in
+`/tmp/sly-wave400-latest-decomp-run.log`.
 
-Next, identify where execution stalls after the contact pass and verify world
-setup completion. Preserve the retail contact path; do not skip collision or
-force graphics. Continue keeping host ABI and missing-function backfills in
-the port repository so decompiled implementations can replace them cleanly.
+There are no confirmed title or level graphics, and the port is not playable.
+The user-confirmed no-card prompt remains the latest visible state. There are
+no confirmed title or level graphics, and the port is not playable. Next,
+identify what corrupts the oscillator loop state without skipping oscillator
+updates.
+Keep every adapter or functional C replacement in this repository so matched
+decompilation can replace it cleanly.
 
 ## Native loading checkpoint (2026-11-14, Wave 128)
 

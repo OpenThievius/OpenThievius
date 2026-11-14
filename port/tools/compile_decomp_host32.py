@@ -573,7 +573,8 @@ def normalize_turning_collider_matrix_abi(text, label):
             "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)((u8*)self + 0x660), self->heading);" in text):
         return text
     if (re.search(r'(?m)^#include\s+"functions/matrix\.h"', text) and
-            "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)((u8*)self + 0x660), self->heading);" in text):
+            "BuildAxisAngleMatrix(&g_unitZVector, &self->headingMatrix, self->heading);" in text and
+            "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)matrix, angle);" in text):
         return text
     old_decl = "void BuildAxisAngleMatrix(const Vec02* t, f32 x, void* p);"
     new_decl = "void BuildAxisAngleMatrix(const Vec02* axis, void* out, f32 angle);"
@@ -703,6 +704,45 @@ def make_point_frame_transform_unaligned_safe(text, label):
     )
     if text.count(old) != 1:
         raise RuntimeError("expected point-frame transform definition")
+    return text.replace(old, new, 1)
+
+
+def make_rotation_translation_matrix_unaligned_safe(text, label):
+    """Read possibly unaligned object matrices without host aligned SIMD loads."""
+    if label != "main/matrix.cpp":
+        return text
+    old = """void BuildMatrixFromRotationAndTranslation(const Vec02* pos, const Mat02* rot, Mat4A* out)
+{
+    const Quad16* a = (const Quad16*)pos;
+    const Quad16* b = (const Quad16*)rot;
+    Quad16* dst = (Quad16*)out;
+    dst[0] = b[0];
+    dst[1] = b[1];
+    dst[2] = b[2];
+    dst[3] = *a;
+    dst[0].w[3] = 0;
+    dst[1].w[3] = 0;
+    dst[2].w[3] = 0;
+    *(f32*)&dst[3].w[3] = 1.0f;
+}
+"""
+    new = """void BuildMatrixFromRotationAndTranslation(const Vec02* pos, const Mat02* rot, Mat4A* out)
+{
+    volatile const u8* source = (volatile const u8*)rot;
+    u8* destination = (u8*)out;
+    for (s32 i = 0; i < 0x30; ++i) destination[i] = source[i];
+    source = (volatile const u8*)pos;
+    destination += 0x30;
+    for (s32 i = 0; i < 0x10; ++i) destination[i] = source[i];
+    Quad16* dst = (Quad16*)out;
+    dst[0].w[3] = 0;
+    dst[1].w[3] = 0;
+    dst[2].w[3] = 0;
+    *(f32*)&dst[3].w[3] = 1.0f;
+}
+"""
+    if text.count(old) != 1:
+        raise RuntimeError("expected rotation/translation matrix definition")
     return text.replace(old, new, 1)
 
 
@@ -1175,9 +1215,6 @@ def trace_arrival_lookup(text, label):
          "    sly1_native_arrival_world = (unsigned int)g_currentWorld;\n"
          "    sly1_native_arrival_id = (unsigned int)id;\n"
          "    sly1_native_arrival_parent = (unsigned int)parent;\n"),
-        ("    return found;\n}\n\nvoid LoadArrivalPoint(",
-         "    sly1_native_arrival_result = (unsigned int)found;\n"
-         "    return found;\n}\n\nvoid LoadArrivalPoint("),
         ("void PlaceAtArrivalPoint(TransformSet* self)\n{\n",
          "void PlaceAtArrivalPoint(TransformSet* self)\n{\n"
          "    sly1_native_arrival_place_self = (unsigned int)self;\n"),
@@ -1188,6 +1225,20 @@ def trace_arrival_lookup(text, label):
         if text.count(old) != 1:
             raise RuntimeError("expected arrival trace site in " + label)
         text = text.replace(old, new, 1)
+    function_start = "HoldingMember* FindArrivalPoint(s32 id, s32 parent)\n{\n"
+    if text.count(function_start) != 1:
+        raise RuntimeError("expected arrival lookup definition in " + label)
+    start = text.index(function_start)
+    end = text.index("\n}\n", start) + 2
+    function = text[start:end]
+    return_statement = "    return found;"
+    if function.count(return_statement) != 1:
+        raise RuntimeError("expected arrival lookup return in " + label)
+    function = function.replace(
+        return_statement,
+        "    sly1_native_arrival_result = (unsigned int)found;\n" + return_statement,
+        1)
+    text = text[:start] + function + text[end:]
     return text
 
 
@@ -1580,6 +1631,41 @@ def trace_oscillator_outputs(text, label, enabled):
     if text.count(range_target) != 1:
         raise RuntimeError("expected oscillator vertex range count")
     return text.replace(range_target, range_replacement, 1)
+
+
+def index_host_oscillator_vertex_loops(text, label):
+    """Use explicit host indices for the VU0-heavy oscillator vertex loops."""
+    if label != "main/oscillator.cpp":
+        return text
+    object_pointer = "        PlacedObject* obj = part->obj;"
+    volatile_object_pointer = "        PlacedObject* volatile obj = part->obj;"
+    mesh_pointer = "        OscMesh* mesh = part->mesh;"
+    volatile_mesh_pointer = "        OscMesh* volatile mesh = part->mesh;"
+    weight_loop = "            for (v = verts; v < end; v++, w++) {"
+    weight_indexed = """            for (volatile s32 sly1_vertex_i = 0;
+                 sly1_vertex_i < n; ++sly1_vertex_i) {
+                v = sly1_native_verts + sly1_vertex_i;
+                w = &weights[sly1_vertex_i];"""
+    output_loop = "                for (v = verts; v < end; v++, out++, w++) {"
+    output_indexed = """                for (volatile s32 sly1_vertex_i = 0;
+                     sly1_vertex_i < n;
+                     ++sly1_vertex_i, ++out) {
+                    v = sly1_native_verts + sly1_vertex_i;
+                    w = &weights[sly1_vertex_i];"""
+    copy_target = "            CopyMemory(verts, data->verts, n * sizeof(Vec02));"
+    copy_adapted = (copy_target
+                    + "\n            Vec02* volatile sly1_native_verts = verts;")
+    if (text.count(object_pointer) != 1 or text.count(mesh_pointer) != 1 or
+            text.count(weight_loop) != 1 or
+            text.count(output_loop) != 1):
+        raise RuntimeError("expected oscillator vertex loops")
+    if text.count(copy_target) != 1:
+        raise RuntimeError("expected oscillator vertex copy")
+    return (text.replace(object_pointer, volatile_object_pointer, 1)
+            .replace(mesh_pointer, volatile_mesh_pointer, 1)
+            .replace(copy_target, copy_adapted, 1)
+            .replace(weight_loop, weight_indexed, 1)
+            .replace(output_loop, output_indexed, 1))
 
 
 def lower_host_vu0(text):
@@ -2027,6 +2113,9 @@ def main(argv=None):
         adapted = normalize_on_off_camera_ramp_abi(adapted, rel.as_posix())
         adapted = forward_mesh_contact_radius(adapted, rel.as_posix())
         adapted = normalize_camera_mesh_contact_abi(adapted, rel.as_posix())
+        adapted = make_rotation_translation_matrix_unaligned_safe(
+            adapted, rel.as_posix())
+        adapted = index_host_oscillator_vertex_loops(adapted, rel.as_posix())
         adapted = trace_oscillator_outputs(
             adapted, rel.as_posix(), args.trace_functions or args.trace_oscillator)
         if rel.as_posix() == "lib/system_calls.cpp":

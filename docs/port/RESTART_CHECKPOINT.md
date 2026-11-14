@@ -1,88 +1,55 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-14, Wave 341)
+## Current checkpoint (2026-11-14, Wave 400)
 
-The current upstream decomp is `241a7865` (`master`), clean in the sibling
-checkout. Its status is 515 C++ source files, 4,807/4,807 matched functions,
-100% code bytes, and no functions without C. This is source-matching coverage,
-not host readiness.
+The sibling `sly1-decomp` checkout is clean on `master` at
+`9489f7a0c3e9142accb8662da5897a39043c57e5`. It has 4,807/4,807 matched US
+functions (100% code bytes). This is decompilation coverage, not native-host
+readiness.
 
-The host32 launcher builds 194/194 matched C++ units and 71/71 separate native
-backfills, with 130 unresolved-function traps. A hidden run injects one Cross
-press inside the launcher process. It passes the retail no-card warning and
-enters world loading; it does not reach the normal game frame loop. The
-ordinary, non-oscillator-instrumented launcher crashes in matched
-`RefreshOscillatorFrames` (`func_001F2840`) while reading its local vertex
-array. The fault is a SIGSEGV at `0xd8721000`, with EIP `0x080d6507`, in
-`/tmp/sly-wave335-clean-run.log`. A separate minimal trace-only count guard
-confirms the computed range count is at most 256, but the function still walks
-past the local array and crashes (`/tmp/sly-wave337-osc-count.log`). This rules
-out a simply oversized range count; the loop state or preceding host data
-setup remains unresolved. Do not treat the previous Wave 334 register
-interpretation as a proven root cause.
+The host32 launcher compiles 194/194 matched C++ units and 71/71 port-only
+backfills, with a 794/799 direct-call frontier. A hidden run with one
+in-process Cross press passes the retail no-card warning and begins world
+loading. It still has no title or level graphics and is not playable; the
+no-card prompt is the latest user-confirmed visible state.
 
-No title or level graphics have been confirmed, and the port is not playable.
-The earlier memory-card screen remains the only user-confirmed visual state.
-The host-only `CollectMeshHits` adapter leaves the current typed radius-first
-signature intact, matching the decomp header and every call site. The optional
-oscillator diagnostic now only traps a count outside the 256-vertex temporary
-buffer before copying; it makes no calls from inside the worker loop. Keep host
-ABI adapters and functional C backfills in this port repository; do not edit
-the sibling decomp.
+The Wave 400 build against current decomp compiles 194/194 matched C++ units
+and 71/71 port-only backfills; it defines 4,387/4,807 catalogued function
+entries and resolves 794/799 functions in the direct-call frontier. Hidden
+startup with one process-local Cross press enters world loading, then faults
+in matched `RefreshOscillatorFrames`. At EIP `0x080d687b`, ECX is
+`0x08712e40` and the fault address is `0xfa4ee400`, consistent with a
+corrupted weight-loop index. The exact trace is
+`/tmp/sly-wave400-latest-decomp-run.log`. No title or level graphics are
+confirmed; the latest user-confirmed visual remains the no-card screen.
 
-Branch: `wip/native-sly-port`, based on `origin/wip/native-sly-port`. Host
-staging and callback changes are committed as `c91da89`; the latest pushed
-checkpoint is `997e733`. Standard build:
+Recent host-only staging changed both vertex walks in matched
+`RefreshOscillatorFrames` (`func_001F2840`) to indexed loops with volatile
+indices and reloads the stack-array base after `CopyMemory`. A separate
+adapter copies unaligned matrix inputs bytewise, which passed the earlier
+`movdqa` alignment fault. The current run faults at EIP `0x080d687b` during
+the oscillator weight store. These adapters have not resolved the corrupted
+loop state. Earlier logs: `/tmp/sly-wave392-fixed-scratch-run.log` and
+`/tmp/sly-wave394-reloaded-verts-run.log`. No title or level graphics are
+confirmed.
+
+The loop rewrite and volatile object pointer are port-side compiler adapters;
+they do not change `sly1-decomp` and must be replaced or removed if matched
+source or a proper host ABI fix makes them unnecessary. Keep functional C
+backfills and host ABI work in this repository. Do not patch or backfill a
+vanilla function in place without recording the port-only replacement
+separately.
+
+Branch: `wip/native-sly-port`, based on its remote. The current experiment is
+uncommitted while this checkpoint is being updated. Standard build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
-The focused diagnostic build uses
-`-DOPENRAC_NATIVE_OSCILLATOR_TRACE=ON`; turn it off for an ordinary launcher.
-Hidden runs do not focus the desktop window. The user's prior approval covers
-one in-process Cross press for startup diagnosis.
+For ordinary builds, keep `OPENRAC_NATIVE_OSCILLATOR_TRACE=OFF`. Trace runs use
+`OPENRAC_TEST_HIDDEN_WINDOW=1`; one Cross is injected inside the process, so
+they do not focus the desktop window or send operating-system input.
 
-The details below this current checkpoint are historical investigation notes;
-their run status predates Wave 236.
-
-Branch `wip/native-sly-port` is based on `origin/wip/native-sly-port`; the
-working tree has uncommitted host staging and diagnostic changes. The sibling
-`sly1-decomp` checkout is clean on `master` at
-`83f2b50d586602f67e03e42343737a0dd9072a3e` (2026-11-13), still reporting
-100% US/PAL code. No decomp files were changed.
-
-Build command:
-`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j2`.
-Wave 199 builds successfully and includes 141 missing-function traps. The
-current native UI is still black before input; the hidden run injects one
-Cross through the native pad after 260 frames. No title, level graphics, or
-playable state has been reached.
-
-The latest run, `/tmp/sly-wave200-hook-reset-run.log`, exits 139 after the
-single injected Cross. Prior faults now passed: the placed-object sound call
-ABI, a missing listener-distance helper, a raw retail-address script callback,
-and host reads from unaligned vectors. The current fault is in
-`AdvanceColliderMeshMotion` (`func_001BBEB8`) at linked EIP `0x08081d50`,
-address zero. The active collider is `0x016c8ed0`; its hook is `0x01dc7250`,
-but the hook words read as velocity `0`, acceleration `0x42624625`, and
-triangles `0x41da6320`. Its mesh-copy counts are one vertex and zero faces.
-The host staging transform currently clears the hook before rebuilding it in
-`CopyColliderMeshesInFrame`, but the fault remains. Inspect the allocator
-return values and the hook immediately after `InitColliderMeshMotion`; do not
-hide this by skipping the mesh update. Wave 198 has the matching pre-reset
-fault details in `/tmp/sly-wave198-layout-diag-run.log`.
-
-Host-only adapters added during this trace are in
-`port/tools/compile_decomp_host32.py`; the one missing-function C backfill is
-`port/game/sly1-us/native/func_001BF398.cpp`. Keep these out of the decomp
-checkout. The compiler adapter also maps a null EE face-array read to a
-zeroed host buffer and clears null-source copies. These are approximations of
-the host memory model and need review before treating them as established
-semantics. Fault dump instrumentation in `port/sly1/native_host32/main.cpp`
-is temporary and should be removed or narrowed after the hook issue is
-understood.
-
-All automated runs in this worktree use
-`OPENRAC_TEST_HIDDEN_WINDOW=1`; the single Cross press is injected into the
-launcher process and does not focus or send input to the desktop window.
+Notes below this checkpoint are historical investigation records and may
+describe older blockers or source revisions.
 
 ## Current checkpoint (2026-11-14, Wave 128)
 

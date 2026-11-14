@@ -15,6 +15,7 @@ extern "C" char* getenv(const char*);
 #include <signal.h>
 #include <thread>
 #include <ucontext.h>
+alignas(16) thread_local u8 g_fault_trace_alt_stack[64 * 1024];
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
 extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
 extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
@@ -196,6 +197,25 @@ __attribute__((no_instrument_function)) void native_fault_trace(
     write_hex("native host32: fault edx ", state->uc_mcontext.gregs[REG_EDX]);
     write_hex("native host32: fault esi ", state->uc_mcontext.gregs[REG_ESI]);
     write_hex("native host32: fault edi ", state->uc_mcontext.gregs[REG_EDI]);
+    const u32 fault_eip = (u32)state->uc_mcontext.gregs[REG_EIP];
+    const u32 fault_ebp = (u32)state->uc_mcontext.gregs[REG_EBP];
+    u32 handler_sp;
+    __asm__ __volatile__("movl %%esp, %0" : "=r"(handler_sp));
+    write_hex("native host32: fault signal stack flags ", state->uc_stack.ss_flags);
+    write_hex("native host32: fault handler stack pointer ", (int)handler_sp);
+    if (fault_eip >= 0x080d0000u && fault_eip < 0x080e0000u &&
+        fault_ebp >= 0x10000000u && fault_ebp < 0xf0000000u) {
+        const volatile u32* frame = (const volatile u32*)fault_ebp;
+        write_hex("native host32: oscillator local self ", (int)frame[-0x124 / 4]);
+        write_hex("native host32: oscillator local part ", (int)frame[-0x148 / 4]);
+        write_hex("native host32: oscillator local obj ", (int)frame[-0xb8 / 4]);
+        write_hex("native host32: oscillator local mesh ", (int)frame[-0xb4 / 4]);
+        write_hex("native host32: oscillator local n ", (int)frame[-0x110 / 4]);
+        write_hex("native host32: oscillator local weights ", (int)frame[-0x10c / 4]);
+        write_hex("native host32: oscillator local verts ", (int)frame[-0x108 / 4]);
+        write_hex("native host32: oscillator local data verts ", (int)frame[-0x134 / 4]);
+        write_hex("native host32: oscillator local source ", (int)frame[-0x130 / 4]);
+    }
     for (u32 i = 0; i < 24; ++i)
         write_hex("native host32: oscillator probe ",
                   (int)sly1_native_oscillator_debug[i]);
@@ -365,9 +385,16 @@ __attribute__((no_instrument_function)) void native_fault_trace(
 }
 
 void install_fault_trace() {
+    stack_t alternate{};
+    alternate.ss_sp = g_fault_trace_alt_stack;
+    alternate.ss_size = sizeof(g_fault_trace_alt_stack);
+    const int altstack_result = sigaltstack(&alternate, nullptr);
+    write_hex("native host32: install alternate stack result ", altstack_result);
+    write_hex("native host32: install alternate stack base ",
+              (int)alternate.ss_sp);
     struct sigaction action{};
     action.sa_sigaction = native_fault_trace;
-    action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_ONSTACK;
     sigemptyset(&action.sa_mask);
     sigaction(SIGSEGV, &action, nullptr);
     sigaction(SIGBUS, &action, nullptr);
@@ -636,6 +663,13 @@ bool load_retail_image(const char* path) {
 
 } // namespace
 
+extern "C" void sly1_native_prepare_thread_fault_trace() {
+    if (g_startup_trace_enabled) {
+        install_fault_trace();
+        write_hex("native host32: worker fault trace ready ", 1);
+    }
+}
+
 extern "C" u32 sly1_native_resolve_function(u32 address) {
     return resolve_native(address);
 }
@@ -666,6 +700,7 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
     }
     std::atomic<bool> game_finished{false};
     std::thread game_thread([&] {
+        if (g_startup_trace_enabled) install_fault_trace();
         func_00185758((int)*(volatile u32*)0x0027B380u, (int)0x0027B384u);
         game_finished.store(true, std::memory_order_release);
     });
