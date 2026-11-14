@@ -17,14 +17,16 @@ The combined object defines 4,380 catalogued function entries; the direct
 call frontier resolves 822/830 functions, without following indirect calls.
 
 Wave 47 passes the prior world-loader fault via a port-only staged-source
-adaptation for `ReadBufferedU32`'s i386 return ABI. It reaches retail
-`UpdateElementStack` but faults while selecting the active screen element. The
-complete decomp defines `items[8]` at `+0x0C`, count at `+0x2C`, and resume
-state at `+0x30`; the fault trace is being extended to identify the invalid
-stack state. The last confirmed visual milestone is the complete native
-no-card warning panel and highlighted Continue option. No title or playable
+adaptation for `ReadBufferedU32`'s i386 return ABI. Register capture then found
+that `g_elementStack` was allocated as four bytes even though the complete
+decomp layout is 0x34 bytes, causing its count field at `+0x2C` to overlap
+neighboring host BSS. The staging adapter now sizes the host definition from
+`sizeof(ElementStack)`. Wave 48 runs over 3,100 frames without crashing and
+reaches retail no-card page 3 with two stack entries. A fresh frame dump
+confirms the full warning panel and selected Continue; no title or playable
 scene has been demonstrated. No card-format action was taken. See the roadmap
-and restart checkpoint for evidence and current blockers.
+and restart checkpoint for evidence and
+current blockers.
 See [`PLAYABLE_TODO.md`](../../../../docs/port/PLAYABLE_TODO.md) and
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md) for
 current evidence and blockers. Backfills remain isolated from

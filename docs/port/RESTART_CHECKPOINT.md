@@ -1,19 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-Latest no-emulation host32 result (2026-11-13): the renderer now uses Sly's
-retail 640x224 field dimensions instead of OpenRAC's 512x448 default. A staged
-host ABI mismatch in `AddGifRegisterWrite` caused the prior black framebuffer.
-The function body used a
-64-bit register argument while callers passed a 32-bit register and 64-bit
-value; on i386 this shifted the value by one word. The host staging adapter
-now normalizes declarations and the definition to a 32-bit register plus
-64-bit value. `OPENRAC_TRACE_DIRECT=1` reports full scissor values
+Latest no-emulation host32 result (2026-11-14, Wave 48): current decomp
+`ElementStack` layout is 0x34 bytes, but its global in `warp_menu.cpp` is still
+a four-byte placeholder. The Wave 47 register trace showed `EBX` at
+`g_elementStack` and count `0x0064c860` read from `+0x2C`; this field overlapped
+neighboring host BSS. The port compiler now sizes the staged global as
+`sizeof(ElementStack)`, leaving matching source untouched. Wave 48 runs over
+3,100 frames without crashing and remains on retail no-card pause page 3 with
+two stack entries. It submits native graphics each frame. A fresh Wave 48
+capture confirms the full 640x224 warning panel and highlighted Continue at
+the expected proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay
+scene has been demonstrated; no card-format action was taken. Current run:
+`/tmp/sly1-wave48-run.log`; previous fault registers:
+`/tmp/sly1-wave47-regtrace.log`.
+
+Visual baseline (2026-11-13, Wave 40): the renderer now uses Sly's retail
+640x224 field dimensions instead of OpenRAC's 512x448 default. A staged host
+ABI mismatch in `AddGifRegisterWrite` caused the prior black framebuffer. The
+function used a 64-bit register argument while callers passed a 32-bit register
+and 64-bit value; on i386 this shifted the value by one word. The adapter
+normalizes declarations and the definition to a 32-bit register plus 64-bit
+value. `OPENRAC_TRACE_DIRECT=1` reports full scissor values
 `0x00de0001027f0000` and `0x00df0000027f0000`, and textured draws. A bounded
 six-second capture shows the full no-card warning panel, border, and
-highlighted Continue option at normal proportions. No title or gameplay scene
-has been demonstrated and no card-format action was taken. Run log:
-`/tmp/sly-display-profile-640x224.log`; frame:
+highlighted Continue option at normal proportions. Image:
 `/tmp/sly-display-profile-640x224.png`. Matching decomp source was not edited.
 
 The follow-up `OPENRAC_STARTUP_TRACE=1` run confirms the screen is the retail
@@ -39,9 +50,9 @@ should call `StartObjectSubGroupFinish(FindActiveObjectSubGroup())` when that
 gate is zero and display mode is 2. Opt-in staging probes now record the
 subgroup returned, its state/timer, and subsequent state-5 updates. They enter
 the ignored host32 build output only with `--trace-functions`; matched game
-logic is unchanged. Runtime verification is pending because this environment
-lacks the 32-bit development CRT needed to link the instrumented launcher.
-Baseline log: `/tmp/sly1-wave39-subgroup-continue-baseline.log`.
+logic is unchanged. The later Wave 48 local sysroot repair restored i386
+linking and confirmed page 3 remains active. Baseline log:
+`/tmp/sly1-wave39-subgroup-continue-baseline.log`.
 
 Updated: 2026-11-13. Public decomp master is `f38f0113` (Wave 39); the sibling
 checkout is `bfc74817`, 100 commits behind. US coverage is 4,778/4,807
@@ -101,10 +112,10 @@ with matching decomp source when available.
 The eight black files mentioned above sampled early startup. The corrected
 capture uses `OPENRAC_DUMP_NATIVE_FRAMES=1` and
 `OPENRAC_DUMP_NATIVE_FRAME_SKIP=100`; it shows the full no-card warning. The
-next host32 task is to link and run the instrumented launcher, then trace
-whether the Splash subgroup is found, enters finish state 5, and reaches its
-fade deadline. Do not use `visible_ui=0` or `text_ui=0` as a substitute for
-checking the pause-menu layer or framebuffer.
+next host32 task is to capture a fresh Wave 48 framebuffer and trace the
+normal Continue dismissal through the Splash subgroup finish and title request.
+Do not use `visible_ui=0` or `text_ui=0` as a substitute for checking the
+pause-menu layer or framebuffer.
 
 ## Experimental guest-runtime trace history (not the playable path)
 

@@ -2,19 +2,18 @@
 # Concrete plan for a playable native Sly 1
 
 **Current evidence (2026-11-14):** the last confirmed native image is the full
-640x224 no-card warning panel with highlighted Continue (Wave 40). Wave 47
-passes the prior world-loader fault after a port-only staging adaptation
-corrected the i386 ABI for `ReadBufferedU32` in the reorganized
-`effect_spawner.cpp`. It reaches retail `UpdateElementStack`, then faults while
-selecting `items[count - 1]`. The complete decomp documents `ElementStack` in
-`include/screen_element.h`: items at `+0x0C`, count at `+0x2C`, resume state at
-`+0x30`; its initializer sets count to one and item zero to null. The next
-diagnostic is to capture `ElementStack*`, count, and its item pointer at the
-fault, then trace the writer that corrupts the structure. The attempted launcher
-relink for register capture is blocked because this host lacks 32-bit glibc
-development files and the staged sysroot lacks its glibc link targets. No title
-or gameplay scene is confirmed and no card-format action was taken. Run log:
-`/tmp/sly1-wave47-run.log`.
+640x224 no-card warning panel with highlighted Continue (Wave 40). The current
+decomp header defines `ElementStack` as 0x34 bytes, but `warp_menu.cpp` still
+declares its global backing array as four bytes. Wave 47 register capture
+confirmed the active stack pointer was `g_elementStack` and its `+0x2C` count
+had been overwritten by adjacent host BSS. The port staging adapter now sizes
+the host-only definition as `sizeof(ElementStack)`. Wave 48 then ran for over
+3,100 frames without crashing and stayed on retail no-card page 3 with two
+stack entries. A fresh frame capture confirms the correctly proportioned
+warning panel and selected Continue; no title or gameplay scene is confirmed
+and no card-format action was taken. Image: `/tmp/sly1-wave48-current.png`.
+Run log: `/tmp/sly1-wave48-run.log`; fault registers:
+`/tmp/sly1-wave47-regtrace.log`.
 
 **Build baseline:** public `sly1-decomp` master is `dd7a1860` (2026-11-13),
 with 4,807/4,807 US functions and 100% of code matched, plus 99.9675% of data.
@@ -26,11 +25,11 @@ diagnostics are documented in the port roadmap.
 
 **Immediate tasks:**
 
-1. Capture the `ElementStack` pointer/count/item values at the Wave 47 fault
-   using a working i386 link environment. Trace the retail stack writer that
-   leaves an invalid count or item pointer; do not clamp the count or force a
-   menu element visible. Then verify the warning-to-title transition and first
-   world render without fabricating game state.
+1. Capture a fresh Wave 48 frame and follow the normal Continue dismissal into
+   the Splash finish and title transition. Earlier input traces show that
+   dismissing Continue can leave a black frame while Splash remains active, so
+   trace the retail subgroup finish/deadline and ensuing world/title request.
+   Do not clamp stack fields or force a menu element visible.
 2. After startup works, implement port-only C replacements for
    `FilterParticleVerticesVu0` and `CollectLightsForSphere`. The latest
    [`sly1-decomp porting guide`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)

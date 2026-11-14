@@ -59,28 +59,37 @@ The current host32 staging build compiles all 194 Sly source units and 65
 port-only backfills. Its combined object defines 4,380 catalogued function
 entries; the direct-call frontier has 822/830 definitions (8 missing, with
 indirect calls not covered). These counts describe translation and call
-reachability, not playable coverage. A decomp reorganization moved
-`effect_spawner.cpp` into the semantic source tree, leaving a staging-only
-`ReadBufferedU32` ABI adaptation aimed at its retired filename. The adapter
-has now been retargeted in `compile_decomp_host32.py`: the one-word aggregate
-return is lowered to an `s32` EAX return in generated host source, matching
-the retail i386 calling convention and preserving the 4-byte reader value.
-This fix is port-only and leaves `sly1-decomp` unchanged. It gets execution
-past the prior `LoadGroupMembers`/`ReadCappedWordList` fault.
+reachability, not playable coverage. The reorganized `effect_spawner.cpp`
+uses a port-only i386 ABI adaptation for `ReadBufferedU32`'s one-word return,
+which gets past the `LoadGroupMembers`/`ReadCappedWordList` fault.
 
-The current Wave 47 native run reaches `UpdateElementStack` and faults while
-loading `items[count - 1]`. The newly complete decomp header confirms the
-layout: `items[8]` at `+0x0C`, `count` at `+0x2C`, and `resumeState` at `+0x30`;
-the retail initializer sets the base item to null and count to one. The fault
-registers and stack dump are being captured to determine whether the active
-stack pointer, its count, or the stack storage was corrupted. See
-`/tmp/sly1-wave47-run.log` for the current trace. The no-op staging fallbacks
-for the two VU0 particle-filter and light-collection methods remain incomplete;
-the upstream [porting guide](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
-recommends implementing those as native call-site C after startup is stable.
-The last confirmed visual milestone remains the native 640x224 no-card
-warning panel with its highlighted Continue option. No title or gameplay
-scene has been demonstrated, and no card-format action was taken.
+The newly complete decomp header documents `ElementStack` as 0x34 bytes:
+`items[8]` at `+0x0C`, count at `+0x2C`, and `resumeState` at `+0x30`. Its
+global definition in `warp_menu.cpp` is still a four-byte placeholder. The
+Wave 47 fault registers showed `EBX=0x083181ac`, the host address of
+`D_00275BC0`/`g_elementStack`, and `EAX=0x0064c860` loaded as its count; the
+indexed read faulted at `0x09c4a334`. The `+0x2C` count field overlapped
+neighboring host BSS because only four bytes were allocated. The host staging
+adapter now sizes the generated definition as `sizeof(ElementStack)`, without
+changing the matching decomp source or its score.
+
+Wave 48 recompiles and links against the current decomp. Its 53-second native
+run reached 3,124 frames, stayed on retail no-card pause page 3 (`pause_open=1`,
+`pause_page=3`, `element_state=5`, `ui_stack=2`), and did not crash. The renderer
+reported 9,378 accepted of 9,379 submissions. A separate Wave 48 frame dump
+shows the full 640x224 warning panel with highlighted Continue at the expected
+proportions (`/tmp/sly1-wave48-current.png`). No title or gameplay scene has
+been demonstrated, and no card-format action was taken. The immediate
+task is to follow the normal Continue dismissal through the Splash finish and
+title transition, then render the first title/gameplay frame. Do not force a
+menu element visible or fabricate the transition.
+
+The two staging no-ops for the VU0 particle-filter and light-collection methods
+remain incomplete. The upstream
+[porting guide](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md)
+recommends native call-site C replacements after startup is stable.
+Run log: `/tmp/sly1-wave48-run.log`; prior register trace:
+`/tmp/sly1-wave47-regtrace.log`.
 
 ### Decomp refresh (2026-11-11)
 

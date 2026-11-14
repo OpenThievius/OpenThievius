@@ -585,6 +585,20 @@ def main(argv=None):
         adapted = adapted.replace('"%s\n%s"', '"%s\\n%s"')
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
+        if rel.as_posix() == "main/warp_menu.cpp":
+            # The decomp now describes ElementStack as a 0x34-byte structure
+            # in screen_element.h, but its global backing array still has a
+            # four-byte placeholder. Runtime initialization and frame updates
+            # use the complete structure, so the placeholder overlaps adjacent
+            # host BSS objects. Size only the staged host definition from the
+            # recovered layout; keep matching source and score untouched.
+            declaration = "u8 g_elementStack[4] = {0};"
+            if adapted.count(declaration) != 1:
+                raise RuntimeError("expected one ElementStack backing array in " +
+                                   rel.as_posix())
+            adapted = adapted.replace(
+                declaration,
+                "u8 g_elementStack[sizeof(ElementStack)] = {0};")
         # The retail ABI uses 64-bit s64/u64 even where the decomp unit spells
         # those aliases with `long`; on host i386, long is only 32 bits.
         adapted = re.sub(
