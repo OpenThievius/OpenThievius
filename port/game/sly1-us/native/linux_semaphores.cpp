@@ -75,8 +75,7 @@ int signal_semaphore(int identifier, unsigned int caller) {
         return -1;
     }
     __atomic_store_n(&semaphore->count, count + 1, __ATOMIC_RELEASE);
-    if (semaphore->waiters != 0 && identifier != 4 && identifier != 5 &&
-        identifier != 8)
+    if (semaphore->waiters != 0)
         sly1_native_trace_semaphore_event("signal", identifier, count + 1,
                                           caller);
     if (count == 0) futex(&semaphore->count, kFutexWake, 1);
@@ -117,9 +116,8 @@ int wait_semaphore(int identifier, unsigned int caller) {
         }
         ++semaphore->waiters;
         unlock_registry();
-        if (identifier != 4 && identifier != 5 && identifier != 8)
-            sly1_native_trace_semaphore_event("wait", identifier, count,
-                                              caller);
+        sly1_native_trace_semaphore_event("wait", identifier, count,
+                                          caller);
         futex(&semaphore->count, kFutexWait, 0);
         lock_registry();
         --semaphore->waiters;

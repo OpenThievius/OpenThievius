@@ -12,6 +12,7 @@ extern "C" char* getenv(const char*);
 #include <cstdio>
 #include <cstdlib>
 #include <link.h>
+#include <pthread.h>
 #include <signal.h>
 #include <thread>
 #include <ucontext.h>
@@ -470,6 +471,11 @@ extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
 extern "C" volatile u32 sly1_native_startup_callback_index = 0;
 extern "C" volatile u32 D_002613F0;
 bool g_startup_trace_enabled = false;
+volatile sig_atomic_t g_native_pc_sample_pc = 0;
+volatile sig_atomic_t g_native_pc_sample_sp = 0;
+volatile sig_atomic_t g_native_pc_sample_bp = 0;
+volatile sig_atomic_t g_native_pc_sample_sequence = 0;
+volatile sig_atomic_t g_native_pc_sample_stack[8] = {};
 volatile u32 g_native_semaphore_trace_active = 0;
 volatile u32 g_semaphore_trace_event_count = 0;
 
@@ -498,6 +504,66 @@ sly1_native_trace_null_ramp(void* ramp, void* out, float x, float y, float z,
     write_hex("native host32: null ramp x bits ", (int)FloatBits{x}.bits);
     write_hex("native host32: null ramp y bits ", (int)FloatBits{y}.bits);
     write_hex("native host32: null ramp z bits ", (int)FloatBits{z}.bits);
+}
+
+void native_pc_sample_handler(int, siginfo_t*, void* context) {
+    const auto* state = static_cast<const ucontext_t*>(context);
+#if defined(__i386__)
+    g_native_pc_sample_pc = state->uc_mcontext.gregs[REG_EIP];
+    g_native_pc_sample_sp = state->uc_mcontext.gregs[REG_ESP];
+    g_native_pc_sample_bp = state->uc_mcontext.gregs[REG_EBP];
+#elif defined(__x86_64__)
+    g_native_pc_sample_pc = state->uc_mcontext.gregs[REG_RIP];
+    g_native_pc_sample_sp = state->uc_mcontext.gregs[REG_RSP];
+    g_native_pc_sample_bp = state->uc_mcontext.gregs[REG_RBP];
+#endif
+    const u32 sp = (u32)g_native_pc_sample_sp;
+    if (sp >= 0xC0000000u && sp < 0xF0000000u) {
+        const volatile u32* stack = reinterpret_cast<const volatile u32*>(sp);
+        for (u32 i = 0; i < 8; ++i)
+            g_native_pc_sample_stack[i] = (sig_atomic_t)stack[i];
+    }
+    ++g_native_pc_sample_sequence;
+}
+
+void install_pc_sampler() {
+    struct sigaction action{};
+    action.sa_sigaction = native_pc_sample_handler;
+    action.sa_flags = SA_SIGINFO;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGUSR2, &action, nullptr);
+}
+
+void trace_game_thread_pc(pthread_t thread, unsigned sample) {
+    const int signal_result = pthread_kill(thread, SIGUSR2);
+    SDL_Delay(1);
+    const u32 pc = (u32)g_native_pc_sample_pc;
+    const u32 sp = (u32)g_native_pc_sample_sp;
+    const u32 bp = (u32)g_native_pc_sample_bp;
+    u32 retail_function = 0;
+    u32 native_function = 0;
+    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
+        const auto& entry = sly1::sly1_native_function_addresses[i];
+        if (entry.native_address != 0 && entry.native_address <= pc &&
+            entry.native_address > native_function) {
+            native_function = entry.native_address;
+            retail_function = entry.retail_address;
+        }
+    }
+    const u32 offset = pc >= native_function ? pc - native_function : 0;
+    std::fprintf(stderr,
+                 "[native game thread] sample=%u signal=%d sequence=%d pc=%#010x sp=%#010x bp=%#010x stack=%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x nearest_retail=%#010x native=%#010x offset=%#x\n",
+                 sample, signal_result, (int)g_native_pc_sample_sequence,
+                 pc, sp, bp,
+                 (u32)g_native_pc_sample_stack[0],
+                 (u32)g_native_pc_sample_stack[1],
+                 (u32)g_native_pc_sample_stack[2],
+                 (u32)g_native_pc_sample_stack[3],
+                 (u32)g_native_pc_sample_stack[4],
+                 (u32)g_native_pc_sample_stack[5],
+                 (u32)g_native_pc_sample_stack[6],
+                 (u32)g_native_pc_sample_stack[7],
+                 retail_function, native_function, offset);
 }
 
 volatile u32 g_native_frame_stage = 0;
@@ -730,6 +796,11 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
         write_text("native host32: SDL3 renderer startup failed\n");
         return 1;
     }
+    const bool trace_graphics = [] {
+        const char* value = std::getenv("OPENRAC_STARTUP_TRACE");
+        return value != nullptr && value[0] != '0';
+    }();
+    if (trace_graphics) install_pc_sampler();
     std::atomic<bool> game_finished{false};
     std::thread game_thread([&] {
         g_native_game_thread_tid = (u32)syscall3(224, 0, 0, 0);
@@ -745,15 +816,16 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
         game_thread.detach();
         return 1;
     }
-    const bool trace_graphics = [] {
-        const char* value = std::getenv("OPENRAC_STARTUP_TRACE");
-        return value != nullptr && value[0] != '0';
-    }();
     unsigned trace_frames = 0;
     unsigned semaphore_trace_after_frame = 0;
     if (trace_graphics) {
+        const char* trace_semaphores_from_start =
+            std::getenv("OPENRAC_TRACE_SEMAPHORES_FROM_START");
         const char* delay = std::getenv("OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES");
-        if (delay != nullptr && delay[0] != '\0' && delay[0] != '0') {
+        if (trace_semaphores_from_start != nullptr &&
+            trace_semaphores_from_start[0] != '0') {
+            g_native_semaphore_trace_active = 1;
+        } else if (delay != nullptr && delay[0] != '\0' && delay[0] != '0') {
             char* end = nullptr;
             const unsigned long after = std::strtoul(delay, &end, 10);
             if (end != delay && *end == '\0')
@@ -779,6 +851,7 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
             break;
         }
         if (trace_graphics && (trace_frames % 60u) == 0) {
+            trace_game_thread_pc(game_thread.native_handle(), trace_frames / 60u);
             std::fprintf(stderr, "[native graphics] dma=%llu accepted=%llu rejected=%llu bytes=%llu\n",
                          openrac_native_renderer_dma_submit_count(),
                          openrac_native_renderer_dma_accept_count(),

@@ -2372,6 +2372,8 @@ def main(argv=None):
     parser.add_argument("--cxx", default="c++")
     parser.add_argument("--trace-functions", action="store_true",
                         help="add targeted startup state traces without instrumenting game calls")
+    parser.add_argument("--trace-main-loop", action="store_true",
+                        help="trace only startup and frame stages in RunMainLoop")
     parser.add_argument("--trace-oscillator", action="store_true",
                         help="probe RefreshOscillatorFrames without enabling other probes")
     args = parser.parse_args(argv)
@@ -4059,7 +4061,8 @@ void StartStateGraph"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected UpdateMemoryCard end")
             adapted = adapted.replace(needle, replacement, 1)
-        elif rel.as_posix() == "main/main_loop.cpp" and args.trace_functions:
+        elif rel.as_posix() == "main/main_loop.cpp" and (
+                args.trace_functions or args.trace_main_loop):
             # Mark the retail constructor phase and each startup initializer.
             # A single guest callback can wait indefinitely, so the before /
             # after pair identifies the exact callback without global
@@ -4124,12 +4127,12 @@ void StartStateGraph"""
                 "            }\n"
                 "            sly1_native_trace_frame_state((u32)g_currentWorld, stack[1], stack[11],\n"
                 "                stack[12], (u32)g_worldLoadRequest, (u32)g_moviePlayer.queued,\n"
-                "                visible_ui, text_ui, (u32)g_padRecord.f14, (u32)g_padRecord.f18,\n"
+                "                visible_ui, text_ui, (u32)g_padRecord.connectionMode, (u32)g_padRecord.connectionStep,\n"
                 "                (u32)g_padRecord.flags, (u32)g_pauseMenuElement.open,\n"
                 "                (u32)g_pauseMenuElement.page, (u32)g_pauseMenuElement.mode,\n"
                 "                (u32)g_screenFade.mode, stack_top, stack_top_vt,\n"
                 "                stack_top_mode, stack_top_text, (u32)g_padRouting,\n"
-                "                (u32)g_padSelectFlags, (u32)g_blankPadRecord.f14);\n"
+                "                (u32)g_padSelectFlags, (u32)g_blankPadRecord.connectionMode);\n"
                 "            sly1_native_trace_memory_gate((u32)g_memoryCard.state,\n"
                 "                (u32)g_memoryCard.targetState, (u32)g_memoryCard.displayMode,\n"
                 "                (u32)g_memoryCard.i4F44, (u32)D_002701B8, stack[1],\n"
