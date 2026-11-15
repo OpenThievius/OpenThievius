@@ -22,15 +22,17 @@ The no-emulation host32 game loop clears the no-card screen, loads world
 `0x870cf0`, and advances through hundreds of frames. Its camera is finite, and
 `DrawModelPart` receives loaded-world mesh data. A port-only direct-host
 backfill now covers the handwritten `ComputeCameraDistanceFade` function.
-However, a hidden 960x720 native capture is still black. The run accepted 1,650
-DMA submissions, but the SDL presenter decoded only 18 vertices and two draws
-from 1,712/1,936-byte packet frames; this does not establish that model geometry
-reaches the framebuffer. Stop treating startup and DMA counters as graphics
-progress. Next, trace one known model through its VIF1/VU1 output, GIF decode,
-and OpenRAC renderer input, then fix the first measured loss point. Keep Sly's
-packet adapter separate from the matching decomp and reuse OpenRAC's renderer
-and texture pool. See [the restart checkpoint](RESTART_CHECKPOINT.md) for the
-capture and concrete gates.
+However, a hidden native capture is still black because the SDL renderer only
+has the HUD bucket; it has no Sly world renderer consuming model draws. The
+next step is a vertical slice at the game-data boundary: take one simple mesh
+and its transform from the `DrawModelPart` request, convert it into a
+host-owned draw record, and show it in a native world-renderer bucket. Keep the
+matching decomp source unchanged. Do not extend VIF/VU/GS translation as the
+gameplay graphics path; keep it for bounded diagnostics only. The gate is a
+captured frame with real loaded-world geometry. See
+[the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
+and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
+details.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 
