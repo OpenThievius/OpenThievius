@@ -43,12 +43,23 @@ using the source XYZ for position. The native `vec4(x,y,z,1)` therefore has
 the right clip-space W; do not feed the raw fog value as OpenGL W. Fog remains
 unimplemented in this flat-color pass.
 
-The next slice is to identify the actual foreground target from the current
-draw stream. Extend the existing model trace with owner/class identity and
-projected bounds, then select a finite unskinned mesh by its role and draw
-order, not merely because its path is small. Verify its source geometry,
-transform, and material before writing its native pass. Do not add loader
-fixes or general VU behavior.
+The owner-class trace now separates three different draws. The three kind-6
+meshes belong to class `0x54` (`CameraPositionedObject`), which moves with the
+camera; they are a backdrop candidate, not confirmed foreground. The 30
+kind-5 meshes belong to class `0x61` (`TextureRenderObject`) and are rendered
+into a texture. Do not treat either as ordinary screen geometry.
+
+The strongest on-screen candidate so far is owner class `0x02` (`PlacedObject`)
+with 38 kind-0 lit meshes and a finite transform. Its first meshes have three
+strips each, but use four bone slots. A broad build-time capture did not match
+the final drawn part and has been removed. The first finite part's three final
+draw streams are now captured (141/87/77 quadwords), but remain undecoded PS2
+command/data. Decode only these streams, verify positions and strips, then
+compute projected bounds and compare against a PCSX2 frame. Do not add loader
+fixes or general VU behavior. Evidence: `/tmp/sly-class-owner-trace.log` and
+the [graphics handoff](SLY_GRAPHICS_HANDOFF.md); class roles
+are documented in the sibling decomp's `docs/OBJECTS.md` and
+`include/camera_positioned_object.h`.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
@@ -114,16 +125,14 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Extend the existing model draw trace with owner/class identity and
-   projected bounds so the foreground candidate is selected by role and
-   screen location. Do not assume the kind-4 draw is the target.
-2. Capture the selected mesh's source geometry, transform, draw order, and
-   material state. Render that mesh in solid color through the native path,
-   preserving the measured depth behavior.
-3. Compare against a PCSX2 scene capture. Fix the first measured mismatch and
-   expand only to the next mesh kind needed for recognizable world geometry.
-   Keep the kind-6 experiment isolated until its background texture, fog, and
-   depth behavior are represented correctly.
+1. Decode the captured class-`0x02` kind-0 final draw streams. Recover the
+   vertex and strip data and account for the four bone slots; compute its
+   projected bounds and compare with a PCSX2 scene capture before drawing it.
+2. Render one validated mesh in solid color with the measured transform,
+   skinning, strips, and depth behavior. Fix only a mismatch shown by the
+   comparison.
+3. Expand to the next mesh only after one correct silhouette is visible.
+   Keep kind-6 isolated as a camera-following backdrop experiment.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active

@@ -33,11 +33,32 @@ XYZ and builds clip W from the matrix and homogeneous constant. Therefore the
 native `vec4(x,y,z,1)` is right for clip position; the flat-color prototype
 still omits fog. Do not pass the raw fog value as clip W.
 
-Keep the kind-6 prototype disabled. Extend the existing draw trace with
-owner/class identity and projected bounds, then select a finite unskinned
-foreground mesh by its role and draw order. Verify that mesh's source data,
-transform, and material before adding its native pass. Do not extend general
-VIF/VU/GS execution.
+The owner trace separates the likely backdrop from the screen scene. The
+kind-6 meshes are owned by class `0x54` (`CameraPositionedObject`), which
+moves with the camera. The 30 kind-5 meshes are owned by class `0x61`
+(`TextureRenderObject`), whose parts draw into a texture. The best current
+screen-geometry candidate is a finite-transform class `0x02` object with 38
+kind-0 lit meshes. Its first meshes have three strips and four bone slots.
+
+Keep the kind-6 prototype disabled. A broad trace of
+`BuildLitStripMeshPacket` calls did not match the final part pointer at draw
+time, so it was removed. The next capture is deliberately narrower: save the
+three submitted packets from the first finite class-`0x02` kind-0 mesh at
+`DrawModelPart`, then decode just enough to verify positions, strips, and
+projected bounds against a PCSX2 frame. Do not extend general VIF/VU/GS
+execution. Owner trace: `/tmp/sly-class-owner-trace.log`.
+
+The bounded follow-up run reached active world `0x00870cf0` at about 56 FPS
+after one process-local Cross press. It submitted a finite-transform class-2
+part at `0x016d4460` with 38 lit meshes. The first mesh's three draw-boundary
+streams were captured at their declared sizes: 141, 87 and 77 quadwords
+(2,256, 1,392 and 1,232 bytes). This verifies that the candidate reaches the
+draw handoff; the streams are still PS2 command/data packets, not decoded
+vertices, so it does not establish visible geometry. The run log and raw
+captures are local at `/tmp/sly-targeted-world-part.log` and
+`/tmp/sly-world-part-{0,1,2}.bin`. Next decode only these streams and calculate
+the first mesh's projected bounds. Do not change the renderer until that
+projection is checked against the corresponding PCSX2 scene.
 
 ## Reset the graphics plan (2026-11-15)
 

@@ -18,14 +18,18 @@ staging build compiles 194 matched units and 85 port-only backfills. Keep such
 replacements under `port/game/sly1-us/native/`, not in matching source.
 
 **Next milestone: one recognizable piece of loaded-world geometry.** Select a
-draw from measured object role, screen bounds, draw order and material; do not
-assume kind-6 is foreground or add more renderer/device behavior on a guess.
-Capture one target against a PCSX2 reference, render it with its real strip
-boundaries and depth/material behavior, and stop if the source data cannot be
-validated. Do not add backfills unless a current trace shows they block this
-specific milestone. If the native draw boundary cannot be validated from the
-available capture, produce a data-only viewer as a scoped fallback rather
-than adding another compatibility layer.
+draw from measured role, screen bounds, draw order and material. The owner
+trace separates the candidates: class `0x54` camera-positioned kind-6 meshes
+are likely backdrop; class `0x61` kind-5 meshes are explicitly
+render-to-texture. The strongest on-screen candidate is a finite-transform
+class `0x02` object with 38 kind-0 lit meshes. A broad build-time trace failed
+to match this final draw part and has been removed. A targeted run captured
+the first finite part's three draw-boundary streams (141/87/77 quadwords), but
+they remain PS2 command/data packets rather than decoded geometry. Decode only
+these streams, compute projected bounds, and validate against a PCSX2 scene
+before rendering one mesh. Do not add backfills unless a current trace shows
+they block this step, and do not extend device models. Logs and capture details
+are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
 See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
 [the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and

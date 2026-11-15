@@ -9,6 +9,7 @@ extern "C" char* getenv(const char*);
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
 #include <SDL3/SDL.h>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <link.h>
@@ -541,20 +542,39 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
     const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
     const u32 part_address = request[0x78 / 4];
     const u32 skin_address = request[0x74 / 4];
+    const u32 owner_address = request[0x70 / 4];
     if (part_address == 0) return;
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
     const u32 mesh_count = part[0x58 / 4];
     const u32 mesh_address = part[0x5C / 4];
     const u32 strip_count = part[0x60 / 4];
-    if (trace_index == 0 && std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") != nullptr &&
-        camera_address != 0) {
-        const volatile float* model = reinterpret_cast<const volatile float*>(request_address + 0x10u);
+    u32 owner_class = 0xFFFFFFFFu;
+    u32 owner_flags = 0;
+    if (owner_address != 0) {
+        const u32 class_address = *reinterpret_cast<const volatile u32*>(owner_address);
+        if (class_address != 0) {
+            const volatile u32* class_descriptor =
+                reinterpret_cast<const volatile u32*>(class_address);
+            owner_class = class_descriptor[1];
+            owner_flags = class_descriptor[2];
+        }
+    }
+    static u32 traced_lit_world_part = 0;
+    bool finite_model = true;
+    const volatile float* model = reinterpret_cast<const volatile float*>(request_address + 0x10u);
+    for (u32 i = 0; i < 16u; ++i)
+        if (!std::isfinite(model[i])) finite_model = false;
+    if (owner_class == 2u && finite_model &&
+        std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") != nullptr &&
+        camera_address != 0 &&
+        __atomic_load_n(&traced_lit_world_part, __ATOMIC_RELAXED) == 0) {
+        __atomic_store_n(&traced_lit_world_part, part_address, __ATOMIC_RELAXED);
         const volatile float* camera_position = reinterpret_cast<const volatile float*>(camera_address + 0x40u);
         const volatile float* camera_rotation = reinterpret_cast<const volatile float*>(camera_address + 0x80u);
         const volatile float* camera_matrix = reinterpret_cast<const volatile float*>(camera_address + 0x100u);
         const volatile float* camera_scale = reinterpret_cast<const volatile float*>(camera_address + 0x1F0u);
-        std::fprintf(stderr, "[native model transform] request=%#010x camera=%#010x\n",
-                     request_address, camera_address);
+        std::fprintf(stderr, "[native model transform] index=%u request=%#010x camera=%#010x\n",
+                     trace_index, request_address, camera_address);
         for (u32 row = 0; row < 4u; ++row) {
             std::fprintf(stderr,
                          "[native model transform] model%u=%g,%g,%g,%g viewProjection%u=%g,%g,%g,%g\n",
@@ -572,8 +592,9 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                      camera_scale[0], camera_scale[1]);
     }
     std::fprintf(stderr,
-                 "[native model draw] index=%u world=%#010x request=%#010x part=%#010x skin=%#010x meshes=%u strips=%u flags=%#x lit=%u skinned=%u matrix=%#x,%#x,%#x,%#x\n",
-                 trace_index, world, request_address, part_address, skin_address,
+                 "[native model draw] index=%u world=%#010x request=%#010x owner=%#010x class=%u class_flags=%#x part=%#010x skin=%#010x meshes=%u strips=%u flags=%#x lit=%u skinned=%u matrix=%#x,%#x,%#x,%#x\n",
+                 trace_index, world, request_address, owner_address,
+                 owner_class, owner_flags, part_address, skin_address,
                  mesh_count, strip_count, part[0x2C / 4], part[0x18 / 4],
                  part[0x28 / 4], request[0x10 / 4], request[0x20 / 4],
                  request[0x30 / 4], request[0x40 / 4]);
@@ -593,8 +614,8 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                              ? *reinterpret_cast<const volatile u8*>(kind_address)
                              : 0xFFFFFFFFu;
         std::fprintf(stderr,
-                     "[native model mesh] index=%u mesh=%u kind=%u bones=%u qwc=%u,%u,%u data=%#010x,%#010x,%#010x\n",
-                     trace_index, i, kind, mesh[0x24 / 4], mesh[0x38 / 4],
+                     "[native model mesh] index=%u mesh=%u kind=%u source=%#010x bones=%u qwc=%u,%u,%u data=%#010x,%#010x,%#010x\n",
+                     trace_index, i, kind, kind_address, mesh[0x24 / 4], mesh[0x38 / 4],
                      mesh[0x3C / 4], mesh[0x40 / 4], mesh[0x44 / 4],
                      mesh[0x48 / 4], mesh[0x4C / 4]);
         if (kind_address != 0 && std::getenv("OPENRAC_TRACE_NATIVE_MODEL_STRIPS") != nullptr) {
@@ -615,6 +636,30 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                 std::fprintf(stderr,
                              "[native model frame source] index=%u mesh=%u strip=%u stride=%u base=%#010x\n",
                              trace_index, i, strip_index, source[0], source[1]);
+            }
+        }
+        if (owner_class == 2u && finite_model && kind == 0u &&
+            std::getenv("OPENRAC_DUMP_NATIVE_WORLD_PART") != nullptr) {
+            static u32 dumped_world_part = 0;
+            if (__atomic_exchange_n(&dumped_world_part, 1u, __ATOMIC_RELAXED) == 0) {
+                const u32 packet_address[3] = {mesh[0x44 / 4], mesh[0x48 / 4], mesh[0x4C / 4]};
+                const u32 packet_qwc[3] = {mesh[0x38 / 4], mesh[0x3C / 4], mesh[0x40 / 4]};
+                for (u32 packet = 0; packet < 3u; ++packet) {
+                    if (packet_address[packet] == 0 || packet_qwc[packet] == 0 ||
+                        packet_qwc[packet] > 4096u) continue;
+                    char path[96];
+                    std::snprintf(path, sizeof(path), "/tmp/sly-world-part-%u.bin", packet);
+                    if (FILE* file = std::fopen(path, "wb")) {
+                        const std::size_t bytes = static_cast<std::size_t>(packet_qwc[packet]) * 16u;
+                        const std::size_t written = std::fwrite(
+                            reinterpret_cast<const void*>(packet_address[packet]), 1, bytes, file);
+                        std::fclose(file);
+                        std::fprintf(stderr,
+                                     "[native world part dump] part=%#010x mesh=%u packet=%u address=%#010x qwc=%u written=%zu path=%s\n",
+                                     part_address, i, packet, packet_address[packet],
+                                     packet_qwc[packet], written, path);
+                    }
+                }
             }
         }
         if (kind == 6u &&
