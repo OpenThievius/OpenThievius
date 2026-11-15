@@ -49,6 +49,10 @@ observed masked UNPACK `0x78` support scoped to its known selectors; column-
 fill and write-protect selectors remain unsupported. Do not relax GIF-tag
 validation before finding why XGKICK points into this record.
 
+For the next visible input attempt, set `OPENRAC_TRACE_PAD=1`. It records SDL
+window focus, key down/up events, and pad reports so a missed Space press can be
+distinguished from a prompt-state or game-input regression.
+
 ### One deliverable: isolate the prompt flicker
 
 Trace whether the black frames contain valid 2D draws and texture state, and
