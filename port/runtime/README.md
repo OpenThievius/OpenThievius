@@ -40,15 +40,18 @@ GS-state investigation.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
-references, uploads MPG payloads to mapped VU1 micro memory, unpacks the
-observed vector formats to VU1 data memory, executes MSCAL through
-`vu1_native.cpp`, and routes DIRECT and XGKICK output to the GIF stream reader.
-The direct host maps the EE MMIO and VU1 apertures so it can use this same
-runtime. Sly's host32 VIF1 channel now reaches the path, but the latest world
-trace stops at masked UNPACK command `0x78`; VIF write masks and fill cycles
-remain unimplemented. The invalid VU1 XGKICK follows from incomplete input and
-is not yet evidence of a GIF parser problem. Earlier menu traces remain useful
-for channel 2, which walks DMA-tagged chains and submits them to the renderer.
+references, uploads MPG payloads to mapped VU1 micro memory, unpacks observed
+vector formats (including the current masked format) to VU1 data memory,
+executes MSCAL through `vu1_native.cpp`, and routes DIRECT and XGKICK output to
+the GIF stream reader. The direct host maps the EE MMIO and VU1 apertures so it
+can use this same runtime. A hidden world trace now passes masked UNPACK
+command `0x78` and reaches XGKICK, but the VU1 interpreter stops at lower
+instruction `0x800036fc` at PC `0x68`; the resulting packet at VU address 469
+contains an invalid GIF tag. This makes VU1 execution/state the active
+boundary. The masked UNPACK path is scoped to observed selectors 0 and 1;
+column-fill and write-protect selectors still fail explicitly. Earlier menu
+traces remain useful for channel 2, which walks DMA-tagged chains and submits
+them to the renderer.
 See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
 active task and evidence. The VIF command and DMA tag formats follow the public
 [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)

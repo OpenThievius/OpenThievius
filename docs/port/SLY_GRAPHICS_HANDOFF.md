@@ -11,28 +11,35 @@ but the last user-confirmed useful image is the retail no-card UI. The optional
 world-renderer prototype remains disabled by default and its gray horizon is
 not successful scene output.
 
-The first broken stage is identified: the host32 DMA adapter dropped VIF1
-submissions. The adapter now routes them into the existing VIF1/VU1 runtime.
-That runtime processes real Sly chains, then stops at masked VIF `UNPACK`
-command `0x78`. The VU1 XGKICK failure follows from incomplete VIF input; do not
-patch GIF validation first. Same-frame captures before and after the HUD pass
-are identical, ruling out the HUD as the cause for that capture.
+The host32 DMA adapter now routes VIF1 submissions into the existing VIF1/VU1
+runtime. The observed world chain's masked VIF `UNPACK` command `0x78` now
+passes for the selectors seen in the capture. The current failure is later:
+VU1 reaches XGKICK at PC `0x68` with VI6=`469`; VU data qword 469 begins with
+GIF low tag `0x39001`, which fails reserved-bit validation. On that same kick,
+the VU translator reports unsupported lower instruction `0x800036fc` (paired
+upper `0x000002ff`). The trace does not establish their ordering within the VU
+cycle, so do not label the tag partial or stale yet. The dispatcher now stops
+parsing the current VIF stream at the failed MSCAL/VU command and emits an
+explicit unsupported-command diagnostic.
 
-Next, implement only the VIF write-mask behavior and masked `UNPACK` formats
-seen in Sly's first world display lists. Then trace the same chain through VU1
-and GIF. Keep Sly function replacements under `port/game/sly1-us/native/`,
-separate from matched decomp source. Do not expand the optional GL prototype or
-resume broad model ranking. The pass is a valid VU1 XGKICK/GIF packet and a
-non-black frame attributable to loaded Sly data.
+Next, trace this single known chain through the VU instruction at PC `0x68` and
+the writes that produce qword 469. Establish whether the GIF tag is malformed
+before or after VU writes, then correct only the demonstrated VU or packet
+issue.
+Keep VIF/VU behavior in the runtime and any Sly function replacements under
+`port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
+the optional GL prototype or resume broad model ranking. The pass remains a
+valid VU1 XGKICK/GIF packet and a non-black frame attributable to loaded Sly
+data.
 
 ## Clean reset review (2026-11-15)
 
 The window and frame loop are no longer the issue. The game dismisses the
 no-card page, loads a world and reaches model draw callbacks. A same-frame
 before/after-HUD capture shows that the HUD pass does not erase the world
-image. The first lost stage is the direct host's VIF1 handoff: after routing
-submissions into the shared runtime, Sly data reaches that runtime but stops
-at masked UNPACK command `0x78`.
+image. At this checkpoint the host32 route passes the observed masked UNPACK
+and reaches a VU1/GIF failure; the older masked-UNPACK stop below records the
+state before that implementation.
 
 The supplied 62.76-second PCSX2 recording shows the opening cinematic,
 rooftop views, and the city title screen. These establish useful visual

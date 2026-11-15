@@ -11,26 +11,29 @@ user-confirmed image is the retail no-card screen. The optional GL world
 prototype remains disabled by default; its gray horizon was not a successful
 scene render.
 
-The first broken stage is now identified. The direct host had dropped VIF1 DMA
-submissions. After connecting those submissions to the existing VIF1/VU1
-runtime, a hidden run processed actual game chains and stopped on masked VIF
-`UNPACK` command `0x78`. The VU1 interpreter then saw invalid GIF data, so its
-XGKICK failure is downstream evidence, not a separate GIF fix. Paired captures
-before and after the HUD pass were identical, which rules out HUD rendering as
-the cause for that frame.
+The host32 VIF1 route now processes masked UNPACK command `0x78` for the
+selectors observed in the game stream. The active failure is at VU1 XGKICK:
+PC `0x68`, VI6=`469`, whose first output tag is `0x39001` and fails the GIF
+reserved-bit check. The VU translator also reports unsupported lower
+instruction `0x800036fc` at that PC. The log does not establish their ordering
+within the VU cycle, so first capture the relevant instruction sequence and
+qword writes before changing GIF validation. Keep the masked-VIF implementation
+limited to observed cases; column-fill and write-protect selectors remain
+unsupported. Paired captures before and after the HUD pass were identical,
+which rules out HUD rendering as the cause for that frame.
 
-### One deliverable: process Sly's observed masked UNPACKs
+### One deliverable: trace the VU1/XGKICK boundary
 
-Implement only the VIF write-mask state and masked `UNPACK` formats observed in
-Sly's first world display lists. Preserve the matching decomp source. Keep the
-host32 address mapping and VIF handoff in the port runtime/adapter, and keep
-any function-level replacement under `port/game/sly1-us/native/`.
+Use the same captured world stream to establish execution order and VU output
+at PC `0x68`, including writes to qword 469. Correct only a demonstrated VU1
+translation or MSCAL control-flow issue. Preserve the matching decomp source.
+Keep device behavior in the port runtime and any function-level replacement
+under `port/game/sly1-us/native/`.
 
-**Pass:** a captured world display list completes its VIF commands, emits valid
-VU1 XGKICK/GIF packets, and produces a non-black frame attributable to loaded
-Sly data. If VU1 translation then stops, use the first unsupported instruction
-from that same captured stream as the next bounded task. Do not tune shaders,
-rank more model candidates, or fix downstream GIF parsing before this pass.
+**Pass:** the trace explains the `0x39001` tag from the actual instruction
+order, then a captured world display list emits valid VU1 XGKICK/GIF packets
+and produces a non-black frame attributable to loaded Sly data. Do not tune
+shaders, rank more model candidates, or relax GIF validation without evidence.
 
 A successful build, frame rate, callback count, texture upload, DMA count, or
 decomp percentage is not visual progress. Keep each commit to one verified
@@ -65,9 +68,9 @@ validates the kind-6 payload and resolves its GS register values, but a bounded
 run still produced only a gray horizon and ground. Submitting all three
 sources of a kind-0 mesh as duplicate GL draws also failed to improve it.
 
-The new VIF trace supersedes the earlier uncertainty about the first lost
-boundary. Do not begin VU conversion yet: masked VIF UNPACK must first provide
-valid inputs to the existing VU1 path.
+The VIF trace supersedes the earlier uncertainty about the first lost boundary.
+Masked UNPACK `0x78` now passes for the observed cases; the remaining question
+is how VU1 execution at PC `0x68` produces the invalid XGKICK tag.
 
 Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
 draws have finite matrices, so this trace does not yet show that those objects
