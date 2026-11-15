@@ -265,6 +265,14 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         uint8_t* output = guest_address(kVu1Data + destination_index * 16u);
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
+        const bool trace_target = destination_index == 469u;
+        uint32_t old_lanes[4];
+        if (trace_target) std::memcpy(old_lanes, lanes, sizeof(old_lanes));
+        uint32_t input_lanes[4]{};
+        if (trace_target) {
+            const size_t input_copy = std::min(sizeof(input_lanes), input_bytes_per_vector);
+            std::memcpy(input_lanes, input, input_copy);
+        }
 
         uint32_t unpacked[4] = {};
         for (uint32_t component = 0; component < components; ++component) {
@@ -306,6 +314,15 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             }
         }
         std::memcpy(output, lanes, sizeof(lanes));
+        static std::atomic<uint32_t> target_write_notice{0};
+        if (trace_target && target_write_notice.fetch_add(1, std::memory_order_relaxed) < 8u) {
+            openrac::log::info(
+                "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+                destination_index, command, immediate, vector_index,
+                input_lanes[0], input_lanes[1], input_lanes[2], input_lanes[3], mask,
+                old_lanes[0], old_lanes[1], old_lanes[2], old_lanes[3],
+                lanes[0], lanes[1], lanes[2], lanes[3]);
+        }
         input += input_bytes_per_vector;
     }
     return true;
@@ -495,8 +512,11 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                                                &vu_pipeline, &vu_paired)) {
                     if (!g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
                         openrac::log::warn(
-                            "native VU1 translation stopped at {} instruction {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
-                            vu_pipeline == 0 ? "upper" : "lower", vu_unsupported, vu_paired, vu_pc,
+                            "native VU1 {} stopped at {} {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
+                            vu_pipeline == 2u ? "execution" : "translation",
+                            vu_pipeline == 0 ? "upper instruction" :
+                            vu_pipeline == 1 ? "lower instruction" : "device command",
+                            vu_unsupported, vu_paired, vu_pc,
                             entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
                     }
                     *unsupported_command = command;

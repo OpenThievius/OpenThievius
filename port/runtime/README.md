@@ -33,10 +33,11 @@ stores, validates source-chain spans, updates the DMAC completion registers,
 and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
 extracts the small color-only primitive subset used by the diagnostic geometry
 path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
-`DirectRenderer` and texture pool. The current Sly menu stream decodes two
-draws and uploads its indexed font atlas and palette, but the displayed result
-remains black or garbled; see the graphics handoff for the active texture and
-GS-state investigation.
+`DirectRenderer` and texture pool. The current no-card prompt state submits
+2D draws and uploads small images to GS blocks `0x1e00` onward, but the
+captured framebuffer is black. Its draw uses a one-column scissor and resolves
+an empty texture placeholder; see the graphics handoff for the active packet
+and texture investigation.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
@@ -45,13 +46,14 @@ vector formats (including the current masked format) to VU1 data memory,
 executes MSCAL through `vu1_native.cpp`, and routes DIRECT and XGKICK output to
 the GIF stream reader. The direct host maps the EE MMIO and VU1 apertures so it
 can use this same runtime. A hidden world trace now passes masked UNPACK
-command `0x78` and reaches XGKICK, but the VU1 interpreter stops at lower
-instruction `0x800036fc` at PC `0x68`; the resulting packet at VU address 469
-contains an invalid GIF tag. This makes VU1 execution/state the active
-boundary. The masked UNPACK path is scoped to observed selectors 0 and 1;
-column-fill and write-protect selectors still fail explicitly. Earlier menu
-traces remain useful for channel 2, which walks DMA-tagged chains and submits
-them to the renderer.
+command `0x78` and reaches XGKICK, but packet validation rejects qword 469
+(`0x0000000000000048:0x0000000000039001`) for reserved GIF-tag bits. Lower
+instruction `0x800036fc` is the implemented XGKICK itself, not an unimplemented
+opcode. Bounded traces now report VIF UNPACK or VU stores to this qword to find
+the malformed data's producer. The masked UNPACK path is scoped to observed
+selectors 0 and 1; column-fill and write-protect selectors still fail
+explicitly. Earlier menu traces remain useful for channel 2, which walks
+DMA-tagged chains and submits them to the renderer.
 See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
 active task and evidence. The VIF command and DMA tag formats follow the public
 [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)

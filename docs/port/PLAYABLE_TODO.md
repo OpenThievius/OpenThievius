@@ -11,29 +11,39 @@ user-confirmed image is the retail no-card screen. The optional GL world
 prototype remains disabled by default; its gray horizon was not a successful
 scene render.
 
-The host32 VIF1 route now processes masked UNPACK command `0x78` for the
-selectors observed in the game stream. The active failure is at VU1 XGKICK:
-PC `0x68`, VI6=`469`, whose first output tag is `0x39001` and fails the GIF
-reserved-bit check. The VU translator also reports unsupported lower
-instruction `0x800036fc` at that PC. The log does not establish their ordering
-within the VU cycle, so first capture the relevant instruction sequence and
-qword writes before changing GIF validation. Keep the masked-VIF implementation
-limited to observed cases; column-fill and write-protect selectors remain
-unsupported. Paired captures before and after the HUD pass were identical,
-which rules out HUD rendering as the cause for that frame.
+The current visible failure is the black no-card screen. The game's state is
+at the card prompt and the direct renderer receives draws, but the captured
+framebuffer is black. The prompt draw's `SCISSOR_1` is `0x027f000000000000`,
+decoded as x=0..0, y=0..639, so the renderer clips it to a one-pixel-wide
+column. Its texture state resolves to the 8x8 placeholder (`TBP=0`, `TW=TH=0`)
+even though the game uploaded small images to GS blocks `0x1e00` onward. Trace
+the register and texture upload path to establish why prompt draws do not use
+the uploaded data; do not paper over it with a guessed scissor or texture.
 
-### One deliverable: trace the VU1/XGKICK boundary
+The host32 VIF1 route also processes masked UNPACK command `0x78` for the
+selectors observed in the game stream. World rendering reaches VU1 XGKICK at
+PC `0x68`, VI6=`469`, where qword 469 is
+`0x0000000000000048:0x0000000000039001` and fails GIF reserved-bit validation.
+The lower instruction `0x800036fc` is XGKICK itself, not an unsupported VU
+opcode; validation rejects the data. Bounded logging records VIF UNPACKs and
+VU stores to qword 469 so the producer can be identified. Keep masked-VIF
+handling limited to observed cases; column-fill and write-protect selectors
+remain unsupported. Paired captures before and after the HUD pass were
+identical, which rules out HUD rendering as the cause for that frame.
 
-Use the same captured world stream to establish execution order and VU output
-at PC `0x68`, including writes to qword 469. Correct only a demonstrated VU1
-translation or MSCAL control-flow issue. Preserve the matching decomp source.
-Keep device behavior in the port runtime and any function-level replacement
-under `port/game/sly1-us/native/`.
+### One deliverable: restore the no-card prompt draw
 
-**Pass:** the trace explains the `0x39001` tag from the actual instruction
-order, then a captured world display list emits valid VU1 XGKICK/GIF packets
-and produces a non-black frame attributable to loaded Sly data. Do not tune
-shaders, rank more model candidates, or relax GIF validation without evidence.
+Trace the prompt's GS packet before and after the host32 adapter, then establish
+why its scissor collapses to one column and its texture lookup misses the
+uploaded images. Correct only the demonstrated register or upload-path issue.
+Preserve the matching decomp source. Keep device behavior in the port runtime
+and any function-level replacement under `port/game/sly1-us/native/`.
+
+**Pass:** the no-card prompt is visible in a captured framebuffer with its
+scissor and texture state explained by the native GS data. Then return to the
+world XGKICK failure and trace qword 469 through the VU instruction order.
+Do not tune shaders, rank more model candidates, or relax GIF validation
+without evidence.
 
 A successful build, frame rate, callback count, texture upload, DMA count, or
 decomp percentage is not visual progress. Keep each commit to one verified

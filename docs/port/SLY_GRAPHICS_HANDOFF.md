@@ -14,18 +14,31 @@ not successful scene output.
 The host32 DMA adapter now routes VIF1 submissions into the existing VIF1/VU1
 runtime. The observed world chain's masked VIF `UNPACK` command `0x78` now
 passes for the selectors seen in the capture. The current failure is later:
-VU1 reaches XGKICK at PC `0x68` with VI6=`469`; VU data qword 469 begins with
-GIF low tag `0x39001`, which fails reserved-bit validation. On that same kick,
-the VU translator reports unsupported lower instruction `0x800036fc` (paired
-upper `0x000002ff`). The trace does not establish their ordering within the VU
-cycle, so do not label the tag partial or stale yet. The dispatcher now stops
-parsing the current VIF stream at the failed MSCAL/VU command and emits an
-explicit unsupported-command diagnostic.
+VU1 reaches XGKICK at PC `0x68` with VI6=`469`; VU data qword 469 is
+`0x0000000000000048:0x0000000000039001`, whose low half has reserved GIF-tag
+bits set. Lower instruction `0x800036fc` is XGKICK itself, paired with upper
+NOP `0x000002ff`; the opcode is implemented, and execution fails because GIF
+packet validation rejects its data. The dispatcher now stops parsing the
+current VIF stream at that failed XGKICK. A bounded trace records any VIF
+UNPACK or VU store targeting qword 469 to identify which stage constructs the
+bad tag.
 
-Next, trace this single known chain through the VU instruction at PC `0x68` and
-the writes that produce qword 469. Establish whether the GIF tag is malformed
-before or after VU writes, then correct only the demonstrated VU or packet
-issue.
+### Visible no-card screen regression (2026-11-15)
+
+The game reaches its no-card prompt state and submits 2D draws, but the captured
+framebuffer is black. In a visible native run, the prompt draw receives
+`SCISSOR_1=0x027f000000000000`, decoded as x=0..0 and y=0..639. The current
+renderer therefore clips it to one column. The same draw resolves a texture
+with `TBP=0`, `TW=TH=0` to the 8x8 placeholder, while earlier image uploads
+target GS blocks `0x1e00` through `0x1e13`. The screen's tiny left-edge mark is
+not present in the framebuffer dump, so it does not establish game content.
+
+Active task: trace how the no-card prompt's GIF register writes and texture
+base are assembled from game output. Compare the register packet before and
+after the host32 adapter, then fix the demonstrated source of the collapsed
+scissor and unresolved texture. Avoid substituting guessed scissor values or
+placeholder art. Resume the world VU1/XGKICK investigation after the prompt is
+visible again.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

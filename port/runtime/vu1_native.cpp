@@ -104,7 +104,19 @@ Vector data_read(uint32_t address) {
 
 void data_write(uint32_t address, const Vector& value) {
     address &= static_cast<uint32_t>(kVu1Quadwords - 1u);
+    uint32_t previous[4]{};
+    if (address == 469u)
+        std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
+    static std::atomic<uint32_t> target_write_notice{0};
+    if (address == 469u && target_write_notice.fetch_add(1, std::memory_order_relaxed) < 8u) {
+        uint32_t next[4]{};
+        std::memcpy(next, value.data(), sizeof(next));
+        openrac::log::info(
+            "native VU1 store wrote qword=469 old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            previous[0], previous[1], previous[2], previous[3],
+            next[0], next[1], next[2], next[3]);
+    }
 }
 
 int32_t sign_extend(uint32_t value, uint32_t bits) {
@@ -121,7 +133,8 @@ void vi_write(State* state, uint32_t index, uint16_t value) {
 }
 
 bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
-              uint32_t* failed_address, uint64_t* failed_tag) {
+              uint32_t* failed_address, uint64_t* failed_tag,
+              uint64_t* failed_tag_high) {
     std::vector<uint8_t> packet;
     size_t cursor = address & 0x3FFu;
     constexpr size_t kMaxKickQwords = 1u << 20;
@@ -130,10 +143,13 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
     if (first_tag != nullptr) *first_tag = 0;
     if (failed_address != nullptr) *failed_address = 0;
     if (failed_tag != nullptr) *failed_tag = 0;
+    if (failed_tag_high != nullptr) *failed_tag_high = 0;
     while (consumed_qwords < kMaxKickQwords) {
         const uint8_t* tag = guest_address(kVu1Data + cursor * 16u);
         uint64_t low = 0;
         std::memcpy(&low, tag, sizeof(low));
+        uint64_t high = 0;
+        std::memcpy(&high, tag + sizeof(low), sizeof(high));
         if (first_tag != nullptr && consumed_qwords == 0)
             *first_tag = low;
         constexpr uint64_t kGifReservedMask = 0x00003FFFFFFF0000ull;
@@ -141,6 +157,7 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
             if (failure != nullptr) *failure = 3;
             if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
             if (failed_tag != nullptr) *failed_tag = low;
+            if (failed_tag_high != nullptr) *failed_tag_high = high;
             return false;
         }
         const uint32_t loops = static_cast<uint32_t>(low & 0x7FFFu);
@@ -419,18 +436,19 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 uint32_t failed_address = 0;
                 uint64_t first_tag = 0;
                 uint64_t failed_tag = 0;
+                uint64_t failed_tag_high = 0;
                 const uint32_t address = vi_read(*state, source);
                 if (!kick_gif(address, &failure, &first_tag, &failed_address,
-                              &failed_tag)) {
+                              &failed_tag, &failed_tag_high)) {
                     const uint32_t notice = g_vu_kick_notice_count.fetch_add(
                         1, std::memory_order_relaxed);
                     if (notice < 4u)
                         openrac::log::warn(
-                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI{}={} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x} reason={}",
+                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI{}={} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x}:{:#018x} reason={}",
                             state->pc, vi_read(*state, 4u), source & 15u, address,
                             *reinterpret_cast<const uint32_t*>(guest_address(kVif1Top)),
                             *reinterpret_cast<const uint32_t*>(guest_address(0x10003CC0u)), first_tag,
-                            failed_address, failed_tag,
+                            failed_address, failed_tag_high, failed_tag,
                             failure == 1 ? "packet exceeds native limit" :
                             failure == 3 ? "GIFtag has reserved bits set" : "missing EOP");
                     *unsupported = word;
@@ -596,7 +614,10 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         } else if (!translate_lower(&lower_result, lower, &next_pc, unsupported_word)) {
             *paired_word = upper;
             *stopped_pc = current_pc;
-            *stopped_pipeline = 1;
+            const bool xgkick = (lower >> 25u) == 0x40u &&
+                                (lower & 0x3Fu) == 0x3Cu &&
+                                ((lower >> 6u) & 31u) == 0x1Bu;
+            *stopped_pipeline = xgkick ? 2u : 1u;
             if (!g_vu_context_notice.test_and_set(std::memory_order_relaxed)) {
                 std::ostringstream context;
                 const uint32_t first_cycle = cycle >= recent.size() - 1u
