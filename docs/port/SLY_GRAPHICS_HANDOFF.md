@@ -3,7 +3,7 @@
 
 Last checked: 2026-11-15 against decomp master `1cbb33fd`.
 
-The host32 port compiles 194 matched Sly units and 84 separate port-only
+The host32 port compiles 194 matched Sly units and 85 separate port-only
 backfills. After one process-local Cross press, it leaves the no-card page,
 loads world `0x870cf0`, and advances at about 56 frames per second. The prior
 Wave 492 claim that frames and world stayed at zero was caused by a disabled
@@ -22,17 +22,21 @@ target world based on the first model callback, suppressing the target when
 that callback was also the first observed. Wave 512 observes the world change
 from the main loop and confirms that the loaded world queues
 `DrawPlacedObjectParts` for an object with one model part. The callback reaches
-`DrawModelPart`, which sees 30 kind-5 meshes (the first has 326 quadwords of
-packet data), plus other kind-0 meshes and strips. Evidence:
-`/tmp/sly-wave512-model-correct-filter.log`.
+`DrawModelPart`, which sees a skinned kind-5 part, then three unskinned
+kind-6 meshes. The first kind-6 mesh has 106 vertices and one strip source of
+eight quadwords. It needs no bone transforms and its draw matrix is finite.
+The captured 225-quadword packet contains its UV, position, color, and strip
+input, but the strip source's primitive order is not decoded yet. Evidence:
+`/tmp/sly-wave512-model-correct-filter.log`,
+`/tmp/sly-kind6-model-trace.log`, and `/tmp/sly-kind6-model-packet.bin`.
 
-The next graphics slice is now concrete: decode one kind-5 mesh packet into a
-host-owned vertex/material record, carry the request transform and active
-camera, then draw one real object in a Sly world-renderer bucket. Leave
-`sly1-decomp` untouched and keep functional backfills under
-`port/game/sly1-us/`. Keep VIF/VU/GS execution as bounded diagnostics. The gate
-is an image capture with loaded Sly geometry positioned by the game's transform
-and camera. No title or playable level is confirmed. See the
+The next graphics slice is to decode that kind-6 strip source's primitive
+order, apply the request's model and clip matrices, and emit a host-owned draw
+record through a Sly world-renderer bucket. Leave `sly1-decomp` untouched and
+keep functional backfills under `port/game/sly1-us/`. Keep VIF/VU/GS execution
+as bounded diagnostics. The gate is an image capture with loaded Sly geometry
+positioned by the game's transform and camera. No title or playable level is
+confirmed. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current plan.
 Historical Wave 39 context: two staging-only returns prevent matched

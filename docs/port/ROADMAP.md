@@ -24,15 +24,16 @@ The no-emulation host32 game loop clears the no-card screen, loads world
 backfill now covers the handwritten `ComputeCameraDistanceFade` function.
 However, a hidden native capture is still black because the SDL renderer only
 has the HUD bucket; it has no Sly world renderer consuming model draws. The
-kind-6 position probe is not the mesh selected by the corrected loaded-world
-trace. Wave 512 confirms the queued object's first draw receives 30 kind-5
-meshes, with 326 quadwords in the first packet. The next slice is to trace that
-packet's positions, topology, material inputs and transform at the
-`DrawModelPart` boundary, then submit one host-owned draw record to a Sly
-world-renderer bucket. Keep the matching decomp source unchanged. Do not build
-a general VU interpreter or extend device models as the gameplay graphics
-path. The gate is a captured frame with correctly shaped loaded-world
-geometry. See
+corrected loaded-world trace finds three unskinned kind-6 meshes after the
+first, skinned kind-5 part. The first kind-6 mesh has 106 vertices, one
+eight-quadword strip source, no bones, and a finite draw matrix. Its captured
+packet provides UV, position, color and strip input, but the strip input's
+primitive order is not decoded yet. The next slice is to recover that one
+mesh's primitive order, apply its draw and clip transforms, then submit one
+host-owned draw record to a Sly world-renderer bucket. Keep the matching decomp
+source unchanged. Do not build a general VU interpreter or extend device
+models as the gameplay graphics path. The gate is a captured frame with
+correctly shaped loaded-world geometry. See
 [the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.

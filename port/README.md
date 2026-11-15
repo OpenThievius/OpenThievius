@@ -49,18 +49,19 @@ Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 The sibling `sly1-decomp` checkout is clean at `1cbb33fd`. The US match report
 is 4,807/4,807 functions and 100% of code bytes, with 140 data bytes unmatched.
 That is matching coverage, not host-ready C coverage: some matched functions
-remain assembly, and the native build still uses 84 port-only backfills and
-102 fallback traps.
+remain assembly, and the native build still uses 85 port-only backfills and
+101 fallback traps.
 
 The no-emulation host32 game loop passes the no-card screen, loads world
 `0x870cf0`, and advances at about 56 frames per second. The black scene is not
 currently a startup or missing-input problem. A corrected trace confirms the
-loaded world queues `DrawPlacedObjectParts` and reaches `DrawModelPart` with a
-30-mesh kind-5 part. The SDL host renders HUD packets only; it has no Sly 3D
-world renderer. Therefore the single active milestone is to decode one real
-Sly mesh packet into host-owned geometry, validate its transform and camera,
-and draw it through a Sly scene renderer. Do not add unrelated startup shims
-unless new evidence shows that this path is blocked. See
+loaded world reaches a skinned kind-5 part followed by three unskinned kind-6
+meshes. The first kind-6 mesh has 106 vertices, one strip source, no bones, and
+a finite draw matrix. Its packet is captured, but the strip source's primitive
+order still needs decoding. The SDL host renders HUD packets only; it has no
+Sly 3D world renderer. The single active milestone is to decode and draw this
+one mesh with its game transform and clip matrix. Do not add unrelated startup
+shims unless new evidence shows that this path is blocked. See
 [`SLY_GRAPHICS_HANDOFF.md`](../docs/port/SLY_GRAPHICS_HANDOFF.md) and
 [`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md).
 

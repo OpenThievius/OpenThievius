@@ -589,21 +589,42 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                      trace_index, i, kind, mesh[0x24 / 4], mesh[0x38 / 4],
                      mesh[0x3C / 4], mesh[0x40 / 4], mesh[0x44 / 4],
                      mesh[0x48 / 4], mesh[0x4C / 4]);
-        if (kind == 5u && std::getenv("OPENRAC_DUMP_NATIVE_MODEL_PACKET") != nullptr) {
+        if (kind_address != 0 && std::getenv("OPENRAC_TRACE_NATIVE_MODEL_STRIPS") != nullptr) {
+            const volatile u32* strip_mesh = reinterpret_cast<const volatile u32*>(kind_address);
+            const u32 strip_count = strip_mesh[0x18 / 4];
+            const u32 strip_address = strip_mesh[0x1C / 4];
+            const u32 frame_count = strip_mesh[0x20 / 4];
+            std::fprintf(stderr,
+                         "[native model strip source] index=%u mesh=%u mode=%u color=%08x strips=%u sources=%#010x frames=%u\n",
+                         trace_index, i,
+                         *reinterpret_cast<const volatile u8*>(kind_address + 1u),
+                         strip_mesh[1], strip_count, strip_address, frame_count);
+            const u32 bounded_strip_count = strip_count < 8u ? strip_count : 8u;
+            for (u32 strip_index = 0; strip_index < bounded_strip_count && strip_address != 0;
+                 ++strip_index) {
+                const volatile u32* source = reinterpret_cast<const volatile u32*>(
+                    strip_address + strip_index * 8u);
+                std::fprintf(stderr,
+                             "[native model frame source] index=%u mesh=%u strip=%u stride=%u base=%#010x\n",
+                             trace_index, i, strip_index, source[0], source[1]);
+            }
+        }
+        if (kind == 6u &&
+            std::getenv("OPENRAC_DUMP_NATIVE_MODEL_PACKET") != nullptr) {
             static u32 dumped = 0;
             if (__atomic_exchange_n(&dumped, 1u, __ATOMIC_RELAXED) == 0) {
                 const u32 packet_address = mesh[0x44 / 4];
                 const u32 packet_qwc = mesh[0x38 / 4];
                 if (packet_address != 0 && packet_qwc > 0 && packet_qwc <= 4096u) {
-                    const char* path = "/tmp/sly-kind5-model-packet.bin";
+                    const char* path = "/tmp/sly-kind6-model-packet.bin";
                     if (FILE* file = std::fopen(path, "wb")) {
                         const std::size_t bytes = static_cast<std::size_t>(packet_qwc) * 16u;
                         const std::size_t written = std::fwrite(
                             reinterpret_cast<const void*>(packet_address), 1, bytes, file);
                         std::fclose(file);
                         std::fprintf(stderr,
-                                     "[native model packet dump] kind=5 qwc=%u bytes=%zu written=%zu path=%s\n",
-                                     packet_qwc, bytes, written, path);
+                                     "[native model packet dump] kind=%u qwc=%u bytes=%zu written=%zu path=%s\n",
+                                     kind, packet_qwc, bytes, written, path);
                     }
                 }
             }

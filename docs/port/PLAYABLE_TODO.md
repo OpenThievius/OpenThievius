@@ -4,8 +4,8 @@
 ## Latest status (2026-11-15, Wave 512)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
-code matched. The host32 build compiles 194 matched units and 84 separate
-port-only backfills, maps 4,399 catalogued entries, and links 102 fallback
+code matched. The host32 build compiles 194 matched units and 85 separate
+port-only backfills, maps 4,400 catalogued entries, and links 101 fallback
 traps. Those totals describe build coverage, not game readiness.
 
 The corrected focused trace changes the diagnosis. After one process-local
@@ -18,10 +18,15 @@ was off. Do not use that run as evidence of a hang.
 The game still has no visible level scene. The SDL renderer creates only
 OpenRAC's `Bucket::Hud` `DirectRenderer`, and each presented frame supplies
 packets only to that bucket. The two draws and 18 vertices in Wave 499 are
-HUD/direct-packet statistics, not level geometry. Sly's `DrawModelPart` builds
-VIF packets, while the native host32 DMA replacement has no world renderer for
-that output. Evidence: `port/runtime/sdl_renderer.cpp`,
-`port/game/sly1-us/native/func_002027C8.cpp`, and the decomp's
+HUD/direct-packet statistics, not level geometry. In the loaded world, the
+first model callback is a skinned kind-5 part; the next three callbacks each
+contain one unskinned kind-6 mesh. The first kind-6 packet is 225 quadwords and
+contains 106 UV, position, and color entries plus one strip source of eight
+quadwords. Its request matrix is finite and it has no bone transforms. The
+captured strip source is still an encoded VU input, so its vertex order and
+primitive boundaries are not yet known. Evidence:
+`/tmp/sly-kind6-model-trace.log`, `/tmp/sly-kind6-model-packet.bin`,
+`port/runtime/sdl_renderer.cpp`, and the decomp's
 `src/main/placed_object_model.cpp`.
 
 ### Graphics reset (2026-11-15)
@@ -38,17 +43,18 @@ The decompilation's 100% code match includes the 0x5550-byte `.vutext` section
 as original assembly; those VU1 programs are not matched C. This is why 100%
 does not mean every graphics operation is ready to compile for the host.
 
-The direct-host kind-6 position probe and the loaded-world draw are different
-evidence. Wave 512 selects an actual queued object and confirms its first
-`DrawModelPart` callback receives 30 kind-5 meshes; the first has 326
-quadwords. Use that callback as the single graphics slice. Record what this
-kind-5 packet already provides and what the game's call supplies, then emit one
-host-owned draw record using its real transform and active camera. Do not start
-with the earlier kind-6 position stream, all mesh kinds, or VIF/VU emulation.
-Keep the matched decomp unchanged. A captured frame with correctly shaped
-loaded-world geometry remains the gate.
+Wave 512 selects an actual queued object and confirms its first
+`DrawModelPart` callback receives 30 kind-5 meshes; the first is skinned with
+four bones. A newer hidden trace finds a simpler in-world candidate after it:
+an unskinned kind-6 mesh with 106 vertices and one eight-quadword strip source.
+Use that specific packet as the graphics slice. Decode its strip record into
+the exact primitive order, then apply the draw request's model and clip
+transforms and emit one host-owned draw record. Do not treat its position array
+as a single triangle strip or add general VIF/VU emulation. Keep the matched
+decomp unchanged. A captured frame with correctly shaped loaded-world geometry
+remains the gate.
 
-### Next work: one loaded kind-5 mesh
+### Next work: one loaded kind-6 mesh
 
 The prior Wave 503 conclusion that no model draw was reached was invalid: each
 trace helper independently guessed the first world from its first model
@@ -60,10 +66,10 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Trace the selected kind-5 packet and its `DrawModelPart` arguments to
-   identify positions, topology, material inputs, model transform and camera.
-2. Implement only the conversion needed for that mesh as replaceable code
-   under `port/`, with a host-owned draw record.
+1. Decode the selected kind-6 packet's eight-quadword strip source and establish
+   its exact position indices and primitive boundaries.
+2. Apply its `DrawModelPart` model and clip matrices, then implement only this
+   unskinned mesh conversion as replaceable code under `port/`.
 3. Submit it to a Sly world-renderer bucket built on the existing OpenRAC
    window/GL foundation; leave the HUD path intact.
 4. Capture loaded-world pixels and compare shape, scale and orientation
