@@ -69,7 +69,7 @@ bool fifo_append(const uint8_t* source, size_t size) {
     if (size == 0) return true;
     if (source == nullptr) return false;
     std::lock_guard lock(g_fifo_mutex);
-    openrac_guest_gif_stream_write(source, size);
+    openrac_guest_gif_stream_write_from(source, size, "gif-dma");
 
     if (size >= kMaxFifoBytes) {
         source += size - kMaxFifoBytes;

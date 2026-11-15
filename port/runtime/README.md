@@ -33,11 +33,15 @@ stores, validates source-chain spans, updates the DMAC completion registers,
 and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
 extracts the small color-only primitive subset used by the diagnostic geometry
 path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
-`DirectRenderer` and texture pool. The current no-card prompt state submits
-2D draws and uploads small images to GS blocks `0x1e00` onward, but the
-captured framebuffer is black. Its draw uses a one-column scissor and resolves
-an empty texture placeholder; see the graphics handoff for the active packet
-and texture investigation.
+`DirectRenderer` and texture pool. The host32 `AddGifRegisterWrite` ABI
+adapter now fixes the no-card prompt's collapsed scissor; the prompt is visible
+but flickers to black in native captures. Packet-empty presents are too rare to
+explain those flashes, and skipping the per-present clear did not remove them.
+The user's previous Space press moved the game into world `0x870cf0`; the later
+diagnostic run restarted at the card prompt without input. World VU1 XGKICK
+still rejects a malformed GIF tag after the card prompt is dismissed. See the
+[graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and
+the active task.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap

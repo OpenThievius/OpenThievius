@@ -45,6 +45,8 @@ struct GifParser {
 std::mutex g_parser_mutex;
 GifParser g_parser;
 uint32_t g_gif_trace_count = 0;
+const char* g_gif_input_origin = "unspecified";
+uint32_t g_gs_register_trace_count = 0;
 std::vector<openrac_gs_vertex> g_current_frame;
 std::vector<openrac_gs_vertex> g_published_frame;
 
@@ -234,6 +236,17 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
     const uint32_t descriptor = static_cast<uint32_t>(
         (g_parser.tag_registers >> ((sequence_index % g_parser.register_count) * 4u)) & 0xFu);
     if (descriptor == 0xEu) {
+        const uint32_t address = static_cast<uint32_t>(meta & 0xFFu);
+        if (std::getenv("OPENRAC_TRACE_GS_REGISTERS") != nullptr &&
+            (address == 0x06u || address == 0x07u || address == 0x40u) &&
+            g_gs_register_trace_count < 256u) {
+            std::fprintf(stderr,
+                         "[gif register input] origin=%s tag=%#018llx format=%u index=%u address=%#04x value=%#018llx\n",
+                         g_gif_input_origin, static_cast<unsigned long long>(g_parser.tag_low),
+                         g_parser.format, sequence_index, address,
+                         static_cast<unsigned long long>(value));
+            ++g_gs_register_trace_count;
+        }
         write_gs_register(static_cast<uint32_t>(meta & 0xFFu), value);
     } else if (g_parser.format == 0 && descriptor == 0x01u) {
         const uint64_t native_value = (value & 0xFFu) |
@@ -261,12 +274,14 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
 }
 }
 
-extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) {
+namespace {
+void gif_stream_write(const void* source, size_t size, const char* origin) {
     if (source == nullptr || size < 16u) return;
     if (openrac_native_renderer_append_gif_stream != nullptr)
         openrac_native_renderer_append_gif_stream(source, size);
     const auto* bytes = static_cast<const uint8_t*>(source);
     std::lock_guard lock(g_parser_mutex);
+    g_gif_input_origin = origin != nullptr ? origin : "unspecified";
     size_t cursor = 0;
     while (cursor + 16u <= size) {
         if (!g_parser.tag_loaded) {
@@ -301,11 +316,23 @@ extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) 
         if (g_parser.remaining_qwords == 0) finish_tag();
     }
 }
+} // namespace
+
+extern "C" void openrac_guest_gif_stream_write(const void* source, size_t size) {
+    gif_stream_write(source, size, "unspecified");
+}
+
+extern "C" void openrac_guest_gif_stream_write_from(const void* source, size_t size,
+                                                       const char* origin) {
+    gif_stream_write(source, size, origin);
+}
 
 extern "C" void openrac_guest_gs_reset(void) {
     std::lock_guard lock(g_parser_mutex);
     g_parser = GifParser{};
     g_gif_trace_count = 0;
+    g_gif_input_origin = "unspecified";
+    g_gs_register_trace_count = 0;
     g_current_frame.clear();
     g_published_frame.clear();
 }

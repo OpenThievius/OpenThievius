@@ -23,22 +23,47 @@ current VIF stream at that failed XGKICK. A bounded trace records any VIF
 UNPACK or VU store targeting qword 469 to identify which stage constructs the
 bad tag.
 
-### Visible no-card screen regression (2026-11-15)
+### Host32 prompt ABI fix and flicker (2026-11-15)
 
-The game reaches its no-card prompt state and submits 2D draws, but the captured
-framebuffer is black. In a visible native run, the prompt draw receives
-`SCISSOR_1=0x027f000000000000`, decoded as x=0..0 and y=0..639. The current
-renderer therefore clips it to one column. The same draw resolves a texture
-with `TBP=0`, `TW=TH=0` to the 8x8 placeholder, while earlier image uploads
-target GS blocks `0x1e00` through `0x1e13`. The screen's tiny left-edge mark is
-not present in the framebuffer dump, so it does not establish game content.
+The copied decomp headers retained the matching declaration
+`AddGifRegisterWrite(PacketWriter*, u64, u64)`, while the host32 port adapter
+expects a 32-bit register address and a 64-bit value. Normalizing only source
+definitions left an i386 caller/callee stack mismatch. The new
+`normalize_gif_register_writer_abi` adapter applies to staged headers and
+sources, leaving matching decomp files unchanged. The next native trace showed
+correct game-generated values: `SCISSOR_1=0x00de0001027f0000` and
+`0x00df0000027f0000`, decoded across the 640x224 display area. TEX0 now has
+`TW=TH=10` rather than zero.
 
-Active task: trace how the no-card prompt's GIF register writes and texture
-base are assembled from game output. Compare the register packet before and
-after the host32 adapter, then fix the demonstrated source of the collapsed
-scissor and unresolved texture. Avoid substituting guessed scissor values or
-placeholder art. Resume the world VU1/XGKICK investigation after the prompt is
-visible again.
+The user's Nov 15 recording shows the no-card prompt fully visible, but it
+flickers to black. Frame analysis found 49 black game-area frames out of 393;
+the longest run is 7 frames (about 117 ms). Three native readback samples
+(two text pixels and one border pixel) go black together even when packets
+arrive and DirectRenderer decodes 5–7 draws. A delayed capture had one black
+image among eight. A present trace had packets on 10,386 of 10,388 calls, so
+missing packet input alone cannot account for the flicker. Skipping the
+per-present clear in a diagnostic still produced about 9% black samples; the
+clear is not the only cause. The short white dash at the far left remains
+unexplained.
+
+Reproduce the correlated trace with `OPENRAC_TRACE_PRESENT=1`,
+`OPENRAC_TRACE_PRESENT_PIXEL=1`, `OPENRAC_TRACE_DIRECT=1`,
+`OPENRAC_TRACE_DIRECT_ALL=1`, and `OPENRAC_TRACE_DIRECT_STATE=1`. Add
+`OPENRAC_DEBUG_PRESERVE_FRAME=1` only for the comparison run.
+
+DirectRenderer resolves texture handles 2–4 for the visible panel draws. A
+separate GS stream diagnostic continues to report `TBP0=0` and placeholder
+texture state; it does not describe those resolved draw handles and should not
+be treated as the flicker cause without a draw-boundary correlation.
+
+The user pressed Space in the prior run. The live trace moved past the card
+prompt to world `0x870cf0` with `pause_open=0` and advancing frames. The later
+diagnostic run restarted at the card prompt and sent no input. After Space, a
+black view is the next known blocker: the experimental world renderer stays disabled, and
+VU1 XGKICK at PC `0x68`, VI6=`469`, rejects qword 469
+`0x0000000000000048:0x0000000000039001` for reserved GIF-tag bits. The opcode
+is implemented; the packet producer remains unknown. Keep the observed masked
+UNPACK support and any Sly-specific replacement port-only.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

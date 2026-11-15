@@ -41,6 +41,8 @@ void openrac_guest_gs_signal_interrupt(void);
 size_t openrac_guest_gs_read_vertices(openrac_gs_vertex* destination, size_t capacity);
 size_t openrac_guest_gs_published_vertex_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);
+void openrac_guest_gif_stream_write_from(const void* source, size_t size,
+                                         const char* origin);
 
 /* Synchronously collect a guest DMAtag chain and queue its raw GIF packet data
  * for OpenRAC's native 2D renderer. */

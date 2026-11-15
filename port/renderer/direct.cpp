@@ -1746,6 +1746,31 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
         static unsigned trace_larger_frames = 0;
         const auto vertex_count = m_interpreter->vertices().size();
         const auto draw_count = m_interpreter->draws().size();
+        if (std::getenv("OPENRAC_TRACE_DIRECT_ALL") != nullptr) {
+            static std::uint64_t direct_frame = 0;
+            const std::uint64_t this_frame = ++direct_frame;
+            log::info("{}: direct_frame={} packet_bytes={} decoded_vertices={} draws={} error={}",
+                      name(), this_frame, packets.size(), vertex_count, draw_count,
+                      m_interpreter->error());
+            if (std::getenv("OPENRAC_TRACE_DIRECT_STATE") != nullptr) {
+                const auto& vertices = m_interpreter->vertices();
+                const auto& draws = m_interpreter->draws();
+                for (std::size_t i = 0; i < draws.size() && i < 12; ++i) {
+                    const DirectDraw& decoded = draws[i];
+                    if (decoded.count == 0 || decoded.first >= vertices.size()) continue;
+                    const DirectVertex& vertex = vertices[decoded.first];
+                    const DirectState& state = decoded.state;
+                    log::info(
+                        "{}: direct_frame={} draw={} first={} count={} texture={} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} scissor={},{},{},{} xy={:.3f},{:.3f} rgba={},{},{},{}",
+                        name(), this_frame, i, decoded.first, decoded.count, state.texture,
+                        state.textured, state.tcc, static_cast<int>(state.tfx), state.blend,
+                        state.alpha.a, state.alpha.b, state.alpha.c, state.alpha.d, state.alpha.fix,
+                        state.fbmsk, test_text(state.test), state.scissor.x0, state.scissor.x1,
+                        state.scissor.y0, state.scissor.y1, vertex.x, vertex.y, vertex.rgba[0],
+                        vertex.rgba[1], vertex.rgba[2], vertex.rgba[3]);
+                }
+            }
+        }
         const bool larger_packet = packets.size() >= 512 || vertex_count != 0 ||
                                    draw_count != 0 || !m_interpreter->error().empty();
         const bool has_textured_draw = std::any_of(

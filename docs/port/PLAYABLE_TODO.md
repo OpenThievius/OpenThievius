@@ -3,47 +3,62 @@
 
 ## Current bounded task (2026-11-15)
 
-### Reset: work on the first broken stage only
+### The no-card prompt is visible; diagnose its flicker
 
-The port is not playable. It gets past the memory-card screen, loads world
-`0x870cf0`, advances frames, and reaches model draw callbacks. The last
-user-confirmed image is the retail no-card screen. The optional GL world
-prototype remains disabled by default; its gray horizon was not a successful
-scene render.
+The host32 prompt regression came from an ABI mismatch in the staged copy:
+matched callers declared `AddGifRegisterWrite(PacketWriter*, u64, u64)`, but
+the port host ABI uses a 32-bit register address followed by a 64-bit value.
+The source adapter normalized definitions but left copied headers unchanged.
+On i386 this shifted the value in the call frame, producing the collapsed
+scissor and texture registers. The adapter now normalizes both staged headers
+and sources. No matching decomp file was changed.
 
-The current visible failure is the black no-card screen. The game's state is
-at the card prompt and the direct renderer receives draws, but the captured
-framebuffer is black. The prompt draw's `SCISSOR_1` is `0x027f000000000000`,
-decoded as x=0..0, y=0..639, so the renderer clips it to a one-pixel-wide
-column. Its texture state resolves to the 8x8 placeholder (`TBP=0`, `TW=TH=0`)
-even though the game uploaded small images to GS blocks `0x1e00` onward. Trace
-the register and texture upload path to establish why prompt draws do not use
-the uploaded data; do not paper over it with a guessed scissor or texture.
+The rebuilt launcher and the user's recording show the complete no-card prompt.
+The scissor values are now `0x00de0001027f0000` and `0x00df0000027f0000`;
+the renderer decodes them as the full 640x224 display area. DirectRenderer
+decodes the panel into 1,254–1,494 vertices and 5–7 draws, with live texture
+handles for its content. A separate `gs_stream` diagnostic still reports
+`TBP0=0` and the placeholder, but that does not match the handles used by the
+visible DirectRenderer draws and is not the active blocker.
 
-The host32 VIF1 route also processes masked UNPACK command `0x78` for the
-selectors observed in the game stream. World rendering reaches VU1 XGKICK at
-PC `0x68`, VI6=`469`, where qword 469 is
-`0x0000000000000048:0x0000000000039001` and fails GIF reserved-bit validation.
-The lower instruction `0x800036fc` is XGKICK itself, not an unsupported VU
-opcode; validation rejects the data. Bounded logging records VIF UNPACKs and
-VU stores to qword 469 so the producer can be identified. Keep masked-VIF
-handling limited to observed cases; column-fill and write-protect selectors
-remain unsupported. Paired captures before and after the HUD pass were
-identical, which rules out HUD rendering as the cause for that frame.
+The image still flickers: 49 of 393 game-area video frames decode as black,
+with the longest black run lasting 7 frames (about 117 ms). A delayed native
+capture also had one black frame among eight. Simultaneous samples of body text
+and panel border go black together, even when packets arrive and DirectRenderer
+decodes 5–7 draws. Only 2 of 10,388 present calls lacked packets, so packet
+starvation alone does not explain the flashes. Skipping the per-present clear
+in an opt-in diagnostic still produced about 9% black samples, so that clear
+alone is not the cause. The short white dash at the left edge remains
+unexplained.
 
-### One deliverable: restore the no-card prompt draw
+The user's Space press dismissed the card prompt in the previous run. The live
+trace then reported world `0x870cf0`, `pause_open=0`, and advancing game frames.
+The later diagnostic run restarted at the no-card prompt and sent no input.
+After the prompt is dismissed, a black view is expected from the current port:
+the experimental world renderer is disabled, and the native VU1 path still stops at XGKICK PC `0x68`,
+VI6=`469`, where qword 469
+(`0x0000000000000048:0x0000000000039001`) fails GIF reserved-bit validation.
+The lower instruction `0x800036fc` is the implemented XGKICK itself. Keep the
+observed masked UNPACK `0x78` support scoped to its known selectors; column-
+fill and write-protect selectors remain unsupported.
 
-Trace the prompt's GS packet before and after the host32 adapter, then establish
-why its scissor collapses to one column and its texture lookup misses the
-uploaded images. Correct only the demonstrated register or upload-path issue.
-Preserve the matching decomp source. Keep device behavior in the port runtime
-and any function-level replacement under `port/game/sly1-us/native/`.
+### One deliverable: isolate the prompt flicker
 
-**Pass:** the no-card prompt is visible in a captured framebuffer with its
-scissor and texture state explained by the native GS data. Then return to the
-world XGKICK failure and trace qword 469 through the VU instruction order.
-Do not tune shaders, rank more model candidates, or relax GIF validation
-without evidence.
+Trace whether the black frames contain valid 2D draws and texture state, and
+whether the window swaps a cleared frame. Correlate the game packet contents,
+DirectRenderer draw summary, and captured output in the same run. The observed
+packet-empty rate is too low to justify a packet-starvation fix. Keep matching
+decomp source intact, and keep all port function replacements in
+`port/game/sly1-us/native/`. For the correlation run, use
+`OPENRAC_TRACE_PRESENT=1`, `OPENRAC_TRACE_PRESENT_PIXEL=1`,
+`OPENRAC_TRACE_DIRECT=1`, `OPENRAC_TRACE_DIRECT_ALL=1`, and
+`OPENRAC_TRACE_DIRECT_STATE=1`. `OPENRAC_DEBUG_PRESERVE_FRAME=1` is only a
+comparison probe; it did not remove the flicker.
+
+**Pass:** the no-card prompt remains continuously visible in a native capture,
+with the left-edge dash explained or removed. Then resume tracing qword 469
+through the VU instruction order. Do not tune shaders, rank more model
+candidates, or relax GIF validation without evidence.
 
 A successful build, frame rate, callback count, texture upload, DMA count, or
 decomp percentage is not visual progress. Keep each commit to one verified

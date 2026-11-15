@@ -403,7 +403,8 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                             sizeof(trace->direct_prefix));
                 trace->has_direct_prefix = true;
             }
-            openrac_guest_gif_stream_write(stream.data() + cursor, bytes);
+            openrac_guest_gif_stream_write_from(stream.data() + cursor, bytes,
+                                                "vif1-direct");
             cursor += bytes;
             *direct_bytes += bytes;
             continue;

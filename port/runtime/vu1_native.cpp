@@ -183,7 +183,8 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
         consumed_qwords += payload_qwords + 1u;
         cursor = (cursor + payload_qwords + 1u) & (kVu1Quadwords - 1u);
         if (((low >> 15u) & 1u) != 0) {
-            openrac_guest_gif_stream_write(packet.data(), packet.size());
+            openrac_guest_gif_stream_write_from(packet.data(), packet.size(),
+                                                "vu1-xgkick");
             return true;
         }
     }

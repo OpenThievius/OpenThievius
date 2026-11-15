@@ -83,6 +83,62 @@ std::atomic<std::uint64_t> g_dma_reject_count{0};
 std::atomic<std::uint64_t> g_dma_bytes{0};
 std::atomic<unsigned> g_dma_reject_notices{0};
 
+std::uint64_t read_u64(const std::uint8_t* bytes) {
+    std::uint64_t value = 0;
+    std::memcpy(&value, bytes, sizeof(value));
+    return value;
+}
+
+void trace_gs_register_inputs(const std::uint8_t* bytes, std::size_t size,
+                              std::uint32_t source, const char* path) {
+    if (bytes == nullptr || std::getenv("OPENRAC_TRACE_GS_REGISTERS") == nullptr) return;
+    static std::atomic<unsigned> traces{0};
+    std::size_t at = 0;
+    std::size_t tag_index = 0;
+    while (at + 16u <= size) {
+        const std::uint64_t low = read_u64(bytes + at);
+        const std::uint64_t high = read_u64(bytes + at + 8u);
+        const std::uint32_t loops = static_cast<std::uint32_t>(low & 0x7FFFu);
+        const std::uint32_t format = static_cast<std::uint32_t>((low >> 58u) & 3u);
+        std::uint32_t registers = static_cast<std::uint32_t>((low >> 60u) & 0xFu);
+        if (registers == 0) registers = 16;
+        at += 16u;
+        if (format == 0u) {
+            const std::size_t qwords = static_cast<std::size_t>(loops) * registers;
+            if (qwords > (size - at) / 16u) return;
+            for (std::uint32_t loop = 0; loop < loops; ++loop) {
+                for (std::uint32_t reg = 0; reg < registers; ++reg) {
+                    const std::uint64_t value = read_u64(bytes + at);
+                    const std::uint64_t meta = read_u64(bytes + at + 8u);
+                    const std::uint32_t descriptor = static_cast<std::uint32_t>(
+                        (high >> (reg * 4u)) & 0xFu);
+                    if (descriptor == 0xEu) {
+                        const std::uint32_t address = static_cast<std::uint32_t>(meta & 0xFFu);
+                        if ((address == 0x06u || address == 0x07u || address == 0x40u) &&
+                            traces.fetch_add(1, std::memory_order_relaxed) < 256u) {
+                            std::fprintf(stderr,
+                                         "[gif source register] path=%s source=%#010x tag=%zu offset=%zu loop=%u reg=%u address=%#04x value=%#018llx\n",
+                                         path, source, tag_index, at, loop, reg, address,
+                                         static_cast<unsigned long long>(value));
+                        }
+                    }
+                    at += 16u;
+                }
+            }
+        } else if (format == 1u) {
+            const std::size_t words = static_cast<std::size_t>(loops) * registers;
+            const std::size_t qwords = (words + 1u) / 2u;
+            if (qwords > (size - at) / 16u) return;
+            at += qwords * 16u;
+        } else {
+            const std::size_t qwords = loops;
+            if (qwords > (size - at) / 16u) return;
+            at += qwords * 16u;
+        }
+        ++tag_index;
+    }
+}
+
 bool init_world_renderer(std::string& error) {
     using namespace openrac::gl;
     constexpr std::string_view vertex = R"(#version 410 core
@@ -462,6 +518,7 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
         }
         return;
     }
+    trace_gs_register_inputs(stream.data(), stream.size(), source_address, "dma-chain");
     {
         std::scoped_lock lock(g_packets_mutex);
         if (stream.size() > kMaxBytes - g_packets.size()) {
@@ -584,6 +641,7 @@ extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_a
                                source_address, first_lo, first_hi, failure);
         return;
     }
+    trace_gs_register_inputs(gif, gif_size, source_address, "gif-stream");
     {
         std::scoped_lock lock(g_packets_mutex);
         if (gif_size > kMaxBytes - g_packets.size()) {
@@ -818,11 +876,15 @@ extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned
 
 extern "C" void openrac_native_window_present(void) {
     if (!g_window) return;
+    static std::uint64_t present_sequence = 0;
+    const std::uint64_t this_present = ++present_sequence;
     int width = 0, height = 0;
     g_window->drawable_size(width, height);
     g_viewport(0, 0, width, height);
-    g_clear_color(0, 0, 0, 1);
-    g_clear(0x00004100u);
+    if (std::getenv("OPENRAC_DEBUG_PRESERVE_FRAME") == nullptr) {
+        g_clear_color(0, 0, 0, 1);
+        g_clear(0x00004100u);
+    }
     std::vector<NativeWorldMesh> world_meshes;
     {
         std::scoped_lock lock(g_world_mesh_mutex);
@@ -851,6 +913,11 @@ extern "C" void openrac_native_window_present(void) {
     }
     std::vector<std::uint8_t> packets;
     { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
+    if (std::getenv("OPENRAC_TRACE_PRESENT") != nullptr) {
+        std::fprintf(stderr, "[native present] frame=%llu packets=%zu world_draws=%zu\n",
+                     static_cast<unsigned long long>(this_present), packets.size(),
+                     world_meshes.size());
+    }
     if (packets.size() >= 512u && packets.size() <= 16u * 1024u * 1024u &&
         std::getenv("OPENRAC_DUMP_NATIVE_PACKETS") != nullptr) {
         static unsigned dump_index = 0;
@@ -903,6 +970,22 @@ extern "C" void openrac_native_window_present(void) {
                 }
             }
         }
+    }
+    if (std::getenv("OPENRAC_TRACE_PRESENT_PIXEL") != nullptr) {
+        constexpr std::array<std::array<int, 2>, 3> points{{{{299, 290}}, {{297, 381}}, {{76, 350}}}};
+        std::array<std::array<std::uint8_t, 4>, points.size()> samples{};
+        openrac::gl::glBindFramebuffer(openrac::gl::GL_READ_FRAMEBUFFER, 0);
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            openrac::gl::glReadPixels(points[i][0], height - 1 - points[i][1], 1, 1,
+                                      openrac::gl::GL_RGBA, openrac::gl::GL_UNSIGNED_BYTE,
+                                      samples[i].data());
+        }
+        openrac::gl::glBindFramebuffer(openrac::gl::GL_READ_FRAMEBUFFER, 0);
+        std::fprintf(stderr,
+                     "[native present pixels] frame=%llu body0=%u,%u,%u body1=%u,%u,%u border=%u,%u,%u\n",
+                     static_cast<unsigned long long>(this_present), samples[0][0], samples[0][1],
+                     samples[0][2], samples[1][0], samples[1][1], samples[1][2], samples[2][0],
+                     samples[2][1], samples[2][2]);
     }
     if (paired_world_frame >= 0) {
         const auto pixels = openrac::renderer::read_rgba(0, width, height);
