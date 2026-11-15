@@ -154,6 +154,23 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
             *first_tag = low;
         constexpr uint64_t kGifReservedMask = 0x00003FFFFFFF0000ull;
         if ((low & kGifReservedMask) != 0) {
+            static std::atomic<uint32_t> bad_tag_dump_count{0};
+            if (bad_tag_dump_count.fetch_add(1, std::memory_order_relaxed) < 4u) {
+                for (int32_t relative = -2; relative <= 2; ++relative) {
+                    const size_t nearby = (cursor + kVu1Quadwords + relative) &
+                                          (kVu1Quadwords - 1u);
+                    const uint8_t* nearby_tag =
+                        guest_address(kVu1Data + nearby * 16u);
+                    uint64_t nearby_low = 0;
+                    uint64_t nearby_high = 0;
+                    std::memcpy(&nearby_low, nearby_tag, sizeof(nearby_low));
+                    std::memcpy(&nearby_high, nearby_tag + sizeof(nearby_low),
+                                sizeof(nearby_high));
+                    openrac::log::warn(
+                        "native VU1 XGKICK nearby qword={} low={:#018x} high={:#018x}",
+                        nearby, nearby_low, nearby_high);
+                }
+            }
             if (failure != nullptr) *failure = 3;
             if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
             if (failed_tag != nullptr) *failed_tag = low;

@@ -31,16 +31,21 @@ in an opt-in diagnostic still produced about 9% black samples, so that clear
 alone is not the cause. The short white dash at the left edge remains
 unexplained.
 
-The user's Space press dismissed the card prompt in the previous run. The live
-trace then reported world `0x870cf0`, `pause_open=0`, and advancing game frames.
-The later diagnostic run restarted at the no-card prompt and sent no input.
-After the prompt is dismissed, a black view is expected from the current port:
-the experimental world renderer is disabled, and the native VU1 path still stops at XGKICK PC `0x68`,
+The user's prior traced Space press dismissed the card prompt. The live trace
+then reported world `0x870cf0`, `pause_open=0`, and advancing game frames. The
+latest normal foreground run also received Space, but its log has no frame or
+world trace, so that run's result is unverified. After the prompt is dismissed,
+a black view is expected from the current port: the experimental world
+renderer is disabled, and the native VU1 path still stops at XGKICK PC `0x68`,
 VI6=`469`, where qword 469
 (`0x0000000000000048:0x0000000000039001`) fails GIF reserved-bit validation.
-The lower instruction `0x800036fc` is the implemented XGKICK itself. Keep the
+The value is written directly by VIF UNPACK command `0x6c`, immediate
+`0xc1d4`, vector 1, from `{0x00039001, 0, 0x48, 0}`; the lower instruction
+`0x800036fc` is the implemented XGKICK itself. The next capture logs adjacent
+VU qwords at the failing tag to establish its packet boundary. Keep the
 observed masked UNPACK `0x78` support scoped to its known selectors; column-
-fill and write-protect selectors remain unsupported.
+fill and write-protect selectors remain unsupported. Do not relax GIF-tag
+validation before finding why XGKICK points into this record.
 
 ### One deliverable: isolate the prompt flicker
 
@@ -56,9 +61,10 @@ decomp source intact, and keep all port function replacements in
 comparison probe; it did not remove the flicker.
 
 **Pass:** the no-card prompt remains continuously visible in a native capture,
-with the left-edge dash explained or removed. Then resume tracing qword 469
-through the VU instruction order. Do not tune shaders, rank more model
-candidates, or relax GIF validation without evidence.
+with the left-edge dash explained or removed. Then use the bounded qword
+neighborhood probe to trace qword 469 through the VU instruction order. Do not
+tune shaders, rank more model candidates, or relax GIF validation without
+evidence.
 
 A successful build, frame rate, callback count, texture upload, DMA count, or
 decomp percentage is not visual progress. Keep each commit to one verified

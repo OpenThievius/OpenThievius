@@ -18,10 +18,14 @@ VU1 reaches XGKICK at PC `0x68` with VI6=`469`; VU data qword 469 is
 `0x0000000000000048:0x0000000000039001`, whose low half has reserved GIF-tag
 bits set. Lower instruction `0x800036fc` is XGKICK itself, paired with upper
 NOP `0x000002ff`; the opcode is implemented, and execution fails because GIF
-packet validation rejects its data. The dispatcher now stops parsing the
-current VIF stream at that failed XGKICK. A bounded trace records any VIF
-UNPACK or VU store targeting qword 469 to identify which stage constructs the
-bad tag.
+packet validation rejects its data. The VIF trace now identifies the writer:
+UNPACK command `0x6c`, immediate `0xc1d4`, vector 1 writes qword 469 directly
+from `{0x00039001, 0, 0x48, 0}`. Thus this bad value is not from a VU store or
+GIF packet decoder byte order. The dispatcher stops parsing the current VIF
+stream at that failed XGKICK. A new bounded trace logs the two preceding and two
+following VU data qwords at the failure; use those alongside the VU program's
+VI6 setup to find why it starts the kick on this record. Keep GIF validation
+strict until the producer and packet boundary are understood.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
@@ -56,14 +60,16 @@ separate GS stream diagnostic continues to report `TBP0=0` and placeholder
 texture state; it does not describe those resolved draw handles and should not
 be treated as the flicker cause without a draw-boundary correlation.
 
-The user pressed Space in the prior run. The live trace moved past the card
-prompt to world `0x870cf0` with `pause_open=0` and advancing frames. The later
-diagnostic run restarted at the card prompt and sent no input. After Space, a
-black view is the next known blocker: the experimental world renderer stays disabled, and
-VU1 XGKICK at PC `0x68`, VI6=`469`, rejects qword 469
+The user pressed Space in the prior traced run. The live trace moved past the
+card prompt to world `0x870cf0` with `pause_open=0` and advancing frames. The
+latest normal foreground run also received Space, but its log has no frame or
+world trace, so its result is unverified. After Space, a black view is the next
+known blocker: the experimental world renderer stays disabled, and VU1 XGKICK
+at PC `0x68`, VI6=`469`, rejects qword 469
 `0x0000000000000048:0x0000000000039001` for reserved GIF-tag bits. The opcode
-is implemented; the packet producer remains unknown. Keep the observed masked
-UNPACK support and any Sly-specific replacement port-only.
+is implemented; VIF UNPACK is the immediate writer, while the surrounding
+packet boundary remains unknown. Keep the observed masked UNPACK support and
+any Sly-specific replacement port-only.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

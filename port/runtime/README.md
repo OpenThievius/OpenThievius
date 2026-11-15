@@ -53,10 +53,12 @@ can use this same runtime. A hidden world trace now passes masked UNPACK
 command `0x78` and reaches XGKICK, but packet validation rejects qword 469
 (`0x0000000000000048:0x0000000000039001`) for reserved GIF-tag bits. Lower
 instruction `0x800036fc` is the implemented XGKICK itself, not an unimplemented
-opcode. Bounded traces now report VIF UNPACK or VU stores to this qword to find
-the malformed data's producer. The masked UNPACK path is scoped to observed
-selectors 0 and 1; column-fill and write-protect selectors still fail
-explicitly. Earlier menu traces remain useful for channel 2, which walks
+opcode. The captured writer is VIF UNPACK `0x6c`, immediate `0xc1d4`, vector 1,
+which writes `{0x00039001, 0, 0x48, 0}` directly to qword 469. A bounded
+XGKICK failure probe now records adjacent VU data qwords to establish the
+packet boundary and explain the VU start address. The masked UNPACK path is
+scoped to observed selectors 0 and 1; column-fill and write-protect selectors
+still fail explicitly. Earlier menu traces remain useful for channel 2, which walks
 DMA-tagged chains and submits them to the renderer.
 See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
 active task and evidence. The VIF command and DMA tag formats follow the public
