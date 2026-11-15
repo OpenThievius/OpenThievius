@@ -30,6 +30,16 @@ input, but the strip source's primitive order is not decoded yet. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log`,
 `/tmp/sly-kind6-model-trace.log`, and `/tmp/sly-kind6-model-packet.bin`.
 
+The retail call path narrows the VU work to two entries. `BuildStripMeshPacket`
+selects `g_unlitBatchProgram` (`D_00001A50`) for kind 6 and later calls
+`g_unlitBatchFinishProgram` (`D_000002F8`). The next named program after the
+first entry is `g_unlitKind4BatchProgram` at `D_00001A80`, six 8-byte VU
+instruction pairs later. `QueueMeshStrip` copies one frame of the mesh's
+eight-quadword source into the packet's VU data area. So the first conversion
+can be derived from this packet and those two program entries; it does not
+require a general VU implementation. The retail `.vutext` bytes stay local
+and are not copied into this repository.
+
 The next graphics slice is to decode that kind-6 strip source's primitive
 order, apply the request's model and clip matrices, and emit a host-owned draw
 record through a Sly world-renderer bucket. Leave `sly1-decomp` untouched and
