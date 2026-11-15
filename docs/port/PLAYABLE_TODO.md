@@ -55,15 +55,32 @@ and 2120, and qword 37 from offset 5496; the captured stream does not write
 qwords 34–35. In the earlier diagnostic retry, the later XGKICK at VI7=`35`
 still found qwords 34–35 zero. This locates the records, but does not yet
 explain why the VU program advances to qword 469 or expects another packet at
-qword 35. The opt-in VU store probe can show who writes that pointer area when
-the later microinstructions run.
+qword 35. A segment trace ties the command and both vectors in transfer 196 to
+DMA segment 4 (`data=0x018d1270`, stream bytes 832–6047); their source addresses
+are `0x018d264c`, `0x018d2650`, and `0x018d2660`. No segment boundary falls
+between this UNPACK command and its payload. The failure snapshot shows the
+following SQ targets qword 627, not qword 35. The qword-35 tag therefore has
+to come from another part of the
+VIF/VU data flow or from a different effective XGKICK address.
+
+The microcode is identified: the US ELF overlay table names program `437275`
+at VU address 0 (EE address `0x00212168`), and its instruction words at PCs
+`0x5f`–`0x6e` exactly match the runtime trace. The failed XGKICK snapshot at
+PC `0x68` has VI3=`628` and VF7=`{0x4149d0e5, 0xc0d92618, 0x42877fa4,
+0x4b008958}`. The following retail instruction stores VF7 at `-1(VI3)`, which
+targets qword 627, while the later XGKICK uses VI7=`35`. This separates that
+store from the missing qword-35 tag. The retail code increments VI6 at PC
+`0x67` immediately before XGKICK; do not change that game code. Determine
+whether the remaining one-qword discrepancy comes from the VU-to-GIF register
+timing or from VIF's data-memory indexing, then implement verified runtime
+semantics or a port-only native renderer.
 
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
 from VI7=`35`, which also fails validation. The retry has been removed. Do not
-backstep pointers or weaken GIF validation. Next, map the source records and
-the VU setup for both VI6 and VI7, including qwords 34–35 and 468–474, to learn
-how this display list builds its packets. Keep masked UNPACK `0x78` support
+backstep pointers or weaken GIF validation. Next, verify the hardware operand
+timing for XGKICK after IADDIU and the exact VIF destination calculation for
+the live TOPS/DBF state. Keep masked UNPACK `0x78` support
 limited to the observed selectors; column-fill and write-protect remain
 unsupported. The no-card prompt's flicker remains a separate known issue.
 The sibling decomp's `PORTING.md` classifies `.vutext` as original assembly;
@@ -75,14 +92,13 @@ window focus, key down/up events, and pad reports so a missed Space press can be
 distinguished from a prompt-state or game-input regression. Automated input
 tests can stay offscreen using `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=N`.
 
-### One deliverable: establish the first world packet boundary
+### One deliverable: resolve the VU-to-GIF address boundary
 
-Trace the source pointers and packet inputs used before the first and second
-world XGKICK. Correlate the VIF UNPACK source offsets, VU1 VI6/VI7 setup, and
-the VU data qwords at each address. Keep matching decomp source intact, and
-keep any Sly function replacements in `port/game/sly1-us/native/`. Strict GIF
-validation stays enabled. The previous qword-backstep experiment stayed black
-and is not a candidate fix.
+Correlate the retail program's VI instructions, the VIF destination, and the
+GIF leading-tag address using hardware-level semantics. Keep matching decomp
+source intact, and keep any Sly function replacements in
+`port/game/sly1-us/native/`. Strict GIF validation stays enabled. The previous
+qword-backstep experiment stayed black and is not a candidate fix.
 
 **Pass:** the first world packet is accepted from the correct VU address and a
 native capture shows geometry from loaded Sly data. The no-card prompt flicker

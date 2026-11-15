@@ -80,7 +80,15 @@ records and both VU pointers next; do not backstep XGKICK addresses or relax GIF
 validation. A follow-up run places the VIF command, tag vector and payload
 vector at stream offsets 5916, 5920 and 5936. It also records UNPACK writes to
 qwords 36–38 but none to 34–35; the previous retry found qwords 34–35 zero
-before the second XGKICK. Keep matched decomp source unchanged.
+before the second XGKICK. Transfer 196 places all three offsets inside one DMA
+segment (`0x018d1270` plus byte offsets `5084`, `5088`, and `5104`), so this
+packet does not cross a source-segment boundary. The US overlay table
+identifies the exact microcode as program `437275`, loaded at VU address 0;
+the instruction words at PCs
+`0x5f`–`0x6e` match the retail executable. At the first failure VI3=`628` and
+VF7 is `{0x4149d0e5, 0xc0d92618, 0x42877fa4, 0x4b008958}`. The following SQ
+targets qword 627, not 35, leaving the second XGKICK's tag unexplained. Keep
+matched decomp source unchanged.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

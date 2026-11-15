@@ -44,7 +44,9 @@ A diagnostic retry from 468 still left the captured frame black and exposed a
 second failing XGKICK from VI7=`35`; that retry is removed. See the [graphics
 handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and the active
 task. The opt-in setup trace also records VIF source offsets and VU stores
-around qwords 32–38 and 464–476.
+around qwords 32–38 and 464–476. The first XGKICK failure snapshot now includes
+VI3 and VF7; it shows the next SQ targets qword 627, separate from the later
+XGKICK at qword 35.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
