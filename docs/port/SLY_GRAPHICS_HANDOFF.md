@@ -35,7 +35,7 @@ and later calls `g_unlitBatchFinishProgram` (`D_000002F8`). The next named
 program after the first entry is `g_unlitKind4BatchProgram` at `D_00001A80`,
 six 8-byte VU instruction pairs later. That spacing is not the routine's
 control-flow boundary: the kind-6 entry branches into adjacent VU code and a
-later branch returns to PC `0x341`, before the entry. The branch exit at
+later branch loops back to PC `0x341`, before the entry. The branch exit at
 `0x384` is a shared return. `QueueMeshStrip` copies one frame of the mesh's
 eight-quadword source into the packet's VU data area. The exact reachable
 control-flow slice and finish behavior still need mapping before implementing
