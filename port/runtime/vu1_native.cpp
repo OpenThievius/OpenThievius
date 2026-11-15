@@ -619,6 +619,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         uint32_t next_pc = current_pc + 1u;
         State before = g_state;
         before.pc = current_pc;
+        const uint16_t vi6_before = vi_read(before, 6u);
+        const uint16_t vi7_before = vi_read(before, 7u);
         State upper_result = before;
         State lower_result = before;
         if (!translate_upper(&upper_result, upper, unsupported_word)) {
@@ -664,6 +666,38 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         if (lower_result.clip_flags != before.clip_flags)
             g_state.clip_flags = lower_result.clip_flags;
         g_state.pc = next_pc;
+
+        static std::atomic<uint32_t> kick_setup_notice_count{0};
+        const char* kick_setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+        if (kick_setup_trace != nullptr && kick_setup_trace[0] != '\0' &&
+            kick_setup_trace[0] != '0' && current_pc >= 0x63u && current_pc <= 0x6Du &&
+            kick_setup_notice_count.fetch_add(1, std::memory_order_relaxed) < 24u) {
+            const uint32_t before_address = vi6_before & 0x3FFu;
+            const uint32_t after_address = vi_read(g_state, 6u) & 0x3FFu;
+            const uint32_t before_address7 = vi7_before & 0x3FFu;
+            const uint32_t after_address7 = vi_read(g_state, 7u) & 0x3FFu;
+            uint64_t before_data = 0;
+            uint64_t after_data = 0;
+            uint64_t before_data7 = 0;
+            uint64_t after_data7 = 0;
+            std::memcpy(&before_data,
+                        guest_address(kVu1Data + before_address * 16u),
+                        sizeof(before_data));
+            std::memcpy(&after_data,
+                        guest_address(kVu1Data + after_address * 16u),
+                        sizeof(after_data));
+            std::memcpy(&before_data7,
+                        guest_address(kVu1Data + before_address7 * 16u),
+                        sizeof(before_data7));
+            std::memcpy(&after_data7,
+                        guest_address(kVu1Data + after_address7 * 16u),
+                        sizeof(after_data7));
+            openrac::log::info(
+                "native VU1 kick setup entry={:#x} pc={:#x} lower={:#010x} VI4={} VI6={}->{} data[VI6]={:#018x}->{:#018x} VI7={}->{} data[VI7]={:#018x}->{:#018x}",
+                entry, current_pc, lower, vi_read(before, 4u), vi6_before,
+                vi_read(g_state, 6u), before_data, after_data, vi7_before,
+                vi_read(g_state, 7u), before_data7, after_data7);
+        }
 
         if (branch_delay) {
             pc = branch_target;
