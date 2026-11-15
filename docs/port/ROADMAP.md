@@ -34,11 +34,16 @@ The gate is a captured frame with correctly shaped loaded-world geometry. See
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.
 
-The 2026-11-15 reset review also found that the active host32 source checkout
-is behind public decomp master. The port host adapter does not yet accept the
-new `AddFrictionItemsAndSolve` declaration, so refresh that interface before
-using the newer source. Hostgen coverage is unchanged across the two revisions;
-this is compatibility cleanup, not visual progress.
+The 2026-11-15 reset review found that the active sibling checkout was behind
+public decomp master. A source adapter update now accepts master
+`8f7a85a3`: a fresh build compiles all 194 matched units and 85 separate
+port-only backfills and links with 99 missing-function traps. This was a
+build-only check; the rebuilt launcher has not been run. The sibling checkout
+is still at `1cbb33fd`, and the last confirmed visible game image remains the
+no-card screen. This compatibility update is not visual progress. From here,
+stop broad ABI cleanup and speculative startup backfills. Only change the port
+when a bounded run shows that change is required to render one loaded-world
+primitive or it completes that visible gate.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 

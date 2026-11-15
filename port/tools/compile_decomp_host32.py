@@ -336,6 +336,12 @@ def forward_blend_entry_flag_arguments(text, label):
     )
     if tuple(text.count(item) for item in current) == (1, 1, 1):
         return text
+    modern = (
+        "void SetBlendEntryRecordFlag(BlendAnimationView* blend, void* key)",
+        "(BlendSourceEntry*)FindEntryByObjectId(blend, (BaseObject*)key);",
+    )
+    if all(text.count(item) == 1 for item in modern):
+        return text
     raise RuntimeError("expected blend entry lookup and callback ABI")
 
 
@@ -369,6 +375,13 @@ def canonicalize_hermite_vector_calls(text, label):
     indexes = order.get(label)
     if indexes is None:
         return text
+
+    # The current decomp marks retail argument-register order with an explicit
+    # function-pointer cast. Remove it in the host copy, then apply the same
+    # argument mapping used for older direct calls.
+    cast = re.compile(
+        r"\(\(void \(\*\)\([^)]*\)\)EvaluateHermiteVectorSegment\)\(")
+    text = cast.sub("EvaluateHermiteVectorSegment(", text)
 
     canonical = (
         "void EvaluateHermiteVectorSegment(f32 dur, void* p0, void* m0, "
@@ -449,6 +462,9 @@ def refresh_attachment_target_matrix_context(text, label):
     # rewrites its untyped output-pointer ABI, so it does not apply here.
     if ("QuadMatrix MultiplyMatrices(const QuadMatrix& a, const QuadMatrix& b);" in text and
             "e->m = MultiplyMatrices(b, a);" in text):
+        return text
+    if ("Mat4A MultiplyMatrices(const Mat4A& a, const Mat4A& b);" in text and
+            "*(Mat4A*)&e->m = MultiplyMatrices(*(Mat4A*)&b, *(Mat4A*)&a);" in text):
         return text
     declarations = (
         'extern "C" {\n'
@@ -600,6 +616,16 @@ def normalize_agent_axis_angle_matrix_abi(text, label):
         return text
     old_decl = "void BuildAxisAngleMatrix(const Vec4* v, f32 angle, Mat3* out);"
     new_decl = "void BuildAxisAngleMatrix(const Vec4* v, Mat3* out, f32 angle);"
+    retail_call = (
+        "((void (*)(const Vec4*, f32, Mat3*))BuildAxisAngleMatrix)"
+        "((const Vec4*)&g_unitZVector, x, &self->headingMatrix);")
+    host_call = (
+        "BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, "
+        "&self->headingMatrix, x);")
+    host_spin_call = (
+        "BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, &spin, self->heading);")
+    if old_decl not in text and text.count(retail_call) == 1 and text.count(host_spin_call) == 1:
+        return text.replace(retail_call, host_call, 1)
     if text.count(old_decl) != 1:
         raise RuntimeError("expected agent axis-angle matrix prototype")
     text = text.replace(old_decl, new_decl, 1)
@@ -622,6 +648,14 @@ def normalize_link_constraint_axis_angle_matrix_abi(text, label):
         return text
     old_decl = "void BuildAxisAngleMatrix(f32 angle, const Vec4* v, Mat3* out);"
     new_decl = "void BuildAxisAngleMatrix(const Vec4* v, Mat3* out, f32 angle);"
+    retail_call = (
+        "((void (*)(f32, const Vec4*, Mat3*))BuildAxisAngleMatrix)"
+        "(Arccosine(c) - angle, &axis, &bend);")
+    host_call = "BuildAxisAngleMatrix(&axis, &bend, Arccosine(c) - angle);"
+    host_twist_call = (
+        "BuildAxisAngleMatrix(&dir, &twist, self->linkRecord->angle);")
+    if old_decl not in text and text.count(retail_call) == 1 and text.count(host_twist_call) == 1:
+        return text.replace(retail_call, host_call, 1)
     if text.count(old_decl) != 1:
         raise RuntimeError("expected link-constraint axis-angle matrix prototype")
     text = text.replace(old_decl, new_decl, 1)
@@ -668,6 +702,10 @@ def normalize_attachment_matrix_value_abi(text, label):
     """
     if label not in ("main/placed_object_model.cpp", "main/game_progress.cpp"):
         return text
+    if (label == "main/placed_object_model.cpp" and
+            "Mat4A MultiplyMatrices(const Mat4A& a, const Mat4A& b);" in text and
+            "*(Mat4A*)&e->m = MultiplyMatrices(" in text):
+        return text
     old = "QuadMatrix MultiplyMatrices(QuadMatrix a, void* q);"
     new = "QuadMatrix MultiplyMatrices(const QuadMatrix& a, const QuadMatrix& q);"
     if label == "main/placed_object_model.cpp":
@@ -703,6 +741,34 @@ def normalize_colored_sprite_packet_abi(text, label):
         "s32 r, s32 g, s32 b, s32 a, PacketWriter* p);"
     )
     if label not in ("main/warp_menu.cpp", "main/pause_menu.cpp"):
+        return text
+    current_calls = {
+        "main/warp_menu.cpp": (
+            ("((void (*)(s32, s32, s32, s32, PacketWriter*, f32, f32, f32, f32))"
+             "WriteColoredSpritePacket)(0, 0, 0, (s32)v, &g_gsPacketWriter, "
+             "0.0f, 0.0f, 640.0f, 492.80002f);",
+             "WriteColoredSpritePacket(0.0f, 0.0f, 640.0f, 492.80002f, "
+             "0, 0, 0, (s32)v, &g_gsPacketWriter);"),
+        ),
+        "main/pause_menu.cpp": (
+            ("((void (*)(s32, s32, s32, s32, PacketWriter*, f32, f32, f32, f32))"
+             "WriteColoredSpritePacket)(r, g, b, 255, &buf.f, 10.0f, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f);",
+             "WriteColoredSpritePacket(10.0f, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f, "
+             "r, g, b, 255, &buf.f);"),
+            ("((void (*)(s32, s32, s32, s32, PacketWriter*, f32, f32, f32, f32))"
+             "WriteColoredSpritePacket)(r, g, b, 255, &buf.f, x, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f);",
+             "WriteColoredSpritePacket(x, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f, "
+             "r, g, b, 255, &buf.f);"),
+        ),
+    }[label]
+    if any(text.count(old) for old, _ in current_calls):
+        for old, new in current_calls:
+            if old in text:
+                text = text.replace(old, new, 1)
         return text
     if declaration not in text:
         if host_declaration in text:
@@ -1436,6 +1502,24 @@ def normalize_player_probe_call_abi(text, label):
     """Pass probe outputs and radius in the matched helper's C argument order."""
     if label != "main/player.cpp":
         return text
+    modern_calls = (
+        ("((void (*)(void*, PlacedObject*, void*, PlacedObject*, f32, FollowProbe*))"
+         "BuildPartProbeTowardLink)(self, (PlacedObject*)a1, a1, "
+         "(PlacedObject*)self->f620, k, (FollowProbe*)((u8*)&self->footProbeA));",
+         "BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+         "(PlacedObject*)self->f620, (FollowProbe*)((u8*)&self->footProbeA), k);"),
+        ("((void (*)(void*, PlacedObject*, void*, PlacedObject*, f32, FollowProbe*))"
+         "BuildPartProbeTowardLink)(self, (PlacedObject*)self->linkPartB, "
+         "self->linkPartB, (PlacedObject*)self->f624, k, "
+         "(FollowProbe*)((u8*)&self->footProbeB));",
+         "BuildPartProbeTowardLink(self, (PlacedObject*)self->linkPartB, "
+         "self->linkPartB, (PlacedObject*)self->f624, "
+         "(FollowProbe*)((u8*)&self->footProbeB), k);"),
+    )
+    if all(text.count(old) == 1 for old, _ in modern_calls):
+        for old, new in modern_calls:
+            text = text.replace(old, new, 1)
+        return text
     current_decl = (
         "void BuildPartProbeTowardLink(void* unused0, PlacedObject* self, "
         "void* unused2, PlacedObject* obj, f32 radius, FollowProbe* out);")
@@ -1901,22 +1985,50 @@ def emit_text_layout_setters_for_host(text, label):
 
 
 def normalize_active_set_solver_abi(text, label):
-    """Port-only shim: align the decomp solver definition with its caller ABI."""
+    """Preserve the legacy host ABI shim only for the older decomp signature."""
     old = (
         "AddFrictionItemsAndSolve(ActiveSetSolver* self, s32 a1, s32 n, "
         "BodyContact** contacts, s32 a4, s32 a5, f32 dt)")
+    current = (
+        "AddFrictionItemsAndSolve(ActiveSetSolver* self, s32 a1, s32 n, "
+        "BodyContact** contacts, s32* sizes, void** lists, f32 dt)")
     new = (
         "AddFrictionItemsAndSolve(f32 dt, ActiveSetSolver* self, s32 a1, "
         "s32 n, BodyContact** contacts, s32 a4, s32 a5)")
     if label == "functions/active_set_solver.h":
+        if text.count("void " + current + ";") == 1:
+            # The current decomp also corrected the caller to use this
+            # declaration, so reordering arguments would now break the ABI.
+            return text
         if text.count("void " + old + ";") != 1:
             raise RuntimeError("expected active-set solver host ABI declaration")
         return text.replace("void " + old + ";", "void " + new + ";", 1)
     if label == "main/active_set_solver.cpp":
+        if text.count("void " + current + "\n{") == 1:
+            return text
         if text.count("void " + old + "\n{") != 1:
             raise RuntimeError("expected active-set solver host ABI definition")
         return text.replace("void " + old + "\n{", "void " + new + "\n{", 1)
     return text
+
+
+def bridge_run_main_loop_linkage(text, label):
+    """Keep the native launcher call stable across RunMainLoop linkage edits."""
+    if label != "main/main_loop.cpp":
+        return text
+    signature = 'extern "C" void RunMainLoop(s32 a, s32 b)'
+    bridge = (
+        '\nextern "C" void sly1_native_run_main_loop_c(int, int) '
+        'asm("func_00185758");\n'
+        'void sly1_native_run_main_loop_cpp(int, int) '
+        'asm("_Z13func_00185758ii");\n'
+        'void sly1_native_run_main_loop_cpp(int a, int b) { '
+        'sly1_native_run_main_loop_c(a, b); }\n')
+    if signature not in text:
+        return text
+    if "sly1_native_run_main_loop_c" in text:
+        return text
+    return text + bridge
 
 
 def normalize_uncached_ee_cpu_pointers(text, label):
@@ -1953,10 +2065,17 @@ def trace_null_approach_ramp(text, label):
     """Capture a host-only caller trace for null ramp profiles."""
     if label != "main/warp_menu.cpp":
         return text
-    signature = (
+    old_signature = (
         "f32 ApproachValueWithRamp(RampProfile* k, f32* out, "
         "f32 x, f32 y, f32 z)\n{")
-    if text.count(signature) != 1:
+    current_signature = (
+        "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, "
+        "RampProfile* k, f32* out)\n{")
+    if text.count(old_signature) == 1:
+        signature = old_signature
+    elif text.count(current_signature) == 1:
+        signature = current_signature
+    else:
         raise RuntimeError("expected ApproachValueWithRamp definition")
     replacement = (
         'extern "C" void sly1_native_trace_null_ramp(\n'
@@ -2568,6 +2687,7 @@ def main(argv=None):
                 r"(?m)^inline (void Layout_137228::(?:Pos|Size|Color|SetF14|SetF18)\()",
                 r"\1", adapted)
         adapted = forward_load_collider_stream(adapted, rel.as_posix())
+        adapted = bridge_run_main_loop_linkage(adapted, rel.as_posix())
         adapted = forward_placed_object_load_stream(adapted, rel.as_posix())
         adapted = forward_animation_marker_arguments(adapted, rel.as_posix())
         adapted = forward_blend_entry_flag_arguments(adapted, rel.as_posix())
@@ -2767,14 +2887,21 @@ def main(argv=None):
                 # preserve the EE register order (angle, outputs); rewrite
                 # those host-only call sites to the function's pointer-first
                 # signature instead of changing the function body ABI.
-                adapted = adapted.replace(
-                    "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut);",
-                    "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle);")
-                adapted, reordered_sincos = re.subn(
-                    r"ComputeSinCos\(([^,]+),\s*(&[^,]+),\s*(&[^)]+)\);",
-                    r"ComputeSinCos(\2, \3, \1);", adapted)
-                if reordered_sincos != 5:
-                    raise RuntimeError("expected five angle-first ComputeSinCos calls")
+                retail_call = (
+                    "((void (*)(f32, f32*, f32*))ComputeSinCos)"
+                    "(WrapAngle(angle), &loc.x, &loc.y);")
+                host_call = "ComputeSinCos(&loc.x, &loc.y, WrapAngle(angle));"
+                if retail_call in adapted:
+                    adapted = adapted.replace(retail_call, host_call, 1)
+                else:
+                    adapted = adapted.replace(
+                        "void ComputeSinCos(f32 angle, f32* sinOut, f32* cosOut);",
+                        "void ComputeSinCos(f32* sinOut, f32* cosOut, f32 angle);")
+                    adapted, reordered_sincos = re.subn(
+                        r"ComputeSinCos\(([^,]+),\s*(&[^,]+),\s*(&[^)]+)\);",
+                        r"ComputeSinCos(\2, \3, \1);", adapted)
+                    if reordered_sincos != 5:
+                        raise RuntimeError("expected five angle-first ComputeSinCos calls")
             else:
                 adapted = adapted.replace(
                     "void ComputeSinCos(f32* a, f32* b);",
@@ -2984,45 +3111,61 @@ def main(argv=None):
                 adapted = adapted.replace(old, new, 1)
             else:
                 raise RuntimeError("expected one host rotation-curve callback")
-            # The matching Hermite implementation at 0x001303F0 takes its
-            # output pointers first. Reorder the two source calls that express
-            # the same register flow as scalar inputs followed by outputs.
-            adapted = adapted.replace(
-                "void EvaluateHermiteSegment(f32 delta, f32 diff, f32 scale, "
-                "f32 p4, f32 p14, f32 p1C, f32 p24, f32* outF, f32* outI, "
-                "s32 zero);",
-                "void EvaluateHermiteSegment(f32* outF, f32* outI, f32* out2, "
-                "f32 delta, f32 diff, f32 scale, f32 p4, f32 p14, f32 p1C, "
-                "f32 p24);")
-            adapted = adapted.replace(
+            # Recent decomp sources corrected this helper's declared C ABI to
+            # scalar inputs followed by output pointers. Older snapshots used
+            # an output-first declaration and need their retail-register calls
+            # canonicalized in the staged copy.
+            modern_hermite_abi = (
+                '#include "functions/curve_segment.h"' in adapted or
                 "void EvaluateHermiteSegment(f32 dur, f32 t, f32 e, f32 a, "
-                "f32 b, f32 c, f32 dd, f32* p0, f32* p1, f32* p2);",
-                "void EvaluateHermiteSegment(f32* p0, f32* p1, f32* p2, "
-                "f32 dur, f32 t, f32 e, f32 a, f32 b, f32 c, f32 dd);")
-            adapted, replacements = re.subn(
-                r"EvaluateHermiteSegment\(delta, diff, scale, "
-                r"\(\(TangentWeightKey\*\)p\)->value, "
-                r"\(\(TangentWeightKey\*\)p\)->f, "
-                r"\(\(TangentWeightKey\*\)p \+ 1\)->value, "
-                r"\(\(TangentWeightKey\*\)p \+ 1\)->d, outF, outI, 0\);",
-                "EvaluateHermiteSegment(outF, outI, 0, delta, diff, scale, "
-                "((TangentWeightKey*)p)->value, ((TangentWeightKey*)p)->f, "
-                "((TangentWeightKey*)p + 1)->value, "
-                "((TangentWeightKey*)p + 1)->d);",
-                adapted)
-            adapted, second = re.subn(
-                r"EvaluateHermiteSegment\(left, dt, 1\.0f, "
-                r"owner->linkRecord->angle, owner->linkRecord->angleSlope, "
-                r"value, slope, &owner->linkRecord->angle, "
-                r"&owner->linkRecord->angleSlope, 0\);",
-                "EvaluateHermiteSegment(&owner->linkRecord->angle, "
-                "&owner->linkRecord->angleSlope, 0, left, dt, 1.0f, "
-                "owner->linkRecord->angle, owner->linkRecord->angleSlope, "
-                "value, slope);",
-                adapted)
-            if replacements != 1 or second != 1:
-                raise RuntimeError("expected two Hermite register-order calls in " +
-                                   rel.as_posix())
+                "f32 b, f32 c, f32 dd, f32* p0, f32* p1, f32* p2);" in adapted)
+            if modern_hermite_abi:
+                second = len(re.findall(
+                    r"EvaluateHermiteSegment\(left, dt, 1\.0f, "
+                    r"owner->linkRecord->angle, owner->linkRecord->angleSlope, "
+                    r"value, slope, &owner->linkRecord->angle, "
+                    r"&owner->linkRecord->angleSlope, 0\);",
+                    adapted))
+                if second != 1:
+                    raise RuntimeError("expected one modern Hermite call in " +
+                                       rel.as_posix())
+            else:
+                adapted = adapted.replace(
+                    "void EvaluateHermiteSegment(f32 delta, f32 diff, f32 scale, "
+                    "f32 p4, f32 p14, f32 p1C, f32 p24, f32* outF, f32* outI, "
+                    "s32 zero);",
+                    "void EvaluateHermiteSegment(f32* outF, f32* outI, f32* out2, "
+                    "f32 delta, f32 diff, f32 scale, f32 p4, f32 p14, f32 p1C, "
+                    "f32 p24);")
+                adapted = adapted.replace(
+                    "void EvaluateHermiteSegment(f32 dur, f32 t, f32 e, f32 a, "
+                    "f32 b, f32 c, f32 dd, f32* p0, f32* p1, f32* p2);",
+                    "void EvaluateHermiteSegment(f32* p0, f32* p1, f32* p2, "
+                    "f32 dur, f32 t, f32 e, f32 a, f32 b, f32 c, f32 dd);")
+                adapted, replacements = re.subn(
+                    r"EvaluateHermiteSegment\(delta, diff, scale, "
+                    r"\(\(TangentWeightKey\*\)p\)->value, "
+                    r"\(\(TangentWeightKey\*\)p\)->f, "
+                    r"\(\(TangentWeightKey\*\)p \+ 1\)->value, "
+                    r"\(\(TangentWeightKey\*\)p \+ 1\)->d, outF, outI, 0\);",
+                    "EvaluateHermiteSegment(outF, outI, 0, delta, diff, scale, "
+                    "((TangentWeightKey*)p)->value, ((TangentWeightKey*)p)->f, "
+                    "((TangentWeightKey*)p + 1)->value, "
+                    "((TangentWeightKey*)p + 1)->d);",
+                    adapted)
+                adapted, second = re.subn(
+                    r"EvaluateHermiteSegment\(left, dt, 1\.0f, "
+                    r"owner->linkRecord->angle, owner->linkRecord->angleSlope, "
+                    r"value, slope, &owner->linkRecord->angle, "
+                    r"&owner->linkRecord->angleSlope, 0\);",
+                    "EvaluateHermiteSegment(&owner->linkRecord->angle, "
+                    "&owner->linkRecord->angleSlope, 0, left, dt, 1.0f, "
+                    "owner->linkRecord->angle, owner->linkRecord->angleSlope, "
+                    "value, slope);",
+                    adapted)
+                if replacements != 1 or second != 1:
+                    raise RuntimeError("expected two legacy Hermite calls in " +
+                                       rel.as_posix())
         elif rel.as_posix() == "main/pooled_object.cpp":
             adapted = adapted.replace(
                 "void* GetListLinks(void* a, void* b);",

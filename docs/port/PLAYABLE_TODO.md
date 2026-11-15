@@ -9,22 +9,24 @@ backfills and renderer probes until they unblock the next visible milestone.
 The kind-6 renderer experiment is still disabled by default; its gray frame is
 a failed result, not a partial success.
 
-The host32 build is still pinned to `sly1-decomp` `1cbb33fd`. Public upstream
-master is now `8f7a85a3` and retains 100% code matching, with modern-compiler
-checks and corrected declarations. Running the port's hostgen report on both
-revisions gives the same 489 translated functions and the same 12-function
-reachable no-C frontier. A clean native host32 generation from `8f7a85a3`
-currently stops in `normalize_active_set_solver_abi`: the port adapter expects
-the older declaration. This is a source-compatibility issue to resolve as a
-coherent update before adopting the newer source, not a reason to add a game
-backfill.
+The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
+retains 100% code matching. Hostgen reports the same 489 translated functions
+and 12-function reachable no-C frontier on both revisions. The host32 source
+adapter now handles the newer declarations and linkage in its generated copy.
+A fresh build against `8f7a85a3` compiles all 194 matched units plus 85
+separate port-only backfills and links with 99 missing-function traps. This is
+compile/link evidence only: that launcher has not been run, and this does not
+change the last confirmed visual result. Matching source remains unchanged.
 
-The next work is therefore two bounded gates: first make the port's source
-adapter build against the current decomp without changing matching sources;
-then use one captured unskinned mesh to resolve the native renderer's transform
-and clipping against a reference image. Keep the kind-6 option off until the
-captured loaded-world frame has recognizable geometry. Do not resume broad
-startup work in parallel.
+**Next work is a single graphics vertical slice.** First make one bounded
+hidden run of that binary to confirm it still reaches the loaded world. Then
+trace one unskinned kind-6 mesh from its source vertices through the VU1
+finish/output boundary to the native draw. Stop at the first mismatch and fix
+only that boundary; require a captured frame with recognizable geometry
+before enabling the renderer or broadening its scope. Do not add startup
+backfills or renderer experiments unless the trace proves they block this
+slice. The renderer remains disabled by default and the gray-frame attempt
+remains a failed result.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
