@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-15, Wave 499)
+## Latest status (2026-11-15, Wave 512)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
 code matched. The host32 build compiles 194 matched units and 84 separate

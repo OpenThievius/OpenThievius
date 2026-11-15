@@ -44,30 +44,31 @@ path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
 Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 `game/sly1-us/native/`, outside `sly1-decomp`.
 
-## Current decomp input (2026-11-14)
+## Current native status (2026-11-15)
 
-The sibling `sly1-decomp` checkout tracks public master `83f2b50d` and is
-read-only from this repository. Its report gives NTSC-U 4,807/4,807 functions
-and 1,112,400/1,112,400 code bytes matched (100%); 140 US data bytes remain
-unmatched. PAL also has 100% of its code matched. This does not mean all code
-is portable C: the US report still classifies 311 functions as original
-assembly, and the VU microprogram section has no C implementation.
+The sibling `sly1-decomp` checkout is clean at `1cbb33fd`. The US match report
+is 4,807/4,807 functions and 100% of code bytes, with 140 data bytes unmatched.
+That is matching coverage, not host-ready C coverage: some matched functions
+remain assembly, and the native build still uses 84 port-only backfills and
+102 fallback traps.
 
-Hostgen reads 278 current US source units and translates 804 functions with
-assembly translation disabled; 2 functions are stubs and 4,128 have no C in
-this hostgen configuration. Ten legacy hostgen overrides were found to shadow
-matched C and have been retired. Their old port C remains in
-`game/sly1-us/hand/superseded_backfills/`. The no-emulation host32 build has
-already consumed matched source for the camera, mesh-table, spawn, and placed
-object transform paths. Recent upstream commits since the prior port refresh
-rename five boss implementations and make a PAL comment correction; they add
-no new US C implementation needed by the current startup path. Its current
-startup result remains the retail no-card warning, with title transition and
-gameplay not yet demonstrated. See
-[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md) for current
-runtime evidence. The hostgen count is five lower than before retirement
-because that older C-only frontend lacks usable translations for five of the
-matched addresses; direct host32 compilation uses the canonical C++ source.
+The no-emulation host32 game loop passes the no-card screen, loads world
+`0x870cf0`, and advances at about 56 frames per second. The black scene is not
+currently a startup or missing-input problem. A corrected trace confirms the
+loaded world queues `DrawPlacedObjectParts` and reaches `DrawModelPart` with a
+30-mesh kind-5 part. The SDL host renders HUD packets only; it has no Sly 3D
+world renderer. Therefore the single active milestone is to decode one real
+Sly mesh packet into host-owned geometry, validate its transform and camera,
+and draw it through a Sly scene renderer. Do not add unrelated startup shims
+unless new evidence shows that this path is blocked. See
+[`SLY_GRAPHICS_HANDOFF.md`](../docs/port/SLY_GRAPHICS_HANDOFF.md) and
+[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md).
+
+Keep functional behavior replacements in `game/sly1-us/native/` or
+`game/sly1-us/hand/native_c/`, separate from matching decompilation. Retire
+each replacement when equivalent hostable decomp C is available. The older
+guest-memory/device-model launcher remains research scaffolding and is not
+the target gameplay architecture.
 
 To translate the selected assembly functions into the native build output
 directly, hostgen also supports:
@@ -88,17 +89,9 @@ precedence over that list. Some launcher paths still contain guest-addressed
 EE/DMA/VIF/VU/GS compatibility services from the earlier startup experiment;
 they are diagnostic scaffolding, not the target gameplay architecture.
 
-The current graphics task is to trace normal Splash/title activation and why
-all UI elements stay inactive, then inspect the 2,128-byte UI packet's
-invalid attributes. The latest native run still has zero visible vertices,
-image tags, or text. A separate DMA fix now preserves VIF1's retail-set TTE
-bit; it removes the malformed startup stream but has not produced graphics.
-See the launch command and evidence in `docs/port/SLY_GRAPHICS_HANDOFF.md`.
-Once a readable menu is visible, the port still needs the title/level
-transition, Sly pad-library integration, controllable character movement and
-collision, real audio, and saves. See the
-[roadmap](../docs/port/ROADMAP.md) and [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md)
-for status and starter tasks.
+After the first world geometry is visible, the next milestones are a title
+and responsive input, a controllable level with collision, then audio and
+saves. See the [roadmap](../docs/port/ROADMAP.md) for the release gates.
 
 OpenRAC's port design and its own authored code may be used with the credit
 required by [the sourcing policy](../docs/policy/SOURCING.md#openrac). Sly's

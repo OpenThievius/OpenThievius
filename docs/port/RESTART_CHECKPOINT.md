@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, Wave 499)
+## Current checkpoint (2026-11-15, Wave 512)
 
 The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains
 4,807/4,807 functions and 100% of code bytes (99.9675% of data). This is
