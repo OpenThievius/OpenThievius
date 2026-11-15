@@ -3,6 +3,33 @@
 
 Last checked: 2026-11-15 against decomp master `1cbb33fd`.
 
+## Reset the graphics plan (2026-11-15)
+
+The recent work improved observability but did not move the visible milestone:
+the no-emulation window still shows no world graphics. That is not a playable
+build. Stop adding startup backfills and trace probes unless they are shown to
+block the first native world draw. Keep the current black-scene capture as the
+baseline and make the next deliverable one captured frame with a loaded Sly
+mesh visible.
+
+The mesh-build capture gives a narrower route than the earlier plan. The
+128-byte `FrameSource` record is a packed GIF A+D material-state packet, not
+triangle topology: its tag declares six packed A+D writes (`TEST1`, `ALPHA1`,
+`FOGCOL`, `TEX0_1`, `TEX1_1`, and `CLAMP1`). Do not spend time decoding it as
+an index/strip list. Topology and vertex order must instead be established
+from the `VertexRefs` sequence and the targeted kind-6 VU program's output
+semantics. This is a bounded question; it does not require implementing a
+general VU or PS2 device emulator.
+
+The next implementation should take one unskinned kind-6 mesh through the
+existing Sly builder and draw it with a small native world-renderer path. Use
+the builder's expanded references, positions, UVs and tint calculation, plus
+the draw request's model and camera matrices. Keep material/texture support
+out of the first gate if necessary: a solid-color silhouette is enough to
+prove geometry, winding, transform, clipping and depth. Add texture/state only
+after that frame is correct. This should replace the trace-only builder hook
+with a host-owned draw record; keep OpenGL work on the render thread.
+
 ## Builder input capture (2026-11-15)
 
 The host32 build now has an opt-in trace at `BuildStripMeshPacket`, before Sly
@@ -13,12 +40,10 @@ UVs 0–49. The trace saved its source arrays and strip bytes under `/tmp`; no
 game data was added to the repository. Log:
 `/tmp/sly1-mesh-builder-capture.log`.
 
-This makes a source-level Sly mesh adapter more practical: the native port can
-consume the builder's vertex references, positions, UVs and strip source
-without decoding the generated VIF packet. The strip source still has to be
-understood to recover triangle order. The next slice is a bounded decoder for
-this 128-byte record and a native draw record for this one unskinned mesh.
-There is still no captured world geometry on screen.
+This makes a source-level Sly mesh adapter practical: the native port can
+consume the builder's vertex references, positions, UVs and material state
+without decoding the generated VIF packet. The probe is still trace-only and
+has not produced a host draw record or visible geometry.
 
 The host32 port compiles 194 matched Sly units and 85 separate port-only
 backfills. After one process-local Cross press, it leaves the no-card page,
@@ -60,13 +85,11 @@ the host conversion. This remains bounded to Sly's mesh path; it does not
 justify a general VU implementation. The retail `.vutext` bytes stay local
 and are not copied into this repository.
 
-The next graphics slice is to decode that kind-6 strip source's primitive
-order, apply the request's model and clip matrices, and emit a host-owned draw
-record through a Sly world-renderer bucket. Leave `sly1-decomp` untouched and
-keep functional backfills under `port/game/sly1-us/`. Keep VIF/VU/GS execution
-as bounded diagnostics. The gate is an image capture with loaded Sly geometry
-positioned by the game's transform and camera. No title or playable level is
-confirmed. See the
+The renderer inspection still shows no Sly 3D world renderer. Leave
+`sly1-decomp` untouched and keep functional backfills under
+`port/game/sly1-us/`. Keep VIF/VU/GS execution as bounded diagnostics. The gate
+is an image capture with loaded Sly geometry positioned by the game's
+transform and camera. No title or playable level is confirmed. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current plan.
 Historical Wave 39 context: two staging-only returns prevent matched
