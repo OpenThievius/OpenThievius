@@ -12,20 +12,20 @@ OpenGL mesh prototype captures and submits three kind-6 meshes, but produces
 only a uniform gray image and remains disabled by default. More startup shims
 will not make that renderer result useful.
 
-I compared the active decomp revision with public master `8f7a85a3`. The
-decomp still reports 100% code matching, while the port's hostgen report is
-unchanged at 489 translated functions and the same reachable no-C frontier.
-The newer tree adds modern-compiler checks and declaration corrections. The
-port's clean host32 generation currently fails on a hard-coded old
-`AddFrictionItemsAndSolve` signature in `normalize_active_set_solver_abi`.
-Update the source adapter as a coherent compatibility pass before moving the
-native build to that revision.
+The source adapter now builds against public decomp master `8f7a85a3` without
+changing matching source. Both the active `1cbb33fd` checkout and the public
+snapshot compile 194 matched units and link. This compatibility work is done
+for the current revisions; do not keep broadening it without a new build
+failure.
 
-After that, keep graphics work to one reproducible captured kind-6 mesh. Find
-which of the input vertices, object/camera transforms, clipping, or output
-primitive behavior causes the gray frame, and require a recognizable scene
-capture before re-enabling the feature. Do not expand VIF/VU/GS emulation or
-add unrelated startup backfills.
+The useful next step is one complete captured kind-6 strip, not more startup
+or runtime instrumentation. The current prototype preserves positions and
+tint but drops UVs and per-strip boundaries, so its gray frame does not prove
+that VU clipping is the problem. Capture and validate the strip inputs and
+transforms against the existing retail reference, then render a solid-color
+silhouette. If the existing captures cannot validate the input or silhouette,
+pause this renderer and build a data-only level viewer instead. Do not extend
+general VIF/VU/GS behavior.
 
 ## Reset the graphics plan (2026-11-15)
 
@@ -40,26 +40,29 @@ The mesh-build capture gives a narrower route than the earlier plan. The
 128-byte `FrameSource` record is a packed GIF A+D material-state packet, not
 triangle topology: its tag declares six packed A+D writes (`TEST1`, `ALPHA1`,
 `FOGCOL`, `TEX0_1`, `TEX1_1`, and `CLAMP1`). Do not spend time decoding it as
-an index/strip list. Topology and vertex order must instead be established
-from the `VertexRefs` sequence and the targeted kind-6 VU program's output
-semantics. This is a bounded question; it does not require implementing a
-general VU or PS2 device emulator.
+an index/strip list. `BuildStripMeshPacket` expands positions and UVs in
+`VertexRefs` order and records strip ranges. Preserve that higher-level data
+at the native handoff before investigating VU output semantics. This is a
+bounded question; it does not require implementing a general VU or PS2 device
+emulator.
 
-An opt-in native adapter now copies the expanded kind-6 positions and tint
-colors, matches them to `PartMesh.kind`, and submits them with the part and
-camera matrices to an OpenGL triangle-strip pass. The hidden run confirmed
-three mesh captures, three matched draw submissions, and repeated GL draws.
-Its saved 960x720 frame is a uniform dark gray with no recognizable Sly
-geometry, so the first-graphics gate is still failed. The prototype is
-disabled by default. Do not present the gray frame as visible game graphics.
+An opt-in native adapter copies expanded kind-6 positions and tint colors,
+matches them to `PartMesh.kind`, and submits them with part and camera matrices
+to an OpenGL triangle-strip pass. It does not preserve UVs or strip boundaries.
+The hidden run confirmed three mesh captures, three matched draw submissions,
+and repeated GL draws. Its saved 960x720 frame is uniform dark gray with no
+recognizable Sly geometry, so the first-graphics gate is still failed. The
+prototype is disabled by default. Do not present the gray frame as visible
+game graphics or treat it as evidence that clipping is the cause.
 
-`BuildStripMeshPacket` writes positions in `VertexRefs` order, and the kind-6
-VU program consumes the stream in order. The 128-byte `FrameSource` is six
-packed GIF A+D material-state writes, not a primitive/index list. The failure
-is now narrowed to reproducing the kind-6 VU clipping and finish-program GS
-output. Correct that bounded path, then compare a solid-color silhouette
-against PCSX2 before adding texture/state or enabling the adapter by default.
-Keep OpenGL work on the render thread.
+`BuildStripMeshPacket` expands positions and UVs in `VertexRefs` order, and
+records each strip separately before building VIF packets. The 128-byte
+`FrameSource` is six packed GIF A+D material-state writes, not a
+primitive/index list. The native prototype currently loses some of this
+high-level data before drawing, so first preserve and validate the strip
+record. Only then compare a solid-color silhouette against PCSX2 and decide
+whether clipping/finish behavior needs a targeted port implementation. Keep
+OpenGL work on the render thread.
 
 ## Builder input capture (2026-11-15)
 

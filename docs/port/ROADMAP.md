@@ -26,10 +26,13 @@ An opt-in host adapter captures three unskinned kind-6 meshes and sends them to
 a native triangle-strip pass. Its frame is a uniform dark gray, so it fails the
 visual gate and the option is off by default. The eight-quadword `FrameSource`
 is GIF A+D material state; vertex order comes from `VertexRefs`. The next slice
-is to recover the kind-6 VU clipping and finish-program GS output, then correct
-the host conversion. Keep the matching decomp source unchanged. Do not build a
-general VU interpreter or extend device models as the gameplay graphics path.
-The gate is a captured frame with correctly shaped loaded-world geometry. See
+is to preserve and validate one complete strip at the native draw boundary,
+then compare a solid-color silhouette with the retail capture. The current
+gray result drops UVs and strip boundaries before the draw and does not isolate
+VU clipping as the cause. Keep the matching decomp source unchanged. Do not
+build a general VU interpreter or extend device models as the gameplay
+graphics path. If existing captures cannot validate one strip end-to-end,
+switch to a data-only level viewer. See
 [the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.
@@ -46,14 +49,28 @@ and link.
 
 A 15-second hidden run of the refreshed launcher passed that camera fault and
 read six ISO spans (2,426 sectors). It accepted 47,832 DMA submissions and
-rejected three. Repeated game-thread samples landed in
-`QueryPlaneTreePoint`; the startup counters remained zero, so this run does
-not confirm a complete frame, active world, or visible scene. The last
-confirmed game image is still the no-card screen. Stop broad ABI cleanup and
-speculative startup backfills. The next bounded investigation is to determine
-whether that collision query is preventing the first loaded-world draw, then
-trace one mesh through the Sly draw boundary. Only change a function when
-that trace identifies it as the gate to the first recognizable geometry.
+rejected three. Samples landed at varying offsets in `QueryPlaneTreePoint` and
+interspersed functions; they do not establish a stuck loop. The zero frame and
+world counters came from a build without the instrumentation that updates
+them, so they are not evidence either. Later, correctly instrumented runs
+confirm the world loads and advances at about 56 frames per second, reaching
+kind-5 and kind-6 model draw callbacks. The current blocker is graphics: the
+optional kind-6 OpenGL experiment draws a uniform gray frame.
+
+**Reset direction:** stop broad host-ABI and startup work. Do not infer another
+runtime blocker from sparse PC samples. The gray experiment drops UVs and
+per-strip boundaries before drawing, so its output does not yet isolate VU
+clipping as the cause. First capture one unskinned kind-6 strip's complete
+high-level input at `DrawModelPart`: positions, UVs, tint, strip ranges,
+transforms, and the material state available from the mesh/part. Compare that
+record with the existing retail capture, then render one strip with a simple
+native shader and explicit clipping. If that record is incomplete or invalid,
+fix its source boundary; if it is valid, compare the native output silhouette
+against the console capture before implementing more material behavior. Keep
+the prototype disabled until a recognizable scene capture passes. If this
+single strip cannot be validated from existing retail captures, stop renderer
+implementation and build a data-only level/mesh viewer from the extracted
+catalog instead of adding another graphics compatibility layer.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 

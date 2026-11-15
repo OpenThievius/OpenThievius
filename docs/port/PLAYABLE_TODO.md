@@ -3,11 +3,10 @@
 
 ## Clean reset review (2026-11-15)
 
-Earlier host32 runs advanced after dismissing the retail no-card screen, but
-the latest decomp refresh has not yet confirmed a complete game frame. Stop
-adding broad startup backfills and renderer probes. The kind-6 renderer
-experiment is disabled by default; its gray frame is a failed result, not
-partial graphics progress.
+The refreshed host32 build passes the retail no-card screen, loads a world,
+and reaches model draw callbacks. Stop adding broad startup backfills and
+renderer probes. The kind-6 renderer experiment is disabled by default; its
+gray frame is a failed result, not partial graphics progress.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions
@@ -20,20 +19,26 @@ attempt found an old port adapter changing the newer float-first ramp calls
 back to the legacy register order. Gating those rewrites on the shared helper
 declaration removed that camera fault.
 
-A 15-second hidden run of the corrected launcher read six ISO spans (2,426
-sectors), accepted 47,832 DMA submissions, and rejected three. Repeated
-game-thread samples remained in `QueryPlaneTreePoint`, while diagnostic frame
-and world counters stayed at zero. No loaded-world draw or rendered scene is
-confirmed by this run. The last confirmed visible result remains the no-card
-screen; the gray kind-6 capture remains a failed experiment.
+A 15-second hidden run after the decomp refresh read six ISO spans (2,426
+sectors), accepted 47,832 DMA submissions, and rejected three. Its sparse PC
+samples vary across `QueryPlaneTreePoint` and other functions. The zero frame
+and world counters were not enabled in that build; this is not evidence of a
+stuck query or missing world. Later focused traces confirm the loaded world
+advances at about 56 frames per second and reaches kind-5 and kind-6 draw
+callbacks. The last confirmed visible result remains the no-card screen; the
+gray kind-6 capture remains a failed experiment.
 
-**Next work is one bounded handoff from loading to drawing.** Establish whether
-the collision query is keeping the game from its first loaded-world draw. If
-the frame loop is active, follow one unskinned mesh through the VU1
-finish/output boundary to the native draw. Stop at the first mismatch and fix
-only that boundary. Require a captured frame with recognizable geometry
-before enabling the renderer or broadening its scope. Do not add startup
-backfills or renderer probes unless this trace shows they block the handoff.
+**Reset the work around one complete kind-6 strip.** The current experiment
+keeps ordered positions and tint but drops UVs and strip boundaries, then
+guesses at topology and clipping. That makes its uniform gray output
+uninformative. Capture one strip's positions, UVs, tint, strip range, model and
+camera transforms, and material state at the native draw boundary. Validate
+those inputs against the existing retail capture. Render just that strip with
+a solid-color native shader and explicit clipping, and compare its silhouette
+to the retail frame. Fix only the first measured mismatch. If the current
+captures cannot establish a valid strip and reference silhouette, stop the
+renderer prototype and make a data-only level/mesh viewer the next milestone.
+Do not add startup fixes, broad VU behavior, or more draw hooks in this slice.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
@@ -99,13 +104,15 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Map the reachable kind-6 VU clipping and finish-program behavior that turns
-   ordered references into GS primitives.
-2. Correct the opt-in host conversion so it preserves that visible geometry,
-   clip behavior, transform, depth and winding.
-3. Capture loaded-world pixels and compare shape, scale and orientation
-   against PCSX2. Only then enable it by default or expand to other mesh kinds
-   and materials.
+1. Capture one complete kind-6 strip at the native draw handoff: positions,
+   UVs, tint, strip range, model/camera transforms, and material state. Validate
+   the input against existing retail data and frame captures.
+2. Render only that strip with a solid-color shader and explicit clipping;
+   compare silhouette, winding, scale, and placement with the retail frame.
+3. Fix the first demonstrated mismatch. If existing captures cannot validate
+   the strip, retire the renderer experiment from active work and build a
+   data-only extracted-level viewer. Keep the native prototype disabled until
+   a recognizable scene capture passes.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active
@@ -1583,24 +1590,23 @@ with the direct-level loader fault.
 
 ## Immediate next steps
 
-1. Trace the top-level stream exhaustion after class/group loading and collision
-   setup, where `func_001DCEA0` reaches `0x70000000` with `remaining=-1`.
-2. Identify a level object in the active world lists that owns a mesh, then
-   trace its descriptor, constructor, activation callback, mesh vertex pointer
-   and render callback. Current runs show populated update lists but zero scene
-   vertices, so first establish which entries are actual renderables.
-3. Follow that object's render callback into the native scene submission path.
-   Capture the first nonzero vertex stream and its camera/material state, then
-   fix the earliest missing or invalid boundary before adding renderer
-   workarounds.
-4. Investigate the missing font registry as a separate UI path. The direct
-   level resource has no registered fonts in the latest trace; this does not
-   explain why the scene has zero vertices.
-5. Keep the direct-level shortcut as a diagnostic. Once geometry is visible,
-   restore the normal title-to-New-Game transition and verify movement,
-   collision, camera, input, audio and checkpoint behavior with human input.
-6. Close the 12 unreadable build units and audit omitted call arguments, but
-   prioritize functions proven reachable from the selected level's draw path.
+The older direct-level and guest-runtime notes below are historical. Current
+host32 evidence supersedes their zero-vertex and stream-exhaustion diagnoses:
+the normal loaded-world path reaches model draws. Do not spend the next slice
+on loader repair, guest-runtime graphics, broad missing-function closure, or
+startup backfills.
+
+1. Capture a complete kind-6 strip at the native draw handoff, including UVs,
+   strip boundaries, tint, transforms, and material state alongside positions.
+2. Validate that strip against existing retail frame/data captures. If there
+   is no useful reference, switch to the data-only level viewer rather than
+   guessing at the VU/GS pipeline.
+3. Draw a solid-color silhouette for only that strip and compare its shape,
+   orientation, scale, and placement. Fix only the first measured mismatch;
+   do not add textures or general VU behavior yet.
+4. Require a recognizable loaded-world capture before enabling or expanding
+   the renderer. Then resume the normal title path and validate responsive
+   controls, collision, camera, audio, and saves as separate milestones.
 
 One additional retail-assembly comparison found and fixed a port-backfill
 layout error: `func_00162890` stores its component references as 32-bit values
