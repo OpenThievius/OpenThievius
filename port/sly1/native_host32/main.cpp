@@ -481,6 +481,34 @@ volatile u32 g_semaphore_trace_event_count = 0;
 volatile u32 g_native_trace_first_world = 0;
 volatile u32 g_native_trace_target_world = 0;
 
+extern "C" void sly1_native_trace_camera(u32 stage, u32 camera_address,
+                                           u32 world_address) {
+    static volatile u32 printed_mask = 0;
+    if (!g_startup_trace_enabled ||
+        std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") == nullptr ||
+        camera_address == 0)
+        return;
+    if (stage < 32 && (__atomic_fetch_or(&printed_mask, 1u << stage,
+                                         __ATOMIC_RELAXED) & (1u << stage)))
+        return;
+    const volatile float* position = reinterpret_cast<const volatile float*>(camera_address + 0x40u);
+    const volatile float* rotation = reinterpret_cast<const volatile float*>(camera_address + 0x80u);
+    const volatile float* view_projection = reinterpret_cast<const volatile float*>(camera_address + 0x100u);
+    std::fprintf(stderr,
+                 "[native camera stage] stage=%u world=%#010x camera=%#010x pos=%g,%g,%g rot=%g,%g,%g;%g,%g,%g;%g,%g,%g\n",
+                 stage, world_address, camera_address,
+                 position[0], position[1], position[2],
+                 rotation[0], rotation[1], rotation[2],
+                 rotation[4], rotation[5], rotation[6],
+                 rotation[8], rotation[9], rotation[10]);
+    std::fprintf(stderr,
+                 "[native camera matrix] stage=%u rows=%g,%g,%g,%g;%g,%g,%g,%g;%g,%g,%g,%g;%g,%g,%g,%g\n",
+                 stage, view_projection[0], view_projection[1], view_projection[2], view_projection[3],
+                 view_projection[4], view_projection[5], view_projection[6], view_projection[7],
+                 view_projection[8], view_projection[9], view_projection[10], view_projection[11],
+                 view_projection[12], view_projection[13], view_projection[14], view_projection[15]);
+}
+
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_trace_note_world(u32 world) {
     if (!g_startup_trace_enabled || world == 0) return;
@@ -494,7 +522,8 @@ extern "C" void sly1_native_trace_note_world(u32 world) {
         __atomic_store_n(&g_native_trace_target_world, world, __ATOMIC_RELAXED);
 }
 
-extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world) {
+extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
+                                               u32 camera_address) {
     if (!g_startup_trace_enabled || request_address == 0 || world == 0 ||
         world != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED)) return;
     static u32 part_count = 0;
@@ -509,6 +538,31 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world) {
     const u32 mesh_count = part[0x58 / 4];
     const u32 mesh_address = part[0x5C / 4];
     const u32 strip_count = part[0x60 / 4];
+    if (trace_index == 0 && std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") != nullptr &&
+        camera_address != 0) {
+        const volatile float* model = reinterpret_cast<const volatile float*>(request_address + 0x10u);
+        const volatile float* camera_position = reinterpret_cast<const volatile float*>(camera_address + 0x40u);
+        const volatile float* camera_rotation = reinterpret_cast<const volatile float*>(camera_address + 0x80u);
+        const volatile float* camera_matrix = reinterpret_cast<const volatile float*>(camera_address + 0x100u);
+        const volatile float* camera_scale = reinterpret_cast<const volatile float*>(camera_address + 0x1F0u);
+        std::fprintf(stderr, "[native model transform] request=%#010x camera=%#010x\n",
+                     request_address, camera_address);
+        for (u32 row = 0; row < 4u; ++row) {
+            std::fprintf(stderr,
+                         "[native model transform] model%u=%g,%g,%g,%g viewProjection%u=%g,%g,%g,%g\n",
+                         row, model[row * 4u], model[row * 4u + 1u],
+                         model[row * 4u + 2u], model[row * 4u + 3u],
+                         row, camera_matrix[row * 4u], camera_matrix[row * 4u + 1u],
+                         camera_matrix[row * 4u + 2u], camera_matrix[row * 4u + 3u]);
+        }
+        std::fprintf(stderr,
+                     "[native model transform] position=%g,%g,%g rotation=%g,%g,%g,%g;%g,%g,%g,%g;%g,%g,%g,%g scale=%g,%g\n",
+                     camera_position[0], camera_position[1], camera_position[2],
+                     camera_rotation[0], camera_rotation[1], camera_rotation[2], camera_rotation[3],
+                     camera_rotation[4], camera_rotation[5], camera_rotation[6], camera_rotation[7],
+                     camera_rotation[8], camera_rotation[9], camera_rotation[10], camera_rotation[11],
+                     camera_scale[0], camera_scale[1]);
+    }
     std::fprintf(stderr,
                  "[native model draw] index=%u world=%#010x request=%#010x part=%#010x skin=%#010x meshes=%u strips=%u flags=%#x lit=%u skinned=%u matrix=%#x,%#x,%#x,%#x\n",
                  trace_index, world, request_address, part_address, skin_address,
@@ -652,7 +706,7 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
     std::fputc('\n', stderr);
 }
 #else
-extern "C" void sly1_native_trace_model_part(u32, u32) {}
+extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_deferred_requests(u32, u32, u32, u32, u32) {}

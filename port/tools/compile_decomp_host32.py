@@ -4515,10 +4515,10 @@ void LoadEffectSpawner"""
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
         if args.trace_model_draws and rel.as_posix() == "main/placed_object_model.cpp":
-            adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32);\n' + adapted
+            adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32, u32);\n' + adapted
             needle = "    PartSkin* skin = self->skin;\n"
             replacement = needle + (
-                "    sly1_native_trace_model_part((u32)self, (u32)g_currentWorld);\n")
+                "    sly1_native_trace_model_part((u32)self, (u32)g_currentWorld, (u32)g_camera);\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart request initialization")
             adapted = adapted.replace(needle, replacement, 1)
@@ -4556,6 +4556,36 @@ void LoadEffectSpawner"""
                 "(u32)s1->drawPartCount, (u32)s1->drawParts);\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawPlacedObjectParts object load")
+            adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_main_loop and rel.as_posix() == "main/world.cpp":
+            adapted = ('extern "C" void sly1_native_trace_camera(u32, u32, u32);\n' + adapted)
+            needle = "    g_camera = (Camera*)CreateTypedRecord(0x6D, self, 0, 4, -1);\n"
+            replacement = needle + "    sly1_native_trace_camera(10, (u32)g_camera, (u32)self);\n"
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected LoadWorld camera creation")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "    UpdateCameraLocation(g_camera);\n    UpdateWorldContacts(self, 0);"
+            replacement = (
+                "    UpdateCameraLocation(g_camera);\n"
+                "    sly1_native_trace_camera(11, (u32)g_camera, (u32)self);\n"
+                "    UpdateWorldContacts(self, 0);")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected LoadWorld camera placement")
+            adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_main_loop and rel.as_posix() == "main/main_loop.cpp":
+            hook = 'extern "C" void sly1_native_trace_camera(u32, u32, u32);\n'
+            adapted = hook + adapted
+            needle = "            UpdateCameraLocation(g_camera);\n"
+            replacement = needle + "            sly1_native_trace_camera(20, (u32)g_camera, (u32)g_currentWorld);\n"
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected main-loop camera location update")
+            adapted = adapted.replace(needle, replacement, 1)
+            needle = "                g_currentWorld->desc->m11(g_currentWorld, g_gameClock.dt);\n"
+            replacement = needle + (
+                "            sly1_native_trace_camera(21, (u32)g_camera, "
+                "(u32)g_currentWorld);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected main-loop world update")
             adapted = adapted.replace(needle, replacement, 1)
         # Matching units declare AddGifRegisterWrite with inconsistent host
         # types. The retail ABI is (writer, 32-bit register, 64-bit value);

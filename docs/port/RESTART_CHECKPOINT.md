@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, Wave 512)
+## Current checkpoint (2026-11-15, after camera probe)
 
 The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains
 4,807/4,807 functions and 100% of code bytes (99.9675% of data). This is
@@ -20,6 +20,33 @@ The post-load frame is still black. `sdl_renderer.cpp` constructs only a HUD
 and two draws are HUD data, not a level scene. `DrawModelPart` emits VIF model
 packets, and the direct host32 DMA replacement has no native world renderer.
 
+A focused hidden run exposed an additional gate before scene rendering. Camera
+construction initially produced NaN position, rotation, and view-projection
+values at the camera reset angles. The host `Fpu::Sqrt` helper had used IEEE
+`sqrtf`, while the decomp's documented EE `sqrt.s` behavior is
+`sqrt(abs(value))`; the reset-angle sine approximation can make the cosine
+radicand slightly negative. After changing the host helper to take the
+absolute value, the camera trace is finite: position `(0.352147, -2000, 500)`,
+finite rotation and view-projection, zoom `1`. This change is only in the
+port's host compatibility header; matching source is untouched.
+
+The traced hidden run injects Cross inside the process and changes the active
+world to `0x870cf0`, then reaches a new missing-function trap at
+`0x001453b0` (`ComputeCameraDistanceFade`) from world draw code. This function
+is classified in the decomp as handwritten VU0 assembly, so 100% matching
+coverage does not mean the native host has a usable C body. A port-only C
+backfill exists in `hand/native_c/object_transform_primitives.c` for the guest
+runtime; it reads VU0 register state through `game_sly1_native_vu0_component`.
+The direct host32 build does not compile or expose that guest VU register
+state, so the implementation cannot be registered there unchanged. Next,
+provide a direct-host VU call bridge for this one helper, or a measured native
+equivalent based on its retail inputs, then confirm model draws reach the
+renderer.
+
+Evidence: `/tmp/sly-camera-root-probe.log`; the helper source is
+`port/game/sly1-us/hand/native_c/object_transform_primitives.c`, and the
+function's classification is `sly1-decomp/config/us/original_asm.tsv`.
+
 The earlier Wave 503 “no model draw” result was a trace-filter bug: each
 callback chose its target world based on the first callback it observed. Wave
 512 instead records the world transition from the main loop and confirms the
@@ -28,12 +55,13 @@ object with one part; that calls `DrawModelPart`, which receives 30 kind-5
 meshes (first mesh: 326 quadwords), plus other kind-0 meshes and strips.
 Evidence: `/tmp/sly-wave512-model-correct-filter.log`.
 
-The remaining first-graphics blocker is now squarely on the port side:
-`sdl_renderer.cpp` constructs only a HUD `DirectRenderer`, and no native Sly
-world renderer consumes the model data. Next, decode one kind-5 mesh packet
-into a host-owned vertex/material record and draw it with the game's transform
-and camera in a Sly scene bucket. Keep matching source untouched and keep all
-functional backfills in the port. Keep VIF/VU/GS as bounded diagnostics.
+Once `ComputeCameraDistanceFade` has a direct-host implementation, the
+remaining first-graphics blocker is the missing native Sly world renderer:
+`sdl_renderer.cpp` constructs only a HUD `DirectRenderer`. Decode one kind-5
+mesh packet into a host-owned vertex/material record and draw it with the
+game's transform and now-valid camera in a Sly scene bucket. Keep matching
+source untouched and keep all functional backfills in the port. Keep
+VIF/VU/GS as bounded diagnostics.
 
 Gate: a captured non-black frame with geometry from loaded Sly data using the
 game's transform and camera. No title or playable level is confirmed. Evidence:

@@ -19,12 +19,16 @@ retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
 Malformed text refers to the separate experimental guest-runtime renderer.
 The no-emulation host32 game loop clears the no-card screen, loads world
-`0x870cf0`, and advances at about 56 frames per second. The level remains
-black. SDL currently renders HUD packets only; it has no Sly 3D world renderer.
+`0x870cf0`, and advances at about 56 frames per second. Its camera is now
+finite after correcting the host `sqrt.s` behavior. The level remains black:
+the first loaded-world draw currently traps on `ComputeCameraDistanceFade`
+(`0x001453b0`), a handwritten VU0 function whose existing C backfill is only
+wired to the separate guest runtime. SDL also has no Sly 3D world renderer.
 Wave 512 corrects the earlier false “no model draw” result: the loaded world
 queues `DrawPlacedObjectParts` for an object with one part, and `DrawModelPart`
 receives 30 kind-5 meshes plus other meshes and strips. The first kind-5 mesh
-has 326 quadwords of packet data. Next decode one mesh into a host-owned record
+has 326 quadwords of packet data. First bridge or replace the camera-distance
+VU helper for the direct host, then decode one mesh into a host-owned record
 and draw it through a Sly-specific native renderer. Keep matching decomp
 untouched. See
 [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for evidence and steps.

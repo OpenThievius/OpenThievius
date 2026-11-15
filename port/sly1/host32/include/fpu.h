@@ -4,6 +4,7 @@
 #define SLY1_HOST32_FPU_H
 #include "common.h"
 struct Fpu {
-    static f32 Sqrt(f32 value) { return __builtin_sqrtf(value); }
+    // EE sqrt.s returns sqrt(abs(value)) for negative inputs; host sqrtf returns NaN.
+    static f32 Sqrt(f32 value) { return __builtin_sqrtf(__builtin_fabsf(value)); }
 };
 #endif
