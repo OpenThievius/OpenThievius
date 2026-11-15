@@ -767,30 +767,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     // StripMesh::nstrips counts FrameSource animation records, not geometry strips.
     const u32 frame_source_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
     const u32 frame_sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
-    u64 tex0 = 0;
-    u64 tex1 = 0;
-    u64 clamp = 0;
-    u64 test = 0;
-    if (frame_source_count > 0u && frame_sources_address != 0) {
-        const volatile u32* frame_source = reinterpret_cast<const volatile u32*>(frame_sources_address);
-        const u32 stride_qwc = frame_source[0];
-        const u32 packet_address = frame_source[1];
-        if (stride_qwc >= 8u && packet_address != 0 &&
-            packet_address <= 0xFFFFFFFFu - 0x70u) {
-            const volatile u64* packet = reinterpret_cast<const volatile u64*>(packet_address);
-            test = packet[2];
-            tex0 = packet[8];
-            tex1 = packet[10];
-            clamp = packet[12];
-        }
-        if (frame_source_count > 1u && std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
-            static u32 multilayer_notices = 0;
-            if (multilayer_notices++ < 8u)
-                std::fprintf(stderr,
-                             "[native sly mesh material] mesh=%#010x kind=%u frame_sources=%u using first source\n",
-                             mesh_address, mesh[0], frame_source_count);
-        }
-    } else if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+    if (frame_source_count == 0u || frame_source_count > 16u ||
+        frame_sources_address == 0) {
         static u32 unsupported_strip_notices = 0;
         if (unsupported_strip_notices++ < 12u)
             std::fprintf(stderr,
@@ -800,10 +778,21 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     }
     NativeSlyMesh captured;
     captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
-    captured.tex0 = tex0;
-    captured.tex1 = tex1;
-    captured.clamp = clamp;
-    captured.test = test;
+    const volatile u32* frame_sources =
+        reinterpret_cast<const volatile u32*>(frame_sources_address);
+    // Every FrameSource record contains one animation's packed GS state. The
+    // active cursor selects a record at draw time; records are not material
+    // layers and must not all be rendered simultaneously.
+    const u32 stride_qwc = frame_sources[0];
+    const u32 packet_address = frame_sources[1];
+    if (stride_qwc < 8u || packet_address == 0 ||
+        packet_address > 0xFFFFFFFFu - 0x70u)
+        return;
+    const volatile u64* packet = reinterpret_cast<const volatile u64*>(packet_address);
+    captured.tex0 = packet[8];
+    captured.tex1 = packet[10];
+    captured.clamp = packet[12];
+    captured.test = packet[2];
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;

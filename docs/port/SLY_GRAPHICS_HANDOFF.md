@@ -40,24 +40,28 @@ snapshot compile 194 matched units and link. This compatibility work is done
 for the current revisions; do not keep broadening it without a new build
 failure.
 
-The experiment is not ready for more rendering features. It reads only the
-first `FrameSource` record for each mesh; `StripMesh::nstrips` counts
-frame-source animation records, not geometry strips. It treats the expanded
-stream as a triangle strip and does not recreate Sly's VU output. A capture
-before HUD rendering proves that world geometry reaches GL, but only as a gray
-horizon and ground plane. The picture does not identify whether the missing
-detail comes from mesh topology, an animated frame source, VU transforms, or
-GS material/depth behavior.
-Do not choose among those explanations without pairing a specific draw and
-camera with the user's PCSX2 recording.
+The first experiment is not ready for more rendering features. The decomp
+defines each `FrameSource` as a stride and base for data selected by an
+animation cursor. A follow-up mistakenly submitted all three records on one
+mesh as simultaneous materials; its captured world remained a gray horizon
+and ground plane. That experiment is reverted. `StripMesh::nstrips` is the
+number of queued animation sources, not geometry strips.
+
+The remaining mismatch is earlier than material selection: the adapter uses
+the base expanded positions instead of the active cursor's frame, morph
+deltas, and skinning transforms, and it approximates Sly's VU output with
+OpenGL. A native capture before HUD rendering proves some world geometry
+reaches GL, but not that the selected vertices or GS state match Sly. Do not
+add renderer features until one specific draw is traced from its active
+animation cursor and model/camera matrices through a single native primitive.
 
 The first experiment's texture was solid white, but the later kind-0 pass
 resolved actual texture uploads; one 256x128 upload is a purple atlas whose
 contents are not yet identified. Texture lookup is therefore not sufficient
 to make the scene match.
 The experiment does not read the active animation cursor when selecting that
-first frame source. Evidence from this run is local at
-`/tmp/sly-world-probe-run2.log` and `/tmp/sly1-native-world-00.png`.
+frame source. Evidence from the disproven multilayer run is local at
+`/tmp/sly-multisource-check.log` and `/tmp/sly1-native-world-00.png`.
 
 The fourth component written by `BuildStripMeshPacket` is fog bias
 (`fogBias + 28672` or `fogBias + 32768`). The kind-6 VU transform uses source
