@@ -1,41 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-The port and the matching decompilation can progress together. A complete
-matching decompilation is not required to begin tooling, asset research or a
-viewer, but native gameplay needs hostable C along its boot and frame paths.
-See [DESIGN.md](DESIGN.md) for the architecture and open decisions.
-The hardware-model launcher described in the implementation history below is
-an experimental branch of the work, not the target port architecture. Follow
-the [OpenRAC reuse plan](OPENRAC_REUSE.md): native game code, native service
-replacements and Sly-specific renderers; do not extend EE/IOP/DMA/VIF/VU/GS
-models as gameplay features.
-The [NTSC-U catalog extractor](ASSETS.md) now locates and extracts 46 named raw
-resource ranges, and the [VAG audio extractor](ASSETS.md) recovers standalone
-samples. The exact decomp stream-reader unit `00134000.cpp` is now host-readable and
-selected for the native build, including its LZ and buffered-byte readers. A
-port-only native ISO adapter reads the 150,849-byte Splash resource from the
-retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
-Its font atlas and palette data are present and match the decoded Splash bytes.
-Malformed text refers to the separate experimental guest-runtime renderer.
-The no-emulation host32 game loop clears the no-card screen, loads world
-`0x870cf0`, and advances through hundreds of frames. Its camera is finite, and
-`DrawModelPart` receives loaded-world mesh data. A port-only direct-host
-backfill now covers the handwritten `ComputeCameraDistanceFade` function.
-An opt-in host adapter captures three unskinned kind-6 meshes and sends them to
-a native triangle-strip pass. Its frame is a uniform dark gray, so it fails the
-visual gate and the option is off by default. The eight-quadword `FrameSource`
-is GIF A+D material state; vertex order comes from `VertexRefs`. The next slice
-is to preserve and validate one complete strip at the native draw boundary,
-then compare a solid-color silhouette with the retail capture. The current
-gray result drops UVs and strip boundaries before the draw and does not isolate
-VU clipping as the cause. Keep the matching decomp source unchanged. Do not
-build a general VU interpreter or extend device models as the gameplay
-graphics path. If existing captures cannot validate one strip end-to-end,
-switch to a data-only level viewer. See
-[the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
-and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
-details.
+## Current direction (2026-11-15)
+
+The project is past startup research but not at playable graphics. The
+host32 game loop can dismiss the no-card warning, load world `0x870cf0`, and
+advance at about 56 frames per second. It reaches model draw callbacks. The
+last successful visible screen remains the memory-card warning; the optional
+kind-6 renderer is a failed experiment because it produced a uniform gray
+frame. No title, controllable level, or correct world geometry is confirmed.
+
+The code match is complete for US functions, but that does not make the port
+host-ready. VU microcode remains assembly, and host-generation still needs
+port-only replacements and fallback traps. Public decomp master is `8f7a85a3`;
+the sibling checkout is older at `1cbb33fd`. A separate current-source
+staging build compiles 194 matched units and 85 port-only backfills. Keep such
+replacements under `port/game/sly1-us/native/`, not in matching source.
+
+**Next milestone: one recognizable piece of loaded-world geometry.** Select a
+draw from measured object role, screen bounds, draw order and material; do not
+assume kind-6 is foreground or add more renderer/device behavior on a guess.
+Capture one target against a PCSX2 reference, render it with its real strip
+boundaries and depth/material behavior, and stop if the source data cannot be
+validated. Do not add backfills unless a current trace shows they block this
+specific milestone. If the native draw boundary cannot be validated from the
+available capture, produce a data-only viewer as a scoped fallback rather
+than adding another compatibility layer.
+
+See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
+[the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and
+[the OpenRAC reuse plan](OPENRAC_REUSE.md) for architecture boundaries.
+The dated records below are historical; use this section for current status.
 
 The 2026-11-15 reset review found that the active sibling checkout was behind
 public decomp master. A source adapter update now builds against master

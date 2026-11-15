@@ -28,17 +28,27 @@ advances at about 56 frames per second and reaches kind-5 and kind-6 draw
 callbacks. The last confirmed visible result remains the no-card screen; the
 gray kind-6 capture remains a failed experiment.
 
-**Reset the work around one complete kind-6 strip.** The current experiment
-keeps ordered positions and tint but drops UVs and strip boundaries, then
-guesses at topology and clipping. That makes its uniform gray output
-uninformative. Capture one strip's positions, UVs, tint, strip range, model and
-camera transforms, and material state at the native draw boundary. Validate
-those inputs against the existing retail capture. Render just that strip with
-a solid-color native shader and explicit clipping, and compare its silhouette
-to the retail frame. Fix only the first measured mismatch. If the current
-captures cannot establish a valid strip and reference silhouette, stop the
-renderer prototype and make a data-only level/mesh viewer the next milestone.
-Do not add startup fixes, broad VU behavior, or more draw hooks in this slice.
+**Stop using the three captured kind-6 meshes as the foreground graphics
+target.** The saved positions with a captured transform project nearly across
+the viewport; this is likely a background object, not a confirmed
+identification. Its 128-byte material packet contains `TEST1=0x317e1`:
+alpha-test NEVER, AFAIL framebuffer-only, and ZTST ALWAYS. The prototype
+drops UVs/material state and uses OpenGL LEQUAL with depth writes. The gray
+capture is consistent with a background pass drawn flat and with incorrect
+depth behavior; it does not prove a clipping failure.
+
+The source's input W is `fogBias + 28672` or `fogBias + 32768`. The
+kind-6 VU transform builds clip W from its matrix and homogeneous constant,
+using the source XYZ for position. The native `vec4(x,y,z,1)` therefore has
+the right clip-space W; do not feed the raw fog value as OpenGL W. Fog remains
+unimplemented in this flat-color pass.
+
+The next slice is to identify the actual foreground target from the current
+draw stream. Extend the existing model trace with owner/class identity and
+projected bounds, then select a finite unskinned mesh by its role and draw
+order, not merely because its path is small. Verify its source geometry,
+transform, and material before writing its native pass. Do not add loader
+fixes or general VU behavior.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
@@ -104,15 +114,16 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Capture one complete kind-6 strip at the native draw handoff: positions,
-   UVs, tint, strip range, model/camera transforms, and material state. Validate
-   the input against existing retail data and frame captures.
-2. Render only that strip with a solid-color shader and explicit clipping;
-   compare silhouette, winding, scale, and placement with the retail frame.
-3. Fix the first demonstrated mismatch. If existing captures cannot validate
-   the strip, retire the renderer experiment from active work and build a
-   data-only extracted-level viewer. Keep the native prototype disabled until
-   a recognizable scene capture passes.
+1. Extend the existing model draw trace with owner/class identity and
+   projected bounds so the foreground candidate is selected by role and
+   screen location. Do not assume the kind-4 draw is the target.
+2. Capture the selected mesh's source geometry, transform, draw order, and
+   material state. Render that mesh in solid color through the native path,
+   preserving the measured depth behavior.
+3. Compare against a PCSX2 scene capture. Fix the first measured mismatch and
+   expand only to the next mesh kind needed for recognizable world geometry.
+   Keep the kind-6 experiment isolated until its background texture, fog, and
+   depth behavior are represented correctly.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active

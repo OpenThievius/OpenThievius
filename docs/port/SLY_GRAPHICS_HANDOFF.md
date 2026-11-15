@@ -18,14 +18,26 @@ snapshot compile 194 matched units and link. This compatibility work is done
 for the current revisions; do not keep broadening it without a new build
 failure.
 
-The useful next step is one complete captured kind-6 strip, not more startup
-or runtime instrumentation. The current prototype preserves positions and
-tint but drops UVs and per-strip boundaries, so its gray frame does not prove
-that VU clipping is the problem. Capture and validate the strip inputs and
-transforms against the existing retail reference, then render a solid-color
-silhouette. If the existing captures cannot validate the input or silhouette,
-pause this renderer and build a data-only level viewer instead. Do not extend
-general VIF/VU/GS behavior.
+The next step is to identify the actual foreground target from the current
+draw stream, not to keep treating the three kind-6 meshes as the level. The
+saved positions with a captured transform project nearly across the viewport,
+so they are likely a background object. Their first material packet has
+`TEST1=0x317e1`: alpha-test NEVER, AFAIL framebuffer-only, and ZTST ALWAYS.
+The prototype discards UV/material state and uses OpenGL LEQUAL with depth
+writes. A flat gray full-screen image is consistent with a background pass and
+incorrect depth handling; it is not evidence of a clipping bug.
+
+The fourth component written by `BuildStripMeshPacket` is fog bias
+(`fogBias + 28672` or `fogBias + 32768`). The kind-6 VU transform uses source
+XYZ and builds clip W from the matrix and homogeneous constant. Therefore the
+native `vec4(x,y,z,1)` is right for clip position; the flat-color prototype
+still omits fog. Do not pass the raw fog value as clip W.
+
+Keep the kind-6 prototype disabled. Extend the existing draw trace with
+owner/class identity and projected bounds, then select a finite unskinned
+foreground mesh by its role and draw order. Verify that mesh's source data,
+transform, and material before adding its native pass. Do not extend general
+VIF/VU/GS execution.
 
 ## Reset the graphics plan (2026-11-15)
 
@@ -58,11 +70,14 @@ game graphics or treat it as evidence that clipping is the cause.
 `BuildStripMeshPacket` expands positions and UVs in `VertexRefs` order, and
 records each strip separately before building VIF packets. The 128-byte
 `FrameSource` is six packed GIF A+D material-state writes, not a
-primitive/index list. The native prototype currently loses some of this
-high-level data before drawing, so first preserve and validate the strip
-record. Only then compare a solid-color silhouette against PCSX2 and decide
-whether clipping/finish behavior needs a targeted port implementation. Keep
-OpenGL work on the render thread.
+primitive/index list. The saved candidate packet's `TEST1` value is
+`0x317e1`: ATE=1, ATST=NEVER, AFAIL=FB_ONLY, ZTE=1, ZTST=ALWAYS. The native
+prototype ignores those fields and applies LEQUAL with depth writes. The
+builder's fourth position lane is fog bias; inspection of the selected VU
+transform shows it uses XYZ and supplies clip W from the matrix and
+homogeneous constant. This does not explain the screen coverage by a W=1
+error. Treat the candidate as a likely background pass, then identify a
+foreground mesh by owner and draw order. Keep OpenGL work on the render thread.
 
 ## Builder input capture (2026-11-15)
 

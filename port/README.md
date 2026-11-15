@@ -46,30 +46,26 @@ Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 
 ## Current native status (2026-11-15)
 
-The host32 build currently reads `sly1-decomp` `1cbb33fd`; public upstream is
-at `8f7a85a3`. The US match report
-is 4,807/4,807 functions and 100% of code bytes, with 140 data bytes unmatched.
-That is matching coverage, not host-ready C coverage: some matched functions
-remain assembly, and the native build still uses 85 port-only backfills and
-101 fallback traps.
+Public `sly1-decomp` master is `8f7a85a3` (4,807/4,807 US functions matched;
+99.97% of data matched). The sibling checkout is still `1cbb33fd`. A separate
+staging snapshot of `8f7a85a3` has compiled 194 matched units plus 85 port-only
+backfills and linked; the launcher still reports fallback traps for functions
+without host C. The code-match percentage is not a measure of native host
+readiness: VU microcode remains assembly and some translated call paths still
+need port replacements.
 
-Hostgen reports the same 489 translated functions and 12-function reachable
-no-C frontier on both revisions. Building against `8f7a85a3` currently stops
-because `compile_decomp_host32.py` only recognizes the old
-`AddFrictionItemsAndSolve` declaration. The decomp update improves modern
-compiler compatibility but does not unblock rendering by itself. See the
-[clean reset review](../docs/port/PLAYABLE_TODO.md#clean-reset-review-2026-11-15).
-
-The no-emulation host32 game loop passes the no-card screen, loads world
-`0x870cf0`, and advances at about 56 frames per second. The black scene is not
-currently a startup or missing-input problem. A corrected trace confirms the
-loaded world reaches a skinned kind-5 part followed by three unskinned kind-6
-meshes. An opt-in native adapter now captures and submits these kind-6 meshes,
-but a hidden run produced only a uniform dark gray frame. It does not satisfy
-the graphics gate and is disabled by default. The 128-byte `FrameSource` is a
-GIF A+D material-state packet; vertex order comes from `VertexRefs`. The next
-task is to map the kind-6 VU clipping and output behavior, then correct the
-host conversion. Do not add unrelated startup shims. See
+The host32 game loop dismisses the no-card warning when given input, loads
+world `0x870cf0`, and advances at about 56 frames per second. It reaches model
+draw callbacks, but no title or controllable level is confirmed. The last
+successful visible game screen is the memory-card warning. The opt-in kind-6
+renderer produced a uniform gray frame, so it is disabled and counts as a
+failed experiment. The next milestone is the first recognizable loaded-world
+geometry, selected from evidence about object role, bounds, draw order and
+material. Stop adding startup/backfill fixes unless a current run demonstrates
+that one blocks this milestone. See the
+[clean reset review](../docs/port/PLAYABLE_TODO.md#clean-reset-review-2026-11-15),
+the [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and
+the [roadmap](../docs/port/ROADMAP.md).
 [`SLY_GRAPHICS_HANDOFF.md`](../docs/port/SLY_GRAPHICS_HANDOFF.md) and
 [`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md).
 
