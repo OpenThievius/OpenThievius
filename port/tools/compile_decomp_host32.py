@@ -4701,7 +4701,8 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(signature, replacement, 1)
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
-                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_mesh_sources(u32, u32);\n'
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
             )
             signature = (
@@ -4710,10 +4711,7 @@ void LoadEffectSpawner"""
                 "                   WeightIndices* ents, Vec3* verts, Vec3* vnrms, f32* weights, PacketWriter* pkt,\n"
                 "                   s32** outs)\n{"
             )
-            replacement = signature + (
-                "\n    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
-                "(u32)uvs, (u32)n, (u32)recs);"
-            )
+            replacement = signature
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition for native renderer")
             adapted = adapted.replace(signature, replacement, 1)
@@ -4723,13 +4721,24 @@ void LoadEffectSpawner"""
                 "                   s32 n, VertexRefs* recs, WeightIndices* ents, Vec3* verts, Vec3* vnrms,\n"
                 "                   f32* weights, PacketSlot* pkt, s32** outs)\n{"
             )
-            lit_replacement = lit_signature + (
-                "\n    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
-                "(u32)uvs, (u32)n, (u32)recs);"
-            )
+            lit_replacement = lit_signature
             if adapted.count(lit_signature) != 1:
                 raise RuntimeError("expected BuildLitStripMeshPacket definition for native renderer")
             adapted = adapted.replace(lit_signature, lit_replacement, 1)
+            source_hook = (
+                "    if (node == 0 && mesh->hook != 0) {\n"
+                "        node = ((CursorHook*)mesh->hook)->vt[5]((CursorHook*)mesh->hook, mesh);\n"
+                "    }\n"
+            )
+            if adapted.count(source_hook) != 2:
+                raise RuntimeError("expected both strip builders to resolve their animation cursor")
+            adapted = adapted.replace(
+                source_hook,
+                source_hook +
+                "    sly1_native_trace_mesh_sources((u32)mesh, (u32)node);\n"
+                "    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
+                "(u32)uvs, (u32)n, (u32)recs, (u32)node);\n",
+            )
             needle = "    b.m = self->m;\n"
             replacement = needle + (
                 "    sly1_native_submit_model_part((u32)self, (u32)g_currentWorld, (u32)g_camera);\n"

@@ -636,6 +636,39 @@ extern "C" void openrac_native_sly_world_mesh_submit(
             draw.mvp[row * 4u + column] = value;
         }
     }
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
+        static unsigned samples = 0;
+        if (samples++ < 64u) {
+            float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
+            float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
+            unsigned projected = 0, inside = 0;
+            for (std::uint32_t i = 0; i < vertex_count; ++i) {
+                const float x = vertices[i * 9u + 0u];
+                const float y = vertices[i * 9u + 1u];
+                const float z = vertices[i * 9u + 2u];
+                float clip[4]{};
+                for (std::size_t row = 0; row < 4; ++row) {
+                    clip[row] = draw.mvp[row] * x + draw.mvp[4u + row] * y +
+                                draw.mvp[8u + row] * z + draw.mvp[12u + row];
+                }
+                if (!std::isfinite(clip[3]) || std::abs(clip[3]) < 1.0e-6f) continue;
+                const float nx = clip[0] / clip[3];
+                const float ny = clip[1] / clip[3];
+                const float nz = clip[2] / clip[3];
+                if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(nz)) continue;
+                ++projected;
+                if (nx >= -1.0f && nx <= 1.0f && ny >= -1.0f && ny <= 1.0f &&
+                    nz >= -1.0f && nz <= 1.0f) ++inside;
+                min_x = std::min(min_x, nx); max_x = std::max(max_x, nx);
+                min_y = std::min(min_y, ny); max_y = std::max(max_y, ny);
+                min_z = std::min(min_z, nz); max_z = std::max(max_z, nz);
+            }
+            std::fprintf(stderr,
+                         "[native sly projected bounds] instance=%#llx vertices=%u projected=%u inside=%u ndc=%g,%g..%g,%g z=%g..%g\n",
+                         static_cast<unsigned long long>(instance), vertex_count,
+                         projected, inside, min_x, min_y, max_x, max_y, min_z, max_z);
+        }
+    }
     std::scoped_lock lock(g_world_mesh_mutex);
     if (g_world_mesh_world != world) {
         g_world_meshes.clear();
@@ -704,9 +737,11 @@ extern "C" int openrac_native_window_poll_input(void) {
     SDL_Event event;
     bool quit = false;
     static unsigned traced_key_events = 0;
-    static unsigned test_input_frame = 0;
-    static bool test_space_checked = false;
-    static bool test_space_injected = false;
+    static std::array<unsigned, 8> test_cross_frames{};
+    static unsigned test_cross_count = 0;
+    static unsigned test_cross_next = 0;
+    static unsigned test_frame = 0;
+    static bool test_cross_checked = false;
     std::scoped_lock lock(g_input_mutex);
     while (SDL_PollEvent(&event)) {
         static unsigned traced_window_events = 0;
@@ -732,24 +767,26 @@ extern "C" int openrac_native_window_poll_input(void) {
             (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) quit = true;
         g_input->handle_event(event);
     }
-    if (!test_space_checked) {
-        test_space_checked = true;
-        const char* delay = std::getenv("OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES");
-        if (delay != nullptr && delay[0] != '\0' && delay[0] != '0') {
+    if (!test_cross_checked) {
+        test_cross_checked = true;
+        const char* setting = std::getenv("OPENRAC_TEST_PRESS_CROSS_AT_FRAMES");
+        if (setting == nullptr) setting = std::getenv("OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES");
+        const char* cursor = setting;
+        while (cursor != nullptr && *cursor != '\0' && test_cross_count < test_cross_frames.size()) {
             char* end = nullptr;
-            const unsigned long after = std::strtoul(delay, &end, 10);
-            if (end != delay && *end == '\0') {
-                test_input_frame = static_cast<unsigned>(after);
-            }
+            const unsigned long value = std::strtoul(cursor, &end, 10);
+            if (end == cursor || value == 0 || value > 10000000ul) break;
+            test_cross_frames[test_cross_count++] = static_cast<unsigned>(value);
+            if (*end != ',') break;
+            cursor = end + 1;
         }
     }
-    if (test_input_frame > 0 && !test_space_injected) {
-        --test_input_frame;
-        if (test_input_frame == 0) {
-            g_input->test_press_cross_once();
-            test_space_injected = true;
-            std::fprintf(stderr, "[test-input] injected one Cross press into native pad 0\n");
-        }
+    ++test_frame;
+    while (test_cross_next < test_cross_count && test_frame >= test_cross_frames[test_cross_next]) {
+        g_input->test_press_cross_once();
+        std::fprintf(stderr, "[test-input] injected Cross press %u at native frame %u\n",
+                     test_cross_next + 1, test_frame);
+        ++test_cross_next;
     }
     g_input->update();
     return quit ? 1 : 0;

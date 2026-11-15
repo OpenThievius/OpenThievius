@@ -1,6 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+## Current checkpoint (2026-11-15, clean graphics reset)
+
+A hidden 22-second native run injected Cross inside the game process at native
+frames 120 and 600, then captured frames beginning around frame 700. All eight
+captures are black. The launcher was stopped by the 22-second timeout (exit
+137); this is not a game crash. The run did not record the active world or draw
+path, so it does not prove that either Cross press advanced to a title or level.
+Log: `/tmp/sly-clean-sequence-20261115.log`; frames:
+`/tmp/sly1-native-frame-{00..07}.ppm`.
+
+A separate opt-in Sly geometry experiment produced a gray horizon and ground,
+but it has no recognizable object and is not evidence of a usable world
+renderer. The retail no-card UI remains the last user-confirmed screen. Do not
+continue mesh conversion or shader work until a single-frame trace establishes
+where loaded Sly draws stop reaching the normal OpenRAC presentation path.
+Correlate world traversal, one model submission, VIF/VU/GIF output, renderer
+intake, and the final framebuffer at the same frame. Reuse the existing
+OpenRAC renderer; keep any Sly-only functional replacement under
+`port/game/sly1-us/native/`, separate from matched source.
+
+The decomp's 100% code match describes recovered/matched game code, not a
+complete host port. The current host32 build compiles 194 matched units and 85
+port-only backfills and still links 99 missing-function traps. Keep those
+categories separate in readiness reports.
+
 ## Current checkpoint (2026-11-15, after native frame capture)
 
 The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains

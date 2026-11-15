@@ -7,16 +7,19 @@ decomp master is `8f7a85a3`.
 ## Direction reset
 
 The no-emulation launcher reaches model draw callbacks after loading a world,
-but the last confirmed useful image is the memory-card UI. The optional world
-renderer outputs only gray and is a failed experiment; stop adding features
-to it. The next graphics task is one Sly-specific native mesh conversion using
-the decomp's actual builder/draw inputs, active frame-source state, and the
-behavior of Sly's VU program.
-Keep the implementation in the port, do not make a general VU/VIF/GS emulator,
-and do not require exact PCSX2 frame matching before starting. Pass only when
-a native capture shows one recognizable, correctly positioned and textured
-world object. If the source and captured draw inputs do not define that
-conversion, report the exact gap instead of adding another broad probe.
+but the last user-confirmed useful image is the retail no-card UI. A hidden run
+with two process-local Cross presses captured black frames around native frame
+700. A separate opt-in world-renderer run produced only a gray horizon and
+ground. Treat these as separate failures: neither identifies where the loaded
+scene disappears.
+
+The next task is to correlate one game frame and one object through the
+existing OpenRAC path: world traversal, Sly submission, VIF/VU/GIF output,
+renderer intake, and final framebuffer. Reuse the established renderer and
+texture systems. Keep any Sly-specific replacement under
+`port/game/sly1-us/native/`, separate from matched decomp source. Implement VU
+conversion only if this trace establishes that it is the first missing stage.
+The pass is a non-black captured frame attributable to loaded Sly data.
 
 ## Clean reset review (2026-11-15)
 
@@ -41,27 +44,30 @@ for the current revisions; do not keep broadening it without a new build
 failure.
 
 The first experiment is not ready for more rendering features. The decomp
-defines each `FrameSource` as a stride and base for data selected by an
-animation cursor. A follow-up mistakenly submitted all three records on one
-mesh as simultaneous materials; its captured world remained a gray horizon
-and ground plane. That experiment is reverted. `StripMesh::nstrips` is the
-number of queued animation sources, not geometry strips.
+defines each `FrameSource` as a stride and base for a frame-selected payload
+unpacked into a VU input range. The captured 128-byte kind-6 payload is a
+packed GIF A+D packet with six register writes. The active cursor selects the
+frame offset for each source. Source records are input ranges, not independent
+whole-mesh GL draws; submitting the same mesh once per source was tested and
+did not improve the gray horizon image.
 
-The remaining mismatch is earlier than material selection: the adapter uses
-the base expanded positions instead of the active cursor's frame, morph
-deltas, and skinning transforms, and it approximates Sly's VU output with
-OpenGL. A native capture before HUD rendering proves some world geometry
-reaches GL, but not that the selected vertices or GS state match Sly. Do not
-add renderer features until one specific draw is traced from its active
-animation cursor and model/camera matrices through a single native primitive.
+The adapter still substitutes base expanded positions for Sly's active VU
+output and does not apply morph or skinning transforms. It also approximates
+Sly's VU output with OpenGL. A native capture before HUD rendering proves
+some world geometry reaches GL, but the image is still only a gray horizon
+and ground. The saved tag confirms six A+D writes, including the expected GS
+register addresses. The native adapter validates that tag, uses the active
+cursor frame to select its payload, and extracts TEST1, TEX0_1, TEX1_1, and
+CLAMP1 by register address. It still draws expanded source positions rather
+than VU output, so valid material state alone does not make the scene match.
 
-The first experiment's texture was solid white, but the later kind-0 pass
-resolved actual texture uploads; one 256x128 upload is a purple atlas whose
-contents are not yet identified. Texture lookup is therefore not sufficient
-to make the scene match.
-The experiment does not read the active animation cursor when selecting that
-frame source. Evidence from the disproven multilayer run is local at
-`/tmp/sly-multisource-check.log` and `/tmp/sly1-native-world-00.png`.
+The focused trace recorded early kind-0 sources with a null cursor and frame
+zero, and the world pass submitted 41 draws. Animation selection is not the
+current blocker for those static meshes. The remaining concrete gap is how
+Sly's VU program combines these ranges into final GS primitives. Evidence:
+`/tmp/sly-active-frame-source-trace2.log`,
+`/tmp/sly1-native-world-00.png`, and
+`/tmp/sly-kind6-build-*-strip-0.bin`.
 
 The fourth component written by `BuildStripMeshPacket` is fog bias
 (`fogBias + 28672` or `fogBias + 32768`). The kind-6 VU transform uses source
@@ -109,15 +115,14 @@ block the first native world draw. Keep the current black-scene capture as the
 baseline and make the next deliverable one captured frame with a loaded Sly
 mesh visible.
 
-The mesh-build capture gives a narrower route than the earlier plan. The
-128-byte `FrameSource` record is a packed GIF A+D material-state packet, not
-triangle topology: its tag declares six packed A+D writes (`TEST1`, `ALPHA1`,
-`FOGCOL`, `TEX0_1`, `TEX1_1`, and `CLAMP1`). Do not spend time decoding it as
-an index/strip list. `BuildStripMeshPacket` expands positions and UVs in
-`VertexRefs` order and records strip ranges. Preserve that higher-level data
-at the native handoff before investigating VU output semantics. This is a
-bounded question; it does not require implementing a general VU or PS2 device
-emulator.
+The mesh-build capture gives a narrower route than the earlier plan. A
+`FrameSource` record is an 8-byte stride/base descriptor. Its base points to
+V4 input data copied to a VU memory range; it is not a GIF material packet or
+a primitive index list. `BuildStripMeshPacket` expands positions and UVs in
+`VertexRefs` order, then constructs the VU input packet. Preserve those
+builder inputs and the active cursor at the native handoff before attempting
+the Sly-specific VU conversion. This is a bounded question; it does not
+require a general VU or PS2 device emulator.
 
 An opt-in native adapter copies expanded kind-6 positions and tint colors,
 matches them to `PartMesh.kind`, and submits them with part and camera matrices
@@ -129,16 +134,14 @@ prototype is disabled by default. Do not present the gray frame as visible
 game graphics or treat it as evidence that clipping is the cause.
 
 `BuildStripMeshPacket` expands positions and UVs in `VertexRefs` order, and
-records each strip separately before building VIF packets. The 128-byte
-`FrameSource` is six packed GIF A+D material-state writes, not a
-primitive/index list. The saved candidate packet's `TEST1` value is
-`0x317e1`: ATE=1, ATST=NEVER, AFAIL=FB_ONLY, ZTE=1, ZTST=ALWAYS. The native
-prototype ignores those fields and applies LEQUAL with depth writes. The
-builder's fourth position lane is fog bias; inspection of the selected VU
-transform shows it uses XYZ and supplies clip W from the matrix and
-homogeneous constant. This does not explain the screen coverage by a W=1
-error. Treat the candidate as a likely background pass, then identify a
-foreground mesh by owner and draw order. Keep OpenGL work on the render thread.
+records each VU input range before building VIF packets. The captured kind-6
+payload's GIF tag and register IDs confirm that it carries material state
+through the VU path. The builder's fourth position lane is fog bias;
+inspection of the selected VU transform shows it uses XYZ and supplies clip
+W from the matrix and homogeneous constant. This does not explain the screen
+coverage by a W=1 error. Continue identifying a foreground mesh by owner and
+draw order, using the active cursor and VU inputs. Keep OpenGL work on the
+render thread.
 
 ## Builder input capture (2026-11-15)
 

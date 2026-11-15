@@ -10,6 +10,7 @@ extern "C" char* getenv(const char*);
 #include "openrac/native_window.h"
 #include <SDL3/SDL.h>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <link.h>
@@ -753,7 +754,8 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
 
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
                                                    u32 tints_address, u32 uvs_address,
-                                                   u32 vertex_count, u32 refs_address) {
+                                                   u32 vertex_count, u32 refs_address,
+                                                   u32 cursor_address) {
     if (mesh_address == 0 || vecs_address == 0 ||
         refs_address == 0 || vertex_count < 3 || vertex_count > 4096)
         return;
@@ -764,35 +766,55 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
     const volatile float* uvs = uvs_address != 0
         ? reinterpret_cast<const volatile float*>(uvs_address) : nullptr;
-    // StripMesh::nstrips counts FrameSource animation records, not geometry strips.
-    const u32 frame_source_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
-    const u32 frame_sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
-    if (frame_source_count == 0u || frame_source_count > 16u ||
-        frame_sources_address == 0) {
+    // Each FrameSource describes a frame-strided payload. For these Sly
+    // meshes, the payload is a packed GIF A+D material packet consumed by VU1.
+    const u32 source_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
+    const u32 sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
+    if (source_count == 0u || source_count > 16u ||
+        sources_address == 0) {
         static u32 unsupported_strip_notices = 0;
         if (unsupported_strip_notices++ < 12u)
             std::fprintf(stderr,
-                         "[native sly mesh skipped] mesh=%#010x kind=%u frame_sources=%u\n",
-                         mesh_address, mesh[0], frame_source_count);
+                         "[native sly mesh skipped] mesh=%#010x kind=%u sources=%u\n",
+                         mesh_address, mesh[0], source_count);
         return;
     }
     NativeSlyMesh captured;
     captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
-    const volatile u32* frame_sources =
-        reinterpret_cast<const volatile u32*>(frame_sources_address);
-    // Every FrameSource record contains one animation's packed GS state. The
-    // active cursor selects a record at draw time; records are not material
-    // layers and must not all be rendered simultaneously.
-    const u32 stride_qwc = frame_sources[0];
-    const u32 packet_address = frame_sources[1];
-    if (stride_qwc < 8u || packet_address == 0 ||
-        packet_address > 0xFFFFFFFFu - 0x70u)
+    const volatile u32* sources = reinterpret_cast<const volatile u32*>(sources_address);
+    const std::int32_t stride_qwc = static_cast<std::int32_t>(sources[0]);
+    const u32 base = sources[1];
+    std::int32_t frame = 0;
+    if (cursor_address != 0) {
+        const volatile u32* cursor = reinterpret_cast<const volatile u32*>(cursor_address);
+        frame = static_cast<std::int32_t>(cursor[2]);
+    }
+    const std::int64_t selected = static_cast<std::int64_t>(base) +
+        static_cast<std::int64_t>(frame) * stride_qwc * 16;
+    if (stride_qwc < 7 || selected <= 0 || selected > 0xFFFFFFFFll - 0x70ll)
         return;
-    const volatile u64* packet = reinterpret_cast<const volatile u64*>(packet_address);
-    captured.tex0 = packet[8];
-    captured.tex1 = packet[10];
-    captured.clamp = packet[12];
-    captured.test = packet[2];
+    const volatile u64* packet = reinterpret_cast<const volatile u64*>(
+        static_cast<u32>(selected));
+    const u64 gif_tag = packet[0];
+    const u64 gif_registers = packet[1];
+    const u32 loop_count = static_cast<u32>(gif_tag & 0x7FFFu);
+    const u32 format = static_cast<u32>((gif_tag >> 58u) & 3u);
+    const u32 register_count = static_cast<u32>((gif_tag >> 60u) & 0xFu);
+    if (format != 0u || register_count != 1u ||
+        (gif_registers & 0xFu) != 0xEu || loop_count == 0u ||
+        loop_count + 1u > static_cast<u32>(stride_qwc))
+        return;
+    for (u32 i = 0; i < loop_count; ++i) {
+        const u64 value = packet[2u + i * 2u];
+        const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
+        switch (address) {
+        case 0x47: captured.test = value; break;   // TEST1
+        case 0x06: captured.tex0 = value; break;   // TEX0_1
+        case 0x14: captured.tex1 = value; break;   // TEX1_1
+        case 0x08: captured.clamp = value; break;  // CLAMP1
+        default: break;                            // ALPHA1, FOGCOL, and others
+        }
+    }
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
@@ -821,6 +843,48 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         if (notices++ < 16u)
             std::fprintf(stderr, "[native sly mesh capture] mesh=%#010x vertices=%u registered=%zu\n",
                          mesh_address, vertex_count, g_native_sly_meshes.size());
+    }
+}
+
+extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_address) {
+    if (mesh_address == 0 || std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCES") == nullptr)
+        return;
+    const volatile u32* mesh = reinterpret_cast<const volatile u32*>(mesh_address);
+    const u32 count = mesh[0x18 / 4];
+    const u32 sources_address = mesh[0x1C / 4];
+    const std::int32_t frame_count = static_cast<std::int32_t>(mesh[0x20 / 4]);
+    std::int32_t frame = 0;
+    u32 cursor_flags = 0;
+    if (cursor_address != 0) {
+        const volatile u32* cursor = reinterpret_cast<const volatile u32*>(cursor_address);
+        cursor_flags = cursor[0];
+        frame = static_cast<std::int32_t>(cursor[2]);
+    }
+    static std::unordered_map<u64, u64> last_state;
+    static u32 notices = 0;
+    const u64 key = (static_cast<u64>(mesh_address) << 32u) | cursor_address;
+    const u64 state = (static_cast<u64>(cursor_flags) << 32u) |
+                      static_cast<u32>(frame);
+    const auto previous = last_state.find(key);
+    if (previous != last_state.end() && previous->second == state) return;
+    if (notices++ >= 96u) return;
+    last_state[key] = state;
+    std::fprintf(stderr,
+                 "[native sly frame sources] mesh=%#010x kind=%u sources=%u frame_count=%d cursor=%#010x flags=%#x frame=%d\n",
+                 mesh_address, *reinterpret_cast<const volatile u8*>(mesh_address),
+                 count, frame_count, cursor_address, cursor_flags, frame);
+    if (count == 0u || count > 16u || sources_address == 0) return;
+    const volatile u32* sources = reinterpret_cast<const volatile u32*>(sources_address);
+    for (u32 i = 0; i < count; ++i) {
+        const std::int32_t stride = static_cast<std::int32_t>(sources[i * 2u]);
+        const u32 base = sources[i * 2u + 1u];
+        const std::int64_t offset = static_cast<std::int64_t>(frame) * stride * 16;
+        const std::int64_t selected = static_cast<std::int64_t>(base) + offset;
+        std::fprintf(stderr,
+                     "[native sly frame source] mesh=%#010x index=%u stride_qwc=%d base=%#010x selected=%#010llx bytes=%lld\n",
+                     mesh_address, i, stride, base,
+                     static_cast<unsigned long long>(selected),
+                     static_cast<long long>(stride) * 16);
     }
 }
 
@@ -1047,7 +1111,7 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
-extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}

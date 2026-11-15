@@ -7,29 +7,29 @@
 
 The port is not playable. It gets past the memory-card screen, loads world
 `0x870cf0`, advances frames, and reaches model draw callbacks. The last
-confirmed useful image is still the memory-card UI. The optional renderer's
-gray frame is a failed shortcut: its triangle-strip guess and first
-frame-source selection are unvalidated. Do not keep tuning that code.
+user-confirmed image is the retail no-card screen. A hidden run with two
+process-local Cross presses still captured black frames around native frame
+700. A separate opt-in renderer run drew only a gray horizon and ground. These
+are different results; neither proves that the loaded world is reaching a
+working presentation path.
 
-### One deliverable: a recognizable world object
+### One deliverable: locate the first lost frame
 
-Implement a small Sly-specific native conversion at the mesh-build/model-draw
-boundary. Use the decomp's vertex references, strip ranges, active frame-source
-state, matrices, and material state. Derive the needed primitive conversion
-from Sly's VU program and public hardware documentation. This is a renderer
-replacement for this game's draw path, not a general VU/VIF/GS emulator. Any
-functional C stays under `port/game/sly1-us/native/`, separate from matched
-source.
+Trace one frame through the existing OpenRAC rendering path: active world,
+draw-list traversal, Sly model submission, VIF/VU/GIF output, renderer bucket,
+and final framebuffer. Correlate these at one frame and one object so we know
+the first boundary where the loaded scene disappears. Reuse OpenRAC's existing
+renderer and texture systems. Keep any Sly-specific adapter or functional C
+under `port/game/sly1-us/native/`, separate from matched decomp source.
 
-**Pass:** save a native frame with one recognizable, correctly positioned and
-textured world object. Then expand to the remaining scene. Until that image
-exists, do not count instrumentation, successful builds, frame rate, callback
-counts, texture uploads, or decomp percentages as visual progress. Do not open
-a mesh viewer or add unrelated loader/backfill work as the next milestone.
+**Pass:** identify and document the first boundary where the loaded scene is
+lost, then fix only that boundary and capture a non-black frame attributable
+to loaded Sly data. A successful build, frame rate, callback count, texture
+upload, or decomp percentage is not visual progress. Do not implement a VU
+conversion until the trace shows that the existing renderer path requires it.
 
-If the source/input boundary does not contain enough information to implement
-the bounded conversion, write down the exact missing field or behavior and
-stop there. Do not respond to uncertainty with another broad trace or another
+If this trace cannot isolate a single lost boundary, narrow it before changing
+rendering code. Do not respond to uncertainty with another broad trace or a
 speculative shader.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
@@ -54,23 +54,18 @@ gray kind-6 capture remains a failed experiment.
 
 ## Stop the speculative renderer loop
 
-Do not add more startup shims, shader features, or broad renderer probes. The
-current experiment reads only the first `FrameSource` from each mesh. In the
-decomp, `StripMesh::nstrips` counts frame-source animation records; it is not a
-geometry-strip count. The experiment also treats the expanded vertex stream as
-a triangle strip, without validating the VU output topology. That is not
-enough to claim a faithful Sly draw: the world-only capture has no recognizable
-scene, even though the texture pool resolves real uploads. No more runtime
-renderer work is justified until a candidate draw is paired with a reference
-frame.
+Do not add more startup shims or general renderer features. `FrameSource` is
+an 8-byte stride/base descriptor; the selected payload can be a packed GIF
+A+D state packet. The active cursor selects its frame offset. The renderer
+validates the kind-6 payload and resolves its GS register values, but a bounded
+run still produced only a gray horizon and ground. Submitting all three
+sources of a kind-0 mesh as duplicate GL draws also failed to improve it.
 
-First compare the current native hidden-run capture with the existing PCSX2
-recordings and identify one same-scene, same-camera draw. If the recordings do
-not show a comparable frame, stop runtime experiments and build a data-only
-mesh viewer from the extracted local catalog. That viewer is for inspecting
-asset geometry and materials; it is not a port milestone. Resume the runtime
-path only after identifying the candidate in both captures and recording its
-frame-source animation records and VU output topology completely.
+The evidence does not yet show that VU conversion is the first lost boundary:
+the default path captures black, while the opt-in geometry experiment is gray.
+First correlate one game frame across model submission, renderer intake, and
+the framebuffer. Only implement the Sly VU conversion if that trace proves the
+existing renderer receives no usable primitives from this draw path.
 
 Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
 draws have finite matrices, so this trace does not yet show that those objects
