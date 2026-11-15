@@ -22,18 +22,14 @@ The no-emulation host32 game loop clears the no-card screen, loads world
 `0x870cf0`, and advances through hundreds of frames. Its camera is finite, and
 `DrawModelPart` receives loaded-world mesh data. A port-only direct-host
 backfill now covers the handwritten `ComputeCameraDistanceFade` function.
-However, a hidden native capture is still black because the SDL renderer only
-has the HUD bucket; it has no Sly world renderer consuming model draws. The
-corrected loaded-world trace finds three unskinned kind-6 meshes after the
-first, skinned kind-5 part. The first kind-6 mesh has 106 vertices, one
-eight-quadword strip source, no bones, and a finite draw matrix. Its captured
-packet provides UV, position, color and strip input, but the strip input's
-primitive order is not decoded yet. The next slice is to recover that one
-mesh's primitive order, apply its draw and clip transforms, then submit one
-host-owned draw record to a Sly world-renderer bucket. Keep the matching decomp
-source unchanged. Do not build a general VU interpreter or extend device
-models as the gameplay graphics path. The gate is a captured frame with
-correctly shaped loaded-world geometry. See
+An opt-in host adapter captures three unskinned kind-6 meshes and sends them to
+a native triangle-strip pass. Its frame is a uniform dark gray, so it fails the
+visual gate and the option is off by default. The eight-quadword `FrameSource`
+is GIF A+D material state; vertex order comes from `VertexRefs`. The next slice
+is to recover the kind-6 VU clipping and finish-program GS output, then correct
+the host conversion. Keep the matching decomp source unchanged. Do not build a
+general VU interpreter or extend device models as the gameplay graphics path.
+The gate is a captured frame with correctly shaped loaded-world geometry. See
 [the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.

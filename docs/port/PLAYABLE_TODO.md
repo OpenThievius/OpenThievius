@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-15, Wave 512)
+## Latest status (2026-11-15, native kind-6 renderer prototype)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
 code matched. The host32 build compiles 194 matched units and 85 separate
@@ -15,44 +15,43 @@ per second. The earlier Wave 492 report of zero frames and no world was invalid:
 those counters were only updated in the optional function-trace build, which
 was off. Do not use that run as evidence of a hang.
 
-The game still has no visible level scene. The SDL renderer creates only
-OpenRAC's `Bucket::Hud` `DirectRenderer`, and each presented frame supplies
-packets only to that bucket. The two draws and 18 vertices in Wave 499 are
-HUD/direct-packet statistics, not level geometry. In the loaded world, the
-first model callback is a skinned kind-5 part; the next three callbacks each
-contain one unskinned kind-6 mesh. The first kind-6 packet is 225 quadwords and
-contains 106 UV, position, and color entries plus one strip source of eight
-quadwords. Its request matrix is finite and it has no bone transforms. The
-captured strip source is still an encoded VU input, so its vertex order and
-primitive boundaries are not yet known. Evidence:
-`/tmp/sly-kind6-model-trace.log`, `/tmp/sly-kind6-model-packet.bin`,
-`port/runtime/sdl_renderer.cpp`, and the decomp's
-`src/main/placed_object_model.cpp`.
+The loaded-world path now has an opt-in native kind-6 prototype. It copies the
+expanded `VertexRefs` positions and tint colors from `BuildStripMeshPacket`,
+matches them to `PartMesh.kind` in `DrawModelPart`, and submits them with the
+part and camera matrices to a native OpenGL triangle-strip draw. A hidden run
+registered and drew the three 68, 89, and 106 vertex meshes. Its captured
+frame was a uniform dark gray with no recognizable scene. This fails the
+visible-geometry gate; do not describe it as graphics working. The prototype
+is disabled by default with `OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF` until its
+output matches Sly's VU clip and primitive behavior. Evidence:
+`/tmp/sly-kind6-world-renderer-trace.log`,
+`/tmp/sly1-native-frame-07.ppm`, `port/runtime/sdl_renderer.cpp`, and the
+decomp's `src/main/placed_object_model.cpp`.
+
+The eight-quadword `FrameSource` is a packed GIF A+D material-state packet,
+not a topology/index list. `BuildStripMeshPacket` expands positions in
+`VertexRefs` order, and the kind-6 VU program consumes those vertices in order.
+The remaining unknown is the VU's clipping and GS output behavior, including
+how this ordered stream becomes bounded visible primitives. The previous plan
+to decode indices from `FrameSource` was incorrect.
 
 ### Graphics reset (2026-11-15)
 
-A direct-host probe decoded three unskinned kind-6 packets (106, 89 and 68
-positions) from `DrawModelPart`. This proves the host can reach useful mesh
-data; it does not prove that the position stream is a renderable triangle
-list. Drawing those positions as one triangle strip produced a black frame.
-Forcing depth to pass produced a screen-filling shape, confirming that the
-packet's separate strip streams and VU-generated geometry are required for a
-correct draw. The experiment was discarded and is not part of the port.
+A direct-host probe first drew packet positions as a triangle strip and
+produced no useful image. The current opt-in source-level adapter reached the
+native renderer, but its frame is still a uniform dark gray. The implementation
+is retained as an isolated experiment and disabled by default; it does not
+replace matched code or satisfy the first-graphics gate.
 
 The decompilation's 100% code match includes the 0x5550-byte `.vutext` section
 as original assembly; those VU1 programs are not matched C. This is why 100%
 does not mean every graphics operation is ready to compile for the host.
 
-Wave 512 selects an actual queued object and confirms its first
-`DrawModelPart` callback receives 30 kind-5 meshes; the first is skinned with
-four bones. A newer hidden trace finds a simpler in-world candidate after it:
-an unskinned kind-6 mesh with 106 vertices and one eight-quadword strip source.
-Use that specific packet as the graphics slice. Decode its strip record into
-the exact primitive order, then apply the draw request's model and clip
-transforms and emit one host-owned draw record. Do not treat its position array
-as a single triangle strip or add general VIF/VU emulation. Keep the matched
-decomp unchanged. A captured frame with correctly shaped loaded-world geometry
-remains the gate.
+The first graphics slice is still one unskinned kind-6 mesh. Keep the matched
+decomp unchanged. Determine the kind-6 VU clip/output semantics and compare
+the host conversion against that path, then capture a frame with correctly
+shaped loaded-world geometry. Do not decode `FrameSource` as topology or add a
+general VIF/VU emulator.
 
 ### Next work: one loaded kind-6 mesh
 
@@ -66,14 +65,13 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Decode the selected kind-6 packet's eight-quadword strip source and establish
-   its exact position indices and primitive boundaries.
-2. Apply its `DrawModelPart` model and clip matrices, then implement only this
-   unskinned mesh conversion as replaceable code under `port/`.
-3. Submit it to a Sly world-renderer bucket built on the existing OpenRAC
-   window/GL foundation; leave the HUD path intact.
-4. Capture loaded-world pixels and compare shape, scale and orientation
-   against PCSX2. Only then expand to another mesh kind or material.
+1. Map the reachable kind-6 VU clipping and finish-program behavior that turns
+   ordered references into GS primitives.
+2. Correct the opt-in host conversion so it preserves that visible geometry,
+   clip behavior, transform, depth and winding.
+3. Capture loaded-world pixels and compare shape, scale and orientation
+   against PCSX2. Only then enable it by default or expand to other mesh kinds
+   and materials.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active

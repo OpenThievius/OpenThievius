@@ -2376,6 +2376,8 @@ def main(argv=None):
                         help="trace only startup and frame stages in RunMainLoop")
     parser.add_argument("--trace-model-draws", action="store_true",
                         help="trace DrawModelPart inputs in the staged host source")
+    parser.add_argument("--native-sly-world-renderer", action="store_true",
+                        help="bridge compiled kind-6 Sly model meshes to the native renderer")
     parser.add_argument("--trace-world-draw-lists", action="store_true",
                         help="trace active-world draw-list heads and callback targets")
     parser.add_argument("--trace-deferred-requests", action="store_true",
@@ -4536,6 +4538,31 @@ void LoadEffectSpawner"""
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition")
             adapted = adapted.replace(signature, replacement, 1)
+        if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
+            adapted = (
+                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
+            )
+            signature = (
+                "void BuildStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 mode, StripHeader* hdr, StripMesh* mesh,\n"
+                "                   Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs, s32 n, VertexRefs* recs,\n"
+                "                   WeightIndices* ents, Vec3* verts, Vec3* vnrms, f32* weights, PacketWriter* pkt,\n"
+                "                   s32** outs)\n{"
+            )
+            replacement = signature + (
+                "\n    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
+                "(u32)n, (u32)recs);"
+            )
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected BuildStripMeshPacket definition for native renderer")
+            adapted = adapted.replace(signature, replacement, 1)
+            needle = "    b.m = self->m;\n"
+            replacement = needle + (
+                "    sly1_native_submit_model_part((u32)self, (u32)g_currentWorld, (u32)g_camera);\n"
+            )
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected DrawModelPart matrix setup for native renderer")
+            adapted = adapted.replace(needle, replacement, 1)
         if args.trace_world_draw_lists and rel.as_posix() == "main/group_marker.cpp":
             adapted = ('extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32);\n' + adapted)
             needle = "    ListFrame f1;\n    ListFrame f2;\n    ListFrame f3;\n"

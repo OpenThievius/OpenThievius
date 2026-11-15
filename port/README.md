@@ -56,12 +56,12 @@ The no-emulation host32 game loop passes the no-card screen, loads world
 `0x870cf0`, and advances at about 56 frames per second. The black scene is not
 currently a startup or missing-input problem. A corrected trace confirms the
 loaded world reaches a skinned kind-5 part followed by three unskinned kind-6
-meshes. The first kind-6 mesh has 106 vertices, one strip source, no bones, and
-a finite draw matrix. Its packet is captured, but the strip source's primitive
-order still needs decoding. The SDL host renders HUD packets only; it has no
-Sly 3D world renderer. The single active milestone is to decode and draw this
-one mesh with its game transform and clip matrix. Do not add unrelated startup
-shims unless new evidence shows that this path is blocked. See
+meshes. An opt-in native adapter now captures and submits these kind-6 meshes,
+but a hidden run produced only a uniform dark gray frame. It does not satisfy
+the graphics gate and is disabled by default. The 128-byte `FrameSource` is a
+GIF A+D material-state packet; vertex order comes from `VertexRefs`. The next
+task is to map the kind-6 VU clipping and output behavior, then correct the
+host conversion. Do not add unrelated startup shims. See
 [`SLY_GRAPHICS_HANDOFF.md`](../docs/port/SLY_GRAPHICS_HANDOFF.md) and
 [`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md).
 

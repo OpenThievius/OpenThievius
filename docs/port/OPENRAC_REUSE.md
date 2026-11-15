@@ -83,15 +83,14 @@ decodes two menu draws per frame. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for measured texture,
 geometry, and visual results.
 OpenRAC's world renderers remain R&C-specific and cannot draw Sly levels as-is.
-The current no-emulation host32 renderer is only the HUD `DirectRenderer`:
-`port/runtime/sdl_renderer.cpp` constructs `Bucket::Hud`, and per-frame input
-contains only that bucket's packet bytes. Its decoded draws do not represent a
-world scene. The compiled Sly `DrawModelPart` path emits VIF packets, while
-`port/game/sly1-us/native/func_002027C8.cpp` completes non-GIF channel work
-without a 3D consumer. The project has not yet built the OpenRAC-style
-Sly-specific world renderers described in `DESIGN.md`. Keep the VIF/VU/GS
-translation path for bounded diagnostics; the next playable graphics work is a
-native bridge from Sly model-part data and camera state to a Sly world renderer.
+The no-emulation host32 renderer still uses OpenRAC's HUD `DirectRenderer` for
+GIF packets. It now also has an opt-in native adapter for unskinned kind-6 Sly
+model data and camera state. That adapter submits three loaded meshes to an
+OpenGL triangle-strip pass, but the captured image is a uniform dark gray and
+does not pass the visible-world gate. It is disabled by default while the
+kind-6 VU clipping and GS primitive behavior are mapped. Keep the VIF/VU/GS
+translation path for bounded diagnostics; OpenRAC supplies the window, GL and
+HUD foundation, while the Sly-specific mesh conversion remains port work.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions
@@ -99,9 +98,10 @@ on ordinary host threads; it does not execute the retail MIPS instructions.
 The port-only backfill at `0x0018E558` now runs Sly's queued display-worker
 loop, and its `WaitSema` call reaches OpenRAC's host semaphore service. A
 bounded run confirms worker thread 3 blocks there as expected. The launcher
-still reports thousands of functions without C, leaves many frame and graphics
-calls as no-ops, and renders no geometry. Its experimental VIF/GS device code
-is not the target no-emulation renderer, so this is startup evidence only.
+still reports thousands of functions without C and leaves many frame and
+graphics calls as no-ops. Its experimental VIF/GS device code is not the target
+no-emulation renderer, and the opt-in kind-6 prototype does not produce a
+recognizable scene, so this remains startup and renderer research only.
 Backfills remain separate from matching source under
 `port/game/sly1-us/hand/`.
 

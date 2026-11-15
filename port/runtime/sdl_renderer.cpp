@@ -10,6 +10,7 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
+#include "renderer/shader.h"
 #include "renderer/texture_pool.h"
 #include "common/log.h"
 
@@ -18,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -27,6 +29,7 @@
 #include <mutex>
 #include <string>
 #include <sys/mman.h>
+#include <unordered_map>
 #include <unistd.h>
 #include <vector>
 
@@ -42,11 +45,23 @@ using ClearColor = void (*)(float, float, float, float);
 using Clear = void (*)(unsigned int);
 using Viewport = void (*)(int, int, int, int);
 
+struct NativeWorldMesh {
+    std::vector<float> vertices;
+    std::array<float, 16> mvp{};
+};
+
 std::unique_ptr<openrac::platform::Platform> g_platform;
 std::unique_ptr<sly1::platform::Input> g_input;
 std::unique_ptr<openrac::platform::Window> g_window;
 std::unique_ptr<openrac::renderer::TexturePool> g_textures;
 std::unique_ptr<openrac::renderer::DirectRenderer> g_direct;
+std::unique_ptr<openrac::renderer::Shader> g_world_shader;
+std::mutex g_world_mesh_mutex;
+std::unordered_map<std::uint64_t, NativeWorldMesh> g_world_meshes;
+std::uint32_t g_world_mesh_world = 0;
+openrac::gl::GLuint g_world_vao = 0;
+openrac::gl::GLuint g_world_vbo = 0;
+openrac::gl::GLint g_world_mvp_location = -1;
 ClearColor g_clear_color = nullptr;
 Clear g_clear = nullptr;
 Viewport g_viewport = nullptr;
@@ -58,6 +73,79 @@ std::atomic<std::uint64_t> g_dma_accept_count{0};
 std::atomic<std::uint64_t> g_dma_reject_count{0};
 std::atomic<std::uint64_t> g_dma_bytes{0};
 std::atomic<unsigned> g_dma_reject_notices{0};
+
+bool init_world_renderer(std::string& error) {
+    using namespace openrac::gl;
+    constexpr std::string_view vertex = R"(#version 410 core
+layout(location = 0) in vec3 a_position;
+layout(location = 1) in vec4 a_color;
+uniform mat4 u_mvp;
+out vec4 v_color;
+void main() {
+    gl_Position = u_mvp * vec4(a_position, 1.0);
+    v_color = a_color;
+}
+)";
+    constexpr std::string_view fragment = R"(#version 410 core
+in vec4 v_color;
+out vec4 frag_color;
+void main() {
+    frag_color = v_color;
+}
+)";
+    g_world_shader = std::make_unique<openrac::renderer::Shader>();
+    if (!g_world_shader->build("sly-world-kind6", vertex, fragment, error)) {
+        g_world_shader.reset();
+        return false;
+    }
+    g_world_mvp_location = g_world_shader->uniform("u_mvp");
+    glGenVertexArrays(1, &g_world_vao);
+    glGenBuffers(1, &g_world_vbo);
+    if (g_world_vao == 0 || g_world_vbo == 0) {
+        error = "could not allocate Sly world mesh buffers";
+        return false;
+    }
+    glBindVertexArray(g_world_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
+    constexpr GLsizei stride = 7 * static_cast<GLsizei>(sizeof(float));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, nullptr);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride,
+                          reinterpret_cast<const void*>(3 * sizeof(float)));
+    glBindVertexArray(0);
+    return true;
+}
+
+void render_world_meshes() {
+    using namespace openrac::gl;
+    if (!g_world_shader || g_world_meshes.empty()) return;
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static unsigned notices = 0;
+        if (notices++ < 16u)
+            std::fprintf(stderr, "[native sly world render] instances=%zu\n", g_world_meshes.size());
+    }
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    g_world_shader->use();
+    glBindVertexArray(g_world_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
+    for (const auto& [instance, mesh] : g_world_meshes) {
+        (void)instance;
+        if (mesh.vertices.size() < 3u * 7u || mesh.vertices.size() > 4096u * 7u)
+            continue;
+        glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, mesh.mvp.data());
+        glBufferData(GL_ARRAY_BUFFER,
+                     static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
+                     mesh.vertices.data(), GL_STREAM_DRAW);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0,
+                     static_cast<GLsizei>(mesh.vertices.size() / 7u));
+    }
+    glBindVertexArray(0);
+}
 
 std::uint32_t guest_address(std::uint32_t address) {
     if (address >= GUEST_PORT && address - GUEST_PORT < GUEST_PORT_SIZE) return address;
@@ -434,6 +522,38 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
     return g_dma_bytes.load(std::memory_order_relaxed);
 }
 
+extern "C" void openrac_native_sly_world_mesh_submit(
+    std::uint32_t world, std::uint64_t instance, const float* vertices,
+    std::uint32_t vertex_count, const float* model, const float* view_projection) {
+    if (world == 0 || vertices == nullptr || vertex_count < 3 || vertex_count > 4096 ||
+        model == nullptr || view_projection == nullptr)
+        return;
+    NativeWorldMesh draw;
+    draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 7u);
+    for (std::size_t row = 0; row < 4; ++row) {
+        for (std::size_t column = 0; column < 4; ++column) {
+            float value = 0.0f;
+            for (std::size_t k = 0; k < 4; ++k)
+                value += model[row * 4u + k] * view_projection[k * 4u + column];
+            if (!std::isfinite(value)) return;
+            draw.mvp[row * 4u + column] = value;
+        }
+    }
+    std::scoped_lock lock(g_world_mesh_mutex);
+    if (g_world_mesh_world != world) {
+        g_world_meshes.clear();
+        g_world_mesh_world = world;
+    }
+    g_world_meshes[instance] = std::move(draw);
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static unsigned notices = 0;
+        if (notices++ < 16u)
+            std::fprintf(stderr, "[native sly world queued] world=%#010x instance=%#llx vertices=%u draws=%zu\n",
+                         world, static_cast<unsigned long long>(instance), vertex_count,
+                         g_world_meshes.size());
+    }
+}
+
 extern "C" int openrac_native_window_create(void) {
     openrac::platform::set_app_metadata("OpenThievius - Sly 1", "open-thievius-sly1");
     g_platform = std::make_unique<openrac::platform::Platform>(
@@ -466,6 +586,10 @@ extern "C" int openrac_native_window_create(void) {
         openrac::renderer::DirectRenderer::Input::Gif);
     if (!g_direct->init(state, error)) {
         g_direct.reset(); g_textures.reset(); g_window.reset(); g_platform.reset(); return 0;
+    }
+    if (!init_world_renderer(error)) {
+        openrac::log::error("Sly world renderer startup failed: {}", error);
+        g_world_shader.reset();
     }
     return 1;
 }
@@ -565,7 +689,11 @@ extern "C" void openrac_native_window_present(void) {
     g_window->drawable_size(width, height);
     g_viewport(0, 0, width, height);
     g_clear_color(0, 0, 0, 1);
-    g_clear(0x00004000u);
+    g_clear(0x00004100u);
+    {
+        std::scoped_lock lock(g_world_mesh_mutex);
+        render_world_meshes();
+    }
     std::vector<std::uint8_t> packets;
     { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
     if (packets.size() >= 512u && packets.size() <= 16u * 1024u * 1024u &&
@@ -626,6 +754,16 @@ extern "C" void openrac_native_window_present(void) {
 
 extern "C" void openrac_native_window_destroy(void) {
     if (g_direct) g_direct->release();
+    if (g_world_vao != 0) openrac::gl::glDeleteVertexArrays(1, &g_world_vao);
+    if (g_world_vbo != 0) openrac::gl::glDeleteBuffers(1, &g_world_vbo);
+    g_world_vao = 0;
+    g_world_vbo = 0;
+    g_world_shader.reset();
+    {
+        std::scoped_lock lock(g_world_mesh_mutex);
+        g_world_meshes.clear();
+        g_world_mesh_world = 0;
+    }
     if (g_textures) g_textures->release_gl();
     g_direct.reset(); g_textures.reset(); g_window.reset();
     { std::scoped_lock lock(g_input_mutex); g_input.reset(); }

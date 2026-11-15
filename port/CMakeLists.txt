@@ -18,9 +18,15 @@ option(OPENRAC_NATIVE_FRAME_TRACE
     "Trace only the main-loop startup and frame stages in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_MODEL_TRACE
     "Trace the active world draw lists and compiled model inputs in the direct host32 build" OFF)
+option(OPENRAC_NATIVE_SLY_WORLD_RENDERER
+    "Draw native Sly kind-6 world meshes in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_OSCILLATOR_TRACE
     "Enable the focused oscillator mesh trace in the direct host32 build" OFF)
 set(SLY1_NATIVE_TRACE_ARGUMENTS)
+set(SLY1_NATIVE_WORLD_ARGUMENTS)
+if(OPENRAC_NATIVE_SLY_WORLD_RENDERER)
+    list(APPEND SLY1_NATIVE_WORLD_ARGUMENTS --native-sly-world-renderer)
+endif()
 if(OPENRAC_NATIVE_FUNCTION_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-functions)
 endif()
@@ -61,6 +67,7 @@ add_custom_target(port_compile_decomp_host32
             --out ${CMAKE_CURRENT_BINARY_DIR}/host32
             --port ${CMAKE_CURRENT_SOURCE_DIR}
             --cxx ${CMAKE_CXX_COMPILER}
+            ${SLY1_NATIVE_WORLD_ARGUMENTS}
             ${SLY1_NATIVE_TRACE_ARGUMENTS}
     COMMENT "Compiling decompiled Sly C++ directly for the native 32-bit ABI")
 

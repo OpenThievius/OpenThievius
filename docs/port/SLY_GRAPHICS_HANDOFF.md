@@ -21,14 +21,21 @@ from the `VertexRefs` sequence and the targeted kind-6 VU program's output
 semantics. This is a bounded question; it does not require implementing a
 general VU or PS2 device emulator.
 
-The next implementation should take one unskinned kind-6 mesh through the
-existing Sly builder and draw it with a small native world-renderer path. Use
-the builder's expanded references, positions, UVs and tint calculation, plus
-the draw request's model and camera matrices. Keep material/texture support
-out of the first gate if necessary: a solid-color silhouette is enough to
-prove geometry, winding, transform, clipping and depth. Add texture/state only
-after that frame is correct. This should replace the trace-only builder hook
-with a host-owned draw record; keep OpenGL work on the render thread.
+An opt-in native adapter now copies the expanded kind-6 positions and tint
+colors, matches them to `PartMesh.kind`, and submits them with the part and
+camera matrices to an OpenGL triangle-strip pass. The hidden run confirmed
+three mesh captures, three matched draw submissions, and repeated GL draws.
+Its saved 960x720 frame is a uniform dark gray with no recognizable Sly
+geometry, so the first-graphics gate is still failed. The prototype is
+disabled by default. Do not present the gray frame as visible game graphics.
+
+`BuildStripMeshPacket` writes positions in `VertexRefs` order, and the kind-6
+VU program consumes the stream in order. The 128-byte `FrameSource` is six
+packed GIF A+D material-state writes, not a primitive/index list. The failure
+is now narrowed to reproducing the kind-6 VU clipping and finish-program GS
+output. Correct that bounded path, then compare a solid-color silhouette
+against PCSX2 before adding texture/state or enabling the adapter by default.
+Keep OpenGL work on the render thread.
 
 ## Builder input capture (2026-11-15)
 
@@ -40,10 +47,11 @@ UVs 0–49. The trace saved its source arrays and strip bytes under `/tmp`; no
 game data was added to the repository. Log:
 `/tmp/sly1-mesh-builder-capture.log`.
 
-This makes a source-level Sly mesh adapter practical: the native port can
-consume the builder's vertex references, positions, UVs and material state
-without decoding the generated VIF packet. The probe is still trace-only and
-has not produced a host draw record or visible geometry.
+This made a source-level Sly mesh adapter practical. The opt-in adapter now
+consumes the builder's expanded vertex references, positions and tints
+without decoding the generated VIF packet. It submits native draws, but its
+captured result is not recognizable geometry and does not pass the visual
+gate.
 
 The host32 port compiles 194 matched Sly units and 85 separate port-only
 backfills. After one process-local Cross press, it leaves the no-card page,
@@ -51,13 +59,10 @@ loads world `0x870cf0`, and advances at about 56 frames per second. The prior
 Wave 492 claim that frames and world stayed at zero was caused by a disabled
 counter; it was not evidence of a hang.
 
-The first post-load capture is still fully black. The renderer inspection shows
-why the earlier packet counts were misleading: `sdl_renderer.cpp` creates only
-a `Bucket::Hud` `DirectRenderer`, and the presented `FrameInput` fills only
-that bucket. The two decoded draws and 18 vertices are not level geometry.
-Sly's `DrawModelPart` builds VIF packets for its meshes, but the native host32
-path has no Sly world renderer consuming those parts. The no-card UI working
-proves the HUD path; it does not prove a world path exists.
+The HUD `DirectRenderer` still consumes only its own packet bucket. The
+opt-in Sly kind-6 adapter is a separate world path, and its current captured
+output is uniformly dark gray rather than recognizable geometry. The two
+decoded HUD draws and 18 vertices remain unrelated to the level scene.
 
 The Wave 503 “no model draw” result was a filter bug: the probe selected a
 target world based on the first model callback, suppressing the target when
@@ -67,8 +72,9 @@ from the main loop and confirms that the loaded world queues
 `DrawModelPart`, which sees a skinned kind-5 part, then three unskinned
 kind-6 meshes. The first kind-6 mesh has 106 vertices and one strip source of
 eight quadwords. It needs no bone transforms and its draw matrix is finite.
-The captured 225-quadword packet contains its UV, position, color, and strip
-input, but the strip source's primitive order is not decoded yet. Evidence:
+The captured 225-quadword packet contains its UV, position, color, and
+material-state input. The VU's clipping and GS output semantics are still not
+reproduced. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log`,
 `/tmp/sly-kind6-model-trace.log`, and `/tmp/sly-kind6-model-packet.bin`.
 
@@ -85,8 +91,8 @@ the host conversion. This remains bounded to Sly's mesh path; it does not
 justify a general VU implementation. The retail `.vutext` bytes stay local
 and are not copied into this repository.
 
-The renderer inspection still shows no Sly 3D world renderer. Leave
-`sly1-decomp` untouched and keep functional backfills under
+The renderer inspection now shows an opt-in but visually incorrect Sly world
+renderer. Leave `sly1-decomp` untouched and keep functional backfills under
 `port/game/sly1-us/`. Keep VIF/VU/GS execution as bounded diagnostics. The gate
 is an image capture with loaded Sly geometry positioned by the game's
 transform and camera. No title or playable level is confirmed. See the
