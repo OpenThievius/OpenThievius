@@ -1,12 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Clean reset review (2026-11-15)
+## Current bounded task (2026-11-15)
 
-The refreshed host32 build passes the retail no-card screen, loads a world,
-and reaches model draw callbacks. Stop adding broad startup backfills and
-renderer probes. The kind-6 renderer experiment is disabled by default; its
-gray frame is a failed result, not partial graphics progress.
+The port is not playable. It reaches a loaded world and model draw callbacks,
+but the last confirmed visible result is still the no-card screen. The
+kind-6 renderer produced a uniform gray frame and remains disabled. Build
+counts, frame rate, draw callbacks, and decomp match percentage are not visual
+or gameplay progress gates.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions
@@ -28,14 +29,29 @@ advances at about 56 frames per second and reaches kind-5 and kind-6 draw
 callbacks. The last confirmed visible result remains the no-card screen; the
 gray kind-6 capture remains a failed experiment.
 
-**Stop using the three captured kind-6 meshes as the foreground graphics
-target.** The saved positions with a captured transform project nearly across
-the viewport; this is likely a background object, not a confirmed
-identification. Its 128-byte material packet contains `TEST1=0x317e1`:
-alpha-test NEVER, AFAIL framebuffer-only, and ZTST ALWAYS. The prototype
-drops UVs/material state and uses OpenGL LEQUAL with depth writes. The gray
-capture is consistent with a background pass drawn flat and with incorrect
-depth behavior; it does not prove a clipping failure.
+## One graphics slice
+
+Do not add more startup shims, broad renderer features, or candidate-ranking
+probes. Capture one finite-transform draw completely: expanded vertices, strip
+ranges, UVs, color, texture/material state, and camera/model matrices. Pair it
+with the same scene in PCSX2. Implement only the path needed to draw that
+candidate. The class `0x54` kind-6 draws may be backdrop geometry; class
+`0x61` kind-5 draws render to a texture. Neither is a proven foreground
+target. The first measured class `0x02` mesh covers only about 11 by 2 pixels.
+
+Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
+draws have finite matrices, so this trace does not yet show that those objects
+block the first visible scene. Keep the trace as a lead, not a new general
+object-transform workstream.
+
+**Pass condition:** a saved native frame contains a recognizable silhouette
+that matches the reference scene in shape and position. If no current capture
+can be paired with a reference frame, stop runtime renderer work and build a
+data-only mesh viewer from the local extracted catalog. Any functional
+replacement stays under `port/game/sly1-us/native/`, separate from matching
+decomp source.
+
+## Retained kind-6 experiment notes
 
 The source's input W is `fogBias + 28672` or `fogBias + 32768`. The
 kind-6 VU transform builds clip W from its matrix and homogeneous constant,
@@ -54,19 +70,16 @@ meshes and a finite transform. Decoding the first mesh's position UNPACK from
 its draw-boundary packet shows that its 68 vertices cover only about 11 by 2
 pixels at 960x720 under the captured matrices. This is an upper bound before
 strip filtering, and it is too small to be a useful first-graphics target.
-Reject this part rather than building a renderer around it. Rank the other
-active draws by projected coverage and compare the large class-`0x54`
-camera-positioned candidate against the PCSX2 scene. Do not add loader fixes
-or general VU behavior. Evidence: `/tmp/sly-targeted-world-part.log`, its
+This measurement rejects that particular mesh as a first target. It does not
+identify the next one; the bounded task above replaces the old candidate
+ranking plan. Evidence: `/tmp/sly-targeted-world-part.log`, its
 `/tmp/sly-world-part-{0,1,2}.bin` captures, and the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
-are documented in the sibling decomp's `docs/OBJECTS.md` and
-`include/camera_positioned_object.h`.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
 code matched. The host32 build compiles 194 matched units and 85 separate
-port-only backfills, maps 4,400 catalogued entries, and links 101 fallback
+port-only backfills, maps 4,400 catalogued entries, and links 99 fallback
 traps. Those totals describe build coverage, not game readiness.
 
 The corrected focused trace changes the diagnosis. After one process-local
@@ -96,7 +109,7 @@ The remaining unknown is the VU's clipping and GS output behavior, including
 how this ordered stream becomes bounded visible primitives. The previous plan
 to decode indices from `FrameSource` was incorrect.
 
-### Graphics reset (2026-11-15)
+### Graphics reset (2026-11-15; experiment record)
 
 A direct-host probe first drew packet positions as a triangle strip and
 produced no useful image. The current opt-in source-level adapter reached the
@@ -108,13 +121,12 @@ The decompilation's 100% code match includes the 0x5550-byte `.vutext` section
 as original assembly; those VU1 programs are not matched C. This is why 100%
 does not mean every graphics operation is ready to compile for the host.
 
-The first graphics slice is still one unskinned kind-6 mesh. Keep the matched
-decomp unchanged. Determine the kind-6 VU clip/output semantics and compare
-the host conversion against that path, then capture a frame with correctly
-shaped loaded-world geometry. Do not decode `FrameSource` as topology or add a
-general VIF/VU emulator.
+The initial experiment targeted one unskinned kind-6 mesh. Its output did not
+pass the visual gate. The current task above replaces this target until a
+specific captured draw can be paired with a reference frame. Do not decode
+`FrameSource` as topology or add a general VIF/VU emulator.
 
-### Next work: one loaded kind-6 mesh
+### Previous candidate-ranking plan (superseded)
 
 The prior Wave 503 conclusion that no model draw was reached was invalid: each
 trace helper independently guessed the first world from its first model
@@ -126,14 +138,10 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Rank the active draw candidates by projected coverage using each stream's
-   real vertex, strip and transform data. The measured class-`0x02` mesh is
-   only about 11 by 2 pixels and has been rejected as the first target.
-2. Match the large class-`0x54` camera-positioned candidate to the same PCSX2
-   scene and identify the texture/material data needed to draw it correctly.
-3. Render only that validated candidate, preserving its actual strip,
-   texture, alpha, depth and transform behavior. Expand only after a
-   recognizable part of the scene appears.
+This plan is superseded by “One graphics slice” at the top of this file. The
+draw capture and gray-frame evidence remain useful; further candidate ranking
+is paused until a specific finite-transform draw can be compared with a
+reference frame.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active
@@ -1447,7 +1455,7 @@ stores the second word as the resource revision. For key `0x0100` these are
 table at `D_00275718` through its consumers; the current object-record list is
 empty, and the table's relation to scene geometry remains unproven.
 
-## Assessment
+## Earlier architecture review (2026-11-07; historical)
 
 The project has useful extraction, host generation, platform and rendering
 infrastructure. Its largest gaps are executable game-code coverage and the
@@ -1471,7 +1479,7 @@ Evidence inspected:
   with an actual level: their identity basis and zero position/radius may be
   valid for their role. Their identity and ownership must be established first.
 
-## Ordered TODO
+## Long-term playable gates
 
 ### 1. Establish a reproducible baseline
 

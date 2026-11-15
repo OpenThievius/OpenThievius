@@ -17,18 +17,26 @@ the sibling checkout is older at `1cbb33fd`. A separate current-source
 staging build compiles 194 matched units and 85 port-only backfills. Keep such
 replacements under `port/game/sly1-us/native/`, not in matching source.
 
-**Next milestone: one recognizable piece of loaded-world geometry.** Select a
-draw from measured role, screen bounds, draw order and material. The owner
-trace separates the candidates: class `0x54` camera-positioned kind-6 meshes
-are likely backdrop; class `0x61` kind-5 meshes are explicitly
-render-to-texture. A finite-transform class `0x02` object has 38 kind-0 lit
-meshes, but decoding the first mesh's 68 positions projects to only about 11
-by 2 pixels at 960x720. Reject it as the first graphics target. Rank the
-remaining active draws by screen coverage; the large class-`0x54`
-camera-positioned candidate is the next one to compare with PCSX2 and inspect
-for its actual texture/material path. Do not add backfills unless a current
-trace shows they block this step, and do not extend device models. Logs and
-capture details are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+**Next milestone: validate one draw from source data to a reference image.**
+The project has spent too long adding probes and renderer behavior without a
+passing image. Freeze broad renderer and startup work. Use one captured draw
+with a finite transform; record its expanded vertices, strip ranges, UVs,
+color, material state, and camera/model matrices; then compare it with the
+same scene in PCSX2. Implement only that draw path. The class `0x54`
+camera-positioned kind-6 meshes are backdrop candidates, and class `0x61`
+kind-5 meshes are render-to-texture; neither is a validated foreground
+target. A class `0x02` mesh previously projected to about 11 by 2 pixels, so
+it is not a useful target. Recent NaN transforms belong to nested objects
+1483/1486 under object 80; other draws have finite matrices. This is a lead
+about those objects, not proof they block the first visible scene.
+
+Pass only when a saved native frame shows a recognizable silhouette matching
+the console reference in position and shape. If no captured draw can be paired
+with a reference frame, stop runtime renderer work and make a data-only mesh
+viewer from the local extracted catalog. Do not add backfills unless the
+chosen draw demonstrably depends on them. Keep replacements in
+`port/game/sly1-us/native/`. Capture details remain in the
+[graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
 See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
 [the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and
@@ -54,6 +62,8 @@ them, so they are not evidence either. Later, correctly instrumented runs
 confirm the world loads and advances at about 56 frames per second, reaching
 kind-5 and kind-6 model draw callbacks. The current blocker is graphics: the
 optional kind-6 OpenGL experiment draws a uniform gray frame.
+
+### Earlier renderer-specific plan (superseded by the bounded slice above)
 
 **Reset direction:** stop broad host-ABI and startup work. Do not infer another
 runtime blocker from sparse PC samples. The gray experiment drops UVs and
