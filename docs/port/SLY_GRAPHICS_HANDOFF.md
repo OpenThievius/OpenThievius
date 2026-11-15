@@ -4,6 +4,20 @@
 Last checked: 2026-11-15. The active host32 build source is `1cbb33fd`; public
 decomp master is `8f7a85a3`.
 
+## Direction reset
+
+The no-emulation launcher reaches model draw callbacks after loading a world,
+but the last confirmed useful image is the memory-card UI. The optional world
+renderer outputs only gray and is a failed experiment; stop adding features
+to it. The next graphics task is one Sly-specific native mesh conversion using
+the decomp's actual builder/draw inputs, active frame-source state, and the
+behavior of Sly's VU program.
+Keep the implementation in the port, do not make a general VU/VIF/GS emulator,
+and do not require exact PCSX2 frame matching before starting. Pass only when
+a native capture shows one recognizable, correctly positioned and textured
+world object. If the source and captured draw inputs do not define that
+conversion, report the exact gap instead of adding another broad probe.
+
 ## Clean reset review (2026-11-15)
 
 The window and frame loop are no longer the issue. The game dismisses the

@@ -3,13 +3,34 @@
 
 ## Current bounded task (2026-11-15)
 
-The port is not playable. It reaches a loaded world and model draw callbacks,
-but the last confirmed visible result is still the no-card screen. The
-optional world-renderer experiment submits 41 meshes (three kind-6 and 38
-kind-0) and resolves uploaded Sly textures, but its saved world-only frame is
-still a gray horizon and ground plane. It remains disabled. Build counts,
-frame rate, draw callbacks, resolved texture handles, and decomp match
-percentage are not visual or gameplay progress gates.
+### Reset: stop optimizing the failed prototype
+
+The port is not playable. It gets past the memory-card screen, loads world
+`0x870cf0`, advances frames, and reaches model draw callbacks. The last
+confirmed useful image is still the memory-card UI. The optional renderer's
+gray frame is a failed shortcut: its triangle-strip guess and first
+frame-source selection are unvalidated. Do not keep tuning that code.
+
+### One deliverable: a recognizable world object
+
+Implement a small Sly-specific native conversion at the mesh-build/model-draw
+boundary. Use the decomp's vertex references, strip ranges, active frame-source
+state, matrices, and material state. Derive the needed primitive conversion
+from Sly's VU program and public hardware documentation. This is a renderer
+replacement for this game's draw path, not a general VU/VIF/GS emulator. Any
+functional C stays under `port/game/sly1-us/native/`, separate from matched
+source.
+
+**Pass:** save a native frame with one recognizable, correctly positioned and
+textured world object. Then expand to the remaining scene. Until that image
+exists, do not count instrumentation, successful builds, frame rate, callback
+counts, texture uploads, or decomp percentages as visual progress. Do not open
+a mesh viewer or add unrelated loader/backfill work as the next milestone.
+
+If the source/input boundary does not contain enough information to implement
+the bounded conversion, write down the exact missing field or behavior and
+stop there. Do not respond to uncertainty with another broad trace or another
+speculative shader.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions

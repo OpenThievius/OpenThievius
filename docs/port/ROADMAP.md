@@ -1,15 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current direction (2026-11-15)
+## Reset review (2026-11-15)
 
-The project is past startup research but not at playable graphics. The
-host32 game loop can dismiss the no-card warning, load world `0x870cf0`, and
-advance at about 56 frames per second. It reaches model draw callbacks. The
-last successful visible screen remains the memory-card warning. An opt-in
-experiment now submits three kind-6 and 38 kind-0 meshes and resolves uploaded
-game textures, but its world-only frame shows only a gray horizon and ground
-plane. No title, controllable level, or correct world geometry is confirmed.
+The project has spent too long improving diagnostics around an unvalidated
+renderer prototype. The no-emulation build gets through the memory-card
+screen, loads world `0x870cf0`, advances frames, and reaches model draw
+callbacks. The last confirmed useful image is still the memory-card UI. The
+optional world prototype produces only gray; treat it as a failed experiment,
+not as a base to keep patching.
+
+**Next objective: render one real world object through a Sly-specific native
+draw path.** Start at the decomp's mesh-build and model-draw boundary. Use its
+decoded vertex references, strip ranges, active frame-source state, transforms,
+and material state to define the native draw input. Derive the missing
+primitive conversion from Sly's own retail VU program and public PS2 hardware
+documentation. Implement only the operation needed by this Sly draw path in
+the port renderer; do not add a general VU/VIF/GS execution layer. Keep any
+functional replacement in `port/game/sly1-us/native/`, separate from matched
+decomp source.
+
+The first visible-world pass needs only one correctly positioned, textured
+object. Its saved frame must show a recognizable silhouette and texture from
+the loaded game world. Do not spend another cycle on broad traces, speculative
+shaders, a separate asset viewer, or unrelated loader backfills unless the
+chosen object cannot reach this draw boundary. If the decomp source or captured
+inputs do not define a bounded conversion, stop and report that exact missing
+fact before writing more renderer code.
 
 The code match is complete for US functions, but that does not make the port
 host-ready. VU microcode remains assembly, and host-generation still needs
@@ -17,26 +34,6 @@ port-only replacements and fallback traps. Public decomp master is `8f7a85a3`;
 the sibling checkout is older at `1cbb33fd`. A separate current-source
 staging build compiles 194 matched units and 85 port-only backfills. Keep such
 replacements under `port/game/sly1-us/native/`, not in matching source.
-
-**Next milestone: pair a native draw with the same scene in PCSX2.** Freeze
-runtime renderer features and startup changes. The current prototype reads only
-the first `FrameSource` animation record and approximates Sly's VU output as a
-triangle strip; its gray output does not validate either assumption. Review
-the supplied PCSX2 recordings and native hidden-run capture to see whether one
-target draw can be identified with matching camera and scene state. If not,
-stop runtime work and make a data-only mesh viewer from the local extracted
-catalog. The viewer is an investigation tool, not a playable-port milestone.
-The class `0x54` kind-6 meshes are backdrop candidates, class `0x61` kind-5
-meshes render to a texture, and the first measured class `0x02` mesh projected
-to only about 11 by 2 pixels. None is a proven first foreground target.
-
-Pass only when a saved native frame shows a recognizable silhouette matching
-the console reference in position and shape. Record the matching scene, camera,
-mesh, frame-source/cursor state, vertex inputs, VU output topology, and
-material state before implementing another render feature. Do not add backfills unless the chosen draw
-demonstrably depends on them. Keep replacements in
-`port/game/sly1-us/native/`. Capture details remain in the
-[graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
 See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
 [the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and
