@@ -21,6 +21,7 @@ constexpr uint32_t kVif1Chcr = 0x10009000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
 constexpr uint32_t kDmacStat = 0x1000E010u;
 constexpr uint32_t kVif1Cycle = 0x10003C40u;
+constexpr uint32_t kVif1Mask = 0x10003C70u;
 constexpr uint32_t kVif1Itops = 0x10003C90u;
 constexpr uint32_t kVif1Itop = 0x10003CD0u;
 constexpr uint32_t kVif1Base = 0x10003CA0u;
@@ -28,6 +29,8 @@ constexpr uint32_t kVif1Offset = 0x10003CB0u;
 constexpr uint32_t kVif1Tops = 0x10003CC0u;
 constexpr uint32_t kVif1Top = 0x10003CE0u;
 constexpr uint32_t kVif1Status = 0x10003C00u;
+constexpr uint32_t kVif1Row = 0x10003D00u;
+constexpr uint32_t kVif1Col = 0x10003D40u;
 constexpr uint32_t kVu1Data = 0x1100C000u;
 constexpr uint32_t kVu1Micro = 0x11008000u;
 constexpr size_t kVu1MemoryBytes = 16u * 1024u;
@@ -230,7 +233,7 @@ uint32_t read_bits(const uint8_t* source, size_t bit_offset, uint32_t bit_count)
 
 bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
                 const uint8_t* source, size_t source_size) {
-    if ((command & 0x10u) != 0) return false; // VIF write masking is not observed in Sly's stream.
+    const bool masking = (command & 0x10u) != 0;
     const uint32_t vectors = count == 0 ? 256u : count;
     const uint32_t format = command & 0xFu;
     const uint32_t components = ((format >> 2u) & 3u) + 1u;
@@ -248,6 +251,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
     if (write_length > cycle_length ||
         (write_length != cycle_length && write_length != 1u)) return false;
     const uint32_t destination_stride = write_length == cycle_length ? 1u : cycle_length;
+    const uint32_t mask = masking ? load_mmio(kVif1Mask) : 0;
 
     uint32_t destination = immediate & 0x3FFu;
     if ((immediate & 0x8000u) != 0)
@@ -262,18 +266,44 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
 
+        uint32_t unpacked[4] = {};
         for (uint32_t component = 0; component < components; ++component) {
             uint32_t value = read_bits(input, component * component_bits, component_bits);
             if (!zero_extend && component_bits < 32u &&
                 (value & (1u << (component_bits - 1u))) != 0) {
                 value |= ~((1u << component_bits) - 1u);
             }
-            lanes[component] = value;
+            unpacked[component] = value;
         }
         if (components == 1u) {
-            lanes[1] = lanes[0];
-            lanes[2] = lanes[0];
-            lanes[3] = lanes[0];
+            unpacked[1] = unpacked[0];
+            unpacked[2] = unpacked[0];
+            unpacked[3] = unpacked[0];
+        }
+        if (masking) {
+            const uint32_t mask_row = (vector_index % write_length) & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane) {
+                const uint32_t selector = (mask >> (2u * (mask_row * 4u + lane))) & 3u;
+                if (selector == 0) {
+                    if (components == 1u || lane < components)
+                        lanes[lane] = unpacked[lane];
+                } else if (selector == 1) {
+                    lanes[lane] = load_mmio(kVif1Row + lane * 0x10u);
+                } else {
+                    // Column fill and write protection have not appeared in
+                    // Sly's observed first-world stream. Keep rejecting them
+                    // until a captured command requires those modes.
+                    return false;
+                }
+            }
+        } else {
+            for (uint32_t lane = 0; lane < components; ++lane)
+                lanes[lane] = unpacked[lane];
+            if (components == 1u) {
+                lanes[1] = lanes[0];
+                lanes[2] = lanes[0];
+                lanes[3] = lanes[0];
+            }
         }
         std::memcpy(output, lanes, sizeof(lanes));
         input += input_bytes_per_vector;
@@ -401,13 +431,27 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         case 0x04: // ITOP
             store_mmio(kVif1Itops, immediate & 0x3FFu);
             break;
-        case 0x20: // STMASK
+        case 0x20: { // STMASK
             immediate_bytes = 4;
+            if (immediate_bytes > stream.size() - cursor) return false;
+            uint32_t mask = 0;
+            std::memcpy(&mask, stream.data() + cursor, sizeof(mask));
+            store_mmio(kVif1Mask, mask);
             break;
+        }
         case 0x30: // STROW
-        case 0x31: // STCOL
+        case 0x31: { // STCOL
             immediate_bytes = 16;
+            if (immediate_bytes > stream.size() - cursor) return false;
+            const uint32_t base = command == 0x30 ? kVif1Row : kVif1Col;
+            for (uint32_t index = 0; index < 4; ++index) {
+                uint32_t value = 0;
+                std::memcpy(&value, stream.data() + cursor + index * 4u,
+                            sizeof(value));
+                store_mmio(base + index * 0x10u, value);
+            }
             break;
+        }
         case 0x4A: // MPG
             ++trace->mpg_total;
             if (trace->mpg_count < trace->mpg.size())
@@ -448,12 +492,15 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 uint32_t vu_paired = 0;
                 const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
                 if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
-                                               &vu_pipeline, &vu_paired) &&
-                    !g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
-                    openrac::log::warn(
-                        "native VU1 translation stopped at {} instruction {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
-                        vu_pipeline == 0 ? "upper" : "lower", vu_unsupported, vu_paired, vu_pc,
-                        entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                                               &vu_pipeline, &vu_paired)) {
+                    if (!g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
+                        openrac::log::warn(
+                            "native VU1 translation stopped at {} instruction {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
+                            vu_pipeline == 0 ? "upper" : "lower", vu_unsupported, vu_paired, vu_pc,
+                            entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                    }
+                    *unsupported_command = command;
+                    return false;
                 }
             }
             break;
@@ -478,9 +525,14 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     if (address == 0x10003C10u) {
         store_mmio(address, value);
         if ((value & 1u) != 0) {
-            for (uint32_t reg : {kVif1Status, kVif1Cycle, kVif1Itops, kVif1Itop,
-                                 kVif1Base, kVif1Offset, kVif1Tops, kVif1Top})
+            for (uint32_t reg : {kVif1Status, kVif1Cycle, kVif1Mask, kVif1Itops,
+                                 kVif1Itop, kVif1Base, kVif1Offset, kVif1Tops,
+                                 kVif1Top})
                 store_mmio(reg, 0);
+            for (uint32_t index = 0; index < 4; ++index) {
+                store_mmio(kVif1Row + index * 0x10u, 0);
+                store_mmio(kVif1Col + index * 0x10u, 0);
+            }
         }
         return 1;
     }
@@ -583,8 +635,13 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     }
 
     if (!vif_ok && !g_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
-        openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={}",
-                           unsupported, trace.failure_code, trace.failure_offset, stream.size());
+        openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={} cycle={:#010x} mask={:#010x} row={:#010x},{:#010x},{:#010x},{:#010x} col={:#010x},{:#010x},{:#010x},{:#010x}",
+                           unsupported, trace.failure_code, trace.failure_offset,
+                           stream.size(), load_mmio(kVif1Cycle), load_mmio(kVif1Mask),
+                           load_mmio(kVif1Row), load_mmio(kVif1Row + 0x10u),
+                           load_mmio(kVif1Row + 0x20u), load_mmio(kVif1Row + 0x30u),
+                           load_mmio(kVif1Col), load_mmio(kVif1Col + 0x10u),
+                           load_mmio(kVif1Col + 0x20u), load_mmio(kVif1Col + 0x30u));
         const char* trace_setting = std::getenv("OPENRAC_VIF_TRACE");
         if (trace_setting != nullptr && trace_setting[0] != '\0' && trace_setting[0] != '0') {
             for (size_t offset = 0; offset + sizeof(uint32_t) <= stream.size() &&
