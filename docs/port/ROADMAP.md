@@ -19,21 +19,21 @@ staging build compiles 194 matched units and 85 port-only backfills. Keep such
 replacements under `port/game/sly1-us/native/`, not in matching source.
 
 **Next milestone: pair a native draw with the same scene in PCSX2.** Freeze
-runtime renderer features and startup changes. The current prototype uses only
-the first material strip and approximates Sly's VU output as a triangle strip;
-its gray output does not validate either assumption. Review the supplied PCSX2
-recordings and native hidden-run capture to see whether one target draw can be
-identified with matching camera and scene state. If not, stop runtime work and
-make a data-only mesh viewer from the local extracted catalog. The viewer is
-an investigation tool, not a playable-port milestone. The class `0x54`
-kind-6 meshes are backdrop candidates, class `0x61` kind-5 meshes render to a
-texture, and the first measured class `0x02` mesh projected to only about 11 by
-2 pixels. None is a proven first foreground target.
+runtime renderer features and startup changes. The current prototype reads only
+the first `FrameSource` animation record and approximates Sly's VU output as a
+triangle strip; its gray output does not validate either assumption. Review
+the supplied PCSX2 recordings and native hidden-run capture to see whether one
+target draw can be identified with matching camera and scene state. If not,
+stop runtime work and make a data-only mesh viewer from the local extracted
+catalog. The viewer is an investigation tool, not a playable-port milestone.
+The class `0x54` kind-6 meshes are backdrop candidates, class `0x61` kind-5
+meshes render to a texture, and the first measured class `0x02` mesh projected
+to only about 11 by 2 pixels. None is a proven first foreground target.
 
 Pass only when a saved native frame shows a recognizable silhouette matching
 the console reference in position and shape. Record the matching scene, camera,
-mesh, full strip list, vertex inputs, and material state before implementing
-another render feature. Do not add backfills unless the chosen draw
+mesh, frame-source/cursor state, vertex inputs, VU output topology, and
+material state before implementing another render feature. Do not add backfills unless the chosen draw
 demonstrably depends on them. Keep replacements in
 `port/game/sly1-us/native/`. Capture details remain in the
 [graphics handoff](SLY_GRAPHICS_HANDOFF.md).

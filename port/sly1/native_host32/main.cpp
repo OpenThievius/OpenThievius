@@ -764,16 +764,17 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
     const volatile float* uvs = uvs_address != 0
         ? reinterpret_cast<const volatile float*>(uvs_address) : nullptr;
-    const u32 strip_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
-    const u32 strips_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
+    // StripMesh::nstrips counts FrameSource animation records, not geometry strips.
+    const u32 frame_source_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
+    const u32 frame_sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
     u64 tex0 = 0;
     u64 tex1 = 0;
     u64 clamp = 0;
     u64 test = 0;
-    if (strip_count > 0u && strips_address != 0) {
-        const volatile u32* strip = reinterpret_cast<const volatile u32*>(strips_address);
-        const u32 stride_qwc = strip[0];
-        const u32 packet_address = strip[1];
+    if (frame_source_count > 0u && frame_sources_address != 0) {
+        const volatile u32* frame_source = reinterpret_cast<const volatile u32*>(frame_sources_address);
+        const u32 stride_qwc = frame_source[0];
+        const u32 packet_address = frame_source[1];
         if (stride_qwc >= 8u && packet_address != 0 &&
             packet_address <= 0xFFFFFFFFu - 0x70u) {
             const volatile u64* packet = reinterpret_cast<const volatile u64*>(packet_address);
@@ -782,19 +783,19 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             tex1 = packet[10];
             clamp = packet[12];
         }
-        if (strip_count > 1u && std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        if (frame_source_count > 1u && std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
             static u32 multilayer_notices = 0;
             if (multilayer_notices++ < 8u)
                 std::fprintf(stderr,
-                             "[native sly mesh material] mesh=%#010x kind=%u strips=%u using first material\n",
-                             mesh_address, mesh[0], strip_count);
+                             "[native sly mesh material] mesh=%#010x kind=%u frame_sources=%u using first source\n",
+                             mesh_address, mesh[0], frame_source_count);
         }
     } else if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static u32 unsupported_strip_notices = 0;
         if (unsupported_strip_notices++ < 12u)
             std::fprintf(stderr,
-                         "[native sly mesh skipped] mesh=%#010x kind=%u strips=%u\n",
-                         mesh_address, mesh[0], strip_count);
+                         "[native sly mesh skipped] mesh=%#010x kind=%u frame_sources=%u\n",
+                         mesh_address, mesh[0], frame_source_count);
         return;
     }
     NativeSlyMesh captured;

@@ -26,12 +26,14 @@ snapshot compile 194 matched units and link. This compatibility work is done
 for the current revisions; do not keep broadening it without a new build
 failure.
 
-The experiment is not ready for more rendering features. It uses the first
-material strip for each mesh, treats the expanded stream as a triangle strip,
-and does not recreate Sly's VU output. A capture before HUD rendering proves
-that world geometry reaches GL, but only as a gray horizon and ground plane.
-The picture does not identify whether the missing detail comes from mesh
-topology, multiple strip state, VU transforms, or GS material/depth behavior.
+The experiment is not ready for more rendering features. It reads only the
+first `FrameSource` record for each mesh; `StripMesh::nstrips` counts
+frame-source animation records, not geometry strips. It treats the expanded
+stream as a triangle strip and does not recreate Sly's VU output. A capture
+before HUD rendering proves that world geometry reaches GL, but only as a gray
+horizon and ground plane. The picture does not identify whether the missing
+detail comes from mesh topology, an animated frame source, VU transforms, or
+GS material/depth behavior.
 Do not choose among those explanations without pairing a specific draw and
 camera with the user's PCSX2 recording.
 
@@ -39,8 +41,8 @@ The first experiment's texture was solid white, but the later kind-0 pass
 resolved actual texture uploads; one 256x128 upload is a purple atlas whose
 contents are not yet identified. Texture lookup is therefore not sufficient
 to make the scene match.
-The main code limitation is that all captured meshes use only their first
-strip's material. Evidence from this run is local at
+The experiment does not read the active animation cursor when selecting that
+first frame source. Evidence from this run is local at
 `/tmp/sly-world-probe-run2.log` and `/tmp/sly1-native-world-00.png`.
 
 The fourth component written by `BuildStripMeshPacket` is fog bias

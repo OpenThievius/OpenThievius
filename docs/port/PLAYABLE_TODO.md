@@ -34,11 +34,14 @@ gray kind-6 capture remains a failed experiment.
 ## Stop the speculative renderer loop
 
 Do not add more startup shims, shader features, or broad renderer probes. The
-current experiment uses only the first material strip for each mesh and treats
-the expanded vertex stream as a triangle strip. That is not enough to claim a
-faithful Sly draw: the world-only capture has no recognizable scene, even
-though the texture pool resolves real uploads. No more runtime renderer work
-is justified until a candidate draw is paired with a reference frame.
+current experiment reads only the first `FrameSource` from each mesh. In the
+decomp, `StripMesh::nstrips` counts frame-source animation records; it is not a
+geometry-strip count. The experiment also treats the expanded vertex stream as
+a triangle strip, without validating the VU output topology. That is not
+enough to claim a faithful Sly draw: the world-only capture has no recognizable
+scene, even though the texture pool resolves real uploads. No more runtime
+renderer work is justified until a candidate draw is paired with a reference
+frame.
 
 First compare the current native hidden-run capture with the existing PCSX2
 recordings and identify one same-scene, same-camera draw. If the recordings do
@@ -46,7 +49,7 @@ not show a comparable frame, stop runtime experiments and build a data-only
 mesh viewer from the extracted local catalog. That viewer is for inspecting
 asset geometry and materials; it is not a port milestone. Resume the runtime
 path only after identifying the candidate in both captures and recording its
-per-strip inputs completely.
+frame-source animation records and VU output topology completely.
 
 Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
 draws have finite matrices, so this trace does not yet show that those objects
@@ -55,8 +58,9 @@ object-transform workstream.
 
 **Pass condition:** before implementing another render feature, document the
 same target in the native and PCSX2 captures, including camera state, mesh,
-strip count, UV/color inputs, texture state, and expected silhouette. A rendered
-frame passes only when its silhouette matches the reference in shape and
+frame-source/cursor state, UV/color inputs, VU output topology, texture state,
+and expected silhouette. A rendered frame passes only when its silhouette
+matches the reference in shape and
 position. Any functional replacement stays under
 `port/game/sly1-us/native/`, separate from matching decomp source.
 
