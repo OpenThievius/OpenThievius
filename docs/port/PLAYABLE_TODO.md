@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current bounded task (2026-11-15)
+## Current bounded task (2026-11-16)
 
 ### The world draw path reaches a mismatched VU packet pointer
 
@@ -48,6 +48,16 @@ the strict parser correctly rejects that payload as a new GIFtag. The preceding
 captured DIRECT packets end with EOP, so they do not leave the GIF parser inside
 this packet.
 
+The follow-up trace records the VIF source offsets in that same DMA stream:
+the UNPACK command is at byte `5916`, the tag vector at `5920`, and the payload
+vector at `5936`. Separate UNPACKs write qwords 36 and 38 from byte offsets 868
+and 2120, and qword 37 from offset 5496; the captured stream does not write
+qwords 34–35. In the earlier diagnostic retry, the later XGKICK at VI7=`35`
+still found qwords 34–35 zero. This locates the records, but does not yet
+explain why the VU program advances to qword 469 or expects another packet at
+qword 35. The opt-in VU store probe can show who writes that pointer area when
+the later microinstructions run.
+
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
 from VI7=`35`, which also fails validation. The retry has been removed. Do not
@@ -56,6 +66,9 @@ the VU setup for both VI6 and VI7, including qwords 34–35 and 468–474, to le
 how this display list builds its packets. Keep masked UNPACK `0x78` support
 limited to the observed selectors; column-fill and write-protect remain
 unsupported. The no-card prompt's flicker remains a separate known issue.
+The sibling decomp's `PORTING.md` classifies `.vutext` as original assembly;
+the 100% matching C result does not decompile these VU1 programs. This renderer
+work stays port-only, with no changes to matched game functions.
 
 For a future visible input attempt, set `OPENRAC_TRACE_PAD=1`. It records SDL
 window focus, key down/up events, and pad reports so a missed Space press can be

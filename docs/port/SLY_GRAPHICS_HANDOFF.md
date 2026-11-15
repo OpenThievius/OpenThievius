@@ -77,7 +77,10 @@ is not continuing one of those packets. An opt-in retry from qword 468 submitted
 the 110-qword packet but the captured frames remained black; the next XGKICK at
 PC `0x6e` from VI7=`35` fails too. The retry was removed. Trace the VIF source
 records and both VU pointers next; do not backstep XGKICK addresses or relax GIF
-validation. Keep matched decomp source unchanged.
+validation. A follow-up run places the VIF command, tag vector and payload
+vector at stream offsets 5916, 5920 and 5936. It also records UNPACK writes to
+qwords 36–38 but none to 34–35; the previous retry found qwords 34–35 zero
+before the second XGKICK. Keep matched decomp source unchanged.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

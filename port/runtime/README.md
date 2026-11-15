@@ -43,7 +43,8 @@ uses VI6=`469` even though VIF UNPACK placed a valid EOP GIFtag at qword 468.
 A diagnostic retry from 468 still left the captured frame black and exposed a
 second failing XGKICK from VI7=`35`; that retry is removed. See the [graphics
 handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and the active
-task.
+task. The opt-in setup trace also records VIF source offsets and VU stores
+around qwords 32–38 and 464–476.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
