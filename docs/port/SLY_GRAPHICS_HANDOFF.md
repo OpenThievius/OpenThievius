@@ -60,19 +60,24 @@ separate GS stream diagnostic continues to report `TBP0=0` and placeholder
 texture state; it does not describe those resolved draw handles and should not
 be treated as the flicker cause without a draw-boundary correlation.
 
-The user pressed Space in the prior traced run. The live trace moved past the
-card prompt to world `0x870cf0` with `pause_open=0` and advancing frames. The
-current normal foreground run received Space, but a read-only live-state
-sample showed the frame count advancing from 59,535 to 59,598 while it remained
-on no-card page 3 (`world=0x006abdd0`, `pause_open=1`, `memory_gate=2`). The
-Space press did not advance this process; whether the window received the key
-event is not yet known. After the prompt is dismissed, a black view is the next
-known blocker: the experimental world renderer stays disabled, and VU1 XGKICK
-at PC `0x68`, VI6=`469`, rejects qword 469
-`0x0000000000000048:0x0000000000039001` for reserved GIF-tag bits. The opcode
-is implemented; VIF UNPACK is the immediate writer, while the surrounding
-packet boundary remains unknown. Keep the observed masked UNPACK support and
-any Sly-specific replacement port-only.
+The user's prior traced Space press dismissed the card prompt and loaded world
+`0x870cf0`. The current long-running foreground process remained on no-card
+page 3 after another Space press; because it started without `OPENRAC_TRACE_PAD`,
+event delivery is unconfirmed. A separate offscreen run injected one Cross at
+native frame 120 and observed `held=0x4000` followed by release, then reached
+the world draw path without taking focus from the visible window.
+
+The first XGKICK boundary is now localized. VIF UNPACK `0x6c`/`0xc1d4`, count
+7, writes a valid EOP GIFtag at qword 468 (`low=0x100040000000806d`,
+`high=0x000000000000000e`) and payload at qword 469
+(`low=0x0000000000039001`, `high=0x0000000000000048`). The VU program loads
+VI6=`468`, increments it at PC `0x67`, then issues XGKICK VI6 at PC `0x68`
+with VI6=`469`. Traced preceding DIRECT packets all end with EOP, so the parser
+is not continuing one of those packets. An opt-in retry from qword 468 submitted
+the 110-qword packet but the captured frames remained black; the next XGKICK at
+PC `0x6e` from VI7=`35` fails too. The retry was removed. Trace the VIF source
+records and both VU pointers next; do not backstep XGKICK addresses or relax GIF
+validation. Keep matched decomp source unchanged.
 Keep VIF/VU behavior in the runtime and any Sly function replacements under
 `port/game/sly1-us/native/`, separate from matched decomp source. Do not expand
 the optional GL prototype or resume broad model ranking. The pass remains a

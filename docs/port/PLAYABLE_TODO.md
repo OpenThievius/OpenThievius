@@ -3,7 +3,7 @@
 
 ## Current bounded task (2026-11-15)
 
-### The no-card prompt is visible; diagnose its flicker
+### The world draw path reaches a mismatched VU packet pointer
 
 The host32 prompt regression came from an ABI mismatch in the staged copy:
 matched callers declared `AddGifRegisterWrite(PacketWriter*, u64, u64)`, but
@@ -31,46 +31,50 @@ in an opt-in diagnostic still produced about 9% black samples, so that clear
 alone is not the cause. The short white dash at the left edge remains
 unexplained.
 
-The user's prior traced Space press dismissed the card prompt. The live trace
-then reported world `0x870cf0`, `pause_open=0`, and advancing game frames. The
-latest normal foreground run received Space. A read-only live-state sample
-showed frames advancing from 59,535 to 59,598 while it remained on no-card page
-3 (`world=0x006abdd0`, `pause_open=1`, `memory_gate=2`). Space did not advance
-this process; whether the window received the key event is not yet known. After
-the prompt is dismissed, a black view is expected from the current port: the
-experimental world renderer is disabled, and the native VU1 path still stops at
-XGKICK PC `0x68`, VI6=`469`, where qword 469
-(`0x0000000000000048:0x0000000000039001`) fails GIF reserved-bit validation.
-The value is written directly by VIF UNPACK command `0x6c`, immediate
-`0xc1d4`, vector 1, from `{0x00039001, 0, 0x48, 0}`; the lower instruction
-`0x800036fc` is the implemented XGKICK itself. The next capture logs adjacent
-VU qwords at the failing tag to establish its packet boundary. Keep the
-observed masked UNPACK `0x78` support scoped to its known selectors; column-
-fill and write-protect selectors remain unsupported. Do not relax GIF-tag
-validation before finding why XGKICK points into this record.
+The user's prior traced Space press dismissed the card prompt and loaded world
+`0x870cf0`. The current long-running foreground process remained on the no-card
+page after another Space press; because it started without `OPENRAC_TRACE_PAD`,
+event delivery is unconfirmed. A separate offscreen run injected Cross at
+native frame 120 and observed the pad transition `held=0x4000`, then release.
+This reached the world draw path without taking focus from the visible window.
 
-For the next visible input attempt, set `OPENRAC_TRACE_PAD=1`. It records SDL
+That run localized the first packet boundary. VIF UNPACK `0x6c`, immediate
+`0xc1d4`, count 7, writes qword 468 as
+`0x000000000000000e:0x100040000000806d`, a valid GIFtag with EOP and 109
+one-register loops. The following vector writes qword 469 as
+`0x0000000000000048:0x0000000000039001`, which is payload. VU1 loads VI6=`468`,
+increments it at PC `0x67`, and reaches XGKICK VI6 at PC `0x68` with VI6=`469`;
+the strict parser correctly rejects that payload as a new GIFtag. The preceding
+captured DIRECT packets end with EOP, so they do not leave the GIF parser inside
+this packet.
+
+An opt-in retry from qword 468 submitted the 110-qword packet, but captured
+frames remained black. Execution then reached a second XGKICK at PC `0x6e`
+from VI7=`35`, which also fails validation. The retry has been removed. Do not
+backstep pointers or weaken GIF validation. Next, map the source records and
+the VU setup for both VI6 and VI7, including qwords 34–35 and 468–474, to learn
+how this display list builds its packets. Keep masked UNPACK `0x78` support
+limited to the observed selectors; column-fill and write-protect remain
+unsupported. The no-card prompt's flicker remains a separate known issue.
+
+For a future visible input attempt, set `OPENRAC_TRACE_PAD=1`. It records SDL
 window focus, key down/up events, and pad reports so a missed Space press can be
-distinguished from a prompt-state or game-input regression.
+distinguished from a prompt-state or game-input regression. Automated input
+tests can stay offscreen using `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=N`.
 
-### One deliverable: isolate the prompt flicker
+### One deliverable: establish the first world packet boundary
 
-Trace whether the black frames contain valid 2D draws and texture state, and
-whether the window swaps a cleared frame. Correlate the game packet contents,
-DirectRenderer draw summary, and captured output in the same run. The observed
-packet-empty rate is too low to justify a packet-starvation fix. Keep matching
-decomp source intact, and keep all port function replacements in
-`port/game/sly1-us/native/`. For the correlation run, use
-`OPENRAC_TRACE_PRESENT=1`, `OPENRAC_TRACE_PRESENT_PIXEL=1`,
-`OPENRAC_TRACE_DIRECT=1`, `OPENRAC_TRACE_DIRECT_ALL=1`, and
-`OPENRAC_TRACE_DIRECT_STATE=1`. `OPENRAC_DEBUG_PRESERVE_FRAME=1` is only a
-comparison probe; it did not remove the flicker.
+Trace the source pointers and packet inputs used before the first and second
+world XGKICK. Correlate the VIF UNPACK source offsets, VU1 VI6/VI7 setup, and
+the VU data qwords at each address. Keep matching decomp source intact, and
+keep any Sly function replacements in `port/game/sly1-us/native/`. Strict GIF
+validation stays enabled. The previous qword-backstep experiment stayed black
+and is not a candidate fix.
 
-**Pass:** the no-card prompt remains continuously visible in a native capture,
-with the left-edge dash explained or removed. Then use the bounded qword
-neighborhood probe to trace qword 469 through the VU instruction order. Do not
-tune shaders, rank more model candidates, or relax GIF validation without
-evidence.
+**Pass:** the first world packet is accepted from the correct VU address and a
+native capture shows geometry from loaded Sly data. The no-card prompt flicker
+and short left-edge dash remain separately open. Do not tune shaders, rank more
+model candidates, or relax GIF validation without evidence.
 
 A successful build, frame rate, callback count, texture upload, DMA count, or
 decomp percentage is not visual progress. Keep each commit to one verified

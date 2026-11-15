@@ -37,11 +37,13 @@ path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
 adapter now fixes the no-card prompt's collapsed scissor; the prompt is visible
 but flickers to black in native captures. Packet-empty presents are too rare to
 explain those flashes, and skipping the per-present clear did not remove them.
-The user's previous Space press moved the game into world `0x870cf0`; the later
-diagnostic run restarted at the card prompt without input. World VU1 XGKICK
-still rejects a malformed GIF tag after the card prompt is dismissed. See the
-[graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and
-the active task.
+The user's prior Space press moved the game into world `0x870cf0`; a separate
+offscreen native input probe also reached world drawing. The first VU XGKICK
+uses VI6=`469` even though VIF UNPACK placed a valid EOP GIFtag at qword 468.
+A diagnostic retry from 468 still left the captured frame black and exposed a
+second failing XGKICK from VI7=`35`; that retry is removed. See the [graphics
+handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and the active
+task.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
