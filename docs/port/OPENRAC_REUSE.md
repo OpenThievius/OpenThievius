@@ -83,6 +83,15 @@ decodes two menu draws per frame. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for measured texture,
 geometry, and visual results.
 OpenRAC's world renderers remain R&C-specific and cannot draw Sly levels as-is.
+The current no-emulation host32 renderer is only the HUD `DirectRenderer`:
+`port/runtime/sdl_renderer.cpp` constructs `Bucket::Hud`, and per-frame input
+contains only that bucket's packet bytes. Its decoded draws do not represent a
+world scene. The compiled Sly `DrawModelPart` path emits VIF packets, while
+`port/game/sly1-us/native/func_002027C8.cpp` completes non-GIF channel work
+without a 3D consumer. The project has not yet built the OpenRAC-style
+Sly-specific world renderers described in `DESIGN.md`. Keep the VIF/VU/GS
+translation path for bounded diagnostics; the next playable graphics work is a
+native bridge from Sly model-part data and camera state to a Sly world renderer.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions

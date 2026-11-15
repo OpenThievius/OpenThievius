@@ -9,19 +9,32 @@ loads world `0x870cf0`, and advances at about 56 frames per second. The prior
 Wave 492 claim that frames and world stayed at zero was caused by a disabled
 counter; it was not evidence of a hang.
 
-The first post-load capture is still fully black. The native renderer receives
-alternating 1,712- and 1,936-byte packets and reports 18 decoded vertices,
-two draws, no decode error, and no rejected DMA. That proves packet handling
-runs, but does not tell us whether Sly submitted level geometry or whether the
-renderer interpreted the packet correctly. Trace one post-load frame from the
-world/display producer through the native handoff, then compare it with the
-working no-card panel. Fix only the first proven break. A non-black captured
-scene frame is the next gate. Do not use the experimental guest-runtime
-renderer as evidence for the no-emulation port.
+The first post-load capture is still fully black. The renderer inspection shows
+why the earlier packet counts were misleading: `sdl_renderer.cpp` creates only
+a `Bucket::Hud` `DirectRenderer`, and the presented `FrameInput` fills only
+that bucket. The two decoded draws and 18 vertices are not level geometry.
+Sly's `DrawModelPart` builds VIF packets for its meshes, but the native host32
+path has no Sly world renderer consuming those parts. The no-card UI working
+proves the HUD path; it does not prove a world path exists.
 
-Evidence: `/tmp/sly-wave497-frame-state.log`,
-`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
-No title or playable level is confirmed. See the
+Wave 503 provides a separate source-path clue. After Continue, world
+`0x870cf0` advances with a populated `list60`; the sampled callback resolves
+to `ApplyPlacedObjectTransform`. `list78` is empty, and no staged
+`DrawModelPart` call was recorded during the five-second sample. This leaves
+the immediate issue unresolved: determine the world descriptor callback and
+deferred request count, then follow one known model-bearing object through the
+frame to its draw request. Do not infer an empty scene solely from these two
+lists.
+
+After one part reaches the hook, implement the first native Sly world-renderer
+slice: carry one mesh kind's data, material/transform and the active camera in
+a host-owned frame record, then draw one real object. Leave `sly1-decomp`
+untouched and keep functional backfills under `port/game/sly1-us/`. Keep
+VIF/VU/GS execution as bounded diagnostics. The gate is an image capture with
+loaded Sly geometry positioned by the game's transform and camera. Evidence:
+`/tmp/sly-wave503-world-draw-lists.log`, `/tmp/sly-wave498-frame-07.png`, and
+`/tmp/sly-wave499-renderer-trace.log`. No title or playable level is confirmed.
+See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current plan.
 Historical Wave 39 context: two staging-only returns prevent matched

@@ -15,33 +15,38 @@ per second. The earlier Wave 492 report of zero frames and no world was invalid:
 those counters were only updated in the optional function-trace build, which
 was off. Do not use that run as evidence of a hang.
 
-The game still has no visible scene. A post-load framebuffer capture is solid
-black. The native renderer receives alternating 1,712- and 1,936-byte packets,
-decodes 18 vertices and two draws, and reports no decode error; DMA has zero
-rejections. This narrows the current problem to the path that should produce
-the level's draw data, or the Sly-to-native renderer handoff. It does not yet
-prove which one is at fault. Evidence: `/tmp/sly-wave497-frame-state.log`,
-`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
+The game still has no visible level scene. The SDL renderer creates only
+OpenRAC's `Bucket::Hud` `DirectRenderer`, and each presented frame supplies
+packets only to that bucket. The two draws and 18 vertices in Wave 499 are
+HUD/direct-packet statistics, not level geometry. Sly's `DrawModelPart` builds
+VIF packets, while the native host32 DMA replacement has no world renderer for
+that output. Evidence: `port/runtime/sdl_renderer.cpp`,
+`port/game/sly1-us/native/func_002027C8.cpp`, and the decomp's
+`src/main/placed_object_model.cpp`.
 
-### Next work: one graphics-path investigation
+### Next work: prove the missing link, then ship one vertical slice
 
-1. Trace one stable post-load frame from Sly's world/display calls through the
-   native packet submission boundary. Record which producers run, what data
-   each hands off, and which draw records the renderer creates.
-2. Compare that trace with the existing no-card frame, whose panel rendered
-   correctly. This separates missing scene production from a renderer decode
-   or presentation error.
-3. Fix only the first proven break, in the correct layer. Keep replacement
-   retail behavior in port-only backfills; keep renderer and host ABI work in
-   `port/`; leave `sly1-decomp` matching code untouched.
-4. Stop and reassess after one bounded change. The gate is a captured,
-   non-black post-load frame with a named scene draw. Do not treat more frames,
-   more DMA, or a successful compile as progress toward that gate by itself.
+1. Trace the target world's descriptor callback and deferred-request count
+   through one frame. In Wave 503, world `0x870cf0` advances; `list60` is
+   populated and its sampled method resolves to `ApplyPlacedObjectTransform`,
+   `list78` is empty, and the `DrawModelPart` hook saw no calls during the
+   five-second post-Continue sample. This does not yet explain why the model
+   draw queue stays empty.
+2. Follow the first known model-bearing object from its resource/scene load to
+   the point that should enqueue a `DrawModelPart` request. Fix only the first
+   proven break. Keep matching decompilation untouched; port-only behavioral
+   replacements stay under `port/game/sly1-us/native/`.
+3. Once one part reaches the hook, bridge one mesh kind, its material and
+   transform, and the active camera into a host-owned record. Add a Sly scene
+   renderer using OpenRAC's generic platform/GL foundation. Keep the HUD path;
+   stop tuning the VIF/VU/GS experiment as a route to graphics.
+4. The gate is a captured non-black frame containing geometry from loaded Sly
+   world data, positioned by the game's transform and camera. A successful
+   build, active game loop, or HUD draw does not satisfy it.
 
-Do not add speculative function backfills or expand the experimental hardware
-models. No title, controllable level, or playable build is confirmed. The
-no-card screen is a startup milestone, not a playable build.
-
+No title, controllable level, or playable build is confirmed. The no-card panel
+is the last confirmed visible milestone. This is a blocked graphics vertical
+slice, not a backlog of unrelated small fixes.
 Playable milestone gates: (1) first advancing game frame with a valid scene
 draw; (2) title/menu with responsive input; (3) controllable level with camera,
 collision, and stable rendering; (4) save/load and audio sufficient for a

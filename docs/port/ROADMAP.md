@@ -18,15 +18,17 @@ port-only native ISO adapter reads the 150,849-byte Splash resource from the
 retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
 Malformed text refers to the separate experimental guest-runtime renderer.
-The no-emulation host32 path has displayed the complete no-card warning panel
-and now clears it into world `0x870cf0`; the main loop advances at about 56
-frames per second. The post-load capture remains black. The renderer receives
-1,712- and 1,936-byte packets, decodes 18 vertices and two draws, and reports
-no decode errors or rejected DMA. Wave 492's zero-frame report came from a
-counter disabled in that build. Next, trace one world/display frame through the
-native packet handoff and compare it with the working no-card panel; make only
-the first evidence-backed correction. See
-[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for the current diagnosis.
+The no-emulation host32 game loop clears the no-card screen, loads world
+`0x870cf0`, and advances at about 56 frames per second. The level remains
+black. SDL currently renders HUD packets only; it has no Sly 3D world renderer.
+Wave 503's focused trace found a populated `list60`, an empty `list78`, and no
+`DrawModelPart` calls in its five-second post-Continue sample. Its sampled
+`list60` method is `ApplyPlacedObjectTransform`, so this list alone does not
+prove models are being queued. Next trace the world descriptor callback and
+deferred-request count, then follow one model-bearing object into the draw
+queue. The graphics gate is one loaded Sly mesh visible through a new
+Sly-specific native renderer. Keep matching decomp untouched. See
+[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for evidence and steps.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 

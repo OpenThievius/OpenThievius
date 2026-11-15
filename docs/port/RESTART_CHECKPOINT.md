@@ -15,19 +15,27 @@ second. Wave 492's zero-frame report was a diagnostic configuration error:
 the frame counters were not enabled in that build. The game is not shown to be
 stuck.
 
-The post-load frame is still black. Captures show recurring 1,712- and
-1,936-byte renderer packets, 18 decoded vertices, two draws, no decode error,
-and no rejected DMA. We have not yet identified whether the level draw producer
-is failing to submit scene data or the native renderer is losing valid data.
-This is the sole active blocker to first graphics. Start from one frame and
-trace the world/display producer through the packet boundary; compare against
-the already-working no-card panel. Change only the first confirmed broken
-boundary, then check whether the post-load capture is non-black. Do not add
-speculative game-function backfills or broaden the hardware-model experiment.
+The post-load frame is still black. `sdl_renderer.cpp` constructs only a HUD
+`DirectRenderer` and submits frame packets to `Bucket::Hud`; its 18 vertices
+and two draws are HUD data, not a level scene. `DrawModelPart` emits VIF model
+packets, and the direct host32 DMA replacement has no native world renderer.
 
-Evidence: `/tmp/sly-wave497-frame-state.log`,
+The Wave 503 trace adds a second, separate finding: after Continue, the new
+world advances and `RunWorldFrameLists` sees a populated `list60`, whose
+sampled method resolves to `ApplyPlacedObjectTransform`; `list78` is empty.
+The `DrawModelPart` probe recorded no calls over the five-second sample. This
+does not yet identify why the world draw queue stays empty. Next, trace the
+world descriptor callback and deferred request count, then follow one known
+model-bearing object from scene load to draw request. Fix the first proven
+break. Once a part reaches the boundary, implement one Sly native renderer
+vertical slice. Keep matching source untouched; keep functional backfills in
+the port. Leave VIF/VU/GS as bounded diagnostics.
+
+Gate: a captured non-black frame with geometry from loaded Sly data using the
+game's transform and camera. No title or playable level is confirmed. Evidence:
+`/tmp/sly-wave503-world-draw-lists.log`,
 `/tmp/sly-wave498-frame-07.png`, `/tmp/sly-wave499-renderer-trace.log`.
-No title or playable level is confirmed. No launcher process is left running.
+No launcher process is left running.
 The focused build option is `OPENRAC_NATIVE_FRAME_TRACE=ON`; it traces the
 main loop without enabling the stale probes in the broader function trace.
 Standard build:
