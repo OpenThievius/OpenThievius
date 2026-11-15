@@ -24,7 +24,27 @@ that output. Evidence: `port/runtime/sdl_renderer.cpp`,
 `port/game/sly1-us/native/func_002027C8.cpp`, and the decomp's
 `src/main/placed_object_model.cpp`.
 
-### Next work: ship one native world-rendering slice
+### Graphics reset (2026-11-15)
+
+A direct-host probe decoded three unskinned kind-6 packets (106, 89 and 68
+positions) from `DrawModelPart`. This proves the host can reach useful mesh
+data; it does not prove that the position stream is a renderable triangle
+list. Drawing those positions as one triangle strip produced a black frame.
+Forcing depth to pass produced a screen-filling shape, confirming that the
+packet's separate strip streams and VU-generated geometry are required for a
+correct draw. The experiment was discarded and is not part of the port.
+
+The decompilation's 100% code match includes the 0x5550-byte `.vutext` section
+as original assembly; those VU1 programs are not matched C. This is why 100%
+does not mean every graphics operation is ready to compile for the host.
+
+Next work is to derive one unskinned VU1 strip program's input/output from the
+retail packet and public hardware documentation, then implement that narrow
+geometry path as replaceable code under `port/`. Keep the matched decomp
+unchanged. Do not add a generic VU interpreter or grow device emulation. A
+captured frame with correctly shaped loaded-world geometry remains the gate.
+
+### Next work: native kind-6 strip slice
 
 The prior Wave 503 conclusion that no model draw was reached was invalid: each
 trace helper independently guessed the first world from its first model
@@ -33,19 +53,22 @@ one observed. Wave 512 fixes world selection by observing the transition in
 the main loop. It confirms a deferred `DrawPlacedObjectParts` request for an
 object with one part, then `DrawModelPart` receives 30 meshes of kind 5, with
 the first mesh carrying 326 quadwords of packet data. Other parts include kind
-0 meshes and strips. Evidence: `/tmp/sly-wave512-model-correct-filter.log`.
+0 meshes and unskinned kind-6 meshes. Evidence:
+`/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Decode one kind-5 mesh packet into a host-owned vertex/material record.
-   Keep the existing Sly `DrawModelPart` behavior and matching source intact;
-   capture its request at the port's build-time instrumentation boundary.
-2. Add a Sly world-renderer bucket using OpenRAC's generic platform and GL
-   foundation. Draw one real mesh with the game's transform and camera; keep
-   the existing HUD renderer for menus.
-3. Compare a captured native frame against PCSX2. Expand mesh/material support
-   only after one object is visible. Keep VIF/VU/GS as diagnostics, not the
-   native renderer architecture.
-4. Gate: a non-black capture showing geometry from the loaded Sly world. A
-   successful build, active game loop, or HUD draw does not satisfy it.
+1. Document the kind-6 packet layout, strip records and relevant VU1 program
+   inputs from retail evidence. The positions alone are not topology.
+2. Implement only that unskinned strip output as port-owned host geometry,
+   including strip boundaries and the game's model/camera transform.
+3. Submit the result to a separate Sly world-renderer bucket built on the
+   existing OpenRAC window/GL foundation; leave the HUD path intact.
+4. Capture loaded-world pixels and check the shape, scale and orientation
+   against PCSX2 before adding other material types.
+
+Keep this at the Sly draw boundary. Do not build a general VU interpreter or
+extend the device models as the gameplay renderer. A successful build, active
+game loop or HUD draw does not satisfy the gate: loaded-world geometry must be
+visible and correctly shaped.
 
 Keep any functional replacements under `port/game/sly1-us/native/` so they can
 be replaced cleanly when the corresponding function is decompiled. No title,

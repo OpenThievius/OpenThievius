@@ -23,13 +23,15 @@ The no-emulation host32 game loop clears the no-card screen, loads world
 `DrawModelPart` receives loaded-world mesh data. A port-only direct-host
 backfill now covers the handwritten `ComputeCameraDistanceFade` function.
 However, a hidden native capture is still black because the SDL renderer only
-has the HUD bucket; it has no Sly world renderer consuming model draws. The
-next step is a vertical slice at the game-data boundary: take one simple mesh
-and its transform from the `DrawModelPart` request, convert it into a
-host-owned draw record, and show it in a native world-renderer bucket. Keep the
-matching decomp source unchanged. Do not extend VIF/VU/GS translation as the
-gameplay graphics path; keep it for bounded diagnostics only. The gate is a
-captured frame with real loaded-world geometry. See
+has the HUD bucket; it has no Sly world renderer consuming model draws. A
+direct-host probe can read unskinned kind-6 positions, but those packets also
+carry strip data that the VU1 program turns into draw geometry; treating the
+positions as one triangle strip is invalid. The next step is a narrow native
+kind-6 strip path at the `DrawModelPart` boundary, including the verified
+strip topology and transform, then a host-owned draw record in a world-renderer
+bucket. Keep the matching decomp source unchanged. Do not build a general VU
+interpreter or extend device models as the gameplay graphics path. The gate is
+a captured frame with correctly shaped loaded-world geometry. See
 [the playable TODO](PLAYABLE_TODO.md), [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.
