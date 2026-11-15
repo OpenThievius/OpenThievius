@@ -478,26 +478,25 @@ volatile sig_atomic_t g_native_pc_sample_sequence = 0;
 volatile sig_atomic_t g_native_pc_sample_stack[8] = {};
 volatile u32 g_native_semaphore_trace_active = 0;
 volatile u32 g_semaphore_trace_event_count = 0;
+volatile u32 g_native_trace_first_world = 0;
+volatile u32 g_native_trace_target_world = 0;
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" void sly1_native_trace_note_world(u32 world) {
+    if (!g_startup_trace_enabled || world == 0) return;
+    u32 first = __atomic_load_n(&g_native_trace_first_world, __ATOMIC_RELAXED);
+    if (first == 0) {
+        __atomic_compare_exchange_n(&g_native_trace_first_world, &first, world, false,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        first = __atomic_load_n(&g_native_trace_first_world, __ATOMIC_RELAXED);
+    }
+    if (world != first)
+        __atomic_store_n(&g_native_trace_target_world, world, __ATOMIC_RELAXED);
+}
+
 extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world) {
-    if (!g_startup_trace_enabled || request_address == 0 || world == 0) return;
-    static u32 initial_world = 0;
-    static u32 post_transition_world = 0;
-    u32 observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
-    if (observed_world == 0) {
-        __atomic_compare_exchange_n(&initial_world, &observed_world, world, false,
-                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
-        observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
-    }
-    if (world == observed_world) return;
-    u32 selected_world = __atomic_load_n(&post_transition_world, __ATOMIC_RELAXED);
-    if (selected_world == 0) {
-        __atomic_compare_exchange_n(&post_transition_world, &selected_world, world, false,
-                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
-        selected_world = __atomic_load_n(&post_transition_world, __ATOMIC_RELAXED);
-    }
-    if (world != selected_world) return;
+    if (!g_startup_trace_enabled || request_address == 0 || world == 0 ||
+        world != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED)) return;
     static u32 part_count = 0;
     const u32 trace_index = __atomic_fetch_add(&part_count, 1u, __ATOMIC_RELAXED);
     if (trace_index >= 32u) return;
@@ -546,24 +545,9 @@ extern "C" void sly1_native_trace_world_draw_lists(u32 world_address,
                                                       u32 list78_offset,
                                                       u32 current_world) {
     if (!g_startup_trace_enabled || world_address == 0 ||
-        world_address != current_world)
+        world_address != current_world ||
+        world_address != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED))
         return;
-    static u32 initial_world = 0;
-    static u32 target_world = 0;
-    u32 observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
-    if (observed_world == 0) {
-        __atomic_compare_exchange_n(&initial_world, &observed_world, world_address, false,
-                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
-        observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
-    }
-    if (world_address == observed_world) return;
-    u32 selected_world = __atomic_load_n(&target_world, __ATOMIC_RELAXED);
-    if (selected_world == 0) {
-        __atomic_compare_exchange_n(&target_world, &selected_world, world_address, false,
-                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
-        selected_world = __atomic_load_n(&target_world, __ATOMIC_RELAXED);
-    }
-    if (world_address != selected_world) return;
 
     static u32 sample_count = 0;
     const u32 index = __atomic_fetch_add(&sample_count, 1u, __ATOMIC_RELAXED);
@@ -590,9 +574,70 @@ extern "C" void sly1_native_trace_world_draw_lists(u32 world_address,
         }
     }
 }
+
+extern "C" void sly1_native_trace_deferred_requests(u32 world_address,
+                                                       u32 queued_count,
+                                                       u32 sorted_count,
+                                                       u32 sorted_list,
+                                                       u32 model_draw_callback) {
+    if (!g_startup_trace_enabled || world_address == 0 || sorted_list == 0 ||
+        world_address != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED))
+        return;
+
+    static u32 sample_count = 0;
+    const u32 sample = __atomic_fetch_add(&sample_count, 1u, __ATOMIC_RELAXED);
+    if (!(sample < 4u || (sample & 63u) == 0)) return;
+    std::fprintf(stderr,
+                 "[native deferred requests] sample=%u world=%#010x queued=%u sorted=%u",
+                 sample, world_address, queued_count, sorted_count);
+    const volatile u32* entries = reinterpret_cast<const volatile u32*>(sorted_list);
+    const u32 limit = sorted_count < 12u ? sorted_count : 12u;
+    for (u32 i = 0; i < limit; ++i) {
+        const u32 request_address = entries[i];
+        if (request_address == 0) continue;
+        const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
+        std::fprintf(stderr, " [%u]=%#010x,arg=%#010x,group=%u",
+                     i, request[0], request[0x60 / 4], request[0x08 / 4]);
+        if (request[0] == model_draw_callback) {
+            const u32 object_address = request[0x60 / 4];
+            if (object_address >= 0x01000000u && object_address < 0x02000000u) {
+                const volatile u32* object = reinterpret_cast<const volatile u32*>(object_address);
+                std::fprintf(stderr,
+                             ",model_parts=%u,parts=%#010x,range=%#010x,packet_sizes=%u/%u",
+                             object[0x238 / 4], object[0x23C / 4], object[0x2D0 / 4],
+                             object[0x2D8 / 4], object[0x2E0 / 4]);
+            }
+        }
+    }
+    std::fputc('\n', stderr);
+}
+
+extern "C" void sly1_native_trace_draw_object(u32 world_address,
+                                                u32 object_address,
+                                                u32 part_count,
+                                                u32 parts_address) {
+    if (!g_startup_trace_enabled || world_address == 0 || object_address == 0 ||
+        world_address != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED))
+        return;
+    static u32 sample_count = 0;
+    const u32 sample = __atomic_fetch_add(&sample_count, 1u, __ATOMIC_RELAXED);
+    if (sample >= 16u) return;
+    std::fprintf(stderr,
+                 "[native draw object] sample=%u world=%#010x object=%#010x parts=%u array=%#010x",
+                 sample, world_address, object_address, part_count, parts_address);
+    if (parts_address != 0 && part_count > 0) {
+        const volatile u32* part = reinterpret_cast<const volatile u32*>(parts_address);
+        std::fprintf(stderr, " first_pos=%#x,%#x,%#x,%#x radius=%#x kind=%u matrix=%#010x",
+                     part[0], part[1], part[2], part[3], part[4], part[5], part[0x68 / 4]);
+    }
+    std::fputc('\n', stderr);
+}
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32) {}
+extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_deferred_requests(u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_draw_object(u32, u32, u32, u32) {}
 #endif
 
 extern "C" __attribute__((no_instrument_function)) void

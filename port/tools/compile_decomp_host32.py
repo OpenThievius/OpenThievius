@@ -2378,6 +2378,8 @@ def main(argv=None):
                         help="trace DrawModelPart inputs in the staged host source")
     parser.add_argument("--trace-world-draw-lists", action="store_true",
                         help="trace active-world draw-list heads and callback targets")
+    parser.add_argument("--trace-deferred-requests", action="store_true",
+                        help="trace callback types submitted by the active world")
     parser.add_argument("--trace-oscillator", action="store_true",
                         help="probe RefreshOscillatorFrames without enabling other probes")
     args = parser.parse_args(argv)
@@ -4079,6 +4081,7 @@ void StartStateGraph"""
                     'extern s32 D_002701B8;\n'
                     'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_frame_stage(u32);\n'
+                    'extern "C" void sly1_native_trace_note_world(u32);\n'
                     'extern "C" void sly1_native_trace_memory_gate(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_memory_timing(float, float, float);\n'
                     'extern "C" void sly1_native_trace_frame_state(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
@@ -4105,6 +4108,11 @@ void StartStateGraph"""
                     if stage > 1 else
                     "        sly1_native_trace_frame_stage(" + str(stage) + ");\n" + statement,
                     1)
+            world_walk = "            RunWorldFrameLists(g_currentWorld, g_camera);"
+            adapted = adapted.replace(
+                world_walk,
+                "            sly1_native_trace_note_world((u32)g_currentWorld);\n" + world_walk,
+                1)
             end_frame = "            SubmitRenderFrame();\n        }\n        g_frameCount++;"
             end_frame_replacement = (
                 "            SubmitRenderFrame();\n"
@@ -4524,6 +4532,30 @@ void LoadEffectSpawner"""
                 "(u32)g_currentWorld);\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected RunWorldFrameLists setup")
+            adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_deferred_requests and rel.as_posix() == "main/group_marker.cpp":
+            adapted = ('extern "C" void sly1_native_trace_deferred_requests(u32, u32, u32, u32, u32);\n' + adapted)
+            signature = "void SubmitDeferredRequests(World* world, void* camera)\n{"
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected SubmitDeferredRequests definition")
+            adapted = adapted.replace(
+                signature,
+                signature + "\n    void DrawPlacedObjectParts(DeferredRequest*);", 1)
+            needle = "    s32 count = BucketDeferredRequests(n, g_deferredRequests, (void**)list);\n"
+            replacement = needle + (
+                "    sly1_native_trace_deferred_requests((u32)world, (u32)n, "
+                "(u32)count, (u32)list, (u32)DrawPlacedObjectParts);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected SubmitDeferredRequests bucket")
+            adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_deferred_requests and rel.as_posix() == "main/active_set_solver.cpp":
+            adapted = ('extern "C" void sly1_native_trace_draw_object(u32, u32, u32, u32);\n' + adapted)
+            needle = "    TextureRenderObject* s1 = (TextureRenderObject*)self->arg;\n"
+            replacement = needle + (
+                "    sly1_native_trace_draw_object((u32)g_currentWorld, (u32)s1, "
+                "(u32)s1->drawPartCount, (u32)s1->drawParts);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected DrawPlacedObjectParts object load")
             adapted = adapted.replace(needle, replacement, 1)
         # Matching units declare AddGifRegisterWrite with inconsistent host
         # types. The retail ABI is (writer, 32-bit register, 64-bit value);
