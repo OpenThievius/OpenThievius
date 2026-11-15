@@ -232,7 +232,7 @@ uint32_t read_bits(const uint8_t* source, size_t bit_offset, uint32_t bit_count)
 }
 
 bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
-                const uint8_t* source, size_t source_size) {
+                const uint8_t* source, size_t source_size, size_t stream_offset) {
     const bool masking = (command & 0x10u) != 0;
     const uint32_t vectors = count == 0 ? 256u : count;
     const uint32_t format = command & 0xFu;
@@ -252,6 +252,9 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         (write_length != cycle_length && write_length != 1u)) return false;
     const uint32_t destination_stride = write_length == cycle_length ? 1u : cycle_length;
     const uint32_t mask = masking ? load_mmio(kVif1Mask) : 0;
+    const char* vu_setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+    const bool vu_setup_trace_enabled = vu_setup_trace != nullptr &&
+        vu_setup_trace[0] != '\0' && vu_setup_trace[0] != '0';
 
     uint32_t destination = immediate & 0x3FFu;
     if ((immediate & 0x8000u) != 0)
@@ -265,9 +268,9 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         uint8_t* output = guest_address(kVu1Data + destination_index * 16u);
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
-        const char* vu_setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
-        const bool trace_target = destination_index == 34u || destination_index == 35u ||
-                                  destination_index == 468u || destination_index == 469u;
+        const bool trace_target =
+            (destination_index >= 32u && destination_index <= 38u) ||
+            (destination_index >= 464u && destination_index <= 476u);
         uint32_t old_lanes[4];
         if (trace_target) std::memcpy(old_lanes, lanes, sizeof(old_lanes));
         uint32_t input_lanes[4]{};
@@ -318,11 +321,10 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         std::memcpy(output, lanes, sizeof(lanes));
         static std::atomic<uint32_t> packet_write_notice{0};
         static std::atomic<uint32_t> pointer_write_notice{0};
-        const bool trace_packet_target = destination_index == 468u || destination_index == 469u;
-        const bool trace_pointer_target =
-            vu_setup_trace != nullptr && vu_setup_trace[0] != '\0' &&
-            vu_setup_trace[0] != '0' &&
-            (destination_index == 34u || destination_index == 35u);
+        const bool trace_packet_target =
+            destination_index >= 464u && destination_index <= 476u;
+        const bool trace_pointer_target = vu_setup_trace_enabled &&
+            destination_index >= 32u && destination_index <= 38u;
         const bool trace_write =
             (trace_packet_target &&
              packet_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u) ||
@@ -330,8 +332,10 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
              pointer_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u);
         if (trace_write) {
             openrac::log::info(
-                "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+                "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
                 destination_index, command, immediate, vector_index, vectors,
+                stream_offset - sizeof(uint32_t),
+                stream_offset + vector_index * input_bytes_per_vector,
                 load_mmio(kVif1Top) & 0x3FFu, load_mmio(kVif1Tops) & 0x3FFu,
                 load_mmio(kVif1Base) & 0x3FFu, load_mmio(kVif1Offset) & 0x3FFu,
                 (load_mmio(kVif1Status) >> 7u) & 1u,
@@ -436,7 +440,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint64_t bytes = bytes_per_vector * loops;
             if (bytes > stream.size() - cursor) return false;
             if (!unpack_vu1(command, count, immediate, stream.data() + cursor,
-                            static_cast<size_t>(bytes))) {
+                            static_cast<size_t>(bytes), cursor)) {
                 *unsupported_command = command;
                 return false;
             }

@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <sstream>
@@ -105,15 +106,24 @@ Vector data_read(uint32_t address) {
 void data_write(uint32_t address, const Vector& value) {
     address &= static_cast<uint32_t>(kVu1Quadwords - 1u);
     uint32_t previous[4]{};
-    if (address == 469u)
+    static const bool setup_trace_enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    const bool trace_target =
+        (address >= 32u && address <= 38u) ||
+        (address >= 464u && address <= 476u);
+    if (trace_target)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
     static std::atomic<uint32_t> target_write_notice{0};
-    if (address == 469u && target_write_notice.fetch_add(1, std::memory_order_relaxed) < 8u) {
+    if (trace_target && setup_trace_enabled &&
+        target_write_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
         uint32_t next[4]{};
         std::memcpy(next, value.data(), sizeof(next));
         openrac::log::info(
-            "native VU1 store wrote qword=469 old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            "native VU1 store wrote qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            address,
             previous[0], previous[1], previous[2], previous[3],
             next[0], next[1], next[2], next[3]);
     }
