@@ -33,11 +33,13 @@ unexplained.
 
 The user's prior traced Space press dismissed the card prompt. The live trace
 then reported world `0x870cf0`, `pause_open=0`, and advancing game frames. The
-latest normal foreground run also received Space, but its log has no frame or
-world trace, so that run's result is unverified. After the prompt is dismissed,
-a black view is expected from the current port: the experimental world
-renderer is disabled, and the native VU1 path still stops at XGKICK PC `0x68`,
-VI6=`469`, where qword 469
+latest normal foreground run received Space. A read-only live-state sample
+showed frames advancing from 59,535 to 59,598 while it remained on no-card page
+3 (`world=0x006abdd0`, `pause_open=1`, `memory_gate=2`). Space did not advance
+this process; whether the window received the key event is not yet known. After
+the prompt is dismissed, a black view is expected from the current port: the
+experimental world renderer is disabled, and the native VU1 path still stops at
+XGKICK PC `0x68`, VI6=`469`, where qword 469
 (`0x0000000000000048:0x0000000000039001`) fails GIF reserved-bit validation.
 The value is written directly by VIF UNPACK command `0x6c`, immediate
 `0xc1d4`, vector 1, from `{0x00039001, 0, 0x48, 0}`; the lower instruction

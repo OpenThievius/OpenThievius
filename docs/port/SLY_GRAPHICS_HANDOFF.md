@@ -62,8 +62,11 @@ be treated as the flicker cause without a draw-boundary correlation.
 
 The user pressed Space in the prior traced run. The live trace moved past the
 card prompt to world `0x870cf0` with `pause_open=0` and advancing frames. The
-latest normal foreground run also received Space, but its log has no frame or
-world trace, so its result is unverified. After Space, a black view is the next
+current normal foreground run received Space, but a read-only live-state
+sample showed the frame count advancing from 59,535 to 59,598 while it remained
+on no-card page 3 (`world=0x006abdd0`, `pause_open=1`, `memory_gate=2`). The
+Space press did not advance this process; whether the window received the key
+event is not yet known. After the prompt is dismissed, a black view is the next
 known blocker: the experimental world renderer stays disabled, and VU1 XGKICK
 at PC `0x68`, VI6=`469`, rejects qword 469
 `0x0000000000000048:0x0000000000039001` for reserved GIF-tag bits. The opcode
