@@ -20,21 +20,25 @@ The post-load frame is still black. `sdl_renderer.cpp` constructs only a HUD
 and two draws are HUD data, not a level scene. `DrawModelPart` emits VIF model
 packets, and the direct host32 DMA replacement has no native world renderer.
 
-The Wave 503 trace adds a second, separate finding: after Continue, the new
-world advances and `RunWorldFrameLists` sees a populated `list60`, whose
-sampled method resolves to `ApplyPlacedObjectTransform`; `list78` is empty.
-The `DrawModelPart` probe recorded no calls over the five-second sample. This
-does not yet identify why the world draw queue stays empty. Next, trace the
-world descriptor callback and deferred request count, then follow one known
-model-bearing object from scene load to draw request. Fix the first proven
-break. Once a part reaches the boundary, implement one Sly native renderer
-vertical slice. Keep matching source untouched; keep functional backfills in
-the port. Leave VIF/VU/GS as bounded diagnostics.
+The earlier Wave 503 “no model draw” result was a trace-filter bug: each
+callback chose its target world based on the first callback it observed. Wave
+512 instead records the world transition from the main loop and confirms the
+full game-side path: the loaded world queues `DrawPlacedObjectParts` for an
+object with one part; that calls `DrawModelPart`, which receives 30 kind-5
+meshes (first mesh: 326 quadwords), plus other kind-0 meshes and strips.
+Evidence: `/tmp/sly-wave512-model-correct-filter.log`.
+
+The remaining first-graphics blocker is now squarely on the port side:
+`sdl_renderer.cpp` constructs only a HUD `DirectRenderer`, and no native Sly
+world renderer consumes the model data. Next, decode one kind-5 mesh packet
+into a host-owned vertex/material record and draw it with the game's transform
+and camera in a Sly scene bucket. Keep matching source untouched and keep all
+functional backfills in the port. Keep VIF/VU/GS as bounded diagnostics.
 
 Gate: a captured non-black frame with geometry from loaded Sly data using the
 game's transform and camera. No title or playable level is confirmed. Evidence:
-`/tmp/sly-wave503-world-draw-lists.log`,
-`/tmp/sly-wave498-frame-07.png`, `/tmp/sly-wave499-renderer-trace.log`.
+`/tmp/sly-wave512-model-correct-filter.log`,
+`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
 No launcher process is left running.
 The focused build option is `OPENRAC_NATIVE_FRAME_TRACE=ON`; it traces the
 main loop without enabling the stale probes in the broader function trace.

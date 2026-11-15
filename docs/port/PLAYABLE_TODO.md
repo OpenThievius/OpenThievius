@@ -24,25 +24,32 @@ that output. Evidence: `port/runtime/sdl_renderer.cpp`,
 `port/game/sly1-us/native/func_002027C8.cpp`, and the decomp's
 `src/main/placed_object_model.cpp`.
 
-### Next work: prove the missing link, then ship one vertical slice
+### Next work: ship one native world-rendering slice
 
-1. Trace the target world's descriptor callback and deferred-request count
-   through one frame. In Wave 503, world `0x870cf0` advances; `list60` is
-   populated and its sampled method resolves to `ApplyPlacedObjectTransform`,
-   `list78` is empty, and the `DrawModelPart` hook saw no calls during the
-   five-second post-Continue sample. This does not yet explain why the model
-   draw queue stays empty.
-2. Follow the first known model-bearing object from its resource/scene load to
-   the point that should enqueue a `DrawModelPart` request. Fix only the first
-   proven break. Keep matching decompilation untouched; port-only behavioral
-   replacements stay under `port/game/sly1-us/native/`.
-3. Once one part reaches the hook, bridge one mesh kind, its material and
-   transform, and the active camera into a host-owned record. Add a Sly scene
-   renderer using OpenRAC's generic platform/GL foundation. Keep the HUD path;
-   stop tuning the VIF/VU/GS experiment as a route to graphics.
-4. The gate is a captured non-black frame containing geometry from loaded Sly
-   world data, positioned by the game's transform and camera. A successful
-   build, active game loop, or HUD draw does not satisfy it.
+The prior Wave 503 conclusion that no model draw was reached was invalid: each
+trace helper independently guessed the first world from its first model
+callback, so it suppressed the target world when that callback was the first
+one observed. Wave 512 fixes world selection by observing the transition in
+the main loop. It confirms a deferred `DrawPlacedObjectParts` request for an
+object with one part, then `DrawModelPart` receives 30 meshes of kind 5, with
+the first mesh carrying 326 quadwords of packet data. Other parts include kind
+0 meshes and strips. Evidence: `/tmp/sly-wave512-model-correct-filter.log`.
+
+1. Decode one kind-5 mesh packet into a host-owned vertex/material record.
+   Keep the existing Sly `DrawModelPart` behavior and matching source intact;
+   capture its request at the port's build-time instrumentation boundary.
+2. Add a Sly world-renderer bucket using OpenRAC's generic platform and GL
+   foundation. Draw one real mesh with the game's transform and camera; keep
+   the existing HUD renderer for menus.
+3. Compare a captured native frame against PCSX2. Expand mesh/material support
+   only after one object is visible. Keep VIF/VU/GS as diagnostics, not the
+   native renderer architecture.
+4. Gate: a non-black capture showing geometry from the loaded Sly world. A
+   successful build, active game loop, or HUD draw does not satisfy it.
+
+Keep any functional replacements under `port/game/sly1-us/native/` so they can
+be replaced cleanly when the corresponding function is decompiled. No title,
+controllable level, or playable build is confirmed.
 
 No title, controllable level, or playable build is confirmed. The no-card panel
 is the last confirmed visible milestone. This is a blocked graphics vertical

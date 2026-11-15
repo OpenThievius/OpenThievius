@@ -17,24 +17,22 @@ Sly's `DrawModelPart` builds VIF packets for its meshes, but the native host32
 path has no Sly world renderer consuming those parts. The no-card UI working
 proves the HUD path; it does not prove a world path exists.
 
-Wave 503 provides a separate source-path clue. After Continue, world
-`0x870cf0` advances with a populated `list60`; the sampled callback resolves
-to `ApplyPlacedObjectTransform`. `list78` is empty, and no staged
-`DrawModelPart` call was recorded during the five-second sample. This leaves
-the immediate issue unresolved: determine the world descriptor callback and
-deferred request count, then follow one known model-bearing object through the
-frame to its draw request. Do not infer an empty scene solely from these two
-lists.
+The Wave 503 “no model draw” result was a filter bug: the probe selected a
+target world based on the first model callback, suppressing the target when
+that callback was also the first observed. Wave 512 observes the world change
+from the main loop and confirms that the loaded world queues
+`DrawPlacedObjectParts` for an object with one model part. The callback reaches
+`DrawModelPart`, which sees 30 kind-5 meshes (the first has 326 quadwords of
+packet data), plus other kind-0 meshes and strips. Evidence:
+`/tmp/sly-wave512-model-correct-filter.log`.
 
-After one part reaches the hook, implement the first native Sly world-renderer
-slice: carry one mesh kind's data, material/transform and the active camera in
-a host-owned frame record, then draw one real object. Leave `sly1-decomp`
-untouched and keep functional backfills under `port/game/sly1-us/`. Keep
-VIF/VU/GS execution as bounded diagnostics. The gate is an image capture with
-loaded Sly geometry positioned by the game's transform and camera. Evidence:
-`/tmp/sly-wave503-world-draw-lists.log`, `/tmp/sly-wave498-frame-07.png`, and
-`/tmp/sly-wave499-renderer-trace.log`. No title or playable level is confirmed.
-See the
+The next graphics slice is now concrete: decode one kind-5 mesh packet into a
+host-owned vertex/material record, carry the request transform and active
+camera, then draw one real object in a Sly world-renderer bucket. Leave
+`sly1-decomp` untouched and keep functional backfills under
+`port/game/sly1-us/`. Keep VIF/VU/GS execution as bounded diagnostics. The gate
+is an image capture with loaded Sly geometry positioned by the game's transform
+and camera. No title or playable level is confirmed. See the
 [restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
 for the current plan.
 Historical Wave 39 context: two staging-only returns prevent matched

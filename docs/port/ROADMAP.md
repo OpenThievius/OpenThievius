@@ -21,13 +21,12 @@ Malformed text refers to the separate experimental guest-runtime renderer.
 The no-emulation host32 game loop clears the no-card screen, loads world
 `0x870cf0`, and advances at about 56 frames per second. The level remains
 black. SDL currently renders HUD packets only; it has no Sly 3D world renderer.
-Wave 503's focused trace found a populated `list60`, an empty `list78`, and no
-`DrawModelPart` calls in its five-second post-Continue sample. Its sampled
-`list60` method is `ApplyPlacedObjectTransform`, so this list alone does not
-prove models are being queued. Next trace the world descriptor callback and
-deferred-request count, then follow one model-bearing object into the draw
-queue. The graphics gate is one loaded Sly mesh visible through a new
-Sly-specific native renderer. Keep matching decomp untouched. See
+Wave 512 corrects the earlier false “no model draw” result: the loaded world
+queues `DrawPlacedObjectParts` for an object with one part, and `DrawModelPart`
+receives 30 kind-5 meshes plus other meshes and strips. The first kind-5 mesh
+has 326 quadwords of packet data. Next decode one mesh into a host-owned record
+and draw it through a Sly-specific native renderer. Keep matching decomp
+untouched. See
 [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for evidence and steps.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
