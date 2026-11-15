@@ -610,6 +610,16 @@ def normalize_turning_collider_matrix_abi(text, label):
     return text
 
 
+def normalize_gif_register_writer_abi(text):
+    """Give every staged AddGifRegisterWrite declaration the host ABI."""
+    signature = re.compile(
+        r"(?m)(void\s+AddGifRegisterWrite\s*\(\s*"
+        r"(?:PacketWriter|void)\s*\*\s*\w+\s*,\s*)"
+        r"(?:s32|u64)\s+(\w+)\s*,\s*"
+        r"(?:s32|s64|u64)\s+(\w+)(\s*\))")
+    return signature.sub(r"\1s32 \2, u64 \3\4", text)
+
+
 def normalize_agent_axis_angle_matrix_abi(text, label):
     """Match Agent's local axis-angle prototype to the compiled host definition."""
     if label != "main/agent.cpp":
@@ -2585,7 +2595,12 @@ def main(argv=None):
             continue
         staged_header = staged_include / header.relative_to(include)
         staged_header.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(header, staged_header)
+        if header.suffix in {".h", ".hpp"}:
+            header_text = header.read_text(encoding="utf-8")
+            staged_header.write_text(normalize_gif_register_writer_abi(header_text),
+                                     encoding="utf-8")
+        else:
+            shutil.copy2(header, staged_header)
     solver_header = staged_include / "functions/active_set_solver.h"
     solver_header.write_text(
         normalize_active_set_solver_abi(
@@ -4816,13 +4831,7 @@ void LoadEffectSpawner"""
         # normalize every staged declaration and definition to that layout.
         # Without this, a u64 register shifts the value by one stack word on
         # i386 and GS writes such as SCISSOR_1 become corrupt.
-        gif_writer_signature = re.compile(
-            r"(?m)(void\s+AddGifRegisterWrite\s*\(\s*"
-            r"(?:PacketWriter|void)\s*\*\s*\w+\s*,\s*)"
-            r"(?:s32|u64)\s+(\w+)\s*,\s*"
-            r"(?:s32|s64|u64)\s+(\w+)(\s*\))")
-        adapted, normalized_gif_writers = gif_writer_signature.subn(
-            r"\1s32 \2, u64 \3\4", adapted)
+        adapted = normalize_gif_register_writer_abi(adapted)
         if rel.as_posix() == "main/placed_object.cpp":
             # This matched non-void wrapper calls a void function and falls
             # through. GCC -O2 omits its epilogue, so host execution enters the
