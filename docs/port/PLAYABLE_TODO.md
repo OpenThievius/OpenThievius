@@ -3,11 +3,11 @@
 
 ## Clean reset review (2026-11-15)
 
-The current loop is advancing and the retail no-card screen is dismissed, so
-startup fixes are no longer the first graphics blocker. Stop adding startup
-backfills and renderer probes until they unblock the next visible milestone.
-The kind-6 renderer experiment is still disabled by default; its gray frame is
-a failed result, not a partial success.
+Earlier host32 runs advanced after dismissing the retail no-card screen, but
+the latest decomp refresh has not yet confirmed a complete game frame. Stop
+adding broad startup backfills and renderer probes. The kind-6 renderer
+experiment is disabled by default; its gray frame is a failed result, not
+partial graphics progress.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions
@@ -15,18 +15,25 @@ and 12-function reachable no-C frontier on both revisions. The host32 source
 adapter now handles the newer declarations and linkage in its generated copy.
 A fresh build against `8f7a85a3` compiles all 194 matched units plus 85
 separate port-only backfills and links with 99 missing-function traps. This is
-compile/link evidence only: that launcher has not been run, and this does not
-change the last confirmed visual result. Matching source remains unchanged.
+compile/link evidence; matching source remains unchanged. The first runtime
+attempt found an old port adapter changing the newer float-first ramp calls
+back to the legacy register order. Gating those rewrites on the shared helper
+declaration removed that camera fault.
 
-**Next work is a single graphics vertical slice.** First make one bounded
-hidden run of that binary to confirm it still reaches the loaded world. Then
-trace one unskinned kind-6 mesh from its source vertices through the VU1
+A 15-second hidden run of the corrected launcher read six ISO spans (2,426
+sectors), accepted 47,832 DMA submissions, and rejected three. Repeated
+game-thread samples remained in `QueryPlaneTreePoint`, while diagnostic frame
+and world counters stayed at zero. No loaded-world draw or rendered scene is
+confirmed by this run. The last confirmed visible result remains the no-card
+screen; the gray kind-6 capture remains a failed experiment.
+
+**Next work is one bounded handoff from loading to drawing.** Establish whether
+the collision query is keeping the game from its first loaded-world draw. If
+the frame loop is active, follow one unskinned mesh through the VU1
 finish/output boundary to the native draw. Stop at the first mismatch and fix
-only that boundary; require a captured frame with recognizable geometry
+only that boundary. Require a captured frame with recognizable geometry
 before enabling the renderer or broadening its scope. Do not add startup
-backfills or renderer experiments unless the trace proves they block this
-slice. The renderer remains disabled by default and the gray-frame attempt
-remains a failed result.
+backfills or renderer probes unless this trace shows they block the handoff.
 
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 

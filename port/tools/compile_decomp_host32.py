@@ -1688,7 +1688,7 @@ def trace_camera_target_callback(text, label):
     return text.replace(old, new, 1)
 
 
-def forward_switched_pose_arguments(text, label):
+def forward_switched_pose_arguments(text, label, legacy_ramp_abi=True):
     """Restore the PS2 argument registers consumed by the nested pose call."""
     if label != "main/switched_collider.cpp":
         return text
@@ -1702,6 +1702,8 @@ def forward_switched_pose_arguments(text, label):
               (re.search(r'(?m)^#include\s+"functions/collider\.h"', text) and
                "CaptureColliderPose(self, (ColliderPose*)out);" in text)):
         raise RuntimeError("expected switched-collider pose call")
+    if not legacy_ramp_abi:
+        return text
     ramp_decl = "f32 ApproachValueWithRamp(f32 a, f32 b, f32 c, Quad16* p, s32 zero);"
     ramp_call = "ApproachValueWithRamp(self->v560.z, self->v140.z, a, (Quad16*)D_00269BC0, 0)"
     current_ramp_decl = (
@@ -1776,36 +1778,41 @@ def normalize_update_camera_target_pose_abi(text, label):
     raise RuntimeError("expected UpdateCamera target-pose call")
 
 
-def normalize_on_off_camera_ramp_abi(text, label):
+def normalize_on_off_camera_ramp_abi(text, label, legacy_ramp_abi=True):
     """Match the shared ramp helper's host signature in the camera controller."""
     if label != "main/on_off_object.cpp":
+        return text
+    if not legacy_ramp_abi:
         return text
     old_decl = "f32 ApproachValueWithRamp(f32 value, f32 target, f32 dt, RampProfile* profile, f32* speed);"
     new_decl = "f32 ApproachValueWithRamp(RampProfile* profile, f32* speed, f32 value, f32 target, f32 dt);"
     old_call = "ApproachValueWithRamp(view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt, &D_00275A80, 0)"
     new_call = "ApproachValueWithRamp(&D_00275A80, 0, view->f44, (*(s32*)&eye->q[0] & 1) ? 0.0f : block->f64, dt)"
     latest_decl = "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
-    latest_new_decl = "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
     latest_call = (
         "ApproachValueWithRamp(view->turnScale, "
         "(*(s32*)&eye->q[0] & 1) ? 0.0f : block->turnRate, dt, "
         "&g_onOffCameraFadeRamp, 0)"
     )
-    latest_new_call = (
-        "ApproachValueWithRamp(&g_onOffCameraFadeRamp, 0, view->turnScale, "
-        "(*(s32*)&eye->q[0] & 1) ? 0.0f : block->turnRate, dt)"
-    )
-    if text.count(old_decl) == 1 and text.count(old_call) == 1:
-        return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
     if text.count(latest_decl) == 1 and text.count(latest_call) == 1:
+        latest_new_decl = (
+            "f32 ApproachValueWithRamp(RampProfile* k, f32* out, "
+            "f32 x, f32 y, f32 z);")
+        latest_new_call = (
+            "ApproachValueWithRamp(&g_onOffCameraFadeRamp, 0, view->turnScale, "
+            "(*(s32*)&eye->q[0] & 1) ? 0.0f : block->turnRate, dt)")
         return text.replace(latest_decl, latest_new_decl, 1).replace(
             latest_call, latest_new_call, 1)
+    if text.count(old_decl) == 1 and text.count(old_call) == 1:
+        return text.replace(old_decl, new_decl, 1).replace(old_call, new_call, 1)
     raise RuntimeError("expected on-off camera ramp call")
 
 
-def normalize_turning_collider_ramp_abi(text, label):
+def normalize_turning_collider_ramp_abi(text, label, legacy_ramp_abi=True):
     """Normalize this unit's PS2 mixed-register ramp calls for the host ABI."""
     if label != "main/turning_collider.cpp":
+        return text
+    if not legacy_ramp_abi:
         return text
     old_decl = "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
     new_decl = "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
@@ -1847,9 +1854,11 @@ def normalize_turning_collider_ramp_abi(text, label):
     return text
 
 
-def normalize_pose_source_ramp_abi(text, label):
+def normalize_pose_source_ramp_abi(text, label, legacy_ramp_abi=True):
     """Canonicalize float-first ramp calls in the pose-source host copy."""
     if label != "main/pose_source.cpp":
+        return text
+    if not legacy_ramp_abi:
         return text
     old_decl = "extern f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
     new_decl = "extern f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
@@ -2510,6 +2519,11 @@ def main(argv=None):
     port = args.port.resolve()
     include = source / "include"
     names_header = include / "names.h"
+    ramp_header = include / "functions" / "warp_menu.h"
+    ramp_header_text = ramp_header.read_text(encoding="utf-8") if ramp_header.is_file() else ""
+    legacy_ramp_abi = (
+        "ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z)"
+        in ramp_header_text)
     # This launcher targets NTSC-U. A proven whole-file unit replaces only its
     # own address range, not an entire 0x4000 window that happens to overlap it.
     # Keep chunks with uncovered text so matching functions after a file's end
@@ -2720,11 +2734,15 @@ def main(argv=None):
         adapted = forward_player_slide_contact_index(adapted, rel.as_posix())
         adapted = trace_contact_notification_callback(adapted, rel.as_posix())
         adapted = trace_camera_target_callback(adapted, rel.as_posix())
-        adapted = forward_switched_pose_arguments(adapted, rel.as_posix())
+        adapted = forward_switched_pose_arguments(
+            adapted, rel.as_posix(), legacy_ramp_abi)
         adapted = normalize_update_camera_target_pose_abi(adapted, rel.as_posix())
-        adapted = normalize_on_off_camera_ramp_abi(adapted, rel.as_posix())
-        adapted = normalize_turning_collider_ramp_abi(adapted, rel.as_posix())
-        adapted = normalize_pose_source_ramp_abi(adapted, rel.as_posix())
+        adapted = normalize_on_off_camera_ramp_abi(
+            adapted, rel.as_posix(), legacy_ramp_abi)
+        adapted = normalize_turning_collider_ramp_abi(
+            adapted, rel.as_posix(), legacy_ramp_abi)
+        adapted = normalize_pose_source_ramp_abi(
+            adapted, rel.as_posix(), legacy_ramp_abi)
         adapted = normalize_optional_owner_position_outputs(adapted, rel.as_posix())
         adapted = normalize_optional_child_rotation_outputs(adapted, rel.as_posix())
         adapted = forward_mesh_contact_radius(adapted, rel.as_posix())
