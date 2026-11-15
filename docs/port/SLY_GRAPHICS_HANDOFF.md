@@ -13,6 +13,13 @@ meshes. It resolves real uploaded textures, including a 256x128 PSMT8 atlas,
 but its world-only image is still a gray horizon and ground plane. It remains
 disabled by default and is not visual progress.
 
+The supplied 62.76-second PCSX2 recording shows the opening cinematic,
+rooftop views, and the city title screen. These establish useful visual
+references, but the native capture has no recognizable object or skyline to
+match to a particular frame or camera. Similar nighttime city art is not a
+draw-level match. Do not resume renderer implementation from this comparison
+alone.
+
 The source adapter now builds against public decomp master `8f7a85a3` without
 changing matching source. Both the active `1cbb33fd` checkout and the public
 snapshot compile 194 matched units and link. This compatibility work is done
@@ -29,8 +36,9 @@ Do not choose among those explanations without pairing a specific draw and
 camera with the user's PCSX2 recording.
 
 The first experiment's texture was solid white, but the later kind-0 pass
-resolved actual texture uploads; at least one is a purple building-silhouette
-atlas. Texture lookup is therefore not sufficient to make the scene match.
+resolved actual texture uploads; one 256x128 upload is a purple atlas whose
+contents are not yet identified. Texture lookup is therefore not sufficient
+to make the scene match.
 The main code limitation is that all captured meshes use only their first
 strip's material. Evidence from this run is local at
 `/tmp/sly-world-probe-run2.log` and `/tmp/sly1-native-world-00.png`.
