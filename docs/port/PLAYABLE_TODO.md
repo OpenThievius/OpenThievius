@@ -70,19 +70,30 @@ PC `0x68` has VI3=`628` and VF7=`{0x4149d0e5, 0xc0d92618, 0x42877fa4,
 0x4b008958}`. The following retail instruction stores VF7 at `-1(VI3)`, which
 targets qword 627, while the later XGKICK uses VI7=`35`. This separates that
 store from the missing qword-35 tag. The retail code increments VI6 at PC
-`0x67` immediately before XGKICK; do not change that game code. Determine
-whether the remaining one-qword discrepancy comes from the VU-to-GIF register
-timing or from VIF's data-memory indexing, then implement verified runtime
-semantics or a port-only native renderer.
+`0x67` immediately before XGKICK; do not change that game code. Public PS2Tek
+hardware notes describe VIF UNPACK bit 15 as adding TOPS and the VU integer
+pipeline as having a one-cycle bypass. With the traced TOPS, BASE, and OFFSET
+all zero, the UNPACK destination calculation supports qword 468; the
+back-to-back IADDIU supports VI6 becoming 469 for the following instruction.
+This narrows the mismatch but does not prove which VI value the external
+XGKICK request samples, nor explain the valid GIFtag at 468 followed by payload
+at 469. Do not change instruction or VIF semantics from this evidence alone.
 
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
 from VI7=`35`, which also fails validation. The retry has been removed. Do not
-backstep pointers or weaken GIF validation. Next, verify the hardware operand
-timing for XGKICK after IADDIU and the exact VIF destination calculation for
-the live TOPS/DBF state. Keep masked UNPACK `0x78` support
-limited to the observed selectors; column-fill and write-protect remain
-unsupported. The no-card prompt's flicker remains a separate known issue.
+backstep pointers or weaken GIF validation. Next, capture VU data memory around
+qwords 34–35 and 468–469 immediately before each XGKICK, and record every
+UNPACK and VU store that can write those addresses. Use that to determine why
+qword 468 contains a complete tag while the VI6 request points at payload in
+469, and why VI7 later points to the unwritten qword 35. Keep masked UNPACK
+`0x78` support limited to the observed selectors; column-fill and write-protect
+remain unsupported. The no-card prompt's flicker remains a separate known
+issue.
+
+The public [PS2Tek hardware notes](https://israpps.github.io/ps2tek/) document
+the VIF TOPS-relative UNPACK rule and the VU integer pipeline bypass used in
+this analysis.
 The sibling decomp's `PORTING.md` classifies `.vutext` as original assembly;
 the 100% matching C result does not decompile these VU1 programs. This renderer
 work stays port-only, with no changes to matched game functions.
