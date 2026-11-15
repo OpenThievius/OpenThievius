@@ -535,6 +535,25 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world) {
                      trace_index, i, kind, mesh[0x24 / 4], mesh[0x38 / 4],
                      mesh[0x3C / 4], mesh[0x40 / 4], mesh[0x44 / 4],
                      mesh[0x48 / 4], mesh[0x4C / 4]);
+        if (kind == 5u && std::getenv("OPENRAC_DUMP_NATIVE_MODEL_PACKET") != nullptr) {
+            static u32 dumped = 0;
+            if (__atomic_exchange_n(&dumped, 1u, __ATOMIC_RELAXED) == 0) {
+                const u32 packet_address = mesh[0x44 / 4];
+                const u32 packet_qwc = mesh[0x38 / 4];
+                if (packet_address != 0 && packet_qwc > 0 && packet_qwc <= 4096u) {
+                    const char* path = "/tmp/sly-kind5-model-packet.bin";
+                    if (FILE* file = std::fopen(path, "wb")) {
+                        const std::size_t bytes = static_cast<std::size_t>(packet_qwc) * 16u;
+                        const std::size_t written = std::fwrite(
+                            reinterpret_cast<const void*>(packet_address), 1, bytes, file);
+                        std::fclose(file);
+                        std::fprintf(stderr,
+                                     "[native model packet dump] kind=5 qwc=%u bytes=%zu written=%zu path=%s\n",
+                                     packet_qwc, bytes, written, path);
+                    }
+                }
+            }
+        }
     }
 }
 
