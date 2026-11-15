@@ -564,6 +564,65 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
     const volatile float* model = reinterpret_cast<const volatile float*>(request_address + 0x10u);
     for (u32 i = 0; i < 16u; ++i)
         if (!std::isfinite(model[i])) finite_model = false;
+    if (owner_class == 2u && !finite_model &&
+        std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") != nullptr) {
+        static u32 traced_invalid_models = 0;
+        if (__atomic_fetch_add(&traced_invalid_models, 1u, __ATOMIC_RELAXED) < 4u) {
+            const volatile float* object_position =
+                reinterpret_cast<const volatile float*>(owner_address + 0x140u);
+            const volatile float* object_rotation =
+                reinterpret_cast<const volatile float*>(owner_address + 0x110u);
+            const volatile float* local_position =
+                reinterpret_cast<const volatile float*>(owner_address + 0x100u);
+            const volatile float* local_rotation =
+                reinterpret_cast<const volatile float*>(owner_address + 0xD0u);
+            const u32 parent_address = *reinterpret_cast<const volatile u32*>(owner_address + 0x18u);
+            std::fprintf(stderr,
+                         "[native invalid model source] index=%u owner=%#010x id=%u part=%#010x parent=%#010x\n",
+                         trace_index, owner_address,
+                         *reinterpret_cast<const volatile u32*>(owner_address + 8u),
+                         part_address, parent_address);
+            std::fprintf(stderr,
+                         "[native invalid model source] local_pos=%g,%g,%g,%g world_pos=%g,%g,%g,%g\n",
+                         local_position[0], local_position[1], local_position[2], local_position[3],
+                         object_position[0], object_position[1], object_position[2], object_position[3]);
+            for (u32 row = 0; row < 3u; ++row) {
+                std::fprintf(stderr,
+                             "[native invalid model source] local_rotation%u=%g,%g,%g,%g world_rotation%u=%g,%g,%g,%g\n",
+                             row, local_rotation[row * 4u], local_rotation[row * 4u + 1u],
+                             local_rotation[row * 4u + 2u], local_rotation[row * 4u + 3u],
+                             row, object_rotation[row * 4u], object_rotation[row * 4u + 1u],
+                             object_rotation[row * 4u + 2u], object_rotation[row * 4u + 3u]);
+            }
+            if (parent_address != 0) {
+                const volatile u32* parent_words =
+                    reinterpret_cast<const volatile u32*>(parent_address);
+                const volatile u32* parent_descriptor =
+                    reinterpret_cast<const volatile u32*>(parent_words[0]);
+                const volatile float* parent_local_position =
+                    reinterpret_cast<const volatile float*>(parent_address + 0x100u);
+                const volatile float* parent_position =
+                    reinterpret_cast<const volatile float*>(parent_address + 0x140u);
+                const volatile float* parent_rotation =
+                    reinterpret_cast<const volatile float*>(parent_address + 0x110u);
+                std::fprintf(stderr,
+                             "[native invalid model source] parent=%#010x parent_id=%u parent_class=%u parent_parent=%#010x local_pos=%g,%g,%g world_pos=%g,%g,%g\n",
+                             parent_address, parent_words[2], parent_descriptor[1], parent_words[6],
+                             parent_local_position[0], parent_local_position[1], parent_local_position[2],
+                             parent_position[0], parent_position[1], parent_position[2]);
+                for (u32 row = 0; row < 3u; ++row) {
+                    std::fprintf(stderr,
+                                 "[native invalid model source] parent_local_rotation%u=%g,%g,%g world_rotation%u=%g,%g,%g\n",
+                                 row,
+                                 *reinterpret_cast<const volatile float*>(parent_address + 0xD0u + (row * 16u)),
+                                 *reinterpret_cast<const volatile float*>(parent_address + 0xD4u + (row * 16u)),
+                                 *reinterpret_cast<const volatile float*>(parent_address + 0xD8u + (row * 16u)),
+                                 row, parent_rotation[row * 4u], parent_rotation[row * 4u + 1u],
+                                 parent_rotation[row * 4u + 2u]);
+                }
+            }
+        }
+    }
     if (owner_class == 2u && finite_model &&
         std::getenv("OPENRAC_TRACE_NATIVE_MODEL_TRANSFORM") != nullptr &&
         camera_address != 0 &&
