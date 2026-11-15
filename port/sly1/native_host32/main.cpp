@@ -479,6 +479,122 @@ volatile sig_atomic_t g_native_pc_sample_stack[8] = {};
 volatile u32 g_native_semaphore_trace_active = 0;
 volatile u32 g_semaphore_trace_event_count = 0;
 
+#if defined(OPENRAC_SLY1_WITH_SDL)
+extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world) {
+    if (!g_startup_trace_enabled || request_address == 0 || world == 0) return;
+    static u32 initial_world = 0;
+    static u32 post_transition_world = 0;
+    u32 observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
+    if (observed_world == 0) {
+        __atomic_compare_exchange_n(&initial_world, &observed_world, world, false,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
+    }
+    if (world == observed_world) return;
+    u32 selected_world = __atomic_load_n(&post_transition_world, __ATOMIC_RELAXED);
+    if (selected_world == 0) {
+        __atomic_compare_exchange_n(&post_transition_world, &selected_world, world, false,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        selected_world = __atomic_load_n(&post_transition_world, __ATOMIC_RELAXED);
+    }
+    if (world != selected_world) return;
+    static u32 part_count = 0;
+    const u32 trace_index = __atomic_fetch_add(&part_count, 1u, __ATOMIC_RELAXED);
+    if (trace_index >= 32u) return;
+
+    const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
+    const u32 part_address = request[0x78 / 4];
+    const u32 skin_address = request[0x74 / 4];
+    if (part_address == 0) return;
+    const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
+    const u32 mesh_count = part[0x58 / 4];
+    const u32 mesh_address = part[0x5C / 4];
+    const u32 strip_count = part[0x60 / 4];
+    std::fprintf(stderr,
+                 "[native model draw] index=%u world=%#010x request=%#010x part=%#010x skin=%#010x meshes=%u strips=%u flags=%#x lit=%u skinned=%u matrix=%#x,%#x,%#x,%#x\n",
+                 trace_index, world, request_address, part_address, skin_address,
+                 mesh_count, strip_count, part[0x2C / 4], part[0x18 / 4],
+                 part[0x28 / 4], request[0x10 / 4], request[0x20 / 4],
+                 request[0x30 / 4], request[0x40 / 4]);
+    if (skin_address != 0) {
+        const volatile u32* skin = reinterpret_cast<const volatile u32*>(skin_address);
+        std::fprintf(stderr,
+                     "[native model skin] index=%u flags=%#x count=%u words=%#010x bones=%#010x rgba=%08x\n",
+                     trace_index, skin[0x38 / 4], skin[0x40 / 4],
+                     skin[0x44 / 4], skin[0x04 / 4], skin[0x3C / 4]);
+    }
+    const u32 bounded_mesh_count = mesh_count < 4u ? mesh_count : 4u;
+    for (u32 i = 0; i < bounded_mesh_count && mesh_address != 0; ++i) {
+        const volatile u32* mesh = reinterpret_cast<const volatile u32*>(
+            mesh_address + i * 0x50u);
+        const u32 kind_address = mesh[0x18 / 4];
+        const u32 kind = kind_address != 0
+                             ? *reinterpret_cast<const volatile u8*>(kind_address)
+                             : 0xFFFFFFFFu;
+        std::fprintf(stderr,
+                     "[native model mesh] index=%u mesh=%u kind=%u bones=%u qwc=%u,%u,%u data=%#010x,%#010x,%#010x\n",
+                     trace_index, i, kind, mesh[0x24 / 4], mesh[0x38 / 4],
+                     mesh[0x3C / 4], mesh[0x40 / 4], mesh[0x44 / 4],
+                     mesh[0x48 / 4], mesh[0x4C / 4]);
+    }
+}
+
+extern "C" void sly1_native_trace_world_draw_lists(u32 world_address,
+                                                      u32 list60_head,
+                                                      u32 list78_head,
+                                                      u32 list60_offset,
+                                                      u32 list78_offset,
+                                                      u32 current_world) {
+    if (!g_startup_trace_enabled || world_address == 0 ||
+        world_address != current_world)
+        return;
+    static u32 initial_world = 0;
+    static u32 target_world = 0;
+    u32 observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
+    if (observed_world == 0) {
+        __atomic_compare_exchange_n(&initial_world, &observed_world, world_address, false,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        observed_world = __atomic_load_n(&initial_world, __ATOMIC_RELAXED);
+    }
+    if (world_address == observed_world) return;
+    u32 selected_world = __atomic_load_n(&target_world, __ATOMIC_RELAXED);
+    if (selected_world == 0) {
+        __atomic_compare_exchange_n(&target_world, &selected_world, world_address, false,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        selected_world = __atomic_load_n(&target_world, __ATOMIC_RELAXED);
+    }
+    if (world_address != selected_world) return;
+
+    static u32 sample_count = 0;
+    const u32 index = __atomic_fetch_add(&sample_count, 1u, __ATOMIC_RELAXED);
+    if (index < 8u || (index & 63u) == 0) {
+        std::fprintf(stderr,
+                     "[native world draw lists] sample=%u world=%#010x list60=%#010x offset=%u list78=%#010x offset=%u\n",
+                     index, world_address, list60_head, list60_offset,
+                     list78_head, list78_offset);
+    }
+    if (index >= 2u) return;
+    const u32 heads[2] = {list60_head, list78_head};
+    const u32 offsets[2] = {list60_offset, list78_offset};
+    const char* names[2] = {"list60", "list78"};
+    for (u32 list_index = 0; list_index < 2u; ++list_index) {
+        u32 node_address = heads[list_index];
+        for (u32 node_index = 0; node_index < 6u && node_address != 0; ++node_index) {
+            const volatile u32* node = reinterpret_cast<const volatile u32*>(node_address);
+            const u32 callback = *reinterpret_cast<const volatile u32*>(node[0] + 40u * 4u);
+            const u32 next = *reinterpret_cast<const volatile u32*>(node_address + offsets[list_index]);
+            std::fprintf(stderr,
+                         "[native world draw node] list=%s node=%u address=%#010x object=%#010x draw40=%#010x next=%#010x\n",
+                         names[list_index], node_index, node_address, node[0], callback, next);
+            node_address = next;
+        }
+    }
+}
+#else
+extern "C" void sly1_native_trace_model_part(u32, u32) {}
+extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
+#endif
+
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_semaphore_event(const char* event, int identifier, int count,
                                   unsigned int caller) {

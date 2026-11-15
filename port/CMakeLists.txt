@@ -16,6 +16,8 @@ option(OPENRAC_NATIVE_FUNCTION_TRACE
     "Enable targeted startup state traces in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_FRAME_TRACE
     "Trace only the main-loop startup and frame stages in the direct host32 build" OFF)
+option(OPENRAC_NATIVE_MODEL_TRACE
+    "Trace the active world draw lists and compiled model inputs in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_OSCILLATOR_TRACE
     "Enable the focused oscillator mesh trace in the direct host32 build" OFF)
 set(SLY1_NATIVE_TRACE_ARGUMENTS)
@@ -24,6 +26,9 @@ if(OPENRAC_NATIVE_FUNCTION_TRACE)
 endif()
 if(OPENRAC_NATIVE_FRAME_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-main-loop)
+endif()
+if(OPENRAC_NATIVE_MODEL_TRACE)
+    list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-model-draws --trace-world-draw-lists)
 endif()
 if(OPENRAC_NATIVE_OSCILLATOR_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-oscillator)

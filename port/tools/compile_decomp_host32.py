@@ -2374,6 +2374,10 @@ def main(argv=None):
                         help="add targeted startup state traces without instrumenting game calls")
     parser.add_argument("--trace-main-loop", action="store_true",
                         help="trace only startup and frame stages in RunMainLoop")
+    parser.add_argument("--trace-model-draws", action="store_true",
+                        help="trace DrawModelPart inputs in the staged host source")
+    parser.add_argument("--trace-world-draw-lists", action="store_true",
+                        help="trace active-world draw-list heads and callback targets")
     parser.add_argument("--trace-oscillator", action="store_true",
                         help="probe RefreshOscillatorFrames without enabling other probes")
     args = parser.parse_args(argv)
@@ -4502,6 +4506,25 @@ void LoadEffectSpawner"""
                 adapted = definition.sub(
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
+        if args.trace_model_draws and rel.as_posix() == "main/placed_object_model.cpp":
+            adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32);\n' + adapted
+            needle = "    PartSkin* skin = self->skin;\n"
+            replacement = needle + (
+                "    sly1_native_trace_model_part((u32)self, (u32)g_currentWorld);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected DrawModelPart request initialization")
+            adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_world_draw_lists and rel.as_posix() == "main/group_marker.cpp":
+            adapted = ('extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32);\n' + adapted)
+            needle = "    ListFrame f1;\n    ListFrame f2;\n    ListFrame f3;\n"
+            replacement = needle + (
+                "    sly1_native_trace_world_draw_lists((u32)self, "
+                "(u32)self->list60.head, (u32)self->list78.head, "
+                "(u32)self->list60.offset, (u32)self->list78.offset, "
+                "(u32)g_currentWorld);\n")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected RunWorldFrameLists setup")
+            adapted = adapted.replace(needle, replacement, 1)
         # Matching units declare AddGifRegisterWrite with inconsistent host
         # types. The retail ABI is (writer, 32-bit register, 64-bit value);
         # normalize every staged declaration and definition to that layout.
