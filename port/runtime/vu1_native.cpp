@@ -466,14 +466,20 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 uint64_t failed_tag = 0;
                 uint64_t failed_tag_high = 0;
                 const uint32_t address = vi_read(*state, source);
+                const Vector vf7 = vf_read(*state, 7u);
                 if (!kick_gif(address, &failure, &first_tag, &failed_address,
                               &failed_tag, &failed_tag_high)) {
                     const uint32_t notice = g_vu_kick_notice_count.fetch_add(
                         1, std::memory_order_relaxed);
                     if (notice < 4u)
                         openrac::log::warn(
-                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI{}={} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x}:{:#018x} reason={}",
-                            state->pc, vi_read(*state, 4u), source & 15u, address,
+                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI3={} VI{}={} VF7={:#010x},{:#010x},{:#010x},{:#010x} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x}:{:#018x} reason={}",
+                            state->pc, vi_read(*state, 4u), vi_read(*state, 3u),
+                            source & 15u, address,
+                            std::bit_cast<uint32_t>(vf7[0]),
+                            std::bit_cast<uint32_t>(vf7[1]),
+                            std::bit_cast<uint32_t>(vf7[2]),
+                            std::bit_cast<uint32_t>(vf7[3]),
                             *reinterpret_cast<const uint32_t*>(guest_address(kVif1Top)),
                             *reinterpret_cast<const uint32_t*>(guest_address(0x10003CC0u)), first_tag,
                             failed_address, failed_tag_high, failed_tag,
