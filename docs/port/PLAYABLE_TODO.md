@@ -1,6 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Clean reset review (2026-11-15)
+
+The current loop is advancing and the retail no-card screen is dismissed, so
+startup fixes are no longer the first graphics blocker. Stop adding startup
+backfills and renderer probes until they unblock the next visible milestone.
+The kind-6 renderer experiment is still disabled by default; its gray frame is
+a failed result, not a partial success.
+
+The host32 build is still pinned to `sly1-decomp` `1cbb33fd`. Public upstream
+master is now `8f7a85a3` and retains 100% code matching, with modern-compiler
+checks and corrected declarations. Running the port's hostgen report on both
+revisions gives the same 489 translated functions and the same 12-function
+reachable no-C frontier. A clean native host32 generation from `8f7a85a3`
+currently stops in `normalize_active_set_solver_abi`: the port adapter expects
+the older declaration. This is a source-compatibility issue to resolve as a
+coherent update before adopting the newer source, not a reason to add a game
+backfill.
+
+The next work is therefore two bounded gates: first make the port's source
+adapter build against the current decomp without changing matching sources;
+then use one captured unskinned mesh to resolve the native renderer's transform
+and clipping against a reference image. Keep the kind-6 option off until the
+captured loaded-world frame has recognizable geometry. Do not resume broad
+startup work in parallel.
+
 ## Latest status (2026-11-15, native kind-6 renderer prototype)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of

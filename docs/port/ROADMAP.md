@@ -34,6 +34,12 @@ The gate is a captured frame with correctly shaped loaded-world geometry. See
 and [restart checkpoint](RESTART_CHECKPOINT.md) for evidence and implementation
 details.
 
+The 2026-11-15 reset review also found that the active host32 source checkout
+is behind public decomp master. The port host adapter does not yet accept the
+new `AddFrictionItemsAndSolve` declaration, so refresh that interface before
+using the newer source. Hostgen coverage is unchanged across the two revisions;
+this is compatibility cleanup, not visual progress.
+
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 
 Normal startup reaches the retail Splash world and the main frame loop, but it

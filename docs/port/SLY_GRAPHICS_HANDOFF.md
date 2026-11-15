@@ -1,7 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-15 against decomp master `1cbb33fd`.
+Last checked: 2026-11-15. The active host32 build source is `1cbb33fd`; public
+decomp master is `8f7a85a3`.
+
+## Clean reset review (2026-11-15)
+
+The window and frame loop are no longer the issue. The game dismisses the
+no-card page, loads a world and reaches model draw callbacks. The current
+OpenGL mesh prototype captures and submits three kind-6 meshes, but produces
+only a uniform gray image and remains disabled by default. More startup shims
+will not make that renderer result useful.
+
+I compared the active decomp revision with public master `8f7a85a3`. The
+decomp still reports 100% code matching, while the port's hostgen report is
+unchanged at 489 translated functions and the same reachable no-C frontier.
+The newer tree adds modern-compiler checks and declaration corrections. The
+port's clean host32 generation currently fails on a hard-coded old
+`AddFrictionItemsAndSolve` signature in `normalize_active_set_solver_abi`.
+Update the source adapter as a coherent compatibility pass before moving the
+native build to that revision.
+
+After that, keep graphics work to one reproducible captured kind-6 mesh. Find
+which of the input vertices, object/camera transforms, clipping, or output
+primitive behavior causes the gray frame, and require a recognizable scene
+capture before re-enabling the feature. Do not expand VIF/VU/GS emulation or
+add unrelated startup backfills.
 
 ## Reset the graphics plan (2026-11-15)
 

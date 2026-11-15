@@ -46,11 +46,19 @@ Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 
 ## Current native status (2026-11-15)
 
-The sibling `sly1-decomp` checkout is clean at `1cbb33fd`. The US match report
+The host32 build currently reads `sly1-decomp` `1cbb33fd`; public upstream is
+at `8f7a85a3`. The US match report
 is 4,807/4,807 functions and 100% of code bytes, with 140 data bytes unmatched.
 That is matching coverage, not host-ready C coverage: some matched functions
 remain assembly, and the native build still uses 85 port-only backfills and
 101 fallback traps.
+
+Hostgen reports the same 489 translated functions and 12-function reachable
+no-C frontier on both revisions. Building against `8f7a85a3` currently stops
+because `compile_decomp_host32.py` only recognizes the old
+`AddFrictionItemsAndSolve` declaration. The decomp update improves modern
+compiler compatibility but does not unblock rendering by itself. See the
+[clean reset review](../docs/port/PLAYABLE_TODO.md#clean-reset-review-2026-11-15).
 
 The no-emulation host32 game loop passes the no-card screen, loads world
 `0x870cf0`, and advances at about 56 frames per second. The black scene is not
