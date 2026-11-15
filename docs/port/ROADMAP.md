@@ -19,19 +19,18 @@ retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
 Malformed text refers to the separate experimental guest-runtime renderer.
 The no-emulation host32 game loop clears the no-card screen, loads world
-`0x870cf0`, and advances at about 56 frames per second. Its camera is now
-finite after correcting the host `sqrt.s` behavior. The level remains black:
-the first loaded-world draw currently traps on `ComputeCameraDistanceFade`
-(`0x001453b0`), a handwritten VU0 function whose existing C backfill is only
-wired to the separate guest runtime. SDL also has no Sly 3D world renderer.
-Wave 512 corrects the earlier false “no model draw” result: the loaded world
-queues `DrawPlacedObjectParts` for an object with one part, and `DrawModelPart`
-receives 30 kind-5 meshes plus other meshes and strips. The first kind-5 mesh
-has 326 quadwords of packet data. First bridge or replace the camera-distance
-VU helper for the direct host, then decode one mesh into a host-owned record
-and draw it through a Sly-specific native renderer. Keep matching decomp
-untouched. See
-[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for evidence and steps.
+`0x870cf0`, and advances through hundreds of frames. Its camera is finite, and
+`DrawModelPart` receives loaded-world mesh data. A port-only direct-host
+backfill now covers the handwritten `ComputeCameraDistanceFade` function.
+However, a hidden 960x720 native capture is still black. The run accepted 1,650
+DMA submissions, but the SDL presenter decoded only 18 vertices and two draws
+from 1,712/1,936-byte packet frames; this does not establish that model geometry
+reaches the framebuffer. Stop treating startup and DMA counters as graphics
+progress. Next, trace one known model through its VIF1/VU1 output, GIF decode,
+and OpenRAC renderer input, then fix the first measured loss point. Keep Sly's
+packet adapter separate from the matching decomp and reuse OpenRAC's renderer
+and texture pool. See [the restart checkpoint](RESTART_CHECKPOINT.md) for the
+capture and concrete gates.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 

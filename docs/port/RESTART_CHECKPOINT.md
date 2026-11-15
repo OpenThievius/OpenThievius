@@ -1,77 +1,48 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, after camera probe)
+## Current checkpoint (2026-11-15, after native frame capture)
 
 The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains
 4,807/4,807 functions and 100% of code bytes (99.9675% of data). This is
 decompilation coverage, not native-host readiness. The host32 build compiles
-194 matched units and 84 port-only backfills, maps 4,399 catalogued entries,
-and links 102 fallback traps.
+194 matched units and 85 port-only backfills, maps 4,399 catalogued entries,
+and links 101 fallback traps.
 
 After one process-local Cross press, the no-card screen clears, the active
-world changes to `0x870cf0`, and the main loop advances at about 56 frames per
-second. Wave 492's zero-frame report was a diagnostic configuration error:
-the frame counters were not enabled in that build. The game is not shown to be
-stuck.
+world changes to `0x870cf0`, and the main loop advances through at least 534
+game frames at about 56 frames per second. The host camera is finite.
+`DrawModelPart` receives loaded-world meshes (30 kind-5 meshes on the traced
+player part, plus other mesh kinds and strips). A separate direct-host C++
+backfill for handwritten VU0 function `0x001453b0`
+(`ComputeCameraDistanceFade`) compiles and the former trap no longer occurs.
+The matching decomp and its match score were not changed.
 
-The post-load frame is still black. `sdl_renderer.cpp` constructs only a HUD
-`DirectRenderer` and submits frame packets to `Bucket::Hud`; its 18 vertices
-and two draws are HUD data, not a level scene. `DrawModelPart` emits VIF model
-packets, and the direct host32 DMA replacement has no native world renderer.
+This is not yet visual progress: an isolated hidden-window capture remains
+black at 960x720. The same run reports 1,650 accepted and zero rejected DMA
+submissions, while the SDL `DirectRenderer` reports only 1,712/1,936-byte
+packet frames with 18 decoded vertices and two draws. Accepted transfers and
+game-side model submissions do not establish that world geometry reaches the
+presented frame. Evidence: `/tmp/sly-fade-frame-capture.log` and
+`/tmp/sly1-native-frame-07.png`.
 
-A focused hidden run exposed an additional gate before scene rendering. Camera
-construction initially produced NaN position, rotation, and view-projection
-values at the camera reset angles. The host `Fpu::Sqrt` helper had used IEEE
-`sqrtf`, while the decomp's documented EE `sqrt.s` behavior is
-`sqrt(abs(value))`; the reset-angle sine approximation can make the cosine
-radicand slightly negative. After changing the host helper to take the
-absolute value, the camera trace is finite: position `(0.352147, -2000, 500)`,
-finite rotation and view-projection, zoom `1`. This change is only in the
-port's host compatibility header; matching source is untouched.
+The next work should be a bounded renderer-path audit, not another broad set
+of startup shims: identify which channel and callback produce per-frame
+model/VIF output; follow one known model from its VIF1/VU1 output through GIF
+decode to a world render bucket; and record the first point where its vertices,
+texture, or transform are lost. Reuse OpenRAC's renderer and texture systems,
+but keep Sly packet decoding and the scene adapter separate. Do not route the
+whole game stream into the HUD bucket as a substitute for a world renderer.
+Only add a backfill when a trace shows that it is the current gate and its
+result can be checked at the next milestone.
 
-The traced hidden run injects Cross inside the process and changes the active
-world to `0x870cf0`, then reaches a new missing-function trap at
-`0x001453b0` (`ComputeCameraDistanceFade`) from world draw code. This function
-is classified in the decomp as handwritten VU0 assembly, so 100% matching
-coverage does not mean the native host has a usable C body. A port-only C
-backfill exists in `hand/native_c/object_transform_primitives.c` for the guest
-runtime; it reads VU0 register state through `game_sly1_native_vu0_component`.
-The direct host32 build does not compile or expose that guest VU register
-state, so the implementation cannot be registered there unchanged. Next,
-provide a direct-host VU call bridge for this one helper, or a measured native
-equivalent based on its retail inputs, then confirm model draws reach the
-renderer.
-
-Evidence: `/tmp/sly-camera-root-probe.log`; the helper source is
-`port/game/sly1-us/hand/native_c/object_transform_primitives.c`, and the
-function's classification is `sly1-decomp/config/us/original_asm.tsv`.
-
-The earlier Wave 503 “no model draw” result was a trace-filter bug: each
-callback chose its target world based on the first callback it observed. Wave
-512 instead records the world transition from the main loop and confirms the
-full game-side path: the loaded world queues `DrawPlacedObjectParts` for an
-object with one part; that calls `DrawModelPart`, which receives 30 kind-5
-meshes (first mesh: 326 quadwords), plus other kind-0 meshes and strips.
-Evidence: `/tmp/sly-wave512-model-correct-filter.log`.
-
-Once `ComputeCameraDistanceFade` has a direct-host implementation, the
-remaining first-graphics blocker is the missing native Sly world renderer:
-`sdl_renderer.cpp` constructs only a HUD `DirectRenderer`. Decode one kind-5
-mesh packet into a host-owned vertex/material record and draw it with the
-game's transform and now-valid camera in a Sly scene bucket. Keep matching
-source untouched and keep all functional backfills in the port. Keep
-VIF/VU/GS as bounded diagnostics.
-
-Gate: a captured non-black frame with geometry from loaded Sly data using the
-game's transform and camera. No title or playable level is confirmed. Evidence:
-`/tmp/sly-wave512-model-correct-filter.log`,
-`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
-No launcher process is left running.
-The focused build option is `OPENRAC_NATIVE_FRAME_TRACE=ON`; it traces the
-main loop without enabling the stale probes in the broader function trace.
-Standard build:
+Milestones: (1) a captured non-black frame containing a primitive attributable
+to loaded Sly data; (2) recognizable scene geometry with valid transform and
+camera; (3) a title/level state with responsive gameplay. No title, readable
+scene, or playable state is currently confirmed. Build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
+Hidden capture log: `/tmp/sly-fade-frame-capture.log`. No launcher process is
+left running.
 Hidden test runs use `OPENRAC_TEST_HIDDEN_WINDOW=1`, and the process-local
 `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES` input does not send desktop key events.
 
