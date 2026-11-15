@@ -6,9 +6,10 @@
 The project is past startup research but not at playable graphics. The
 host32 game loop can dismiss the no-card warning, load world `0x870cf0`, and
 advance at about 56 frames per second. It reaches model draw callbacks. The
-last successful visible screen remains the memory-card warning; the optional
-kind-6 renderer is a failed experiment because it produced a uniform gray
-frame. No title, controllable level, or correct world geometry is confirmed.
+last successful visible screen remains the memory-card warning. An opt-in
+experiment now submits three kind-6 and 38 kind-0 meshes and resolves uploaded
+game textures, but its world-only frame shows only a gray horizon and ground
+plane. No title, controllable level, or correct world geometry is confirmed.
 
 The code match is complete for US functions, but that does not make the port
 host-ready. VU microcode remains assembly, and host-generation still needs
@@ -17,24 +18,23 @@ the sibling checkout is older at `1cbb33fd`. A separate current-source
 staging build compiles 194 matched units and 85 port-only backfills. Keep such
 replacements under `port/game/sly1-us/native/`, not in matching source.
 
-**Next milestone: validate one draw from source data to a reference image.**
-The project has spent too long adding probes and renderer behavior without a
-passing image. Freeze broad renderer and startup work. Use one captured draw
-with a finite transform; record its expanded vertices, strip ranges, UVs,
-color, material state, and camera/model matrices; then compare it with the
-same scene in PCSX2. Implement only that draw path. The class `0x54`
-camera-positioned kind-6 meshes are backdrop candidates, and class `0x61`
-kind-5 meshes are render-to-texture; neither is a validated foreground
-target. A class `0x02` mesh previously projected to about 11 by 2 pixels, so
-it is not a useful target. Recent NaN transforms belong to nested objects
-1483/1486 under object 80; other draws have finite matrices. This is a lead
-about those objects, not proof they block the first visible scene.
+**Next milestone: pair a native draw with the same scene in PCSX2.** Freeze
+runtime renderer features and startup changes. The current prototype uses only
+the first material strip and approximates Sly's VU output as a triangle strip;
+its gray output does not validate either assumption. Review the supplied PCSX2
+recordings and native hidden-run capture to see whether one target draw can be
+identified with matching camera and scene state. If not, stop runtime work and
+make a data-only mesh viewer from the local extracted catalog. The viewer is
+an investigation tool, not a playable-port milestone. The class `0x54`
+kind-6 meshes are backdrop candidates, class `0x61` kind-5 meshes render to a
+texture, and the first measured class `0x02` mesh projected to only about 11 by
+2 pixels. None is a proven first foreground target.
 
 Pass only when a saved native frame shows a recognizable silhouette matching
-the console reference in position and shape. If no captured draw can be paired
-with a reference frame, stop runtime renderer work and make a data-only mesh
-viewer from the local extracted catalog. Do not add backfills unless the
-chosen draw demonstrably depends on them. Keep replacements in
+the console reference in position and shape. Record the matching scene, camera,
+mesh, full strip list, vertex inputs, and material state before implementing
+another render feature. Do not add backfills unless the chosen draw
+demonstrably depends on them. Keep replacements in
 `port/game/sly1-us/native/`. Capture details remain in the
 [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 

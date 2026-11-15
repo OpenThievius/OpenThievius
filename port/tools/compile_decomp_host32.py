@@ -4701,7 +4701,7 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(signature, replacement, 1)
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
-                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32);\n'
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
             )
             signature = (
@@ -4712,11 +4712,24 @@ void LoadEffectSpawner"""
             )
             replacement = signature + (
                 "\n    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
-                "(u32)n, (u32)recs);"
+                "(u32)uvs, (u32)n, (u32)recs);"
             )
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition for native renderer")
             adapted = adapted.replace(signature, replacement, 1)
+            lit_signature = (
+                "void BuildLitStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 unused2, s32 mode, StripHeader* hdr,\n"
+                "                   StripMesh* mesh, Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs,\n"
+                "                   s32 n, VertexRefs* recs, WeightIndices* ents, Vec3* verts, Vec3* vnrms,\n"
+                "                   f32* weights, PacketSlot* pkt, s32** outs)\n{"
+            )
+            lit_replacement = lit_signature + (
+                "\n    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
+                "(u32)uvs, (u32)n, (u32)recs);"
+            )
+            if adapted.count(lit_signature) != 1:
+                raise RuntimeError("expected BuildLitStripMeshPacket definition for native renderer")
+            adapted = adapted.replace(lit_signature, lit_replacement, 1)
             needle = "    b.m = self->m;\n"
             replacement = needle + (
                 "    sly1_native_submit_model_part((u32)self, (u32)g_currentWorld, (u32)g_camera);\n"

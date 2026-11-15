@@ -24,8 +24,15 @@ extern "C" char* getenv(const char*);
 #include <unistd.h>
 #include <ucontext.h>
 alignas(16) thread_local u8 g_fault_trace_alt_stack[64 * 1024];
+struct NativeSlyMesh {
+    std::vector<float> vertices;
+    u64 tex0 = 0;
+    u64 tex1 = 0;
+    u64 clamp = 0;
+    u64 test = 0;
+};
 static std::mutex g_native_sly_mesh_mutex;
-static std::unordered_map<u32, std::vector<float>> g_native_sly_meshes;
+static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes;
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
 extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
 extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
@@ -745,36 +752,80 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
 }
 
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
-                                                   u32 tints_address, u32 vertex_count,
-                                                   u32 refs_address) {
+                                                   u32 tints_address, u32 uvs_address,
+                                                   u32 vertex_count, u32 refs_address) {
     if (mesh_address == 0 || vecs_address == 0 ||
         refs_address == 0 || vertex_count < 3 || vertex_count > 4096)
         return;
     const volatile u8* mesh = reinterpret_cast<const volatile u8*>(mesh_address);
-    if (mesh[0] != 6u) return;
+    if (mesh[0] != 0u && mesh[0] != 6u) return;
     const volatile u8* refs = reinterpret_cast<const volatile u8*>(refs_address);
     const volatile float* positions = reinterpret_cast<const volatile float*>(vecs_address);
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
-    std::vector<float> vertices;
-    vertices.reserve(static_cast<std::size_t>(vertex_count) * 7u);
+    const volatile float* uvs = uvs_address != 0
+        ? reinterpret_cast<const volatile float*>(uvs_address) : nullptr;
+    const u32 strip_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
+    const u32 strips_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
+    u64 tex0 = 0;
+    u64 tex1 = 0;
+    u64 clamp = 0;
+    u64 test = 0;
+    if (strip_count > 0u && strips_address != 0) {
+        const volatile u32* strip = reinterpret_cast<const volatile u32*>(strips_address);
+        const u32 stride_qwc = strip[0];
+        const u32 packet_address = strip[1];
+        if (stride_qwc >= 8u && packet_address != 0 &&
+            packet_address <= 0xFFFFFFFFu - 0x70u) {
+            const volatile u64* packet = reinterpret_cast<const volatile u64*>(packet_address);
+            test = packet[2];
+            tex0 = packet[8];
+            tex1 = packet[10];
+            clamp = packet[12];
+        }
+        if (strip_count > 1u && std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+            static u32 multilayer_notices = 0;
+            if (multilayer_notices++ < 8u)
+                std::fprintf(stderr,
+                             "[native sly mesh material] mesh=%#010x kind=%u strips=%u using first material\n",
+                             mesh_address, mesh[0], strip_count);
+        }
+    } else if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static u32 unsupported_strip_notices = 0;
+        if (unsupported_strip_notices++ < 12u)
+            std::fprintf(stderr,
+                         "[native sly mesh skipped] mesh=%#010x kind=%u strips=%u\n",
+                         mesh_address, mesh[0], strip_count);
+        return;
+    }
+    NativeSlyMesh captured;
+    captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
+    captured.tex0 = tex0;
+    captured.tex1 = tex1;
+    captured.clamp = clamp;
+    captured.test = test;
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
         const u8 flags = refs[i * 4u + 3u];
-        vertices.push_back(static_cast<float>(positions[position_index * 3u]));
-        vertices.push_back(static_cast<float>(positions[position_index * 3u + 1u]));
-        vertices.push_back(static_cast<float>(positions[position_index * 3u + 2u]));
+        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u]));
+        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u + 1u]));
+        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u + 2u]));
         for (u32 channel = 0; channel < 4u; ++channel) {
             const u8 base = mesh[4u + channel];
             const float color = tint_index == 0x7Fu || tints == nullptr
                 ? static_cast<float>((base + 1u) >> 1u) / 255.0f
                 : static_cast<float>((base * tints[tint_index * 4u + channel] + 0x100u) / 0x1FEu) / 255.0f;
-            vertices.push_back(color);
+            captured.vertices.push_back(color);
         }
+        const u8 uv_index = refs[i * 4u + 2u];
+        captured.vertices.push_back(uvs != nullptr && uv_index != 0xFFu
+            ? uvs[uv_index * 2u] : 0.0f);
+        captured.vertices.push_back(uvs != nullptr && uv_index != 0xFFu
+            ? uvs[uv_index * 2u + 1u] : 0.0f);
         // The VU consumes XYZ and supplies its homogeneous coordinate separately.
     }
     std::scoped_lock lock(g_native_sly_mesh_mutex);
-    g_native_sly_meshes[mesh_address] = std::move(vertices);
+    g_native_sly_meshes[mesh_address] = std::move(captured);
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static u32 notices = 0;
         if (notices++ < 16u)
@@ -800,9 +851,11 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     for (u32 i = 0; i < mesh_count; ++i) {
         const u32 part_mesh = mesh_address + i * 0x50u;
         const u32 source_mesh = *reinterpret_cast<const volatile u32*>(part_mesh + 0x18u);
-        if (source_mesh == 0 || *reinterpret_cast<const volatile u8*>(source_mesh) != 6u)
+        if (source_mesh == 0) continue;
+        const u8 kind = *reinterpret_cast<const volatile u8*>(source_mesh);
+        if (kind != 0u && kind != 6u)
             continue;
-        std::vector<float> vertices;
+        NativeSlyMesh mesh;
         {
             std::scoped_lock lock(g_native_sly_mesh_mutex);
             const auto found = g_native_sly_meshes.find(source_mesh);
@@ -813,15 +866,16 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                                  g_native_sly_meshes.size(), request_address);
                 continue;
             }
-            vertices = found->second;
+            mesh = found->second;
         }
         const u64 instance = (static_cast<u64>(request_address) << 8u) | i;
         if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
             std::fprintf(stderr, "[native sly mesh submit] source=%#010x request=%#010x mesh=%u vertices=%zu\n",
-                         source_mesh, request_address, i, vertices.size() / 7u);
-        openrac_native_sly_world_mesh_submit(world, instance, vertices.data(),
-                                              static_cast<u32>(vertices.size() / 7u),
-                                              model, view_projection);
+                         source_mesh, request_address, i, mesh.vertices.size() / 9u);
+        openrac_native_sly_world_mesh_submit(world, instance, mesh.vertices.data(),
+                                              static_cast<u32>(mesh.vertices.size() / 9u),
+                                              model, view_projection, mesh.tex0, mesh.tex1,
+                                              mesh.clamp, mesh.test);
     }
 }
 
@@ -1003,7 +1057,7 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
-extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}

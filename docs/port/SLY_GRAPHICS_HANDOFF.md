@@ -7,10 +7,11 @@ decomp master is `8f7a85a3`.
 ## Clean reset review (2026-11-15)
 
 The window and frame loop are no longer the issue. The game dismisses the
-no-card page, loads a world and reaches model draw callbacks. The current
-OpenGL mesh prototype captures and submits three kind-6 meshes, but produces
-only a uniform gray image and remains disabled by default. More startup shims
-will not make that renderer result useful.
+no-card page, loads a world and reaches model draw callbacks. The opt-in
+OpenGL experiment captures three kind-6 backdrop meshes and 38 kind-0 lit
+meshes. It resolves real uploaded textures, including a 256x128 PSMT8 atlas,
+but its world-only image is still a gray horizon and ground plane. It remains
+disabled by default and is not visual progress.
 
 The source adapter now builds against public decomp master `8f7a85a3` without
 changing matching source. Both the active `1cbb33fd` checkout and the public
@@ -18,14 +19,21 @@ snapshot compile 194 matched units and link. This compatibility work is done
 for the current revisions; do not keep broadening it without a new build
 failure.
 
-The next step is to identify the actual foreground target from the current
-draw stream, not to keep treating the three kind-6 meshes as the level. The
-saved positions with a captured transform project nearly across the viewport,
-so they are likely a background object. Their first material packet has
-`TEST1=0x317e1`: alpha-test NEVER, AFAIL framebuffer-only, and ZTST ALWAYS.
-The prototype discards UV/material state and uses OpenGL LEQUAL with depth
-writes. A flat gray full-screen image is consistent with a background pass and
-incorrect depth handling; it is not evidence of a clipping bug.
+The experiment is not ready for more rendering features. It uses the first
+material strip for each mesh, treats the expanded stream as a triangle strip,
+and does not recreate Sly's VU output. A capture before HUD rendering proves
+that world geometry reaches GL, but only as a gray horizon and ground plane.
+The picture does not identify whether the missing detail comes from mesh
+topology, multiple strip state, VU transforms, or GS material/depth behavior.
+Do not choose among those explanations without pairing a specific draw and
+camera with the user's PCSX2 recording.
+
+The first experiment's texture was solid white, but the later kind-0 pass
+resolved actual texture uploads; at least one is a purple building-silhouette
+atlas. Texture lookup is therefore not sufficient to make the scene match.
+The main code limitation is that all captured meshes use only their first
+strip's material. Evidence from this run is local at
+`/tmp/sly-world-probe-run2.log` and `/tmp/sly1-native-world-00.png`.
 
 The fourth component written by `BuildStripMeshPacket` is fog bias
 (`fogBias + 28672` or `fogBias + 32768`). The kind-6 VU transform uses source

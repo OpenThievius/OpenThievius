@@ -5,9 +5,11 @@
 
 The port is not playable. It reaches a loaded world and model draw callbacks,
 but the last confirmed visible result is still the no-card screen. The
-kind-6 renderer produced a uniform gray frame and remains disabled. Build
-counts, frame rate, draw callbacks, and decomp match percentage are not visual
-or gameplay progress gates.
+optional world-renderer experiment submits 41 meshes (three kind-6 and 38
+kind-0) and resolves uploaded Sly textures, but its saved world-only frame is
+still a gray horizon and ground plane. It remains disabled. Build counts,
+frame rate, draw callbacks, resolved texture handles, and decomp match
+percentage are not visual or gameplay progress gates.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions
@@ -29,27 +31,34 @@ advances at about 56 frames per second and reaches kind-5 and kind-6 draw
 callbacks. The last confirmed visible result remains the no-card screen; the
 gray kind-6 capture remains a failed experiment.
 
-## One graphics slice
+## Stop the speculative renderer loop
 
-Do not add more startup shims, broad renderer features, or candidate-ranking
-probes. Capture one finite-transform draw completely: expanded vertices, strip
-ranges, UVs, color, texture/material state, and camera/model matrices. Pair it
-with the same scene in PCSX2. Implement only the path needed to draw that
-candidate. The class `0x54` kind-6 draws may be backdrop geometry; class
-`0x61` kind-5 draws render to a texture. Neither is a proven foreground
-target. The first measured class `0x02` mesh covers only about 11 by 2 pixels.
+Do not add more startup shims, shader features, or broad renderer probes. The
+current experiment uses only the first material strip for each mesh and treats
+the expanded vertex stream as a triangle strip. That is not enough to claim a
+faithful Sly draw: the world-only capture has no recognizable scene, even
+though the texture pool resolves real uploads. No more runtime renderer work
+is justified until a candidate draw is paired with a reference frame.
+
+First compare the current native hidden-run capture with the existing PCSX2
+recordings and identify one same-scene, same-camera draw. If the recordings do
+not show a comparable frame, stop runtime experiments and build a data-only
+mesh viewer from the extracted local catalog. That viewer is for inspecting
+asset geometry and materials; it is not a port milestone. Resume the runtime
+path only after identifying the candidate in both captures and recording its
+per-strip inputs completely.
 
 Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
 draws have finite matrices, so this trace does not yet show that those objects
 block the first visible scene. Keep the trace as a lead, not a new general
 object-transform workstream.
 
-**Pass condition:** a saved native frame contains a recognizable silhouette
-that matches the reference scene in shape and position. If no current capture
-can be paired with a reference frame, stop runtime renderer work and build a
-data-only mesh viewer from the local extracted catalog. Any functional
-replacement stays under `port/game/sly1-us/native/`, separate from matching
-decomp source.
+**Pass condition:** before implementing another render feature, document the
+same target in the native and PCSX2 captures, including camera state, mesh,
+strip count, UV/color inputs, texture state, and expected silhouette. A rendered
+frame passes only when its silhouette matches the reference in shape and
+position. Any functional replacement stays under
+`port/game/sly1-us/native/`, separate from matching decomp source.
 
 ## Retained kind-6 experiment notes
 

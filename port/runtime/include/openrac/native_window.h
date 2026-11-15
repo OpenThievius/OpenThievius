@@ -17,7 +17,9 @@ int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
 void openrac_native_window_present(void);
 void openrac_native_sly_world_mesh_submit(uint32_t world, uint64_t instance,
                                           const float* vertices, uint32_t vertex_count,
-                                          const float* model, const float* view_projection);
+                                          const float* model, const float* view_projection,
+                                          uint64_t tex0, uint64_t tex1,
+                                          uint64_t clamp, uint64_t test);
 void openrac_native_window_destroy(void);
 
 #ifdef __cplusplus
