@@ -36,17 +36,19 @@ still omits fog. Do not pass the raw fog value as clip W.
 The owner trace separates the likely backdrop from the screen scene. The
 kind-6 meshes are owned by class `0x54` (`CameraPositionedObject`), which
 moves with the camera. The 30 kind-5 meshes are owned by class `0x61`
-(`TextureRenderObject`), whose parts draw into a texture. The best current
-screen-geometry candidate is a finite-transform class `0x02` object with 38
-kind-0 lit meshes. Its first meshes have three strips and four bone slots.
+(`TextureRenderObject`), whose parts draw into a texture. A finite-transform
+class `0x02` object has 38 kind-0 lit meshes, but its first mesh is too small
+to serve as the first visible target.
 
 Keep the kind-6 prototype disabled. A broad trace of
 `BuildLitStripMeshPacket` calls did not match the final part pointer at draw
-time, so it was removed. The next capture is deliberately narrower: save the
-three submitted packets from the first finite class-`0x02` kind-0 mesh at
-`DrawModelPart`, then decode just enough to verify positions, strips, and
-projected bounds against a PCSX2 frame. Do not extend general VIF/VU/GS
-execution. Owner trace: `/tmp/sly-class-owner-trace.log`.
+time, so it was removed. A narrow draw-boundary capture was decoded instead.
+The VIF UNPACK at packet-0 offset `0x20` declares 68 V4-32 positions at
+`0x24`; using their XYZ, homogeneous 1, and the captured model/view-projection
+matrices yields bounds of about 11 by 2 pixels in a 960x720 viewport. That is
+only an upper bound before strip filtering, so this part is rejected as the
+first graphics target. Do not extend general VIF/VU/GS execution. Owner trace:
+`/tmp/sly-class-owner-trace.log`.
 
 The bounded follow-up run reached active world `0x00870cf0` at about 56 FPS
 after one process-local Cross press. It submitted a finite-transform class-2
@@ -54,11 +56,13 @@ part at `0x016d4460` with 38 lit meshes. The first mesh's three draw-boundary
 streams were captured at their declared sizes: 141, 87 and 77 quadwords
 (2,256, 1,392 and 1,232 bytes). This verifies that the candidate reaches the
 draw handoff; the streams are still PS2 command/data packets, not decoded
-vertices, so it does not establish visible geometry. The run log and raw
-captures are local at `/tmp/sly-targeted-world-part.log` and
-`/tmp/sly-world-part-{0,1,2}.bin`. Next decode only these streams and calculate
-the first mesh's projected bounds. Do not change the renderer until that
-projection is checked against the corresponding PCSX2 scene.
+vertices, so it does not establish visible geometry. Decoding the first
+position stream gives only about 11 by 2 pixels of projected coverage; it is
+too small for the first visible-graphics target. The run log and raw captures
+are local at `/tmp/sly-targeted-world-part.log` and
+`/tmp/sly-world-part-{0,1,2}.bin`. Next rank the remaining active draws by
+coverage and compare the camera-positioned candidate with the corresponding
+PCSX2 scene before changing the renderer.
 
 ## Reset the graphics plan (2026-11-15)
 

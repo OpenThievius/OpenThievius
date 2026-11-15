@@ -21,15 +21,14 @@ replacements under `port/game/sly1-us/native/`, not in matching source.
 draw from measured role, screen bounds, draw order and material. The owner
 trace separates the candidates: class `0x54` camera-positioned kind-6 meshes
 are likely backdrop; class `0x61` kind-5 meshes are explicitly
-render-to-texture. The strongest on-screen candidate is a finite-transform
-class `0x02` object with 38 kind-0 lit meshes. A broad build-time trace failed
-to match this final draw part and has been removed. A targeted run captured
-the first finite part's three draw-boundary streams (141/87/77 quadwords), but
-they remain PS2 command/data packets rather than decoded geometry. Decode only
-these streams, compute projected bounds, and validate against a PCSX2 scene
-before rendering one mesh. Do not add backfills unless a current trace shows
-they block this step, and do not extend device models. Logs and capture details
-are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+render-to-texture. A finite-transform class `0x02` object has 38 kind-0 lit
+meshes, but decoding the first mesh's 68 positions projects to only about 11
+by 2 pixels at 960x720. Reject it as the first graphics target. Rank the
+remaining active draws by screen coverage; the large class-`0x54`
+camera-positioned candidate is the next one to compare with PCSX2 and inspect
+for its actual texture/material path. Do not add backfills unless a current
+trace shows they block this step, and do not extend device models. Logs and
+capture details are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
 See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
 [the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and

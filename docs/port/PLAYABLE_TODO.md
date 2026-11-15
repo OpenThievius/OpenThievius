@@ -49,15 +49,16 @@ camera; they are a backdrop candidate, not confirmed foreground. The 30
 kind-5 meshes belong to class `0x61` (`TextureRenderObject`) and are rendered
 into a texture. Do not treat either as ordinary screen geometry.
 
-The strongest on-screen candidate so far is owner class `0x02` (`PlacedObject`)
-with 38 kind-0 lit meshes and a finite transform. Its first meshes have three
-strips each, but use four bone slots. A broad build-time capture did not match
-the final drawn part and has been removed. The first finite part's three final
-draw streams are now captured (141/87/77 quadwords), but remain undecoded PS2
-command/data. Decode only these streams, verify positions and strips, then
-compute projected bounds and compare against a PCSX2 frame. Do not add loader
-fixes or general VU behavior. Evidence: `/tmp/sly-class-owner-trace.log` and
-the [graphics handoff](SLY_GRAPHICS_HANDOFF.md); class roles
+The first measured owner class `0x02` (`PlacedObject`) part has 38 kind-0 lit
+meshes and a finite transform. Decoding the first mesh's position UNPACK from
+its draw-boundary packet shows that its 68 vertices cover only about 11 by 2
+pixels at 960x720 under the captured matrices. This is an upper bound before
+strip filtering, and it is too small to be a useful first-graphics target.
+Reject this part rather than building a renderer around it. Rank the other
+active draws by projected coverage and compare the large class-`0x54`
+camera-positioned candidate against the PCSX2 scene. Do not add loader fixes
+or general VU behavior. Evidence: `/tmp/sly-targeted-world-part.log`, its
+`/tmp/sly-world-part-{0,1,2}.bin` captures, and the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 are documented in the sibling decomp's `docs/OBJECTS.md` and
 `include/camera_positioned_object.h`.
 
@@ -125,14 +126,14 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Decode the captured class-`0x02` kind-0 final draw streams. Recover the
-   vertex and strip data and account for the four bone slots; compute its
-   projected bounds and compare with a PCSX2 scene capture before drawing it.
-2. Render one validated mesh in solid color with the measured transform,
-   skinning, strips, and depth behavior. Fix only a mismatch shown by the
-   comparison.
-3. Expand to the next mesh only after one correct silhouette is visible.
-   Keep kind-6 isolated as a camera-following backdrop experiment.
+1. Rank the active draw candidates by projected coverage using each stream's
+   real vertex, strip and transform data. The measured class-`0x02` mesh is
+   only about 11 by 2 pixels and has been rejected as the first target.
+2. Match the large class-`0x54` camera-positioned candidate to the same PCSX2
+   scene and identify the texture/material data needed to draw it correctly.
+3. Render only that validated candidate, preserving its actual strip,
+   texture, alpha, depth and transform behavior. Expand only after a
+   recognizable part of the scene appears.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active
