@@ -1,38 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, Wave 492)
+## Current checkpoint (2026-11-15, Wave 499)
 
-The sibling `sly1-decomp` checkout is clean on `master` at
-`1cbb33fdc7f4717e978a846fe0679e4f6410ef72`. The latest update is mainly a
-cross-project naming and type refactor; US matching remains 4,807/4,807
-functions, 100% of code bytes, and 99.9675% of data. This is decompilation
-coverage, not native-host readiness.
+The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains
+4,807/4,807 functions and 100% of code bytes (99.9675% of data). This is
+decompilation coverage, not native-host readiness. The host32 build compiles
+194 matched units and 84 port-only backfills, maps 4,399 catalogued entries,
+and links 102 fallback traps.
 
-The host32 build compiles 194/194 matched C++ units and 84/84 port-only
-backfills, maps 4,399 catalogued function entries, and links 102 fallback
-traps. Visible Wave 489 reached the no-card warning; later bounded Waves
-490–492 cleared the reached look-direction, matrix-scaling, and SPR-chain
-failures. After one process-local Cross, Wave 492 reads 2,426 ISO sectors and
-accepts 16,893 DMA submissions with zero rejections. `game_frames`, `world`,
-and frame stage remain zero. The run ends without a missing-function trap or
-fatal signal, so the old “next missing function” diagnosis is stale. Log:
-`/tmp/sly-wave492.log`.
+After one process-local Cross press, the no-card screen clears, the active
+world changes to `0x870cf0`, and the main loop advances at about 56 frames per
+second. Wave 492's zero-frame report was a diagnostic configuration error:
+the frame counters were not enabled in that build. The game is not shown to be
+stuck.
 
-The current decomp checkout is clean at `1cbb33fd`; all 4,807 US functions
-and 100% of code bytes are matched. That coverage includes 311 original
-assembly functions and is not a measure of native-host readiness. Stop adding
-isolated backfills until the next diagnostic captures the game thread's EIP
-and stack at intervals and ties those samples to DMA callers/sources and loader
-state. The present evidence is consistent with either a tight loop or a large
-unpaced submission path; it does not distinguish them. Keep all ABI adapters
-and C backfills in this port repository so matched decompilation can replace
-them cleanly. No native launcher process remains running.
+The post-load frame is still black. Captures show recurring 1,712- and
+1,936-byte renderer packets, 18 decoded vertices, two draws, no decode error,
+and no rejected DMA. We have not yet identified whether the level draw producer
+is failing to submit scene data or the native renderer is losing valid data.
+This is the sole active blocker to first graphics. Start from one frame and
+trace the world/display producer through the packet boundary; compare against
+the already-working no-card panel. Change only the first confirmed broken
+boundary, then check whether the post-load capture is non-black. Do not add
+speculative game-function backfills or broaden the hardware-model experiment.
 
-Branch: `wip/native-sly-port`. Standard build:
+Evidence: `/tmp/sly-wave497-frame-state.log`,
+`/tmp/sly-wave498-frame-07.png`, `/tmp/sly-wave499-renderer-trace.log`.
+No title or playable level is confirmed. No launcher process is left running.
+The focused build option is `OPENRAC_NATIVE_FRAME_TRACE=ON`; it traces the
+main loop without enabling the stale probes in the broader function trace.
+Standard build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.
-Visible trace runs use `OPENRAC_STARTUP_TRACE=1`; `OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES`
-sends Cross inside the game process, without desktop keyboard events.
+Hidden test runs use `OPENRAC_TEST_HIDDEN_WINDOW=1`, and the process-local
+`OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES` input does not send desktop key events.
 
 Notes below this checkpoint are historical investigation records and may
 describe older blockers or source revisions.

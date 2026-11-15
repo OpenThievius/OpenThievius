@@ -2,17 +2,28 @@
 # Sly 1 native graphics handoff
 
 Last checked: 2026-11-15 against decomp master `1cbb33fd`.
-The no-emulation host32 path compiles 194 matched Sly units and 84 port-only
-backfills, maps 4,399 catalogued entries, and links 102 fallback traps. Wave
-492 clears the previous function traps and, after one process-local Cross,
-reads 2,426 ISO sectors and accepts 16,893 DMA submissions with zero
-rejections. `game_frames`, world, and frame stage still stay at zero. There is
-no confirmed title or level graphics, so the port is not playable. The current
-diagnostic gap is the active game-thread instruction address and stack; resolve
-that before further one-off backfills. No native launcher is left running. See
-the
-[restart checkpoint](RESTART_CHECKPOINT.md) for the current trace and blocker.
 
+The host32 port compiles 194 matched Sly units and 84 separate port-only
+backfills. After one process-local Cross press, it leaves the no-card page,
+loads world `0x870cf0`, and advances at about 56 frames per second. The prior
+Wave 492 claim that frames and world stayed at zero was caused by a disabled
+counter; it was not evidence of a hang.
+
+The first post-load capture is still fully black. The native renderer receives
+alternating 1,712- and 1,936-byte packets and reports 18 decoded vertices,
+two draws, no decode error, and no rejected DMA. That proves packet handling
+runs, but does not tell us whether Sly submitted level geometry or whether the
+renderer interpreted the packet correctly. Trace one post-load frame from the
+world/display producer through the native handoff, then compare it with the
+working no-card panel. Fix only the first proven break. A non-black captured
+scene frame is the next gate. Do not use the experimental guest-runtime
+renderer as evidence for the no-emulation port.
+
+Evidence: `/tmp/sly-wave497-frame-state.log`,
+`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
+No title or playable level is confirmed. See the
+[restart checkpoint](RESTART_CHECKPOINT.md) and [playable TODO](PLAYABLE_TODO.md)
+for the current plan.
 Historical Wave 39 context: two staging-only returns prevent matched
 non-void wrappers from falling through after void calls; the decomp source
 remains untouched. A previous false page-22 disc-change pause was traced to

@@ -1,29 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-15, Wave 492)
+## Latest status (2026-11-15, Wave 499)
 
 The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
-code matched (4,498 exact C functions and 311 original assembly functions).
-This does not mean all functions are host-ready. The native host32 build
-compiles 194 matched units and 84 port-only backfills, maps 4,399 catalogued
-function entries, and links 102 fallback traps. The latest run clears the
-previous `FillLookDirectionBlock`, `ScaleMatrix`, and `StartFromSprChain`
-failures. After one process-local Cross, it reads 2,426 ISO sectors and accepts
-16,893 DMA submissions with zero rejections. Yet `game_frames`, `world`, and
-frame stage remain zero through the end of the bounded run. No missing-function
-trap or fatal signal appears in that run. Trace: `/tmp/sly-wave492.log`.
+code matched. The host32 build compiles 194 matched units and 84 separate
+port-only backfills, maps 4,399 catalogued entries, and links 102 fallback
+traps. Those totals describe build coverage, not game readiness.
 
-This is the point to stop treating the first reported function as the next
-task. The unresolved issue is now system-level: determine where the game thread
-is executing and whether repeated DMA submissions are forward progress or a
-spin. Capture its instruction address and stack at intervals, then compare
-those samples with DMA source/caller and loader state. Do not add more guessed
-backfills or relax DMA validation until that trace identifies a concrete
-failure. No title or gameplay graphics are confirmed; no card-format action
-occurred. Keep all host ABI adaptations and genuine retail-function
-replacements in this port repository so matching decomp C can replace them
-later without losing the port work.
+The corrected focused trace changes the diagnosis. After one process-local
+Cross press, the no-card page clears, the active world changes from the Splash
+world (`0x6abdd0`) to `0x870cf0`, and the main loop advances at about 56 frames
+per second. The earlier Wave 492 report of zero frames and no world was invalid:
+those counters were only updated in the optional function-trace build, which
+was off. Do not use that run as evidence of a hang.
+
+The game still has no visible scene. A post-load framebuffer capture is solid
+black. The native renderer receives alternating 1,712- and 1,936-byte packets,
+decodes 18 vertices and two draws, and reports no decode error; DMA has zero
+rejections. This narrows the current problem to the path that should produce
+the level's draw data, or the Sly-to-native renderer handoff. It does not yet
+prove which one is at fault. Evidence: `/tmp/sly-wave497-frame-state.log`,
+`/tmp/sly-wave498-frame-07.png`, and `/tmp/sly-wave499-renderer-trace.log`.
+
+### Next work: one graphics-path investigation
+
+1. Trace one stable post-load frame from Sly's world/display calls through the
+   native packet submission boundary. Record which producers run, what data
+   each hands off, and which draw records the renderer creates.
+2. Compare that trace with the existing no-card frame, whose panel rendered
+   correctly. This separates missing scene production from a renderer decode
+   or presentation error.
+3. Fix only the first proven break, in the correct layer. Keep replacement
+   retail behavior in port-only backfills; keep renderer and host ABI work in
+   `port/`; leave `sly1-decomp` matching code untouched.
+4. Stop and reassess after one bounded change. The gate is a captured,
+   non-black post-load frame with a named scene draw. Do not treat more frames,
+   more DMA, or a successful compile as progress toward that gate by itself.
+
+Do not add speculative function backfills or expand the experimental hardware
+models. No title, controllable level, or playable build is confirmed. The
+no-card screen is a startup milestone, not a playable build.
 
 Playable milestone gates: (1) first advancing game frame with a valid scene
 draw; (2) title/menu with responsive input; (3) controllable level with camera,

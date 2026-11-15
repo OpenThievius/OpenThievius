@@ -17,17 +17,16 @@ selected for the native build, including its LZ and buffered-byte readers. A
 port-only native ISO adapter reads the 150,849-byte Splash resource from the
 retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
-Malformed text refers to the separate experimental guest-runtime renderer;
-the no-emulation host32 path has displayed the complete no-card warning panel,
-but no title or gameplay scene has been demonstrated. The latest 2026-11-15
-build compiles 194 matched units and 84 port-only backfills, maps 4,399
-catalogued function entries, and links 102 fallback traps. After a
-process-local Cross it reads 2,426 ISO sectors and accepts 16,893 DMA
-submissions with zero rejections. The game-frame, world, and frame-stage
-counters remain zero, without a trap or fatal signal. More local function
-backfills are not the next priority: identify the active game-thread loop and
-correlate its instruction/stack samples with DMA callers and loader state. See
-[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for the current trace.
+Malformed text refers to the separate experimental guest-runtime renderer.
+The no-emulation host32 path has displayed the complete no-card warning panel
+and now clears it into world `0x870cf0`; the main loop advances at about 56
+frames per second. The post-load capture remains black. The renderer receives
+1,712- and 1,936-byte packets, decodes 18 vertices and two draws, and reports
+no decode errors or rejected DMA. Wave 492's zero-frame report came from a
+counter disabled in that build. Next, trace one world/display frame through the
+native packet handoff and compare it with the working no-card panel; make only
+the first evidence-backed correction. See
+[`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for the current diagnosis.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
 
