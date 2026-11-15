@@ -1327,14 +1327,21 @@ bool load_retail_image(const char* path) {
         return false;
     }
     *(volatile u32*)0x12001000u = 0;
-    // The native DMA service completes submissions synchronously. Sly still
-    // clears this VIF0 CHCR register directly in matching frame code, so map
-    // its page as a zeroed status shadow for those host-native accesses.
-    const int vif0_registers = sly1_i386_syscall6(
-        192, 0x10003000, kPage, kProtRead | kProtWrite,
+    // Back the EE I/O register aperture used by the reusable native VIF1
+    // runtime and by Sly's direct VIF0 status accesses.
+    const int ee_mmio = sly1_i386_syscall6(
+        192, 0x10000000, 0x10000, kProtRead | kProtWrite,
         kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
-    if (syscall_failed(vif0_registers) || (u32)vif0_registers != 0x10003000u) {
-        write_text("native host32: VIF0 register shadow address unavailable\n");
+    if (syscall_failed(ee_mmio) || (u32)ee_mmio != 0x10000000u) {
+        write_text("native host32: EE I/O register aperture unavailable\n");
+        return false;
+    }
+    // VU1 data and micro memory occupy separate windows within this aperture.
+    const int vu1_memory = sly1_i386_syscall6(
+        192, 0x11000000, 0x10000, kProtRead | kProtWrite,
+        kMapPrivate | kMapAnonymous | kMapFixedNoReplace, -1, 0);
+    if (syscall_failed(vu1_memory) || (u32)vu1_memory != 0x11000000u) {
+        write_text("native host32: VU1 memory aperture unavailable\n");
         return false;
     }
     *(volatile u32*)0x10003010u = 0;

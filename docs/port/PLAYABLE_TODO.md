@@ -3,34 +3,38 @@
 
 ## Current bounded task (2026-11-15)
 
-### Reset: stop optimizing the failed prototype
+### Reset: work on the first broken stage only
 
 The port is not playable. It gets past the memory-card screen, loads world
 `0x870cf0`, advances frames, and reaches model draw callbacks. The last
-user-confirmed image is the retail no-card screen. A hidden run with two
-process-local Cross presses still captured black frames around native frame
-700. A separate opt-in renderer run drew only a gray horizon and ground. These
-are different results; neither proves that the loaded world is reaching a
-working presentation path.
+user-confirmed image is the retail no-card screen. The optional GL world
+prototype remains disabled by default; its gray horizon was not a successful
+scene render.
 
-### One deliverable: locate the first lost frame
+The first broken stage is now identified. The direct host had dropped VIF1 DMA
+submissions. After connecting those submissions to the existing VIF1/VU1
+runtime, a hidden run processed actual game chains and stopped on masked VIF
+`UNPACK` command `0x78`. The VU1 interpreter then saw invalid GIF data, so its
+XGKICK failure is downstream evidence, not a separate GIF fix. Paired captures
+before and after the HUD pass were identical, which rules out HUD rendering as
+the cause for that frame.
 
-Trace one frame through the existing OpenRAC rendering path: active world,
-draw-list traversal, Sly model submission, VIF/VU/GIF output, renderer bucket,
-and final framebuffer. Correlate these at one frame and one object so we know
-the first boundary where the loaded scene disappears. Reuse OpenRAC's existing
-renderer and texture systems. Keep any Sly-specific adapter or functional C
-under `port/game/sly1-us/native/`, separate from matched decomp source.
+### One deliverable: process Sly's observed masked UNPACKs
 
-**Pass:** identify and document the first boundary where the loaded scene is
-lost, then fix only that boundary and capture a non-black frame attributable
-to loaded Sly data. A successful build, frame rate, callback count, texture
-upload, or decomp percentage is not visual progress. Do not implement a VU
-conversion until the trace shows that the existing renderer path requires it.
+Implement only the VIF write-mask state and masked `UNPACK` formats observed in
+Sly's first world display lists. Preserve the matching decomp source. Keep the
+host32 address mapping and VIF handoff in the port runtime/adapter, and keep
+any function-level replacement under `port/game/sly1-us/native/`.
 
-If this trace cannot isolate a single lost boundary, narrow it before changing
-rendering code. Do not respond to uncertainty with another broad trace or a
-speculative shader.
+**Pass:** a captured world display list completes its VIF commands, emits valid
+VU1 XGKICK/GIF packets, and produces a non-black frame attributable to loaded
+Sly data. If VU1 translation then stops, use the first unsupported instruction
+from that same captured stream as the next bounded task. Do not tune shaders,
+rank more model candidates, or fix downstream GIF parsing before this pass.
+
+A successful build, frame rate, callback count, texture upload, DMA count, or
+decomp percentage is not visual progress. Keep each commit to one verified
+boundary and update this handoff when the evidence changes.
 
 The sibling checkout remains at `1cbb33fd`; public master is `8f7a85a3` and
 retains 100% code matching. Hostgen reports the same 489 translated functions
@@ -52,7 +56,7 @@ advances at about 56 frames per second and reaches kind-5 and kind-6 draw
 callbacks. The last confirmed visible result remains the no-card screen; the
 gray kind-6 capture remains a failed experiment.
 
-## Stop the speculative renderer loop
+## Earlier renderer experiment notes (not the current blocker)
 
 Do not add more startup shims or general renderer features. `FrameSource` is
 an 8-byte stride/base descriptor; the selected payload can be a packed GIF
@@ -61,11 +65,9 @@ validates the kind-6 payload and resolves its GS register values, but a bounded
 run still produced only a gray horizon and ground. Submitting all three
 sources of a kind-0 mesh as duplicate GL draws also failed to improve it.
 
-The evidence does not yet show that VU conversion is the first lost boundary:
-the default path captures black, while the opt-in geometry experiment is gray.
-First correlate one game frame across model submission, renderer intake, and
-the framebuffer. Only implement the Sly VU conversion if that trace proves the
-existing renderer receives no usable primitives from this draw path.
+The new VIF trace supersedes the earlier uncertainty about the first lost
+boundary. Do not begin VU conversion yet: masked VIF UNPACK must first provide
+valid inputs to the existing VU1 path.
 
 Recent NaN transforms are on nested objects 1483/1486 under object 80. Other
 draws have finite matrices, so this trace does not yet show that those objects

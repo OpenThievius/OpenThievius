@@ -11,6 +11,8 @@ NativeDmaChannel g_channels[10]{};
 extern "C" void openrac_native_renderer_submit_dma_chain(unsigned int source_address);
 extern "C" void openrac_native_renderer_trace_dma_call(
     unsigned int channel_address, unsigned int source_address);
+extern "C" int openrac_guest_vif1_submit_chain(unsigned int source_address,
+                                                 unsigned int channel_chcr);
 extern unsigned int D_00279340[10];
 extern unsigned int D_00261F1C;
 extern "C" __attribute__((weak)) void
@@ -71,6 +73,17 @@ extern "C" void func_00202A80(unsigned int channel_address, void* source) {
         // native renderer. The direct host32 build stores a host channel
         // record in g_gifChannel instead of the retail MMIO address.
         openrac_native_renderer_submit_dma_chain(reinterpret_cast<unsigned int>(source));
+        return;
+    }
+    const unsigned int native_vif1_channel =
+        reinterpret_cast<unsigned int>(&g_channels[1]);
+    if (channel_address == 0x10009000u || channel_address == native_vif1_channel) {
+        // The direct host build stores channel registers in g_channels, while
+        // the VIF runtime consumes the retail MMIO register block. Bridge the
+        // submitted chain into that existing VIF1/VU1 path synchronously.
+        const unsigned int address = reinterpret_cast<unsigned int>(source);
+        const unsigned int chcr = (g_channels[1].registers[0] & 0x40u) | 0x105u;
+        (void)openrac_guest_vif1_submit_chain(address, chcr);
         return;
     }
     for (unsigned int i = 0; i < 10; ++i) {

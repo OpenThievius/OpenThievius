@@ -7,28 +7,32 @@ decomp master is `8f7a85a3`.
 ## Direction reset
 
 The no-emulation launcher reaches model draw callbacks after loading a world,
-but the last user-confirmed useful image is the retail no-card UI. A hidden run
-with two process-local Cross presses captured black frames around native frame
-700. A separate opt-in world-renderer run produced only a gray horizon and
-ground. Treat these as separate failures: neither identifies where the loaded
-scene disappears.
+but the last user-confirmed useful image is the retail no-card UI. The optional
+world-renderer prototype remains disabled by default and its gray horizon is
+not successful scene output.
 
-The next task is to correlate one game frame and one object through the
-existing OpenRAC path: world traversal, Sly submission, VIF/VU/GIF output,
-renderer intake, and final framebuffer. Reuse the established renderer and
-texture systems. Keep any Sly-specific replacement under
-`port/game/sly1-us/native/`, separate from matched decomp source. Implement VU
-conversion only if this trace establishes that it is the first missing stage.
-The pass is a non-black captured frame attributable to loaded Sly data.
+The first broken stage is identified: the host32 DMA adapter dropped VIF1
+submissions. The adapter now routes them into the existing VIF1/VU1 runtime.
+That runtime processes real Sly chains, then stops at masked VIF `UNPACK`
+command `0x78`. The VU1 XGKICK failure follows from incomplete VIF input; do not
+patch GIF validation first. Same-frame captures before and after the HUD pass
+are identical, ruling out the HUD as the cause for that capture.
+
+Next, implement only the VIF write-mask behavior and masked `UNPACK` formats
+seen in Sly's first world display lists. Then trace the same chain through VU1
+and GIF. Keep Sly function replacements under `port/game/sly1-us/native/`,
+separate from matched decomp source. Do not expand the optional GL prototype or
+resume broad model ranking. The pass is a valid VU1 XGKICK/GIF packet and a
+non-black frame attributable to loaded Sly data.
 
 ## Clean reset review (2026-11-15)
 
 The window and frame loop are no longer the issue. The game dismisses the
-no-card page, loads a world and reaches model draw callbacks. The opt-in
-OpenGL experiment captures three kind-6 backdrop meshes and 38 kind-0 lit
-meshes. It resolves real uploaded textures, including a 256x128 PSMT8 atlas,
-but its world-only image is still a gray horizon and ground plane. It remains
-disabled by default and is not visual progress.
+no-card page, loads a world and reaches model draw callbacks. A same-frame
+before/after-HUD capture shows that the HUD pass does not erase the world
+image. The first lost stage is the direct host's VIF1 handoff: after routing
+submissions into the shared runtime, Sly data reaches that runtime but stops
+at masked UNPACK command `0x78`.
 
 The supplied 62.76-second PCSX2 recording shows the opening cinematic,
 rooftop views, and the city title screen. These establish useful visual
@@ -37,7 +41,7 @@ match to a particular frame or camera. Similar nighttime city art is not a
 draw-level match. Do not resume renderer implementation from this comparison
 alone.
 
-The source adapter now builds against public decomp master `8f7a85a3` without
+The source adapter builds against public decomp master `8f7a85a3` without
 changing matching source. Both the active `1cbb33fd` checkout and the public
 snapshot compile 194 matched units and link. This compatibility work is done
 for the current revisions; do not keep broadening it without a new build
@@ -63,11 +67,9 @@ than VU output, so valid material state alone does not make the scene match.
 
 The focused trace recorded early kind-0 sources with a null cursor and frame
 zero, and the world pass submitted 41 draws. Animation selection is not the
-current blocker for those static meshes. The remaining concrete gap is how
-Sly's VU program combines these ranges into final GS primitives. Evidence:
-`/tmp/sly-active-frame-source-trace2.log`,
-`/tmp/sly1-native-world-00.png`, and
-`/tmp/sly-kind6-build-*-strip-0.bin`.
+current blocker for those static meshes. The latest evidence supersedes the
+older VU-output hypothesis: first complete masked VIF UNPACK before diagnosing
+the downstream VU/GIF result.
 
 The fourth component written by `BuildStripMeshPacket` is fog bias
 (`fogBias + 28672` or `fogBias + 32768`). The kind-6 VU transform uses source

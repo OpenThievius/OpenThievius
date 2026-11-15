@@ -27,6 +27,22 @@ constexpr size_t kVu1Doublewords = 2048;
 constexpr size_t kVu1Quadwords = 1024;
 constexpr uint32_t kMaxInstructions = 4096;
 
+uint8_t* guest_address(uint32_t address) {
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(address));
+#else
+    return openrac_guest_base == nullptr ? nullptr : openrac_guest_base + address;
+#endif
+}
+
+bool guest_memory_available() {
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    return true;
+#else
+    return openrac_guest_base != nullptr;
+#endif
+}
+
 using Vector = std::array<float, 4>;
 
 struct State {
@@ -82,13 +98,13 @@ void update_float_flags(State* state, const Vector& value, uint32_t mask) {
 Vector data_read(uint32_t address) {
     Vector value{};
     address &= static_cast<uint32_t>(kVu1Quadwords - 1u);
-    std::memcpy(value.data(), openrac_guest_base + kVu1Data + address * 16u, 16u);
+    std::memcpy(value.data(), guest_address(kVu1Data + address * 16u), 16u);
     return value;
 }
 
 void data_write(uint32_t address, const Vector& value) {
     address &= static_cast<uint32_t>(kVu1Quadwords - 1u);
-    std::memcpy(openrac_guest_base + kVu1Data + address * 16u, value.data(), 16u);
+    std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
 }
 
 int32_t sign_extend(uint32_t value, uint32_t bits) {
@@ -115,7 +131,7 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
     if (failed_address != nullptr) *failed_address = 0;
     if (failed_tag != nullptr) *failed_tag = 0;
     while (consumed_qwords < kMaxKickQwords) {
-        const uint8_t* tag = openrac_guest_base + kVu1Data + cursor * 16u;
+        const uint8_t* tag = guest_address(kVu1Data + cursor * 16u);
         uint64_t low = 0;
         std::memcpy(&low, tag, sizeof(low));
         if (first_tag != nullptr && consumed_qwords == 0)
@@ -144,7 +160,7 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
         }
         for (size_t qword = 0; qword <= payload_qwords; ++qword) {
             const size_t memory_qword = (cursor + qword) & (kVu1Quadwords - 1u);
-            const uint8_t* data = openrac_guest_base + kVu1Data + memory_qword * 16u;
+            const uint8_t* data = guest_address(kVu1Data + memory_qword * 16u);
             packet.insert(packet.end(), data, data + 16u);
         }
         consumed_qwords += payload_qwords + 1u;
@@ -345,7 +361,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         const int32_t offset = primary < 0x06u ? sign_extend(word & 0x7FFu, 11) : 0;
         const uint32_t address = (vi_read(*state, base) + offset) & 0x3FFu;
         const uint32_t mask = (word >> 21u) & 15u;
-        uint8_t* data = openrac_guest_base + kVu1Data + address * 16u;
+        uint8_t* data = guest_address(kVu1Data + address * 16u);
         const bool load = primary == 0x04u || primary == 0x06u;
         for (uint32_t lane = 0; lane < 4; ++lane) {
             if ((mask & (8u >> lane)) == 0) continue;
@@ -412,8 +428,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                         openrac::log::warn(
                             "native VU1 XGKICK failed at PC {:#x}: VI4={} VI{}={} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x} reason={}",
                             state->pc, vi_read(*state, 4u), source & 15u, address,
-                            *reinterpret_cast<const uint32_t*>(openrac_guest_base + kVif1Top),
-                            *reinterpret_cast<const uint32_t*>(openrac_guest_base + 0x10003CC0u), first_tag,
+                            *reinterpret_cast<const uint32_t*>(guest_address(kVif1Top)),
+                            *reinterpret_cast<const uint32_t*>(guest_address(0x10003CC0u)), first_tag,
                             failed_address, failed_tag,
                             failure == 1 ? "packet exceeds native limit" :
                             failure == 3 ? "GIFtag has reserved bits set" : "missing EOP");
@@ -429,7 +445,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             if ((function == 0x3Cu || function == 0x3Du) && field == 0x1Au) {
                 uint32_t value = state->itop;
                 if (function == 0x3Cu) {
-                    std::memcpy(&value, openrac_guest_base + kVif1Top, sizeof(value));
+                    std::memcpy(&value, guest_address(kVif1Top), sizeof(value));
                     value &= 0x3FFu;
                 }
                 vi_write(state, target, static_cast<uint16_t>(value));
@@ -541,7 +557,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                                            uint32_t* stopped_pc,
                                            uint32_t* stopped_pipeline,
                                            uint32_t* paired_word) {
-    if (openrac_guest_base == nullptr || unsupported_word == nullptr ||
+    if (!guest_memory_available() || unsupported_word == nullptr ||
         stopped_pc == nullptr || stopped_pipeline == nullptr || paired_word == nullptr) return 0;
     std::lock_guard lock(g_vu_mutex);
     uint32_t pc = entry == 0xFFFFFFFFu ? g_state.pc : (entry & 0x7FFu);
@@ -559,7 +575,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             return 0;
         }
         uint32_t lower = 0, upper = 0;
-        const uint8_t* instruction = openrac_guest_base + kVu1Micro + pc * 8u;
+        const uint8_t* instruction = guest_address(kVu1Micro + pc * 8u);
         std::memcpy(&lower, instruction, sizeof(lower));
         std::memcpy(&upper, instruction + 4u, sizeof(upper));
         recent[cycle % recent.size()] = {pc, lower, upper};

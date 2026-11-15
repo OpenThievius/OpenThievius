@@ -43,17 +43,15 @@ The native port requires SDL3.
 references, uploads MPG payloads to mapped VU1 micro memory, unpacks the
 observed vector formats to VU1 data memory, executes MSCAL through
 `vu1_native.cpp`, and routes DIRECT and XGKICK output to the GIF stream reader.
-It completes the observed DMA channel instead of leaving CHCR busy. UNPACK
-write masks and fill cycles are not implemented. The earlier 135,632-byte
-transfer was misread as a VIF stream: its `0x08` word at offset `0x54` begins a
-GIF IMAGE tag. The menu's channel-2 path submits a DMA-tagged chain through
-the DMA-chain walker; the latest bounded trace accepted all sampled chains,
-but the window remains black or garbled. Current traces show changing glyph
-positions and nonzero decoded draws, so font scale/advance and the float-call
-bridge are no longer the lead. Inspect the indexed atlas/CLUT conversion,
-UVs, blend state and shader output. See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md)
-for trace commands, evidence and next investigation. The VIF command and DMA tag
-formats follow the public [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
+The direct host maps the EE MMIO and VU1 apertures so it can use this same
+runtime. Sly's host32 VIF1 channel now reaches the path, but the latest world
+trace stops at masked UNPACK command `0x78`; VIF write masks and fill cycles
+remain unimplemented. The invalid VU1 XGKICK follows from incomplete input and
+is not yet evidence of a GIF parser problem. Earlier menu traces remain useful
+for channel 2, which walks DMA-tagged chains and submits them to the renderer.
+See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
+active task and evidence. The VIF command and DMA tag formats follow the public
+[PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
 and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 
 `sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.

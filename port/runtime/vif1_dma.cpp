@@ -34,6 +34,22 @@ constexpr size_t kVu1MemoryBytes = 16u * 1024u;
 constexpr size_t kMaxTransferBytes = 64u * 1024u * 1024u;
 constexpr uint32_t kMaxTags = 1u << 16;
 
+uint8_t* guest_address(uint32_t address) {
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(address));
+#else
+    return openrac_guest_base == nullptr ? nullptr : openrac_guest_base + address;
+#endif
+}
+
+bool guest_memory_available() {
+#if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
+    return true;
+#else
+    return openrac_guest_base != nullptr;
+#endif
+}
+
 struct DmaAddress {
     uint32_t address;
     bool scratchpad;
@@ -63,20 +79,20 @@ DmaAddress decode_address(uint32_t address) {
 
 uint32_t load_mmio(uint32_t address) {
     uint32_t value = 0;
-    std::memcpy(&value, openrac_guest_base + address, sizeof(value));
+    std::memcpy(&value, guest_address(address), sizeof(value));
     return value;
 }
 
 void store_mmio(uint32_t address, uint32_t value) {
-    std::memcpy(openrac_guest_base + address, &value, sizeof(value));
+    std::memcpy(guest_address(address), &value, sizeof(value));
 }
 
 bool guest_span(DmaAddress address, size_t size, const uint8_t** source) {
-    if (openrac_guest_base == nullptr) return false;
+    if (!guest_memory_available()) return false;
     if (address.scratchpad) {
         if (address.address > GUEST_SCRATCHPAD_SIZE ||
             size > GUEST_SCRATCHPAD_SIZE - address.address) return false;
-        *source = openrac_guest_base + GUEST_SCRATCHPAD + address.address;
+        *source = guest_address(GUEST_SCRATCHPAD + address.address);
         return true;
     }
     /* Native backfills place packet data in the port heap. It has guest
@@ -84,13 +100,13 @@ bool guest_span(DmaAddress address, size_t size, const uint8_t** source) {
     if (address.address >= GUEST_PORT &&
         address.address - GUEST_PORT <= GUEST_PORT_SIZE &&
         size <= GUEST_PORT_SIZE - (address.address - GUEST_PORT)) {
-        *source = openrac_guest_base + address.address;
+        *source = guest_address(address.address);
         return true;
     }
     const uint32_t normalized = openrac_guest_ram_address(address.address);
     if (normalized > openrac_guest_ram_size || size > openrac_guest_ram_size - normalized)
         return false;
-    *source = openrac_guest_base + normalized;
+    *source = guest_address(normalized);
     return true;
 }
 
@@ -242,7 +258,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
     for (uint32_t vector_index = 0; vector_index < vectors; ++vector_index) {
         const uint32_t destination_index =
             (destination + vector_index * destination_stride) & 0x3FFu;
-        uint8_t* output = openrac_guest_base + kVu1Data + destination_index * 16u;
+        uint8_t* output = guest_address(kVu1Data + destination_index * 16u);
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
 
@@ -302,7 +318,7 @@ void trace_vu1_program(uint32_t address, VifTrace* trace) {
     program.address = address;
     for (uint32_t index = address; index < kVu1MemoryBytes / 8u; ++index) {
         uint32_t upper = 0;
-        const uint8_t* instruction = openrac_guest_base + kVu1Micro + index * 8u;
+        const uint8_t* instruction = guest_address(kVu1Micro + index * 8u);
         std::memcpy(&upper, instruction + 4u, sizeof(upper));
         ++program.instruction_count;
         ++program.upper_opcodes[upper & 0x3Fu];
@@ -404,7 +420,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 *unsupported_command = command;
                 return false;
             }
-            std::memcpy(openrac_guest_base + kVu1Micro + static_cast<size_t>(immediate) * 8u,
+            std::memcpy(guest_address(kVu1Micro + static_cast<uint32_t>(immediate * 8u)),
                         stream.data() + cursor, immediate_bytes);
             break;
         case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
@@ -473,7 +489,7 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
         return 1;
     }
     if (address != kVif1Chcr || (value & 0x100u) == 0) return 0;
-    if (openrac_guest_base == nullptr) return 1;
+    if (!guest_memory_available()) return 1;
 
     store_mmio(kVif1Chcr, value);
     std::vector<uint8_t> stream;
@@ -595,9 +611,18 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     return 1;
 }
 
+extern "C" int openrac_guest_vif1_submit_chain(uint32_t source_address,
+                                                uint32_t channel_chcr) {
+    if (!guest_memory_available()) return 0;
+    store_mmio(kDmacCtrl, load_mmio(kDmacCtrl) | 1u);
+    store_mmio(kVif1Chcr + 0x30u, source_address);
+    const uint32_t chcr = (channel_chcr & 0x40u) | 0x105u;
+    return openrac_guest_vif1_mmio_store32(kVif1Chcr, chcr);
+}
+
 extern "C" int openrac_guest_vif1_fifo_write(uint32_t word0, uint32_t word1,
                                               uint32_t word2, uint32_t word3) {
-    if (openrac_guest_base == nullptr) return 0;
+    if (!guest_memory_available()) return 0;
     std::vector<uint8_t> stream(16);
     const uint32_t words[4] = {word0, word1, word2, word3};
     std::memcpy(stream.data(), words, stream.size());
