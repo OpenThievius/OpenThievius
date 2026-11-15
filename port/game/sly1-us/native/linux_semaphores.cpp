@@ -30,6 +30,10 @@ NativeSemaphore g_semaphores[kSemaphoreCapacity]{};
 volatile int g_registry_lock;
 int g_next_identifier = 1;
 
+extern "C" void sly1_native_trace_semaphore_event(const char* event,
+                                                   int identifier, int count,
+                                                   unsigned int caller);
+
 void lock_registry() {
     while (__sync_lock_test_and_set(&g_registry_lock, 1) != 0) {
         while (g_registry_lock != 0) __asm__ __volatile__("pause");
@@ -58,7 +62,7 @@ NativeSemaphore* lookup_locked(int identifier) {
     return nullptr;
 }
 
-int signal_semaphore(int identifier) {
+int signal_semaphore(int identifier, unsigned int caller) {
     lock_registry();
     NativeSemaphore* semaphore = lookup_locked(identifier);
     if (semaphore == nullptr) {
@@ -71,6 +75,10 @@ int signal_semaphore(int identifier) {
         return -1;
     }
     __atomic_store_n(&semaphore->count, count + 1, __ATOMIC_RELEASE);
+    if (semaphore->waiters != 0 && identifier != 4 && identifier != 5 &&
+        identifier != 8)
+        sly1_native_trace_semaphore_event("signal", identifier, count + 1,
+                                          caller);
     if (count == 0) futex(&semaphore->count, kFutexWake, 1);
     unlock_registry();
     return 0;
@@ -93,7 +101,7 @@ int poll_semaphore(int identifier) {
     return 0;
 }
 
-int wait_semaphore(int identifier) {
+int wait_semaphore(int identifier, unsigned int caller) {
     for (;;) {
         lock_registry();
         NativeSemaphore* semaphore = lookup_locked(identifier);
@@ -109,6 +117,9 @@ int wait_semaphore(int identifier) {
         }
         ++semaphore->waiters;
         unlock_registry();
+        if (identifier != 4 && identifier != 5 && identifier != 8)
+            sly1_native_trace_semaphore_event("wait", identifier, count,
+                                              caller);
         futex(&semaphore->count, kFutexWait, 0);
         lock_registry();
         --semaphore->waiters;
@@ -136,6 +147,9 @@ extern "C" int sly1_native_create_semaphore(const void* parameters) {
         semaphore->active = 1;
         const int identifier = semaphore->identifier;
         unlock_registry();
+        sly1_native_trace_semaphore_event(
+            "create", identifier, params->init_count,
+            (unsigned int)__builtin_return_address(0));
         return identifier;
     }
     unlock_registry();
@@ -157,11 +171,13 @@ extern "C" int sly1_native_delete_semaphore(int identifier) {
 }
 
 extern "C" int sly1_native_signal_semaphore(int identifier) {
-    return signal_semaphore(identifier);
+    return signal_semaphore(identifier,
+                            (unsigned int)__builtin_return_address(0));
 }
 
 extern "C" int sly1_native_wait_semaphore(int identifier) {
-    return wait_semaphore(identifier);
+    return wait_semaphore(identifier,
+                          (unsigned int)__builtin_return_address(0));
 }
 
 extern "C" int sly1_native_poll_semaphore(int identifier) {

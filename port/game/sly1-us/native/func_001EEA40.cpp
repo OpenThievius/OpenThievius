@@ -11,7 +11,7 @@
 typedef u128 Bits128;
 
 struct ValuePlaneNode {
-    Vec02 normal;
+    Vec4 normal;
     f32 dist;
     s32 front;
     s32 back;

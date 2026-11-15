@@ -19,10 +19,14 @@ retail sector fields. Splash is catalog key `0x2`, not level resource `0x0100`.
 Its font atlas and palette data are present and match the decoded Splash bytes.
 Malformed text refers to the separate experimental guest-runtime renderer;
 the no-emulation host32 path has displayed the complete no-card warning panel,
-but no title or gameplay scene has been demonstrated. The 2026-11-15 build
-compiles 194 matched units and 78 port-only backfills. Its visible startup run
-now faults in matched `RunActiveSetSolver` after earlier pose-source faults
-were passed with staging-only null-output adapters. See
+but no title or gameplay scene has been demonstrated. The latest 2026-11-15
+build compiles 194 matched units and 84 port-only backfills, maps 4,399
+catalogued function entries, and links 102 fallback traps. After a
+process-local Cross it reads 2,426 ISO sectors and accepts 16,893 DMA
+submissions with zero rejections. The game-frame, world, and frame-stage
+counters remain zero, without a trap or fatal signal. More local function
+backfills are not the next priority: identify the active game-thread loop and
+correlate its instruction/stack samples with DMA callers and loader state. See
 [`RESTART_CHECKPOINT.md`](RESTART_CHECKPOINT.md) for the current trace.
 
 ## Experimental guest-runtime startup findings (2026-11-12; not the port target)
@@ -45,38 +49,31 @@ frames with zero/black vertex attributes, and the resulting 960x720 frame was
 entirely black. These observations do not describe the no-emulation host32
 renderer below. Do not extend this runtime as the gameplay path.
 
-## Current no-emulation build (2026-11-14)
+## Current no-emulation build (2026-11-15)
 
-The sibling checkout is up to date with public `sly1-decomp` master
-`9489f7a0c3e9142accb8662da5897a39043c57e5` (2026-11-14), clean on
-`master`. The 28 commits since `241a7865` add function and object-field
-documentation and name fields behind raw offsets across game classes. The
-US match totals remain 4,807/4,807 functions and 100% of code; US data remains
-99.9675% matched (140 bytes unmatched). `Oscillator` now exposes its eight
-0xD0-byte entries as a named field, but `RefreshOscillatorFrames` retains the
-same behavior; these changes clarify source structure without resolving the
-native host fault. The host32 build has been refreshed against this snapshot.
-The US report now matches 4,807/4,807 functions and all 1,112,400 code bytes
-(100%). It matches 430,919/431,059 data bytes (99.9675%). The remaining
-unmatched data is 140 bytes. The nine commits since `b482e857` classify nine
-VU0 fragments as linker leftovers, make minor name cleanup and add
-[`sly1-decomp/docs/PORTING.md`](https://github.com/OpenThievius/sly1-decomp/blob/master/docs/PORTING.md).
-That guide identifies `FilterParticleVerticesVu0` and `CollectLightsForSphere`
-as the two call sites that need portable replacements for their VU0
-microprograms. It recommends implementing those functions in the port rather
+The sibling checkout is clean on public `sly1-decomp` master
+`1cbb33fdc7f4717e978a846fe0679e4f6410ef72`. The 19 commits since
+`9489f7a0` include a broad naming and type refactor across 414 files. The US
+match totals remain 4,807/4,807 functions and 100% of code; US data remains
+99.9675% matched (140 bytes unmatched). These changes improve source clarity
+but do not add a new boot or world-loader implementation needed by the current
+native path. `sly1-decomp/docs/PORTING.md` still identifies
+`FilterParticleVerticesVu0` and `CollectLightsForSphere` as the two VU0 call
+sites that need portable replacements; implement these in the port rather
 than building a VU0 execution model.
 
-**Latest startup checkpoint (Wave 424):** the host32 build compiles 194
-matched units and 71 port-only backfills, maps 4,387 catalogued functions,
-and resolves 794/799 functions in the direct-call frontier. A hidden run
-accepts one in-process Cross press on the no-card page and resumes world
-loading. The host-only oscillator compiler adapter passes the former bad
-weight store, then faults in matched `GetOscillatorEntryPeriod`
-(`func_001F38A0`) at `0x08048e94` while reading address `0x64`. No title,
-gameplay scene, or visible level graphics are confirmed. See the
-[restart checkpoint](RESTART_CHECKPOINT.md) for the exact trace and next
-diagnostic. Backfills and host ABI adapters remain in the port; the sibling
-decomp checkout stays clean.
+**Latest startup checkpoint (Wave 492):** the host32 build compiles 194
+matched units and 84 port-only backfills, and links 102 fallback traps. The
+run clears prior missing-function failures, takes one in-process Cross press,
+reads six ISO spans (2,426 sectors), and accepts 16,893 DMA submissions with
+zero rejections. However, game frames, world, and frame stage remain zero. No
+title, gameplay scene, or visible level graphics are confirmed. Capture the
+game thread's active instruction address and stack next; do not keep adding
+function-specific fixes without evidence that they address the present state.
+See the
+[restart checkpoint](RESTART_CHECKPOINT.md)
+for the trace and next diagnostic. Backfills and host ABI adapters stay in
+the port; the sibling decomp checkout remains clean.
 
 Wave 49 adds a Sly-only byte-order adaptation at the libpad boundary. The
 shared SDL controller report is high-byte first, while standard Sly menu masks

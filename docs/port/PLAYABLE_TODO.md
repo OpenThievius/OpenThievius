@@ -1,24 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest status (2026-11-15, Wave 445)
+## Latest status (2026-11-15, Wave 492)
 
-The current native host32 build compiles 194 matched source units and 78
-port-only backfills, defines 4,393/4,807 catalogued entries, and resolves
-774/777 functions on its direct-call frontier. It links 114 missing-function
-traps. Visible Wave 445 startup reaches a native crash in matched
-`RunActiveSetSolver` (`func_00153EC0`) at `0x0806794a`, while reading through a
-value that looks like a float where the solver pointer is expected. The
-position and rotation null-output faults from Waves 442 and 444 are passed by
-host-only staging adapters. Latest trace: `/tmp/sly-wave445-visible.log`.
+The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
+code matched (4,498 exact C functions and 311 original assembly functions).
+This does not mean all functions are host-ready. The native host32 build
+compiles 194 matched units and 84 port-only backfills, maps 4,399 catalogued
+function entries, and links 102 fallback traps. The latest run clears the
+previous `FillLookDirectionBlock`, `ScaleMatrix`, and `StartFromSprChain`
+failures. After one process-local Cross, it reads 2,426 ISO sectors and accepts
+16,893 DMA submissions with zero rejections. Yet `game_frames`, `world`, and
+frame stage remain zero through the end of the bounded run. No missing-function
+trap or fatal signal appears in that run. Trace: `/tmp/sly-wave492.log`.
 
-No title or level graphics are confirmed, and the port is not playable. The
-latest user-confirmed image remains the no-card warning; the visible Wave
-445 process closed on the solver fault before a new state was confirmed. Next,
-trace the actual call arguments into `RunActiveSetSolver` and fix the host
-calling convention or caller staging without changing the matched decomp.
-Keep every adapter or functional C replacement in this repository so matched
-decompilation can replace it cleanly.
+This is the point to stop treating the first reported function as the next
+task. The unresolved issue is now system-level: determine where the game thread
+is executing and whether repeated DMA submissions are forward progress or a
+spin. Capture its instruction address and stack at intervals, then compare
+those samples with DMA source/caller and loader state. Do not add more guessed
+backfills or relax DMA validation until that trace identifies a concrete
+failure. No title or gameplay graphics are confirmed; no card-format action
+occurred. Keep all host ABI adaptations and genuine retail-function
+replacements in this port repository so matching decomp C can replace them
+later without losing the port work.
+
+Playable milestone gates: (1) first advancing game frame with a valid scene
+draw; (2) title/menu with responsive input; (3) controllable level with camera,
+collision, and stable rendering; (4) save/load and audio sufficient for a
+release candidate. The no-card screen is a startup milestone, not a playable
+build.
 
 ## Native loading checkpoint (2026-11-14, Wave 128)
 

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "placed_object.h"
 
-s32 func_00123E88(Vec02* acceleration)
+s32 func_00123E88(Vec4* acceleration)
 {
     const f32 squared_length = acceleration->x * acceleration->x +
                                acceleration->y * acceleration->y +

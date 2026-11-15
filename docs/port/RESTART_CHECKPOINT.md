@@ -1,30 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, Wave 445)
+## Current checkpoint (2026-11-15, Wave 492)
 
 The sibling `sly1-decomp` checkout is clean on `master` at
-`9489f7a0c3e9142accb8662da5897a39043c57e5`. It has 4,807/4,807 matched US
-functions (100% code bytes). This is decompilation coverage, not native-host
-readiness.
+`1cbb33fdc7f4717e978a846fe0679e4f6410ef72`. The latest update is mainly a
+cross-project naming and type refactor; US matching remains 4,807/4,807
+functions, 100% of code bytes, and 99.9675% of data. This is decompilation
+coverage, not native-host readiness.
 
-The host32 build compiles 194/194 matched C++ units and 78/78 port-only
-backfills; it defines 4,393/4,807 catalogued entries, resolves 774/777
-functions in the direct-call frontier, and links 114 missing-function traps.
-The native launcher was run visibly with one process-local Cross scheduled.
-Wave 445 progressed past the earlier owner-position, owner-rotation and
-child-rotation faults using host-only output-storage adapters, then faulted in
-matched `RunActiveSetSolver` (`func_00153EC0`) at `0x0806794a`. At the fault,
-the function treats a float-like value (`0x3d088889`) as its solver pointer,
-pointing to a host call-argument mismatch or bad caller state. Trace the
-`SolveColliderGroupContacts` call boundary and correct the staged ABI without
-altering the matched decomp. Log: `/tmp/sly-wave445-visible.log`.
+The host32 build compiles 194/194 matched C++ units and 84/84 port-only
+backfills, maps 4,399 catalogued function entries, and links 102 fallback
+traps. Visible Wave 489 reached the no-card warning; later bounded Waves
+490–492 cleared the reached look-direction, matrix-scaling, and SPR-chain
+failures. After one process-local Cross, Wave 492 reads 2,426 ISO sectors and
+accepts 16,893 DMA submissions with zero rejections. `game_frames`, `world`,
+and frame stage remain zero. The run ends without a missing-function trap or
+fatal signal, so the old “next missing function” diagnosis is stale. Log:
+`/tmp/sly-wave492.log`.
 
-The last user-confirmed image remains the no-card warning. These visible runs
-closed when the native process faulted; no title or level graphics are
-confirmed and the port is not playable. The sibling decomp is still clean at
-`9489f7a0c3e9142accb8662da5897a39043c57e5`. Keep all C backfills and host
-adapters in this port repository so matched decomp can replace them cleanly.
+The current decomp checkout is clean at `1cbb33fd`; all 4,807 US functions
+and 100% of code bytes are matched. That coverage includes 311 original
+assembly functions and is not a measure of native-host readiness. Stop adding
+isolated backfills until the next diagnostic captures the game thread's EIP
+and stack at intervals and ties those samples to DMA callers/sources and loader
+state. The present evidence is consistent with either a tight loop or a large
+unpaced submission path; it does not distinguish them. Keep all ABI adapters
+and C backfills in this port repository so matched decompilation can replace
+them cleanly. No native launcher process remains running.
 
 Branch: `wip/native-sly-port`. Standard build:
 `cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`.

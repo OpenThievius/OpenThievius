@@ -3,8 +3,8 @@
 #include "common.h"
 #include "placed_object.h"
 
-f32 func_001ED738(const Vec02* vector, const Vec02* axis,
-                  Vec02* along, Vec02* rest)
+f32 func_001ED738(const Vec4* vector, const Vec4* axis,
+                  Vec4* along, Vec4* rest)
 {
     const f32 x = vector->x;
     const f32 y = vector->y;

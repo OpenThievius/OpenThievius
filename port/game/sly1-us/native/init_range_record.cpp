@@ -16,5 +16,5 @@ extern "C" void func_001B1AC8(RangeRecord* record)
     record->v30 = g_unitYVector;
     record->innerDistance = 100.0f;
     record->outerDistance = 400.0f;
-    record->fB0 = -1;
+    record->textureObjectId = -1;
 }

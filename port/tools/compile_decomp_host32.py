@@ -574,7 +574,7 @@ def normalize_turning_collider_matrix_abi(text, label):
         return text
     if (re.search(r'(?m)^#include\s+"functions/matrix\.h"', text) and
             "BuildAxisAngleMatrix(&g_unitZVector, &self->headingMatrix, self->heading);" in text and
-            "BuildAxisAngleMatrix(&g_unitZVector, (Mat02*)matrix, angle);" in text):
+            re.search(r"BuildAxisAngleMatrix\(&g_unitZVector, \((?:Mat02|Mat3)\*\)matrix, angle\);", text)):
         return text
     old_decl = "void BuildAxisAngleMatrix(const Vec02* t, f32 x, void* p);"
     new_decl = "void BuildAxisAngleMatrix(const Vec02* axis, void* out, f32 angle);"
@@ -590,6 +590,150 @@ def normalize_turning_collider_matrix_abi(text, label):
     for old, new in replacements:
         if text.count(old) != 1:
             raise RuntimeError("expected turning collider matrix call: " + old)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_agent_axis_angle_matrix_abi(text, label):
+    """Match Agent's local axis-angle prototype to the compiled host definition."""
+    if label != "main/agent.cpp":
+        return text
+    old_decl = "void BuildAxisAngleMatrix(const Vec4* v, f32 angle, Mat3* out);"
+    new_decl = "void BuildAxisAngleMatrix(const Vec4* v, Mat3* out, f32 angle);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected agent axis-angle matrix prototype")
+    text = text.replace(old_decl, new_decl, 1)
+    replacements = (
+        ("BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, x, &self->headingMatrix);",
+         "BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, &self->headingMatrix, x);"),
+        ("BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, self->heading, &spin);",
+         "BuildAxisAngleMatrix((const Vec4*)&g_unitZVector, &spin, self->heading);"),
+    )
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected agent axis-angle matrix call: " + old)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_link_constraint_axis_angle_matrix_abi(text, label):
+    """Match link constraints' local axis-angle prototype to the host definition."""
+    if label != "main/link_constraint.cpp":
+        return text
+    old_decl = "void BuildAxisAngleMatrix(f32 angle, const Vec4* v, Mat3* out);"
+    new_decl = "void BuildAxisAngleMatrix(const Vec4* v, Mat3* out, f32 angle);"
+    if text.count(old_decl) != 1:
+        raise RuntimeError("expected link-constraint axis-angle matrix prototype")
+    text = text.replace(old_decl, new_decl, 1)
+    replacements = (
+        ("BuildAxisAngleMatrix(Arccosine(c) - angle, &axis, &bend);",
+         "BuildAxisAngleMatrix(&axis, &bend, Arccosine(c) - angle);"),
+        ("BuildAxisAngleMatrix(self->linkRecord->angle, &dir, &twist);",
+         "BuildAxisAngleMatrix(&dir, &twist, self->linkRecord->angle);"),
+    )
+    for old, new in replacements:
+        if text.count(old) != 1:
+            raise RuntimeError("expected link-constraint axis-angle call: " + old)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def make_axis_curve_outputs_unaligned_safe(text, label):
+    """Copy axis-curve vector outputs without assuming Vec4 alignment."""
+    if label != "main/pose_source.cpp":
+        return text
+    old_values = "        *(Vec4*)outValues = *base;"
+    new_values = "        __builtin_memcpy(outValues, base, sizeof(*base));"
+    old_slopes = "        Vu0::Q(*(Vec4*)outSlopes) = Vu0::Zero();"
+    new_slopes = "        __builtin_memset(outSlopes, 0, sizeof(Vec4));"
+    for old, new, description in (
+        (old_values, new_values, "axis-curve value initialization"),
+        (old_slopes, new_slopes, "axis-curve slope initialization"),
+    ):
+        if text.count(new) == 1:
+            continue
+        if text.count(old) != 1:
+            raise RuntimeError("expected " + description)
+        text = text.replace(old, new, 1)
+    return text
+
+
+def normalize_attachment_matrix_value_abi(text, label):
+    """Pass attachment matrices by reference in the host ABI.
+
+    The retail MIPS sources use a by-value aggregate in these declarations.
+    On i386, that makes the caller/callee disagree about the hidden return
+    pointer and the location of the matrix arguments. The host matrix routine
+    already accepts references, so normalize only the staged declarations.
+    """
+    if label not in ("main/placed_object_model.cpp", "main/game_progress.cpp"):
+        return text
+    old = "QuadMatrix MultiplyMatrices(QuadMatrix a, void* q);"
+    new = "QuadMatrix MultiplyMatrices(const QuadMatrix& a, const QuadMatrix& q);"
+    if label == "main/placed_object_model.cpp":
+        calls = (
+            ("e = MultiplyMatrices(b, &c);", "e = MultiplyMatrices(b, c);"),
+            ("e = MultiplyMatrices(a, &c);", "e = MultiplyMatrices(a, c);"),
+            ("el->m50 = MultiplyMatrices(e, &el->q10);",
+             "el->m50 = MultiplyMatrices(e, *(const QuadMatrix*)&el->q10);"),
+        )
+        for source, replacement in calls:
+            if text.count(replacement) == 1:
+                continue
+            if text.count(source) != 1:
+                raise RuntimeError("expected attachment matrix call: " + source)
+            text = text.replace(source, replacement, 1)
+    if old not in text:
+        if label == "main/placed_object_model.cpp" and text.count(new) >= 2:
+            return text
+        if label == "main/game_progress.cpp" and new in text:
+            return text
+        raise RuntimeError("expected by-value attachment matrix declaration in " + label)
+    return text.replace(old, new)
+
+
+def normalize_colored_sprite_packet_abi(text, label):
+    """Use the host C++ parameter order at retail MIPS sprite call sites."""
+    declaration = (
+        "void WriteColoredSpritePacket(s32 r, s32 g, s32 b, s32 a, "
+        "PacketWriter* p, f32 x0, f32 y0, f32 x1, f32 y1);"
+    )
+    host_declaration = (
+        "void WriteColoredSpritePacket(f32 x0, f32 y0, f32 x1, f32 y1, "
+        "s32 r, s32 g, s32 b, s32 a, PacketWriter* p);"
+    )
+    if label not in ("main/warp_menu.cpp", "main/pause_menu.cpp"):
+        return text
+    if declaration not in text:
+        if host_declaration in text:
+            return text
+        raise RuntimeError("expected retail-order sprite writer declaration in " + label)
+    text = text.replace(declaration, host_declaration, 1)
+    calls = {
+        "main/warp_menu.cpp": (
+            ("WriteColoredSpritePacket(0, 0, 0, (s32)v, &g_gsPacketWriter, "
+             "0.0f, 0.0f, 640.0f, 492.80002f);",
+             "WriteColoredSpritePacket(0.0f, 0.0f, 640.0f, 492.80002f, "
+             "0, 0, 0, (s32)v, &g_gsPacketWriter);"),
+        ),
+        "main/pause_menu.cpp": (
+            ("WriteColoredSpritePacket(r, g, b, 255, &buf.f, 10.0f, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f);",
+             "WriteColoredSpritePacket(10.0f, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f, "
+             "r, g, b, 255, &buf.f);"),
+            ("WriteColoredSpritePacket(r, g, b, 255, &buf.f, x, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f);",
+             "WriteColoredSpritePacket(x, y, z, "
+             "TruncateFloat(412.909088f) * 1.1f + 6.6000004f, "
+             "r, g, b, 255, &buf.f);"),
+        ),
+    }[label]
+    for old, new in calls:
+        if new in text:
+            continue
+        if old not in text:
+            raise RuntimeError("expected sprite writer call in " + label)
         text = text.replace(old, new, 1)
     return text
 
@@ -702,7 +846,12 @@ def make_point_frame_transform_unaligned_safe(text, label):
         "    __builtin_memcpy(out, &input, sizeof(input));\n"
         "}\n"
     )
-    if text.count(old) != 1:
+    if text.count(old) == 1:
+        pass
+    elif text.count(old.replace("Vec02", "Vec4")) == 1:
+        old = old.replace("Vec02", "Vec4")
+        new = new.replace("Vec02", "Vec4")
+    else:
         raise RuntimeError("expected point-frame transform definition")
     return text.replace(old, new, 1)
 
@@ -711,9 +860,11 @@ def make_rotation_translation_matrix_unaligned_safe(text, label):
     """Read possibly unaligned object matrices without host aligned SIMD loads."""
     if label != "main/matrix.cpp":
         return text
-    old = """void BuildMatrixFromRotationAndTranslation(const Vec02* pos, const Mat02* rot, Mat4A* out)
-{
-    const Quad16* a = (const Quad16*)pos;
+    signature = re.compile(
+        r"void BuildMatrixFromRotationAndTranslation\(const (?:Vec02|Vec4)\* pos, "
+        r"const (?:Mat02|Mat3)\* rot, Mat4A\* out\)\n\{\n"
+    )
+    new_body = """    const Quad16* a = (const Quad16*)pos;
     const Quad16* b = (const Quad16*)rot;
     Quad16* dst = (Quad16*)out;
     dst[0] = b[0];
@@ -726,9 +877,7 @@ def make_rotation_translation_matrix_unaligned_safe(text, label):
     *(f32*)&dst[3].w[3] = 1.0f;
 }
 """
-    new = """void BuildMatrixFromRotationAndTranslation(const Vec02* pos, const Mat02* rot, Mat4A* out)
-{
-    volatile const u8* source = (volatile const u8*)rot;
+    aligned_body = """    volatile const u8* source = (volatile const u8*)rot;
     u8* destination = (u8*)out;
     for (s32 i = 0; i < 0x30; ++i) destination[i] = source[i];
     source = (volatile const u8*)pos;
@@ -741,25 +890,30 @@ def make_rotation_translation_matrix_unaligned_safe(text, label):
     *(f32*)&dst[3].w[3] = 1.0f;
 }
 """
-    if text.count(old) != 1:
+    matches = list(signature.finditer(text))
+    if len(matches) != 1 or not text.startswith(new_body, matches[0].end()):
         raise RuntimeError("expected rotation/translation matrix definition")
-    return text.replace(old, new, 1)
+    body_start = matches[0].end()
+    body_end = body_start + len(new_body)
+    return text[:body_start] + aligned_body + text[body_end:]
 
 
 def align_collider_position_argument(text, label):
     """Copy an EE quadword input to aligned host storage before SIMD reads."""
     if label != "main/collider.cpp":
         return text
-    signature = "void SetColliderPosition(Collider* self, Vec02* pos)\n{\n"
-    replacement = (
-        signature
-        + "    Vec02 aligned_pos;\n"
-        + "    __builtin_memcpy(&aligned_pos, pos, sizeof(aligned_pos));\n"
-        + "    pos = &aligned_pos;\n"
+    pattern = re.compile(
+        r"void SetColliderPosition\(Collider\* self, (Vec02|Vec4)\* pos\)\n\{\n"
     )
-    if text.count(signature) != 1:
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
         raise RuntimeError("expected SetColliderPosition definition in " + label)
-    return text.replace(signature, replacement, 1)
+    vector_type = matches[0].group(1)
+    signature = matches[0].group(0)
+    replacement = (signature + f"    {vector_type} aligned_pos;\n"
+                   "    __builtin_memcpy(&aligned_pos, pos, sizeof(aligned_pos));\n"
+                   "    pos = &aligned_pos;\n")
+    return text[:matches[0].start()] + replacement + text[matches[0].end():]
 
 
 def make_null_memory_copy_deterministic(text, label):
@@ -875,14 +1029,6 @@ def trace_collider_mesh_motion_allocations(text, label):
          "    self->hook = h;\n"
          "    sly1_native_motion_hook = (unsigned int)h;\n"
          "    sly1_native_motion_stage = 2;\n"),
-        ("    h->velocity = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n",
-         "    h->velocity = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n"
-         "    sly1_native_motion_velocity = (unsigned int)h->velocity;\n"
-         "    sly1_native_motion_stage = 3;\n"),
-        ("    h->accel = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n",
-         "    h->accel = (Vec02*)AllocateZeroedFrontMemory(self->meshCopy.vertCount * 16);\n"
-         "    sly1_native_motion_accel = (unsigned int)h->accel;\n"
-         "    sly1_native_motion_stage = 4;\n"),
         ("    h->tris = (MeshMotion::Tri*)AllocateZeroedFrontMemory(self->meshCopy.faceCount * 12);\n",
          "    h->tris = (MeshMotion::Tri*)AllocateZeroedFrontMemory(self->meshCopy.faceCount * 12);\n"
          "    sly1_native_motion_tris = (unsigned int)h->tris;\n"
@@ -892,6 +1038,18 @@ def trace_collider_mesh_motion_allocations(text, label):
         if text.count(old) != 1:
             raise RuntimeError("expected mesh-motion allocation assignment")
         text = text.replace(old, new, 1)
+    for field, trace_name, stage in (("velocity", "velocity", 3),
+                                     ("accel", "accel", 4)):
+        pattern = re.compile(
+            rf"(?m)^(    h->{field} = \((?:Vec02|Vec4)\*\)"
+            rf"AllocateZeroedFrontMemory\(self->meshCopy\.vertCount \* 16\);)$"
+        )
+        text, replacements = pattern.subn(
+            rf"\1\n    sly1_native_motion_{trace_name} = (unsigned int)h->{field};"
+            rf"\n    sly1_native_motion_stage = {stage};",
+            text)
+        if replacements != 1:
+            raise RuntimeError("expected mesh-motion vector allocation assignment")
     return text
 
 
@@ -1222,9 +1380,21 @@ def trace_arrival_lookup(text, label):
          "void GetObjectWorldRotation(BaseObject* self, Mat02* out)\n{\n"
          "    sly1_native_arrival_rotation_self = (unsigned int)self;\n")]
     for old, new in replacements:
-        if text.count(old) != 1:
-            raise RuntimeError("expected arrival trace site in " + label)
-        text = text.replace(old, new, 1)
+        if text.count(old) == 1:
+            text = text.replace(old, new, 1)
+            continue
+        if old.startswith("void GetObjectWorldRotation("):
+            signature = re.compile(
+                r"void GetObjectWorldRotation\(BaseObject\* self, "
+                r"(?:Mat02|Mat3)\* out\)\n\{\n"
+            )
+            matches = list(signature.finditer(text))
+            if len(matches) == 1:
+                addition = new[len(old):]
+                text = (text[:matches[0].start()] + matches[0].group(0) +
+                        addition + text[matches[0].end():])
+                continue
+        raise RuntimeError("expected arrival trace site in " + label)
     function_start = "HoldingMember* FindArrivalPoint(s32 id, s32 parent)\n{\n"
     if text.count(function_start) != 1:
         raise RuntimeError("expected arrival lookup definition in " + label)
@@ -1289,6 +1459,14 @@ def normalize_player_probe_call_abi(text, label):
             return text
         replacements = [
             ("BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, k, (FollowProbe*)((u8*)&self->footProbeA));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
+             "(PlacedObject*)self->f620, (FollowProbe*)((u8*)&self->footProbeA), k);"),
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)self->linkPartB, self->linkPartB, "
+             "(PlacedObject*)self->f624, k, (FollowProbe*)((u8*)&self->footProbeB));",
+             "BuildPartProbeTowardLink(self, (PlacedObject*)self->linkPartB, self->linkPartB, "
+             "(PlacedObject*)self->f624, (FollowProbe*)((u8*)&self->footProbeB), k);"),
+            ("BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
              "(PlacedObject*)self->f620, k, (FollowProbe*)((u8*)self + 0x1190));",
              "BuildPartProbeTowardLink(self, (PlacedObject*)a1, a1, "
              "(PlacedObject*)self->f620, (FollowProbe*)((u8*)self + 0x1190), k);"),
@@ -1296,10 +1474,16 @@ def normalize_player_probe_call_abi(text, label):
              "(PlacedObject*)self->f624, k, (FollowProbe*)((u8*)self + 0x1290));",
              "BuildPartProbeTowardLink(self, (PlacedObject*)self->f614, self->f614, "
              "(PlacedObject*)self->f624, (FollowProbe*)((u8*)self + 0x1290), k);")]
+        applied = 0
         for old, new in replacements:
-            if text.count(old) != 1:
-                raise RuntimeError("expected current player probe call")
-            text = text.replace(old, new, 1)
+            count = text.count(old)
+            if count == 1:
+                text = text.replace(old, new, 1)
+                applied += 1
+            elif count > 1:
+                raise RuntimeError("ambiguous current player probe call")
+        if applied != 2:
+            raise RuntimeError("expected two current player probe calls")
         return text
     old_decl = "void BuildPartProbeTowardLink(Player* self, void* a1, void* a2, s32 a3, f32 f12, void* a4);"
     new_decl = "void BuildPartProbeTowardLink(s32 a0, void* self, s32 a2, void* obj, void* out, f32 radius);"
@@ -1349,11 +1533,15 @@ def forward_player_slide_contact_index(text, label):
     if text.count(old_typedef) != 1:
         raise RuntimeError("expected player slide callback typedef")
     text = text.replace(old_typedef, new_typedef, 1)
-    old_signature = "void ComputePlayerSlideRates(Player* self, Contact03* out)"
-    new_signature = "void ComputePlayerSlideRates(Player* self, Contact03* out, s32 idx)"
-    if text.count(old_signature) != 1:
+    signature = re.compile(
+        r"void ComputePlayerSlideRates\(Player\* self, (Contact03|BodyContact)\* out\)"
+    )
+    matches = list(signature.finditer(text))
+    if len(matches) != 1:
         raise RuntimeError("expected player slide-rate definition")
-    text = text.replace(old_signature, new_signature, 1)
+    old_signature = matches[0].group(0)
+    new_signature = old_signature[:-1] + ", s32 idx)"
+    text = text[:matches[0].start()] + new_signature + text[matches[0].end():]
     old_call = "((VFn_170410*)self->desc)[90](self, out)"
     new_call = "((VFn_170410*)self->desc)[90](self, out, idx)"
     if text.count(old_call) != 1:
@@ -1373,19 +1561,24 @@ def trace_contact_notification_callback(text, label):
         'extern volatile unsigned int sly1_native_contact_end;\n'
         '}\n\n')
     text = declarations + text
-    old = (
-        "                ((void (*)(Collider*, Contact03*, s32))"
-        "c->end[e].part->desc03()->m3B)(c->end[e].part, c, e);")
-    new = (
-        "                sly1_native_contact_object = (unsigned int)c->end[e].part;\n"
-        "                sly1_native_contact_descriptor = (unsigned int)c->end[e].part->desc03();\n"
-        "                sly1_native_contact_callback = (unsigned int)c->end[e].part->desc03()->m3B;\n"
-        "                sly1_native_contact_end = (unsigned int)e;\n"
-        "                ((void (*)(Collider*, Contact03*, s32))"
-        "c->end[e].part->desc03()->m3B)(c->end[e].part, c, e);")
-    if text.count(old) != 1:
+    old = re.compile(
+        r"(?m)^(\s*)\(\(void \(\*\)\(Collider\*, \w+\*, s32\)\)"
+        r"c->end\[e\]\.part->desc03\(\)->m3B\)"
+        r"\(c->end\[e\]\.part, c, e\);$"
+    )
+    matches = list(old.finditer(text))
+    if len(matches) != 1:
         raise RuntimeError("expected contact notification callback")
-    return text.replace(old, new, 1)
+    indent = matches[0].group(1)
+    callback_type = re.search(r"Collider\*, (\w+\*), s32", matches[0].group(0)).group(1)
+    new = (
+        f"{indent}sly1_native_contact_object = (unsigned int)c->end[e].part;\n"
+        f"{indent}sly1_native_contact_descriptor = (unsigned int)c->end[e].part->desc03();\n"
+        f"{indent}sly1_native_contact_callback = (unsigned int)c->end[e].part->desc03()->m3B;\n"
+        f"{indent}sly1_native_contact_end = (unsigned int)e;\n"
+        f"{indent}((void (*)(Collider*, {callback_type}, s32))"
+        "c->end[e].part->desc03()->m3B)(c->end[e].part, c, e);")
+    return text[:matches[0].start()] + new + text[matches[0].end():]
 
 
 def trace_camera_target_callback(text, label):
@@ -1532,13 +1725,21 @@ def normalize_turning_collider_ramp_abi(text, label):
         return text
     old_decl = "f32 ApproachValueWithRamp(f32 x, f32 y, f32 z, RampProfile* k, f32* out);"
     new_decl = "f32 ApproachValueWithRamp(RampProfile* k, f32* out, f32 x, f32 y, f32 z);"
-    calls = (
+    hook_calls = (
         (
             "ApproachValueWithRamp((&cur->x)[k], (&world.x)[k], "
             "g_gameClock.dt, (RampProfile*)D_00274B68, 0)",
             "ApproachValueWithRamp((RampProfile*)D_00274B68, 0, "
             "(&cur->x)[k], (&world.x)[k], g_gameClock.dt)",
         ),
+        (
+            "ApproachValueWithRamp((&cur->x)[k], (&world.x)[k], "
+            "g_gameClock.dt, (RampProfile*)g_turningColliderHookRamp, 0)",
+            "ApproachValueWithRamp((RampProfile*)g_turningColliderHookRamp, 0, "
+            "(&cur->x)[k], (&world.x)[k], g_gameClock.dt)",
+        ),
+    )
+    calls = (
         (
             "ApproachValueWithRamp(cur, 0.0f, g_gameClock.dt, "
             "(RampProfile*)&A, &out1)",
@@ -1552,10 +1753,12 @@ def normalize_turning_collider_ramp_abi(text, label):
             "-self->probeDepth, g_gameClock.dt)",
         ),
     )
-    if text.count(old_decl) != 1 or any(text.count(old) != 1 for old, _ in calls):
+    if (text.count(old_decl) != 1 or
+            sum(text.count(old) for old, _ in hook_calls) != 1 or
+            any(text.count(old) != 1 for old, _ in calls)):
         raise RuntimeError("expected turning-collider ramp declaration and calls")
     text = text.replace(old_decl, new_decl, 1)
-    for old, new in calls:
+    for old, new in (*hook_calls, *calls):
         text = text.replace(old, new, 1)
     return text
 
@@ -1615,7 +1818,15 @@ def normalize_optional_owner_position_outputs(text, label):
         ((PositionOutToldFn)self->owner->desc02()->m28)(self->owner, position);
     }
 }'''
-    if text.count(old) != 1:
+    if text.count(old) == 1:
+        pass
+    elif text.count(old.replace("Vec02", "Vec4").replace(
+            "*(Vec4*)D_00248D30", "*(Vec4*)g_zeroVector")) == 1:
+        old = old.replace("Vec02", "Vec4").replace(
+            "*(Vec4*)D_00248D30", "*(Vec4*)g_zeroVector")
+        new = new.replace("Vec02", "Vec4").replace(
+            "*(Vec4*)D_00248D30", "*(Vec4*)g_zeroVector")
+    else:
         raise RuntimeError("expected GetOwnerPosition source body")
     text = text.replace(old, new, 1)
     old_rotation = '''void GetOwnerRotation(Attachment* self, Mat02* out1, Vec02* out2)
@@ -1634,6 +1845,11 @@ def normalize_optional_owner_position_outputs(text, label):
     *vector = *(Vec02*)D_00248D30;
     ((FrameOutToldFn)self->owner->desc02()->m29)(self->owner, rotation, vector);
 }'''
+    if text.count(old_rotation) == 0:
+        old_rotation = old_rotation.replace("Mat02", "Mat3").replace(
+            "Vec02", "Vec4").replace("*(Vec4*)D_00248D30", "*(Vec4*)g_zeroVector")
+        new_rotation = new_rotation.replace("Mat02", "Mat3").replace(
+            "Vec02", "Vec4").replace("*(Vec4*)D_00248D30", "*(Vec4*)g_zeroVector")
     if text.count(old_rotation) != 1:
         raise RuntimeError("expected GetOwnerRotation source body")
     return text.replace(old_rotation, new_rotation, 1)
@@ -1643,12 +1859,15 @@ def normalize_optional_child_rotation_outputs(text, label):
     """Supply temporary result storage for omitted child-rotation outputs."""
     if label != "main/player_aim.cpp":
         return text
-    signature = (
-        "void CombineChildPoseRotations(ChildPoseSource* self, Mat02* outRot, "
-        "Vec02* outVec, f32 t)\n{")
-    if text.count(signature) != 1:
+    signature = re.compile(
+        r"void CombineChildPoseRotations\(ChildPoseSource\* self, "
+        r"(Mat02|Mat3)\* outRot, (Vec02|Vec4)\* outVec, f32 t\)\n\{"
+    )
+    matches = list(signature.finditer(text))
+    if len(matches) != 1:
         raise RuntimeError("expected CombineChildPoseRotations definition")
-    start = text.index(signature) + len(signature)
+    match = matches[0]
+    start = match.end()
     depth = 1
     end = start
     while end < len(text) and depth:
@@ -1662,10 +1881,72 @@ def normalize_optional_child_rotation_outputs(text, label):
     body = text[start:end - 1]
     body = body.replace("*outRot", "*rotation").replace("outRot,", "rotation,")
     body = body.replace("*outVec", "*vector").replace("outVec,", "vector,")
-    body = ("\n    Mat02 fallbackRotation;\n    Vec02 fallbackVector;\n"
-            "    Mat02* rotation = outRot != 0 ? outRot : &fallbackRotation;\n"
-            "    Vec02* vector = outVec != 0 ? outVec : &fallbackVector;" + body)
+    body = (f"\n    {match.group(1)} fallbackRotation;\n"
+            f"    {match.group(2)} fallbackVector;\n"
+            f"    {match.group(1)}* rotation = outRot != 0 ? outRot : &fallbackRotation;\n"
+            f"    {match.group(2)}* vector = outVec != 0 ? outVec : &fallbackVector;" + body)
     return text[:start] + body + text[end - 1:]
+
+
+def emit_text_layout_setters_for_host(text, label):
+    """Keep the old GCC pragma-interface setters linkable on modern hosts."""
+    if label != "main/text_panel.cpp":
+        return text
+    text, count = re.subn(
+        r"(?m)^inline (void TextBoxLayout::(?:Pos|Size|Color|SetF14|SetF18)\()",
+        r"\1", text)
+    if count != 5:
+        raise RuntimeError("expected five TextBoxLayout setter definitions")
+    return text
+
+
+def normalize_active_set_solver_abi(text, label):
+    """Port-only shim: align the decomp solver definition with its caller ABI."""
+    old = (
+        "AddFrictionItemsAndSolve(ActiveSetSolver* self, s32 a1, s32 n, "
+        "BodyContact** contacts, s32 a4, s32 a5, f32 dt)")
+    new = (
+        "AddFrictionItemsAndSolve(f32 dt, ActiveSetSolver* self, s32 a1, "
+        "s32 n, BodyContact** contacts, s32 a4, s32 a5)")
+    if label == "functions/active_set_solver.h":
+        if text.count("void " + old + ";") != 1:
+            raise RuntimeError("expected active-set solver host ABI declaration")
+        return text.replace("void " + old + ";", "void " + new + ";", 1)
+    if label == "main/active_set_solver.cpp":
+        if text.count("void " + old + "\n{") != 1:
+            raise RuntimeError("expected active-set solver host ABI definition")
+        return text.replace("void " + old + "\n{", "void " + new + "\n{", 1)
+    return text
+
+
+def normalize_uncached_ee_cpu_pointers(text, label):
+    """Use mapped EE addresses when host CPU code dereferences uncached aliases."""
+    replacements = {
+        "main/object_properties.cpp": (
+            "    t.tags = (DmaTag*)((u32)(i != 0 ? g_sprChainTagsB : g_sprChainTagsA) | 0x20000000);",
+            "    t.tags = (DmaTag*)(i != 0 ? g_sprChainTagsB : g_sprChainTagsA);",
+            "scratchpad transfer tag alias assignment",
+        ),
+        "main/group_marker.cpp": (
+            "        *(DeferredRequest*)((u32)cur | 0x20000000) = *src;",
+            "        *cur = *src;",
+            "deferred-request uncached pointer store",
+        ),
+        "main/movie_player.cpp": (
+            "    InitRingBuffer(&self->videoRing, 0x30000, (u8*)((s32)g_movieVideoRingBuffer | 0x20000000));",
+            "    InitRingBuffer(&self->videoRing, 0x30000, g_movieVideoRingBuffer);",
+            "movie ring-buffer uncached pointer",
+        ),
+    }
+    replacement = replacements.get(label)
+    if replacement is None:
+        return text
+    old, new, description = replacement
+    if text.count(new) == 1:
+        return text
+    if text.count(old) != 1:
+        raise RuntimeError("expected " + description)
+    return text.replace(old, new, 1)
 
 
 def trace_null_approach_ramp(text, label):
@@ -1825,18 +2106,23 @@ def index_host_oscillator_vertex_loops(text, label):
     output_weight_reload = ("                    u128 qc = Vu0::Copy(q);\n"
                             "                    __asm__ volatile(\"\" ::: \"memory\");\n"
                             "                    w = &weights[sly1_vertex_i];")
-    copy_target = "            CopyMemory(verts, data->verts, n * sizeof(Vec02));"
-    copy_adapted = (copy_target
-                    + "\n            Vec02* volatile sly1_native_verts = verts;")
+    copy_target = re.compile(
+        r"(?m)^(            CopyMemory\(verts, data->verts, n \* sizeof\((Vec02|Vec4)\)\);)$"
+    )
+    copy_matches = list(copy_target.finditer(text))
     if (text.count(object_pointer) != 1 or text.count(mesh_pointer) != 1 or
             text.count(weight_loop) != 1 or
             text.count(output_loop) != 1 or text.count(weight_store) != 1):
         raise RuntimeError("expected oscillator vertex loops")
-    if text.count(copy_target) != 1 or text.count("                    u128 qc = Vu0::Copy(q);\n") != 1:
+    if len(copy_matches) != 1 or text.count("                    u128 qc = Vu0::Copy(q);\n") != 1:
         raise RuntimeError("expected oscillator vertex copy")
+    copy_line = copy_matches[0].group(1)
+    vector_type = copy_matches[0].group(2)
+    copy_adapted = (copy_line
+                    + f"\n            {vector_type}* volatile sly1_native_verts = verts;")
     adapted = (text.replace(object_pointer, volatile_object_pointer, 1)
                .replace(mesh_pointer, volatile_mesh_pointer, 1)
-               .replace(copy_target, copy_adapted, 1)
+               .replace(copy_line, copy_adapted, 1)
                .replace(weight_loop, weight_indexed, 1)
                .replace(weight_store, indexed_weight_store, 1)
                .replace(output_loop, output_indexed, 1)
@@ -2157,6 +2443,12 @@ def main(argv=None):
         staged_header = staged_include / header.relative_to(include)
         staged_header.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(header, staged_header)
+    solver_header = staged_include / "functions/active_set_solver.h"
+    solver_header.write_text(
+        normalize_active_set_solver_abi(
+            solver_header.read_text(encoding="utf-8"),
+            "functions/active_set_solver.h"),
+        encoding="utf-8")
     wide_header = staged_include / "mul_wide.h"
     if wide_header.is_file():
         # The upstream macro emits EE multu/HI/LO constraints. The native
@@ -2275,6 +2567,12 @@ def main(argv=None):
         adapted = preserve_postload_attachment_context(adapted, rel.as_posix())
         adapted = supply_player_collider_position(adapted, rel.as_posix())
         adapted = normalize_turning_collider_matrix_abi(adapted, rel.as_posix())
+        adapted = normalize_agent_axis_angle_matrix_abi(adapted, rel.as_posix())
+        adapted = normalize_link_constraint_axis_angle_matrix_abi(
+            adapted, rel.as_posix())
+        adapted = make_axis_curve_outputs_unaligned_safe(adapted, rel.as_posix())
+        adapted = normalize_attachment_matrix_value_abi(adapted, rel.as_posix())
+        adapted = normalize_colored_sprite_packet_abi(adapted, rel.as_posix())
         adapted = normalize_placed_object_sound_abi(adapted, rel.as_posix())
         adapted = normalize_script_host_call_abi(adapted, rel.as_posix())
         adapted = make_point_frame_transform_unaligned_safe(adapted, rel.as_posix())
@@ -2397,6 +2695,22 @@ def main(argv=None):
                 "(char*)__builtin_next_arg(size) - (8 - __builtin_args_info(0)) * 8",
                 "(char*)__builtin_next_arg(size)")
             if rel.as_posix() == "main/object_properties.cpp":
+                # StartFromSprChain also walks the EE's variadic home area by
+                # hand. On i386, start at the first host vararg and step in
+                # 4-byte slots, or it reads beyond the zero terminator and
+                # writes a DMA tag just before scratchpad.
+                old_cursor = "void* ap = (char*)__builtin_next_arg(first) - 56;"
+                new_cursor = "void* ap = (char*)__builtin_next_arg(first);"
+                if old_cursor in adapted:
+                    adapted = adapted.replace(old_cursor, new_cursor, 1)
+                elif new_cursor not in adapted:
+                    raise RuntimeError("expected StartFromSprChain host vararg cursor")
+                old_step = "        ap = (char*)ap + 8;\n        x = *(s32*)((char*)ap - 8);"
+                new_step = "        ap = (char*)ap + 4;\n        x = *(s32*)((char*)ap - 4);"
+                if old_step in adapted:
+                    adapted = adapted.replace(old_step, new_step, 1)
+                elif new_step not in adapted:
+                    raise RuntimeError("expected StartFromSprChain host vararg step")
                 # StoreScriptArgumentsVa uses the EE's 8-byte vararg slots.
                 # Use the host i386 varargs ABI in this staging copy; otherwise
                 # it reads unrelated stack words as output destinations.
@@ -2702,7 +3016,9 @@ def main(argv=None):
         elif rel.as_posix() == "main/pooled_object.cpp":
             adapted = adapted.replace(
                 "void* GetListLinks(void* a, void* b);",
-                "ListLink* GetListLinks(List01* a, void* b);")
+                "ListLink* GetListLinks(ObjectList* a, void* b);")
+            adapted = adapted.replace(
+                "u32 GetListLinks(ObjectList* node, u32 value);\n", "")
             # InitStepSequence calls the PS2 method InitPlacedObject with an
             # implicit this pointer in a0. The host C ABI needs that pointer
             # as an explicit argument, or the base initializer reads stale
@@ -2792,10 +3108,12 @@ def main(argv=None):
                 r"(Callback01\* n = \(Callback01\*\)TakeCallRecord)\(\);",
                 r"\1(world);", adapted)
             latest_declaration = "void* TakeCallRecord(World* self);"
-            latest_call = "Callback01* n = (Callback01*)TakeCallRecord(world);"
+            latest_call = re.compile(
+                r"\w+\*\s+\w+\s*=\s*\(\w+\*\)TakeCallRecord\(world\);"
+            )
             if declaration_count == 0 and call_count == 0 and \
                     adapted.count(latest_declaration) == 1 and \
-                    adapted.count(latest_call) == 1:
+                    len(latest_call.findall(adapted)) == 1:
                 pass
             elif declaration_count != 1 or call_count != 1:
                 raise RuntimeError("expected callback pool world carryover in " +
@@ -4210,6 +4528,17 @@ void LoadEffectSpawner"""
             elif (adapted.count(latest_wrapper) < 1 or
                   adapted.count("CreateAnimationPlayer(self, alt, 0, 0, flags, out, fa, fb);") != 1):
                 raise RuntimeError("expected host32 animation-player wrapper fallthrough")
+        # The latest decomp consolidated the former Vec02/Mat02 aliases into
+        # Vec4/Mat3. A few retained declarations still use the retired names;
+        # normalize only when the current source unit already uses the new
+        # canonical type, keeping older source revisions buildable as well.
+        if "Vec4" in adapted:
+            adapted = re.sub(r"\bVec02\b", "Vec4", adapted)
+        if "Mat3" in adapted:
+            adapted = re.sub(r"\bMat02\b", "Mat3", adapted)
+        adapted = emit_text_layout_setters_for_host(adapted, rel.as_posix())
+        adapted = normalize_active_set_solver_abi(adapted, rel.as_posix())
+        adapted = normalize_uncached_ee_cpu_pointers(adapted, rel.as_posix())
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":

@@ -1,15 +1,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-15 against decomp master `9489f7a0`.
-The no-emulation host32 path compiles 194 matched Sly units and 78 port-only
-backfills; the latest link includes 114 missing-function traps. Its direct
-call frontier resolves 774/777 functions. Visible Wave 445 startup passed
-three pose-source null-output faults through host-only staging adapters, then
-faulted in matched `RunActiveSetSolver` (`func_00153EC0`) at `0x0806794a`,
-where a float-like value was used as the solver pointer. No title or level
-graphics are confirmed, and the port is not playable. The last user-confirmed
-visual is the no-card warning. See the
+Last checked: 2026-11-15 against decomp master `1cbb33fd`.
+The no-emulation host32 path compiles 194 matched Sly units and 84 port-only
+backfills, maps 4,399 catalogued entries, and links 102 fallback traps. Wave
+492 clears the previous function traps and, after one process-local Cross,
+reads 2,426 ISO sectors and accepts 16,893 DMA submissions with zero
+rejections. `game_frames`, world, and frame stage still stay at zero. There is
+no confirmed title or level graphics, so the port is not playable. The current
+diagnostic gap is the active game-thread instruction address and stack; resolve
+that before further one-off backfills. No native launcher is left running. See
+the
 [restart checkpoint](RESTART_CHECKPOINT.md) for the current trace and blocker.
 
 Historical Wave 39 context: two staging-only returns prevent matched

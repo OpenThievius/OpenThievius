@@ -3,7 +3,7 @@
 #include "common.h"
 #include "collider.h"
 
-void func_001B9AB0(Collider* self, Vec02* force)
+void func_001B9AB0(Collider* self, Vec4* force)
 {
     self->v170.x += force->x;
     self->v170.y += force->y;

@@ -6,10 +6,10 @@
 
 struct NativeFaceTreePlane {
     f32 offset;
-    Vec02 normal;
+    Vec4 normal;
 };
 
-s32 func_001E4DC0(TreeNode03* node, Vec02* point)
+s32 func_001E4DC0(TreeNode03* node, Vec4* point)
 {
     while (node != 0) {
         const NativeFaceTreePlane* plane = (const NativeFaceTreePlane*)node->face;

@@ -470,6 +470,22 @@ extern "C" volatile u32 sly1_native_iop_boot_stage = 0;
 extern "C" volatile u32 sly1_native_startup_callback_index = 0;
 extern "C" volatile u32 D_002613F0;
 bool g_startup_trace_enabled = false;
+volatile u32 g_native_semaphore_trace_active = 0;
+volatile u32 g_semaphore_trace_event_count = 0;
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_semaphore_event(const char* event, int identifier, int count,
+                                  unsigned int caller) {
+    if (!g_startup_trace_enabled ||
+        !__atomic_load_n(&g_native_semaphore_trace_active, __ATOMIC_RELAXED))
+        return;
+    const u32 index = __atomic_fetch_add(&g_semaphore_trace_event_count, 1u,
+                                         __ATOMIC_RELAXED);
+    if (index >= 64) return;
+    std::fprintf(stderr,
+                 "[native semaphore] %s id=%d count=%d caller=%08x\n",
+                 event, identifier, count, caller);
+}
 
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_null_ramp(void* ramp, void* out, float x, float y, float z,
@@ -486,6 +502,7 @@ sly1_native_trace_null_ramp(void* ramp, void* out, float x, float y, float z,
 
 volatile u32 g_native_frame_stage = 0;
 volatile u32 g_native_frame_count = 0;
+volatile u32 g_native_game_thread_tid = 0;
 volatile u32 g_native_world = 0;
 volatile u32 g_native_ui_state = 0;
 volatile u32 g_native_ui_stack_count = 0;
@@ -715,36 +732,66 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
     }
     std::atomic<bool> game_finished{false};
     std::thread game_thread([&] {
+        g_native_game_thread_tid = (u32)syscall3(224, 0, 0, 0);
         if (g_startup_trace_enabled) install_fault_trace();
         func_00185758((int)*(volatile u32*)0x0027B380u, (int)0x0027B384u);
         game_finished.store(true, std::memory_order_release);
     });
+    using NativeInterruptHandler = int (*)(int);
+    const auto handle_vblank = reinterpret_cast<NativeInterruptHandler>(
+        resolve_native(0x001682C0u));
+    if (handle_vblank == nullptr) {
+        write_text("native host32: retail VBlank handler is not linked\n");
+        game_thread.detach();
+        return 1;
+    }
     const bool trace_graphics = [] {
         const char* value = std::getenv("OPENRAC_STARTUP_TRACE");
         return value != nullptr && value[0] != '0';
     }();
     unsigned trace_frames = 0;
+    unsigned semaphore_trace_after_frame = 0;
+    if (trace_graphics) {
+        const char* delay = std::getenv("OPENRAC_TEST_PRESS_SPACE_AFTER_FRAMES");
+        if (delay != nullptr && delay[0] != '\0' && delay[0] != '0') {
+            char* end = nullptr;
+            const unsigned long after = std::strtoul(delay, &end, 10);
+            if (end != delay && *end == '\0')
+                semaphore_trace_after_frame = static_cast<unsigned>(after);
+        }
+        if (semaphore_trace_after_frame == 0)
+            g_native_semaphore_trace_active = 1;
+    }
     for (;;) {
         openrac_native_window_present();
+        if (trace_graphics) ++trace_frames;
         // GS CSR.FIELD is the only status bit read by the Sly display path.
         // Advance it with the native window's presentation cadence.
         __atomic_fetch_xor((u32*)0x12001000u, 1u << 13, __ATOMIC_RELAXED);
-        if (openrac_native_window_poll_input()) {
+        // The desktop window supplies the vertical-blank event that would
+        // wake the retail display semaphore on the console.
+        handle_vblank(2);
+        const int quit = openrac_native_window_poll_input();
+        if (trace_graphics &&
+            trace_frames >= semaphore_trace_after_frame)
+            g_native_semaphore_trace_active = 1;
+        if (quit) {
             break;
         }
-        if (trace_graphics && (++trace_frames % 60u) == 0) {
+        if (trace_graphics && (trace_frames % 60u) == 0) {
             std::fprintf(stderr, "[native graphics] dma=%llu accepted=%llu rejected=%llu bytes=%llu\n",
                          openrac_native_renderer_dma_submit_count(),
                          openrac_native_renderer_dma_accept_count(),
                          openrac_native_renderer_dma_reject_count(),
                          openrac_native_renderer_dma_bytes());
             std::fprintf(stderr,
-                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u game_frames=%u frame_stage=%u world=%#x ui_state=%u ui_stack=%u resume=%d load=%u movie=%u visible_ui=%u text_ui=%u pad_status=%u pad_mode=%u pad_flags=%#x pad_route=%u pad_select=%u blank_pad_status=%u pause_open=%u pause_page=%d pause_mode=%u fade=%u stack_top=%#x top_vt=%#x top_mode=%u top_text=%u card_state=%d card_target=%d card_display=%u card_progress=%d memory_gate=%u element_state=%u card_thread=%u card_job=%#x card_result=%d card_semaphore=%u game_elapsed_bits=%#x card_state_time_bits=%#x card_display_time_bits=%#x\n",
+                         "[native startup] entry_returned=%u callback=%u iop_stage=%u cd_reads=%u sectors=%u game_frames=%u game_tid=%u frame_stage=%u world=%#x ui_state=%u ui_stack=%u resume=%d load=%u movie=%u visible_ui=%u text_ui=%u pad_status=%u pad_mode=%u pad_flags=%#x pad_route=%u pad_select=%u blank_pad_status=%u pause_open=%u pause_page=%d pause_mode=%u fade=%u stack_top=%#x top_vt=%#x top_mode=%u top_text=%u card_state=%d card_target=%d card_display=%u card_progress=%d memory_gate=%u element_state=%u card_thread=%u card_job=%#x card_result=%d card_semaphore=%u game_elapsed_bits=%#x card_state_time_bits=%#x card_display_time_bits=%#x\n",
                          game_finished.load(std::memory_order_acquire) ? 1u : 0u,
                          sly1_native_startup_callback_index,
                          sly1_native_iop_boot_stage,
                          g_disc_read_count, g_disc_sectors_read,
                          __atomic_load_n(&g_native_frame_count, __ATOMIC_RELAXED),
+                         __atomic_load_n(&g_native_game_thread_tid, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_native_frame_stage, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_native_world, __ATOMIC_RELAXED),
                          __atomic_load_n(&g_native_ui_state, __ATOMIC_RELAXED),

@@ -5,11 +5,11 @@
 #include "placed_object.h"
 
 struct NativeTreePlane {
-    Vec02 normal;
+    Vec4 normal;
     f32 offset;
 };
 
-s32 func_0013E658(Vec02* point, TreeNode03* node)
+s32 func_0013E658(Vec4* point, TreeNode03* node)
 {
     while (node != 0) {
         const NativeTreePlane* plane = (const NativeTreePlane*)node->face;

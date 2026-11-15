@@ -25,7 +25,7 @@ struct LightObject : SortKeyedObject {
     u8 pad310[0x334 - 0x310];
     f32 rangeMax;
     u8 pad338[0x370 - 0x338];
-    Vec02 planes[6];
+    Vec4 planes[6];
 };
 
 extern s32 g_lightGroupCount;
@@ -33,7 +33,7 @@ extern LightGroup g_lightGroups[16];
 
 namespace {
 
-bool sphere_reaches_light(const LightObject* light, const Vec02* centre,
+bool sphere_reaches_light(const LightObject* light, const Vec4* centre,
                           f32 radius, s32 kind)
 {
     if (kind == 1) {
@@ -51,7 +51,7 @@ bool sphere_reaches_light(const LightObject* light, const Vec02* centre,
         // PlaneSigns helper defines the convention: a sphere is inside a
         // plane when dot(normal, centre) + offset - radius is negative.
         for (s32 i = 0; i < 6; ++i) {
-            const Vec02& plane = light->planes[i];
+            const Vec4& plane = light->planes[i];
             const f32 signed_distance = plane.x * centre->x +
                                         plane.y * centre->y +
                                         plane.z * centre->z + plane.w;
@@ -64,7 +64,7 @@ bool sphere_reaches_light(const LightObject* light, const Vec02* centre,
     return false;
 }
 
-u32 light_mask(const LightGroup* group, const Vec02* centre, f32 radius)
+u32 light_mask(const LightGroup* group, const Vec4* centre, f32 radius)
 {
     const s32 count = group->count < 16 ? group->count : 16;
     if (count <= 0)
@@ -103,13 +103,13 @@ void append_reached_lights(const LightGroup* group, u32 mask, s32 maxLights,
 
 } // namespace
 
-s32 func_00185150(World* world, const Vec02* centre, f32 radius,
+s32 func_00185150(World* world, const Vec4* centre, f32 radius,
                   u32 skipMask, s32 maxLights, s32* flagged, s32* outCount,
                   LightObject** out)
 {
     s32 count = 0;
     s32 flaggedCount = 0;
-    s32 strongest = world->f1D6C != 0.0f;
+    s32 strongest = world->lightingParamA != 0.0f;
     const u32 keepOut = ~skipMask;
     const LightGroup* previous = 0;
     u32 previousMask = 0;

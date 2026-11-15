@@ -20,7 +20,7 @@ f32 wrap_angle_port(f32 angle) {
     return angle;
 }
 
-Vec02 transform_velocity(const f32* matrix, const Vec02& velocity) {
+Vec4 transform_velocity(const f32* matrix, const Vec4& velocity) {
     // TurnMatrixBySpin produces four row vectors. Like MoveEffect, apply its
     // translation term with w=1, then integrate the resulting velocity by dt.
     const f32 x = velocity.x;
@@ -37,16 +37,16 @@ Vec02 transform_velocity(const f32* matrix, const Vec02& velocity) {
 } // namespace
 
 s32 func_0013A498(const f32* matrix, u128 scale_bits,
-                  Vec02* positions, Vec02* velocities,
-                  Vec02* records, s32 count, s32 mode,
+                  Vec4* positions, Vec4* velocities,
+                  Vec4* records, s32 count, s32 mode,
                   void* bound_minimum, void* bound_maximum) {
     union ScaleBits {
         u128 bits;
         f32 lanes[4];
     } scale{scale_bits};
     const f32 dt = scale.lanes[0];
-    auto* lo = static_cast<Vec02*>(bound_minimum);
-    auto* hi = static_cast<Vec02*>(bound_maximum);
+    auto* lo = static_cast<Vec4*>(bound_minimum);
+    auto* hi = static_cast<Vec4*>(bound_maximum);
     s32 dropped = 0;
     s32 output = 0;
 
@@ -56,9 +56,9 @@ s32 func_0013A498(const f32* matrix, u128 scale_bits,
             continue;
         }
 
-        const Vec02 velocity = transform_velocity(matrix, velocities[i]);
-        const Vec02 old_position = positions[i];
-        const Vec02 old_record = records[i];
+        const Vec4 velocity = transform_velocity(matrix, velocities[i]);
+        const Vec4 old_position = positions[i];
+        const Vec4 old_record = records[i];
         velocities[output] = velocity;
         positions[output] = {
             old_position.x + velocity.x * dt,
