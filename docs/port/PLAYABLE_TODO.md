@@ -38,13 +38,17 @@ The decompilation's 100% code match includes the 0x5550-byte `.vutext` section
 as original assembly; those VU1 programs are not matched C. This is why 100%
 does not mean every graphics operation is ready to compile for the host.
 
-Next work is to derive one unskinned VU1 strip program's input/output from the
-retail packet and public hardware documentation, then implement that narrow
-geometry path as replaceable code under `port/`. Keep the matched decomp
-unchanged. Do not add a generic VU interpreter or grow device emulation. A
-captured frame with correctly shaped loaded-world geometry remains the gate.
+The direct-host kind-6 position probe and the loaded-world draw are different
+evidence. Wave 512 selects an actual queued object and confirms its first
+`DrawModelPart` callback receives 30 kind-5 meshes; the first has 326
+quadwords. Use that callback as the single graphics slice. Record what this
+kind-5 packet already provides and what the game's call supplies, then emit one
+host-owned draw record using its real transform and active camera. Do not start
+with the earlier kind-6 position stream, all mesh kinds, or VIF/VU emulation.
+Keep the matched decomp unchanged. A captured frame with correctly shaped
+loaded-world geometry remains the gate.
 
-### Next work: native kind-6 strip slice
+### Next work: one loaded kind-5 mesh
 
 The prior Wave 503 conclusion that no model draw was reached was invalid: each
 trace helper independently guessed the first world from its first model
@@ -56,14 +60,14 @@ the first mesh carrying 326 quadwords of packet data. Other parts include kind
 0 meshes and unskinned kind-6 meshes. Evidence:
 `/tmp/sly-wave512-model-correct-filter.log` and the 2026-11-15 hidden capture.
 
-1. Document the kind-6 packet layout, strip records and relevant VU1 program
-   inputs from retail evidence. The positions alone are not topology.
-2. Implement only that unskinned strip output as port-owned host geometry,
-   including strip boundaries and the game's model/camera transform.
-3. Submit the result to a separate Sly world-renderer bucket built on the
-   existing OpenRAC window/GL foundation; leave the HUD path intact.
-4. Capture loaded-world pixels and check the shape, scale and orientation
-   against PCSX2 before adding other material types.
+1. Trace the selected kind-5 packet and its `DrawModelPart` arguments to
+   identify positions, topology, material inputs, model transform and camera.
+2. Implement only the conversion needed for that mesh as replaceable code
+   under `port/`, with a host-owned draw record.
+3. Submit it to a Sly world-renderer bucket built on the existing OpenRAC
+   window/GL foundation; leave the HUD path intact.
+4. Capture loaded-world pixels and compare shape, scale and orientation
+   against PCSX2. Only then expand to another mesh kind or material.
 
 Keep this at the Sly draw boundary. Do not build a general VU interpreter or
 extend the device models as the gameplay renderer. A successful build, active
