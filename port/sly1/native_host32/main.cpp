@@ -14,7 +14,10 @@ extern "C" char* getenv(const char*);
 #include <link.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string>
+#include <sys/mman.h>
 #include <thread>
+#include <unistd.h>
 #include <ucontext.h>
 alignas(16) thread_local u8 g_fault_trace_alt_stack[64 * 1024];
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
@@ -632,6 +635,87 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
     }
 }
 
+extern "C" void sly1_native_trace_model_build(u32 mesh_address, u32 vecs_address,
+                                                 u32 uvs_address, u32 vertex_count,
+                                                 u32 refs_address, u32 header_address) {
+    if (!g_startup_trace_enabled || mesh_address == 0 ||
+        std::getenv("OPENRAC_TRACE_NATIVE_MODEL_BUILDS") == nullptr)
+        return;
+    const volatile u8* mesh = reinterpret_cast<const volatile u8*>(mesh_address);
+    const u32 kind = mesh[0];
+    if (kind != 6u || vertex_count == 0 || vertex_count > 4096u) return;
+
+    const u32 strip_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
+    const u32 sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
+    const u32 header_count = header_address != 0
+        ? *reinterpret_cast<const volatile u32*>(header_address + 0x2Cu) : 0;
+    static u32 sequence = 0;
+    const u32 sample = __atomic_fetch_add(&sequence, 1u, __ATOMIC_RELAXED);
+    if (sample >= 12u) return;
+
+    const volatile u8* refs = reinterpret_cast<const volatile u8*>(refs_address);
+    u32 max_position = 0;
+    u32 max_uv = 0;
+    bool has_uv = false;
+    for (u32 i = 0; i < vertex_count; ++i) {
+        if (refs[i * 4u] > max_position) max_position = refs[i * 4u];
+        if (refs[i * 4u + 2u] != 0xFFu) {
+            has_uv = true;
+            if (refs[i * 4u + 2u] > max_uv) max_uv = refs[i * 4u + 2u];
+        }
+    }
+    std::fprintf(stderr,
+                 "[native model build] sample=%u kind=6 vertices=%u strips=%u strip_header_count=%u mesh=%#010x vecs=%#010x uvs=%#010x refs=%#010x max_position=%u max_uv=%u\n",
+                 sample, vertex_count, strip_count, header_count, mesh_address,
+                 vecs_address, uvs_address, refs_address, max_position, has_uv ? max_uv : 0u);
+
+    char path[128];
+    auto dump = [&](const char* suffix, const void* data, u32 bytes) {
+        std::snprintf(path, sizeof(path), "/tmp/sly-kind6-build-%u-%s.bin", sample, suffix);
+        FILE* file = std::fopen(path, "wb");
+        if (file == nullptr) return;
+        const std::size_t written = std::fwrite(data, 1, bytes, file);
+        std::fclose(file);
+        std::fprintf(stderr, "[native model build dump] sample=%u part=%s bytes=%u written=%zu path=%s\n",
+                     sample, suffix, bytes, written, path);
+    };
+    dump("refs", reinterpret_cast<const void*>(refs_address), vertex_count * 4u);
+    dump("positions", reinterpret_cast<const void*>(vecs_address), (max_position + 1u) * 12u);
+    if (has_uv && uvs_address != 0)
+        dump("uvs", reinterpret_cast<const void*>(uvs_address), (max_uv + 1u) * 8u);
+
+    if (sources_address == 0 || strip_count > 8u) return;
+    const volatile u32* sources = reinterpret_cast<const volatile u32*>(sources_address);
+    for (u32 i = 0; i < strip_count; ++i) {
+        const u32 stride = sources[i * 2u];
+        const u32 base = sources[i * 2u + 1u];
+        const u64 byte_count = static_cast<u64>(stride) * 16u;
+        bool mapped = false;
+        if (stride != 0 && stride <= 1024u && byte_count <= 16384u &&
+            base != 0 && byte_count <= 0x100000000ull - base) {
+            const long page_size = ::sysconf(_SC_PAGESIZE);
+            if (page_size > 0) {
+                const u32 mask = static_cast<u32>(page_size - 1);
+                const u32 page_begin = base & ~mask;
+                const u64 page_end = (static_cast<u64>(base) + byte_count + mask) & ~static_cast<u64>(mask);
+                const u64 page_count = (page_end - page_begin) / static_cast<u32>(page_size);
+                unsigned char resident[8]{};
+                mapped = page_count > 0 && page_count <= 8 &&
+                    ::mincore(reinterpret_cast<void*>(page_begin),
+                              static_cast<std::size_t>(page_count) * page_size,
+                              resident) == 0;
+            }
+        }
+        std::fprintf(stderr,
+                     "[native model strip] sample=%u strip=%u stride_qwc=%u base=%#010x mapped=%u\n",
+                     sample, i, stride, base, mapped ? 1u : 0u);
+        if (mapped) {
+            dump(("strip-" + std::to_string(i)).c_str(),
+                 reinterpret_cast<const void*>(base), static_cast<u32>(byte_count));
+        }
+    }
+}
+
 extern "C" void sly1_native_trace_world_draw_lists(u32 world_address,
                                                       u32 list60_head,
                                                       u32 list78_head,
@@ -728,6 +812,7 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 }
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_deferred_requests(u32, u32, u32, u32, u32) {}

@@ -4522,6 +4522,20 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart request initialization")
             adapted = adapted.replace(needle, replacement, 1)
+            adapted = ('extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32);\n' + adapted)
+            signature = (
+                "void BuildStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 mode, StripHeader* hdr, StripMesh* mesh,\n"
+                "                   Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs, s32 n, VertexRefs* recs,\n"
+                "                   WeightIndices* ents, Vec3* verts, Vec3* vnrms, f32* weights, PacketWriter* pkt,\n"
+                "                   s32** outs)\n{"
+            )
+            replacement = signature + (
+                "\n    sly1_native_trace_model_build((u32)mesh, (u32)vecs, (u32)uvs, "
+                "(u32)n, (u32)recs, (u32)hdr);"
+            )
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected BuildStripMeshPacket definition")
+            adapted = adapted.replace(signature, replacement, 1)
         if args.trace_world_draw_lists and rel.as_posix() == "main/group_marker.cpp":
             adapted = ('extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32);\n' + adapted)
             needle = "    ListFrame f1;\n    ListFrame f2;\n    ListFrame f3;\n"

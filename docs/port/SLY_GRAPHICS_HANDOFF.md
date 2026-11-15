@@ -3,6 +3,23 @@
 
 Last checked: 2026-11-15 against decomp master `1cbb33fd`.
 
+## Builder input capture (2026-11-15)
+
+The host32 build now has an opt-in trace at `BuildStripMeshPacket`, before Sly
+submits the mesh to VU1. A hidden run reached world `0x870cf0` and captured
+three unskinned kind-6 builds with 68, 89 and 106 vertices. Each has one
+128-byte strip source. The 106-vertex candidate references positions 0–41 and
+UVs 0–49. The trace saved its source arrays and strip bytes under `/tmp`; no
+game data was added to the repository. Log:
+`/tmp/sly1-mesh-builder-capture.log`.
+
+This makes a source-level Sly mesh adapter more practical: the native port can
+consume the builder's vertex references, positions, UVs and strip source
+without decoding the generated VIF packet. The strip source still has to be
+understood to recover triangle order. The next slice is a bounded decoder for
+this 128-byte record and a native draw record for this one unskinned mesh.
+There is still no captured world geometry on screen.
+
 The host32 port compiles 194 matched Sly units and 85 separate port-only
 backfills. After one process-local Cross press, it leaves the no-card page,
 loads world `0x870cf0`, and advances at about 56 frames per second. The prior
