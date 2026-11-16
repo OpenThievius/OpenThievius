@@ -1032,7 +1032,17 @@ extern "C" void openrac_native_window_present(void) {
             if (end != setting && *end == '\0' && parsed <= 100000u)
                 skip = static_cast<unsigned>(parsed);
         }
-        if (packets.size() >= minimum_bytes && frame_seen++ >= skip && frame_dump < 8) {
+        unsigned stride = 1;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_STRIDE")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed > 0 && parsed <= 100000u)
+                stride = static_cast<unsigned>(parsed);
+        }
+        const bool eligible = packets.size() >= minimum_bytes;
+        const unsigned eligible_frame = eligible ? frame_seen++ : 0u;
+        if (eligible && eligible_frame >= skip &&
+            (eligible_frame - skip) % stride == 0u && frame_dump < 8) {
             const auto pixels = openrac::renderer::read_rgba(0, width, height);
             char path[96];
             std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);
