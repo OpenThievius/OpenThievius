@@ -568,25 +568,28 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         return true;
     }
 
-    if (primary >= 0x04u && primary <= 0x07u) { // ILW / ISW / ILWR / ISWR
+    if (primary == 0x04u || primary == 0x05u) { // ILW / ISW
         const uint32_t base = source & 15u;
-        const int32_t offset = primary < 0x06u ? sign_extend(word & 0x7FFu, 11) : 0;
+        const int32_t offset = sign_extend(word & 0x7FFu, 11);
         const uint32_t address = (vi_read(*state, base) + offset) & 0x3FFu;
         const uint32_t mask = (word >> 21u) & 15u;
         uint8_t* data = guest_address(kVu1Data + address * 16u);
-        const bool load = primary == 0x04u || primary == 0x06u;
-        for (uint32_t lane = 0; lane < 4; ++lane) {
-            if ((mask & (8u >> lane)) == 0) continue;
-            uint16_t value = 0;
-            if (load) {
+        if (primary == 0x04u) { // ILW reads only the first selected field.
+            for (uint32_t lane = 0; lane < 4; ++lane) {
+                if ((mask & (8u >> lane)) == 0) continue;
+                uint16_t value = 0;
                 std::memcpy(&value, data + lane * 4u, sizeof(value));
                 vi_write(state, target, value);
-            } else {
-                value = vi_read(*state, target);
-                std::memcpy(data + lane * 4u, &value, sizeof(value));
-                const uint16_t zero = 0;
-                std::memcpy(data + lane * 4u + 2u, &zero, sizeof(zero));
+                break;
             }
+            return true;
+        }
+        for (uint32_t lane = 0; lane < 4; ++lane) {
+            if ((mask & (8u >> lane)) == 0) continue;
+            const uint16_t value = vi_read(*state, target);
+            std::memcpy(data + lane * 4u, &value, sizeof(value));
+            const uint16_t zero = 0;
+            std::memcpy(data + lane * 4u + 2u, &zero, sizeof(zero));
         }
         return true;
     }
@@ -594,6 +597,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
     if ((word >> 25u) == 0x40u) {
         const uint32_t function = word & 0x3Fu;
         const uint32_t field = (word >> 6u) & 31u;
+        const uint32_t special = (field << 2u) | (word & 3u);
         if ((word & 0x7FFu) == 0x67Cu) { // MFP.dest VF[ft], P
             const float value = state->p;
             vf_write(state, target, {value, value, value, value},
@@ -658,26 +662,31 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             vi_write(state, destination, static_cast<uint16_t>(vi_read(*state, source) | vi_read(*state, target)));
             return true;
         case 0x3C: case 0x3D: case 0x3E: case 0x3F:
-            if (function == 0x3Cu && field == 0x0Cu) { // MOVE.dest ft, fs
+            if (special == 0x30u) { // MOVE.dest ft, fs
                 vf_write(state, target, vf_read(*state, source),
                          (word >> 21u) & 15u);
                 return true;
             }
-            if (function == 0x3Du && field == 0x0Cu) { // MR32.dest ft, fs
+            if (special == 0x31u) { // MR32.dest ft, fs
                 const Vector input = vf_read(*state, source);
                 vf_write(state, target,
                          {input[1], input[2], input[3], input[0]},
                          (word >> 21u) & 15u);
                 return true;
             }
-            if (field == 0x0Fu || field == 0x0Du) {
-                const bool load = function == 0x3Cu || function == 0x3Eu;
+            if (special >= 0x34u && special <= 0x37u) {
+                // LQI/SQI post-increment; LQD/SQD pre-decrement. The load
+                // base is is, while the store base is it.
+                const bool load = special == 0x34u || special == 0x36u;
+                const bool decrement = special == 0x36u || special == 0x37u;
                 const uint32_t base = (load ? source : target) & 15u;
-                const int32_t step = field == 0x0Fu ? 1 : -1;
-                const uint32_t address = (vi_read(*state, base) + (step < 0 ? -1 : 0)) & 0x3FFu;
-                if (load)
+                const uint16_t old_address = vi_read(*state, base);
+                const uint16_t address = static_cast<uint16_t>(
+                    old_address + (decrement ? -1 : 0));
+                if (decrement) vi_write(state, base, address);
+                if (load) {
                     vf_write(state, target, data_read(address), (word >> 21u) & 15u);
-                else {
+                } else {
                     const Vector value = vf_read(*state, source);
                     Vector previous = data_read(address);
                     const uint32_t mask = (word >> 21u) & 15u;
@@ -685,10 +694,44 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                         if ((mask & (8u >> lane)) != 0) previous[lane] = value[lane];
                     data_write(address, previous);
                 }
-                vi_write(state, base, static_cast<uint16_t>(vi_read(*state, base) + step));
+                if (!decrement)
+                    vi_write(state, base, static_cast<uint16_t>(old_address + 1u));
                 return true;
             }
-            if (function == 0x3Cu && field == 0x1Bu) { // XGKICK
+            if (special == 0x3Cu) { // MTIR: VF[is][fsf] -> VI[it]
+                const uint32_t lane = (word >> 21u) & 3u;
+                vi_write(state, target,
+                         static_cast<uint16_t>(std::bit_cast<uint32_t>(
+                             vf_read(*state, source)[lane])));
+                return true;
+            }
+            if (special == 0x3Du) { // MFIR: sign-extended VI[is] -> VF[it]
+                const int32_t value = std::bit_cast<int16_t>(vi_read(*state, source));
+                const float bits = std::bit_cast<float>(static_cast<uint32_t>(value));
+                vf_write(state, target, {bits, bits, bits, bits},
+                         (word >> 21u) & 15u);
+                return true;
+            }
+            if (special == 0x3Eu) { // ILWR reads the first selected field.
+                const uint32_t mask = (word >> 21u) & 15u;
+                for (uint32_t lane = 0; lane < 4; ++lane) {
+                    if ((mask & (8u >> lane)) == 0) continue;
+                    uint16_t value = 0;
+                    const uint8_t* data = guest_address(
+                        kVu1Data + (vi_read(*state, source & 15u) & 0x3FFu) * 16u);
+                    std::memcpy(&value, data + lane * 4u, sizeof(value));
+                    vi_write(state, target, value);
+                    break;
+                }
+                return true;
+            }
+            if (special == 0x3Fu) { // ISWR writes VI[it] into all four fields.
+                const float bits = std::bit_cast<float>(
+                    static_cast<uint32_t>(vi_read(*state, target)));
+                data_write(vi_read(*state, source & 15u), {bits, bits, bits, bits});
+                return true;
+            }
+            if (special == 0x6Cu) { // XGKICK
                 const uint32_t address = vi_read(*state, source);
                 if (pending_kick != nullptr && pending_kick->active)
                     dispatch_pending_kick(pending_kick);
@@ -707,9 +750,9 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 }
                 return true;
             }
-            if ((function == 0x3Cu || function == 0x3Du) && field == 0x1Au) {
+            if (special == 0x68u || special == 0x69u) { // XTOP / XITOP
                 uint32_t value = state->itop;
-                if (function == 0x3Cu) {
+                if (special == 0x68u) {
                     std::memcpy(&value, guest_address(kVif1Top), sizeof(value));
                     value &= 0x3FFu;
                 }
@@ -836,7 +879,9 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     const bool loop_trace_enabled = loop_trace_setting != nullptr &&
         loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
     static std::atomic<uint32_t> world_iteration_notice{0};
+    static std::atomic<uint32_t> stream_iteration_notice{0};
     bool trace_world_iteration = false;
+    bool trace_stream_iteration = false;
     uint32_t instruction_limit = kMaxInstructions;
     if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
         char* end = nullptr;
@@ -1037,6 +1082,20 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                 vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 13u),
                 vi_read(g_state, 14u), vi_read(g_state, 15u), branch_delay ? 1u : 0u);
             if (current_pc == 0x2D7u) trace_world_iteration = false;
+        }
+        if (loop_trace_enabled && entry == 0x318u &&
+            current_pc == 0x237u && !trace_stream_iteration &&
+            stream_iteration_notice.fetch_add(1, std::memory_order_relaxed) < 4u)
+            trace_stream_iteration = true;
+        if (trace_stream_iteration) {
+            openrac::log::info(
+                "native VU1 stream loop entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI1={} VI2={} VI5={} VI6={} VI8={} VI9={} VI10={} VI13={} VI14={} VI15={} branch_delay={}",
+                entry, cycle, current_pc, lower, upper, pc, vi_read(g_state, 1u),
+                vi_read(g_state, 2u), vi_read(g_state, 5u), vi_read(g_state, 6u),
+                vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 10u),
+                vi_read(g_state, 13u), vi_read(g_state, 14u), vi_read(g_state, 15u),
+                branch_delay ? 1u : 0u);
+            if (current_pc == 0x250u) trace_stream_iteration = false;
         }
     }
     static std::atomic<uint32_t> budget_trace_count{0};

@@ -46,6 +46,27 @@ Captures: `/tmp/sly-vu-loop-detail-capture-20261116.log`,
 `/tmp/sly-vu-waitp-8192-capture-20261116.log`. Build:
 `/tmp/sly-vu-26d-limit-build-20261116.log`.
 
+### Lower VU special-op decode (2026-11-16)
+
+The Space transition's offscreen trace exposed a bad lower VU dispatch at PC
+`0x3d4`: instruction `0x81e43b7c` is LQI (special index `0x34`), but the native
+translator used the function field as the opcode and stopped the MSCAL call.
+The translator now decodes the lower-special index from bits 6-10 and bits 0-1,
+and handles the LQI/SQI/LQD/SQD and MTIR/MFIR/ILWR/ISWR families separately.
+Regular ILW reads only the first selected lane. These are port-runtime changes;
+the matched Sly decomp files are unchanged. The OpenRAC interpreter semantics
+used for this adaptation are credited in `THIRD_PARTY_NOTICES.md`.
+
+The fresh host32 build compiled 194/194 Sly units and 85/85 port backfills.
+The bounded offscreen run no longer reports a translation stop at PC `0x3d4`,
+but entries `0x26d` and `0x318` still hit the 4,096-instruction limit. The
+capture remains nonvisual: it does not verify the flicker fix or show a
+recognizable level. Continue from the VU loop counters and GIF packet traces;
+do not raise the default instruction limit based on this run.
+
+Evidence: `/tmp/sly-vu-special-index-capture-20261116.log` and build
+`/tmp/open-thievius-host32-8f7a85a3-fresh/host32/sdl-launcher/sly1_native_sdl32`.
+
 ### World submission bounds capture (2026-11-16)
 
 A fresh offscreen capture after the test Cross press entered world `0x870cf0`,
