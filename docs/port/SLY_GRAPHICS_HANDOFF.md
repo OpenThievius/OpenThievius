@@ -112,10 +112,19 @@ shows that raising the default limit alone would only move the stop and could
 hide a second loop. Keep the 4,096 default and trace the setup/outer-loop path
 and VU state transitions before changing semantics or the budget.
 
+A focused `OPENRAC_TRACE_VU1_LOOP=1` run records the normal batch setup: VI5
+starts at 36 while VI6 is 316, then VI6 becomes 308 and the loop advances VI5
+toward that value. A later pass enters with VI6=0; its loop increments VI5 by
+four and PC `0x272` unconditionally returns to PC `0x243`. This makes the next
+lead the data that initializes VI6 at the routine entry, and the zero-target
+case that follows. The trace is capped and opt-in; it changes no game state.
+
 Evidence: `/tmp/sly-vu-limit-context-20261116.log`,
 `/tmp/sly-vu-loop-extended-20261116.log`, and
-`/tmp/sly-vu-loop-termination-20261116.log`. The latter still captures black
-frames after Cross; no playable visual output was reached.
+`/tmp/sly-vu-loop-termination-20261116.log`,
+`/tmp/sly-vu-loop-state-20261116.log`, and
+`/tmp/sly-vu-loop-detail-20261116.log`. The captures still show black frames
+after Cross; no playable visual output was reached.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 

@@ -30,14 +30,20 @@ the delay slot decrements VI15. VI6 is zero at the captured limit. A temporary
 65,552-cycle budget lets VI5 wrap to zero and this branch fall through PC
 `0x272`, but execution reaches PC `0x243` and exhausts the budget again without
 an E-bit; other VU entries also exhaust the larger budget. Raising the default
-therefore is not a fix. Next trace the VU setup and outer loop to determine why
-the expected termination state is not reached. Keep the default budget and
-port backfills isolated from matched source.
+therefore is not a fix. A bounded `OPENRAC_TRACE_VU1_LOOP=1` trace shows an
+earlier batch starts with VI5=36 and VI6=316, adjusts VI6 to 308, then advances
+VI5 toward that target. Later, the routine enters the same path with VI6=0;
+the comparison loop advances VI5 by four, and its unconditional branch at
+PC `0x272` returns to PC `0x243`. Trace which VU input supplies VI6 at PC
+`0x243`, why a zero target enters this work path, and what ends the final
+batch. Keep the default budget and port backfills isolated from matched
+source.
 
 Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-limit-context-20261116.log`,
 `/tmp/sly-vu-loop-extended-20261116.log`, and
-`/tmp/sly-vu-loop-termination-20261116.log`; host32 build:
+`/tmp/sly-vu-loop-termination-20261116.log`, and
+`/tmp/sly-vu-loop-state-20261116.log`; host32 build:
 `/tmp/sly-vu-accsem-finalbuild-20261116.log`.
 
 ### Reduce the no-card prompt flicker
