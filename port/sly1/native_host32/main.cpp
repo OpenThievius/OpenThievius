@@ -9,6 +9,7 @@ extern "C" char* getenv(const char*);
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
 #include <SDL3/SDL.h>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -120,9 +121,16 @@ extern "C" void sly1_native_host32_trace_dma_call(
     unsigned int gif_channel) {
     const char* enabled = std::getenv("OPENRAC_TRACE_DMA_CALL");
     if (enabled == nullptr || enabled[0] == '0') return;
-    std::fprintf(stderr,
-                 "[native direct DMA] channel=%#010x source=%#010x caller=%#010x gif=%#010x\n",
-                 channel, source, caller, gif_channel);
+    static std::atomic<u32> notice_count{0};
+    const u32 notice = notice_count.fetch_add(1, std::memory_order_relaxed);
+    if (notice < 128u || (notice <= 4096u && notice % 256u == 0u)) {
+        std::fprintf(stderr,
+                     "[native direct DMA] #%u channel=%#010x source=%#010x caller=%#010x gif=%#010x\n",
+                     notice + 1u, channel, source, caller, gif_channel);
+    } else if (notice == 4097u) {
+        std::fprintf(stderr,
+                     "[native direct DMA] trace capped after startup samples\n");
+    }
 }
 extern "C" void sly1_native_host32_trace_dma_channel(
     unsigned int index, unsigned int address, unsigned int caller) {
