@@ -770,7 +770,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
         char* end = nullptr;
         const unsigned long parsed = std::strtoul(setting, &end, 10);
-        if (end != setting && *end == '\0' && parsed > 0 && parsed <= 1'000'000ul)
+        if (end != setting && *end == '\0' && parsed > 0 && parsed <= 4'000'000ul)
             instruction_limit = static_cast<uint32_t>(parsed);
     }
     struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
