@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -77,6 +78,7 @@ State g_state;
 std::atomic_flag g_vu_context_notice = ATOMIC_FLAG_INIT;
 std::atomic<uint32_t> g_vu_kick_notice_count{0};
 std::atomic<uint32_t> g_vu_kick_success_notice_count{0};
+thread_local uint32_t g_vu_trace_entry = 0xFFFFFFFFu;
 
 Vector vf_read(const State& state, uint32_t index) {
     if (index == 0) return {0.0f, 0.0f, 0.0f, 1.0f};
@@ -86,8 +88,28 @@ Vector vf_read(const State& state, uint32_t index) {
 void vf_write(State* state, uint32_t index, const Vector& value, uint32_t mask) {
     if ((index & 31u) == 0) return;
     Vector& destination = state->vf[index & 31u];
+    const Vector previous = destination;
     for (uint32_t lane = 0; lane < 4; ++lane)
         if ((mask & (8u >> lane)) != 0) destination[lane] = value[lane];
+    const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+    static std::atomic<uint32_t> vf16_write_notice{0};
+    const bool nan_output = std::any_of(
+        destination.begin(), destination.end(), [](float lane) { return std::isnan(lane); });
+    if (((index & 31u) == 16u || nan_output) && setup_trace != nullptr &&
+        setup_trace[0] != '\0' && setup_trace[0] != '0' &&
+        vf16_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
+        uint32_t instruction[2]{};
+        std::memcpy(instruction,
+                    guest_address(kVu1Micro + (state->pc & 0x7FFu) * 8u),
+                    sizeof(instruction));
+        openrac::log::info(
+            "native VU1 VF write vf={} entry={:#x} pc={:#x} instruction={:#010x}/{:#010x} mask={:#x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            index & 31u, g_vu_trace_entry, state->pc, instruction[0], instruction[1], mask,
+            std::bit_cast<uint32_t>(previous[0]), std::bit_cast<uint32_t>(previous[1]),
+            std::bit_cast<uint32_t>(previous[2]), std::bit_cast<uint32_t>(previous[3]),
+            std::bit_cast<uint32_t>(destination[0]), std::bit_cast<uint32_t>(destination[1]),
+            std::bit_cast<uint32_t>(destination[2]), std::bit_cast<uint32_t>(destination[3]));
+    }
 }
 
 void update_float_flags(State* state, const Vector& value, uint32_t mask) {
@@ -126,17 +148,19 @@ Vector data_read(uint32_t address) {
     return value;
 }
 
-void data_write(uint32_t address, const Vector& value) {
+void data_write(uint32_t address, const Vector& value, uint32_t pc) {
     address &= static_cast<uint32_t>(kVu1Quadwords - 1u);
     uint32_t previous[4]{};
     static const bool setup_trace_enabled = [] {
         const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
         return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
     }();
+    const bool nan_output = std::any_of(
+        value.begin(), value.end(), [](float lane) { return std::isnan(lane); });
     const bool trace_target =
         (address >= 32u && address <= 38u) ||
         (address >= 464u && address <= 476u);
-    if (trace_target)
+    if (trace_target || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
     static std::atomic<uint32_t> qword11_notice{0};
@@ -153,13 +177,17 @@ void data_write(uint32_t address, const Vector& value) {
             std::bit_cast<uint32_t>(value[3]));
     }
     static std::atomic<uint32_t> target_write_notice{0};
-    if (trace_target && setup_trace_enabled &&
+    if ((trace_target || nan_output) && setup_trace_enabled &&
         target_write_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
         uint32_t next[4]{};
+        uint32_t instruction[2]{};
+        std::memcpy(instruction,
+                    guest_address(kVu1Micro + (pc & 0x7FFu) * 8u),
+                    sizeof(instruction));
         std::memcpy(next, value.data(), sizeof(next));
         openrac::log::info(
-            "native VU1 store wrote qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
-            address,
+            "native VU1 store wrote qword={} entry={:#x} pc={:#x} instruction={:#010x}/{:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            address, g_vu_trace_entry, pc, instruction[0], instruction[1],
             previous[0], previous[1], previous[2], previous[3],
             next[0], next[1], next[2], next[3]);
     }
@@ -248,6 +276,25 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
         if (((low >> 15u) & 1u) != 0) {
             openrac_guest_gif_stream_write_from(packet.data(), packet.size(),
                                                 "vu1-xgkick");
+            const char* dump_setting = std::getenv("OPENRAC_DUMP_VU1_KICKS");
+            static std::atomic<uint32_t> dump_count{0};
+            if (dump_setting != nullptr && dump_setting[0] != '\0' &&
+                dump_setting[0] != '0') {
+                const uint32_t dump_index = dump_count.fetch_add(
+                    1, std::memory_order_relaxed);
+                if (dump_index < 16u) {
+                    char path[96];
+                    std::snprintf(path, sizeof(path), "/tmp/sly1-vu1-kick-%02u.bin",
+                                  dump_index);
+                    if (FILE* file = std::fopen(path, "wb")) {
+                        std::fwrite(packet.data(), 1, packet.size(), file);
+                        std::fclose(file);
+                        openrac::log::info(
+                            "native VU1 XGKICK dump index={} start={} bytes={} path={}",
+                            dump_index, address & 0x3FFu, packet.size(), path);
+                    }
+                }
+            }
             return true;
         }
     }
@@ -572,7 +619,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             Vector previous = data_read(address);
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0) previous[lane] = value[lane];
-            data_write(address, previous);
+            data_write(address, previous, state->pc);
         }
         return true;
     }
@@ -633,11 +680,11 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         if ((word & 0x7FFu) == 0x7BFu) { // WAITP; P results are synchronous in this translator
             return true;
         }
-        if ((word & 0x7FFu) == 0x3BCu) { // DIV Q, VF[fs]fsf, VF[ft]ftf
+        if ((word & 0x7FFu) == 0x3BCu) { // DIV Q, VF[ft]ftf, VF[fs]fsf
             const uint32_t ftf = (word >> 23u) & 3u;
             const uint32_t fsf = (word >> 21u) & 3u;
-            const float numerator = vf_read(*state, source)[fsf];
-            const float denominator = vf_read(*state, target)[ftf];
+            const float numerator = vf_read(*state, target)[ftf];
+            const float denominator = vf_read(*state, source)[fsf];
             const bool numerator_zero = numerator == 0.0f;
             const bool denominator_zero = denominator == 0.0f;
             uint16_t divide_flags = 0;
@@ -647,6 +694,26 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 (state->status_flags & ~0x30u) | divide_flags |
                 (divide_flags << 6u));
             state->q = numerator / denominator;
+            const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+            static std::atomic<uint32_t> divide_notice{0};
+            if (setup_trace != nullptr && setup_trace[0] != '\0' &&
+                setup_trace[0] != '0' &&
+                divide_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
+                openrac::log::info(
+                    "native VU1 DIV entry={:#x} pc={:#x} ft=vf{}[{}]={:#010x} fs=vf{}[{}]={:#010x} Q={:#010x}",
+                    g_vu_trace_entry, state->pc, target, ftf,
+                    std::bit_cast<uint32_t>(numerator), source, fsf,
+                    std::bit_cast<uint32_t>(denominator),
+                    std::bit_cast<uint32_t>(state->q));
+            }
+            return true;
+        }
+        if ((word & 0x7FFu) == 0x3BEu) { // RSQRT Q, VF[ft]ftf, VF[fs]fsf
+            const uint32_t ftf = (word >> 23u) & 3u;
+            const uint32_t fsf = (word >> 21u) & 3u;
+            const float numerator = vf_read(*state, target)[ftf];
+            const float denominator = vf_read(*state, source)[fsf];
+            state->q = numerator / std::sqrt(std::fabs(denominator));
             return true;
         }
         switch (function) {
@@ -694,14 +761,29 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                     old_address + (decrement ? -1 : 0));
                 if (decrement) vi_write(state, base, address);
                 if (load) {
-                    vf_write(state, target, data_read(address), (word >> 21u) & 15u);
+                    const Vector loaded = data_read(address);
+                    const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+                    static std::atomic<uint32_t> lqi_notice{0};
+                    const bool has_nan = std::any_of(
+                        loaded.begin(), loaded.end(), [](float lane) { return std::isnan(lane); });
+                    if (setup_trace != nullptr && setup_trace[0] != '\0' &&
+                        setup_trace[0] != '0' && g_vu_trace_entry == 0x401u &&
+                        (has_nan || lqi_notice.fetch_add(1, std::memory_order_relaxed) < 24u)) {
+                        openrac::log::info(
+                            "native VU1 LQI entry={:#x} pc={:#x} vf={} vi{}={} qword={} mask={:#x} words={:#010x},{:#010x},{:#010x},{:#010x}",
+                            g_vu_trace_entry, state->pc, target, base, old_address, address,
+                            (word >> 21u) & 15u, std::bit_cast<uint32_t>(loaded[0]),
+                            std::bit_cast<uint32_t>(loaded[1]), std::bit_cast<uint32_t>(loaded[2]),
+                            std::bit_cast<uint32_t>(loaded[3]));
+                    }
+                    vf_write(state, target, loaded, (word >> 21u) & 15u);
                 } else {
                     const Vector value = vf_read(*state, source);
                     Vector previous = data_read(address);
                     const uint32_t mask = (word >> 21u) & 15u;
                     for (uint32_t lane = 0; lane < 4; ++lane)
                         if ((mask & (8u >> lane)) != 0) previous[lane] = value[lane];
-                    data_write(address, previous);
+                    data_write(address, previous, state->pc);
                 }
                 if (!decrement)
                     vi_write(state, base, static_cast<uint16_t>(old_address + 1u));
@@ -737,7 +819,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             if (special == 0x3Fu) { // ISWR writes VI[it] into all four fields.
                 const float bits = std::bit_cast<float>(
                     static_cast<uint32_t>(vi_read(*state, target)));
-                data_write(vi_read(*state, source & 15u), {bits, bits, bits, bits});
+                data_write(vi_read(*state, source & 15u), {bits, bits, bits, bits},
+                           state->pc);
                 return true;
             }
             if (special == 0x6Cu) { // XGKICK
@@ -878,6 +961,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     if (!guest_memory_available() || unsupported_word == nullptr ||
         stopped_pc == nullptr || stopped_pipeline == nullptr || paired_word == nullptr) return 0;
     std::lock_guard lock(g_vu_mutex);
+    g_vu_trace_entry = entry;
     uint32_t pc = entry == 0xFFFFFFFFu ? g_state.pc : (entry & 0x7FFu);
     bool end_delay = false;
     bool branch_delay = false;
