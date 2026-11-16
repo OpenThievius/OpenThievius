@@ -3,123 +3,35 @@
 
 ## Current bounded task (2026-11-16)
 
-### Let the world VU helper finish its counted copy
+### Render one recognizable world object from Sly's draw inputs
 
-The user reported pressing Space. An isolated hidden host32 capture advanced
-beyond the memory-card screen into world `0x870cf0` after injecting Cross at
-native frame 120; it did not interact with the visible launcher. It
-reached 41 queued world mesh callbacks on one present, and the graphics DMA
-trace reported 594 accepted and zero rejected submissions by game frame 185.
-The dumped frame at `/tmp/sly1-native-world-00.ppm` is only a flat gray
-background, so this is not a visual pass and does not explain the user's
-flicker by itself.
+The last confirmed useful image is still the retail memory-card UI. The
+optional native world renderer has produced 41 mesh submissions on one
+present, but the captured world frame is a gray horizon. Do not call that
+graphics progress or raise the default VU cycle limit: a diagnostic
+65,552-cycle run still failed to produce a recognizable image and still
+rejected the GIF tag at VU qword 469.
 
-To continue through the captured VU helper, the port-only VU translator now
-implements lower MOVE, MR32, DIV Q, WAITQ, MFP, and ERLENG, upper CLIPw, and
-the accumulator broadcast/component operations. It also preserves the JR
-target before a JALR link write when source and destination alias. These
-changes are in `port/runtime/vu1_native.cpp`; no matched decomp source changed.
-The instruction semantics follow the public [Sony VU User's Manual v3.1](https://www.manuallib.com/download/pdf0/VU-USER-MANUAL.PDF).
+The decomp's `BuildStripMeshPacket` gives the port an ordered `VertexRefs`
+sequence, positions, UVs, tints, and per-object matrices. `FrameSource` does
+not give vertex strip lengths: its stride is measured in qwords, and
+`QueueMeshStrip` copies those frame-strided payloads into VIF memory. Do not
+use those values to split the host vertex array. The current prototype instead
+submits the entire array as one GL triangle strip, so its primitive topology
+is still an approximation. The row-major `model * view_projection` transform
+matches the translation in the final matrix row; existing captures show no
+basis for changing matrix order.
 
-A trace of qword 11 found the loop regression: VIF had loaded the next batch's
-metadata `{0x24, 0x15c, 0x15c, 0x16c}`, then lower instruction
-`0x03e45809` stored zeros over it. Comparing its fields with OpenRAC's local
-VU interpreter showed that SQ uses `it` as the VI address and `is` as the VF
-source; the port had decoded them like LQ. SQI and SQD had the same swapped
-roles. The port runtime now uses the correct operands and preserves lanes
-outside the SQ/SQI/SQD masks. In the next bounded capture, qword 11 retained its
-metadata and the normal `0x401` helper reached its E-bit after 2,738 cycles.
-This is a port-runtime correction, not a change to matched decomp code.
+Next, derive the primitive sequence for one bounded mesh from Sly's retail VU
+program and the captured draw inputs, then implement only that mesh's draw
+conversion and material handling in the port. Keep the prototype disabled by
+default and keep strict GIF validation. Any game-function backfill stays in
+`port/game/sly1-us/hand/native/`; do not change matched decompilation files.
 
-The same trace exposed and the port added upper OPMULA and lower ERSQRT used
-by the following helper. The latest run still does not produce visible world
-graphics: entry `0x26d` reaches the existing 4,096-cycle safety limit at PC
-`0x2a9`, and entry `0x318` also reaches the limit at PC `0x24e`. It continues
-to encounter the malformed GIF tag at qword 469. Keep the default cycle limit
-and strict GIF validation. Trace the `0x26d` loop and qword 469's construction
-before adding more instruction backfills or changing graphics behavior.
-
-Evidence: `/tmp/sly-vu-store-fix-capture-20261116.log`,
-`/tmp/sly-vu-opmula-capture-20261116.log`, and the latest safety trace
-`/tmp/sly-vu-store-final-capture-20261116.log`; build:
-`/tmp/sly-vu-store-final-build-20261116.log`.
-
-A focused trace of entry `0x26d` identifies the long loop: PC `0x2ad`
-increments VI8, and PC `0x2d6` repeats while VI9 differs from VI8. At the
-4,096-pair default limit VI8 is still 273 against VI9=314. With a diagnostic
-8,192-pair cap the routine advances farther, and a 10,000-pair entry-specific
-cap reaches the final section at PC `0x2c6` with VI8=366 and VI9=400. The
-routine has not yet returned, so do not raise the default based only on these
-partial runs. The port now handles WAITP as a no-op because its P results are
-computed synchronously. The opt-in `OPENRAC_VU1_CYCLE_LIMIT_26D` override
-affects only this entry and is diagnostic.
-
-Entry `0x318` still hits the normal 4,096-pair cap at PC `0x24e`, and the
-malformed GIF tag at qword 469 remains. Continue by tracing the remaining
-`0x26d` exit and the `0x318` loop with the same input data; the gray world
-frame is not a visual pass.
-
-Evidence: `/tmp/sly-vu-loop-detail-capture-20261116.log`,
-`/tmp/sly-vu-26d-8192-capture-20261116.log`,
-`/tmp/sly-vu-26d-limit-10000-capture-20261116.log`, and
-`/tmp/sly-vu-waitp-8192-capture-20261116.log`; build:
-`/tmp/sly-vu-26d-limit-build-20261116.log`.
-
-The latest host32 run found and fixed a VU state merge bug: lower instructions
-computed P and Q in a temporary state, but those scalar updates were discarded
-when the instruction pair committed. The port now preserves P/Q changes in
-`port/runtime/vu1_native.cpp`. A fresh hidden capture advances beyond the prior
-first stop at MSCAL `0x242` and reaches MSCAL `0x401`; it then exhausts the
-4,096-cycle safety limit at PC `0x3ee` and rejects the following VIF stream.
-The frame remains black, so this is runtime progression rather than a visual
-pass. The earlier opt-in trace identifies a loop at PCs
-`0x26e`–`0x271`: VI5 advances by four, the branch compares VI5 with VI6, and
-the delay slot decrements VI15. VI6 is zero at the captured limit. A temporary
-65,552-cycle budget lets VI5 wrap to zero and this branch fall through PC
-`0x272`, but execution reaches PC `0x243` and exhausts the budget again without
-an E-bit; other VU entries also exhaust the larger budget. Raising the default
-therefore is not a fix. A bounded `OPENRAC_TRACE_VU1_LOOP=1` trace shows an
-earlier batch starts with VI5=36 and VI6=316, adjusts VI6 to 308, then advances
-VI5 toward that target. Later, the routine enters the same path with VI6=0;
-the comparison loop advances VI5 by four, and its unconditional branch at
-PC `0x272` returns to PC `0x243`. Trace which VU input supplies VI6 at PC
-`0x243`, why a zero target enters this work path, and what ends the final
-batch. For now keep the default budget, strict GIF validation, and port
-backfills isolated from matched source.
-
-The follow-up trace on MSCAL `0x401` shows its entry loading VI5=36, VI6=348,
-VI8=364, and VI9=3 from VU data, then adjusting VI6 to 350. The loop at PC
-`0x3fd` advances VI10 by three while stepping VI8 down. At the normal
-4,096-cycle limit VI10 has advanced to 470 while VI6 is 2; a diagnostic run
-with a one-million-cycle cap still reaches PC `0x3ee` with VI10=49,846 and
-VI6=2. The program has not reached its E-bit even at that limit. This is not
-evidence to raise the runtime default; trace the counter/source stream and
-loop exit condition next.
-
-A later isolated run confirmed the diagnostic override accepts two million
-cycles. Its 48-second wall-time bound ended while VU entries `0x242` and
-`0x318` were still exhausting that budget (`0x242` stopped at PC `0x25f`).
-Those budgeted calls did not reach their E-bit, and the run did not reach
-`0x401`, so the earlier arithmetic prediction does not explain the complete
-stream. The opt-in ceiling is now four million; the normal limit remains
-4,096. Avoid another longer run until the repeated VU entries and stream
-ownership are understood.
-
-Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
-`/tmp/sly-vu-limit-context-20261116.log`,
-`/tmp/sly-vu-loop-extended-20261116.log`,
-`/tmp/sly-vu-loop-termination-20261116.log`,
-`/tmp/sly-vu-loop-state-20261116.log`,
-`/tmp/sly-vu-loop-detail-20261116.log`,
-`/tmp/sly-vu-pq-merge-capture-20261116.log`,
-`/tmp/sly-vu-entry401-state-20261116.log`, and
-`/tmp/sly-vu-entry401-final-20261116.log`. Builds:
-`/tmp/sly-vu-accsem-finalbuild-20261116.log`,
-`/tmp/sly-vu-pq-merge-build-20261116.log`, and
-`/tmp/sly-vu-entry401-final-build-20261116.log`. The one- and two-million-cycle
-diagnostics are `/tmp/sly-vu-entry401-1m-20261116.log` and
-`/tmp/sly-vu-entry401-2m-20261116.log`; the cap build is
-`/tmp/sly-vu-extended-cap-build-20261116.log`.
+Evidence: `/tmp/sly-vu65k-world-draw-trace-20261116.log`,
+`/tmp/sly1-native-world-after-hud-vu65k.png`, and the source definitions in
+`../sly1-decomp/src/main/placed_object_model.cpp` and
+`../sly1-decomp/include/cursor_animator.h`.
 
 ### Reduce the no-card prompt flicker
 
