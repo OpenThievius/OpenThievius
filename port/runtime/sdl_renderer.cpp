@@ -759,14 +759,23 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     }
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
         static unsigned samples = 0;
-        if (samples++ < 64u) {
+        const unsigned sample = samples++;
+        if (sample < 64u) {
             float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
             float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
+            float min_local[3]{1.0e30f, 1.0e30f, 1.0e30f};
+            float max_local[3]{-1.0e30f, -1.0e30f, -1.0e30f};
             unsigned projected = 0, inside = 0;
             for (std::uint32_t i = 0; i < vertex_count; ++i) {
                 const float x = vertices[i * 9u + 0u];
                 const float y = vertices[i * 9u + 1u];
                 const float z = vertices[i * 9u + 2u];
+                min_local[0] = std::min(min_local[0], x);
+                min_local[1] = std::min(min_local[1], y);
+                min_local[2] = std::min(min_local[2], z);
+                max_local[0] = std::max(max_local[0], x);
+                max_local[1] = std::max(max_local[1], y);
+                max_local[2] = std::max(max_local[2], z);
                 float clip[4]{};
                 for (std::size_t row = 0; row < 4; ++row) {
                     clip[row] = draw.mvp[row] * x + draw.mvp[4u + row] * y +
@@ -785,9 +794,21 @@ extern "C" void openrac_native_sly_world_mesh_submit(
                 min_z = std::min(min_z, nz); max_z = std::max(max_z, nz);
             }
             std::fprintf(stderr,
-                         "[native sly projected bounds] instance=%#llx vertices=%u projected=%u inside=%u ndc=%g,%g..%g,%g z=%g..%g\n",
+                         "[native sly projected bounds] instance=%#llx vertices=%u projected=%u inside=%u local=%g,%g,%g..%g,%g,%g ndc=%g,%g..%g,%g z=%g..%g\n",
                          static_cast<unsigned long long>(instance), vertex_count,
-                         projected, inside, min_x, min_y, max_x, max_y, min_z, max_z);
+                         projected, inside, min_local[0], min_local[1], min_local[2],
+                         max_local[0], max_local[1], max_local[2],
+                         min_x, min_y, max_x, max_y, min_z, max_z);
+            if (sample < 4u) {
+                std::fprintf(stderr, "[native sly transform] instance=%#llx model rows=",
+                             static_cast<unsigned long long>(instance));
+                for (std::size_t i = 0; i < 16; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", model[i]);
+                std::fprintf(stderr, " view_projection rows=");
+                for (std::size_t i = 0; i < 16; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", view_projection[i]);
+                std::fputc('\n', stderr);
+            }
         }
     }
     std::scoped_lock lock(g_world_mesh_mutex);

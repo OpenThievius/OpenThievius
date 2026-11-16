@@ -21,9 +21,19 @@ wrong: the first three large submissions span extreme/off-screen NDC ranges
 (`-178..2`, `-0.40..2.17`, and `-0.42..1.40` on X), while the many repeated
 33-vertex submissions collapse to roughly `0.008 x 0.003` NDC near the screen
 center. Some vertices are inside the clip volume, but the result is still a
-flat gray horizon. This points to incorrect captured vertex interpretation,
-model transforms, or camera composition in the port-only renderer; it does
-not justify changing the matched game code or relaxing VU/GIF validation.
+flat gray horizon. A bounded follow-up trace now also records local vertex
+ranges and the first four model/camera matrices. It confirms that the 33-vertex
+mesh has local coordinates of ordinary scale (about 0.8–20 units); its small
+projected size is not caused by decoding every coordinate as an enormous
+value. The model translation is stored in the final matrix row, matching the
+row-major transform layout used by the port-only `func_00188C10` backfill. The
+current row-vector `model * view_projection` composition is consistent with
+that layout; swapping it to `view_projection * model` projects the sample
+thousands of units off screen. Do not transpose or reorder matrices without
+new evidence. The next renderer investigation should focus on captured strip
+connectivity and GS state/visibility, while keeping the native VU/GIF path
+independent. Nothing here justifies changing matched game code or relaxing
+VU/GIF validation.
 
 The user's visible-window recording reports intermittent black flicker. In
 the separate offscreen run, per-present samples at the prompt's text and panel
@@ -31,7 +41,8 @@ stay nonblack from frame 35 through frame 698, after the prompt has appeared.
 That does not reproduce the reported visible-window flicker, so the flicker
 remains unresolved and should be tested with the visible SDL path and pad
 trace enabled. Captures: `/tmp/sly-world-bounds-20261116.log`,
-`/tmp/sly-matrix-trace-20261116.log`, and `/tmp/sly1-native-world-00.ppm`.
+`/tmp/sly-matrix-trace-20261116.log`, `/tmp/sly-matrix-data-20261116.log`, and
+`/tmp/sly1-native-world-00.ppm`.
 
 The host32 DMA adapter now routes VIF1 submissions into the existing VIF1/VU1
 runtime. The observed world chain's masked VIF `UNPACK` command `0x78` now
