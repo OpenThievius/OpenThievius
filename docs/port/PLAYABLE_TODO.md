@@ -43,15 +43,28 @@ PC `0x272` returns to PC `0x243`. Trace which VU input supplies VI6 at PC
 batch. For now keep the default budget, strict GIF validation, and port
 backfills isolated from matched source.
 
+The follow-up trace on MSCAL `0x401` shows its entry loading VI5=36, VI6=348,
+VI8=364, and VI9=3 from VU data, then adjusting VI6 to 350. The loop at PC
+`0x3fd` advances VI10 by three while stepping VI8 down. At the normal
+4,096-cycle limit VI10 has advanced to 470 while VI6 is 2; a diagnostic run
+with a one-million-cycle cap still reaches PC `0x3ee` with VI10=49,846 and
+VI6=2. The program has not reached its E-bit even at that limit. This is not
+evidence to raise the runtime default; trace the counter/source stream and
+loop exit condition next.
+
 Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-limit-context-20261116.log`,
 `/tmp/sly-vu-loop-extended-20261116.log`,
 `/tmp/sly-vu-loop-termination-20261116.log`,
 `/tmp/sly-vu-loop-state-20261116.log`,
-`/tmp/sly-vu-loop-detail-20261116.log`, and
-`/tmp/sly-vu-pq-merge-capture-20261116.log`. Builds:
+`/tmp/sly-vu-loop-detail-20261116.log`,
+`/tmp/sly-vu-pq-merge-capture-20261116.log`,
+`/tmp/sly-vu-entry401-state-20261116.log`, and
+`/tmp/sly-vu-entry401-final-20261116.log`. Builds:
 `/tmp/sly-vu-accsem-finalbuild-20261116.log` and
-`/tmp/sly-vu-pq-merge-build-20261116.log`.
+`/tmp/sly-vu-pq-merge-build-20261116.log` and
+`/tmp/sly-vu-entry401-final-build-20261116.log`. The million-cycle diagnostic
+is `/tmp/sly-vu-entry401-1m-20261116.log`.
 
 ### Reduce the no-card prompt flicker
 

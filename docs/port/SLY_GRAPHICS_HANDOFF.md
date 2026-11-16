@@ -143,6 +143,18 @@ Evidence: `/tmp/sly-vu-pq-merge-build-20261116.log`,
 `/tmp/sly-vu-pq-merge-capture-20261116.log`, and
 `/tmp/sly-vu-pq-merge-frame07.png`.
 
+The opt-in trace for `MSCAL 0x401` records initial VU data values VI5=36,
+VI6=348, VI8=364, and VI9=3; setup adjusts VI6 to 350. Its loop at PC `0x3fd`
+advances VI10 by three while stepping VI8 down. With a temporary one-million
+cycle limit, it still reaches PC `0x3ee` without an E-bit (VI10=49,846,
+VI6=2). This confirms the 4,096 limit was not the only issue and does not
+justify raising the default. Trace how the VIF input and branch termination
+are meant to end this long-running program.
+
+Evidence: `/tmp/sly-vu-entry401-state-20261116.log`,
+`/tmp/sly-vu-entry401-final-20261116.log`, and
+`/tmp/sly-vu-entry401-1m-20261116.log`.
+
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
 The copied decomp headers retained the matching declaration
