@@ -3,6 +3,24 @@
 
 ## Current bounded task (2026-11-16)
 
+### Reduce the no-card prompt flicker
+
+The Nov 15 recording showed 49 black game-area frames out of 393. Draw-state
+traces then found a full-screen, untextured black fill after the prompt on
+some frames. The renderer already omits replacement fills on 448-line output,
+because the native window clear supplies that background, but its 400-line
+threshold missed Sly's 224-line scissor (`0..223`). `port/renderer/direct.cpp`
+now recognizes full-height scissors from 200 through 240 lines as the same
+low-resolution case. No matched game source changed.
+
+A fresh five-second hidden-window capture built from the change saved eight
+consecutive prompt frames, all visible. After startup, 2 of 227 pixel-readback
+frames were still black. Both contained only one full-screen textured draw and
+no prompt geometry; neither contained the late black fill. The clear-order
+regression is reduced, but the remaining display-copy-only frames still need
+an explanation. Capture: `/tmp/sly-flicker-fixed-capture-20261116.log` and
+`/tmp/sly-flicker-fixed-contact.png`.
+
 ### The world draw path reaches a mismatched VU packet pointer
 
 The host32 prompt regression came from an ABI mismatch in the staged copy:

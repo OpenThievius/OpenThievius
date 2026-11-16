@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-15. The active host32 build source is `1cbb33fd`; public
+Last checked: 2026-11-16. The active host32 build source is `1cbb33fd`; public
 decomp master is `8f7a85a3`.
 
 ## Direction reset
@@ -49,6 +49,18 @@ missing packet input alone cannot account for the flicker. Skipping the
 per-present clear in a diagnostic still produced about 9% black samples; the
 clear is not the only cause. The short white dash at the far left remains
 unexplained.
+
+On Nov 16, a draw-state trace identified one cause: on black frames, a 120-vertex
+full-screen black fill appears after the prompt draws. The DirectRenderer's
+replacement-fill filter required a scissor at least 400 lines high, but the
+game uses a 224-line scissor (`0..223`). The filter now recognizes a full-height
+200–240-line scissor as low-resolution output, so the native black clear
+handles these replacement fills. A fresh five-second capture saved eight
+consecutive visible prompt frames; only 2 of 227 readback frames after startup
+were still black. Those two frames contained a single full-screen textured
+draw and no prompt geometry, so they are a separate unresolved display-copy
+case. Evidence: `/tmp/sly-flicker-fixed-capture-20261116.log` and
+`/tmp/sly-flicker-fixed-contact.png`.
 
 Reproduce the correlated trace with `OPENRAC_TRACE_PRESENT=1`,
 `OPENRAC_TRACE_PRESENT_PIXEL=1`, `OPENRAC_TRACE_DIRECT=1`,

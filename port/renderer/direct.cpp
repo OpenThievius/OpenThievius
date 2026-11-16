@@ -23,9 +23,11 @@ using namespace openrac::gl;
 
 namespace {
 
-// A scissor this many lines tall or more covers the frame (the chip's frame is 448 lines; a game
-// may leave a few out at the edges).
+// A scissor this tall covers the 448-line frame (the game may leave a few out at the edges).
 constexpr std::int64_t kFrameFillLines = 400;
+// Sly's 224-line mode uses half-height scissor coordinates for the same full-frame fill.
+constexpr std::int64_t kLowResFrameFillMinLines = kFrameFillLines / 2;
+constexpr std::int64_t kLowResFrameFillMaxLines = 240;
 
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
@@ -1387,7 +1389,10 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
-        if (scissor_height >= kFrameFillLines && height + 2 >= scissor_height) {
+        const bool full_frame_scissor = scissor_height >= kFrameFillLines ||
+            (scissor_height >= kLowResFrameFillMinLines &&
+             scissor_height <= kLowResFrameFillMaxLines);
+        if (full_frame_scissor && height + 2 >= scissor_height) {
             return;
         }
     }

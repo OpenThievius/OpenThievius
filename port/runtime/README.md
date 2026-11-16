@@ -35,8 +35,12 @@ extracts the small color-only primitive subset used by the diagnostic geometry
 path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
 `DirectRenderer` and texture pool. The host32 `AddGifRegisterWrite` ABI
 adapter now fixes the no-card prompt's collapsed scissor; the prompt is visible
-but flickers to black in native captures. Packet-empty presents are too rare to
-explain those flashes, and skipping the per-present clear did not remove them.
+but had occasional black frames in native captures. A 224-line screen-fill
+classification fix removed the late black fill that covered the prompt. A
+five-second hidden capture now shows the prompt in eight consecutive frames;
+2 of 227 later readback frames remain black, each with only a full-screen
+textured draw and no prompt geometry. Packet-empty presents are too rare to
+explain the remaining frames; see the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md).
 The user's prior Space press moved the game into world `0x870cf0`; a separate
 offscreen native input probe also reached world drawing. The first VU XGKICK
 uses VI6=`469` even though VIF UNPACK placed a valid EOP GIFtag at qword 468.
