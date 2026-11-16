@@ -260,17 +260,18 @@ void dispatch_pending_kick(PendingKick* pending) {
     if (pending == nullptr || !pending->active) return;
 
     const char* trace_state = std::getenv("OPENRAC_TRACE_XGKICK_STATE");
-    if (trace_state != nullptr && trace_state[0] != '\0' && trace_state[0] != '0') {
-        static std::atomic<uint32_t> state_trace_count{0};
-        if (state_trace_count.fetch_add(1, std::memory_order_relaxed) < 32u) {
-            uint32_t tag_loaded = 0;
-            uint32_t remaining_qwords = 0;
-            uint64_t tag_low = 0;
-            openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
-            openrac::log::info(
-                "native VU1 XGKICK parser state PC={:#x} address={} active={} remaining={} tag={:#018x}",
-                pending->pc, pending->address, tag_loaded, remaining_qwords, tag_low);
-        }
+    static std::atomic<uint32_t> state_trace_count{0};
+    const bool trace_this_kick =
+        trace_state != nullptr && trace_state[0] != '\0' && trace_state[0] != '0' &&
+        state_trace_count.fetch_add(1, std::memory_order_relaxed) < 32u;
+    if (trace_this_kick) {
+        uint32_t tag_loaded = 0;
+        uint32_t remaining_qwords = 0;
+        uint64_t tag_low = 0;
+        openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
+        openrac::log::info(
+            "native VU1 XGKICK parser state PC={:#x} address={} active={} remaining={} tag={:#018x}",
+            pending->pc, pending->address, tag_loaded, remaining_qwords, tag_low);
     }
 
     uint32_t failure = 0;
@@ -281,6 +282,14 @@ void dispatch_pending_kick(PendingKick* pending) {
     const bool accepted = kick_gif(pending->address, &failure, &first_tag,
                                    &failed_address, &failed_tag,
                                    &failed_tag_high);
+    if (trace_this_kick) {
+        openrac::log::info(
+            "native VU1 XGKICK trace PC={:#x} address={} accepted={} first_tag={:#018x} failed_address={} failed_tag={:#018x}:{:#018x} failure={}",
+            pending->pc, pending->address, accepted, first_tag, failed_address,
+            failed_tag_high, failed_tag,
+            failure == 0 ? "none" : failure == 1 ? "packet exceeds native limit" :
+            failure == 2 ? "missing EOP" : "GIFtag has reserved bits set");
+    }
     if (!accepted) {
         const uint32_t notice = g_vu_kick_notice_count.fetch_add(
             1, std::memory_order_relaxed);

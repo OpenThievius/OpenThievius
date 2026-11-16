@@ -45,6 +45,7 @@ decompilation files.
 
 Evidence: `/tmp/sly-vu65k-world-draw-trace-20261116.log`,
 `/tmp/sly-gif-origin-capture-20261116.log`,
+`/tmp/sly-xgkick-outcomes-capture-20261116.log`,
 `/tmp/sly1-native-world-after-hud-vu65k.png`, and the source definitions in
 `../sly1-decomp/src/main/placed_object_model.cpp` and
 `../sly1-decomp/include/cursor_animator.h`.

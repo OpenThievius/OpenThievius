@@ -98,6 +98,14 @@ earlier transfer is expected to have supplied its tag. Keep the strict GIF
 parser unchanged until that boundary is accounted for. Capture:
 `/tmp/sly-gif-origin-capture-20261116.log`.
 
+The per-kick outcome trace repeats this pattern as the VI6 address changes: PC
+`0x68` fails on the same first payload word, while PC `0x6e` succeeds from
+VI7=`35` with an EOP A+D packet. Those accepted packets write GS registers;
+they do not carry mesh vertices. No PC `0x68` packet reaches the renderer, so
+the world geometry remains absent. `OPENRAC_TRACE_XGKICK_STATE=1` now logs
+bounded per-kick acceptance and failure details for the next comparison.
+Capture: `/tmp/sly-xgkick-outcomes-capture-20261116.log`.
+
 Capture: `/tmp/sly-vu-program-words-842-20261116.log`.
 
 ### World submission bounds capture (2026-11-16)
