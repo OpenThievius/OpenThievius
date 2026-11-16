@@ -86,6 +86,18 @@ qword 469 is written directly by VIF `UNPACK` command `0x6c`, immediate
 before changing the VU translator or GIF validation. The runtime word trace is
 opt-in through `OPENRAC_TRACE_VU1_PROGRAM_WORDS=<PC>`.
 
+A follow-up trace confirms the parser is idle at both XGKICKs. The VIF1 DIRECT
+parser had finished its prior packet (`active=0`, `remaining=0`) before PC
+`0x68`; this kick is not a continuation of an incomplete DIRECT packet. In the
+UNPACK output, qword 468 is the valid EOP GIFtag `0x100040000000806d` with 109
+A+D writes, while qword 469 begins its payload (`value=0x39001`,
+`address=0x48`). The verified retail VU instruction at PC `0x67` increments
+VI6 from 468 to 469 just before XGKICK. The unresolved issue is therefore why
+the retail VU program starts this kick at the first payload item, or what
+earlier transfer is expected to have supplied its tag. Keep the strict GIF
+parser unchanged until that boundary is accounted for. Capture:
+`/tmp/sly-gif-origin-capture-20261116.log`.
+
 Capture: `/tmp/sly-vu-program-words-842-20261116.log`.
 
 ### World submission bounds capture (2026-11-16)

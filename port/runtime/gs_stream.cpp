@@ -199,8 +199,8 @@ void begin_tag(uint64_t low, uint64_t high) {
     g_parser.register_index = 0;
     if (std::getenv("OPENRAC_GIF_TRACE") != nullptr && g_gif_trace_count < 512u) {
         std::fprintf(stderr,
-                     "[gif trace] tag=%u format=%u loops=%u nreg=%u eop=%u pre=%u low=%#018llx high=%#018llx\n",
-                     g_gif_trace_count, g_parser.format, g_parser.loops,
+                     "[gif trace] tag=%u origin=%s format=%u loops=%u nreg=%u eop=%u pre=%u low=%#018llx high=%#018llx\n",
+                     g_gif_trace_count, g_gif_input_origin, g_parser.format, g_parser.loops,
                      g_parser.register_count, static_cast<unsigned>((low >> 15) & 1u),
                      static_cast<unsigned>((low >> 46) & 1u),
                      static_cast<unsigned long long>(low),

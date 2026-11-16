@@ -24,12 +24,16 @@ basis for changing matrix order.
 
 A targeted runtime dump confirms the loaded VU1 code at PC 842 matches the
 retail `.vutext` after parsing its interleaved MPG headers. The upload is not
-shifted. The first world XGKICK at PC `0x68` starts at qword 469, where the
-strict parser sees reserved GIF-tag bits; the following XGKICK at PC `0x6e`
-starts at qword 35 and is accepted. Qword 469 comes directly from a VIF
-UNPACK, so this failure precedes the GL mesh conversion. Trace the producer
-and intended boundary of that first kick before changing the translator or
-validation. The selected-program trace is enabled with
+shifted. The first world XGKICK at PC `0x68` starts at qword 469. Qword 468 is
+the valid EOP GIFtag `0x100040000000806d` with 109 A+D writes; qword 469 is its
+first payload item (`value=0x39001`, `address=0x48`), not a GIFtag. The retail
+VU instruction at PC `0x67` increments VI6 from 468 to 469 immediately before
+XGKICK. The runtime GIF parser is idle at that kick, so it is not continuing
+an unfinished VIF DIRECT packet. This boundary mismatch precedes GL mesh
+conversion. Reconcile the retail VU program's explicit pointer and the VIF
+producer's packet layout before changing the translator, kick framing, or
+validation. The following XGKICK at PC `0x6e` starts at qword 35 and is
+accepted. The selected-program trace is enabled with
 `OPENRAC_TRACE_VU1_PROGRAM_WORDS=842`.
 
 Next, establish a valid Sly world GIF packet and derive one mesh's primitive
@@ -40,6 +44,7 @@ backfill stays in `port/game/sly1-us/hand/native/`; do not change matched
 decompilation files.
 
 Evidence: `/tmp/sly-vu65k-world-draw-trace-20261116.log`,
+`/tmp/sly-gif-origin-capture-20261116.log`,
 `/tmp/sly1-native-world-after-hud-vu65k.png`, and the source definitions in
 `../sly1-decomp/src/main/placed_object_model.cpp` and
 `../sly1-decomp/include/cursor_animator.h`.
