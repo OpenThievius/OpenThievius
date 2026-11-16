@@ -175,6 +175,15 @@ in the VU trace, not a playable or visual pass. Capture:
 `/tmp/sly-vu-continuation-capture-20261116.log` and
 `/tmp/sly1-native-world-00.ppm`.
 
+**JALR ordering trial:** changing the aliased `JALR VI15,VI15` to preserve the
+pre-link target sent execution to the helper at PC 1193, where the VU program
+ended. The capture then had no VU XGKICK output and a black frame after input.
+That candidate was reverted. The existing path still reaches both kicks, but
+qword 35 remains unexplained. Treat the JALR ordering and helper path as open;
+do not adopt the target-before-link change without evidence that it preserves
+the retail draw path. Capture: `/tmp/sly-vu-jalr-capture-20261116.log` and
+`/tmp/sly-vu-jalr-frame-07-20261116.ppm`.
+
 Correlate the retail program's VI instructions, the VIF destination, and the
 GIF leading-tag address using hardware-level semantics. Keep matching decomp
 source intact, and keep any Sly function replacements in

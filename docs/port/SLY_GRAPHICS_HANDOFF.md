@@ -24,14 +24,24 @@ from `{0x00039001, 0, 0x48, 0}`. Thus this bad value is not from a VU store or
 GIF packet decoder byte order. The earlier dispatcher stopped the VU program
 when this packet was rejected. A port-only change now rejects just that packet
 and lets the VU program continue, with XGKICK dispatched after the next
-instruction pair as in OpenRAC's VU interpreter. A hidden capture confirms
-the first packet is still rejected and execution reaches the second XGKICK at
-PC `0x6e`, address 35. That packet is rejected too: qword 35 remains zero and
-qword 36 contains vector data. No native world meshes are queued, and the
-captured post-input frame is only the gray background. This advances the trace,
-but does not produce world graphics. Capture:
+instruction pair as in OpenRAC's VU interpreter. The hidden capture from
+commit `558e60b` confirms the first packet is still rejected and execution
+reaches the second XGKICK at PC `0x6e`, address 35. That packet is rejected
+too: qword 35 remains zero and qword 36 contains vector data. No native world
+meshes are queued, and the captured post-input frame is only the gray
+background. This advances the trace, but does not produce world graphics.
+Capture:
 `/tmp/sly-vu-continuation-capture-20261116.log` and
 `/tmp/sly1-native-world-00.ppm`.
+
+An attempted JALR ordering change was built and captured. Preserving the
+pre-link target for `JALR VI15,VI15` sent execution to PC 1193, where the VU
+program ended; the run then had no VU XGKICK output and a black frame after
+input. That candidate was reverted. The existing path reaches both kicks but
+still rejects them. Keep JALR behavior open until the helper and the retail
+draw path are reconciled; do not treat qword 35 as the final packet boundary.
+Capture: `/tmp/sly-vu-jalr-capture-20261116.log` and
+`/tmp/sly-vu-jalr-frame-07-20261116.ppm`.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
