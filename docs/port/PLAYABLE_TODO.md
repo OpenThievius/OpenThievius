@@ -21,10 +21,14 @@ target before a JALR link write when source and destination alias. These
 changes are in `port/runtime/vu1_native.cpp`; no matched decomp source changed.
 The instruction semantics follow the public [Sony VU User's Manual v3.1](https://www.manuallib.com/download/pdf0/VU-USER-MANUAL.PDF).
 
-The latest fresh host32 capture no longer stops on an unsupported VU opcode.
-It exhausts the interpreter's 4,096-cycle safety limit at PC `0x25e`, which is
-reported with sentinel words `0xffffffff`; that is budget exhaustion, not a
-decoded missing instruction. An opt-in trace identifies a loop at PCs
+The latest host32 run found and fixed a VU state merge bug: lower instructions
+computed P and Q in a temporary state, but those scalar updates were discarded
+when the instruction pair committed. The port now preserves P/Q changes in
+`port/runtime/vu1_native.cpp`. A fresh hidden capture advances beyond the prior
+first stop at MSCAL `0x242` and reaches MSCAL `0x401`; it then exhausts the
+4,096-cycle safety limit at PC `0x3ee` and rejects the following VIF stream.
+The frame remains black, so this is runtime progression rather than a visual
+pass. The earlier opt-in trace identifies a loop at PCs
 `0x26e`–`0x271`: VI5 advances by four, the branch compares VI5 with VI6, and
 the delay slot decrements VI15. VI6 is zero at the captured limit. A temporary
 65,552-cycle budget lets VI5 wrap to zero and this branch fall through PC
@@ -36,15 +40,18 @@ VI5 toward that target. Later, the routine enters the same path with VI6=0;
 the comparison loop advances VI5 by four, and its unconditional branch at
 PC `0x272` returns to PC `0x243`. Trace which VU input supplies VI6 at PC
 `0x243`, why a zero target enters this work path, and what ends the final
-batch. Keep the default budget and port backfills isolated from matched
-source.
+batch. For now keep the default budget, strict GIF validation, and port
+backfills isolated from matched source.
 
 Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-limit-context-20261116.log`,
-`/tmp/sly-vu-loop-extended-20261116.log`, and
-`/tmp/sly-vu-loop-termination-20261116.log`, and
-`/tmp/sly-vu-loop-state-20261116.log`; host32 build:
-`/tmp/sly-vu-accsem-finalbuild-20261116.log`.
+`/tmp/sly-vu-loop-extended-20261116.log`,
+`/tmp/sly-vu-loop-termination-20261116.log`,
+`/tmp/sly-vu-loop-state-20261116.log`,
+`/tmp/sly-vu-loop-detail-20261116.log`, and
+`/tmp/sly-vu-pq-merge-capture-20261116.log`. Builds:
+`/tmp/sly-vu-accsem-finalbuild-20261116.log` and
+`/tmp/sly-vu-pq-merge-build-20261116.log`.
 
 ### Reduce the no-card prompt flicker
 

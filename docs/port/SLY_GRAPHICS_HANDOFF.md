@@ -120,11 +120,28 @@ lead the data that initializes VI6 at the routine entry, and the zero-target
 case that follows. The trace is capped and opt-in; it changes no game state.
 
 Evidence: `/tmp/sly-vu-limit-context-20261116.log`,
-`/tmp/sly-vu-loop-extended-20261116.log`, and
+`/tmp/sly-vu-loop-extended-20261116.log`,
 `/tmp/sly-vu-loop-termination-20261116.log`,
 `/tmp/sly-vu-loop-state-20261116.log`, and
 `/tmp/sly-vu-loop-detail-20261116.log`. The captures still show black frames
 after Cross; no playable visual output was reached.
+
+### VU scalar pipeline state (2026-11-16)
+
+Inspection found that lower instructions ran against a temporary state, then
+the interpreter merged vector and integer results but dropped P and Q. The
+port-only state merge now preserves P/Q updates. A fresh host32 build compiles
+and links; a bounded hidden run advances past the previous `MSCAL 0x242` stop
+to `MSCAL 0x401`. That program exhausts the existing 4,096-cycle budget at PC
+`0x3ee`, and the following VIF stream is rejected. The first world XGKICK
+still rejects the same malformed GIFtag, and the dumped post-Cross frame is
+black. This is interpreter progression, not a visual pass. Keep the fix
+isolated from decomp source and trace the `0x401` program and its input before
+considering a budget change.
+
+Evidence: `/tmp/sly-vu-pq-merge-build-20261116.log`,
+`/tmp/sly-vu-pq-merge-capture-20261116.log`, and
+`/tmp/sly-vu-pq-merge-frame07.png`.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
