@@ -24,13 +24,20 @@ The instruction semantics follow the public [Sony VU User's Manual v3.1](https:/
 The latest fresh host32 capture no longer stops on an unsupported VU opcode.
 It exhausts the interpreter's 4,096-cycle safety limit at PC `0x25e`, which is
 reported with sentinel words `0xffffffff`; that is budget exhaustion, not a
-decoded missing instruction. The next blocker is to trace why the program has
-not reached its E-bit/end condition by that limit and whether the interpreter
-is following the retail branch/latency behavior. Do not increase the limit or
-force another world until the captured execution path explains the loop. Keep
-the port backfills isolated from matched source as before.
+decoded missing instruction. An opt-in trace identifies a loop at PCs
+`0x26e`–`0x271`: VI5 advances by four, the branch compares VI5 with VI6, and
+the delay slot decrements VI15. VI6 is zero at the captured limit. A temporary
+65,552-cycle budget lets VI5 wrap to zero and this branch fall through PC
+`0x272`, but execution reaches PC `0x243` and exhausts the budget again without
+an E-bit; other VU entries also exhaust the larger budget. Raising the default
+therefore is not a fix. Next trace the VU setup and outer loop to determine why
+the expected termination state is not reached. Keep the default budget and
+port backfills isolated from matched source.
 
-Capture: `/tmp/sly-vu-accsem-finalcapture-20261116.log`; host32 build:
+Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
+`/tmp/sly-vu-limit-context-20261116.log`,
+`/tmp/sly-vu-loop-extended-20261116.log`, and
+`/tmp/sly-vu-loop-termination-20261116.log`; host32 build:
 `/tmp/sly-vu-accsem-finalbuild-20261116.log`.
 
 ### Reduce the no-card prompt flicker

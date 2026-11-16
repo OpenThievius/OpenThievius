@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-16. The active host32 build source is `1cbb33fd`; public
-decomp master is `8f7a85a3`.
+Last checked: 2026-11-16. The active host32 staging snapshot and public decomp
+master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
 ## Direction reset
 
@@ -97,6 +97,25 @@ interpreter budget or synthesizing geometry.
 Evidence: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-accsem-finalbuild-20261116.log`, and
 `/tmp/sly1-native-world-00.ppm`.
+
+### VU loop limit follow-up (2026-11-16)
+
+The opt-in instruction-budget trace (`OPENRAC_TRACE_VU1_LIMIT=1`) identifies
+the 4,096-cycle stop as a real loop, not an unsupported opcode. At PCs
+`0x26e`–`0x271`, the lower instructions increment VI5 by four, store a vector,
+branch while VI6 differs from VI5, and execute a decrementing vector load in
+the branch delay slot. VI6 is zero at the captured limit. Re-running with a
+temporary 65,552-cycle budget lets VI5 wrap to zero and the branch fall through
+PC `0x272`; execution continues to PC `0x243` and exhausts the budget again
+without reaching an E-bit. Other VU entries also hit the larger limit. This
+shows that raising the default limit alone would only move the stop and could
+hide a second loop. Keep the 4,096 default and trace the setup/outer-loop path
+and VU state transitions before changing semantics or the budget.
+
+Evidence: `/tmp/sly-vu-limit-context-20261116.log`,
+`/tmp/sly-vu-loop-extended-20261116.log`, and
+`/tmp/sly-vu-loop-termination-20261116.log`. The latter still captures black
+frames after Cross; no playable visual output was reached.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
