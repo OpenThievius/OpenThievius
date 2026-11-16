@@ -321,15 +321,20 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         std::memcpy(output, lanes, sizeof(lanes));
         static std::atomic<uint32_t> packet_write_notice{0};
         static std::atomic<uint32_t> pointer_write_notice{0};
+        static std::atomic<uint32_t> setup_write_notice{0};
         const bool trace_packet_target =
             destination_index >= 464u && destination_index <= 476u;
         const bool trace_pointer_target = vu_setup_trace_enabled &&
             destination_index >= 32u && destination_index <= 38u;
+        const bool trace_setup_target = vu_setup_trace_enabled &&
+            destination_index <= 38u;
         const bool trace_write =
             (trace_packet_target &&
              packet_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u) ||
             (trace_pointer_target &&
-             pointer_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u);
+             pointer_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u) ||
+            (trace_setup_target &&
+             setup_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u);
         if (trace_write) {
             openrac::log::info(
                 "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",

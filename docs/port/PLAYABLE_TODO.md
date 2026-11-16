@@ -3,7 +3,7 @@
 
 ## Current bounded task (2026-11-16)
 
-### Follow the first world VU program past the setup helper
+### Trace the first world VU program after fixing its store operands
 
 The user reported pressing Space. An isolated hidden host32 capture advanced
 beyond the memory-card screen into world `0x870cf0` after injecting Cross at
@@ -20,6 +20,29 @@ the accumulator broadcast/component operations. It also preserves the JR
 target before a JALR link write when source and destination alias. These
 changes are in `port/runtime/vu1_native.cpp`; no matched decomp source changed.
 The instruction semantics follow the public [Sony VU User's Manual v3.1](https://www.manuallib.com/download/pdf0/VU-USER-MANUAL.PDF).
+
+A trace of qword 11 found the loop regression: VIF had loaded the next batch's
+metadata `{0x24, 0x15c, 0x15c, 0x16c}`, then lower instruction
+`0x03e45809` stored zeros over it. Comparing its fields with OpenRAC's local
+VU interpreter showed that SQ uses `it` as the VI address and `is` as the VF
+source; the port had decoded them like LQ. SQI and SQD had the same swapped
+roles. The port runtime now uses the correct operands and preserves lanes
+outside the SQ/SQI/SQD masks. In the next bounded capture, qword 11 retained its
+metadata and the normal `0x401` helper reached its E-bit after 2,738 cycles.
+This is a port-runtime correction, not a change to matched decomp code.
+
+The same trace exposed and the port added upper OPMULA and lower ERSQRT used
+by the following helper. The latest run still does not produce visible world
+graphics: entry `0x26d` reaches the existing 4,096-cycle safety limit at PC
+`0x2a9`, and entry `0x318` also reaches the limit at PC `0x24e`. It continues
+to encounter the malformed GIF tag at qword 469. Keep the default cycle limit
+and strict GIF validation. Trace the `0x26d` loop and qword 469's construction
+before adding more instruction backfills or changing graphics behavior.
+
+Evidence: `/tmp/sly-vu-store-fix-capture-20261116.log`,
+`/tmp/sly-vu-opmula-capture-20261116.log`, and the latest safety trace
+`/tmp/sly-vu-store-final-capture-20261116.log`; build:
+`/tmp/sly-vu-store-final-build-20261116.log`.
 
 The latest host32 run found and fixed a VU state merge bug: lower instructions
 computed P and Q in a temporary state, but those scalar updates were discarded

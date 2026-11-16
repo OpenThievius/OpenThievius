@@ -11,6 +11,25 @@ but the last user-confirmed useful image is the retail no-card UI. The optional
 world-renderer prototype remains disabled by default and its gray horizon is
 not successful scene output.
 
+### VU store bug found after the Space transition (2026-11-16)
+
+The port's lower SQ/SQI/SQD decoding reversed the integer address register and
+vector source. This made `SQ VF11, VI4(0)` at PC `0x336` write zeros over VU
+qword 11, erasing metadata needed by the next `MSCAL 0x401`. The store
+operand mappings are now corrected in `port/runtime/vu1_native.cpp`; SQ also
+keeps unselected lanes, and SQI/SQD preserve lanes selected by their mask. A
+bounded capture shows the metadata survives and the
+normal `0x401` helper reaches its E-bit. The following stream still encounters
+the malformed GIF tag at qword 469 and VU instruction-budget stops at entry
+`0x26d` PC `0x2a9` and entry `0x318` PC `0x24e`. No recognizable world graphics
+were produced. OPMULA and ERSQRT from the next VU helper are also implemented
+in the port runtime. No matched decomp source changed.
+
+Captures: `/tmp/sly-vu-store-fix-capture-20261116.log`,
+`/tmp/sly-vu-opmula-capture-20261116.log`, and
+`/tmp/sly-vu-store-final-capture-20261116.log`. Latest build:
+`/tmp/sly-vu-store-final-build-20261116.log`.
+
 ### World submission bounds capture (2026-11-16)
 
 A fresh offscreen capture after the test Cross press entered world `0x870cf0`,
