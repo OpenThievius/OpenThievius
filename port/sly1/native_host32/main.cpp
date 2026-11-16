@@ -651,6 +651,35 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                                  row, parent_rotation[row * 4u], parent_rotation[row * 4u + 1u],
                                  parent_rotation[row * 4u + 2u]);
                 }
+                u32 ancestor = parent_address;
+                for (u32 depth = 0; depth < 8u && ancestor != 0; ++depth) {
+                    const volatile u32* words =
+                        reinterpret_cast<const volatile u32*>(ancestor);
+                    const u32 descriptor_address = words[0];
+                    const volatile u32* descriptor = descriptor_address != 0
+                        ? reinterpret_cast<const volatile u32*>(descriptor_address)
+                        : nullptr;
+                    const volatile float* local =
+                        reinterpret_cast<const volatile float*>(ancestor + 0x100u);
+                    const volatile float* world =
+                        reinterpret_cast<const volatile float*>(ancestor + 0x140u);
+                    const volatile float* local_rotation =
+                        reinterpret_cast<const volatile float*>(ancestor + 0xD0u);
+                    const volatile float* world_rotation =
+                        reinterpret_cast<const volatile float*>(ancestor + 0x110u);
+                    std::fprintf(stderr,
+                                 "[native invalid model ancestor] depth=%u object=%#010x id=%u class=%u parent=%#010x local=%g,%g,%g world=%g,%g,%g local_rotation=%g,%g,%g;%g,%g,%g;%g,%g,%g world_rotation=%g,%g,%g;%g,%g,%g;%g,%g,%g\n",
+                                 depth, ancestor, words[2],
+                                 descriptor != nullptr ? descriptor[1] : 0xFFFFFFFFu,
+                                 words[6], local[0], local[1], local[2], world[0], world[1],
+                                 world[2], local_rotation[0], local_rotation[1], local_rotation[2],
+                                 local_rotation[4], local_rotation[5], local_rotation[6],
+                                 local_rotation[8], local_rotation[9], local_rotation[10],
+                                 world_rotation[0], world_rotation[1], world_rotation[2],
+                                 world_rotation[4], world_rotation[5], world_rotation[6],
+                                 world_rotation[8], world_rotation[9], world_rotation[10]);
+                    ancestor = words[6];
+                }
             }
         }
     }

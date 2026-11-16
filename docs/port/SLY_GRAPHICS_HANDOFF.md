@@ -7,11 +7,25 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 ## Latest client output audit (2026-11-16)
 
 Rebuilt the current normal configuration (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`)
-from the archived public decomp snapshot `8f7a85a3` and inspected a fresh
-hidden native capture. The memory-card prompt still clears to black after the
-process-local Cross input; no title, scene, or playable state is visible. The
-earlier stretched purple geometry was from the optional prototype renderer and
-is not the current normal output.
+from the archived public decomp snapshot `8f7a85a3` and inspected fresh hidden
+native framebuffer captures. The no-card prompt is visible in the captured
+frame `/tmp/sly1-native-frame-07.png`. Across 241 samples after its first
+visible frame, the two text points and border point never all went black, so
+the prompt flicker did not reproduce in this run. After a process-local Cross
+input, the game reaches world `0x870cf0`, but the same readback points are black;
+no title, recognizable scene, or playable state is visible. The earlier
+stretched purple geometry came from the optional prototype renderer and is not
+the current normal output.
+
+The model-transform trace also narrows one invalid matrix chain: object 96 has
+finite position and a fully NaN local rotation; its children (objects 68, 69,
+and 80) inherit the invalid world transform. The player parent has finite
+position and rotation. This shows where the transform chain first becomes
+invalid, but not yet who writes object 96's local rotation. Do not substitute
+an identity matrix as a fix. Trace the placed-object load/rotation source and
+keep the independent VIF/VU NaN source investigation below open. The opt-in
+ancestor trace is in `port/sly1/native_host32/main.cpp`; the capture is
+`/tmp/sly-native-latest-output-20261116.log`.
 
 The trace does not support the earlier assumption that all VIF inputs are
 finite. One model UNPACK supplies finite positions at VU1 qwords 138 and 141,
