@@ -30,6 +30,7 @@
 #include <string>
 #include <sys/mman.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <unistd.h>
 #include <vector>
 
@@ -63,6 +64,7 @@ std::unique_ptr<openrac::renderer::DirectRenderer> g_direct;
 std::unique_ptr<openrac::renderer::Shader> g_world_shader;
 std::mutex g_world_mesh_mutex;
 std::vector<NativeWorldMesh> g_world_meshes;
+std::size_t g_world_mesh_replacements = 0;
 std::uint32_t g_world_mesh_world = 0;
 openrac::gl::GLuint g_world_vao = 0;
 openrac::gl::GLuint g_world_vbo = 0;
@@ -287,6 +289,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     unsigned intersecting_meshes = 0;
     unsigned long long projected_vertices = 0;
     unsigned long long inside_vertices = 0;
+    std::unordered_set<std::uint64_t> present_instances;
+    std::unordered_set<std::uint64_t> present_materials;
+    unsigned duplicate_instances = 0;
+    std::uint64_t present_signature = 1469598103934665603ull;
     float frame_min_x = 1.0e30f, frame_min_y = 1.0e30f, frame_min_z = 1.0e30f;
     float frame_max_x = -1.0e30f, frame_max_y = -1.0e30f, frame_max_z = -1.0e30f;
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
@@ -303,6 +309,16 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     glBindVertexArray(g_world_vao);
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
     for (const auto& mesh : meshes) {
+        if (trace_projected_bounds) {
+            if (!present_instances.insert(mesh.instance).second) ++duplicate_instances;
+            present_materials.insert(mesh.tex0);
+            present_signature ^= mesh.instance;
+            present_signature *= 1099511628211ull;
+            present_signature ^= mesh.tex0;
+            present_signature *= 1099511628211ull;
+            present_signature ^= static_cast<std::uint64_t>(mesh.vertices.size() / 9u);
+            present_signature *= 1099511628211ull;
+        }
         if (mesh.vertices.size() < 3u * 9u || mesh.vertices.size() > 4096u * 9u)
             continue;
         if (trace_projected_bounds) {
@@ -405,9 +421,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
-                     "[native sly present bounds] frame=%u meshes=%zu projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
-                     present_bounds_sample++, meshes.size(), projected_meshes,
-                     intersecting_meshes, projected_vertices, inside_vertices,
+                     "[native sly present bounds] frame=%u meshes=%zu unique=%zu duplicate=%u materials=%zu signature=%016llx projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
+                     present_bounds_sample++, meshes.size(),
+                     present_instances.size(), duplicate_instances,
+                     present_materials.size(),
+                     static_cast<unsigned long long>(present_signature),
+                     projected_meshes, intersecting_meshes, projected_vertices,
+                     inside_vertices,
                      frame_min_x, frame_min_y, frame_min_z,
                      frame_max_x, frame_max_y, frame_max_z);
     }
@@ -872,7 +892,15 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::scoped_lock lock(g_world_mesh_mutex);
     if (g_world_mesh_world != world) {
         g_world_meshes.clear();
+        g_world_mesh_replacements = 0;
         g_world_mesh_world = world;
+    }
+    const auto previous = std::find_if(
+        g_world_meshes.begin(), g_world_meshes.end(),
+        [&draw](const NativeWorldMesh& queued) { return queued.instance == draw.instance; });
+    if (previous != g_world_meshes.end()) {
+        g_world_meshes.erase(previous);
+        ++g_world_mesh_replacements;
     }
     g_world_meshes.push_back(std::move(draw));
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
@@ -1033,9 +1061,23 @@ extern "C" void openrac_native_window_present(void) {
         g_clear(0x00004100u);
     }
     std::vector<NativeWorldMesh> world_meshes;
+    std::size_t world_mesh_replacements = 0;
     {
         std::scoped_lock lock(g_world_mesh_mutex);
         world_meshes.swap(g_world_meshes);
+        world_mesh_replacements = g_world_mesh_replacements;
+        g_world_mesh_replacements = 0;
+    }
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static unsigned notices = 0;
+        if ((!world_meshes.empty() || world_mesh_replacements != 0u) &&
+            notices < 24u) {
+            ++notices;
+            std::fprintf(stderr,
+                         "[native sly mesh queue] present=%llu meshes=%zu replaced=%zu\n",
+                         static_cast<unsigned long long>(this_present),
+                         world_meshes.size(), world_mesh_replacements);
+        }
     }
     render_world_meshes(world_meshes);
     const bool dump_world_frame = !world_meshes.empty() &&

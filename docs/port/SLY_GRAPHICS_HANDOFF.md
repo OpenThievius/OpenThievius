@@ -9,21 +9,23 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 Rebuilt the current branch and inspected a fresh hidden client capture after a
 process-local Cross input. The first three world presents show sparse purple
 meshes over a gray horizon; the next five show only a flat gray horizon. A
-second run reproduced the same 77, 77, 77, then 270+ host-mesh submission
-pattern, and confirmed that real uploaded textures (not placeholders) reach
-the optional host renderer. This rules out “no world draw calls” and “all
-textures missing” as explanations for the disappearance. The output remains
-unstable and is not playable. Latest contact sheet:
-`/tmp/sly-world-contact-20261116.png`; source frames:
+trace found that the game can submit the same request identity many times
+between host presents (1,416 queued entries represented only 120 identities in
+one sample). The optional renderer now keeps the latest mesh per identity,
+reducing those batches to at most 398 distinct meshes. The captured image did
+not improve: frames 03–07 are still gray. Real uploaded textures resolve, so
+this is not explained by an empty draw list or missing textures. The output is
+unstable and not playable. Latest contact sheet:
+`/tmp/sly-dedupe-contact-20261116.png`; source frames:
 `/tmp/sly1-native-world-00.ppm` through `07.ppm`.
 
 The projected-bounds diagnostic reports many vertices within the clip cube in
 later frames, but it is only a vertex/bounds estimate: it does not clip
 triangles or account for depth/material state, so it does not prove that those
-meshes should cover visible pixels. The next step is to trace which submissions
-and GL depth/material state change between world presents 02 and 03, and
-compare that with the retail GS/VU path. Do not infer success from the rising
-mesh count.
+meshes should cover visible pixels. Queue deduplication did not fix the image,
+so the next step is to establish correct strip topology and compare the
+prototype's draw with the retail GS/VU packet path. Do not infer success from
+the rising mesh count or bounds estimate.
 
 These purple fragments are from the experimental
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` path, which submits captured Sly meshes

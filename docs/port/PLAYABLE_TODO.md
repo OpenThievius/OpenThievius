@@ -7,8 +7,10 @@
 
 The last user-confirmed useful screen is still the retail memory-card UI. The
 latest inspected client capture shows sparse purple scene meshes in its first
-three world frames, then only the gray horizon in frames 03–07. A repeat run
-confirms mesh submissions continue and real uploaded textures resolve after
+three world frames, then only the gray horizon in frames 03–07. The trace found
+hundreds of repeated request identities queued between presents; the optional
+renderer now keeps the latest mesh per identity. That lowers duplicate draws
+but does not change the captured image. Real uploaded textures resolve after
 the image becomes gray. This output is fragmented and unstable. A port-only
 fix to `func_001453B0` now uses its distance argument; `QueueModelPartDraws`
 moves from zero queued parts to 23 on the first pass and as many as 78 later.
@@ -17,11 +19,11 @@ blocks.
 These fragments come from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`
 path, which submits captured mesh data to OpenRAC's host renderer; they do not
 prove the ordinary VIF/VU/GIF path works.
-The next task is to compare mesh identity, transforms, depth, and material state
-between presents 02 and 03, then follow one surviving part through the real
-VIF/VU/GIF path to the framebuffer. The projected-bounds trace is a coarse
-vertex estimate, not proof of visible triangles. Do not change matched
-decompilation files or raise the VU instruction limit to hide packet errors.
+The next task is to derive the mesh's actual strip and draw boundaries from
+Sly's VIF/VU packet inputs, then follow one part through the real VIF/VU/GIF
+path to the framebuffer. The projected-bounds trace is only a vertex estimate,
+not proof of visible triangles. Do not change matched decompilation files or
+raise the VU instruction limit to hide packet errors.
 
 The optional native world renderer still submits mesh approximations, and the
 retail VU path still rejects the GIF kick at qword 469. Keep that issue
