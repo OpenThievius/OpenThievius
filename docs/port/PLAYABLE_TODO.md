@@ -52,6 +52,15 @@ VI6=2. The program has not reached its E-bit even at that limit. This is not
 evidence to raise the runtime default; trace the counter/source stream and
 loop exit condition next.
 
+A later isolated run confirmed the diagnostic override accepts two million
+cycles. Its 48-second wall-time bound ended while VU entries `0x242` and
+`0x318` were still exhausting that budget (`0x242` stopped at PC `0x25f`).
+Those budgeted calls did not reach their E-bit, and the run did not reach
+`0x401`, so the earlier arithmetic prediction does not explain the complete
+stream. The opt-in ceiling is now four million; the normal limit remains
+4,096. Avoid another longer run until the repeated VU entries and stream
+ownership are understood.
+
 Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-limit-context-20261116.log`,
 `/tmp/sly-vu-loop-extended-20261116.log`,
@@ -61,10 +70,12 @@ Captures: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
 `/tmp/sly-vu-pq-merge-capture-20261116.log`,
 `/tmp/sly-vu-entry401-state-20261116.log`, and
 `/tmp/sly-vu-entry401-final-20261116.log`. Builds:
-`/tmp/sly-vu-accsem-finalbuild-20261116.log` and
-`/tmp/sly-vu-pq-merge-build-20261116.log` and
-`/tmp/sly-vu-entry401-final-build-20261116.log`. The million-cycle diagnostic
-is `/tmp/sly-vu-entry401-1m-20261116.log`.
+`/tmp/sly-vu-accsem-finalbuild-20261116.log`,
+`/tmp/sly-vu-pq-merge-build-20261116.log`, and
+`/tmp/sly-vu-entry401-final-build-20261116.log`. The one- and two-million-cycle
+diagnostics are `/tmp/sly-vu-entry401-1m-20261116.log` and
+`/tmp/sly-vu-entry401-2m-20261116.log`; the cap build is
+`/tmp/sly-vu-extended-cap-build-20261116.log`.
 
 ### Reduce the no-card prompt flicker
 

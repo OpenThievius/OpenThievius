@@ -155,6 +155,17 @@ Evidence: `/tmp/sly-vu-entry401-state-20261116.log`,
 `/tmp/sly-vu-entry401-final-20261116.log`, and
 `/tmp/sly-vu-entry401-1m-20261116.log`.
 
+A bounded 48-second run with a two-million-cycle override was accepted but
+did not resolve the VU work: entries `0x242` and `0x318` still exhausted that
+budget, with `0x242` stopping at PC `0x25f`. Those budgeted calls did not reach
+their E-bit, and the run did not reach entry `0x401` before the wall-time bound
+ended. The opt-in override ceiling is now four million; the default remains
+4,096. Do not keep extending synchronous VU runs until the repeated program
+entries and VIF stream ownership are clear.
+
+Evidence: `/tmp/sly-vu-entry401-2m-20261116.log` and
+`/tmp/sly-vu-extended-cap-build-20261116.log`.
+
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
 The copied decomp headers retained the matching declaration
