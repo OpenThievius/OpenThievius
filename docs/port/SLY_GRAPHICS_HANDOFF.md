@@ -17,15 +17,23 @@ no title, recognizable scene, or playable state is visible. The earlier
 stretched purple geometry came from the optional prototype renderer and is not
 the current normal output.
 
-The model-transform trace also narrows one invalid matrix chain: object 96 has
-finite position and a fully NaN local rotation; its children (objects 68, 69,
-and 80) inherit the invalid world transform. The player parent has finite
-position and rotation. This shows where the transform chain first becomes
-invalid, but not yet who writes object 96's local rotation. Do not substitute
-an identity matrix as a fix. Trace the placed-object load/rotation source and
-keep the independent VIF/VU NaN source investigation below open. The opt-in
-ancestor trace is in `port/sly1/native_host32/main.cpp`; the capture is
-`/tmp/sly-native-latest-output-20261116.log`.
+An opt-in lifecycle trace corrected the earlier object-96 diagnosis. In the
+latest run object 96's local rotation is finite, while its position becomes
+NaN later. Object 68's mode-3 animation callback also returned a NaN matrix.
+The cause was a host i386 callback ABI mismatch: `GetTrackPosition` and
+`GetTrackRotation` were cast into vtable slots that pass time before output
+pointers, but their definitions put time last. The host staging adapter now
+reorders those signatures without editing the matched decomp source. A fresh
+trace shows finite results from `getRot`, finite object-68 rotation after
+`MovePlacedObject`, and no invalid model ancestor report. This removes the
+transform regression but does not fix rendering: the post-continue framebuffer
+is still black. The normal VIF/VU/GIF packet failure at qword 469 remains a
+separate graphics blocker. The lifecycle probe is in
+`port/tools/compile_decomp_host32.py` and
+`port/sly1/native_host32/main.cpp`. Captures:
+`/tmp/sly-object-68-pose-source-20261116.log`,
+`/tmp/sly-object-68-abi-verify-20261116.log`, and
+`/tmp/sly-native-frame-fixed-abi-20261116.log`.
 
 The trace does not support the earlier assumption that all VIF inputs are
 finite. One model UNPACK supplies finite positions at VU1 qwords 138 and 141,

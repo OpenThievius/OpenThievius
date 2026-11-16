@@ -562,6 +562,149 @@ extern "C" void sly1_native_trace_note_world(u32 world) {
         __atomic_store_n(&g_native_trace_target_world, world, __ATOMIC_RELAXED);
 }
 
+extern "C" void sly1_native_trace_placed_object_load(u32 object_address,
+                                                        u32 stream_address,
+                                                        u32 stage) {
+    const char* enabled = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_LOAD");
+    if (!g_startup_trace_enabled || enabled == nullptr || object_address == 0)
+        return;
+    u32 object_id = 96;
+    if (const char* id = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_ID")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(id, &end, 0);
+        if (end != id && *end == '\0' && parsed <= 0xFFFFu)
+            object_id = static_cast<u32>(parsed);
+    }
+    if (*reinterpret_cast<const volatile u32*>(object_address + 8u) != object_id)
+        return;
+    if (const char* target = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_ADDRESS")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(target, &end, 0);
+        if (end != target && *end == '\0' && parsed != 0 &&
+            object_address != static_cast<u32>(parsed)) return;
+    }
+    static u32 printed = 0;
+    if (__atomic_fetch_add(&printed, 1u, __ATOMIC_RELAXED) >= 128u) return;
+    const u32 parent_address =
+        *reinterpret_cast<const volatile u32*>(object_address + 0x18u);
+    const volatile u32* rotation =
+        reinterpret_cast<const volatile u32*>(object_address + 0xD0u);
+    const volatile u32* world_rotation =
+        reinterpret_cast<const volatile u32*>(object_address + 0x110u);
+    const volatile float* position =
+        reinterpret_cast<const volatile float*>(object_address + 0x100u);
+    const volatile float* world_position =
+        reinterpret_cast<const volatile float*>(object_address + 0x140u);
+    if (stage == 7 || stage == 8) {
+        const u32 position_attachment =
+            *reinterpret_cast<const volatile u32*>(object_address + 0x1ECu);
+        const u32 orientation_attachment =
+            *reinterpret_cast<const volatile u32*>(object_address + 0x1F0u);
+        const volatile u32* va = reinterpret_cast<const volatile u32*>(orientation_attachment);
+        const volatile u32* spin = reinterpret_cast<const volatile u32*>(object_address + 0x160u);
+        const volatile u32* accel = reinterpret_cast<const volatile u32*>(object_address + 0x180u);
+        std::fprintf(stderr,
+                     " attachment_state pos=%#010x rot=%#010x rot_vt=%#010x owner=%#010x mode=%d spin=%08x,%08x,%08x,%08x accel=%08x,%08x,%08x,%08x",
+                     position_attachment, orientation_attachment,
+                     orientation_attachment != 0 ? va[0] : 0,
+                     orientation_attachment != 0 ? va[1] : 0,
+                     orientation_attachment != 0 ? static_cast<int>(*reinterpret_cast<const volatile signed char*>(orientation_attachment + 0x11u)) : -1,
+                     spin[0], spin[1], spin[2], spin[3], accel[0], accel[1], accel[2], accel[3]);
+    }
+    std::fprintf(stderr,
+                 "[native placed rotation] stage=%u object=%#010x id=%u parent=%#010x stream=%#010x",
+                 stage, object_address, object_id, parent_address, stream_address);
+    if (stream_address != 0) {
+        const volatile u32* stream = reinterpret_cast<const volatile u32*>(stream_address);
+        const u32 source_address = stream[0x18 / 4];
+        const int remaining = static_cast<int>(stream[0x1C / 4]);
+        std::fprintf(stderr,
+                     " flags=%#x mode=%d source=%#010x remaining=%d next=%#010x next_count=%d sector=%d bytes_left=%d",
+                     stream[0], static_cast<int>(stream[1]), source_address, remaining,
+                     stream[0x20 / 4], static_cast<int>(stream[0x24 / 4]),
+                     static_cast<int>(stream[0x48 / 4]),
+                     static_cast<int>(stream[0x40 / 4]));
+    }
+    if (stage == 0 && stream_address != 0) {
+        const volatile u32* stream = reinterpret_cast<const volatile u32*>(stream_address);
+        const u32 source_address = stream[0x18 / 4];
+        const int remaining = static_cast<int>(stream[0x1C / 4]);
+        if (source_address != 0 && remaining >= 36) {
+        const volatile u32* source = reinterpret_cast<const volatile u32*>(source_address);
+        std::fprintf(stderr, " input=%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x",
+                     source[0], source[1], source[2], source[3], source[4], source[5],
+                     source[6], source[7], source[8]);
+        }
+    }
+    if (stage == 1 || stage >= 2) {
+        std::fprintf(stderr,
+                     " rotation=%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x world_rotation=%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%08x pos=%g,%g,%g world_pos=%g,%g,%g",
+                     rotation[0], rotation[1], rotation[2], rotation[3],
+                     rotation[4], rotation[5], rotation[6], rotation[7],
+                     rotation[8], rotation[9], rotation[10], rotation[11],
+                     world_rotation[0], world_rotation[1], world_rotation[2], world_rotation[3],
+                     world_rotation[4], world_rotation[5], world_rotation[6], world_rotation[7],
+                     world_rotation[8], world_rotation[9], world_rotation[10], world_rotation[11],
+                     position[0], position[1], position[2],
+                     world_position[0], world_position[1], world_position[2]);
+    }
+    std::fputc('\n', stderr);
+}
+
+extern "C" void sly1_native_trace_pose_rotation(u32 owner_address,
+                                                   u32 attachment_address,
+                                                   u32 stage,
+                                                   u32 matrix_address,
+                                                   u32 vector_address,
+                                                   float value,
+                                                   float reach,
+                                                   float rate) {
+    const char* enabled = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_LOAD");
+    if (!g_startup_trace_enabled || enabled == nullptr || owner_address == 0 ||
+        attachment_address == 0) return;
+    u32 object_id = 96;
+    if (const char* id = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_ID")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(id, &end, 0);
+        if (end != id && *end == '\0' && parsed <= 0xFFFFu)
+            object_id = static_cast<u32>(parsed);
+    }
+    if (*reinterpret_cast<const volatile u32*>(owner_address + 8u) != object_id)
+        return;
+    if (const char* target = std::getenv("OPENRAC_TRACE_PLACED_OBJECT_ADDRESS")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(target, &end, 0);
+        if (end != target && *end == '\0' && parsed != 0 &&
+            owner_address != static_cast<u32>(parsed)) return;
+    }
+    const volatile u32* matrix = reinterpret_cast<const volatile u32*>(matrix_address);
+    const volatile u32* vector = reinterpret_cast<const volatile u32*>(vector_address);
+    const volatile float* attachment =
+        reinterpret_cast<const volatile float*>(attachment_address);
+    const u32 player_address =
+        *reinterpret_cast<const volatile u32*>(attachment_address + 0x1Cu);
+    const volatile float* player =
+        reinterpret_cast<const volatile float*>(player_address);
+    const u32 vtable_address =
+        *reinterpret_cast<const volatile u32*>(attachment_address);
+    std::fprintf(stderr,
+                 "[native pose rotation] stage=%u owner=%#010x attachment=%#010x mode=%d key=%d track=%d attachment_end=%g player=%#010x animation=%#010x time=%g speed=%g getRot=%#010x matrix=",
+                 stage, owner_address, attachment_address,
+                 static_cast<int>(*reinterpret_cast<const volatile signed char*>(attachment_address + 0x11u)),
+                 *reinterpret_cast<const volatile int*>(attachment_address + 0x14u),
+                 *reinterpret_cast<const volatile int*>(attachment_address + 0x28u),
+                 attachment[0x18 / 4],
+                 player_address,
+                 player_address != 0 ? *reinterpret_cast<const volatile u32*>(player_address + 8u) : 0,
+                 player_address != 0 ? player[0x14 / 4] : 0.0f,
+                 player_address != 0 ? player[0x18 / 4] : 0.0f,
+                 vtable_address != 0 ? *reinterpret_cast<const volatile u32*>(vtable_address + 0x14u) : 0);
+    for (u32 i = 0; i < 12; ++i)
+        std::fprintf(stderr, "%s%08x", i == 0 ? "" : ",", matrix[i]);
+    std::fprintf(stderr, " vector=%08x,%08x,%08x,%08x value=%g reach=%g rate=%g\n",
+                 vector[0], vector[1], vector[2], vector[3], value, reach, rate);
+}
+
 extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                                                u32 camera_address) {
     if (!g_startup_trace_enabled || request_address == 0 || world == 0 ||
@@ -1265,6 +1408,8 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 }
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_placed_object_load(u32, u32, u32) {}
+extern "C" void sly1_native_trace_pose_rotation(u32, u32, u32, u32, u32, float, float, float) {}
 extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_queue_model_parts(u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_queue_model_result(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}

@@ -27,6 +27,22 @@ projected-bounds trace is only a vertex estimate, not proof of visible
 triangles. Do not change matched decompilation files or raise the VU instruction
 limit to hide packet errors.
 
+A separate host scene-graph fault is now fixed in the staged ABI adapter.
+`GetTrackPosition` and `GetTrackRotation` were cast into attachment vtable
+slots whose host signatures pass time before output pointers, while the
+definitions put time last. That argument shift made the mode-3 animation
+callback return NaN matrices. The adapter reorders those two staged function
+signatures; matched decomp source remains unchanged. A fresh trace shows
+finite callback matrices and no invalid model ancestor for object 68. This
+removes one regression but does not produce visible world pixels: the fresh
+post-continue framebuffer capture is still black. Keep the unresolved normal
+VIF/VU/GIF packet failure at qword 469 as the immediate graphics blocker.
+Trace controls are `OPENRAC_NATIVE_OBJECT_LOAD_TRACE` and
+`OPENRAC_TRACE_PLACED_OBJECT_LOAD=1`; captures are
+`/tmp/sly-object-68-pose-source-20261116.log`,
+`/tmp/sly-object-68-abi-verify-20261116.log`, and
+`/tmp/sly-native-frame-fixed-abi-20261116.log`.
+
 The optional native world renderer still submits mesh approximations, and the
 retail VU path still rejects the GIF kick at qword 469. Keep that issue
 separate from the newly observed short-lived scene draws; neither result alone

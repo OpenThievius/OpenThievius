@@ -2522,6 +2522,8 @@ def main(argv=None):
                         help="trace callback types submitted by the active world")
     parser.add_argument("--trace-oscillator", action="store_true",
                         help="probe RefreshOscillatorFrames without enabling other probes")
+    parser.add_argument("--trace-placed-object-load", action="store_true",
+                        help="trace serialized rotation and lifecycle transforms for a placed object")
     args = parser.parse_args(argv)
 
     source = args.source.expanduser().resolve()
@@ -4950,6 +4952,114 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected main-loop world update")
             adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_placed_object_load and rel.as_posix() == "main/placed_object.cpp":
+            declaration = 'extern "C" void sly1_native_trace_placed_object_load(u32, u32, u32);\n'
+            if declaration not in adapted:
+                adapted = declaration + adapted
+            needle = "    ReadBufferedRotation3((BufferedStream*)r, (u8*)&self->rot);"
+            replacement = (
+                "    sly1_native_trace_placed_object_load((u32)self, (u32)r, 0);\n"
+                + needle + "\n"
+                "    sly1_native_trace_placed_object_load((u32)self, (u32)r, 1);")
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected LoadPlacedObject rotation read")
+            adapted = adapted.replace(needle, replacement, 1)
+            probes = (
+                ("    ReadSlotObjects(self->world, self, r);",
+                 "    ReadSlotObjects(self->world, self, r);\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 2);"),
+                ("    ListFrame frame;\n    ResolveFollowRecordObjects(self);",
+                 "    ListFrame frame;\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 3);\n"
+                 "    ResolveFollowRecordObjects(self);"),
+                ("        }\n    }\n}\n\n// Start-up of the object once its world is loaded:",
+                 "        }\n    }\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 4);\n"
+                 "}\n\n// Start-up of the object once its world is loaded:"),
+                ("    StartKeyNode* k;\n    BaseObject* s0;",
+                 "    StartKeyNode* k;\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 5);\n"
+                 "    BaseObject* s0;"),
+                ("    *(sptr*)&g_activeListFrames = fr.prev;\n}\n\n// Per-frame update",
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 6);\n"
+                 "    *(sptr*)&g_activeListFrames = fr.prev;\n}\n\n// Per-frame update"),
+                ("void UpdatePlacedObject(PlacedObject* self, f32 f)\n{\n"
+                 "    UpdateAttachments((AnimatorOwner*)self->sub22C, self, f);",
+                 "void UpdatePlacedObject(PlacedObject* self, f32 f)\n{\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 11);\n"
+                 "    UpdateAttachments((AnimatorOwner*)self->sub22C, self, f);"),
+                ("    TriggerScriptEvent(self, 1, 1, args);\n}",
+                 "    TriggerScriptEvent(self, 1, 1, args);\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 12);\n}"),
+                ("void ComputePlacedObjectWorldFrame(PlacedObject* self)\n{\n"
+                 "    Rec2195_224* rec = self->linkRecord;",
+                 "void ComputePlacedObjectWorldFrame(PlacedObject* self)\n{\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 9);\n"
+                 "    Rec2195_224* rec = self->linkRecord;"),
+                ("    Rec2195_224* last = self->linkRecord;\n"
+                 "    if (last != 0 && (last->flags & 0x8020) == 0x8020) {",
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 10);\n"
+                 "    Rec2195_224* last = self->linkRecord;\n"
+                 "    if (last != 0 && (last->flags & 0x8020) == 0x8020) {"),
+                ("void MovePlacedObject(PlacedObject* self, s32 flag, f32 dt)\n{\n"
+                 "    Attachment* pa = self->positionAttachment;",
+                 "void MovePlacedObject(PlacedObject* self, s32 flag, f32 dt)\n{\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 7);\n"
+                 "    Attachment* pa = self->positionAttachment;"),
+                ("    }\n    g_activeListFrames = (ListFrame*)it.prev;\n}\n\ntypedef void (*PositionAtFn)",
+                 "    }\n"
+                 "    sly1_native_trace_placed_object_load((u32)self, 0, 8);\n"
+                 "    g_activeListFrames = (ListFrame*)it.prev;\n}\n\n"
+                 "typedef void (*PositionAtFn)"),
+            )
+            for needle, replacement in probes:
+                if adapted.count(needle) != 1:
+                    raise RuntimeError("expected placed-object pose trace site: " + needle[:80])
+                adapted = adapted.replace(needle, replacement, 1)
+        if args.trace_placed_object_load and rel.as_posix() == "main/pose_source.cpp":
+            declaration = (
+                'extern "C" void sly1_native_trace_pose_rotation('
+                'u32, u32, u32, u32, u32, float, float, float);\n')
+            if declaration not in adapted:
+                adapted = declaration + adapted
+            probes = (
+                ("    self->vt->getRot(self, 0.0f, &A, &B);",
+                 "    self->vt->getRot(self, 0.0f, &A, &B);\n"
+                 "    sly1_native_trace_pose_rotation((u32)owner, (u32)self, 0, "
+                 "(u32)&A, (u32)&B, dt, now, 0.0f);"),
+                ("        MultiplyMatrices3x3(&owner->rot, &A, &m);\n"
+                 "        MatrixToAxisAngle(&m, &angle, &axis);",
+                 "        MultiplyMatrices3x3(&owner->rot, &A, &m);\n"
+                 "        MatrixToAxisAngle(&m, &angle, &axis);\n"
+                 "        sly1_native_trace_pose_rotation((u32)owner, (u32)self, 1, "
+                 "(u32)&m, (u32)&axis, angle, 0.0f, 0.0f);"),
+                ("        f32 reach = ApproachValueWithRamp(0.0f, angle, dt, (RampProfile*)&prof, &rate);",
+                 "        f32 reach = ApproachValueWithRamp(0.0f, angle, dt, (RampProfile*)&prof, &rate);\n"
+                 "        sly1_native_trace_pose_rotation((u32)owner, (u32)self, 2, "
+                 "(u32)&m, (u32)&axis, angle, reach, rate);"),
+            )
+            for needle, replacement in probes:
+                if adapted.count(needle) != 1:
+                    raise RuntimeError("expected pose-source rotation trace site: " + needle[:80])
+                adapted = adapted.replace(needle, replacement, 1)
+        if rel.as_posix() == "main/pose_source.cpp":
+            # The attachment vtable ABI passes time before the output pointers.
+            # These two track callbacks were decompiled with time last and are
+            # cast into those slots. That cast works in the retail EE calling
+            # convention, but shifts the stack arguments in the native i386
+            # host build. Reorder only the staged definitions so the host
+            # callback signatures match AttachGetPos/AttachGetRot; keep the
+            # matched decompilation source untouched.
+            callback_abis = (
+                ("void GetTrackPosition(TrackFollowAttachment* self, Vec4* a1, Vec4* a2, f32 f)",
+                 "void GetTrackPosition(TrackFollowAttachment* self, f32 f, Vec4* a1, Vec4* a2)"),
+                ("void GetTrackRotation(TrackFollowAttachment* self, Mat3* a1, Vec4* a2, f32 f)",
+                 "void GetTrackRotation(TrackFollowAttachment* self, f32 f, Mat3* a1, Vec4* a2)"),
+            )
+            for old, new in callback_abis:
+                if adapted.count(old) != 1:
+                    raise RuntimeError("expected track callback host ABI site: " + old)
+                adapted = adapted.replace(old, new, 1)
         # Matching units declare AddGifRegisterWrite with inconsistent host
         # types. The retail ABI is (writer, 32-bit register, 64-bit value);
         # normalize every staged declaration and definition to that layout.

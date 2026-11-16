@@ -22,6 +22,8 @@ option(OPENRAC_NATIVE_SLY_WORLD_RENDERER
     "Draw native Sly kind-6 world meshes in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_OSCILLATOR_TRACE
     "Enable the focused oscillator mesh trace in the direct host32 build" OFF)
+option(OPENRAC_NATIVE_OBJECT_LOAD_TRACE
+    "Trace raw stream bytes and lifecycle transforms for one placed object" OFF)
 set(SLY1_NATIVE_TRACE_ARGUMENTS)
 set(SLY1_NATIVE_WORLD_ARGUMENTS)
 if(OPENRAC_NATIVE_SLY_WORLD_RENDERER)
@@ -38,6 +40,9 @@ if(OPENRAC_NATIVE_MODEL_TRACE)
 endif()
 if(OPENRAC_NATIVE_OSCILLATOR_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-oscillator)
+endif()
+if(OPENRAC_NATIVE_OBJECT_LOAD_TRACE)
+    list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-placed-object-load)
 endif()
 
 # Native runtime modules are added here as their interfaces are established.
