@@ -121,13 +121,27 @@ native trace, and establish how this VU program expects its second packet to
 be produced. Keep VIF/VU instruction semantics unchanged until that data flow
 is accounted for.
 
+The follow-up hidden capture `/tmp/sly-vif-state-sequence-20261116.log` now
+records that state through the failing call. For the three earlier MSCAL calls,
+DBF alternates `0->1`, `1->0`, then `0->1`; the MSCALF for the `0x5f` program
+switches it back `1->0`. BASE and OFFSET remain zero, so TOPS remains zero at
+each switch. In the same stream, the `0xc1d4` UNPACK writes qwords 468–474
+while DBF is 1, before that MSCALF. The first two vectors remain the valid EOP
+tag at 468 and its payload at 469. The VU then increments VI6 and XGKICKs from
+469, and the parser rejects the payload as a GIFtag on every repeated call.
+This confirms the observed native double-buffer transitions and shows they do
+not account for the one-qword tag/payload mismatch when BASE/OFFSET are zero;
+it does not establish whether the native DBF transitions match retail hardware
+or explain the separate qword-35 expectation. No runtime behavior was changed.
+
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
 from VI7=`35`, which also fails validation. The retry has been removed. Do not
 backstep pointers or weaken GIF validation. The immediate next task is to
 account for the complete VIF/VU data flow and double-buffer state against the
-manual, then find independent evidence for the intended packet address before
-changing the native model. Keep masked UNPACK `0x78` support limited to the
+manual and retail command sequence, then find independent evidence for the
+intended packet address before changing the native model. Keep masked UNPACK
+`0x78` support limited to the
 observed selectors; column-fill and write-protect remain unsupported. The
 no-card prompt's flicker remains a separate known issue.
 
