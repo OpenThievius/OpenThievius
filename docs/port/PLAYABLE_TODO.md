@@ -3,6 +3,28 @@
 
 ## Current bounded task (2026-11-16, paced client audit)
 
+Fresh hidden captures confirm the standard client still has two distinct
+visual states. With no input, the retail memory-card prompt is stable across
+the sampled frames (`/tmp/sly-current-noinput-contact.png`). A process-local
+Cross press begins dismissing that prompt; its panel shrinks during the
+transition and the subsequent world display is black
+(`/tmp/sly-current-16k-contact.png`). The shrinking prompt in that capture is
+the dismissal transition, not the steady no-input screen. Neither state shows
+a playable level.
+
+The VU1 limit issue is now fixed narrowly in the port runtime. A fresh hidden
+run with a 16,384-instruction override completed entry `0x26d` without a VU
+budget warning or a VIF stream-stop warning; at the old 4,096 limit it stopped
+at PC `0x2aa` and aborted the remaining VIF commands. The default for entry
+`0x26d` is now 16,384; other VU entries retain the 4,096 default and the
+existing environment overrides remain available. This does not fix graphics:
+the first world XGKICK at PC `0x68` still rejects qword 469 because qword 468
+contains the GIFtag and qword 469 contains payload. The hidden run still ends
+at its 12-second timeout (exit 137), not a confirmed crash, and the post-input
+frame is black. Logs: `/tmp/sly-clean-client-audit-20261116.log`,
+`/tmp/sly-vu16k-client-audit-20261116.log`, and the rebuilt-default check at
+`/tmp/sly-vu16k-default-client-audit-20261116.log`.
+
 The short startup capture was misleading: it saved only the first eight
 packets, which are black while the native render state is initialized. A
 tracing-disabled 12-second hidden Wayland run sampled 703 presents. Its first
@@ -20,11 +42,12 @@ stopped the renderer queue flood and produced a stable prompt after startup;
 the overflow-safe queue limit remains a last-resort guard.
 
 After Continue, the framebuffer still goes black. The world stream rejects
-XGKICK payload qword 469 as a GIFtag, and VU1 entry `0x26d` stops at PC `0x2aa`
-after exhausting its instruction budget, so later commands in that VIF stream
-are skipped. Keep the next graphics task focused on tracing that boundary
-from the retail VIF producer through VU1 and GIF. Do not relax validation or
-claim that the optional scene renderer demonstrates a working game renderer.
+XGKICK payload qword 469 as a GIFtag. Entry `0x26d` now completes with its
+scoped 16,384-instruction budget, so later commands in that VIF stream are no
+longer skipped for this reason. Keep the next graphics task focused on
+tracing the qword-468/469 boundary from the retail VIF producer through VU1
+and GIF. Do not relax validation or claim that the optional scene renderer
+demonstrates a working game renderer.
 
 ### Render one recognizable world object from Sly's draw inputs
 
@@ -41,19 +64,14 @@ not the normal game renderer. Separate gray-horizon and stretched-purple
 captures also came from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER` path.
 Neither is evidence that the ordinary VIF/VU/GIF renderer draws the world.
 
-The clean run again rejected the first world XGKICK at PC `0x68`, address 469:
-qword 468 is the GIFtag and qword 469 is its payload. The later kick at PC
-`0x6e`, address 35, was submitted, but the saved standard-client frames stayed
-black. The run reported VU1 entry `0x26d` exhausting its 4,096-instruction
-budget at PC `0x2aa`. VIF `0x14` is the valid `MSCAL` command that invokes it;
-the runtime aborts the VIF DMA stream when that VU call stops. The next
-commands in the same stream include another `MSCAL 0x1db`, `BASE`, `OFFSET`,
-and `UNPACK`, so they are not processed in this run. This explains the earlier
-misleading “unsupported VIF command” warning and proves the DMA stream is
-truncated, but does not yet explain the black output by itself. Keep the active
-task on tracing one world packet from the retail VIF/VU data through GIF
-decode and normal renderer intake. Do not backstep addresses or relax packet
-validation.
+The earlier 4,096-limit run rejected the first world XGKICK at PC `0x68`,
+address 469: qword 468 is the GIFtag and qword 469 is its payload. It also
+exhausted entry `0x26d` at PC `0x2aa`, truncating its VIF stream before later
+`MSCAL`, `BASE`, `OFFSET`, and `UNPACK` commands. The scoped 16,384 limit
+removes that stop, but the standard-client frame still goes black and XGKICK
+still rejects qword 469. Keep tracing the packet from the retail VIF/VU data
+through GIF decode and normal renderer intake. Do not backstep addresses or
+relax packet validation.
 
 The optional geometry experiments found hundreds of repeated request
 identities queued between presents; that renderer keeps the latest mesh per
@@ -69,8 +87,8 @@ it reveals only a black sky and flat ground, so that mesh is not the only
 blocker. The next task is to derive the real draw and material boundaries from
 Sly's VIF/VU packets and get one normal packet to the framebuffer. The
 projected-bounds trace is only a vertex estimate, not proof of visible
-triangles. Do not change matched decompilation files or raise the VU instruction
-limit to hide packet errors.
+triangles. Do not change matched decompilation files or further raise VU
+instruction limits to hide packet errors.
 
 A separate host scene-graph fault is now fixed in the staged ABI adapter.
 `GetTrackPosition` and `GetTrackRotation` were cast into attachment vtable

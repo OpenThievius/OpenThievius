@@ -23,27 +23,31 @@ crash. A separate 12-second capture sampled 703 presents without a crash.
 The queue cap remains as a safety bound. The wait changes host scheduling
 only; matched decompilation files are not modified.
 
-The post-Continue world remains a separate failure. Earlier process-local
-Cross capture went black after the input and hit the unresolved VU1 entry
-`0x26d` instruction-budget stop at PC `0x2aa`; XGKICK also rejects payload
-qword 469 as a GIF tag. This is not evidence of a playable level. Captures:
-`/tmp/sly-normal-postcontinue-audit-20261116.log` and
-`/tmp/sly-normal-postcontinue-contact.png`.
+The post-Continue world remains a separate failure. A process-local Cross
+press shrinks the memory-card panel during dismissal, then the world frame
+goes black. A scoped 16,384-instruction limit now lets VU1 entry `0x26d`
+finish; the previous 4,096 limit stopped at PC `0x2aa` and truncated the VIF
+stream. XGKICK still rejects qword 469 as a GIF tag even though qword 468
+holds the tag and qword 469 its payload. Fresh logs:
+`/tmp/sly-clean-client-audit-20261116.log`,
+`/tmp/sly-vu16k-client-audit-20261116.log`, and
+`/tmp/sly-vu16k-default-client-audit-20261116.log`; captures:
+`/tmp/sly-current-noinput-contact.png` and
+`/tmp/sly-current-16k-contact.png`. This is not evidence of a playable level.
 
 Keep the next graphics task on tracing the qword-468/469 boundary from the
 retail VIF producer through VU1 and GIF, while preserving strict packet
 validation. Keep any Sly function backfill under
 `port/game/sly1-us/native/` and leave matched decompilation files untouched.
 
-The post-Continue trace still identifies two concrete graphics failures: at
-PC `0x68`, XGKICK address 469 is rejected because qword 468 contains the
-GIFtag and qword 469 its payload; and VIF command `0x14` calls VU1 entry
-`0x26d`, which exhausts the 4,096-instruction budget at PC `0x2aa`. The runtime
-then aborts the rest of the VIF DMA stream, including later `MSCAL`, `BASE`,
-`OFFSET`, and `UNPACK` commands. This proves stream truncation after Continue,
-but does not yet explain the full black post-input frame. Diagnostic green,
-gray, or purple world captures came from opt-in renderers and are not normal
-game output.
+The earlier post-Continue trace identified two graphics problems: at PC
+`0x68`, XGKICK address 469 is rejected because qword 468 contains the GIFtag
+and qword 469 its payload; and VIF command `0x14` called entry `0x26d`, which
+exhausted the original 4,096-instruction budget at PC `0x2aa`. The latter is
+fixed with a scoped 16,384 default and no longer truncates that VIF stream.
+The qword boundary remains unresolved and the normal client still goes black.
+Diagnostic green, gray, or purple world captures came from opt-in renderers
+and are not normal game output.
 
 A separate Release-only crash was found when the shared GIF packet queue grew
 past 16 MiB through the XGKICK append callback. All queue append paths now

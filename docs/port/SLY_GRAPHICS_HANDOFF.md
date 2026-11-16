@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-16. The active host32 staging snapshot and public decomp
-master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
+Last checked: 2026-11-16. The active host32 staging snapshot and sibling
+`sly1-decomp` checkout are both at public master `8f7a85a3`.
 
 ## Latest client output audit (2026-11-16)
 
@@ -23,12 +23,16 @@ timeout; it did not crash. A tracing-disabled run completed 703 presents
 without a crash. The shared 16 MiB overflow guard remains enabled. Both
 changes are port host plumbing; matched decomp source is untouched.
 
-After a process-local Continue input, the current capture still goes black
-and is not playable. Its graphics path rejects an XGKICK at qword 469 and
-aborts a VIF stream when VU1 entry `0x26d` exceeds the instruction budget at
-PC `0x2aa`. Capture: `/tmp/sly-normal-postcontinue-contact.png`; log:
-`/tmp/sly-normal-postcontinue-audit-20261116.log`. The normal output does not
-include the stretched purple diagnostic scene.
+After a process-local Continue input, the panel shrinks during dismissal and
+the current capture then goes black; it is not playable. A scoped 16,384
+instruction limit lets VU1 entry `0x26d` finish, removing the earlier VIF
+stream abort at PC `0x2aa`. XGKICK at PC `0x68` still rejects qword 469, whose
+preceding qword 468 is the valid GIFtag. Captures:
+`/tmp/sly-current-noinput-contact.png` and
+`/tmp/sly-current-16k-contact.png`; logs:
+`/tmp/sly-clean-client-audit-20261116.log` and
+`/tmp/sly-vu16k-client-audit-20261116.log`. The normal output does not include
+the stretched purple diagnostic scene.
 
 An opt-in lifecycle trace corrected the earlier object-96 diagnosis. In the
 latest run object 96's local rotation is finite, while its position becomes
