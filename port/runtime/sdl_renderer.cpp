@@ -66,6 +66,11 @@ std::vector<NativeWorldMesh> g_world_meshes;
 std::uint32_t g_world_mesh_world = 0;
 openrac::gl::GLuint g_world_vao = 0;
 openrac::gl::GLuint g_world_vbo = 0;
+openrac::gl::GLuint g_present_framebuffer = 0;
+openrac::gl::GLuint g_present_texture = 0;
+int g_present_frame_width = 0;
+int g_present_frame_height = 0;
+bool g_present_frame_valid = false;
 openrac::gl::GLint g_world_mvp_location = -1;
 openrac::gl::GLint g_world_texture_location = -1;
 openrac::gl::GLint g_world_textured_location = -1;
@@ -82,6 +87,64 @@ std::atomic<std::uint64_t> g_dma_accept_count{0};
 std::atomic<std::uint64_t> g_dma_reject_count{0};
 std::atomic<std::uint64_t> g_dma_bytes{0};
 std::atomic<unsigned> g_dma_reject_notices{0};
+
+bool ensure_present_frame(int width, int height) {
+    using namespace openrac::gl;
+    if (width <= 0 || height <= 0) return false;
+    const bool resized = width != g_present_frame_width || height != g_present_frame_height;
+    if (g_present_texture == 0) glGenTextures(1, &g_present_texture);
+    if (g_present_framebuffer == 0) glGenFramebuffers(1, &g_present_framebuffer);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_present_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if (resized || g_present_frame_width == 0) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, nullptr);
+        g_present_frame_width = width;
+        g_present_frame_height = height;
+        g_present_frame_valid = false;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, g_present_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           g_present_texture, 0);
+    const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (!complete) {
+        g_present_frame_valid = false;
+        openrac::log::warn("native saved-frame framebuffer is incomplete");
+    }
+    return complete;
+}
+
+bool restore_present_frame(int width, int height) {
+    using namespace openrac::gl;
+    if (!g_present_frame_valid || width != g_present_frame_width ||
+        height != g_present_frame_height || !ensure_present_frame(width, height)) {
+        return false;
+    }
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, g_present_framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return true;
+}
+
+void save_present_frame(int width, int height) {
+    using namespace openrac::gl;
+    if (!ensure_present_frame(width, height)) return;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_present_texture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    g_present_frame_valid = true;
+}
 
 std::uint64_t read_u64(const std::uint8_t* bytes) {
     std::uint64_t value = 0;
@@ -880,8 +943,13 @@ extern "C" void openrac_native_window_present(void) {
     const std::uint64_t this_present = ++present_sequence;
     int width = 0, height = 0;
     g_window->drawable_size(width, height);
+    openrac::gl::glBindFramebuffer(openrac::gl::GL_FRAMEBUFFER, 0);
     g_viewport(0, 0, width, height);
     if (std::getenv("OPENRAC_DEBUG_PRESERVE_FRAME") == nullptr) {
+        openrac::gl::glColorMask(openrac::gl::GL_TRUE, openrac::gl::GL_TRUE,
+                                 openrac::gl::GL_TRUE, openrac::gl::GL_TRUE);
+        openrac::gl::glDepthMask(openrac::gl::GL_TRUE);
+        openrac::gl::glDisable(openrac::gl::GL_SCISSOR_TEST);
         g_clear_color(0, 0, 0, 1);
         g_clear(0x00004100u);
     }
@@ -939,35 +1007,42 @@ extern "C" void openrac_native_window_present(void) {
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
         g_textures->end_frame();
-        if (std::getenv("OPENRAC_DUMP_NATIVE_FRAMES") != nullptr) {
-            static unsigned frame_dump = 0;
-            static unsigned frame_seen = 0;
-            std::size_t minimum_bytes = 512;
-            if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES")) {
-                char* end = nullptr;
-                const unsigned long parsed = std::strtoul(setting, &end, 10);
-                if (end != setting && *end == '\0' && parsed <= 16u * 1024u * 1024u)
-                    minimum_bytes = static_cast<std::size_t>(parsed);
-            }
-            unsigned skip = 0;
-            if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_SKIP")) {
-                char* end = nullptr;
-                const unsigned long parsed = std::strtoul(setting, &end, 10);
-                if (end != setting && *end == '\0' && parsed <= 100000u)
-                    skip = static_cast<unsigned>(parsed);
-            }
-            if (packets.size() >= minimum_bytes && frame_seen++ >= skip && frame_dump < 8) {
-                const auto pixels = openrac::renderer::read_rgba(0, width, height);
-                char path[96];
-                std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);
-                if (FILE* file = std::fopen(path, "wb")) {
-                    std::fprintf(file, "P6 %d %d 255\n", width, height);
-                    for (std::size_t i = 0; i + 3 < pixels.size(); i += 4) {
-                        std::fwrite(pixels.data() + i, 1, 3, file);
-                    }
-                    std::fclose(file);
-                    std::fprintf(stderr, "[native frame dump] path=%s\n", path);
+    }
+    const bool preserve_previous_frame = world_meshes.empty() &&
+        (packets.empty() || !g_direct || !g_direct->last_frame_writes_display());
+    const bool restored_previous_frame = preserve_previous_frame &&
+        restore_present_frame(width, height);
+    if (restored_previous_frame && std::getenv("OPENRAC_TRACE_PRESENT") != nullptr) {
+        std::fprintf(stderr, "[native present] restored prior framebuffer after no-op draw\n");
+    }
+    if (std::getenv("OPENRAC_DUMP_NATIVE_FRAMES") != nullptr) {
+        static unsigned frame_dump = 0;
+        static unsigned frame_seen = 0;
+        std::size_t minimum_bytes = 512;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed <= 16u * 1024u * 1024u)
+                minimum_bytes = static_cast<std::size_t>(parsed);
+        }
+        unsigned skip = 0;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_SKIP")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed <= 100000u)
+                skip = static_cast<unsigned>(parsed);
+        }
+        if (packets.size() >= minimum_bytes && frame_seen++ >= skip && frame_dump < 8) {
+            const auto pixels = openrac::renderer::read_rgba(0, width, height);
+            char path[96];
+            std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);
+            if (FILE* file = std::fopen(path, "wb")) {
+                std::fprintf(file, "P6 %d %d 255\n", width, height);
+                for (std::size_t i = 0; i + 3 < pixels.size(); i += 4) {
+                    std::fwrite(pixels.data() + i, 1, 3, file);
                 }
+                std::fclose(file);
+                std::fprintf(stderr, "[native frame dump] path=%s\n", path);
             }
         }
     }
@@ -1003,6 +1078,7 @@ extern "C" void openrac_native_window_present(void) {
                          packets.size(), static_cast<unsigned>(paired_world_frame), path);
         }
     }
+    if (!restored_previous_frame) save_present_frame(width, height);
     g_window->swap();
 }
 
@@ -1019,6 +1095,13 @@ extern "C" void openrac_native_window_destroy(void) {
         g_world_mesh_world = 0;
     }
     if (g_textures) g_textures->release_gl();
+    if (g_present_texture != 0) openrac::gl::glDeleteTextures(1, &g_present_texture);
+    if (g_present_framebuffer != 0) openrac::gl::glDeleteFramebuffers(1, &g_present_framebuffer);
+    g_present_texture = 0;
+    g_present_framebuffer = 0;
+    g_present_frame_width = 0;
+    g_present_frame_height = 0;
+    g_present_frame_valid = false;
     g_direct.reset(); g_textures.reset(); g_window.reset();
     { std::scoped_lock lock(g_input_mutex); g_input.reset(); }
     g_platform.reset();

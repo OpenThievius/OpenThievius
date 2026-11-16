@@ -94,6 +94,7 @@ void GifInterpreter::clear() {
     m_targets.clear();
     m_vertices.clear();
     m_draws.clear();
+    m_suppressed_frame_fill = false;
     m_hud_side = 0;
     m_whole = false;
     m_error.clear();
@@ -1393,6 +1394,7 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
             (scissor_height >= kLowResFrameFillMinLines &&
              scissor_height <= kLowResFrameFillMaxLines);
         if (full_frame_scissor && height + 2 >= scissor_height) {
+            m_suppressed_frame_fill = true;
             return;
         }
     }
@@ -1734,6 +1736,7 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
 }
 
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+    m_last_frame_writes_display = false;
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
     if (packets.empty()) {
         return;
@@ -1746,6 +1749,13 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
         const stats::Scope decode("2d decode");
         submit(packets);
     }
+    m_last_frame_writes_display = m_interpreter->suppressed_frame_fill() ||
+        std::any_of(m_interpreter->draws().begin(), m_interpreter->draws().end(),
+                    [&input](const DirectDraw& draw) {
+                        if (draw.state.target != 0) return false;
+                        if (draw.mobys != 0) return static_cast<bool>(input.screen_mobys);
+                        return draw.count != 0 && draw.state.fbmsk != 0xFFFFFFFFu;
+                    });
     if (std::getenv("OPENRAC_TRACE_DIRECT") != nullptr) {
         static unsigned trace_frames = 0;
         static unsigned trace_larger_frames = 0;

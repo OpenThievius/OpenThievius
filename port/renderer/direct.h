@@ -247,6 +247,9 @@ public:
 
     const std::vector<DirectDraw>& draws() const { return m_draws; }
 
+    // A frame-height replacement fill was omitted because the native present clear supplies it.
+    bool suppressed_frame_fill() const { return m_suppressed_frame_fill; }
+
     const std::string& error() const { return m_error; }
 
 private:
@@ -371,6 +374,7 @@ private:
     std::size_t m_upload_bytes = 0;  // expected; 0 when no transfer is open
 
     bool m_state_dirty = true;
+    bool m_suppressed_frame_fill = false;
     DirectState m_state;
     std::vector<DirectVertex> m_vertices;
     std::vector<DirectDraw> m_draws;
@@ -397,6 +401,7 @@ public:
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
     void release() override;
+    bool last_frame_writes_display() const { return m_last_frame_writes_display; }
 
     // As a component of another renderer: feed packets, then flush() draws
     // what was fed.
@@ -414,6 +419,7 @@ public:
 
 private:
     const FrameInput* m_frame = nullptr;
+    bool m_last_frame_writes_display = false;
     void apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world

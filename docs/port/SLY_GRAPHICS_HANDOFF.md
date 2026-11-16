@@ -62,6 +62,19 @@ draw and no prompt geometry, so they are a separate unresolved display-copy
 case. Evidence: `/tmp/sly-flicker-fixed-capture-20261116.log` and
 `/tmp/sly-flicker-fixed-contact.png`.
 
+A follow-up trace correlated those remaining black frames with a full-screen
+120-vertex missing-texture draw. The draw was deliberately color-masked, so it
+wrote nothing; the host cleared the new backbuffer first and then presented
+that blank buffer. The Sly present path now saves the last completed image in a
+texture and blits it back on frames with no effective screen draw. It tracks
+explicit replacement fills separately, so a real game clear still clears the
+display. Each present also binds framebuffer 0 and restores color/depth write
+masks before clearing. A six-second hidden capture showed ten no-op frames
+restoring the prior image and zero fully black pixel samples after the prompt
+first appeared in 312 subsequent samples. See
+`/tmp/sly-flicker-final-capture-20261116.log`; frame 07 is
+`/tmp/sly1-native-frame-07.png`.
+
 Reproduce the correlated trace with `OPENRAC_TRACE_PRESENT=1`,
 `OPENRAC_TRACE_PRESENT_PIXEL=1`, `OPENRAC_TRACE_DIRECT=1`,
 `OPENRAC_TRACE_DIRECT_ALL=1`, and `OPENRAC_TRACE_DIRECT_STATE=1`. Add

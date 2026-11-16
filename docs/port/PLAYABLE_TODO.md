@@ -27,11 +27,16 @@ ISO read or an XGKICK/world packet failure.
 The attempted extension of the low-resolution full-frame filter to textured
 draw-buffer copies increased the observed black samples from two to four, and
 did not target these draws (their TBP0/source is zero, not the draw buffer).
-That uncommitted change was discarded. The remaining flicker needs a frame
-persistence fix at the native presentation boundary, but only after verifying
-buffer lifetime and intended game transitions; simply suppressing the clear
-can expose undefined swap-buffer contents. The 224-line untextured-fill fix
-remains the only renderer change in this checkpoint.
+That change was discarded. The black frames instead correspond to the GS
+framebuffer's contents persisting through a draw that writes no pixels. The
+native present path now keeps a copy of the last frame and restores it after a
+frame containing no visible draws; it still honors explicit full-height fills
+as clears. It also binds the default framebuffer and resets write masks before
+clearing. A six-second hidden capture recorded ten restored no-op frames and
+zero fully black pixel samples after the prompt first appeared across 312
+subsequent samples (`/tmp/sly-flicker-final-capture-20261116.log`). A captured
+frame confirms the prompt stays visible; the short white dash at the left edge
+remains unexplained.
 
 ### The world draw path reaches a mismatched VU packet pointer
 
