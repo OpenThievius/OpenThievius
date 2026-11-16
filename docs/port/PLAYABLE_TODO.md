@@ -14,12 +14,24 @@ now recognizes full-height scissors from 200 through 240 lines as the same
 low-resolution case. No matched game source changed.
 
 A fresh five-second hidden-window capture built from the change saved eight
-consecutive prompt frames, all visible. After startup, 2 of 227 pixel-readback
-frames were still black. Both contained only one full-screen textured draw and
-no prompt geometry; neither contained the late black fill. The clear-order
-regression is reduced, but the remaining display-copy-only frames still need
-an explanation. Capture: `/tmp/sly-flicker-fixed-capture-20261116.log` and
-`/tmp/sly-flicker-fixed-contact.png`.
+consecutive prompt frames, all visible. After startup, intermittent black
+frames remained. A later detailed capture showed four black samples out of 227
+post-startup frames (`/tmp/sly-flicker-copyfix-capture-20261116.log`). Each
+black sample has one 120-vertex, full-screen textured draw at texture handle 1,
+with `fbmsk=0xffffffff`, no prompt geometry, and black readback across the
+whole game area. The immediately adjacent frames redraw the prompt. This is the
+renderer suppressing a draw from an unavailable/placeholder texture while the
+native present path clears the window to black each frame. It is not a missing
+ISO read or an XGKICK/world packet failure.
+
+The attempted extension of the low-resolution full-frame filter to textured
+draw-buffer copies increased the observed black samples from two to four, and
+did not target these draws (their TBP0/source is zero, not the draw buffer).
+That uncommitted change was discarded. The remaining flicker needs a frame
+persistence fix at the native presentation boundary, but only after verifying
+buffer lifetime and intended game transitions; simply suppressing the clear
+can expose undefined swap-buffer contents. The 224-line untextured-fill fix
+remains the only renderer change in this checkpoint.
 
 ### The world draw path reaches a mismatched VU packet pointer
 
