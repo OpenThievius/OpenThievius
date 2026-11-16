@@ -261,6 +261,29 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
     const char* vu_setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
     const bool vu_setup_trace_enabled = vu_setup_trace != nullptr &&
         vu_setup_trace[0] != '\0' && vu_setup_trace[0] != '0';
+    static const std::array<uint32_t, 2> trace_xgkick_range = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA_QWORD");
+        if (setting == nullptr) return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        char* end = nullptr;
+        const unsigned long first = std::strtoul(setting, &end, 0);
+        if (end == setting || first >= 1024u)
+            return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        unsigned long last = first;
+        if (*end == '-') {
+            char* range_end = nullptr;
+            last = std::strtoul(end + 1, &range_end, 0);
+            if (range_end == end + 1 || *range_end != '\0' ||
+                last >= 1024u || last < first)
+                return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        } else if (*end != '\0') {
+            return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        }
+        return std::array<uint32_t, 2>{static_cast<uint32_t>(first),
+                                       static_cast<uint32_t>(last)};
+    }();
+    const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+    const bool xgkick_trace_enabled = xgkick_trace != nullptr &&
+        xgkick_trace[0] != '\0' && xgkick_trace[0] != '0';
 
     uint32_t destination = immediate & 0x3FFu;
     if ((immediate & 0x8000u) != 0)
@@ -278,12 +301,16 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             destination_index >= 136u && destination_index <= 142u;
         const bool trace_source_target = vu_setup_trace_enabled &&
             destination_index >= 348u && destination_index <= 363u;
+        const bool trace_xgkick_target = xgkick_trace_enabled &&
+            destination_index >= trace_xgkick_range[0] &&
+            destination_index <= trace_xgkick_range[1];
         if (input_trace != nullptr && destination_index == 348u)
             input_trace->push_back({destination_index, stream_offset});
         const bool trace_target =
+            (destination_index >= 27u && destination_index <= 30u) ||
             (destination_index >= 32u && destination_index <= 38u) ||
             (destination_index >= 464u && destination_index <= 476u) ||
-            trace_source_target || trace_transform_target;
+            trace_source_target || trace_transform_target || trace_xgkick_target;
         uint32_t old_lanes[4]{};
         if (trace_target) std::memcpy(old_lanes, lanes, sizeof(old_lanes));
         uint32_t input_lanes[4]{};
@@ -344,6 +371,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         const bool trace_setup_target = vu_setup_trace_enabled &&
             destination_index <= 38u;
         const bool trace_write =
+            trace_xgkick_target ||
             (trace_packet_target &&
              packet_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u) ||
             (trace_pointer_target &&
@@ -363,6 +391,19 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
                 load_mmio(kVif1Top) & 0x3FFu, load_mmio(kVif1Tops) & 0x3FFu,
                 load_mmio(kVif1Base) & 0x3FFu, load_mmio(kVif1Offset) & 0x3FFu,
                 (load_mmio(kVif1Status) >> 7u) & 1u,
+                input_lanes[0], input_lanes[1], input_lanes[2], input_lanes[3], mask,
+                old_lanes[0], old_lanes[1], old_lanes[2], old_lanes[3],
+                lanes[0], lanes[1], lanes[2], lanes[3]);
+        }
+        static std::array<std::atomic<uint32_t>, 1024> xgkick_write_notice{};
+        if (trace_xgkick_target &&
+            xgkick_write_notice[destination_index].fetch_add(
+                1, std::memory_order_relaxed) < 8u) {
+            openrac::log::info(
+                "native VIF1 XGKICK UNPACK qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+                destination_index, command, immediate, vector_index, vectors,
+                stream_offset - sizeof(uint32_t),
+                stream_offset + vector_index * input_bytes_per_vector,
                 input_lanes[0], input_lanes[1], input_lanes[2], input_lanes[3], mask,
                 old_lanes[0], old_lanes[1], old_lanes[2], old_lanes[3],
                 lanes[0], lanes[1], lanes[2], lanes[3]);

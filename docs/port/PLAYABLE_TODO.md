@@ -1,6 +1,50 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current visual and packet audit (2026-11-17)
+
+A fresh hidden native-client run injected one Cross press at frame 120 and
+captured frames 250 through 460. All eight inspected captures are black:
+`/tmp/sly-postcontinue-verified-20261117.png`. The no-input memory-card prompt
+still disappears on Continue; that transition is expected, but the black world
+output is a blocker. This confirms the current client output directly and is
+not inferred from draw counters.
+
+Two independent graphics-path failures are now more specific:
+
+1. At VU1 entry `0x5f`, PC `0x68` XGKICK reads `VI6=469`. The VIF UNPACK at
+   stream offset 5916 wrote qword 468 as GIFtag `0x100040000000806d` with A+D
+   descriptor `0xE`; qword 469 begins its A+D payload (`value=0x39001`,
+   register `0x48`). The kick from 469 is rejected because it interprets that
+   payload as a GIFtag. The same valid tag is copied to qword 35 and a later
+   XGKICK from 35 is accepted. Do not subtract one from XGKICK addresses or
+   relax validation without explaining this two-kick sequence and checking
+   transfer ordering.
+2. VU1 entry `0x411` produces non-finite data in its transform path. At PC
+   `0x430`, `MADDz` poisons ACC when `VF2.z` is NaN; `VF2` is then NaN from
+   `MULx` at PC `0x43a`, with NaN inputs in `VF30` and `VF24.x`. `VF24.x` is
+   copied from P at PC `0x436`; P becomes NaN at `ERLENG` PC `0x44a` when
+   `VF29` is already NaN. The corrected write trace shows the immediate bad
+   output: `SQ` at PC `0x445` writes qword 300 from `VF11`; in the first
+   non-finite sample, lane z is `0xffc00000` and lane w is `0xff800000`.
+   Earlier samples at the same store have finite xyz and only lane w is
+   infinite. So VIF uploads are not the source of this first bad geometry
+   write, but the trace still does not identify where `VF11` became invalid.
+   Trace `VF11`'s defining instructions and input registers next. Do not clamp
+   the output vertices as a workaround.
+
+Trace logs are `/tmp/sly-xgkick-address-audit-20261117.log`,
+`/tmp/sly-gif-origin-audit-20261117.log`,
+`/tmp/sly-vf29-inputs-20261117.log`, and
+`/tmp/sly-vu-store-q300-320-20261117.log`. The current VU instrumentation is enabled
+only by `OPENRAC_TRACE_VU1_XGKICK_DATA=1` and
+`OPENRAC_TRACE_VU1_KICK_ADDRESS=1`; the hidden-client capture used
+`OPENRAC_TEST_HIDDEN_WINDOW=1` and `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=120`.
+Next, trace the producer of `VF11` at entry `0x411` PC `0x445` and reconcile
+both XGKICK submissions with the game’s intended packet flow, then capture
+the ordinary renderer again.
+No matched decompilation source was changed.
+
 ## Current bounded task (2026-11-16, paced client audit)
 
 Fresh hidden captures confirm the standard client still has two distinct

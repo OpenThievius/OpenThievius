@@ -1,8 +1,40 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-16. The active host32 staging snapshot and sibling
+Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Native client re-audit (2026-11-17)
+
+A fresh hidden-client run injected Cross at frame 120 and saved post-input
+frames 250–460. All eight inspected frames are black
+(`/tmp/sly-postcontinue-verified-20261117.png`); the launcher exited only
+because the 12-second diagnostic timeout fired. This is the current rendered
+output, rather than a conclusion drawn from packet or draw counts.
+
+The qword-469 rejection is an address/transfer-flow question, not evidence that
+the GIFtag itself is invalid. Entry `0x5f`, PC `0x68` reads `VI6=469`. VIF
+UNPACK wrote a structurally valid GIFtag to qword 468 (`0x100040000000806d`,
+one A+D register per loop, 109 loops, EOP set), and qword 469 is its A+D
+payload. The qword-469 XGKICK is rejected; later, the guest copies that tag to
+qword 35 and XGKICKs from 35, which the parser accepts. We have not established
+why the guest issues both kicks or whether native VU/GIF transfer timing is
+missing a required state transition. Do not change the address or weaken GIF
+validation until the sequence is understood.
+
+There is a separate non-finite VU path: at entry `0x411`, PC `0x430` computes
+`MADDz` with `VF2.z=NaN` while ACC xyz is positive infinity. The NaN propagates
+through `VF29`, P, `VF24`, and `VF30` across PCs `0x436–0x44a`. A wider VU data
+store trace locates the first bad geometry write at `SQ` PC `0x445`: qword 300
+is written from `VF11`, whose z lane is `0xffc00000` and w lane is
+`0xff800000` in the first non-finite sample. Earlier executions of that SQ have
+finite xyz and an infinite w. VIF uploads are finite at the corresponding
+positions, but the defining instruction and inputs for `VF11` remain unknown.
+Trace that producer next; do not clamp output vertices as a workaround.
+Detailed traces are `/tmp/sly-xgkick-address-audit-20261117.log`,
+`/tmp/sly-gif-origin-audit-20261117.log`, and
+`/tmp/sly-vf29-inputs-20261117.log`, and
+`/tmp/sly-vu-store-q300-320-20261117.log`. No matched decompilation source changed.
 
 ### Post-Continue normal-renderer capture (2026-11-16, later run)
 
