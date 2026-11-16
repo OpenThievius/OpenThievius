@@ -67,6 +67,27 @@ do not raise the default instruction limit based on this run.
 Evidence: `/tmp/sly-vu-special-index-capture-20261116.log` and build
 `/tmp/open-thievius-host32-8f7a85a3-fresh/host32/sdl-launcher/sly1_native_sdl32`.
 
+### Verify the loaded VU1 mesh program (2026-11-16)
+
+A bounded hidden run with `OPENRAC_TRACE_VU1_PROGRAM_WORDS=842` confirms the
+VU1 instructions loaded by the native VIF runtime match the retail US
+executable. The `.vutext` range referenced by `g_groupMicroprogram` is a VIF
+stream with MPG command headers interleaved between 256-instruction chunks;
+compare the reconstructed VU memory, not a raw `.vutext` file offset. At PC
+842 the loaded five-instruction routine matches the corresponding source words
+after the four preceding MPG headers are consumed. This rules out a 32-byte
+VU upload offset error.
+
+The same run shows the first world XGKICK at PC `0x68` starts at qword 469,
+whose low word is `0x00039001`; strict GIF parsing rejects its reserved bits.
+The next XGKICK at PC `0x6e` starts at qword 35 and is accepted. The input
+qword 469 is written directly by VIF `UNPACK` command `0x6c`, immediate
+`0xc1d4`. Trace which stream producer and packet boundary supply that kick
+before changing the VU translator or GIF validation. The runtime word trace is
+opt-in through `OPENRAC_TRACE_VU1_PROGRAM_WORDS=<PC>`.
+
+Capture: `/tmp/sly-vu-program-words-842-20261116.log`.
+
 ### World submission bounds capture (2026-11-16)
 
 A fresh offscreen capture after the test Cross press entered world `0x870cf0`,

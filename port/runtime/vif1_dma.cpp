@@ -381,6 +381,25 @@ std::atomic_flag g_vu_unsupported_notice = ATOMIC_FLAG_INIT;
 
 void trace_vu1_program(uint32_t address, VifTrace* trace) {
     address &= 0x7FFu;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_VU1_PROGRAM_WORDS")) {
+        char* end = nullptr;
+        const unsigned long selected = std::strtoul(setting, &end, 0);
+        static std::array<std::atomic<bool>, kVu1MemoryBytes / 8u> dumped{};
+        if (end != setting && *end == '\0' && selected == address &&
+            !dumped[address].exchange(true, std::memory_order_relaxed)) {
+            for (uint32_t index = address; index < kVu1MemoryBytes / 8u; ++index) {
+                uint32_t lower = 0;
+                uint32_t upper = 0;
+                const uint8_t* instruction = guest_address(kVu1Micro + index * 8u);
+                std::memcpy(&lower, instruction, sizeof(lower));
+                std::memcpy(&upper, instruction + 4u, sizeof(upper));
+                openrac::log::info(
+                    "native VU1 program word address={} pc={} lower={:#010x} upper={:#010x}",
+                    address, index, lower, upper);
+                if ((upper & (1u << 30u)) != 0) break;
+            }
+        }
+    }
     for (size_t i = 0; i < trace->program_count; ++i) {
         if (trace->programs[i].address == address) return;
     }

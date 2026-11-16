@@ -22,11 +22,22 @@ is still an approximation. The row-major `model * view_projection` transform
 matches the translation in the final matrix row; existing captures show no
 basis for changing matrix order.
 
-Next, derive the primitive sequence for one bounded mesh from Sly's retail VU
-program and the captured draw inputs, then implement only that mesh's draw
-conversion and material handling in the port. Keep the prototype disabled by
-default and keep strict GIF validation. Any game-function backfill stays in
-`port/game/sly1-us/hand/native/`; do not change matched decompilation files.
+A targeted runtime dump confirms the loaded VU1 code at PC 842 matches the
+retail `.vutext` after parsing its interleaved MPG headers. The upload is not
+shifted. The first world XGKICK at PC `0x68` starts at qword 469, where the
+strict parser sees reserved GIF-tag bits; the following XGKICK at PC `0x6e`
+starts at qword 35 and is accepted. Qword 469 comes directly from a VIF
+UNPACK, so this failure precedes the GL mesh conversion. Trace the producer
+and intended boundary of that first kick before changing the translator or
+validation. The selected-program trace is enabled with
+`OPENRAC_TRACE_VU1_PROGRAM_WORDS=842`.
+
+Next, establish a valid Sly world GIF packet and derive one mesh's primitive
+sequence from Sly's retail VU program and captured inputs. Then implement only
+that mesh's draw conversion and material handling in the port. Keep the
+prototype disabled by default and keep strict GIF validation. Any game-function
+backfill stays in `port/game/sly1-us/hand/native/`; do not change matched
+decompilation files.
 
 Evidence: `/tmp/sly-vu65k-world-draw-trace-20261116.log`,
 `/tmp/sly1-native-world-after-hud-vu65k.png`, and the source definitions in
