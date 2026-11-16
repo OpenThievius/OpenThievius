@@ -762,6 +762,10 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     bool branch_delay = false;
     uint32_t branch_target = 0;
     PendingKick pending_kick{};
+    static std::atomic<uint32_t> loop_trace_count{0};
+    const char* loop_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
+    const bool loop_trace_enabled = loop_trace_setting != nullptr &&
+        loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
     uint32_t instruction_limit = kMaxInstructions;
     if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
         char* end = nullptr;
@@ -900,6 +904,20 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             branch_target = next_pc;
             branch_delay = true;
             pc = current_pc + 1u;
+        }
+        if (entry == 0x242u && loop_trace_enabled &&
+            (current_pc == 0x243u || current_pc == 0x253u || current_pc == 0x258u ||
+             current_pc == 0x261u || current_pc == 0x263u || current_pc == 0x264u ||
+             current_pc == 0x265u || current_pc == 0x26Eu || current_pc == 0x270u ||
+             current_pc == 0x272u || current_pc == 0x273u || current_pc == 0x274u) &&
+            (cycle < 128u || cycle % 256u == 0) &&
+            loop_trace_count.fetch_add(1, std::memory_order_relaxed) < 384u) {
+            openrac::log::info(
+                "native VU1 loop entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI4={} VI5={} VI6={} VI8={} VI9={} VI15={} branch_delay={} end_delay={}",
+                entry, cycle, current_pc, lower, upper, pc, vi_read(g_state, 4u),
+                vi_read(g_state, 5u), vi_read(g_state, 6u), vi_read(g_state, 8u),
+                vi_read(g_state, 9u), vi_read(g_state, 15u), branch_delay ? 1u : 0u,
+                end_delay ? 1u : 0u);
         }
     }
     static std::atomic<uint32_t> budget_trace_count{0};
