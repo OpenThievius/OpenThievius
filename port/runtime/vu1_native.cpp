@@ -762,7 +762,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     bool branch_delay = false;
     uint32_t branch_target = 0;
     PendingKick pending_kick{};
-    static std::atomic<uint32_t> loop_trace_count{0};
+    static std::array<std::atomic<uint32_t>, 2> loop_trace_count{};
     const char* loop_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
     const bool loop_trace_enabled = loop_trace_setting != nullptr &&
         loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
@@ -837,8 +837,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             }
         }
         g_state.vi = lower_result.vi;
-        if (lower_result.p != before.p) g_state.p = lower_result.p;
-        if (lower_result.q != before.q) g_state.q = lower_result.q;
+        g_state.p = lower_result.p;
+        g_state.q = lower_result.q;
         if (lower_result.status_flags != before.status_flags)
             g_state.status_flags = lower_result.status_flags;
 
@@ -907,19 +907,27 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             branch_delay = true;
             pc = current_pc + 1u;
         }
-        if (entry == 0x242u && loop_trace_enabled &&
+        const bool trace_first_loop = entry == 0x242u &&
             (current_pc == 0x243u || current_pc == 0x253u || current_pc == 0x258u ||
              current_pc == 0x261u || current_pc == 0x263u || current_pc == 0x264u ||
              current_pc == 0x265u || current_pc == 0x26Eu || current_pc == 0x270u ||
-             current_pc == 0x272u || current_pc == 0x273u || current_pc == 0x274u) &&
-            (cycle < 128u || cycle % 256u == 0) &&
-            loop_trace_count.fetch_add(1, std::memory_order_relaxed) < 384u) {
+             current_pc == 0x272u || current_pc == 0x273u || current_pc == 0x274u);
+        const bool trace_later_loop = entry == 0x401u &&
+            ((current_pc >= 0x401u && current_pc <= 0x410u) ||
+             current_pc == 0x3E5u || current_pc == 0x3E6u || current_pc == 0x3EDu ||
+             current_pc == 0x3EEu || current_pc == 0x3FDu || current_pc == 0x3FEu ||
+             current_pc == 0x3FFu);
+        const bool trace_sample = cycle < 128u ||
+            (trace_later_loop && current_pc == 0x3FDu) || cycle % 256u == 0;
+        const std::size_t trace_slot = trace_later_loop ? 1u : 0u;
+        if (loop_trace_enabled && (trace_first_loop || trace_later_loop) && trace_sample &&
+            loop_trace_count[trace_slot].fetch_add(1, std::memory_order_relaxed) < 384u) {
             openrac::log::info(
-                "native VU1 loop entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI4={} VI5={} VI6={} VI8={} VI9={} VI15={} branch_delay={} end_delay={}",
+                "native VU1 loop entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI4={} VI5={} VI6={} VI8={} VI9={} VI10={} VI14={} VI15={} branch_delay={} end_delay={}",
                 entry, cycle, current_pc, lower, upper, pc, vi_read(g_state, 4u),
                 vi_read(g_state, 5u), vi_read(g_state, 6u), vi_read(g_state, 8u),
-                vi_read(g_state, 9u), vi_read(g_state, 15u), branch_delay ? 1u : 0u,
-                end_delay ? 1u : 0u);
+                vi_read(g_state, 9u), vi_read(g_state, 10u), vi_read(g_state, 14u),
+                vi_read(g_state, 15u), branch_delay ? 1u : 0u, end_delay ? 1u : 0u);
         }
     }
     static std::atomic<uint32_t> budget_trace_count{0};
@@ -935,9 +943,10 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                     << instruction.lower << '/' << instruction.upper << ']';
         }
         openrac::log::warn(
-            "native VU1 instruction budget exhausted: entry={:#x} cycles={} stopped_pc={:#x} VI5={} VI6={} VI9={} VI15={} recent:{}",
+            "native VU1 instruction budget exhausted: entry={:#x} cycles={} stopped_pc={:#x} VI5={} VI6={} VI8={} VI9={} VI10={} VI14={} VI15={} recent:{}",
             entry, instruction_limit, pc, vi_read(g_state, 5u), vi_read(g_state, 6u),
-            vi_read(g_state, 9u), vi_read(g_state, 15u), context.str());
+            vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 10u),
+            vi_read(g_state, 14u), vi_read(g_state, 15u), context.str());
     }
     *unsupported_word = 0xFFFFFFFFu;
     *paired_word = 0xFFFFFFFFu;
