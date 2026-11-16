@@ -1053,6 +1053,7 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                          source_mesh, request_address, i, mesh.vertices.size() / 9u);
         openrac_native_sly_world_mesh_submit(world, instance, mesh.vertices.data(),
                                               static_cast<u32>(mesh.vertices.size() / 9u),
+                                              source_mesh,
                                               model, view_projection, mesh.tex0, mesh.tex1,
                                               mesh.clamp, mesh.test);
     }

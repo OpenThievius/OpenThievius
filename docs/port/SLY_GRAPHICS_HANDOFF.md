@@ -27,10 +27,22 @@ so the next step is to establish correct strip topology and compare the
 prototype's draw with the retail GS/VU packet path. Do not infer success from
 the rising mesh count or bounds estimate.
 
+An opt-in solid-color capture identifies one 106-vertex mesh (`source=0x00a0fd90`)
+whose projected bounds cover the view and whose GS TEST uses depth-always. When
+the prototype skips that mesh, the image is black above a flat ground plane;
+the later frames still show no recognizable objects. It is therefore not the
+only cause of missing geometry. These debug controls exist only in the host
+prototype: `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS=1` colors meshes by instance,
+and `OPENRAC_DEBUG_SLY_SKIP_FULL_COVER=1` skips full-view, depth-always meshes.
+The skip capture is `/tmp/sly-skip-cover-contact-20261116.png` and trace is
+`/tmp/sly-skip-cover-run-20261116.log`. Keep both controls off for normal runs.
+
 These purple fragments are from the experimental
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` path, which submits captured Sly meshes
 directly to OpenRAC's host renderer. They do not verify the normal VIF/VU/GIF
-render path; that path still has the malformed kick at qword 469.
+render path; that path still has the malformed kick at qword 469. The optional
+renderer remains diagnostic and must not become the basis for a playable-state
+claim.
 
 The path is now traced end to end through `QueueModelPartDraws`. The first
 1,910-part pass previously queued zero requests because the port-only

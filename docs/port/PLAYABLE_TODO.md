@@ -19,11 +19,13 @@ blocks.
 These fragments come from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`
 path, which submits captured mesh data to OpenRAC's host renderer; they do not
 prove the ordinary VIF/VU/GIF path works.
-The next task is to derive the mesh's actual strip and draw boundaries from
-Sly's VIF/VU packet inputs, then follow one part through the real VIF/VU/GIF
-path to the framebuffer. The projected-bounds trace is only a vertex estimate,
-not proof of visible triangles. Do not change matched decompilation files or
-raise the VU instruction limit to hide packet errors.
+An opt-in solid-color capture found one full-view, depth-always mesh. Skipping
+it reveals only a black sky and flat ground, so that mesh is not the only
+blocker. The next task is to derive the real draw and material boundaries from
+Sly's VIF/VU packets and get one normal packet to the framebuffer. The
+projected-bounds trace is only a vertex estimate, not proof of visible
+triangles. Do not change matched decompilation files or raise the VU instruction
+limit to hide packet errors.
 
 The optional native world renderer still submits mesh approximations, and the
 retail VU path still rejects the GIF kick at qword 469. Keep that issue

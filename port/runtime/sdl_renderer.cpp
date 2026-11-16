@@ -48,6 +48,7 @@ using Viewport = void (*)(int, int, int, int);
 
 struct NativeWorldMesh {
     std::uint64_t instance = 0;
+    std::uint32_t source_mesh = 0;
     std::vector<float> vertices;
     std::array<float, 16> mvp{};
     std::uint64_t tex0 = 0;
@@ -78,6 +79,8 @@ openrac::gl::GLint g_world_texture_location = -1;
 openrac::gl::GLint g_world_textured_location = -1;
 openrac::gl::GLint g_world_tcc_location = -1;
 openrac::gl::GLint g_world_tfx_location = -1;
+openrac::gl::GLint g_world_debug_geometry_location = -1;
+openrac::gl::GLint g_world_debug_color_location = -1;
 ClearColor g_clear_color = nullptr;
 Clear g_clear = nullptr;
 Viewport g_viewport = nullptr;
@@ -226,8 +229,14 @@ uniform sampler2D u_texture;
 uniform int u_textured;
 uniform int u_tcc;
 uniform int u_tfx;
+uniform int u_debug_geometry;
+uniform vec4 u_debug_color;
 out vec4 frag_color;
 void main() {
+    if (u_debug_geometry != 0) {
+        frag_color = u_debug_color;
+        return;
+    }
     vec4 color = v_color * 255.0;
     if (u_textured != 0) {
         vec4 texel = texture(u_texture, v_uv) * 255.0;
@@ -258,6 +267,8 @@ void main() {
     g_world_textured_location = g_world_shader->uniform("u_textured");
     g_world_tcc_location = g_world_shader->uniform("u_tcc");
     g_world_tfx_location = g_world_shader->uniform("u_tfx");
+    g_world_debug_geometry_location = g_world_shader->uniform("u_debug_geometry");
+    g_world_debug_color_location = g_world_shader->uniform("u_debug_color");
     glGenVertexArrays(1, &g_world_vao);
     glGenBuffers(1, &g_world_vbo);
     if (g_world_vao == 0 || g_world_vbo == 0) {
@@ -284,6 +295,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     if (!g_world_shader || meshes.empty()) return;
     const bool trace_projected_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
+    const bool debug_solid_colors =
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS") != nullptr;
+    const bool debug_skip_full_cover =
+        std::getenv("OPENRAC_DEBUG_SLY_SKIP_FULL_COVER") != nullptr;
     static unsigned present_bounds_sample = 0;
     unsigned projected_meshes = 0;
     unsigned intersecting_meshes = 0;
@@ -321,7 +336,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         }
         if (mesh.vertices.size() < 3u * 9u || mesh.vertices.size() > 4096u * 9u)
             continue;
-        if (trace_projected_bounds) {
+        bool projected_cover = false;
+        if (trace_projected_bounds || debug_skip_full_cover) {
             float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
             float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
             unsigned mesh_projected = 0;
@@ -360,12 +376,36 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                     max_y >= -1.0f && min_y <= 1.0f &&
                     max_z >= -1.0f && min_z <= 1.0f)
                     ++intersecting_meshes;
+                if (debug_solid_colors && min_x <= -1.0f && max_x >= 1.0f &&
+                    min_y <= -1.0f && max_y >= 1.0f &&
+                    present_bounds_sample < 64u) {
+                    std::fprintf(stderr,
+                                 "[native sly solid cover] frame=%u instance=%#llx source=%#010x vertices=%zu tex0=%#llx test=%#llx ndc=%g,%g..%g,%g z=%g..%g\n",
+                                 present_bounds_sample,
+                                 static_cast<unsigned long long>(mesh.instance),
+                                 mesh.source_mesh, vertex_count,
+                                 static_cast<unsigned long long>(mesh.tex0),
+                                 static_cast<unsigned long long>(mesh.test),
+                                 min_x, min_y, max_x, max_y, min_z, max_z);
+                }
+                projected_cover = min_x <= -1.0f && max_x >= 1.0f &&
+                                  min_y <= -1.0f && max_y >= 1.0f;
             }
         }
         const auto tex0 = openrac::renderer::gs::Tex0::decode(mesh.tex0);
         const auto tex1 = openrac::renderer::gs::Tex1::decode(mesh.tex1);
         const auto clamp = openrac::renderer::gs::Clamp::decode(mesh.clamp);
         const auto test = openrac::renderer::gs::Test::decode(mesh.test);
+        if (debug_skip_full_cover && projected_cover && test.zte &&
+            test.ztst == openrac::renderer::gs::DepthTest::Always) {
+            static unsigned skipped_cover_notices = 0;
+            if (skipped_cover_notices++ < 32u)
+                std::fprintf(stderr,
+                             "[native sly debug skip] instance=%#llx source=%#010x vertices=%zu\n",
+                             static_cast<unsigned long long>(mesh.instance),
+                             mesh.source_mesh, mesh.vertices.size() / 9u);
+            continue;
+        }
         auto texture = openrac::renderer::TextureHandle{};
         if (g_textures != nullptr && mesh.tex0 != 0) {
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
@@ -386,9 +426,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         }
         glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, mesh.mvp.data());
         glUniform1i(g_world_texture_location, 0);
-        glUniform1i(g_world_textured_location, texture != 0 && mesh.tex0 != 0 ? 1 : 0);
+        glUniform1i(g_world_textured_location,
+                    !debug_solid_colors && texture != 0 && mesh.tex0 != 0 ? 1 : 0);
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
+        glUniform1i(g_world_debug_geometry_location, debug_solid_colors ? 1 : 0);
+        if (debug_solid_colors) {
+            const std::uint32_t color_hash = static_cast<std::uint32_t>(
+                mesh.instance ^ (mesh.instance >> 32u));
+            const float red = 0.25f + static_cast<float>(color_hash & 0xFFu) * (0.75f / 255.0f);
+            const float green = 0.25f + static_cast<float>((color_hash >> 8u) & 0xFFu) * (0.75f / 255.0f);
+            const float blue = 0.25f + static_cast<float>((color_hash >> 16u) & 0xFFu) * (0.75f / 255.0f);
+            glUniform4f(g_world_debug_color_location, red, green, blue, 1.0f);
+        }
         if (texture != 0 && mesh.tex0 != 0) {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, g_textures->gl_texture(texture));
@@ -814,13 +864,15 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
-    std::uint32_t vertex_count, const float* model, const float* view_projection,
+    std::uint32_t vertex_count, std::uint32_t source_mesh,
+    const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t test) {
     if (world == 0 || vertices == nullptr || vertex_count < 3 || vertex_count > 4096 ||
         model == nullptr || view_projection == nullptr)
         return;
     NativeWorldMesh draw;
     draw.instance = instance;
+    draw.source_mesh = source_mesh;
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
     draw.tex0 = tex0;
     draw.tex1 = tex1;

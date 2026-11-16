@@ -1,14 +1,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Reset review (2026-11-15)
+## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated
 renderer prototype. The no-emulation build gets through the memory-card
 screen, loads world `0x870cf0`, advances frames, and reaches model draw
-callbacks. The last confirmed useful image is still the memory-card UI. The
-optional world prototype produces only gray; treat it as a failed experiment,
-not as a base to keep patching.
+callbacks. The last confirmed useful image is still the memory-card UI. A
+hidden capture shows sparse purple fragments for three presents, then gray.
+Deduplicating repeated mesh identities and skipping one full-view, depth-always
+mesh did not reveal a recognizable scene. Treat the optional world prototype
+as a failed experiment, not as a base to keep patching.
 
 **Next objective: render one real world object through a Sly-specific native
 draw path.** Start at the decomp's mesh-build and model-draw boundary. Use its
