@@ -1,24 +1,42 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current bounded task (2026-11-16)
+## Current bounded task (2026-11-16, clean client audit)
 
 ### Render one recognizable world object from Sly's draw inputs
 
-The last user-confirmed useful screen is still the retail memory-card UI. The
-latest inspected client capture now shows a gray horizon for three frames,
-followed by broad, stretched purple geometry. Correcting the optional
-renderer’s GS depth comparisons exposed more surfaces, but no recognizable
-object. The trace also found hundreds of repeated request identities queued
-between presents; the optional renderer now keeps the latest mesh per identity.
-Real uploaded textures resolve. This output is still unstable and unplayable. A port-only
-fix to `func_001453B0` now uses its distance argument; `QueueModelPartDraws`
-moves from zero queued parts to 23 on the first pass and as many as 78 later.
-The DMA9 scratchpad copy is byte-for-byte verified for the first 12 part/state
-blocks.
-These fragments come from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`
-path, which submits captured mesh data to OpenRAC's host renderer; they do not
-prove the ordinary VIF/VU/GIF path works.
+The current standard-client result is a black screen after the process-local
+Cross input. A clean hidden run of the host32 SDL launcher showed the retail
+no-card prompt in the first two saved frames; the next six saved frames were
+fully black. This run enabled no optional Sly world renderer or solid-color
+diagnostic. Log: `/tmp/sly-client-clean-audit-20261116.log`; captures:
+`/tmp/sly-clean-client-{00..07}.png` (converted from the raw PPM dumps).
+
+The green-line capture seen in the previous audit had
+`OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS` enabled, so it was diagnostic output,
+not the normal game renderer. Separate gray-horizon and stretched-purple
+captures also came from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER` path.
+Neither is evidence that the ordinary VIF/VU/GIF renderer draws the world.
+
+The clean run again rejected the first world XGKICK at PC `0x68`, address 469:
+qword 468 is the GIFtag and qword 469 is its payload. The later kick at PC
+`0x6e`, address 35, was submitted, but the saved standard-client frames stayed
+black. The run also reported a VU translation stop at PC `0x2aa` and an
+unsupported VIF command `0x14`; their relationship to the black output is not
+yet established. These are the current leads, not verified fixes. Keep the
+active task on tracing one world packet from the retail VIF/VU data through GIF
+decode and normal renderer intake. Do not backstep addresses or relax packet
+validation.
+
+The optional geometry experiments found hundreds of repeated request
+identities queued between presents; that renderer keeps the latest mesh per
+identity, and real uploaded textures resolve. A port-only fix to
+`func_001453B0` now uses its distance argument; `QueueModelPartDraws` moves
+from zero queued parts to 23 on the first pass and as many as 78 later. The
+DMA9 scratchpad copy is byte-for-byte verified for the first 12 part/state
+blocks. These findings are useful for a later comparison, but they do not
+change the standard-client result.
+
 An opt-in solid-color capture found one full-view, depth-always mesh. Skipping
 it reveals only a black sky and flat ground, so that mesh is not the only
 blocker. The next task is to derive the real draw and material boundaries from

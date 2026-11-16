@@ -1,7 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-15, clean graphics reset)
+## Current checkpoint (2026-11-16, clean native client audit)
+
+A fresh hidden run used the current host32 SDL launcher, the US retail ELF and
+the USA disc image. It injected one process-local Cross press at native frame
+120, with no optional world renderer or solid-color diagnostic enabled. The
+first two saved frames show the retail no-card prompt; the next six are fully
+black. The Cross hook reports that it injected the input, and the VU trace
+reaches the world XGKICK path, but this capture has no world-ID trace and does
+not establish which gameplay state received the press. Do not report a loaded
+level based on these frames alone.
+
+At PC `0x68`, XGKICK address 469 is rejected because qword 468 contains the
+GIFtag and qword 469 its payload. At PC `0x6e`, address 35 is accepted by the
+packet parser, but the ordinary client frame remains black. The run also
+reports a VU translation stop at PC `0x2aa` and an unsupported VIF command
+`0x14`; their causal role is unknown. The green-line capture from the prior
+audit used `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS`; earlier gray/purple output
+came from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`. Neither is normal
+game output.
+
+Evidence: `/tmp/sly-client-clean-audit-20261116.log` and
+`/tmp/sly-clean-client-{00..07}.png`. The native run was bounded and hidden;
+no launcher process remains. The immediate task is to trace the qword-468/469
+boundary from the retail VIF producer through VU1 and GIF, while preserving
+strict packet validation. Keep any Sly function backfill under
+`port/game/sly1-us/native/` and leave matched decompilation files untouched.
+
+## Earlier checkpoint (2026-11-15, clean graphics reset)
 
 A hidden 22-second native run injected Cross inside the game process at native
 frames 120 and 600, then captured frames beginning around frame 700. All eight
@@ -26,7 +53,7 @@ complete host port. The current host32 build compiles 194 matched units and 85
 port-only backfills and still links 99 missing-function traps. Keep those
 categories separate in readiness reports.
 
-## Current checkpoint (2026-11-15, after native frame capture)
+## Earlier checkpoint (2026-11-15, after native frame capture)
 
 The sibling `sly1-decomp` checkout is at `1cbb33fd`; US matching remains
 4,807/4,807 functions and 100% of code bytes (99.9675% of data). This is
