@@ -179,6 +179,16 @@ intended packet address. Keep masked UNPACK `0x78` support limited to the
 observed selectors; column-fill and write-protect remain unsupported. The
 no-card prompt's flicker remains a separate known issue.
 
+An opt-in VU trace records the last instruction pairs and VI5/VI6/VI9/VI15
+when a call hits its cycle budget (`OPENRAC_TRACE_VU1_LIMIT=1`). The default
+budget remains 4096. With the diagnostic override
+`OPENRAC_VU1_CYCLE_LIMIT=400000`, the captured calls no longer reported budget
+exhaustion, but the same malformed XGKICK data was rejected and the game
+stopped advancing at frame 142 (frame stage 2). DMA totals froze at 465
+submissions; this did not produce a usable frame. Do not raise the default
+budget based on this run: the XGKICK/VIF data flow is still unresolved, and the
+longer VU work did not clear the visible stall.
+
 The public [PS2Tek hardware notes](https://israpps.github.io/ps2tek/) document
 the VIF TOPS-relative UNPACK rule. The linked [Sony VU User's
 Manual](https://docs.alexrp.com/mips/ee_vu.pdf) documents XGKICK and the IALU
