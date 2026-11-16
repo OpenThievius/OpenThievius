@@ -33,6 +33,15 @@ boundary from the retail VIF producer through VU1 and GIF, while preserving
 strict packet validation. Keep any Sly function backfill under
 `port/game/sly1-us/native/` and leave matched decompilation files untouched.
 
+A separate Release-only crash was found when the shared GIF packet queue grew
+past 16 MiB through the XGKICK append callback. All queue append paths now
+share an overflow-safe 16 MiB guard. A hidden 10-second Release run reached the
+limit, logged bounded rejection warnings, and did not reproduce `bad_alloc`;
+it timed out with exit 137 and still has no confirmed visible world output.
+This guard prevents unbounded growth but drops excess packet data, so it does
+not resolve the black framebuffer. Evidence:
+`/tmp/sly-release-queue-guard-20261116.log`.
+
 ## Earlier checkpoint (2026-11-15, clean graphics reset)
 
 A hidden 22-second native run injected Cross inside the game process at native

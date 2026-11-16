@@ -70,6 +70,22 @@ retail VU path still rejects the GIF kick at qword 469. Keep that issue
 separate from the newly observed short-lived scene draws; neither result alone
 proves a playable level.
 
+### Native GIF queue allocation guard (2026-11-16)
+
+A fresh Release build exposed a separate native-host failure: the XGKICK
+append path could grow the shared GIF packet vector without a limit. That
+append ran before the DMA-chain and GIF-stream checks, so later 16 MiB checks
+could underflow `maximum - queued` after the queue had already exceeded its
+cap, leading to `std::bad_alloc`. The port renderer now applies one overflow-
+safe 16 MiB bound to all three append paths and rejects packets when the queue
+is already full. The hidden Release client reproduced the queue reaching the
+limit and emitted capped rejection warnings; it no longer threw `bad_alloc`
+during the 10-second run. It was stopped by the timeout (exit 137), and
+recognizable graphics remain unresolved. This is a host stability guard, not
+a rendering fix; dropped GIF bytes can still leave the screen black. Log:
+`/tmp/sly-release-queue-guard-20261116.log`. No matched decompilation files
+changed.
+
 The decomp's `BuildStripMeshPacket` gives the port an ordered `VertexRefs`
 sequence, positions, UVs, tints, and per-object matrices. `FrameSource` does
 not give vertex strip lengths: its stride is measured in qwords, and

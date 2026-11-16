@@ -73,6 +73,20 @@ bytes each. No matched decompilation source changed.
 
 Evidence: `/tmp/sly-vif-failure-kind-20261116.log`.
 
+### Bound the shared GIF packet queue (2026-11-16)
+
+The Release client previously reached `std::bad_alloc` in the renderer after
+the XGKICK append callback grew `g_packets` beyond the 16 MiB limits enforced
+by the other submission paths. Those guards also used subtraction that could
+underflow once the existing queue exceeded the limit. The port runtime now
+checks both current and incoming sizes before every append, with a shared
+overflow-safe 16 MiB cap. A hidden Release run reached the cap and logged
+rejections instead of throwing `bad_alloc`; the process was stopped after 10
+seconds (timeout exit 137). Since overflow packets are dropped, this confirms
+host memory stability only and leaves the black/invalid world output
+unresolved. Log: `/tmp/sly-release-queue-guard-20261116.log`. No matched
+decompilation source changed.
+
 The optional renderer previously mapped every non-`Always` GS depth test to
 OpenGL `LEQUAL`, incorrectly treating `Greater`, `Gequal`, and `Never` as the
 same comparison. It now maps all four decoded GS modes to their matching GL

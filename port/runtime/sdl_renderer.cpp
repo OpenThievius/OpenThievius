@@ -87,11 +87,19 @@ Viewport g_viewport = nullptr;
 std::mutex g_packets_mutex;
 std::mutex g_input_mutex;
 std::vector<std::uint8_t> g_packets;
+constexpr std::size_t kMaxQueuedGifBytes = 16u * 1024u * 1024u;
 std::atomic<std::uint64_t> g_dma_submit_count{0};
 std::atomic<std::uint64_t> g_dma_accept_count{0};
 std::atomic<std::uint64_t> g_dma_reject_count{0};
 std::atomic<std::uint64_t> g_dma_bytes{0};
 std::atomic<unsigned> g_dma_reject_notices{0};
+
+bool gif_queue_has_room_locked(std::size_t incoming_bytes,
+                               std::size_t maximum_bytes) {
+    const std::size_t queued_bytes = g_packets.size();
+    return incoming_bytes <= maximum_bytes && queued_bytes <= maximum_bytes &&
+           incoming_bytes <= maximum_bytes - queued_bytes;
+}
 
 bool ensure_present_frame(int width, int height) {
     using namespace openrac::gl;
@@ -568,7 +576,7 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
 
 extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_address) {
     constexpr std::size_t kMaxTags = 65536;
-    constexpr std::size_t kMaxBytes = 16 * 1024 * 1024;
+    constexpr std::size_t kMaxBytes = kMaxQueuedGifBytes;
     std::vector<std::uint8_t> stream;
     std::array<std::uint32_t, 16> returns{};
     std::size_t return_count = 0;
@@ -724,7 +732,7 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
     trace_gs_register_inputs(stream.data(), stream.size(), source_address, "dma-chain");
     {
         std::scoped_lock lock(g_packets_mutex);
-        if (stream.size() > kMaxBytes - g_packets.size()) {
+        if (!gif_queue_has_room_locked(stream.size(), kMaxBytes)) {
             g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
             return;
         }
@@ -813,12 +821,22 @@ extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
                                                            std::size_t size) {
     if (source == nullptr || size == 0) return;
     std::scoped_lock lock(g_packets_mutex);
+    if (!gif_queue_has_room_locked(size, kMaxQueuedGifBytes)) {
+        g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
+        static std::atomic<unsigned> overflow_notices{0};
+        if (overflow_notices.fetch_add(1, std::memory_order_relaxed) < 4u) {
+            openrac::log::warn(
+                "native GIF packet queue full: queued={} incoming={} limit={}",
+                g_packets.size(), size, kMaxQueuedGifBytes);
+        }
+        return;
+    }
     g_packets.insert(g_packets.end(), static_cast<const std::uint8_t*>(source),
                      static_cast<const std::uint8_t*>(source) + size);
 }
 
 extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_address) {
-    constexpr std::size_t kMaxBytes = 16 * 1024 * 1024;
+    constexpr std::size_t kMaxBytes = kMaxQueuedGifBytes;
     g_dma_submit_count.fetch_add(1, std::memory_order_relaxed);
     const char* failure = "unknown";
     const std::uint8_t* first_tag = nullptr;
@@ -847,7 +865,7 @@ extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_a
     trace_gs_register_inputs(gif, gif_size, source_address, "gif-stream");
     {
         std::scoped_lock lock(g_packets_mutex);
-        if (gif_size > kMaxBytes - g_packets.size()) {
+        if (!gif_queue_has_room_locked(gif_size, kMaxBytes)) {
             g_dma_reject_count.fetch_add(1, std::memory_order_relaxed);
             return;
         }
