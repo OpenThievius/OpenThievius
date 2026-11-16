@@ -51,6 +51,7 @@ struct State {
     std::array<uint16_t, 16> vi{};
     Vector acc{};
     float q = 0.0f;
+    float p = 0.0f;
     float i = 0.0f;
     uint16_t itop = 0;
     uint16_t mac_flags = 0;
@@ -380,19 +381,52 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
     if (opcode >= 0x3Cu) {
         const uint32_t special = (((word >> 6u) & 31u) << 2u) | (opcode & 3u);
         switch (special) {
-        case 0x08: case 0x09: case 0x0A: case 0x0B: { // MADDAx/y/z/w
-            const uint32_t lane = special - 0x08u;
-            state->acc[lane] += source[lane] * target[lane];
+        case 0x00: case 0x01: case 0x02: case 0x03: { // ADDAbc
+            const uint32_t broadcast = special & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] + target[broadcast];
             return true;
         }
-        case 0x0C: case 0x0D: case 0x0E: case 0x0F: { // MSUBAx/y/z/w
-            const uint32_t lane = special - 0x0Cu;
-            state->acc[lane] -= source[lane] * target[lane];
+        case 0x04: case 0x05: case 0x06: case 0x07: { // SUBAbc
+            const uint32_t broadcast = special & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] - target[broadcast];
+            return true;
+        }
+        case 0x1F: // CLIPw.xyz vf[fs], vf[ft].w
+            if (opcode == 0x3Fu && mask == 0x0Eu) {
+                const float limit = std::fabs(target[3]);
+                uint32_t current_clip = 0;
+                for (uint32_t lane = 0; lane < 3; ++lane) {
+                    if (source[lane] > limit) current_clip |= 1u << (lane * 2u);
+                    if (source[lane] < -limit) current_clip |= 1u << (lane * 2u + 1u);
+                }
+                state->clip_flags = ((state->clip_flags << 6u) | current_clip) &
+                                    0x00FFFFFFu;
+                return true;
+            }
+            break;
+        case 0x08: case 0x09: case 0x0A: case 0x0B: { // MADDAbc
+            const uint32_t broadcast = special & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] += source[lane] * target[broadcast];
+            return true;
+        }
+        case 0x0C: case 0x0D: case 0x0E: case 0x0F: { // MSUBAbc
+            const uint32_t broadcast = special & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] -= source[lane] * target[broadcast];
             return true;
         }
         case 0x18: case 0x19: case 0x1A: case 0x1B: { // MULAx/y/z/w
-            const uint32_t lane = special - 0x18u;
-            state->acc[lane] = source[lane] * target[lane];
+            const uint32_t broadcast = special & 3u;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] * target[broadcast];
             return true;
         }
         case 0x10: case 0x11: case 0x12: case 0x13:
@@ -418,6 +452,36 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane) result[lane] = std::fabs(source[lane]);
             vf_write(state, ft, result, mask);
             return true;
+        case 0x28: { // ADDA
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] + target[lane];
+            return true;
+        }
+        case 0x29: { // MADDA
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] += source[lane] * target[lane];
+            return true;
+        }
+        case 0x2A: { // MULA
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] * target[lane];
+            return true;
+        }
+        case 0x2C: { // SUBA
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = source[lane] - target[lane];
+            return true;
+        }
+        case 0x2D: { // MSUBA
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] -= source[lane] * target[lane];
+            return true;
+        }
         case 0x30: // MOVE
             vf_write(state, ft, source, mask);
             return true;
@@ -478,6 +542,39 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
     if ((word >> 25u) == 0x40u) {
         const uint32_t function = word & 0x3Fu;
         const uint32_t field = (word >> 6u) & 31u;
+        if ((word & 0x7FFu) == 0x67Cu) { // MFP.dest VF[ft], P
+            const float value = state->p;
+            vf_write(state, target, {value, value, value, value},
+                     (word >> 21u) & 15u);
+            return true;
+        }
+        if ((word & 0x7FFu) == 0x73Fu) { // ERLENG P, VF[fs]
+            const Vector value = vf_read(*state, source);
+            const float length_squared = value[0] * value[0] +
+                                         value[1] * value[1] +
+                                         value[2] * value[2];
+            state->p = 1.0f / std::sqrt(length_squared);
+            return true;
+        }
+        if ((word & 0x7FFu) == 0x3BFu) { // WAITQ; scalar operations complete synchronously here
+            return true;
+        }
+        if ((word & 0x7FFu) == 0x3BCu) { // DIV Q, VF[fs]fsf, VF[ft]ftf
+            const uint32_t ftf = (word >> 23u) & 3u;
+            const uint32_t fsf = (word >> 21u) & 3u;
+            const float numerator = vf_read(*state, source)[fsf];
+            const float denominator = vf_read(*state, target)[ftf];
+            const bool numerator_zero = numerator == 0.0f;
+            const bool denominator_zero = denominator == 0.0f;
+            uint16_t divide_flags = 0;
+            if (denominator_zero)
+                divide_flags = numerator_zero ? 0x10u : 0x20u;
+            state->status_flags = static_cast<uint16_t>(
+                (state->status_flags & ~0x30u) | divide_flags |
+                (divide_flags << 6u));
+            state->q = numerator / denominator;
+            return true;
+        }
         switch (function) {
         case 0x30: // IADD
             if (destination != 0)
@@ -500,6 +597,18 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             vi_write(state, destination, static_cast<uint16_t>(vi_read(*state, source) | vi_read(*state, target)));
             return true;
         case 0x3C: case 0x3D: case 0x3E: case 0x3F:
+            if (function == 0x3Cu && field == 0x0Cu) { // MOVE.dest ft, fs
+                vf_write(state, target, vf_read(*state, source),
+                         (word >> 21u) & 15u);
+                return true;
+            }
+            if (function == 0x3Du && field == 0x0Cu) { // MR32.dest ft, fs
+                const Vector input = vf_read(*state, source);
+                vf_write(state, target,
+                         {input[1], input[2], input[3], input[0]},
+                         (word >> 21u) & 15u);
+                return true;
+            }
             if (field == 0x0Fu || field == 0x0Du) {
                 const uint32_t base = source & 15u;
                 const int32_t step = field == 0x0Fu ? 1 : -1;
@@ -607,9 +716,10 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         return true;
     }
     if (primary == 0x24u || primary == 0x25u) { // JR / JALR
+        const uint16_t jump_target = vi_read(*state, source);
         if (primary == 0x25u)
             vi_write(state, target, static_cast<uint16_t>(state->pc + 2u));
-        *next_pc = vi_read(*state, source) & 0x7FFu;
+        *next_pc = jump_target & 0x7FFu;
         return true;
     }
     if (primary >= 0x28u && primary <= 0x2Fu) {
