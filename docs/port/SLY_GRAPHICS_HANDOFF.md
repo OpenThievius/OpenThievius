@@ -35,6 +35,27 @@ final staged code retains only the bounded reservation trace, gated by
 
 ## Direction reset
 
+### Client recheck and scratchpad DMA attempt (2026-11-16)
+
+I rebuilt and inspected another hidden client capture after the process-local
+Cross press. It still shows only the gray horizon and ground; there is no
+recognizable scene. The screenshot `/tmp/sly-scratchpad-dma-frame-20261116.png`
+matches the earlier gray-horizon output in appearance. The run stayed in the
+active world loop for at least 320 samples and did not report the previous
+`0x99999999` fault, but the source-level model-hook probe did not fire, so this
+run does not establish that `QueueModelPartDraws` or its scratchpad data copy
+worked.
+
+The new port-only attempt in `port/game/sly1-us/native/func_002027C8.cpp`
+implements synchronous DMA9 RAM-to-scratchpad block copies and DMA8
+scratchpad-to-RAM copies from the recorded `SprTransfer` blocks. It compiles,
+but it is not yet validated: the current run has no copy-result trace and no
+matching draw-hook event. Keep the matched decomp unchanged and instrument the
+channel-8/9 transfer records and the next `QueueModelPartDraws` entry before
+relying on this backfill. Build/run evidence:
+`/tmp/sly-scratchpad-dma-build-20261116.log` and
+`/tmp/sly-scratchpad-dma-probe-20261116.log`.
+
 The no-emulation launcher reaches model draw callbacks after loading a world,
 but the last user-confirmed useful image is the retail no-card UI. The optional
 world-renderer prototype remains disabled by default and its gray horizon is

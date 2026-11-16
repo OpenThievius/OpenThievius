@@ -1,10 +1,91 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Port-only native replacements for the EE DMA/VIF setup boundary. Channel
 // records live in host memory and complete synchronously; no PS2 MMIO is used.
+struct NativeSprTransfer {
+    unsigned int tags;
+    int base;
+    unsigned int addrs[8];
+    int sizes[8];
+    int count;
+    int state;
+};
+extern "C" NativeSprTransfer D_002748F0[2];
+extern "C" int D_00274990;
+
 namespace {
+
+void copy_bytes(unsigned int destination, unsigned int source, unsigned int size) {
+    volatile unsigned char* out = reinterpret_cast<volatile unsigned char*>(destination);
+    const volatile unsigned char* in =
+        reinterpret_cast<const volatile unsigned char*>(source);
+    for (unsigned int i = 0; i < size; ++i) out[i] = in[i];
+}
 
 struct NativeDmaChannel { unsigned int registers[0x84 / 4]; };
 NativeDmaChannel g_channels[10]{};
+
+bool in_main_ram(unsigned int address, unsigned int size) {
+    return address >= 0x00100000u && address <= 0x02000000u &&
+           size <= 0x02000000u - address;
+}
+
+bool in_scratchpad(unsigned int address, unsigned int size) {
+    return address >= 0x70000000u && address <= 0x70004000u &&
+           size <= 0x70004000u - address;
+}
+
+bool copy_to_scratchpad(unsigned int chain_address) {
+    const unsigned int physical_chain = chain_address & 0x0FFFFFFFu;
+    for (unsigned int transfer_index = 0; transfer_index < 2u; ++transfer_index) {
+        NativeSprTransfer& transfer = D_002748F0[transfer_index];
+        if ((transfer.tags & 0x0FFFFFFFu) != physical_chain ||
+            transfer.count <= 0 || transfer.count > 8)
+            continue;
+
+        for (int i = 0; i < transfer.count; ++i) {
+            const unsigned long long tag =
+                *reinterpret_cast<const volatile unsigned long long*>(
+                    transfer.tags + static_cast<unsigned int>(i) * 16u);
+            const unsigned int size = static_cast<unsigned int>(transfer.sizes[i]);
+            const unsigned int source =
+                static_cast<unsigned int>(tag >> 32) & 0x1FFFFFFFu;
+            const unsigned int target = transfer.addrs[i];
+            if (size == 0 || !in_main_ram(source, size) ||
+                !in_scratchpad(target, size))
+                return false;
+            copy_bytes(target, source, size);
+        }
+        return true;
+    }
+    return false;
+}
+
+bool copy_from_scratchpad() {
+    const int active = D_00274990;
+    if (active < 0 || active > 1) return false;
+    NativeSprTransfer& transfer = D_002748F0[active];
+    if (transfer.count <= 0 || transfer.count > 8) return false;
+
+    for (int i = 0; i < transfer.count; ++i) {
+        const unsigned int source = transfer.addrs[i];
+        if (source < 0x70000010u) continue;
+        const unsigned int tag_address = source - 16u;
+        if (!in_scratchpad(tag_address, 16u)) return false;
+        const unsigned long long tag =
+            *reinterpret_cast<const volatile unsigned long long*>(tag_address);
+        const unsigned int id = (static_cast<unsigned int>(tag) >> 28) & 7u;
+        if (id != 1u && id != 7u) continue;
+        const unsigned int size =
+            (static_cast<unsigned int>(tag) & 0xFFFFu) * 16u;
+        const unsigned int target =
+            static_cast<unsigned int>(tag >> 32) & 0x1FFFFFFFu;
+        if (size == 0 || !in_scratchpad(source, size) ||
+            !in_main_ram(target, size))
+            return false;
+        copy_bytes(target, source, size);
+    }
+    return true;
+}
 
 } // namespace
 
@@ -86,6 +167,12 @@ extern "C" void func_00202A80(unsigned int channel_address, void* source) {
         (void)openrac_guest_vif1_submit_chain(address, chcr);
         return;
     }
+    const unsigned int native_to_spr_channel =
+        reinterpret_cast<unsigned int>(&g_channels[9]);
+    if (channel_address == native_to_spr_channel) {
+        (void)copy_to_scratchpad(reinterpret_cast<unsigned int>(source));
+        return;
+    }
     for (unsigned int i = 0; i < 10; ++i) {
         if (channel_address == reinterpret_cast<unsigned int>(&g_channels[i]))
             return;
@@ -101,7 +188,12 @@ extern "C" void func_00202A80(unsigned int channel_address, void* source) {
 
 // The native DMA boundary completes a submitted packet before returning, so
 // the retail CHCR busy waits have no device state to poll.
-extern "C" void func_00202B68(void*) {}
+extern "C" void func_00202B68(void* channel_address) {
+    const unsigned int native_from_spr_channel =
+        reinterpret_cast<unsigned int>(&g_channels[8]);
+    if (reinterpret_cast<unsigned int>(channel_address) == native_from_spr_channel)
+        (void)copy_from_scratchpad();
+}
 
 extern "C" int func_00202C38(void*, int mode, int timeout) {
     (void)mode;

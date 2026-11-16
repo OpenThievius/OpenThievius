@@ -4746,6 +4746,16 @@ void LoadEffectSpawner"""
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition")
             adapted = adapted.replace(signature, replacement, 1)
+        if args.trace_model_draws and rel.as_posix() == "main/point_graph.cpp":
+            adapted = ('extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32);\n' + adapted)
+            needle = "            if (part->hook != 0) {\n"
+            replacement = (
+                "                sly1_native_trace_model_hook((u32)self, (u32)(i + j), "
+                "(u32)(self->drawParts + (i + j) * 0x70), (u32)part, "
+                "(u32)part->hook, (u32)part->kind);\n" + needle)
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected QueueModelPartDraws part hook")
+            adapted = adapted.replace(needle, replacement, 1)
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
                 'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32);\n'

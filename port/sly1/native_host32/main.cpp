@@ -854,6 +854,22 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     }
 }
 
+extern "C" void sly1_native_trace_model_hook(u32 owner_address, u32 part_index,
+                                               u32 source_part, u32 scratch_part,
+                                               u32 hook_address, u32 kind) {
+    if (!g_startup_trace_enabled) return;
+    static std::atomic<u32> trace_count{0};
+    if (trace_count.fetch_add(1u, std::memory_order_relaxed) >= 128u) return;
+    const u32 source_hook = source_part != 0
+        ? *reinterpret_cast<const volatile u32*>(source_part + 0x38u) : 0u;
+    const u32 owner_id = owner_address != 0
+        ? *reinterpret_cast<const volatile u32*>(owner_address + 8u) : 0u;
+    std::fprintf(stderr,
+                 "[native model hook] owner=%#010x owner_id=%u index=%u kind=%u source=%#010x source_hook=%#010x scratch=%#010x scratch_hook=%#010x\n",
+                 owner_address, owner_id, part_index, kind, source_part,
+                 source_hook, scratch_part, hook_address);
+}
+
 extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_address) {
     if (mesh_address == 0 || std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCES") == nullptr)
         return;
@@ -1118,6 +1134,7 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 }
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
