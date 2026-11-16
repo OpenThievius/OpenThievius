@@ -815,6 +815,14 @@ Retail `func_00202A80` also starts DMA with a zero source, so do not add a null
 short-circuit without confirming the caller's intended behavior. Trace:
 `/tmp/sly-dma-chain-headers-20261111.log`.
 
+**Trace output cap (2026-11-16):** a long-running diagnostic launcher produced
+over 10 GB of stderr because the host32 DMA hook printed every transfer. The
+process has been stopped. `OPENRAC_TRACE_DMA_CALL=1` now prints the first 128
+calls, then one sample every 256 calls up to call 4,097, followed by a single
+cap notice. This keeps startup detail while bounding output. The heavy trace
+may have worsened frame pacing, but it has not been established as the source
+of the user's visible flicker.
+
 **Reachable screen setup callbacks (2026-11-11):** the runtime trace showed
 `InitScreenElements` calling no-op stubs for timer, gauge, framed text,
 pointer-caption, letterbox, and arc-sprite initialization. Exact US retail
