@@ -72,6 +72,18 @@ A fresh offscreen capture with DMA-call tracing disabled and 100 eligible
 frames skipped then saved eight consecutive samples; all eight show the full
 prompt (`/tmp/sly-no-card-framecapture-skip100-20261116.log`). This short
 sample does not rule out the intermittent flicker from the longer recording.
+The frame dumper now accepts `OPENRAC_DUMP_NATIVE_FRAME_STRIDE=N` to space
+its eight bounded samples across later eligible packets; the default remains
+1 (consecutive frames). Use a larger stride to sample intermittent presentation
+issues without generating a long video or large trace.
+An offscreen per-present pixel trace then sampled 698 frames over 12 seconds.
+Both text points were black only in frames 1–26, during initial screen
+construction, and settled to the prompt color by frame 35. The panel border was
+black through frame 34 and stayed blue from frame 35 through frame 698. No
+black sample recurred after the full prompt appeared. This suggests the tested
+offscreen build no longer has the post-startup black flicker; it does not prove
+the user's visible-window flicker is gone. Trace:
+`/tmp/sly-flicker-pixels-20261116.log`.
 The Codex-started Wayland run that was stopped for runaway logging later
 reported world `0x870cf0` and advanced past game frame 1,500. It had no pad
 trace, so it does not prove which key caused the transition or show that the

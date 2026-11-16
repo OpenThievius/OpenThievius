@@ -1300,8 +1300,11 @@ The earlier capture command wrote frames before the large menu packet, so its
 all-black image did not represent the glyph draw. The native frame dumper now
 accepts `OPENRAC_DUMP_NATIVE_FRAME_MIN_BYTES=N` (default 512; maximum 16 MiB).
 The minimum-byte filter is applied before `OPENRAC_DUMP_NATIVE_FRAME_SKIP`, so
-skip counts only eligible packets. This command captures the actual large menu
-frame on this machine:
+skip counts only eligible packets. `OPENRAC_DUMP_NATIVE_FRAME_STRIDE=N` now
+spaces the dumper's eight bounded images across eligible frames after that
+skip; its default of 1 captures consecutive frames. This is useful for sampling
+intermittent presentation issues without writing a long video. This command
+captures the actual large menu frame on this machine:
 
 ```sh
 OPENRAC_TRACE_DIRECT=1 OPENRAC_DUMP_NATIVE_FRAMES=1 \
