@@ -13,19 +13,26 @@ process-local Cross input; no title, scene, or playable state is visible. The
 earlier stretched purple geometry was from the optional prototype renderer and
 is not the current normal output.
 
-The new trace narrows the graphics failure. VIF1 UNPACK writes finite position
-values into VU1 qwords 138 and 141. VU1 `MSCAL 0x401` later stores NaNs over
-qwords 137 and 140; the following VU entry `0x34a` stores NaNs over qwords 138
-and 141. Thus the input stream is finite at UNPACK, but the VU transform output
-is invalid before the normal renderer can display the scene. This trace does
-not yet identify the first instruction that creates the NaN, so do not patch
-the data or claim a VU semantic fix from these observations alone.
+The trace does not support the earlier assumption that all VIF inputs are
+finite. One model UNPACK supplies finite positions at VU1 qwords 138 and 141,
+but an earlier setup UNPACK supplies canonical NaNs at qwords 348 onward. Those
+same NaNs are already present in the DMA source block at `0x003c3c50`, inside
+the inline CNT payload beginning at `0x003c3b80`; the block is submitted by the
+render worker. VU1 `MSCAL 0x401` then stores NaNs over qwords 137 and 140, and
+entry `0x34a` propagates them over qwords 138 and 141. The first bad values
+therefore precede VU1 execution for this block. The next trace must find who
+writes the DMA source block; do not sanitize its values or claim a VU semantic
+fix based on downstream propagation. The caller trace confirms the alternating
+`0x003c3b00`/`0x004c3b00` buffers are submitted by the frame worker; it does not
+yet identify the code that constructs their inline payload.
 
 The instrumented host32 target rebuilt successfully with 194 matched units,
 85 separate port backfills, and 99 missing-function traps. No matched decomp
 source changed. Trace/build logs:
-`/tmp/sly-vu-range-capture-20261116.log` and
-`/tmp/sly-range-trace-build-2.log`.
+`/tmp/sly-vu-range-capture-20261116.log`,
+`/tmp/sly-vif-source-capture-20261116.log`,
+`/tmp/sly-dma-caller-capture-20261116.log`, and
+`/tmp/sly-vif-source-build-20261116.log`.
 
 The optional renderer previously mapped every non-`Always` GS depth test to
 OpenGL `LEQUAL`, incorrectly treating `Greater`, `Gequal`, and `Never` as the

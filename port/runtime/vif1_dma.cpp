@@ -67,6 +67,11 @@ struct DmaSegment {
     size_t stream_size;
 };
 
+struct VifInputTrace {
+    uint32_t destination_qword;
+    size_t stream_offset;
+};
+
 uint32_t encode_address(DmaAddress value) {
     if (!value.scratchpad && value.address >= GUEST_PORT &&
         value.address - GUEST_PORT < GUEST_PORT_SIZE)
@@ -232,7 +237,8 @@ uint32_t read_bits(const uint8_t* source, size_t bit_offset, uint32_t bit_count)
 }
 
 bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
-                const uint8_t* source, size_t source_size, size_t stream_offset) {
+                const uint8_t* source, size_t source_size, size_t stream_offset,
+                std::vector<VifInputTrace>* input_trace) {
     const bool masking = (command & 0x10u) != 0;
     const uint32_t vectors = count == 0 ? 256u : count;
     const uint32_t format = command & 0xFu;
@@ -272,6 +278,8 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             destination_index >= 136u && destination_index <= 142u;
         const bool trace_source_target = vu_setup_trace_enabled &&
             destination_index >= 348u && destination_index <= 363u;
+        if (input_trace != nullptr && destination_index == 348u)
+            input_trace->push_back({destination_index, stream_offset});
         const bool trace_target =
             (destination_index >= 32u && destination_index <= 38u) ||
             (destination_index >= 464u && destination_index <= 476u) ||
@@ -430,7 +438,8 @@ void trace_vu1_program(uint32_t address, VifTrace* trace) {
 }
 
 bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes,
-                        uint32_t* unsupported_command, VifTrace* trace) {
+                        uint32_t* unsupported_command, VifTrace* trace,
+                        std::vector<VifInputTrace>* input_trace) {
     size_t cursor = 0;
     while (cursor + sizeof(uint32_t) <= stream.size()) {
         uint32_t code = 0;
@@ -475,7 +484,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint64_t bytes = bytes_per_vector * loops;
             if (bytes > stream.size() - cursor) return false;
             if (!unpack_vu1(command, count, immediate, stream.data() + cursor,
-                            static_cast<size_t>(bytes), cursor)) {
+                            static_cast<size_t>(bytes), cursor, input_trace)) {
                 *unsupported_command = command;
                 return false;
             }
@@ -689,12 +698,44 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     store_mmio(kVif1Chcr, value);
     std::vector<uint8_t> stream;
     std::vector<DmaSegment> segments;
+    std::vector<VifInputTrace> input_trace;
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
     VifTrace trace;
     const bool dma_ok = execute_dma(value, &stream, &segments);
-    const bool vif_ok = dma_ok && execute_vif_stream(stream, &direct_bytes, &unsupported,
-                                                       &trace);
+    const bool vif_ok = dma_ok && execute_vif_stream(
+        stream, &direct_bytes, &unsupported, &trace, &input_trace);
+    static std::atomic<uint32_t> input_source_notice{0};
+    const char* input_source_setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+    if (input_source_setting != nullptr && input_source_setting[0] != '\0' &&
+        input_source_setting[0] != '0') {
+        for (const VifInputTrace& input : input_trace) {
+            if (input_source_notice.fetch_add(1, std::memory_order_relaxed) >= 64u)
+                break;
+            for (const DmaSegment& segment : segments) {
+                if (input.stream_offset < segment.stream_offset ||
+                    input.stream_offset >= segment.stream_offset + segment.stream_size)
+                    continue;
+                const bool inline_payload = segment.id == 1u || segment.id == 2u ||
+                    segment.id == 5u || segment.id == 6u || segment.id == 7u;
+                const size_t transfer_tag_bytes = (value & (1u << 6u)) != 0 ? 8u : 0u;
+                const size_t segment_offset = input.stream_offset - segment.stream_offset;
+                const size_t payload_offset = segment_offset >= transfer_tag_bytes
+                    ? segment_offset - transfer_tag_bytes : 0u;
+                const uint32_t source_base = inline_payload
+                    ? ((segment.tag_address & 0x7FFFFFFFu) + 16u)
+                    : segment.data_address;
+                const uint32_t source_address = source_base +
+                    static_cast<uint32_t>(payload_offset);
+                openrac::log::info(
+                    "native VIF1 input source qword={} stream_offset={} segment_tag={:#010x} segment_id={} segment_data={:#010x} source_address={:#010x} scratchpad={}",
+                    input.destination_qword, input.stream_offset, segment.tag_address,
+                    segment.id, segment.data_address, source_address,
+                    (segment.tag_address & 0x80000000u) != 0 ? 1u : 0u);
+                break;
+            }
+        }
+    }
     const uint32_t status = load_mmio(kDmacStat);
     if (dma_ok) {
         store_mmio(kDmacStat, status | (1u << 1));
@@ -829,5 +870,5 @@ extern "C" int openrac_guest_vif1_fifo_write(uint32_t word0, uint32_t word1,
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
     VifTrace trace;
-    return execute_vif_stream(stream, &direct_bytes, &unsupported, &trace) ? 1 : 0;
+    return execute_vif_stream(stream, &direct_bytes, &unsupported, &trace, nullptr) ? 1 : 0;
 }
