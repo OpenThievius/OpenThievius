@@ -4,6 +4,35 @@
 Last checked: 2026-11-16. The active host32 staging snapshot and public decomp
 master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
+## Latest client output audit (2026-11-16)
+
+I captured and inspected the actual offscreen client frame after the automatic
+Cross input reached world drawing. It is still the flat gray sky/ground
+horizon, with no recognizable level object. Pixel comparison against the prior
+controlled gray-horizon capture reports zero differing pixels, so this audit
+found no visual regression in the successful run; the game is still not
+visually playable. Frame:
+`/tmp/sly1-native-world-00.ppm`; successful bounded trace:
+`/tmp/sly-final-client-audit-20261116.log`.
+
+The VU setup trace shows qNaNs (`0x7fc00000`) already in V4-32 payloads
+reserved at native packet addresses `0x003c676c` and `0x003c67b0`, for VU
+destinations 4 and 8. Those packets are built through translated
+`CopyWordsToWriter` (`func_001EE668`). The same frame's model trace reports
+qNaN transforms for several draw requests. This narrows the graphics defect to
+invalid model/packet data reaching the VU; it does not yet prove whether the
+bad values first appear in transform generation, mesh input, or the caller's
+source buffer. The first VIF input capture independently confirms qNaNs arrive
+at VU qwords 348–363 before LQI. Do not replace them with zero or sanitize the
+VU output; trace the model data producer.
+
+Two intermediate probes from this audit were discarded. One inspected output
+pointers before `ReserveVifUnpack` initialized them; a later source probe
+terminated at an unrelated guest invalid-pointer fault (`0x99999999` in
+`func_0018F9D8`). Neither is treated as evidence of a game regression. The
+final staged code retains only the bounded reservation trace, gated by
+`OPENRAC_TRACE_VIF_WRITES=1`.
+
 ## Direction reset
 
 The no-emulation launcher reaches model draw callbacks after loading a world,

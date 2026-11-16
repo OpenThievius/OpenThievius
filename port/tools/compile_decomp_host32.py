@@ -4667,6 +4667,38 @@ void LoadEffectSpawner"""
                         "expected seven EE float-register ApplyStackTimeScale call sites, "
                         f"found {removed_scale_receivers}"
                     )
+            if args.trace_model_draws:
+                # Instrument only the host staging copy. ReserveVifUnpack is
+                # matched decomp C; this callback lets the native renderer
+                # identify which reserved payloads contain invalid data.
+                adapted = ('extern "C" void sly1_native_trace_vif_reserve('
+                           'u32, u32, u32, u32, u32, u32, u32);\n' + adapted)
+                signature = (
+                    "void ReserveVifUnpack(PacketWriter* s, s32 a, s32 size, s32 d, "
+                    "s32* outSize, u8** outCursor)\n{")
+                if adapted.count(signature) != 1:
+                    raise RuntimeError("expected one ReserveVifUnpack definition")
+                adapted = adapted.replace(
+                    signature,
+                    signature + "\n    const s32 trace_element_count = size;", 1)
+                tail = (
+                    "        if (outSize) *outSize = size;\n"
+                    "    }\n"
+                    "}\n\n"
+                    "// Reserves a VIF unpack in the packet writer")
+                traced_tail = (
+                    "        if (outSize) *outSize = size;\n"
+                    "    }\n"
+                    "    sly1_native_trace_vif_reserve("
+                    "(u32)s, (u32)a, (u32)trace_element_count, (u32)d, "
+                    "outSize ? (u32)*outSize : 0u, "
+                    "outCursor && *outCursor ? (u32)*outCursor : 0u, "
+                    "(u32)__builtin_return_address(0));\n"
+                    "}\n\n"
+                    "// Reserves a VIF unpack in the packet writer")
+                if adapted.count(tail) != 1:
+                    raise RuntimeError("expected ReserveVifUnpack output assignment")
+                adapted = adapted.replace(tail, traced_tail, 1)
         if args.trace_functions and rel.as_posix() == "main/game_clock.cpp":
             adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
             signature = "void SetGameClockScale(f32 x)\n{"

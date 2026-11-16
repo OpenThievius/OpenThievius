@@ -268,10 +268,13 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         uint8_t* output = guest_address(kVu1Data + destination_index * 16u);
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
+        const bool trace_source_target = vu_setup_trace_enabled &&
+            destination_index >= 348u && destination_index <= 363u;
         const bool trace_target =
             (destination_index >= 32u && destination_index <= 38u) ||
-            (destination_index >= 464u && destination_index <= 476u);
-        uint32_t old_lanes[4];
+            (destination_index >= 464u && destination_index <= 476u) ||
+            trace_source_target;
+        uint32_t old_lanes[4]{};
         if (trace_target) std::memcpy(old_lanes, lanes, sizeof(old_lanes));
         uint32_t input_lanes[4]{};
         if (trace_target) {
@@ -322,6 +325,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         static std::atomic<uint32_t> packet_write_notice{0};
         static std::atomic<uint32_t> pointer_write_notice{0};
         static std::atomic<uint32_t> setup_write_notice{0};
+        static std::atomic<uint32_t> source_write_notice{0};
         const bool trace_packet_target =
             destination_index >= 464u && destination_index <= 476u;
         const bool trace_pointer_target = vu_setup_trace_enabled &&
@@ -334,7 +338,9 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             (trace_pointer_target &&
              pointer_write_notice.fetch_add(1, std::memory_order_relaxed) < 16u) ||
             (trace_setup_target &&
-             setup_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u);
+             setup_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u) ||
+            (trace_source_target &&
+             source_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u);
         if (trace_write) {
             openrac::log::info(
                 "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
@@ -593,6 +599,64 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
 std::atomic<uint32_t> g_transfer_count{0};
 std::atomic<uint32_t> g_traced_transfer_count{0};
 std::atomic_flag g_unsupported_notice = ATOMIC_FLAG_INIT;
+}
+
+extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
+                                                uint32_t format,
+                                                uint32_t count,
+                                                uint32_t vu_address,
+                                                uint32_t byte_count,
+                                                uint32_t cursor,
+                                                uint32_t callsite) {
+    const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
+    if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
+    struct PendingRange {
+        uint32_t writer = 0;
+        uint32_t format = 0;
+        uint32_t count = 0;
+        uint32_t vu_address = 0;
+        uint32_t byte_count = 0;
+        uint32_t cursor = 0;
+        uint32_t callsite = 0;
+    };
+    static thread_local PendingRange previous{};
+    if (previous.cursor != 0 && previous.format == 0xCu &&
+        previous.byte_count >= sizeof(uint32_t)) {
+        const uint32_t inspect_bytes = std::min(previous.byte_count, 0x10000u);
+        const uint8_t* data = nullptr;
+        uint8_t stack_anchor = 0;
+        const uintptr_t stack_address = reinterpret_cast<uintptr_t>(&stack_anchor);
+        const uintptr_t previous_address = previous.cursor;
+        const uintptr_t stack_distance = stack_address > previous_address
+            ? stack_address - previous_address : previous_address - stack_address;
+        if (stack_distance < 8u * 1024u * 1024u) {
+            data = reinterpret_cast<const uint8_t*>(previous_address);
+        } else {
+            guest_span(DmaAddress{previous.cursor, false}, inspect_bytes, &data);
+        }
+        if (data != nullptr) {
+            for (uint32_t index = 0; index < inspect_bytes / sizeof(uint32_t); ++index) {
+                uint32_t bits = 0;
+                std::memcpy(&bits, data + index * sizeof(bits), sizeof(bits));
+                if ((bits & 0x7F800000u) == 0x7F800000u &&
+                    (bits & 0x007FFFFFu) != 0) {
+                    openrac::log::info(
+                        "native VIF reserved payload contains non-finite data writer={:#x} format={} count={} vu={:#x} cursor={:#x} bytes={} word={} value={:#010x} callsite={:#x}",
+                        previous.writer, previous.format, previous.count,
+                        previous.vu_address, previous.cursor, previous.byte_count,
+                        index, bits, previous.callsite);
+                    break;
+                }
+            }
+        }
+    }
+    static std::atomic<uint32_t> notice_count{0};
+    if (notice_count.fetch_add(1, std::memory_order_relaxed) < 256u) {
+        openrac::log::info(
+            "native VIF reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x}",
+            writer, format, count, vu_address, byte_count, cursor);
+    }
+    previous = {writer, format, count, vu_address, byte_count, cursor, callsite};
 }
 
 extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value) {
