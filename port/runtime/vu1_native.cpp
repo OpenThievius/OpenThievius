@@ -237,6 +237,20 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
 void dispatch_pending_kick(PendingKick* pending) {
     if (pending == nullptr || !pending->active) return;
 
+    const char* trace_state = std::getenv("OPENRAC_TRACE_XGKICK_STATE");
+    if (trace_state != nullptr && trace_state[0] != '\0' && trace_state[0] != '0') {
+        static std::atomic<uint32_t> state_trace_count{0};
+        if (state_trace_count.fetch_add(1, std::memory_order_relaxed) < 32u) {
+            uint32_t tag_loaded = 0;
+            uint32_t remaining_qwords = 0;
+            uint64_t tag_low = 0;
+            openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
+            openrac::log::info(
+                "native VU1 XGKICK parser state PC={:#x} address={} active={} remaining={} tag={:#018x}",
+                pending->pc, pending->address, tag_loaded, remaining_qwords, tag_low);
+        }
+    }
+
     uint32_t failure = 0;
     uint32_t failed_address = 0;
     uint64_t first_tag = 0;

@@ -43,6 +43,9 @@ size_t openrac_guest_gs_published_vertex_count(void);
 void openrac_guest_gif_stream_write(const void* source, size_t size);
 void openrac_guest_gif_stream_write_from(const void* source, size_t size,
                                          const char* origin);
+/* Debug probe for the stateful GIF parser, used only while tracing VU kicks. */
+void openrac_guest_gif_parser_probe(uint32_t* tag_loaded, uint32_t* remaining_qwords,
+                                    uint64_t* tag_low);
 
 /* Synchronously collect a guest DMAtag chain and queue its raw GIF packet data
  * for OpenRAC's native 2D renderer. */

@@ -327,6 +327,15 @@ extern "C" void openrac_guest_gif_stream_write_from(const void* source, size_t s
     gif_stream_write(source, size, origin);
 }
 
+extern "C" void openrac_guest_gif_parser_probe(uint32_t* tag_loaded,
+                                                 uint32_t* remaining_qwords,
+                                                 uint64_t* tag_low) {
+    std::lock_guard lock(g_parser_mutex);
+    if (tag_loaded != nullptr) *tag_loaded = g_parser.tag_loaded ? 1u : 0u;
+    if (remaining_qwords != nullptr) *remaining_qwords = g_parser.remaining_qwords;
+    if (tag_low != nullptr) *tag_low = g_parser.tag_low;
+}
+
 extern "C" void openrac_guest_gs_reset(void) {
     std::lock_guard lock(g_parser_mutex);
     g_parser = GifParser{};
