@@ -4,6 +4,28 @@
 Last checked: 2026-11-16. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### Post-Continue normal-renderer capture (2026-11-16, later run)
+
+The client is still black after the no-card prompt is dismissed. A synchronized
+hidden capture shows the normal DirectRenderer receives large packets and
+decodes hundreds of draws, but this does not mean it has visible geometry:
+for several consecutive world frames it decoded 2,196–5,064 vertices whose
+NDC bounds were only `(-7.402, 19.286)..(-7.398, 19.286)`, with zero vertices
+inside the clip cube. The following frames begin to include other coordinates,
+but this capture still produced no recognizable scene. The opt-in flat-color
+diagnostic, which bypasses alpha/depth tests and framebuffer masks, also left
+those sampled frames black. Thus the current next question is why the decoded
+GS vertices collapse outside the view and which queued stream supplied them;
+the first world XGKICK rejection at qword 469 remains a separate verified
+fault and must not be waved away by the DirectRenderer draw counts.
+
+The aggregate `OPENRAC_TRACE_DIRECT_BOUNDS=1` trace is bounded by the existing
+`OPENRAC_TRACE_DIRECT_ALL=1` switch. Evidence:
+`/tmp/sly-direct-bounds-20261116.log`; frame capture:
+`/tmp/sly1-native-frame-00.ppm` through `-07.ppm`. The current source remains
+unmodified in matched decomp files; the optional flat diagnostic is not a
+playable-path change.
+
 ## Latest client output audit (2026-11-16)
 
 The normal no-input screen is the retail no-card prompt. A short capture that

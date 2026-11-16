@@ -25,6 +25,18 @@ frame is black. Logs: `/tmp/sly-clean-client-audit-20261116.log`,
 `/tmp/sly-vu16k-client-audit-20261116.log`, and the rebuilt-default check at
 `/tmp/sly-vu16k-default-client-audit-20261116.log`.
 
+A later synchronized post-Continue capture shows why decoded draw counts were
+misleading: the standard DirectRenderer receives large packets and decodes up
+to 5,064 vertices / 844 draws, but one consecutive set of world frames puts
+every decoded vertex at approximately NDC `(-7.4, 19.3)`, outside the clip
+cube. Bypassing alpha/depth tests and masks in the opt-in flat diagnostic still
+produces black captures. The next task is to trace those vertex coordinates
+back to their queued GIF/VIF producer and fix the stream or decode state with
+evidence. Keep the independent qword-469 XGKICK fault on the list; render draw
+counts alone do not prove that packet supplied those vertices. See
+`docs/port/SLY_GRAPHICS_HANDOFF.md` and
+`/tmp/sly-direct-bounds-20261116.log`.
+
 The short startup capture was misleading: it saved only the first eight
 packets, which are black while the native render state is initialized. A
 tracing-disabled 12-second hidden Wayland run sampled 703 presents. Its first
@@ -41,13 +53,15 @@ A separate tracing-disabled run captured 703 presents without a crash. This
 stopped the renderer queue flood and produced a stable prompt after startup;
 the overflow-safe queue limit remains a last-resort guard.
 
-After Continue, the framebuffer still goes black. The world stream rejects
-XGKICK payload qword 469 as a GIFtag. Entry `0x26d` now completes with its
-scoped 16,384-instruction budget, so later commands in that VIF stream are no
-longer skipped for this reason. Keep the next graphics task focused on
-tracing the qword-468/469 boundary from the retail VIF producer through VU1
-and GIF. Do not relax validation or claim that the optional scene renderer
-demonstrates a working game renderer.
+After Continue, the framebuffer still goes black. Entry `0x26d` now completes
+with its scoped 16,384-instruction budget, so later commands in that VIF stream
+are no longer skipped for this reason. The normal DirectRenderer does decode
+large post-Continue batches, but a synchronized capture found all vertices in
+several frames collapsed outside clip space; the producer and stream identity
+still need to be established. The first world XGKICK still rejects qword 469,
+so keep tracing that boundary separately through VIF, VU1 and GIF. Do not
+relax validation or claim that optional renderer experiments demonstrate a
+working game renderer.
 
 ### Render one recognizable world object from Sly's draw inputs
 

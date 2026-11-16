@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <limits>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -1767,6 +1768,26 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
             log::info("{}: direct_frame={} packet_bytes={} decoded_vertices={} draws={} error={}",
                       name(), this_frame, packets.size(), vertex_count, draw_count,
                       m_interpreter->error());
+            if (std::getenv("OPENRAC_TRACE_DIRECT_BOUNDS") != nullptr && vertex_count != 0) {
+                float min_x = std::numeric_limits<float>::infinity();
+                float min_y = std::numeric_limits<float>::infinity();
+                float max_x = -std::numeric_limits<float>::infinity();
+                float max_y = -std::numeric_limits<float>::infinity();
+                std::size_t finite = 0;
+                std::size_t inside = 0;
+                for (const DirectVertex& vertex : m_interpreter->vertices()) {
+                    if (!std::isfinite(vertex.x) || !std::isfinite(vertex.y)) continue;
+                    ++finite;
+                    min_x = std::min(min_x, vertex.x);
+                    min_y = std::min(min_y, vertex.y);
+                    max_x = std::max(max_x, vertex.x);
+                    max_y = std::max(max_y, vertex.y);
+                    if (vertex.x >= -1.0f && vertex.x <= 1.0f &&
+                        vertex.y >= -1.0f && vertex.y <= 1.0f) ++inside;
+                }
+                log::info("{}: direct_frame={} bounds=({:.3f},{:.3f})..({:.3f},{:.3f}) finite={}/{} inside_clip={}",
+                          name(), this_frame, min_x, min_y, max_x, max_y, finite, vertex_count, inside);
+            }
             if (std::getenv("OPENRAC_TRACE_DIRECT_STATE") != nullptr) {
                 const auto& vertices = m_interpreter->vertices();
                 const auto& draws = m_interpreter->draws();
