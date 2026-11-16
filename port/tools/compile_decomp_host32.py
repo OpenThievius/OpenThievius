@@ -4333,7 +4333,6 @@ void StartStateGraph"""
                 "            sly1_native_trace_memory_timing(g_gameClock.elapsed,\n"
                 "                g_memoryCard.stateTime, g_memoryCard.displayModeTime);\n"
                 "        }\n"
-                "        sly1_native_host32_wait_frame();\n"
                 "        sly1_native_trace_frame_stage(8);")
             if adapted.count(end_frame) != 1:
                 raise RuntimeError("expected RunMainLoop frame completion")
@@ -5094,6 +5093,18 @@ void LoadEffectSpawner"""
         adapted = emit_text_layout_setters_for_host(adapted, rel.as_posix())
         adapted = normalize_active_set_solver_abi(adapted, rel.as_posix())
         adapted = normalize_uncached_ee_cpu_pointers(adapted, rel.as_posix())
+        if rel.as_posix() == "main/main_loop.cpp":
+            # The console's vblank paces RunMainLoop. SDL drives that display
+            # cadence on another host thread, so pace the guest loop too; the
+            # old host wait was incorrectly injected only by trace builds.
+            wait_hook = 'extern "C" void sly1_native_host32_wait_frame(void);\n'
+            if wait_hook not in adapted:
+                adapted = wait_hook + adapted
+            frame_end = "        g_frameCount++;"
+            paced_frame_end = frame_end + "\n        sly1_native_host32_wait_frame();"
+            if adapted.count(frame_end) != 1:
+                raise RuntimeError("expected one RunMainLoop frame boundary")
+            adapted = adapted.replace(frame_end, paced_frame_end, 1)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":
