@@ -128,6 +128,14 @@ black sample recurred after the full prompt appeared. This suggests the tested
 offscreen build no longer has the post-startup black flicker; it does not prove
 the user's visible-window flicker is gone. Trace:
 `/tmp/sly-flicker-pixels-20261116.log`.
+
+A follow-up hidden-window capture used SDL's actual Wayland driver and its
+double-buffered OpenGL surface. The prompt settled by frame 35; all 427 later
+pre-swap samples showed both text points and the blue border, with no all-black
+sample. This covers the renderer's Wayland backbuffer path, but does not read
+the compositor's displayed surface. Trace:
+`/tmp/sly-hidden-wayland-present-20261116.log`.
+
 The Codex-started Wayland run that was stopped for runaway logging later
 reported world `0x870cf0` and advanced past game frame 1,500. It had no pad
 trace, so it does not prove which key caused the transition or show that the

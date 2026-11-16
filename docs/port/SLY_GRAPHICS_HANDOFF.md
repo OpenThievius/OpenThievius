@@ -38,9 +38,13 @@ VU/GIF validation.
 The user's visible-window recording reports intermittent black flicker. In
 the separate offscreen run, per-present samples at the prompt's text and panel
 stay nonblack from frame 35 through frame 698, after the prompt has appeared.
-That does not reproduce the reported visible-window flicker, so the flicker
-remains unresolved and should be tested with the visible SDL path and pad
-trace enabled. Captures: `/tmp/sly-world-bounds-20261116.log`,
+That trace did not reproduce the reported flicker. A hidden-window run through
+SDL's Wayland driver then exercised the actual double-buffered OpenGL surface:
+427 pre-swap samples after frame 35 show the expected text and border, with no
+black sample. This verifies the Wayland backbuffer after the prompt appears,
+but cannot verify pixels after the compositor presents them. Capture:
+`/tmp/sly-hidden-wayland-present-20261116.log`.
+Captures: `/tmp/sly-world-bounds-20261116.log`,
 `/tmp/sly-matrix-trace-20261116.log`, `/tmp/sly-matrix-data-20261116.log`, and
 `/tmp/sly1-native-world-00.ppm`.
 
