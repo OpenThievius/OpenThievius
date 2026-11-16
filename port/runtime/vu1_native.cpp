@@ -762,9 +762,16 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     bool branch_delay = false;
     uint32_t branch_target = 0;
     PendingKick pending_kick{};
+    uint32_t instruction_limit = kMaxInstructions;
+    if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed > 0 && parsed <= 1'000'000ul)
+            instruction_limit = static_cast<uint32_t>(parsed);
+    }
     struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
     std::array<RecentInstruction, 16> recent{};
-    for (uint32_t cycle = 0; cycle < kMaxInstructions; ++cycle) {
+    for (uint32_t cycle = 0; cycle < instruction_limit; ++cycle) {
         if (pc >= kVu1Doublewords) {
             *unsupported_word = 0xFFFFFFFFu;
             *paired_word = 0xFFFFFFFFu;
@@ -894,6 +901,23 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             branch_delay = true;
             pc = current_pc + 1u;
         }
+    }
+    static std::atomic<uint32_t> budget_trace_count{0};
+    if (std::getenv("OPENRAC_TRACE_VU1_LIMIT") != nullptr &&
+        budget_trace_count.fetch_add(1, std::memory_order_relaxed) < 8u) {
+        std::ostringstream context;
+        const uint32_t first_cycle = instruction_limit >= recent.size()
+            ? instruction_limit - static_cast<uint32_t>(recent.size()) : 0u;
+        for (uint32_t trace_cycle = first_cycle; trace_cycle < instruction_limit;
+             ++trace_cycle) {
+            const RecentInstruction& instruction = recent[trace_cycle % recent.size()];
+            context << " pc=" << std::hex << instruction.pc << " ["
+                    << instruction.lower << '/' << instruction.upper << ']';
+        }
+        openrac::log::warn(
+            "native VU1 instruction budget exhausted: entry={:#x} cycles={} stopped_pc={:#x} VI5={} VI6={} VI9={} VI15={} recent:{}",
+            entry, instruction_limit, pc, vi_read(g_state, 5u), vi_read(g_state, 6u),
+            vi_read(g_state, 9u), vi_read(g_state, 15u), context.str());
     }
     *unsupported_word = 0xFFFFFFFFu;
     *paired_word = 0xFFFFFFFFu;
