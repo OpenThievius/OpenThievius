@@ -6,16 +6,29 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
 ## Latest client output audit (2026-11-16)
 
-Rebuilt the current normal configuration (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`)
-from the archived public decomp snapshot `8f7a85a3` and inspected fresh hidden
-native framebuffer captures. The no-card prompt is visible in the captured
-frame `/tmp/sly1-native-frame-07.png`. Across 241 samples after its first
-visible frame, the two text points and border point never all went black, so
-the prompt flicker did not reproduce in this run. After a process-local Cross
-input, the game reaches world `0x870cf0`, but the same readback points are black;
-no title, recognizable scene, or playable state is visible. The earlier
-stretched purple geometry came from the optional prototype renderer and is not
-the current normal output.
+The normal no-input screen is the retail no-card prompt. A short capture that
+saved only the first eight packets showed black because those were startup
+frames. A tracing-disabled 12-second hidden Wayland run sampled 703 presents:
+the first 27 were black during startup, then the prompt was complete by sample
+35 and remained visible through sample 703. The Continue highlight and border
+animate between shades. Contact sheet: `/tmp/sly-flicker-perframe-contact.png`;
+run log: `/tmp/sly-flicker-perframe-audit-20261116.log`.
+
+The prior normal host32 build had no wait in its staged `RunMainLoop` unless
+trace instrumentation was enabled. This let the guest loop outrun the SDL
+presenter and flood the packet queue. The staging tool now inserts the SDL
+16 ms wait at every host32 frame boundary. A bounded hidden run reported 1,293
+accepted DMA submissions, zero rejections, and 428 game frames before its
+timeout; it did not crash. A tracing-disabled run completed 703 presents
+without a crash. The shared 16 MiB overflow guard remains enabled. Both
+changes are port host plumbing; matched decomp source is untouched.
+
+After a process-local Continue input, the current capture still goes black
+and is not playable. Its graphics path rejects an XGKICK at qword 469 and
+aborts a VIF stream when VU1 entry `0x26d` exceeds the instruction budget at
+PC `0x2aa`. Capture: `/tmp/sly-normal-postcontinue-contact.png`; log:
+`/tmp/sly-normal-postcontinue-audit-20261116.log`. The normal output does not
+include the stretched purple diagnostic scene.
 
 An opt-in lifecycle trace corrected the earlier object-96 diagnosis. In the
 latest run object 96's local rotation is finite, while its position becomes

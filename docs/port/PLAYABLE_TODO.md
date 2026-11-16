@@ -1,16 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current bounded task (2026-11-16, clean client audit)
+## Current bounded task (2026-11-16, paced client audit)
+
+The short startup capture was misleading: it saved only the first eight
+packets, which are black while the native render state is initialized. A
+tracing-disabled 12-second hidden Wayland run sampled 703 presents. Its first
+27 pixel samples were black; the full retail no-card prompt appeared by sample
+35 and remained visible through sample 703. Text and border colors animate.
+See `/tmp/sly-flicker-perframe-audit-20261116.log` and
+`/tmp/sly-flicker-perframe-contact.png`.
+
+The normal host32 frame loop was also unpaced because its 16 ms SDL wait had
+only been injected by trace builds. The host staging tool now inserts that
+wait for every build. A bounded hidden run reached 428 guest frames with
+1,293 accepted DMA submissions and zero queue rejections before its timeout.
+A separate tracing-disabled run captured 703 presents without a crash. This
+stopped the renderer queue flood and produced a stable prompt after startup;
+the overflow-safe queue limit remains a last-resort guard.
+
+After Continue, the framebuffer still goes black. The world stream rejects
+XGKICK payload qword 469 as a GIFtag, and VU1 entry `0x26d` stops at PC `0x2aa`
+after exhausting its instruction budget, so later commands in that VIF stream
+are skipped. Keep the next graphics task focused on tracing that boundary
+from the retail VIF producer through VU1 and GIF. Do not relax validation or
+claim that the optional scene renderer demonstrates a working game renderer.
 
 ### Render one recognizable world object from Sly's draw inputs
 
-The current standard-client result is a black screen after the process-local
-Cross input. A clean hidden run of the host32 SDL launcher showed the retail
-no-card prompt in the first two saved frames; the next six saved frames were
-fully black. This run enabled no optional Sly world renderer or solid-color
-diagnostic. Log: `/tmp/sly-client-clean-audit-20261116.log`; captures:
-`/tmp/sly-clean-client-{00..07}.png` (converted from the raw PPM dumps).
+The steady no-input standard-client result is the retail memory-card prompt.
+A process-local Cross input still produces a black post-input frame. The
+prompt and world failures are separate states. The clean no-input run used no
+optional Sly world renderer or solid-color diagnostic. Log:
+`/tmp/sly-flicker-perframe-audit-20261116.log`; captures:
+`/tmp/sly-flicker-perframe-contact.png`.
 
 The green-line capture seen in the previous audit had
 `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS` enabled, so it was diagnostic output,

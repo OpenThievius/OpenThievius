@@ -1,37 +1,49 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-16, clean native client audit)
+## Current checkpoint (2026-11-16, paced client output audit)
 
-A fresh hidden run used the current host32 SDL launcher, the US retail ELF and
-the USA disc image. It injected one process-local Cross press at native frame
-120, with no optional world renderer or solid-color diagnostic enabled. The
-first two saved frames show the retail no-card prompt; the next six are fully
-black. The Cross hook reports that it injected the input, and the VU trace
-reaches the world XGKICK path, but this capture has no world-ID trace and does
-not establish which gameplay state received the press. Do not report a loaded
-level based on these frames alone.
+The short startup capture was misleading: it saved only the first eight
+packets, which are black while the native render state is initialized. A
+tracing-disabled 12-second hidden Wayland run captured 703 presents. The first
+27 pixel samples were black; by sample 35 the whole retail no-card prompt was
+visible and it stayed present through sample 703. The Continue highlight and
+border animate between shades. Evidence:
+`/tmp/sly-flicker-perframe-audit-20261116.log` and
+`/tmp/sly-flicker-perframe-contact.png`.
 
-At PC `0x68`, XGKICK address 469 is rejected because qword 468 contains the
-GIFtag and qword 469 its payload. At PC `0x6e`, address 35 is accepted by the
-packet parser, but the ordinary client frame remains black. A bounded VIF
-trace clarified another warning: VIF command `0x14` is a valid `MSCAL`, which
-calls VU1 entry `0x26d`; that call exhausts the 4,096-instruction budget at PC
-`0x2aa`, causing the runtime to abort the rest of the VIF DMA stream. The next
-commands include `MSCAL 0x1db`, `BASE`, `OFFSET`, and `UNPACK`, so they never
-run in this capture. This proves the stream is truncated, but does not by
-itself explain the black frame. The green-line capture from the prior
-audit used `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS`; earlier gray/purple output
-came from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`. Neither is normal
-game output.
+The cause of the startup sampling gap was also found. In normal host32 builds,
+the staged `RunMainLoop` had no host frame wait; only trace builds received one.
+That let the game produce frames far faster than the SDL presenter and flood
+the GIF queue. The staging tool now inserts the existing SDL 16 ms frame wait
+in every host32 build. In a bounded hidden run the client reached 428 game
+frames, accepted 1,293 DMA submissions with zero rejections, and the later
+prompt samples were stable. The run ended at its timeout, not from a client
+crash. A separate 12-second capture sampled 703 presents without a crash.
+The queue cap remains as a safety bound. The wait changes host scheduling
+only; matched decompilation files are not modified.
 
-Evidence: `/tmp/sly-client-clean-audit-20261116.log`,
-`/tmp/sly-vif-failure-kind-20261116.log`, and
-`/tmp/sly-clean-client-{00..07}.png`. The native run was bounded and hidden;
-no launcher process remains. The immediate task is to trace the qword-468/469
-boundary from the retail VIF producer through VU1 and GIF, while preserving
-strict packet validation. Keep any Sly function backfill under
+The post-Continue world remains a separate failure. Earlier process-local
+Cross capture went black after the input and hit the unresolved VU1 entry
+`0x26d` instruction-budget stop at PC `0x2aa`; XGKICK also rejects payload
+qword 469 as a GIF tag. This is not evidence of a playable level. Captures:
+`/tmp/sly-normal-postcontinue-audit-20261116.log` and
+`/tmp/sly-normal-postcontinue-contact.png`.
+
+Keep the next graphics task on tracing the qword-468/469 boundary from the
+retail VIF producer through VU1 and GIF, while preserving strict packet
+validation. Keep any Sly function backfill under
 `port/game/sly1-us/native/` and leave matched decompilation files untouched.
+
+The post-Continue trace still identifies two concrete graphics failures: at
+PC `0x68`, XGKICK address 469 is rejected because qword 468 contains the
+GIFtag and qword 469 its payload; and VIF command `0x14` calls VU1 entry
+`0x26d`, which exhausts the 4,096-instruction budget at PC `0x2aa`. The runtime
+then aborts the rest of the VIF DMA stream, including later `MSCAL`, `BASE`,
+`OFFSET`, and `UNPACK` commands. This proves stream truncation after Continue,
+but does not yet explain the full black post-input frame. Diagnostic green,
+gray, or purple world captures came from opt-in renderers and are not normal
+game output.
 
 A separate Release-only crash was found when the shared GIF packet queue grew
 past 16 MiB through the XGKICK append callback. All queue append paths now
