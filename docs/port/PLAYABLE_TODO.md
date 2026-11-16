@@ -3,7 +3,7 @@
 
 ## Current bounded task (2026-11-16)
 
-### Trace the first world VU program after fixing its store operands
+### Let the world VU helper finish its counted copy
 
 The user reported pressing Space. An isolated hidden host32 capture advanced
 beyond the memory-card screen into world `0x870cf0` after injecting Cross at
@@ -43,6 +43,27 @@ Evidence: `/tmp/sly-vu-store-fix-capture-20261116.log`,
 `/tmp/sly-vu-opmula-capture-20261116.log`, and the latest safety trace
 `/tmp/sly-vu-store-final-capture-20261116.log`; build:
 `/tmp/sly-vu-store-final-build-20261116.log`.
+
+A focused trace of entry `0x26d` identifies the long loop: PC `0x2ad`
+increments VI8, and PC `0x2d6` repeats while VI9 differs from VI8. At the
+4,096-pair default limit VI8 is still 273 against VI9=314. With a diagnostic
+8,192-pair cap the routine advances farther, and a 10,000-pair entry-specific
+cap reaches the final section at PC `0x2c6` with VI8=366 and VI9=400. The
+routine has not yet returned, so do not raise the default based only on these
+partial runs. The port now handles WAITP as a no-op because its P results are
+computed synchronously. The opt-in `OPENRAC_VU1_CYCLE_LIMIT_26D` override
+affects only this entry and is diagnostic.
+
+Entry `0x318` still hits the normal 4,096-pair cap at PC `0x24e`, and the
+malformed GIF tag at qword 469 remains. Continue by tracing the remaining
+`0x26d` exit and the `0x318` loop with the same input data; the gray world
+frame is not a visual pass.
+
+Evidence: `/tmp/sly-vu-loop-detail-capture-20261116.log`,
+`/tmp/sly-vu-26d-8192-capture-20261116.log`,
+`/tmp/sly-vu-26d-limit-10000-capture-20261116.log`, and
+`/tmp/sly-vu-waitp-8192-capture-20261116.log`; build:
+`/tmp/sly-vu-26d-limit-build-20261116.log`.
 
 The latest host32 run found and fixed a VU state merge bug: lower instructions
 computed P and Q in a temporary state, but those scalar updates were discarded

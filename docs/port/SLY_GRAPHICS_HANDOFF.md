@@ -30,6 +30,22 @@ Captures: `/tmp/sly-vu-store-fix-capture-20261116.log`,
 `/tmp/sly-vu-store-final-capture-20261116.log`. Latest build:
 `/tmp/sly-vu-store-final-build-20261116.log`.
 
+### The `0x26d` VU copy loop (2026-11-16)
+
+The entry `0x26d` budget stop is a live counter loop. PC `0x2ad` increments
+VI8; PC `0x2d6` branches back while VI9 differs from VI8. With the normal
+4,096-pair cap VI8 is 273 against VI9=314. A 10,000-pair diagnostic cap on
+entry `0x26d` gets to PC `0x2c6`, with VI8=366 and VI9=400, but still stops
+before the helper returns. WAITP is now handled as a no-op because this port
+computes P synchronously. The default cap remains 4,096. Entry `0x318` still
+hits that cap at PC `0x24e`; XGKICK continues to reject the malformed GIF tag
+at qword 469. There is still no recognizable world image.
+
+Captures: `/tmp/sly-vu-loop-detail-capture-20261116.log`,
+`/tmp/sly-vu-26d-limit-10000-capture-20261116.log`, and
+`/tmp/sly-vu-waitp-8192-capture-20261116.log`. Build:
+`/tmp/sly-vu-26d-limit-build-20261116.log`.
+
 ### World submission bounds capture (2026-11-16)
 
 A fresh offscreen capture after the test Cross press entered world `0x870cf0`,

@@ -617,6 +617,9 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         if ((word & 0x7FFu) == 0x3BFu) { // WAITQ; scalar operations complete synchronously here
             return true;
         }
+        if ((word & 0x7FFu) == 0x7BFu) { // WAITP; P results are synchronous in this translator
+            return true;
+        }
         if ((word & 0x7FFu) == 0x3BCu) { // DIV Q, VF[fs]fsf, VF[ft]ftf
             const uint32_t ftf = (word >> 23u) & 3u;
             const uint32_t fsf = (word >> 21u) & 3u;
@@ -832,12 +835,22 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     const char* loop_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
     const bool loop_trace_enabled = loop_trace_setting != nullptr &&
         loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
+    static std::atomic<uint32_t> world_iteration_notice{0};
+    bool trace_world_iteration = false;
     uint32_t instruction_limit = kMaxInstructions;
     if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
         char* end = nullptr;
         const unsigned long parsed = std::strtoul(setting, &end, 10);
         if (end != setting && *end == '\0' && parsed > 0 && parsed <= 4'000'000ul)
             instruction_limit = static_cast<uint32_t>(parsed);
+    }
+    if (entry == 0x26Du) {
+        if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT_26D")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed > 0 && parsed <= 4'000'000ul)
+                instruction_limit = static_cast<uint32_t>(parsed);
+        }
     }
     struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
     std::array<RecentInstruction, 16> recent{};
@@ -1011,6 +1024,19 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                 vi_read(g_state, 5u), vi_read(g_state, 6u), vi_read(g_state, 8u),
                 vi_read(g_state, 9u), vi_read(g_state, 10u), vi_read(g_state, 14u),
                 vi_read(g_state, 15u), branch_delay ? 1u : 0u, end_delay ? 1u : 0u);
+        }
+        if (loop_trace_enabled && entry == 0x26Du &&
+            current_pc == 0x2A9u && !trace_world_iteration &&
+            world_iteration_notice.fetch_add(1, std::memory_order_relaxed) < 4u)
+            trace_world_iteration = true;
+        if (trace_world_iteration) {
+            openrac::log::info(
+                "native VU1 world loop entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI1={} VI2={} VI5={} VI6={} VI8={} VI9={} VI13={} VI14={} VI15={} branch_delay={}",
+                entry, cycle, current_pc, lower, upper, pc, vi_read(g_state, 1u),
+                vi_read(g_state, 2u), vi_read(g_state, 5u), vi_read(g_state, 6u),
+                vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 13u),
+                vi_read(g_state, 14u), vi_read(g_state, 15u), branch_delay ? 1u : 0u);
+            if (current_pc == 0x2D7u) trace_world_iteration = false;
         }
     }
     static std::atomic<uint32_t> budget_trace_count{0};
