@@ -145,6 +145,23 @@ Captures: `/tmp/sly-world-bounds-20261116.log`,
 `/tmp/sly-matrix-trace-20261116.log`, `/tmp/sly-matrix-data-20261116.log`, and
 `/tmp/sly1-native-world-00.ppm`.
 
+A fresh hidden Wayland run with one test Cross press reproduces the same
+boundary without taking focus: the no-card panel's text and border samples are
+stable on all 86 sampled frames from 35 through 120. Cross at frame 120
+transitions into world `0x870cf0`; the prompt-area samples go black by
+frame 130. At frame 146, 41 native world meshes are queued and rendered, but
+the captured image is only the gray horizon and ground. The same trace still
+rejects the first mesh GIF kick at PC `0x68`, address 469, because it starts on
+payload qword 469 instead of the valid GIFtag at qword 468; the second kick is
+accepted as an A+D register packet and submits no mesh geometry. Thus this run
+did not reproduce post-startup prompt flicker; after Space, the prompt
+disappears and the incomplete gray-horizon world frame has no recognizable
+scene.
+Evidence: `/tmp/sly-space-flicker-recheck-20261116.log`,
+`/tmp/sly-space-world-frame-recheck-20261116.log`,
+`/tmp/sly-space-world-before-hud-20261116.png`, and
+`/tmp/sly-space-world-after-hud-20261116.png`.
+
 The host32 DMA adapter now routes VIF1 submissions into the existing VIF1/VU1
 runtime. The observed world chain's masked VIF `UNPACK` command `0x78` now
 passes for the selectors seen in the capture. The current failure is later:
