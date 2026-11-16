@@ -21,11 +21,17 @@ NOP `0x000002ff`; the opcode is implemented, and execution fails because GIF
 packet validation rejects its data. The VIF trace now identifies the writer:
 UNPACK command `0x6c`, immediate `0xc1d4`, vector 1 writes qword 469 directly
 from `{0x00039001, 0, 0x48, 0}`. Thus this bad value is not from a VU store or
-GIF packet decoder byte order. The dispatcher stops parsing the current VIF
-stream at that failed XGKICK. A new bounded trace logs the two preceding and two
-following VU data qwords at the failure; use those alongside the VU program's
-VI6 setup to find why it starts the kick on this record. Keep GIF validation
-strict until the producer and packet boundary are understood.
+GIF packet decoder byte order. The earlier dispatcher stopped the VU program
+when this packet was rejected. A port-only change now rejects just that packet
+and lets the VU program continue, with XGKICK dispatched after the next
+instruction pair as in OpenRAC's VU interpreter. A hidden capture confirms
+the first packet is still rejected and execution reaches the second XGKICK at
+PC `0x6e`, address 35. That packet is rejected too: qword 35 remains zero and
+qword 36 contains vector data. No native world meshes are queued, and the
+captured post-input frame is only the gray background. This advances the trace,
+but does not produce world graphics. Capture:
+`/tmp/sly-vu-continuation-capture-20261116.log` and
+`/tmp/sly1-native-world-00.ppm`.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 

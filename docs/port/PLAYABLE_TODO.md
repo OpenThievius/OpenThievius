@@ -137,7 +137,7 @@ tag at 468 and its payload at 469. The VU then increments VI6 and XGKICKs from
 This confirms the observed native double-buffer transitions and shows they do
 not account for the one-qword tag/payload mismatch when BASE/OFFSET are zero;
 it does not establish whether the native DBF transitions match retail hardware
-or explain the separate qword-35 expectation. No runtime behavior was changed.
+or explain the separate qword-35 expectation.
 
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
@@ -145,8 +145,7 @@ from VI7=`35`, which also fails validation. The retry has been removed. Do not
 backstep pointers or weaken GIF validation. The immediate next task is to
 account for the complete VIF/VU data flow and double-buffer state against the
 manual and retail command sequence, then find independent evidence for the
-intended packet address before changing the native model. Keep masked UNPACK
-`0x78` support limited to the
+intended packet address. Keep masked UNPACK `0x78` support limited to the
 observed selectors; column-fill and write-protect remain unsupported. The
 no-card prompt's flicker remains a separate known issue.
 
@@ -164,6 +163,17 @@ distinguished from a prompt-state or game-input regression. Automated input
 tests can stay offscreen using `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=N`.
 
 ### One deliverable: resolve the VU-to-GIF address boundary
+
+**2026-11-16 continuation capture:** the port now follows OpenRAC's documented
+one-instruction-pair XGKICK delay and rejects a malformed GIF packet without
+aborting the rest of the VU program. The hidden run confirmed the first kick at
+PC `0x68` is still rejected at address 469. Execution then reaches the second
+kick at PC `0x6e`, address 35, but that packet is also rejected: qword 35 is
+zero and qword 36 is vector data. The native frame after the injected Cross is
+only a gray background, with no accepted native world meshes. This is progress
+in the VU trace, not a playable or visual pass. Capture:
+`/tmp/sly-vu-continuation-capture-20261116.log` and
+`/tmp/sly1-native-world-00.ppm`.
 
 Correlate the retail program's VI instructions, the VIF destination, and the
 GIF leading-tag address using hardware-level semantics. Keep matching decomp

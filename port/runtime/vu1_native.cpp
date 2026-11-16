@@ -59,10 +59,23 @@ struct State {
     uint32_t pc = 0;
 };
 
+struct PendingKick {
+    bool active = false;
+    uint32_t address = 0;
+    uint32_t pc = 0;
+    uint32_t vi4 = 0;
+    uint32_t vi3 = 0;
+    uint32_t top = 0;
+    uint32_t tops = 0;
+    Vector vf7{};
+    uint32_t delay = 0;
+};
+
 std::mutex g_vu_mutex;
 State g_state;
 std::atomic_flag g_vu_context_notice = ATOMIC_FLAG_INIT;
 std::atomic<uint32_t> g_vu_kick_notice_count{0};
+std::atomic<uint32_t> g_vu_kick_success_notice_count{0};
 
 Vector vf_read(const State& state, uint32_t index) {
     if (index == 0) return {0.0f, 0.0f, 0.0f, 1.0f};
@@ -218,6 +231,44 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
     if (failure != nullptr) *failure = 2;
     if (failed_address != nullptr) *failed_address = static_cast<uint32_t>(cursor);
     return false;
+}
+
+void dispatch_pending_kick(PendingKick* pending) {
+    if (pending == nullptr || !pending->active) return;
+
+    uint32_t failure = 0;
+    uint32_t failed_address = 0;
+    uint64_t first_tag = 0;
+    uint64_t failed_tag = 0;
+    uint64_t failed_tag_high = 0;
+    const bool accepted = kick_gif(pending->address, &failure, &first_tag,
+                                   &failed_address, &failed_tag,
+                                   &failed_tag_high);
+    if (!accepted) {
+        const uint32_t notice = g_vu_kick_notice_count.fetch_add(
+            1, std::memory_order_relaxed);
+        if (notice < 4u)
+            openrac::log::warn(
+                "native VU1 XGKICK packet rejected at PC {:#x}: VI4={} VI3={} address={} VF7={:#010x},{:#010x},{:#010x},{:#010x} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x}:{:#018x} reason={}",
+                pending->pc, pending->vi4, pending->vi3, pending->address,
+                std::bit_cast<uint32_t>(pending->vf7[0]),
+                std::bit_cast<uint32_t>(pending->vf7[1]),
+                std::bit_cast<uint32_t>(pending->vf7[2]),
+                std::bit_cast<uint32_t>(pending->vf7[3]), pending->top,
+                pending->tops, first_tag, failed_address, failed_tag_high,
+                failed_tag, failure == 1 ? "packet exceeds native limit" :
+                failure == 3 ? "GIFtag has reserved bits set" :
+                "missing EOP");
+    } else {
+        const uint32_t notice = g_vu_kick_success_notice_count.fetch_add(
+            1, std::memory_order_relaxed);
+        if (notice < 8u)
+            openrac::log::info(
+                "native VU1 XGKICK submitted at PC {:#x}: address={} first_tag={:#018x}",
+                pending->pc, pending->address, first_tag);
+    }
+    pending->active = false;
+    pending->delay = 0;
 }
 
 bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
@@ -385,7 +436,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
 }
 
 bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
-                     uint32_t* unsupported) {
+                     uint32_t* unsupported, PendingKick* pending_kick) {
     if (word == 0 || word == 0x8000033Cu) return true;
     const uint32_t primary = word >> 25u;
     const uint32_t target = (word >> 16u) & 31u;
@@ -460,38 +511,22 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 return true;
             }
             if (function == 0x3Cu && field == 0x1Bu) { // XGKICK
-                uint32_t failure = 0;
-                uint32_t failed_address = 0;
-                uint64_t first_tag = 0;
-                uint64_t failed_tag = 0;
-                uint64_t failed_tag_high = 0;
                 const uint32_t address = vi_read(*state, source);
-                const Vector vf7 = vf_read(*state, 7u);
-                if (!kick_gif(address, &failure, &first_tag, &failed_address,
-                              &failed_tag, &failed_tag_high)) {
-                    const uint32_t notice = g_vu_kick_notice_count.fetch_add(
-                        1, std::memory_order_relaxed);
-                    if (notice < 4u)
-                        openrac::log::warn(
-                            "native VU1 XGKICK failed at PC {:#x}: VI4={} VI3={} VI{}={} VF7={:#010x},{:#010x},{:#010x},{:#010x} TOP={} TOPS={} first_tag={:#018x} failed_tag@{}={:#018x}:{:#018x} reason={}",
-                            state->pc, vi_read(*state, 4u), vi_read(*state, 3u),
-                            source & 15u, address,
-                            std::bit_cast<uint32_t>(vf7[0]),
-                            std::bit_cast<uint32_t>(vf7[1]),
-                            std::bit_cast<uint32_t>(vf7[2]),
-                            std::bit_cast<uint32_t>(vf7[3]),
-                            *reinterpret_cast<const uint32_t*>(guest_address(kVif1Top)),
-                            *reinterpret_cast<const uint32_t*>(guest_address(0x10003CC0u)), first_tag,
-                            failed_address, failed_tag_high, failed_tag,
-                            failure == 1 ? "packet exceeds native limit" :
-                            failure == 3 ? "GIFtag has reserved bits set" : "missing EOP");
-                    *unsupported = word;
-                    return false;
+                if (pending_kick != nullptr && pending_kick->active)
+                    dispatch_pending_kick(pending_kick);
+                if (pending_kick != nullptr) {
+                    pending_kick->active = true;
+                    pending_kick->address = address;
+                    pending_kick->pc = state->pc;
+                    pending_kick->vi4 = vi_read(*state, 4u);
+                    pending_kick->vi3 = vi_read(*state, 3u);
+                    pending_kick->top = *reinterpret_cast<const uint32_t*>(
+                        guest_address(kVif1Top));
+                    pending_kick->tops = *reinterpret_cast<const uint32_t*>(
+                        guest_address(0x10003CC0u));
+                    pending_kick->vf7 = vf_read(*state, 7u);
+                    pending_kick->delay = 2;
                 }
-                if (g_vu_kick_notice_count.load(std::memory_order_relaxed) < 4u)
-                    openrac::log::info(
-                        "native VU1 XGKICK submitted at PC {:#x}: VI{}={} first_tag={:#018x}",
-                        state->pc, source & 15u, address, first_tag);
                 return true;
             }
             if ((function == 0x3Cu || function == 0x3Du) && field == 0x1Au) {
@@ -616,6 +651,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     bool end_delay = false;
     bool branch_delay = false;
     uint32_t branch_target = 0;
+    PendingKick pending_kick{};
     struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
     std::array<RecentInstruction, 16> recent{};
     for (uint32_t cycle = 0; cycle < kMaxInstructions; ++cycle) {
@@ -640,6 +676,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         State upper_result = before;
         State lower_result = before;
         if (!translate_upper(&upper_result, upper, unsupported_word)) {
+            dispatch_pending_kick(&pending_kick);
             *paired_word = lower;
             *stopped_pc = current_pc;
             *stopped_pipeline = 0;
@@ -647,7 +684,9 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         }
         if ((upper & (1u << 31u)) != 0) {
             upper_result.i = std::bit_cast<float>(lower);
-        } else if (!translate_lower(&lower_result, lower, &next_pc, unsupported_word)) {
+        } else if (!translate_lower(&lower_result, lower, &next_pc,
+                                    unsupported_word, &pending_kick)) {
+            dispatch_pending_kick(&pending_kick);
             *paired_word = upper;
             *stopped_pc = current_pc;
             const bool xgkick = (lower >> 25u) == 0x40u &&
@@ -679,6 +718,13 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         g_state.vi = lower_result.vi;
         if (lower_result.status_flags != before.status_flags)
             g_state.status_flags = lower_result.status_flags;
+
+        // OpenRAC's VU interpreter sends XGKICK after the next instruction
+        // pair. Keep that delay in this port-only VU path so the GIF packet
+        // sees the data produced by the intervening guest instructions.
+        if (pending_kick.active && pending_kick.delay > 0 &&
+            --pending_kick.delay == 0)
+            dispatch_pending_kick(&pending_kick);
         if (lower_result.clip_flags != before.clip_flags)
             g_state.clip_flags = lower_result.clip_flags;
         g_state.pc = next_pc;
@@ -724,11 +770,13 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         if ((upper & (1u << 30u)) != 0) {
             if (end_delay) {
                 g_state.pc = pc;
+                dispatch_pending_kick(&pending_kick);
                 return 1;
             }
             end_delay = true;
         } else if (end_delay) {
             g_state.pc = pc;
+            dispatch_pending_kick(&pending_kick);
             return 1;
         }
         if (next_pc != current_pc + 1u) {
@@ -741,5 +789,6 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     *paired_word = 0xFFFFFFFFu;
     *stopped_pc = pc;
     *stopped_pipeline = 0;
+    dispatch_pending_kick(&pending_kick);
     return 0;
 }
