@@ -101,29 +101,40 @@ PC `0x68` has VI3=`628` and VF7=`{0x4149d0e5, 0xc0d92618, 0x42877fa4,
 targets qword 627, while the later XGKICK uses VI7=`35`. This separates that
 store from the missing qword-35 tag. The retail code increments VI6 at PC
 `0x67` immediately before XGKICK; do not change that game code. Public PS2Tek
-hardware notes describe VIF UNPACK bit 15 as adding TOPS and the VU integer
-pipeline as having a one-cycle bypass. With the traced TOPS, BASE, and OFFSET
-all zero, the UNPACK destination calculation supports qword 468; the
-back-to-back IADDIU supports VI6 becoming 469 for the following instruction.
-This narrows the mismatch but does not prove which VI value the external
-XGKICK request samples, nor explain the valid GIFtag at 468 followed by payload
-at 469. Do not change instruction or VIF semantics from this evidence alone.
+hardware notes describe VIF UNPACK bit 15 as adding TOPS. With the traced
+TOPS, BASE, and OFFSET all zero, this UNPACK writes the tag at qword 468. The
+Sony VU User's Manual is explicit that integer calculations have one-clock
+latency with no calculation data hazards, and that XGKICK provides its VI
+operand to GIF, which treats that value as the leading GIFtag address. Thus
+VI6=469 is consistent with the instruction sequence, while qword 468 contains
+the valid EOP tag and qword 469 its payload. This rules out assuming XGKICK
+simply sees the old VI6. See the manual's [IALU pipeline section
+(3.4.7)](https://docs.alexrp.com/mips/ee_vu.pdf) and XGKICK instruction
+reference (4.6.24).
+
+The trace records no VIF or VU store to qwords 34–35 before the failed first
+kick; qword 37 is written by a separate UNPACK. The later qword-35 kick
+appeared only in the removed backstep experiment, where qword 34 was zero. The
+remaining mismatch is not explained by VI increment behavior alone. Next,
+compare retail VIF TOPS/BASE/OFFSET/DBF state and all relevant UNPACKs with the
+native trace, and establish how this VU program expects its second packet to
+be produced. Keep VIF/VU instruction semantics unchanged until that data flow
+is accounted for.
 
 An opt-in retry from qword 468 submitted the 110-qword packet, but captured
 frames remained black. Execution then reached a second XGKICK at PC `0x6e`
 from VI7=`35`, which also fails validation. The retry has been removed. Do not
-backstep pointers or weaken GIF validation. Next, capture VU data memory around
-qwords 34–35 and 468–469 immediately before each XGKICK, and record every
-UNPACK and VU store that can write those addresses. Use that to determine why
-qword 468 contains a complete tag while the VI6 request points at payload in
-469, and why VI7 later points to the unwritten qword 35. Keep masked UNPACK
-`0x78` support limited to the observed selectors; column-fill and write-protect
-remain unsupported. The no-card prompt's flicker remains a separate known
-issue.
+backstep pointers or weaken GIF validation. The immediate next task is to
+account for the complete VIF/VU data flow and double-buffer state against the
+manual, then find independent evidence for the intended packet address before
+changing the native model. Keep masked UNPACK `0x78` support limited to the
+observed selectors; column-fill and write-protect remain unsupported. The
+no-card prompt's flicker remains a separate known issue.
 
 The public [PS2Tek hardware notes](https://israpps.github.io/ps2tek/) document
-the VIF TOPS-relative UNPACK rule and the VU integer pipeline bypass used in
-this analysis.
+the VIF TOPS-relative UNPACK rule. The linked [Sony VU User's
+Manual](https://docs.alexrp.com/mips/ee_vu.pdf) documents XGKICK and the IALU
+pipeline.
 The sibling decomp's `PORTING.md` classifies `.vutext` as original assembly;
 the 100% matching C result does not decompile these VU1 programs. This renderer
 work stays port-only, with no changes to matched game functions.
