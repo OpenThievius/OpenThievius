@@ -14,7 +14,7 @@
 #include <mutex>
 #include <vector>
 
-extern "C" void openrac_native_renderer_append_gif_stream(const void*, size_t)
+extern "C" void openrac_native_renderer_append_gif_stream(const void*, size_t, const char*)
     __attribute__((weak));
 
 namespace {
@@ -292,7 +292,7 @@ void gif_stream_write(const void* source, size_t size, const char* origin) {
         }
     }
     if (openrac_native_renderer_append_gif_stream != nullptr)
-        openrac_native_renderer_append_gif_stream(source, size);
+        openrac_native_renderer_append_gif_stream(source, size, origin);
     const auto* bytes = static_cast<const uint8_t*>(source);
     std::lock_guard lock(g_parser_mutex);
     g_gif_input_origin = origin != nullptr ? origin : "unspecified";

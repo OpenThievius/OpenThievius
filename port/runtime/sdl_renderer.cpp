@@ -101,14 +101,22 @@ bool gif_queue_has_room_locked(std::size_t incoming_bytes,
            incoming_bytes <= maximum_bytes - queued_bytes;
 }
 
-void trace_gif_queue_append(const char* source, std::size_t incoming_bytes) {
+void trace_gif_queue_append(const char* source, std::size_t incoming_bytes,
+                            std::uint32_t guest_address = 0, const void* host_source = nullptr) {
     if (std::getenv("OPENRAC_TRACE_GIF_QUEUE") == nullptr) return;
     static std::atomic<unsigned> trace_count{0};
     const unsigned index = trace_count.fetch_add(1, std::memory_order_relaxed);
-    if (index < 512u) {
+    unsigned limit = 512u;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_GIF_QUEUE_LIMIT")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            limit = static_cast<unsigned>(parsed);
+    }
+    if (index < limit) {
         std::fprintf(stderr,
-                     "[native GIF queue] append=%u source=%s incoming=%zu queued=%zu\n",
-                     index, source, incoming_bytes, g_packets.size());
+                     "[native GIF queue] append=%u source=%s guest_source=%#010x host_source=%p incoming=%zu queued=%zu\n",
+                     index, source, guest_address, host_source, incoming_bytes, g_packets.size());
     }
 }
 
@@ -748,7 +756,7 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             return;
         }
         g_packets.insert(g_packets.end(), stream.begin(), stream.end());
-        trace_gif_queue_append("dma-chain", stream.size());
+        trace_gif_queue_append("dma-chain", stream.size(), source_address);
     }
     if (std::getenv("OPENRAC_TRACE_DMA_CALL") != nullptr) {
         static std::atomic<unsigned> chain_trace_count{0};
@@ -830,7 +838,8 @@ extern "C" void openrac_native_renderer_trace_dma_call(std::uint32_t channel_add
 /* Receive the GIF stream after the native VIF1/VU1 path has expanded the
  * display list. The direct renderer consumes ordered GIF bytes at present. */
 extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
-                                                           std::size_t size) {
+                                                           std::size_t size,
+                                                           const char* origin) {
     if (source == nullptr || size == 0) return;
     std::scoped_lock lock(g_packets_mutex);
     if (!gif_queue_has_room_locked(size, kMaxQueuedGifBytes)) {
@@ -845,7 +854,8 @@ extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
     }
     g_packets.insert(g_packets.end(), static_cast<const std::uint8_t*>(source),
                      static_cast<const std::uint8_t*>(source) + size);
-    trace_gif_queue_append("gif-stream-callback", size);
+    trace_gif_queue_append(origin != nullptr ? origin : "gif-stream-callback", size, 0,
+                           source);
 }
 
 extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_address) {
@@ -883,7 +893,7 @@ extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_a
             return;
         }
         g_packets.insert(g_packets.end(), gif, gif + gif_size);
-        trace_gif_queue_append("gif-stream-submit", gif_size);
+        trace_gif_queue_append("gif-stream-submit", gif_size, source_address);
     }
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
@@ -1206,15 +1216,25 @@ extern "C" void openrac_native_window_present(void) {
     if (packets.size() >= 512u && packets.size() <= 16u * 1024u * 1024u &&
         std::getenv("OPENRAC_DUMP_NATIVE_PACKETS") != nullptr) {
         static unsigned dump_index = 0;
-        if (dump_index < 16) {
+        static unsigned eligible_packet_frame = 0;
+        unsigned skip = 0;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_PACKET_SKIP")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed <= 100000u)
+                skip = static_cast<unsigned>(parsed);
+        }
+        const unsigned this_packet_frame = eligible_packet_frame++;
+        if (this_packet_frame >= skip && dump_index < 16) {
             char path[80];
             std::snprintf(path, sizeof(path), "/tmp/sly1-native-render-packets-%02u.bin",
                           dump_index++);
             if (FILE* file = std::fopen(path, "wb")) {
                 std::fwrite(packets.data(), 1, packets.size(), file);
                 std::fclose(file);
-                std::fprintf(stderr, "[native packet dump] bytes=%zu path=%s\n",
-                             packets.size(), path);
+                std::fprintf(stderr,
+                             "[native packet dump] eligible_frame=%u bytes=%zu path=%s\n",
+                             this_packet_frame, packets.size(), path);
             }
         }
     }

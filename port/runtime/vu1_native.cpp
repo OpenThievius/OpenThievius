@@ -161,9 +161,34 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
         (address >= 32u && address <= 38u) ||
         (address >= 136u && address <= 142u) ||
         (address >= 464u && address <= 476u);
-    if (trace_target || nan_output)
+    const char* xgkick_data_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+    const bool trace_xgkick_data = xgkick_data_trace != nullptr &&
+        xgkick_data_trace[0] != '\0' && xgkick_data_trace[0] != '0' &&
+        g_vu_trace_entry == 0x26Du && (address == 27u || address == 35u);
+    if (trace_target || trace_xgkick_data || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
+    static std::atomic<uint32_t> xgkick_data_notice{0};
+    uint32_t xgkick_data_limit = 256u;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA_LIMIT")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            xgkick_data_limit = static_cast<uint32_t>(parsed);
+    }
+    if (trace_xgkick_data &&
+        xgkick_data_notice.fetch_add(1, std::memory_order_relaxed) < xgkick_data_limit) {
+        uint32_t instruction[2]{};
+        std::memcpy(instruction, guest_address(kVu1Micro + (pc & 0x7FFu) * 8u),
+                    sizeof(instruction));
+        uint32_t next[4]{};
+        std::memcpy(next, value.data(), sizeof(next));
+        openrac::log::info(
+            "native VU1 XGKICK buffer write entry={:#x} pc={:#x} instruction={:#010x}/{:#010x} qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            g_vu_trace_entry, pc, instruction[0], instruction[1], address,
+            previous[0], previous[1], previous[2], previous[3],
+            next[0], next[1], next[2], next[3]);
+    }
     static std::atomic<uint32_t> qword11_notice{0};
     if (address == 11u && std::getenv("OPENRAC_TRACE_VU_QWORD11") != nullptr &&
         qword11_notice.fetch_add(1, std::memory_order_relaxed) < 512u) {
@@ -313,17 +338,25 @@ void dispatch_pending_kick(PendingKick* pending) {
 
     const char* trace_state = std::getenv("OPENRAC_TRACE_XGKICK_STATE");
     static std::atomic<uint32_t> state_trace_count{0};
+    uint32_t state_trace_limit = 32u;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_XGKICK_STATE_LIMIT")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            state_trace_limit = static_cast<uint32_t>(parsed);
+    }
     const bool trace_this_kick =
         trace_state != nullptr && trace_state[0] != '\0' && trace_state[0] != '0' &&
-        state_trace_count.fetch_add(1, std::memory_order_relaxed) < 32u;
+        state_trace_count.fetch_add(1, std::memory_order_relaxed) < state_trace_limit;
     if (trace_this_kick) {
         uint32_t tag_loaded = 0;
         uint32_t remaining_qwords = 0;
         uint64_t tag_low = 0;
         openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
         openrac::log::info(
-            "native VU1 XGKICK parser state PC={:#x} address={} active={} remaining={} tag={:#018x}",
-            pending->pc, pending->address, tag_loaded, remaining_qwords, tag_low);
+            "native VU1 XGKICK parser state entry={:#x} PC={:#x} address={} active={} remaining={} tag={:#018x}",
+            g_vu_trace_entry, pending->pc, pending->address, tag_loaded, remaining_qwords,
+            tag_low);
     }
 
     uint32_t failure = 0;
@@ -336,8 +369,8 @@ void dispatch_pending_kick(PendingKick* pending) {
                                    &failed_tag_high);
     if (trace_this_kick) {
         openrac::log::info(
-            "native VU1 XGKICK trace PC={:#x} address={} accepted={} first_tag={:#018x} failed_address={} failed_tag={:#018x}:{:#018x} failure={}",
-            pending->pc, pending->address, accepted, first_tag, failed_address,
+            "native VU1 XGKICK trace entry={:#x} PC={:#x} address={} accepted={} first_tag={:#018x} failed_address={} failed_tag={:#018x}:{:#018x} failure={}",
+            g_vu_trace_entry, pending->pc, pending->address, accepted, first_tag, failed_address,
             failed_tag_high, failed_tag,
             failure == 0 ? "none" : failure == 1 ? "packet exceeds native limit" :
             failure == 2 ? "missing EOP" : "GIFtag has reserved bits set");
