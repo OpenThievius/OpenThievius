@@ -837,6 +837,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             }
         }
         g_state.vi = lower_result.vi;
+        if (lower_result.p != before.p) g_state.p = lower_result.p;
+        if (lower_result.q != before.q) g_state.q = lower_result.q;
         if (lower_result.status_flags != before.status_flags)
             g_state.status_flags = lower_result.status_flags;
 
