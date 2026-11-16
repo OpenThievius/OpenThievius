@@ -6,12 +6,12 @@
 ### Render one recognizable world object from Sly's draw inputs
 
 The last user-confirmed useful screen is still the retail memory-card UI. The
-latest inspected client capture shows sparse purple scene meshes in its first
-three world frames, then only the gray horizon in frames 03–07. The trace found
-hundreds of repeated request identities queued between presents; the optional
-renderer now keeps the latest mesh per identity. That lowers duplicate draws
-but does not change the captured image. Real uploaded textures resolve after
-the image becomes gray. This output is fragmented and unstable. A port-only
+latest inspected client capture now shows a gray horizon for three frames,
+followed by broad, stretched purple geometry. Correcting the optional
+renderer’s GS depth comparisons exposed more surfaces, but no recognizable
+object. The trace also found hundreds of repeated request identities queued
+between presents; the optional renderer now keeps the latest mesh per identity.
+Real uploaded textures resolve. This output is still unstable and unplayable. A port-only
 fix to `func_001453B0` now uses its distance argument; `QueueModelPartDraws`
 moves from zero queued parts to 23 on the first pass and as many as 78 later.
 The DMA9 scratchpad copy is byte-for-byte verified for the first 12 part/state

@@ -7,17 +7,26 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 ## Latest client output audit (2026-11-16)
 
 Rebuilt the current branch and inspected a fresh hidden client capture after a
-process-local Cross input. The first three world presents show sparse purple
-meshes over a gray horizon; the next five show only a flat gray horizon. A
+process-local Cross input. The corrected GS depth mapping changes the
+prototype capture: the first three world presents show only the gray horizon,
+then frames 03–07 show broad, stretched purple geometry. This is more world
+geometry reaching the framebuffer, but it is not recognizable or playable. A
 trace found that the game can submit the same request identity many times
 between host presents (1,416 queued entries represented only 120 identities in
 one sample). The optional renderer now keeps the latest mesh per identity,
-reducing those batches to at most 398 distinct meshes. The captured image did
-not improve: frames 03–07 are still gray. Real uploaded textures resolve, so
-this is not explained by an empty draw list or missing textures. The output is
-unstable and not playable. Latest contact sheet:
-`/tmp/sly-dedupe-contact-20261116.png`; source frames:
+reducing those batches to at most 398 distinct meshes. Real uploaded textures
+resolve, so this is not explained by an empty draw list or missing textures.
+Latest depth-corrected contact sheet:
+`/tmp/sly-depth-test-contact-20261116.png`; source frames:
 `/tmp/sly1-native-world-00.ppm` through `07.ppm`.
+
+The optional renderer previously mapped every non-`Always` GS depth test to
+OpenGL `LEQUAL`, incorrectly treating `Greater`, `Gequal`, and `Never` as the
+same comparison. It now maps all four decoded GS modes to their matching GL
+comparisons. This exposes broad purple surfaces after world startup, but they
+stretch across the screen and do not form a recognizable object. This is a
+real renderer-state correction, not proof that the VIF/VU/GIF packet path
+works; continue from strip output and per-object transforms.
 
 The projected-bounds diagnostic reports many vertices within the clip cube in
 later frames, but it is only a vertex/bounds estimate: it does not clip

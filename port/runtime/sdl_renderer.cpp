@@ -454,8 +454,20 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         }
         if (test.zte) {
             glEnable(GL_DEPTH_TEST);
-            glDepthFunc(test.ztst == openrac::renderer::gs::DepthTest::Always
-                            ? GL_ALWAYS : GL_LEQUAL);
+            switch (test.ztst) {
+                case openrac::renderer::gs::DepthTest::Never:
+                    glDepthFunc(GL_NEVER);
+                    break;
+                case openrac::renderer::gs::DepthTest::Always:
+                    glDepthFunc(GL_ALWAYS);
+                    break;
+                case openrac::renderer::gs::DepthTest::Gequal:
+                    glDepthFunc(GL_GEQUAL);
+                    break;
+                case openrac::renderer::gs::DepthTest::Greater:
+                    glDepthFunc(GL_GREATER);
+                    break;
+            }
             glDepthMask(!(test.ate &&
                           test.atst == openrac::renderer::gs::AlphaTest::Never &&
                           test.afail == openrac::renderer::gs::AlphaFail::FbOnly));

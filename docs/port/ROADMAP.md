@@ -6,11 +6,12 @@
 The project has spent too long improving diagnostics around an unvalidated
 renderer prototype. The no-emulation build gets through the memory-card
 screen, loads world `0x870cf0`, advances frames, and reaches model draw
-callbacks. The last confirmed useful image is still the memory-card UI. A
-hidden capture shows sparse purple fragments for three presents, then gray.
-Deduplicating repeated mesh identities and skipping one full-view, depth-always
-mesh did not reveal a recognizable scene. Treat the optional world prototype
-as a failed experiment, not as a base to keep patching.
+callbacks. The last confirmed useful image is still the memory-card UI. The
+optional renderer now maps all GS depth comparisons correctly; a hidden
+capture shows broad, stretched purple surfaces after three gray frames. It is
+still not a recognizable scene. Deduplication and skipping one full-view,
+depth-always mesh did not reveal the missing objects. Treat the optional world
+prototype as diagnostic, not as a playable renderer.
 
 **Next objective: render one real world object through a Sly-specific native
 draw path.** Start at the decomp's mesh-build and model-draw boundary. Use its
