@@ -68,6 +68,17 @@ subsequent samples (`/tmp/sly-flicker-final-capture-20261116.log`). A captured
 frame confirms the prompt stays visible; the short white dash at the left edge
 remains unexplained.
 
+A fresh offscreen capture with DMA-call tracing disabled and 100 eligible
+frames skipped then saved eight consecutive samples; all eight show the full
+prompt (`/tmp/sly-no-card-framecapture-skip100-20261116.log`). This short
+sample does not rule out the intermittent flicker from the longer recording.
+The Codex-started Wayland run that was stopped for runaway logging later
+reported world `0x870cf0` and advanced past game frame 1,500. It had no pad
+trace, so it does not prove which key caused the transition or show that the
+world rendered correctly. Its enabled DMA-call trace had emitted over 10 GB
+of stderr; that diagnostic is now capped, but its effect on flicker was not
+measured.
+
 ### The world draw path reaches a mismatched VU packet pointer
 
 The host32 prompt regression came from an ABI mismatch in the staged copy:
