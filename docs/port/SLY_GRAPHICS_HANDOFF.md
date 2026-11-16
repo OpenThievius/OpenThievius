@@ -6,60 +6,46 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
 ## Latest client output audit (2026-11-16)
 
-I captured and inspected the actual offscreen client frame after the automatic
-Cross input reached world drawing. It is still the flat gray sky/ground
-horizon, with no recognizable level object. Pixel comparison against the prior
-controlled gray-horizon capture reports zero differing pixels, so this audit
-found no visual regression in the successful run; the game is still not
-visually playable. Frame:
-`/tmp/sly1-native-world-00.ppm`; successful bounded trace:
-`/tmp/sly-final-client-audit-20261116.log`.
+A fresh host32 build and hidden run with one process-local Cross input produced
+the first visible scene geometry in the native client capture. Three early
+world frames show sparse purple level meshes over the gray horizon; frames
+03–07 return to the horizon only. This is measurable visual progress, but the
+geometry is fragmented and does not persist, so the client is still not
+playable. Contact sheet:
+`/tmp/sly-camera-fade-arg-contact-20261116.png`; frame:
+`/tmp/sly-camera-fade-arg-frame-20261116.png`.
 
-The VU setup trace shows qNaNs (`0x7fc00000`) already in V4-32 payloads
-reserved at native packet addresses `0x003c676c` and `0x003c67b0`, for VU
-destinations 4 and 8. Those packets are built through translated
-`CopyWordsToWriter` (`func_001EE668`). The same frame's model trace reports
-qNaN transforms for several draw requests. This narrows the graphics defect to
-invalid model/packet data reaching the VU; it does not yet prove whether the
-bad values first appear in transform generation, mesh input, or the caller's
-source buffer. The first VIF input capture independently confirms qNaNs arrive
-at VU qwords 348–363 before LQI. Do not replace them with zero or sanitize the
-VU output; trace the model data producer.
+These purple fragments are from the experimental
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` path, which submits captured Sly meshes
+directly to OpenRAC's host renderer. They do not verify the normal VIF/VU/GIF
+render path; that path still has the malformed kick at qword 469.
 
-Two intermediate probes from this audit were discarded. One inspected output
-pointers before `ReserveVifUnpack` initialized them; a later source probe
-terminated at an unrelated guest invalid-pointer fault (`0x99999999` in
-`func_0018F9D8`). Neither is treated as evidence of a game regression. The
-final staged code retains only the bounded reservation trace, gated by
-`OPENRAC_TRACE_VIF_WRITES=1`.
+The path is now traced end to end through `QueueModelPartDraws`. The first
+1,910-part pass previously queued zero requests because the port-only
+`func_001453B0` backfill ignored its `distance` argument and used the vector's
+fourth lane instead. It now computes `distance * camera[0xB0] + radius`, which
+matches the decomp's function description. The first pass then queued 23 parts;
+later passes queued up to 78. The call is still made from staged matched code;
+the functional correction is isolated in `port/game/sly1-us/native/` and the
+decomp checkout is untouched.
+
+The DMA9 scratchpad path is also verified for the first 12 model/state blocks:
+the runtime compared every copied word against its RAM source and found zero
+mismatches. The old `0x99999999` scratch hook is null in the traced draw
+requests. DMA8 scratchpad-to-RAM behavior is implemented but has not yet been
+observed on this path. Detailed evidence is in
+`/tmp/sly-camera-fade-arg-build-20261116.log` and
+`/tmp/sly-camera-fade-arg-run-20261116.log`.
+
+The unresolved issue is why the sparse geometry disappears after the third
+captured world frame even while later passes still queue roughly 44 parts. The
+camera starts with `areaMask=0x0fffffff`; culling rejects many of the 1,910
+parts, and the remaining transforms/GS output still do not form a recognizable
+scene. Continue tracing draw-request consumption and frame clearing, then
+follow one surviving part through VIF/VU/GIF to the presented frame. Do not
+change matched Sly sources to mask these port/runtime gaps.
 
 ## Direction reset
-
-### Client recheck and scratchpad DMA attempt (2026-11-16)
-
-I rebuilt and inspected another hidden client capture after the process-local
-Cross press. It still shows only the gray horizon and ground; there is no
-recognizable scene. The screenshot `/tmp/sly-scratchpad-dma-frame-20261116.png`
-matches the earlier gray-horizon output in appearance. The run stayed in the
-active world loop for at least 320 samples and did not report the previous
-`0x99999999` fault, but the source-level model-hook probe did not fire, so this
-run does not establish that `QueueModelPartDraws` or its scratchpad data copy
-worked.
-
-The new port-only attempt in `port/game/sly1-us/native/func_002027C8.cpp`
-implements synchronous DMA9 RAM-to-scratchpad block copies and DMA8
-scratchpad-to-RAM copies from the recorded `SprTransfer` blocks. It compiles,
-but it is not yet validated: the current run has no copy-result trace and no
-matching draw-hook event. Keep the matched decomp unchanged and instrument the
-channel-8/9 transfer records and the next `QueueModelPartDraws` entry before
-relying on this backfill. Build/run evidence:
-`/tmp/sly-scratchpad-dma-build-20261116.log` and
-`/tmp/sly-scratchpad-dma-probe-20261116.log`.
-
-The no-emulation launcher reaches model draw callbacks after loading a world,
-but the last user-confirmed useful image is the retail no-card UI. The optional
-world-renderer prototype remains disabled by default and its gray horizon is
-not successful scene output.
 
 ### VU store bug found after the Space transition (2026-11-16)
 

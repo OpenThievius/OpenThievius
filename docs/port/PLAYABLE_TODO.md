@@ -5,12 +5,25 @@
 
 ### Render one recognizable world object from Sly's draw inputs
 
-The last confirmed useful image is still the retail memory-card UI. The
-optional native world renderer has produced 41 mesh submissions on one
-present, but the captured world frame is a gray horizon. Do not call that
-graphics progress or raise the default VU cycle limit: a diagnostic
-65,552-cycle run still failed to produce a recognizable image and still
-rejected the GIF tag at VU qword 469.
+The last user-confirmed useful screen is still the retail memory-card UI. The
+latest automated client capture now shows sparse purple scene meshes in its
+first three world frames, then only the gray horizon in frames 03–07. This is
+real graphics output, but it is fragmented and unstable. A port-only fix to
+`func_001453B0` now uses its distance argument; `QueueModelPartDraws` moves from
+zero queued parts to 23 on the first pass and as many as 78 later. The DMA9
+scratchpad copy is byte-for-byte verified for the first 12 part/state blocks.
+These fragments come from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`
+path, which submits captured mesh data to OpenRAC's host renderer; they do not
+prove the ordinary VIF/VU/GIF path works.
+The next task is to trace why queued geometry disappears after frame 02 and
+follow one surviving part through deferred-request consumption and VIF/VU/GIF
+to the final framebuffer. Do not change matched decompilation files or raise
+the VU instruction limit to hide the remaining packet errors.
+
+The optional native world renderer still submits mesh approximations, and the
+retail VU path still rejects the GIF kick at qword 469. Keep that issue
+separate from the newly observed short-lived scene draws; neither result alone
+proves a playable level.
 
 The decomp's `BuildStripMeshPacket` gives the port an ordered `VertexRefs`
 sequence, positions, UVs, tints, and per-object matrices. `FrameSource` does
