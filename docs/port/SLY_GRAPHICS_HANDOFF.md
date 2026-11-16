@@ -6,14 +6,24 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
 ## Latest client output audit (2026-11-16)
 
-A fresh host32 build and hidden run with one process-local Cross input produced
-the first visible scene geometry in the native client capture. Three early
-world frames show sparse purple level meshes over the gray horizon; frames
-03–07 return to the horizon only. This is measurable visual progress, but the
-geometry is fragmented and does not persist, so the client is still not
-playable. Contact sheet:
-`/tmp/sly-camera-fade-arg-contact-20261116.png`; frame:
-`/tmp/sly-camera-fade-arg-frame-20261116.png`.
+Rebuilt the current branch and inspected a fresh hidden client capture after a
+process-local Cross input. The first three world presents show sparse purple
+meshes over a gray horizon; the next five show only a flat gray horizon. A
+second run reproduced the same 77, 77, 77, then 270+ host-mesh submission
+pattern, and confirmed that real uploaded textures (not placeholders) reach
+the optional host renderer. This rules out “no world draw calls” and “all
+textures missing” as explanations for the disappearance. The output remains
+unstable and is not playable. Latest contact sheet:
+`/tmp/sly-world-contact-20261116.png`; source frames:
+`/tmp/sly1-native-world-00.ppm` through `07.ppm`.
+
+The projected-bounds diagnostic reports many vertices within the clip cube in
+later frames, but it is only a vertex/bounds estimate: it does not clip
+triangles or account for depth/material state, so it does not prove that those
+meshes should cover visible pixels. The next step is to trace which submissions
+and GL depth/material state change between world presents 02 and 03, and
+compare that with the retail GS/VU path. Do not infer success from the rising
+mesh count.
 
 These purple fragments are from the experimental
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` path, which submits captured Sly meshes
@@ -37,13 +47,11 @@ observed on this path. Detailed evidence is in
 `/tmp/sly-camera-fade-arg-build-20261116.log` and
 `/tmp/sly-camera-fade-arg-run-20261116.log`.
 
-The unresolved issue is why the sparse geometry disappears after the third
-captured world frame even while later passes still queue roughly 44 parts. The
-camera starts with `areaMask=0x0fffffff`; culling rejects many of the 1,910
-parts, and the remaining transforms/GS output still do not form a recognizable
-scene. Continue tracing draw-request consumption and frame clearing, then
-follow one surviving part through VIF/VU/GIF to the presented frame. Do not
-change matched Sly sources to mask these port/runtime gaps.
+The normal VIF/VU/GIF path remains unresolved independently: its first world
+XGKICK still starts at payload qword 469 and strict validation rejects it.
+The host mesh prototype must not be treated as proof that the native PS2 packet
+renderer works. Keep functional game backfills in `port/game/sly1-us/native/`
+and matched decomp sources untouched.
 
 ## Direction reset
 

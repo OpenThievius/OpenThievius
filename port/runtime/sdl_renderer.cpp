@@ -280,6 +280,15 @@ void main() {
 void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     using namespace openrac::gl;
     if (!g_world_shader || meshes.empty()) return;
+    const bool trace_projected_bounds =
+        std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
+    static unsigned present_bounds_sample = 0;
+    unsigned projected_meshes = 0;
+    unsigned intersecting_meshes = 0;
+    unsigned long long projected_vertices = 0;
+    unsigned long long inside_vertices = 0;
+    float frame_min_x = 1.0e30f, frame_min_y = 1.0e30f, frame_min_z = 1.0e30f;
+    float frame_max_x = -1.0e30f, frame_max_y = -1.0e30f, frame_max_z = -1.0e30f;
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static unsigned notices = 0;
         if (notices++ < 16u)
@@ -296,6 +305,47 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     for (const auto& mesh : meshes) {
         if (mesh.vertices.size() < 3u * 9u || mesh.vertices.size() > 4096u * 9u)
             continue;
+        if (trace_projected_bounds) {
+            float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
+            float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
+            unsigned mesh_projected = 0;
+            unsigned mesh_inside = 0;
+            const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            for (std::size_t i = 0; i < vertex_count; ++i) {
+                const float x = mesh.vertices[i * 9u + 0u];
+                const float y = mesh.vertices[i * 9u + 1u];
+                const float z = mesh.vertices[i * 9u + 2u];
+                float clip[4]{};
+                for (std::size_t row = 0; row < 4; ++row) {
+                    clip[row] = mesh.mvp[row] * x + mesh.mvp[4u + row] * y +
+                                mesh.mvp[8u + row] * z + mesh.mvp[12u + row];
+                }
+                if (!std::isfinite(clip[3]) || clip[3] <= 1.0e-6f) continue;
+                const float nx = clip[0] / clip[3];
+                const float ny = clip[1] / clip[3];
+                const float nz = clip[2] / clip[3];
+                if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(nz)) continue;
+                ++mesh_projected;
+                min_x = std::min(min_x, nx); max_x = std::max(max_x, nx);
+                min_y = std::min(min_y, ny); max_y = std::max(max_y, ny);
+                min_z = std::min(min_z, nz); max_z = std::max(max_z, nz);
+                if (nx >= -1.0f && nx <= 1.0f && ny >= -1.0f && ny <= 1.0f &&
+                    nz >= -1.0f && nz <= 1.0f)
+                    ++mesh_inside;
+            }
+            if (mesh_projected != 0) {
+                ++projected_meshes;
+                projected_vertices += mesh_projected;
+                inside_vertices += mesh_inside;
+                frame_min_x = std::min(frame_min_x, min_x); frame_max_x = std::max(frame_max_x, max_x);
+                frame_min_y = std::min(frame_min_y, min_y); frame_max_y = std::max(frame_max_y, max_y);
+                frame_min_z = std::min(frame_min_z, min_z); frame_max_z = std::max(frame_max_z, max_z);
+                if (max_x >= -1.0f && min_x <= 1.0f &&
+                    max_y >= -1.0f && min_y <= 1.0f &&
+                    max_z >= -1.0f && min_z <= 1.0f)
+                    ++intersecting_meshes;
+            }
+        }
         const auto tex0 = openrac::renderer::gs::Tex0::decode(mesh.tex0);
         const auto tex1 = openrac::renderer::gs::Tex1::decode(mesh.tex1);
         const auto clamp = openrac::renderer::gs::Clamp::decode(mesh.clamp);
@@ -352,6 +402,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                      mesh.vertices.data(), GL_STREAM_DRAW);
         glDrawArrays(GL_TRIANGLE_STRIP, 0,
                      static_cast<GLsizei>(mesh.vertices.size() / 9u));
+    }
+    if (trace_projected_bounds && present_bounds_sample < 64u) {
+        std::fprintf(stderr,
+                     "[native sly present bounds] frame=%u meshes=%zu projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
+                     present_bounds_sample++, meshes.size(), projected_meshes,
+                     intersecting_meshes, projected_vertices, inside_vertices,
+                     frame_min_x, frame_min_y, frame_min_z,
+                     frame_max_x, frame_max_y, frame_max_z);
     }
     glDepthMask(GL_TRUE);
     glBindVertexArray(0);
