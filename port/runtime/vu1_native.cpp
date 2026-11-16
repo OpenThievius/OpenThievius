@@ -159,6 +159,7 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
         value.begin(), value.end(), [](float lane) { return std::isnan(lane); });
     const bool trace_target =
         (address >= 32u && address <= 38u) ||
+        (address >= 136u && address <= 142u) ||
         (address >= 464u && address <= 476u);
     if (trace_target || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
@@ -177,8 +178,12 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
             std::bit_cast<uint32_t>(value[3]));
     }
     static std::atomic<uint32_t> target_write_notice{0};
+    static std::atomic<uint32_t> transform_write_notice{0};
     if ((trace_target || nan_output) && setup_trace_enabled &&
-        target_write_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
+        (((address >= 136u && address <= 142u) &&
+          transform_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u) ||
+         ((address < 136u || address > 142u) &&
+          target_write_notice.fetch_add(1, std::memory_order_relaxed) < 32u))) {
         uint32_t next[4]{};
         uint32_t instruction[2]{};
         std::memcpy(instruction,

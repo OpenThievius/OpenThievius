@@ -268,12 +268,14 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         uint8_t* output = guest_address(kVu1Data + destination_index * 16u);
         uint32_t lanes[4];
         std::memcpy(lanes, output, sizeof(lanes));
+        const bool trace_transform_target = vu_setup_trace_enabled &&
+            destination_index >= 136u && destination_index <= 142u;
         const bool trace_source_target = vu_setup_trace_enabled &&
             destination_index >= 348u && destination_index <= 363u;
         const bool trace_target =
             (destination_index >= 32u && destination_index <= 38u) ||
             (destination_index >= 464u && destination_index <= 476u) ||
-            trace_source_target;
+            trace_source_target || trace_transform_target;
         uint32_t old_lanes[4]{};
         if (trace_target) std::memcpy(old_lanes, lanes, sizeof(old_lanes));
         uint32_t input_lanes[4]{};
@@ -326,6 +328,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         static std::atomic<uint32_t> pointer_write_notice{0};
         static std::atomic<uint32_t> setup_write_notice{0};
         static std::atomic<uint32_t> source_write_notice{0};
+        static std::atomic<uint32_t> transform_write_notice{0};
         const bool trace_packet_target =
             destination_index >= 464u && destination_index <= 476u;
         const bool trace_pointer_target = vu_setup_trace_enabled &&
@@ -340,7 +343,9 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             (trace_setup_target &&
              setup_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u) ||
             (trace_source_target &&
-             source_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u);
+             source_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u) ||
+            (trace_transform_target &&
+             transform_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u);
         if (trace_write) {
             openrac::log::info(
                 "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",

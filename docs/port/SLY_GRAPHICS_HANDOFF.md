@@ -6,19 +6,26 @@ master are `8f7a85a3`; the sibling decomp checkout remains at `1cbb33fd`.
 
 ## Latest client output audit (2026-11-16)
 
-Rebuilt the current branch and inspected a fresh hidden client capture after a
-process-local Cross input. The corrected GS depth mapping changes the
-prototype capture: the first three world presents show only the gray horizon,
-then frames 03–07 show broad, stretched purple geometry. This is more world
-geometry reaching the framebuffer, but it is not recognizable or playable. A
-trace found that the game can submit the same request identity many times
-between host presents (1,416 queued entries represented only 120 identities in
-one sample). The optional renderer now keeps the latest mesh per identity,
-reducing those batches to at most 398 distinct meshes. Real uploaded textures
-resolve, so this is not explained by an empty draw list or missing textures.
-Latest depth-corrected contact sheet:
-`/tmp/sly-depth-test-contact-20261116.png`; source frames:
-`/tmp/sly1-native-world-00.ppm` through `07.ppm`.
+Rebuilt the current normal configuration (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`)
+from the archived public decomp snapshot `8f7a85a3` and inspected a fresh
+hidden native capture. The memory-card prompt still clears to black after the
+process-local Cross input; no title, scene, or playable state is visible. The
+earlier stretched purple geometry was from the optional prototype renderer and
+is not the current normal output.
+
+The new trace narrows the graphics failure. VIF1 UNPACK writes finite position
+values into VU1 qwords 138 and 141. VU1 `MSCAL 0x401` later stores NaNs over
+qwords 137 and 140; the following VU entry `0x34a` stores NaNs over qwords 138
+and 141. Thus the input stream is finite at UNPACK, but the VU transform output
+is invalid before the normal renderer can display the scene. This trace does
+not yet identify the first instruction that creates the NaN, so do not patch
+the data or claim a VU semantic fix from these observations alone.
+
+The instrumented host32 target rebuilt successfully with 194 matched units,
+85 separate port backfills, and 99 missing-function traps. No matched decomp
+source changed. Trace/build logs:
+`/tmp/sly-vu-range-capture-20261116.log` and
+`/tmp/sly-range-trace-build-2.log`.
 
 The optional renderer previously mapped every non-`Always` GS depth test to
 OpenGL `LEQUAL`, incorrectly treating `Greater`, `Gequal`, and `Never` as the
