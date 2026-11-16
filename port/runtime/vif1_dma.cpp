@@ -394,6 +394,11 @@ struct VifTrace {
     size_t operand_count = 0;
     size_t program_count = 0;
     bool has_direct_prefix = false;
+    bool failed_in_vu = false;
+    uint32_t failed_vu_entry = 0xFFFFFFFFu;
+    uint32_t failed_vu_pc = 0;
+    uint32_t failed_vu_word = 0;
+    uint32_t failed_vu_paired = 0;
 };
 
 std::atomic_flag g_vu_unsupported_notice = ATOMIC_FLAG_INIT;
@@ -584,6 +589,11 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
                 if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
                                                &vu_pipeline, &vu_paired)) {
+                    trace->failed_in_vu = true;
+                    trace->failed_vu_entry = entry;
+                    trace->failed_vu_pc = vu_pc;
+                    trace->failed_vu_word = vu_unsupported;
+                    trace->failed_vu_paired = vu_paired;
                     if (!g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
                         openrac::log::warn(
                             "native VU1 {} stopped at {} {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
@@ -592,6 +602,24 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                             vu_pipeline == 1 ? "lower instruction" : "device command",
                             vu_unsupported, vu_paired, vu_pc,
                             entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                    }
+                    const char* sequence_trace =
+                        std::getenv("OPENRAC_TRACE_VIF_AFTER_MSCAL");
+                    static std::atomic<uint32_t> sequence_trace_count{0};
+                    if (entry == 0x26Du && sequence_trace != nullptr &&
+                        sequence_trace[0] != '\0' && sequence_trace[0] != '0' &&
+                        sequence_trace_count.fetch_add(1, std::memory_order_relaxed) < 4u) {
+                        for (size_t lookahead = 0; lookahead < 64u &&
+                             lookahead + sizeof(uint32_t) <= stream.size() - cursor;
+                             lookahead += sizeof(uint32_t)) {
+                            uint32_t next_code = 0;
+                            std::memcpy(&next_code, stream.data() + cursor + lookahead,
+                                        sizeof(next_code));
+                            openrac::log::info(
+                                "native VIF1 after MSCAL entry={} offset={:#x} code={:#010x} command={:#04x}",
+                                entry, cursor + lookahead, next_code,
+                                (next_code >> 24u) & 0x7Fu);
+                        }
                     }
                     *unsupported_command = command;
                     return false;
@@ -819,13 +847,21 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     }
 
     if (!vif_ok && !g_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
-        openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={} cycle={:#010x} mask={:#010x} row={:#010x},{:#010x},{:#010x},{:#010x} col={:#010x},{:#010x},{:#010x},{:#010x}",
-                           unsupported, trace.failure_code, trace.failure_offset,
-                           stream.size(), load_mmio(kVif1Cycle), load_mmio(kVif1Mask),
-                           load_mmio(kVif1Row), load_mmio(kVif1Row + 0x10u),
-                           load_mmio(kVif1Row + 0x20u), load_mmio(kVif1Row + 0x30u),
-                           load_mmio(kVif1Col), load_mmio(kVif1Col + 0x10u),
-                           load_mmio(kVif1Col + 0x20u), load_mmio(kVif1Col + 0x30u));
+        if (trace.failed_in_vu) {
+            openrac::log::warn(
+                "native VIF1 stream stopped in VU1: VIF command={:#04x} entry={:#x} pc={:#x} word={:#010x} paired={:#010x} offset={:#x} bytes={}",
+                unsupported, trace.failed_vu_entry, trace.failed_vu_pc,
+                trace.failed_vu_word, trace.failed_vu_paired,
+                trace.failure_offset, stream.size());
+        } else {
+            openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={} cycle={:#010x} mask={:#010x} row={:#010x},{:#010x},{:#010x},{:#010x} col={:#010x},{:#010x},{:#010x},{:#010x}",
+                               unsupported, trace.failure_code, trace.failure_offset,
+                               stream.size(), load_mmio(kVif1Cycle), load_mmio(kVif1Mask),
+                               load_mmio(kVif1Row), load_mmio(kVif1Row + 0x10u),
+                               load_mmio(kVif1Row + 0x20u), load_mmio(kVif1Row + 0x30u),
+                               load_mmio(kVif1Col), load_mmio(kVif1Col + 0x10u),
+                               load_mmio(kVif1Col + 0x20u), load_mmio(kVif1Col + 0x30u));
+        }
         const char* trace_setting = std::getenv("OPENRAC_VIF_TRACE");
         if (trace_setting != nullptr && trace_setting[0] != '\0' && trace_setting[0] != '0') {
             for (size_t offset = 0; offset + sizeof(uint32_t) <= stream.size() &&

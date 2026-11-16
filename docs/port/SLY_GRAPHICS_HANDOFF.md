@@ -56,6 +56,23 @@ source changed. Trace/build logs:
 `/tmp/sly-dma-caller-capture-20261116.log`, and
 `/tmp/sly-vif-source-build-20261116.log`.
 
+### VIF DMA abort classification (2026-11-16)
+
+A clean standard-client capture still shows the no-card prompt followed by
+black frames. A bounded trace of the subsequent VIF failure establishes that
+command `0x14` is a valid `MSCAL`, not an unsupported or malformed VIF
+command. It invokes VU1 entry `0x26d`, which reaches the 4,096-instruction
+limit at PC `0x2aa` (`word=paired=0xffffffff`). The host VIF parser returns
+failure immediately, so the rest of this DMA stream is skipped. Lookahead
+shows another `MSCAL 0x1db`, `BASE`, `OFFSET`, and an `UNPACK` after the
+failing call. This is a verified cause of stream truncation, not yet a
+verified explanation or fix for the black framebuffer. The runtime warning
+now distinguishes a VU stop from malformed VIF input, and the opt-in
+`OPENRAC_TRACE_VIF_AFTER_MSCAL=1` lookahead is bounded to four events and 64
+bytes each. No matched decompilation source changed.
+
+Evidence: `/tmp/sly-vif-failure-kind-20261116.log`.
+
 The optional renderer previously mapped every non-`Always` GS depth test to
 OpenGL `LEQUAL`, incorrectly treating `Greater`, `Gequal`, and `Never` as the
 same comparison. It now maps all four decoded GS modes to their matching GL

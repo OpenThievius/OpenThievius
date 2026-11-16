@@ -14,14 +14,19 @@ level based on these frames alone.
 
 At PC `0x68`, XGKICK address 469 is rejected because qword 468 contains the
 GIFtag and qword 469 its payload. At PC `0x6e`, address 35 is accepted by the
-packet parser, but the ordinary client frame remains black. The run also
-reports a VU translation stop at PC `0x2aa` and an unsupported VIF command
-`0x14`; their causal role is unknown. The green-line capture from the prior
+packet parser, but the ordinary client frame remains black. A bounded VIF
+trace clarified another warning: VIF command `0x14` is a valid `MSCAL`, which
+calls VU1 entry `0x26d`; that call exhausts the 4,096-instruction budget at PC
+`0x2aa`, causing the runtime to abort the rest of the VIF DMA stream. The next
+commands include `MSCAL 0x1db`, `BASE`, `OFFSET`, and `UNPACK`, so they never
+run in this capture. This proves the stream is truncated, but does not by
+itself explain the black frame. The green-line capture from the prior
 audit used `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS`; earlier gray/purple output
 came from the optional `OPENRAC_NATIVE_SLY_WORLD_RENDERER`. Neither is normal
 game output.
 
-Evidence: `/tmp/sly-client-clean-audit-20261116.log` and
+Evidence: `/tmp/sly-client-clean-audit-20261116.log`,
+`/tmp/sly-vif-failure-kind-20261116.log`, and
 `/tmp/sly-clean-client-{00..07}.png`. The native run was bounded and hidden;
 no launcher process remains. The immediate task is to trace the qword-468/469
 boundary from the retail VIF producer through VU1 and GIF, while preserving

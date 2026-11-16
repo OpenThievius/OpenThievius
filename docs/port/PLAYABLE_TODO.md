@@ -21,10 +21,14 @@ Neither is evidence that the ordinary VIF/VU/GIF renderer draws the world.
 The clean run again rejected the first world XGKICK at PC `0x68`, address 469:
 qword 468 is the GIFtag and qword 469 is its payload. The later kick at PC
 `0x6e`, address 35, was submitted, but the saved standard-client frames stayed
-black. The run also reported a VU translation stop at PC `0x2aa` and an
-unsupported VIF command `0x14`; their relationship to the black output is not
-yet established. These are the current leads, not verified fixes. Keep the
-active task on tracing one world packet from the retail VIF/VU data through GIF
+black. The run reported VU1 entry `0x26d` exhausting its 4,096-instruction
+budget at PC `0x2aa`. VIF `0x14` is the valid `MSCAL` command that invokes it;
+the runtime aborts the VIF DMA stream when that VU call stops. The next
+commands in the same stream include another `MSCAL 0x1db`, `BASE`, `OFFSET`,
+and `UNPACK`, so they are not processed in this run. This explains the earlier
+misleading “unsupported VIF command” warning and proves the DMA stream is
+truncated, but does not yet explain the black output by itself. Keep the active
+task on tracing one world packet from the retail VIF/VU data through GIF
 decode and normal renderer intake. Do not backstep addresses or relax packet
 validation.
 
