@@ -11,6 +11,10 @@ struct NativeSprTransfer {
 };
 extern "C" NativeSprTransfer D_002748F0[2];
 extern "C" int D_00274990;
+extern "C" void sly1_native_host32_trace_spr_copy(
+    unsigned int direction, unsigned int chain, unsigned int tags,
+    unsigned int transfer_index, unsigned int count, unsigned int source,
+    unsigned int target, unsigned int size, unsigned int result);
 
 namespace {
 
@@ -42,6 +46,9 @@ bool copy_to_scratchpad(unsigned int chain_address) {
             transfer.count <= 0 || transfer.count > 8)
             continue;
 
+        unsigned int first_source = 0;
+        unsigned int first_target = 0;
+        unsigned int first_size = 0;
         for (int i = 0; i < transfer.count; ++i) {
             const unsigned long long tag =
                 *reinterpret_cast<const volatile unsigned long long*>(
@@ -50,13 +57,29 @@ bool copy_to_scratchpad(unsigned int chain_address) {
             const unsigned int source =
                 static_cast<unsigned int>(tag >> 32) & 0x1FFFFFFFu;
             const unsigned int target = transfer.addrs[i];
+            if (i == 0) {
+                first_source = source;
+                first_target = target;
+                first_size = size;
+            }
             if (size == 0 || !in_main_ram(source, size) ||
-                !in_scratchpad(target, size))
+                !in_scratchpad(target, size)) {
+                sly1_native_host32_trace_spr_copy(
+                    9u, chain_address, transfer.tags, transfer_index,
+                    static_cast<unsigned int>(transfer.count), first_source,
+                    first_target, first_size, 2u);
                 return false;
+            }
             copy_bytes(target, source, size);
         }
+        sly1_native_host32_trace_spr_copy(
+            9u, chain_address, transfer.tags, transfer_index,
+            static_cast<unsigned int>(transfer.count), first_source,
+            first_target, first_size, 0u);
         return true;
     }
+    sly1_native_host32_trace_spr_copy(
+        9u, chain_address, 0u, 0xFFFFFFFFu, 0u, 0u, 0u, 0u, 1u);
     return false;
 }
 
@@ -66,6 +89,9 @@ bool copy_from_scratchpad() {
     NativeSprTransfer& transfer = D_002748F0[active];
     if (transfer.count <= 0 || transfer.count > 8) return false;
 
+    unsigned int first_source = 0;
+    unsigned int first_target = 0;
+    unsigned int first_size = 0;
     for (int i = 0; i < transfer.count; ++i) {
         const unsigned int source = transfer.addrs[i];
         if (source < 0x70000010u) continue;
@@ -79,11 +105,25 @@ bool copy_from_scratchpad() {
             (static_cast<unsigned int>(tag) & 0xFFFFu) * 16u;
         const unsigned int target =
             static_cast<unsigned int>(tag >> 32) & 0x1FFFFFFFu;
+        if (first_source == 0) {
+            first_source = source;
+            first_target = target;
+            first_size = size;
+        }
         if (size == 0 || !in_scratchpad(source, size) ||
-            !in_main_ram(target, size))
+            !in_main_ram(target, size)) {
+            sly1_native_host32_trace_spr_copy(
+                8u, 0u, transfer.tags, static_cast<unsigned int>(active),
+                static_cast<unsigned int>(transfer.count), first_source,
+                first_target, first_size, 2u);
             return false;
+        }
         copy_bytes(target, source, size);
     }
+    sly1_native_host32_trace_spr_copy(
+        8u, 0u, transfer.tags, static_cast<unsigned int>(active),
+        static_cast<unsigned int>(transfer.count), first_source,
+        first_target, first_size, 0u);
     return true;
 }
 
@@ -99,6 +139,9 @@ extern unsigned int D_00261F1C;
 extern "C" __attribute__((weak)) void
 openrac_native_renderer_trace_dma_call(unsigned int, unsigned int) {}
 extern "C" __attribute__((weak)) void sly1_native_host32_trace_dma_call(
+    unsigned int, unsigned int, unsigned int, unsigned int) {}
+extern "C" __attribute__((weak)) void sly1_native_host32_trace_spr_copy(
+    unsigned int, unsigned int, unsigned int, unsigned int, unsigned int,
     unsigned int, unsigned int, unsigned int, unsigned int) {}
 extern "C" __attribute__((weak)) void sly1_native_host32_trace_dma_channel(
     unsigned int, unsigned int, unsigned int) {}

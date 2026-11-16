@@ -4747,7 +4747,89 @@ void LoadEffectSpawner"""
                 raise RuntimeError("expected BuildStripMeshPacket definition")
             adapted = adapted.replace(signature, replacement, 1)
         if args.trace_model_draws and rel.as_posix() == "main/point_graph.cpp":
-            adapted = ('extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32);\n' + adapted)
+            adapted = (
+                'extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_queue_model_parts(u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_queue_model_result(u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, f32, f32, f32, f32, f32, u32);\n'
+                'extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32);\n'
+                + adapted
+            )
+            queue_signature = "void QueueModelPartDraws(PlacedObject* self, Camera* cam)\n{"
+            if adapted.count(queue_signature) != 1:
+                raise RuntimeError("expected one QueueModelPartDraws definition")
+            adapted = adapted.replace(
+                queue_signature,
+                queue_signature + (
+                    "\n    sly1_native_trace_queue_model_parts((u32)self, (u32)cam, "
+                    "(u32)self->drawPartCount, (u32)self->drawParts, "
+                    "(u32)self->partStates);"
+                ),
+                1,
+            )
+            adapted = adapted.replace(
+                queue_signature + (
+                    "\n    sly1_native_trace_queue_model_parts((u32)self, (u32)cam, "
+                    "(u32)self->drawPartCount, (u32)self->drawParts, "
+                    "(u32)self->partStates);"
+                ),
+                queue_signature + (
+                    "\n    sly1_native_trace_queue_model_parts((u32)self, (u32)cam, "
+                    "(u32)self->drawPartCount, (u32)self->drawParts, "
+                    "(u32)self->partStates);"
+                    "\n    u32 sly_seen = 0, sly_mask = 0, sly_plane = 0, sly_fade = 0, sly_zero = 0, sly_queued = 0;"
+                    "\n    u32 sly_cull_samples = 0;"
+                ),
+                1,
+            )
+            count_edits = [
+                ("        for (s32 j = 0; j < n; j++) {\n",
+                 "        for (s32 j = 0; j < n; j++) {\n            ++sly_seen;\n"),
+                ("            if ((st->mask & views) != views) {\n                continue;\n",
+                 "            if ((st->mask & views) != views) {\n                ++sly_mask;\n                continue;\n"),
+                ("            if (signs != 0) {\n                continue;\n",
+                 "            if (signs != 0) {\n                ++sly_plane;\n                continue;\n"),
+                ("            if (!ComputeCameraDistanceFade(cam, d, &rec.fade, radius, part->nearFade)) {\n                continue;\n",
+                 "            if (!ComputeCameraDistanceFade(cam, d, &rec.fade, radius, part->nearFade)) {\n                ++sly_fade;\n                continue;\n"),
+                ("            if (rec.fade <= 0.0f) {\n                continue;\n",
+                 "            if (rec.fade <= 0.0f) {\n                ++sly_zero;\n                continue;\n"),
+                ("            QueueDeferredRequest((DeferredRequest*)&rec);\n",
+                 "            ++sly_queued;\n            QueueDeferredRequest((DeferredRequest*)&rec);\n"),
+                ("        i = next;\n        n = m;\n    }\n}\n",
+                 "        i = next;\n        n = m;\n    }\n    sly1_native_trace_queue_model_result((u32)self, views, sly_seen, sly_mask, sly_plane, sly_fade, sly_zero, sly_queued, (u32)self->drawPartCount);\n}\n"),
+            ]
+            for old_text, new_text in count_edits:
+                if adapted.count(old_text) != 1:
+                    raise RuntimeError("expected one QueueModelPartDraws counter site: " + old_text[:64])
+                adapted = adapted.replace(old_text, new_text, 1)
+            block_lines = (
+                "        ModelPart* parts = (ModelPart*)SprBlock::Of(0);\n"
+                "        ModelPartState* states = (ModelPartState*)SprBlock::Of(1);\n"
+            )
+            if adapted.count(block_lines) != 1:
+                raise RuntimeError("expected one scratchpad block pointer pair")
+            adapted = adapted.replace(
+                block_lines,
+                block_lines + (
+                    "        sly1_native_trace_spr_block((u32)self, "
+                    "(u32)((u8*)self->drawParts + i * 0x70), (u32)parts, "
+                    "(u32)((u8*)self->partStates + i * 0x28), (u32)states, "
+                    "(u32)n, (u32)g_sprTransferIndex);\n"
+                ),
+                1,
+            )
+            signs_line = "            u32 signs = Vu0::PlaneSigns(Vu0::Q(cam->planes[0]), Vu0::Q(cam->planes[1]), Vu0::Q(cam->planes[2]), d, ones, Vu0::Scalar(radius)) ^ 0xF0;\n"
+            if adapted.count(signs_line) != 1:
+                raise RuntimeError("expected one QueueModelPartDraws plane-sign calculation")
+            adapted = adapted.replace(
+                signs_line,
+                signs_line + (
+                    "            if (sly_cull_samples++ < 32u) sly1_native_trace_model_cull("
+                    "(u32)self, (u32)(i + j), st->mask, views, part->pos.x, "
+                    "part->pos.y, part->pos.z, radius, part->nearFade, signs);\n"
+                ),
+                1,
+            )
             needle = "            if (part->hook != 0) {\n"
             replacement = (
                 "                sly1_native_trace_model_hook((u32)self, (u32)(i + j), "

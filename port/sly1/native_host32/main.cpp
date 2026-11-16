@@ -140,6 +140,21 @@ extern "C" void sly1_native_host32_trace_dma_channel(
                  "[native direct DMA channel] index=%u address=%#010x caller=%#010x\n",
                  index, address, caller);
 }
+extern "C" void sly1_native_host32_trace_spr_copy(
+    unsigned int direction, unsigned int chain, unsigned int tags,
+    unsigned int transfer_index, unsigned int count, unsigned int source,
+    unsigned int target, unsigned int size, unsigned int result) {
+    const char* enabled = std::getenv("OPENRAC_TRACE_DMA_CALL");
+    if (enabled == nullptr || enabled[0] == '0') return;
+    static std::atomic<u32> notice_count{0};
+    const u32 notice = notice_count.fetch_add(1, std::memory_order_relaxed);
+    if (notice < 128u) {
+        std::fprintf(stderr,
+                     "[native SPR copy] #%u direction=%u chain=%#010x tags=%#010x transfer=%u count=%u first=%#010x->%#010x size=%u result=%u\n",
+                     notice + 1u, direction, chain, tags, transfer_index,
+                     count, source, target, size, result);
+    }
+}
 extern "C" void sly1_native_host32_wait_frame(void) {
     // The retail main loop is paced by the PS2 display cycle. SDL owns the
     // native display cadence here, so keep the game thread at that cadence.
@@ -870,6 +885,92 @@ extern "C" void sly1_native_trace_model_hook(u32 owner_address, u32 part_index,
                  source_hook, scratch_part, hook_address);
 }
 
+extern "C" void sly1_native_trace_queue_model_parts(u32 owner_address,
+                                                       u32 camera_address,
+                                                       u32 part_count,
+                                                       u32 parts_address,
+                                                       u32 states_address) {
+    if (!g_startup_trace_enabled) return;
+    static std::atomic<u32> trace_count{0};
+    const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
+    if (sample >= 64u) return;
+    std::fprintf(stderr,
+                 "[native QueueModelPartDraws] #%u owner=%#010x camera=%#010x count=%u parts=%#010x states=%#010x\n",
+                 sample, owner_address, camera_address, part_count,
+                 parts_address, states_address);
+    if (sample == 0u && parts_address != 0 && states_address != 0) {
+        const volatile u32* p = reinterpret_cast<const volatile u32*>(parts_address);
+        const volatile u32* s = reinterpret_cast<const volatile u32*>(states_address);
+        std::fprintf(stderr,
+                     "[native QueueModelPartDraws source0] pos=%08x,%08x,%08x,%08x radius=%08x kind=%08x near=%08x far=%08x dist=%08x hook=%08x matrix=%08x state_mask=%08x fade=%08x until=%08x\n",
+                     p[0], p[1], p[2], p[3], p[4], p[5], p[7], p[8],
+                     p[9], p[14], p[26], s[0], s[4], s[5]);
+    }
+}
+
+extern "C" void sly1_native_trace_queue_model_result(
+    u32 owner_address, u32 views, u32 seen, u32 mask_culled,
+    u32 plane_culled, u32 fade_rejected, u32 fade_zero, u32 queued,
+    u32 part_count) {
+    if (!g_startup_trace_enabled) return;
+    static std::atomic<u32> trace_count{0};
+    const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
+    if (sample >= 64u) return;
+    std::fprintf(stderr,
+                 "[native QueueModelPartDraws result] #%u owner=%#010x views=%#x parts=%u seen=%u mask=%u plane=%u fade=%u zero=%u queued=%u\n",
+                 sample, owner_address, views, part_count, seen,
+                 mask_culled, plane_culled, fade_rejected, fade_zero, queued);
+}
+
+extern "C" void sly1_native_trace_model_cull(
+    u32 owner_address, u32 part_index, u32 state_mask, u32 views,
+    float pos_x, float pos_y, float pos_z, float radius, float near_fade,
+    u32 signs) {
+    if (!g_startup_trace_enabled) return;
+    static std::atomic<u32> trace_count{0};
+    const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
+    if (sample >= 32u) return;
+    std::fprintf(stderr,
+                 "[native model cull] #%u owner=%#010x part=%u mask=%#x views=%#x pos=%g,%g,%g radius=%g near=%g signs=%#x\n",
+                 sample, owner_address, part_index, state_mask, views,
+                 pos_x, pos_y, pos_z, radius, near_fade, signs);
+}
+
+extern "C" void sly1_native_trace_spr_block(
+    u32 owner_address, u32 source_parts, u32 scratch_parts,
+    u32 source_states, u32 scratch_states, u32 count, u32 transfer_index) {
+    if (!g_startup_trace_enabled) return;
+    static std::atomic<u32> trace_count{0};
+    const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
+    if (sample >= 16u || count > 52u) return;
+    const volatile u32* src = reinterpret_cast<const volatile u32*>(source_parts);
+    const volatile u32* dst = reinterpret_cast<const volatile u32*>(scratch_parts);
+    const volatile u32* src_state = reinterpret_cast<const volatile u32*>(source_states);
+    const volatile u32* dst_state = reinterpret_cast<const volatile u32*>(scratch_states);
+    const u32 part_words = count * (0x70u / 4u);
+    const u32 state_words = count * (0x28u / 4u);
+    u32 part_mismatches = 0, state_mismatches = 0;
+    u32 first_part_mismatch = 0xFFFFFFFFu, first_state_mismatch = 0xFFFFFFFFu;
+    for (u32 i = 0; i < part_words; ++i) {
+        if (src[i] != dst[i]) {
+            if (first_part_mismatch == 0xFFFFFFFFu) first_part_mismatch = i;
+            ++part_mismatches;
+        }
+    }
+    for (u32 i = 0; i < state_words; ++i) {
+        if (src_state[i] != dst_state[i]) {
+            if (first_state_mismatch == 0xFFFFFFFFu) first_state_mismatch = i;
+            ++state_mismatches;
+        }
+    }
+    std::fprintf(stderr,
+                 "[native SPR block compare] #%u owner=%#010x transfer=%u count=%u part_mismatch=%u first=%u src=%08x,%08x,%08x,%08x dst=%08x,%08x,%08x,%08x state_mismatch=%u first=%u masks=%08x/%08x\n",
+                 sample, owner_address, transfer_index, count,
+                 part_mismatches, first_part_mismatch,
+                 src[0], src[1], src[2], src[3], dst[0], dst[1], dst[2], dst[3],
+                 state_mismatches, first_state_mismatch, src_state[0], dst_state[0]);
+}
+
 extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_address) {
     if (mesh_address == 0 || std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCES") == nullptr)
         return;
@@ -1135,6 +1236,10 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_queue_model_parts(u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_queue_model_result(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, float, float, float, u32) {}
+extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
