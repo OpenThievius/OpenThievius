@@ -123,13 +123,10 @@ extern "C" void sly1_native_host32_trace_dma_call(
     if (enabled == nullptr || enabled[0] == '0') return;
     static std::atomic<u32> notice_count{0};
     const u32 notice = notice_count.fetch_add(1, std::memory_order_relaxed);
-    if (notice < 128u || (notice <= 4096u && notice % 256u == 0u)) {
+    if (notice < 128u || (notice >= 4096u && notice % 16384u == 0u)) {
         std::fprintf(stderr,
                      "[native direct DMA] #%u channel=%#010x source=%#010x caller=%#010x gif=%#010x\n",
                      notice + 1u, channel, source, caller, gif_channel);
-    } else if (notice == 4097u) {
-        std::fprintf(stderr,
-                     "[native direct DMA] trace capped after startup samples\n");
     }
 }
 extern "C" void sly1_native_host32_trace_dma_channel(
@@ -1432,10 +1429,16 @@ sly1_native_trace_semaphore_event(const char* event, int identifier, int count,
         return;
     const u32 index = __atomic_fetch_add(&g_semaphore_trace_event_count, 1u,
                                          __ATOMIC_RELAXED);
-    if (index >= 64) return;
+    static std::atomic<u32> frame_ready_events{0};
+    const bool render_frame_semaphore = identifier == 4 || identifier == 5;
+    const u32 frame_event = render_frame_semaphore
+        ? frame_ready_events.fetch_add(1u, std::memory_order_relaxed) : 0u;
+    if (index >= 64 &&
+        (!render_frame_semaphore || (frame_event >= 16u && frame_event % 256u != 0u)))
+        return;
     std::fprintf(stderr,
-                 "[native semaphore] %s id=%d count=%d caller=%08x\n",
-                 event, identifier, count, caller);
+                 "[native semaphore] event=%u %s id=%d count=%d caller=%08x\n",
+                 index, event, identifier, count, caller);
 }
 
 extern "C" __attribute__((no_instrument_function)) void

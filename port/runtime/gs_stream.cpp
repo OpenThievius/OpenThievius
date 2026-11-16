@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -277,6 +278,19 @@ void write_gif_register(uint32_t sequence_index, uint64_t value, uint64_t meta) 
 namespace {
 void gif_stream_write(const void* source, size_t size, const char* origin) {
     if (source == nullptr || size < 16u) return;
+    if (std::getenv("OPENRAC_TRACE_GIF_APPEND") != nullptr) {
+        static std::atomic<uint32_t> append_trace_count{0};
+        const uint32_t index = append_trace_count.fetch_add(1, std::memory_order_relaxed);
+        if (index < 256u) {
+            std::fprintf(stderr,
+                         "[gif append] call=%u origin=%s bytes=%zu first=%02x%02x%02x%02x\n",
+                         index, origin != nullptr ? origin : "unspecified",
+                         size, static_cast<const uint8_t*>(source)[0],
+                         static_cast<const uint8_t*>(source)[1],
+                         static_cast<const uint8_t*>(source)[2],
+                         static_cast<const uint8_t*>(source)[3]);
+        }
+    }
     if (openrac_native_renderer_append_gif_stream != nullptr)
         openrac_native_renderer_append_gif_stream(source, size);
     const auto* bytes = static_cast<const uint8_t*>(source);

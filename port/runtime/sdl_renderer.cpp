@@ -101,6 +101,17 @@ bool gif_queue_has_room_locked(std::size_t incoming_bytes,
            incoming_bytes <= maximum_bytes - queued_bytes;
 }
 
+void trace_gif_queue_append(const char* source, std::size_t incoming_bytes) {
+    if (std::getenv("OPENRAC_TRACE_GIF_QUEUE") == nullptr) return;
+    static std::atomic<unsigned> trace_count{0};
+    const unsigned index = trace_count.fetch_add(1, std::memory_order_relaxed);
+    if (index < 512u) {
+        std::fprintf(stderr,
+                     "[native GIF queue] append=%u source=%s incoming=%zu queued=%zu\n",
+                     index, source, incoming_bytes, g_packets.size());
+    }
+}
+
 bool ensure_present_frame(int width, int height) {
     using namespace openrac::gl;
     if (width <= 0 || height <= 0) return false;
@@ -737,6 +748,7 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             return;
         }
         g_packets.insert(g_packets.end(), stream.begin(), stream.end());
+        trace_gif_queue_append("dma-chain", stream.size());
     }
     if (std::getenv("OPENRAC_TRACE_DMA_CALL") != nullptr) {
         static std::atomic<unsigned> chain_trace_count{0};
@@ -833,6 +845,7 @@ extern "C" void openrac_native_renderer_append_gif_stream(const void* source,
     }
     g_packets.insert(g_packets.end(), static_cast<const std::uint8_t*>(source),
                      static_cast<const std::uint8_t*>(source) + size);
+    trace_gif_queue_append("gif-stream-callback", size);
 }
 
 extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_address) {
@@ -870,6 +883,7 @@ extern "C" void openrac_native_renderer_submit_gif_stream(std::uint32_t source_a
             return;
         }
         g_packets.insert(g_packets.end(), gif, gif + gif_size);
+        trace_gif_queue_append("gif-stream-submit", gif_size);
     }
     g_dma_accept_count.fetch_add(1, std::memory_order_relaxed);
     g_dma_bytes.fetch_add(gif_size, std::memory_order_relaxed);
