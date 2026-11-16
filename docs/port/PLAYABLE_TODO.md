@@ -3,6 +3,36 @@
 
 ## Current bounded task (2026-11-16)
 
+### Follow the first world VU program past the setup helper
+
+The user reported pressing Space. An isolated hidden host32 capture advanced
+beyond the memory-card screen into world `0x870cf0` after injecting Cross at
+native frame 120; it did not interact with the visible launcher. It
+reached 41 queued world mesh callbacks on one present, and the graphics DMA
+trace reported 594 accepted and zero rejected submissions by game frame 185.
+The dumped frame at `/tmp/sly1-native-world-00.ppm` is only a flat gray
+background, so this is not a visual pass and does not explain the user's
+flicker by itself.
+
+To continue through the captured VU helper, the port-only VU translator now
+implements lower MOVE, MR32, DIV Q, WAITQ, MFP, and ERLENG, upper CLIPw, and
+the accumulator broadcast/component operations. It also preserves the JR
+target before a JALR link write when source and destination alias. These
+changes are in `port/runtime/vu1_native.cpp`; no matched decomp source changed.
+The instruction semantics follow the public [Sony VU User's Manual v3.1](https://www.manuallib.com/download/pdf0/VU-USER-MANUAL.PDF).
+
+The latest fresh host32 capture no longer stops on an unsupported VU opcode.
+It exhausts the interpreter's 4,096-cycle safety limit at PC `0x25e`, which is
+reported with sentinel words `0xffffffff`; that is budget exhaustion, not a
+decoded missing instruction. The next blocker is to trace why the program has
+not reached its E-bit/end condition by that limit and whether the interpreter
+is following the retail branch/latency behavior. Do not increase the limit or
+force another world until the captured execution path explains the loop. Keep
+the port backfills isolated from matched source as before.
+
+Capture: `/tmp/sly-vu-accsem-finalcapture-20261116.log`; host32 build:
+`/tmp/sly-vu-accsem-finalbuild-20261116.log`.
+
 ### Reduce the no-card prompt flicker
 
 The Nov 15 recording showed 49 black game-area frames out of 393. Draw-state

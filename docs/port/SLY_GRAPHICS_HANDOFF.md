@@ -34,14 +34,36 @@ Capture:
 `/tmp/sly-vu-continuation-capture-20261116.log` and
 `/tmp/sly1-native-world-00.ppm`.
 
-An attempted JALR ordering change was built and captured. Preserving the
-pre-link target for `JALR VI15,VI15` sent execution to PC 1193, where the VU
-program ended; the run then had no VU XGKICK output and a black frame after
-input. That candidate was reverted. The existing path reaches both kicks but
-still rejects them. Keep JALR behavior open until the helper and the retail
-draw path are reconciled; do not treat qword 35 as the final packet boundary.
-Capture: `/tmp/sly-vu-jalr-capture-20261116.log` and
-`/tmp/sly-vu-jalr-frame-07-20261116.ppm`.
+An earlier capture of `JALR VI15,VI15` appeared to jump to PC 1193 and was
+reverted. A newer run that preserves the pre-link target advances through the
+world setup path, so that behavior is retained in the port-only translator.
+The resulting frame still contains no recognizable scene geometry; keep
+validating the helper against the retail VU execution before treating this as a
+finished graphics path.
+
+### VU helper execution update (2026-11-16)
+
+The port-only VU translator now covers the captured lower MOVE, MR32, DIV Q,
+WAITQ, MFP, and ERLENG instructions; upper CLIPw and accumulator broadcast and
+component forms were also added or corrected from the public
+[Sony VU User's Manual v3.1](https://www.manuallib.com/download/pdf0/VU-USER-MANUAL.PDF).
+All changes remain in `port/runtime/vu1_native.cpp`; matched decomp files were
+not modified.
+
+A fresh offscreen capture with one Cross press at native frame 120 enters world
+`0x870cf0`, queues 41 world mesh callbacks on a single present, and reaches 594
+accepted graphics DMA submissions with zero rejected. The corresponding dumped
+frame is only a flat gray background; no Sly character or level geometry is
+visible. The later VU execution reaches the 4,096-cycle interpreter safety
+limit at PC `0x25e`; the `0xffffffff` words in that diagnostic are the limit
+sentinel, not an unsupported retail opcode. The scene is not playable yet, and
+the user's reported screen flicker remains unresolved. Continue by tracing the
+last VU PCs and expected E-bit termination/branch behavior before changing the
+interpreter budget or synthesizing geometry.
+
+Evidence: `/tmp/sly-vu-accsem-finalcapture-20261116.log`,
+`/tmp/sly-vu-accsem-finalbuild-20261116.log`, and
+`/tmp/sly1-native-world-00.ppm`.
 
 ### Host32 prompt ABI fix and flicker (2026-11-15)
 
