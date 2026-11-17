@@ -91,6 +91,19 @@ not a new regression. Both runs ended at their 12- or 14-second timeout
 `/tmp/sly-fresh-noinput-audit-20261117.log` and
 `/tmp/sly-fresh-client-audit-20261117.log`.
 
+**Fresh VU stop context (2026-11-17):** rebuilt the current host32 target and
+repeated the bounded Cross run. The frame remained black. The VIF trace still
+shows the rejected qword-469 tag and accepted qword-35 tag; this run also
+records a separate MSCAL entry `0x2` stopping at micro-PC `0x52d` on upper word
+`0x01e049fc` paired with lower no-op `0x8000033c`. The 16 preceding instruction
+pairs are in `/tmp/sly-upper-fault-context-20261117.log`. The trace-only change
+in `vu1_native.cpp` records this context on unsupported upper operations; it
+does not change emulation. Do not label the word a valid-but-missing operation
+or treat it as a no-op until its retail encoding and control-flow path are
+verified. The source qword trace's `SQ VF4,1(VI5)` writes are still ambiguous.
+This is the latest current-client result; it confirms black output, but does
+not prove which earlier change introduced it.
+
 Two independent graphics-path failures are now more specific:
 
 1. At VU1 entry `0x5f`, PC `0x68` XGKICK reads `VI6=469`. The VIF UNPACK at

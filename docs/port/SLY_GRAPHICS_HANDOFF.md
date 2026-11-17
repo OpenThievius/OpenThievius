@@ -1956,3 +1956,36 @@ graphics. The current lead is the title/menu state transition and its input
 path, not the renderer or font atlas. Pad edge tracing and function-entry
 targets now cover `func_001E9108`, `func_00194D30`, and `func_001936A0`. See
 `PLAYABLE_TODO.md` under “Black-window UI and input trace”.
+
+## Fresh native client check and VU1 stop (2026-11-17)
+
+Rebuilt `port_native_sdl_host32` from the current `wip/native-sly-port` source
+and checked its output directly. With the permitted test Cross press at native
+frame 300, the captured 960x720 frames remain fully black. The visible client
+does not reach a playable scene. This is a current failure; the capture alone
+does not establish which earlier change introduced it.
+
+The same run catches VIF submission 328's first mesh packet. VU1's XGKICK at
+PC `0x68` points to qword 469, where the GIF tag `0x0000000000039001` is
+rejected for reserved bits. A later kick at PC `0x6e` points to qword 35 and is
+accepted, but that is not evidence of visible geometry. A separate MSCAL entry
+`0x2` then reaches micro-PC `0x52d`, where the native VU translator stops on
+upper word `0x01e049fc` paired with lower no-op `0x8000033c`. The bounded
+fault-context trace records the preceding 16 instruction pairs in
+`/tmp/sly-upper-fault-context-20261117.log`. Do not classify the word as a
+missing valid opcode or replace it with a no-op until its retail VU semantics
+and the branch into `0x52d` are confirmed.
+
+The earlier qword trace also showed `SQ VF4,1(VI5)` at PC `0x4bc` clearing the
+W lane on qwords 37, 40, and subsequent stride-three entries. That trace does
+not yet prove this store is wrong: VU execution reaches another stop, and the
+packet writer may intentionally overwrite that lane. First establish the exact
+microprogram path and instruction semantics, then capture the resulting GIF
+packet and frame again. Keep this investigation in the port runtime; it has
+not changed or backfilled matched decomp C.
+
+The run was bounded and its process exited afterward. It used the native
+launcher only; no emulator was used. Earlier broad packet instrumentation
+produced an oversized temporary log and was stopped; use the targeted failure
+context instead. The build reports 99 missing-function traps, a separate
+coverage limit that is not the error that stopped this VU stream.
