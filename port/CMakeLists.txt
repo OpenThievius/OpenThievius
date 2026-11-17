@@ -20,6 +20,8 @@ option(OPENRAC_NATIVE_MODEL_TRACE
     "Trace the active world draw lists and compiled model inputs in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_SLY_WORLD_RENDERER
     "Draw native Sly kind-6 world meshes in the direct host32 build" OFF)
+option(OPENRAC_NATIVE_VU_NDC_RENDERER
+    "Draw captured VU1 clip-space output in the default native client" OFF)
 option(OPENRAC_NATIVE_OSCILLATOR_TRACE
     "Enable the focused oscillator mesh trace in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_OBJECT_LOAD_TRACE
@@ -203,6 +205,9 @@ add_custom_command(
     DEPENDS tools/embed_renderer_shaders.py renderer/shaders/direct.vert renderer/shaders/direct.frag
             renderer/shaders/upscaled_texture_colours.glsl
     VERBATIM)
+if(OPENRAC_NATIVE_VU_NDC_RENDERER)
+    target_compile_definitions(sly1_port_runtime PRIVATE OPENRAC_VU_NDC_BY_DEFAULT)
+endif()
 target_include_directories(sly1_port_runtime PUBLIC . runtime/include ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(sly1_port_runtime PUBLIC Threads::Threads SDL3::SDL3 ${CMAKE_DL_LIBS})
 

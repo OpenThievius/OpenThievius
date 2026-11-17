@@ -175,11 +175,15 @@ struct VuNdcVertex { float x, y, z, w; uint32_t submission; uint32_t mscal; uint
 std::vector<VuNdcVertex> g_vu_ndc_vertices;
 std::mutex g_vu_ndc_mutex;
 bool capture_vu_ndc_enabled() {
+#ifdef OPENRAC_VU_NDC_BY_DEFAULT
+    return true;
+#else
     static const bool enabled = [] {
         const char* setting = std::getenv("OPENRAC_CAPTURE_VU_NDC");
         return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
     }();
     return enabled;
+#endif
 }
 extern "C" std::size_t openrac_native_vu_ndc_copy(float* out, std::size_t max_floats) {
     std::scoped_lock lock(g_vu_ndc_mutex);
@@ -196,8 +200,8 @@ extern "C" std::size_t openrac_native_vu_ndc_copy_full(float* out, std::size_t m
     std::scoped_lock lock(g_vu_ndc_mutex);
     std::size_t written = 0, mwritten = 0;
     for (const auto& v : g_vu_ndc_vertices) {
-        if (written + 3u > max_floats || mwritten + 4u > max_meta) break;
-        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z;
+        if (written + 4u > max_floats || mwritten + 4u > max_meta) break;
+        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z; out[written++] = v.w;
         meta[mwritten++] = v.submission; meta[mwritten++] = v.mscal;
         meta[mwritten++] = v.entry; meta[mwritten++] = v.qword;
     }
@@ -262,9 +266,12 @@ void capture_vu_ndc(uint32_t address, const Vector& value, uint32_t pc) {
     if (!capture_vu_ndc_enabled()) return;
     const float w = value[3];
     const float x = value[0], y = value[1], z = value[2];
-    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) || !std::isfinite(w)) return;
-    if (w <= 1.0e-6f || w >= 1.0e9f) return;
-    if (std::fabs(x / w) > 4.0f || std::fabs(y / w) > 4.0f) return;
+    // Final clip-space vertices have w == 1. Skin-weight/transform temporaries
+    // carry w ~= 8.4e6 and divide to ~0; including them produces degenerate
+    // triangles at the origin and hides the real geometry.
+    if (w != 1.0f) return;
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return;
+    if (std::fabs(x) > 4.0f || std::fabs(y) > 4.0f) return;
     std::scoped_lock lock(g_vu_ndc_mutex);
     if (g_vu_ndc_vertices.size() >= 65536u) return;
     g_vu_ndc_vertices.push_back({x, y, z, w, g_vu_trace_submission_id,

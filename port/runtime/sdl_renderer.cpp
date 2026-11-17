@@ -1360,16 +1360,18 @@ static void dump_vu_ndc_points(int width, int height) {
     static bool done = false;
     if (done) return;
     if (std::getenv("OPENRAC_DUMP_VU_NDC") == nullptr) return;
-    std::vector<float> data(65536u * 3u);
+    std::vector<float> data(65536u * 4u);
     std::vector<unsigned> meta(65536u * 4u);
     const std::size_t floats = openrac_native_vu_ndc_copy_full(
         data.data(), data.size(), meta.data(), meta.size());
-    if (floats < 300u) return;
+    if (floats < 4000u) return;
     if (FILE* csv = std::fopen("/tmp/sly-vu-ndc.csv", "wb")) {
-        for (std::size_t i = 0; i + 2u < floats; i += 3u)
-            std::fprintf(csv, "%u,%u,%u,%u,%g,%g,%g\n", meta[i / 3u * 4u],
-                         meta[i / 3u * 4u + 1u], meta[i / 3u * 4u + 2u],
-                         meta[i / 3u * 4u + 3u], data[i], data[i + 1u], data[i + 2u]);
+        for (std::size_t i = 0; i + 3u < floats; i += 4u) {
+            const std::size_t vi = i / 4u;
+            std::fprintf(csv, "%u,%u,%u,%u,%g,%g,%g,%g\n", meta[vi * 4u],
+                         meta[vi * 4u + 1u], meta[vi * 4u + 2u],
+                         meta[vi * 4u + 3u], data[i], data[i + 1u], data[i + 2u], data[i + 3u]);
+        }
         std::fclose(csv);
     }
     done = true;
@@ -1378,9 +1380,9 @@ static void dump_vu_ndc_points(int width, int height) {
     if (FILE* file = std::fopen(path, "wb")) {
         std::fprintf(file, "P6 %d %d 255\n", width, height);
         std::vector<unsigned char> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 3u, 0);
-        for (std::size_t i = 0; i + 2u < floats; i += 3u) {
-            const int px = static_cast<int>((data[i] + 1.0f) * 0.5f * width);
-            const int py = static_cast<int>((1.0f - data[i + 1u]) * 0.5f * height);
+        for (std::size_t i = 0; i + 3u < floats; i += 4u) {
+            const int px = static_cast<int>((data[i] / data[i + 3u] + 1.0f) * 0.5f * width);
+            const int py = static_cast<int>((1.0f - data[i + 1u] / data[i + 3u]) * 0.5f * height);
             if (px < 0 || py < 0 || px >= width || py >= height) continue;
             const std::size_t at = (static_cast<std::size_t>(py) * static_cast<std::size_t>(width) + static_cast<std::size_t>(px)) * 3u;
             pixels[at] = 255; pixels[at + 1u] = 255; pixels[at + 2u] = 255;
@@ -1429,12 +1431,18 @@ extern "C" void openrac_native_window_present(void) {
                          world_meshes.size(), world_mesh_replacements);
         }
     }
-    if (std::getenv("OPENRAC_SLY_VU_NDC_RENDER") != nullptr) {
+#ifdef OPENRAC_VU_NDC_BY_DEFAULT
+    bool vu_ndc_render = true;
+#else
+    bool vu_ndc_render = std::getenv("OPENRAC_SLY_VU_NDC_RENDER") != nullptr;
+#endif
+    if (vu_ndc_render) {
         std::vector<float> ndc(65536u * 3u);
         std::vector<unsigned> meta(65536u * 4u);
         const std::size_t floats = openrac_native_vu_ndc_take(
             ndc.data(), ndc.size(), meta.data(), meta.size());
         const std::size_t count = floats / 3u;
+        const bool screen01 = std::getenv("OPENRAC_SLY_VU_NDC_SCREEN01") != nullptr;
         int wanted_group = -1;
         if (const char* setting = std::getenv("OPENRAC_SLY_VU_NDC_GROUP")) {
             char* end = nullptr;
@@ -1454,8 +1462,8 @@ extern "C" void openrac_native_window_present(void) {
                 ndc_mesh.instance = (0xdeadbeefull << 16u) | (begin & 0xFFFFu);
                 ndc_mesh.source_mesh = meta[begin * 4u + 2u];
                 for (std::size_t i = begin; i < end; ++i) {
-                    ndc_mesh.vertices.push_back(ndc[i * 3u]);
-                    ndc_mesh.vertices.push_back(ndc[i * 3u + 1u]);
+                    ndc_mesh.vertices.push_back(screen01 ? ndc[i * 3u] * 2.0f - 1.0f : ndc[i * 3u]);
+                    ndc_mesh.vertices.push_back(screen01 ? ndc[i * 3u + 1u] * 2.0f - 1.0f : ndc[i * 3u + 1u]);
                     ndc_mesh.vertices.push_back(ndc[i * 3u + 2u]);
                     for (int c = 0; c < 4; ++c) ndc_mesh.vertices.push_back(0.8f);
                     ndc_mesh.vertices.push_back(0.0f);

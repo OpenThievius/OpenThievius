@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 01:10 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 01:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Default client rendered from VU output (2026-11-18, 01:40 CET)
+
+I added the compile-time option `OPENRAC_NATIVE_VU_NDC_RENDERER` and enabled it
+in the default `wave55-sdl32` cache. The default client now captures the VU's
+final clip-space vertices and draws them with identity MVP, instead of
+rendering nothing. A bounded capture after the process-local Cross at frame
+300 shows eight frames; frames 2-7 are pixel-identical (SHA-256
+`05cba9d00e26…`) with 353,084 nonblack pixels — the default post-Continue
+output is **no longer black**. The settled image is large gray surfaces with a
+small white sliver; it is not yet a recognizable level. A real X11 Return
+keypress still reaches the game's pad path (`held` changes in
+`OPENRAC_TRACE_PAD`). Capture: `/tmp/sly-default-vu-20261117/`.
+
+Only `w == 1` VU stores are captured; the w≈8.4e6 skin-weight temporaries
+divide to zero and were excluded. The 52 geometry groups span 1,253 vertices
+across 52 MSCAL offsets. Strip boundaries and material/texture assignment are
+still unverified, so this is a rendering milestone, not a playable scene.
 
 ### Per-mesh VU epochs (2026-11-18, 01:10 CET)
 
