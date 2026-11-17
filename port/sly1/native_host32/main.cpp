@@ -49,6 +49,19 @@ namespace sly1 {
 extern const NativeFunctionAddress sly1_native_function_addresses[];
 extern const u32 sly1_native_function_address_count;
 }
+extern "C" unsigned int sly1_native_host32_retail_for_pc(unsigned int pc) {
+    u32 native_function = 0;
+    u32 retail_function = 0;
+    for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
+        const auto& entry = sly1::sly1_native_function_addresses[i];
+        if (entry.native_address != 0 && entry.native_address <= pc &&
+            entry.native_address > native_function) {
+            native_function = entry.native_address;
+            retail_function = entry.retail_address;
+        }
+    }
+    return retail_function;
+}
 extern "C" void func_001FAE18();
 extern "C" int sly1_native_host32_crt_initialized = 0;
 extern "C" volatile u32 sly1_native_postload_entry = 0;

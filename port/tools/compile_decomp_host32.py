@@ -4673,7 +4673,11 @@ void LoadEffectSpawner"""
                 # matched decomp C; this callback lets the native renderer
                 # identify which reserved payloads contain invalid data.
                 adapted = ('extern "C" void sly1_native_trace_vif_reserve('
-                           'u32, u32, u32, u32, u32, u32, u32);\n' + adapted)
+                           'u32, u32, u32, u32, u32, u32, u32);\n'
+                           'extern "C" void sly1_native_trace_vif_unpack_writer('
+                           'u32, u32, u32, u32, u32, u32);\n'
+                           'extern "C" void sly1_native_trace_vif_mscal('
+                           'u32, u32, u32);\n' + adapted)
                 signature = (
                     "void ReserveVifUnpack(PacketWriter* s, s32 a, s32 size, s32 d, "
                     "s32* outSize, u8** outCursor)\n{")
@@ -4700,6 +4704,27 @@ void LoadEffectSpawner"""
                 if adapted.count(tail) != 1:
                     raise RuntimeError("expected ReserveVifUnpack output assignment")
                 adapted = adapted.replace(tail, traced_tail, 1)
+                signature = (
+                    "void WriteVifUnpack(PacketWriter* self, s32 a, s32 b, void* c, "
+                    "s32 d, s32* out)\n{")
+                if adapted.count(signature) != 1:
+                    raise RuntimeError("expected one WriteVifUnpack definition")
+                trace = (
+                    signature + "\n    if (a == 0xC && b == 7 && d == 0x1D4) {\n"
+                    "        sly1_native_trace_vif_unpack_writer("
+                    "(u32)self, (u32)a, (u32)b, (u32)c, (u32)d, "
+                    "(u32)__builtin_return_address(0));\n    }")
+                adapted = adapted.replace(signature, trace, 1)
+                for function, command in (("WriteVifMscal", 0x14),
+                                          ("WriteVifMscalf", 0x15)):
+                    signature = f"void {function}(PacketWriter* s, void* program)\n{{"
+                    if adapted.count(signature) != 1:
+                        raise RuntimeError(f"expected one {function} definition")
+                    trace = (
+                        signature + "\n    sly1_native_trace_vif_mscal("
+                        f"(u32)program / 8u, {command}u, "
+                        "(u32)__builtin_return_address(0));")
+                    adapted = adapted.replace(signature, trace, 1)
         if args.trace_functions and rel.as_posix() == "main/game_clock.cpp":
             adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
             signature = "void SetGameClockScale(f32 x)\n{"

@@ -701,6 +701,37 @@ std::atomic<uint32_t> g_traced_transfer_count{0};
 std::atomic_flag g_unsupported_notice = ATOMIC_FLAG_INIT;
 }
 
+extern "C" unsigned int sly1_native_host32_retail_for_pc(unsigned int pc)
+    __attribute__((weak));
+
+extern "C" void sly1_native_trace_vif_mscal(uint32_t entry, uint32_t command,
+                                             uint32_t callsite) {
+    if (entry != 0x411u) return;
+    const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
+    if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
+    const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
+        ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+    openrac::log::info(
+        "native VIF target MSCAL entry={:#x} command={:#04x} caller={:#x} retail_caller={:#010x}",
+        entry, command, callsite, retail_caller);
+}
+
+extern "C" void sly1_native_trace_vif_unpack_writer(uint32_t writer,
+                                                      uint32_t format,
+                                                      uint32_t count,
+                                                      uint32_t source,
+                                                      uint32_t vu_address,
+                                                      uint32_t callsite) {
+    if (format != 0xCu || count != 7u || vu_address != 0x1D4u) return;
+    const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
+    if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
+    const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
+        ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+    openrac::log::info(
+        "native VIF target WriteVifUnpack writer={:#x} format={:#x} count={} source={:#x} vu={:#x} caller={:#x} retail_caller={:#010x}",
+        writer, format, count, source, vu_address, callsite, retail_caller);
+}
+
 extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
                                                 uint32_t format,
                                                 uint32_t count,
@@ -753,8 +784,20 @@ extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
     static std::atomic<uint32_t> notice_count{0};
     if (notice_count.fetch_add(1, std::memory_order_relaxed) < 256u) {
         openrac::log::info(
-            "native VIF reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x}",
-            writer, format, count, vu_address, byte_count, cursor);
+            "native VIF reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x} caller={:#x}",
+            writer, format, count, vu_address, byte_count, cursor, callsite);
+    }
+    if ((format == 0xCu && count == 8u && vu_address == 0x1CBu) ||
+        (format == 0xCu && count == 7u && vu_address == 0x1D4u)) {
+        static std::atomic<uint32_t> target_notice_count{0};
+        if (target_notice_count.fetch_add(1, std::memory_order_relaxed) < 64u) {
+            const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
+                ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+            openrac::log::info(
+                "native VIF target reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x} caller={:#x} retail_caller={:#010x}",
+                writer, format, count, vu_address, byte_count, cursor, callsite,
+                retail_caller);
+        }
     }
     previous = {writer, format, count, vu_address, byte_count, cursor, callsite};
 }
@@ -855,7 +898,7 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
                 openrac::log::info("native VIF1 DIRECT prefix={:#010x},{:#010x},{:#010x},{:#010x}",
                                    trace.direct_prefix[0], trace.direct_prefix[1],
                                    trace.direct_prefix[2], trace.direct_prefix[3]);
-            for (size_t i = 0; i < segments.size() && i < 16u; ++i) {
+            for (size_t i = 0; i < segments.size() && i < 256u; ++i) {
                 const DmaSegment& segment = segments[i];
                 openrac::log::info(
                     "native VIF1 DMA segment transfer={} index={} id={} qwc={} tag={:#010x} data={:#010x} stream_offset={} stream_size={}",
