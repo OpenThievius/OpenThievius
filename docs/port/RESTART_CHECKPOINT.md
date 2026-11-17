@@ -3,6 +3,17 @@
 
 ## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
+**Re-audit correction (15:27 CET):** the selected lit/skinned model mesh does
+have a concrete rejected packet: submission 322 writes a complete 71-qword
+A+D GIF packet at VU qword 460, then retail VU finish entry `0x2` kicks qword
+461, which the strict parser rejects as payload interpreted as a GIFtag. Its
+next kick at qword 35 is accepted but contains GS state only, without XYZ2 or
+XYZF2. This pointer discrepancy needs investigation in the matched finish
+program and native VU address semantics. It is not yet proven to be the sole
+cause of the black world, and it is distinct from the unrelated/unattributed
+qword-469 warning. Exact trace:
+`/tmp/sly-lit-final-qword-audit-filtered-20261117/run.log`.
+
 **Fresh default-client visual audit (10:02 CET):** I found that the on-disk
 `wave55-sdl32` executable was older than today's source, while the newer
 `wave55-sdl32-release` cache has the optional world renderer enabled. I

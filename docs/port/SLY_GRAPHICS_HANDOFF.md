@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 14:03 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 15:27 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Re-audit of the selected lit-mesh finish (2026-11-17, 15:27 CET)
+
+I revisited the exact filtered log rather than relying on the earlier summary.
+For submission 322, DMA segment 287 begins the selected lit/skinned mesh at
+stream offset 177312. At offset 182272, VIF UNPACK writes a complete 71-qword
+packed A+D GIF packet beginning at VU qword 460. The retail VU finish entry
+`0x2`, at stream offset 182672, issues XGKICK from qword 461. The strict native
+GIF parser then reads qword 461's payload (`0x797eb`) as a tag and rejects it.
+This is a concrete packet-pointer discrepancy on the selected model path; the
+earlier note was too dismissive in saying the result gave no reason to inspect
+the kick address. The same finish entry next kicks qword 35, which is accepted.
+That accepted packet is A+D state only and has no XYZ2/XYZF2 writes. Thus the
+trace exposes a likely relevant failure in this model path, but does not yet
+prove that it alone explains the black world or justify changing retail VU
+behavior. Verify how entry `0x2` computes VI7 and compare the native VU
+instruction/address semantics with the matched retail code before patching.
+
+The separate rejected qword-469 warning is emitted by another VU finish path
+and remains unattributed to this selected mesh. Do not conflate it with the
+qword-461 rejection. Exact lines are in
+`/tmp/sly-lit-final-qword-audit-filtered-20261117/run.log` (submission 322,
+stream offsets 182272 and 182672).
 
 ### Fresh default-client audit and mesh finish trace (2026-11-17, 14:03 CET)
 
