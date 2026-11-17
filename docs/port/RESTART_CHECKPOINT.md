@@ -1,7 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-16, paced client output audit)
+## Current checkpoint (2026-11-17, fresh client and VU input audit)
+
+A fresh no-input native run again shows the complete retail no-card prompt in
+all eight captured frames. A separate run injected Cross at frame 120; all
+eight sampled post-input 960x720 frames are black. Both diagnostic runs ended
+at their timeouts (exit 137), not a confirmed crash. Evidence:
+`/tmp/sly-fresh-noinput-audit-20261117.log`,
+`/tmp/sly-fresh-client-audit-20261117.log`, and
+`/tmp/sly1-native-frame-{00..07}.ppm`.
+
+The VU1 non-finite trace was corrected: `SQ` at entry `0x411`, PC `0x445`,
+stores **VF27**, not VF11. The earlier assumed NaN chain was downstream of a
+bad sequential load: `LQI` at PC `0x448` reads qword 460 as
+`0x0005b001, 0, 0x47, 0` after a later VIF UNPACK reuses that qword for packet
+words. `MULA` at PC `0x43b` multiplies the resulting subnormal VF3.x by finite
+VF20, and a later `ERLENG` squares the subnormal vector to zero and sets P to
+positive infinity. The VU loop bound and qword-buffer lifetime are unresolved;
+do not clamp geometry or edit matched decompilation files. Trace:
+`/tmp/sly-q460-writer-20261117.log`.
+
+The sibling `sly1-decomp` checkout and its fetched `origin/master` are both at
+`8f7a85a3`; no newer decomp source is available locally. Its 100% code
+completion does not include a C decompilation of the VU microprograms: the
+decomp keeps `.vutext` as original assembly.
+
+## Previous checkpoint (2026-11-16, paced client output audit)
 
 The short startup capture was misleading: it saved only the first eight
 packets, which are black while the native render state is initialized. A

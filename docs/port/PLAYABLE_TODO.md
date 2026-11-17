@@ -3,12 +3,14 @@
 
 ## Current visual and packet audit (2026-11-17)
 
-A fresh hidden native-client run injected one Cross press at frame 120 and
-captured frames 250 through 460. All eight inspected captures are black:
-`/tmp/sly-postcontinue-verified-20261117.png`. The no-input memory-card prompt
-still disappears on Continue; that transition is expected, but the black world
-output is a blocker. This confirms the current client output directly and is
-not inferred from draw counters.
+A fresh no-input run shows the complete retail no-card prompt in all eight
+sampled frames (`/tmp/sly1-native-frame-{00..07}.ppm`). A separate run injected
+one Cross press at frame 120; all eight post-input 960x720 captures are exactly
+black (one color, zero mean). That run reproduces the known black world state,
+not a new regression. Both runs ended at their 12- or 14-second timeout
+(exit 137), with no launcher left running. Logs:
+`/tmp/sly-fresh-noinput-audit-20261117.log` and
+`/tmp/sly-fresh-client-audit-20261117.log`.
 
 Two independent graphics-path failures are now more specific:
 
@@ -20,29 +22,30 @@ Two independent graphics-path failures are now more specific:
    XGKICK from 35 is accepted. Do not subtract one from XGKICK addresses or
    relax validation without explaining this two-kick sequence and checking
    transfer ordering.
-2. VU1 entry `0x411` produces non-finite data in its transform path. At PC
-   `0x430`, `MADDz` poisons ACC when `VF2.z` is NaN; `VF2` is then NaN from
-   `MULx` at PC `0x43a`, with NaN inputs in `VF30` and `VF24.x`. `VF24.x` is
-   copied from P at PC `0x436`; P becomes NaN at `ERLENG` PC `0x44a` when
-   `VF29` is already NaN. The corrected write trace shows the immediate bad
-   output: `SQ` at PC `0x445` writes qword 300 from `VF11`; in the first
-   non-finite sample, lane z is `0xffc00000` and lane w is `0xff800000`.
-   Earlier samples at the same store have finite xyz and only lane w is
-   infinite. So VIF uploads are not the source of this first bad geometry
-   write, but the trace still does not identify where `VF11` became invalid.
-   Trace `VF11`'s defining instructions and input registers next. Do not clamp
-   the output vertices as a workaround.
+2. VU1 entry `0x411` reads past ordinary vector data into packet words. At
+   PC `0x448`, `LQI` loads `VF3` from sequential qwords starting at 392. The
+   qword 460 load is `0x0005b001, 0, 0x47, 0`; the same VIF stream writes those
+   integer-like words at command offset 124968 after earlier UNPACK data had
+   placed ordinary floats there. At PC `0x43b`, `MULA` multiplies finite
+   `VF20` by `VF3.x`; this subnormal bit pattern makes ACC subnormal. Later
+   `ERLENG` at PC `0x44a` squares a subnormal vector to zero and sets P to
+   positive infinity. That value flows through `MFP` at PC `0x436` into
+   `VF24.x`, then zero-times-infinity creates non-finite transform values.
+   The first bad store is `SQ` at PC `0x445` from **VF27** (not VF11); its
+   qword is later loaded into `VF2`. We have not established why this VU loop
+   consumes qword 460 after the stream has reused it for packet data. Trace
+   the VU loop's intended bound and the VIF/VU buffer lifetime next. Do not
+   clamp the output vertices as a workaround.
 
-Trace logs are `/tmp/sly-xgkick-address-audit-20261117.log`,
+Trace logs include `/tmp/sly-xgkick-address-audit-20261117.log`,
 `/tmp/sly-gif-origin-audit-20261117.log`,
-`/tmp/sly-vf29-inputs-20261117.log`, and
-`/tmp/sly-vu-store-q300-320-20261117.log`. The current VU instrumentation is enabled
-only by `OPENRAC_TRACE_VU1_XGKICK_DATA=1` and
-`OPENRAC_TRACE_VU1_KICK_ADDRESS=1`; the hidden-client capture used
-`OPENRAC_TEST_HIDDEN_WINDOW=1` and `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=120`.
-Next, trace the producer of `VF11` at entry `0x411` PC `0x445` and reconcile
-both XGKICK submissions with the game’s intended packet flow, then capture
-the ordinary renderer again.
+`/tmp/sly-vu-store-q300-320-20261117.log`, and
+`/tmp/sly-q460-writer-20261117.log`. Detailed VU instrumentation uses
+`OPENRAC_TRACE_VU1_XGKICK_DATA=1`; ordinary captures used
+`OPENRAC_TEST_HIDDEN_WINDOW=1`, and only the post-Continue run used
+`OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=120`. Next, establish the VU loop bound and
+the intended lifetime of qwords 392–495, while keeping the qword-469 kick
+failure as a separate issue.
 No matched decompilation source was changed.
 
 ## Current bounded task (2026-11-16, paced client audit)

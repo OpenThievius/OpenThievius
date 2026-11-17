@@ -6,11 +6,13 @@ Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 
 ### Native client re-audit (2026-11-17)
 
-A fresh hidden-client run injected Cross at frame 120 and saved post-input
-frames 250–460. All eight inspected frames are black
-(`/tmp/sly-postcontinue-verified-20261117.png`); the launcher exited only
-because the 12-second diagnostic timeout fired. This is the current rendered
-output, rather than a conclusion drawn from packet or draw counts.
+A fresh no-input run shows the complete retail no-card prompt in all eight
+sampled frames (`/tmp/sly1-native-frame-{00..07}.ppm`). A separate run injected
+Cross at frame 120 and captured eight post-input frames; each 960x720 image is
+exactly black. These runs reproduce the known prompt-then-black behavior, not a
+new regression. Both processes ended at their diagnostic timeouts (exit 137),
+not a confirmed crash. Logs: `/tmp/sly-fresh-noinput-audit-20261117.log` and
+`/tmp/sly-fresh-client-audit-20261117.log`.
 
 The qword-469 rejection is an address/transfer-flow question, not evidence that
 the GIFtag itself is invalid. Entry `0x5f`, PC `0x68` reads `VI6=469`. VIF
@@ -22,19 +24,20 @@ why the guest issues both kicks or whether native VU/GIF transfer timing is
 missing a required state transition. Do not change the address or weaken GIF
 validation until the sequence is understood.
 
-There is a separate non-finite VU path: at entry `0x411`, PC `0x430` computes
-`MADDz` with `VF2.z=NaN` while ACC xyz is positive infinity. The NaN propagates
-through `VF29`, P, `VF24`, and `VF30` across PCs `0x436–0x44a`. A wider VU data
-store trace locates the first bad geometry write at `SQ` PC `0x445`: qword 300
-is written from `VF11`, whose z lane is `0xffc00000` and w lane is
-`0xff800000` in the first non-finite sample. Earlier executions of that SQ have
-finite xyz and an infinite w. VIF uploads are finite at the corresponding
-positions, but the defining instruction and inputs for `VF11` remain unknown.
-Trace that producer next; do not clamp output vertices as a workaround.
-Detailed traces are `/tmp/sly-xgkick-address-audit-20261117.log`,
-`/tmp/sly-gif-origin-audit-20261117.log`, and
-`/tmp/sly-vf29-inputs-20261117.log`, and
-`/tmp/sly-vu-store-q300-320-20261117.log`. No matched decompilation source changed.
+The VU1 entry `0x411` trace now identifies an invalid input chain. Its `LQI`
+at PC `0x448` advances through sequential qwords beginning at 392. At qword
+460 it reads `0x0005b001, 0, 0x47, 0`; a preceding VIF UNPACK wrote ordinary
+float data at that location, then a later UNPACK at stream offset 124968
+reused it for packet words. The `MULA` at PC `0x43b` uses the tiny subnormal
+`VF3.x` with finite `VF20`, making ACC subnormal. `ERLENG` at PC `0x44a` then
+squares the tiny vector to zero and sets P to positive infinity. `MFP` copies
+P into `VF24.x`; zero-times-infinity later contaminates the transform. The
+first bad `SQ` at PC `0x445` stores **VF27**, not VF11; this corrects the
+earlier trace attribution error. The unresolved question is why the VU loop
+continues to read qword 460 after that location has been reused. See
+`/tmp/sly-q460-writer-20261117.log` and
+`/tmp/sly-vu-store-q300-320-20261117.log`. Matched game C was not changed; the
+VU microprogram is retail assembly and remains outside the decompilation.
 
 ### Post-Continue normal-renderer capture (2026-11-16, later run)
 
