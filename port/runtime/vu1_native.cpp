@@ -79,6 +79,35 @@ bool trace_xgkick_data_target(uint32_t address) {
         : address >= selected_range[0] && address <= selected_range[1]);
 }
 
+bool trace_vu1_store_target(uint32_t address) {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_STORE_QWORD");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    static const std::array<uint32_t, 2> selected_range = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_STORE_QWORD");
+        if (setting == nullptr) return std::array<uint32_t, 2>{0u, 0u};
+        char* end = nullptr;
+        const unsigned long first = std::strtoul(setting, &end, 0);
+        if (end == setting || first >= kVu1Quadwords)
+            return std::array<uint32_t, 2>{0u, 0u};
+        unsigned long last = first;
+        if (*end == '-') {
+            char* range_end = nullptr;
+            last = std::strtoul(end + 1, &range_end, 0);
+            if (range_end == end + 1 || *range_end != '\0' ||
+                last >= kVu1Quadwords || last < first)
+                return std::array<uint32_t, 2>{0u, 0u};
+        } else if (*end != '\0') {
+            return std::array<uint32_t, 2>{0u, 0u};
+        }
+        return std::array<uint32_t, 2>{static_cast<uint32_t>(first),
+                                       static_cast<uint32_t>(last)};
+    }();
+    return enabled && trace_vu1_xgkick_context_matches() &&
+           address >= selected_range[0] && address <= selected_range[1];
+}
+
 using Vector = std::array<float, 4>;
 
 struct State {
@@ -402,7 +431,8 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
         (address >= 136u && address <= 142u) ||
         (address >= 464u && address <= 476u);
     const bool trace_xgkick_data = trace_xgkick_data_target(address);
-    if (trace_target || trace_xgkick_data || nan_output)
+    const bool trace_store = trace_vu1_store_target(address);
+    if (trace_target || trace_xgkick_data || trace_store || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
     static std::atomic<uint32_t> xgkick_data_notice{0};
@@ -426,6 +456,16 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
             g_vu_trace_entry, pc, instruction[0], instruction[1], address,
             previous[0], previous[1], previous[2], previous[3],
             next[0], next[1], next[2], next[3]);
+    }
+    static std::atomic<uint32_t> store_notice{0};
+    if (trace_store && store_notice.fetch_add(1, std::memory_order_relaxed) < 1024u) {
+        uint32_t next[4]{};
+        std::memcpy(next, value.data(), sizeof(next));
+        openrac::log::info(
+            "native VU1 watched qword write submission={} mscal_offset={:#x} entry={:#x} pc={:#x} qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+            g_vu_trace_entry, pc, address, previous[0], previous[1],
+            previous[2], previous[3], next[0], next[1], next[2], next[3]);
     }
     static std::atomic<uint32_t> qword11_notice{0};
     if (address == 11u && std::getenv("OPENRAC_TRACE_VU_QWORD11") != nullptr &&

@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Post-Continue trace update (2026-11-17, 12:32 CET)
+
+The current default client still renders the no-card prompt, then produces a
+black frame after Cross. A fresh offscreen capture reproduces that result. The
+world path is active after input: the trace loaded the world object, read 2,426
+disc sectors, and queued 23 model parts per sampled `QueueModelPartDraws`
+call. Do not spend more time proving that the world path starts; the missing
+milestone is getting its draw output through the default renderer.
+
+A targeted VU trace of submission 327 follows the dynamic source
+`0x016d5890` through entries `0x401`, `0x411`, `0x242`, `0x356`, and `0x2`.
+Entry `0x2` updates an A+D state packet and clears qwords 37–85. The nearby
+qword-469 packet is still rejected for invalid GIFtag bits, while qword 35 is
+an accepted state-only packet. The trace does not cover all GS input paths, so
+it does not prove those VU packets are the sole route to the black framebuffer.
+The optional world-mesh renderer remains OFF by default.
+
+**Next:** capture and compare the normal renderer's GS input on the same
+post-Continue frame; locate the first draw with invalid coordinates or state,
+then fix that handoff in the port runtime. See the detailed trace and limits in
+`SLY_GRAPHICS_HANDOFF.md`. No matched decomp source changed.
+
 ## Fresh default-client audit (2026-11-17, 12:03 CET)
 
 I rebuilt the current default host32 client and captured the framebuffer with

@@ -1,8 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 12:03 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 12:32 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Post-Continue world-path trace (2026-11-17, 12:32 CET)
+
+I rebuilt the default `wave55-sdl32` target (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`)
+with a capped, opt-in VU qword-write trace, then ran it offscreen with a
+process-local Cross at native frame 300. The capture after the press is fully
+black (`/tmp/sly-qword-consumer-20261117/frame-02.png`), so the default client
+still fails at the same visible milestone. The input stayed inside the
+launcher and did not send a desktop key event.
+
+The trace adds evidence that the game is doing work after Continue: it loaded
+the world object (`world=0x6abdd0`), read six disc blocks (2,426 sectors), and
+`QueueModelPartDraws` reported 23 queued parts per call in the sampled frame.
+That means “world code is not running” is not a sufficient explanation for
+the black screen. In the VIF chain containing source address `0x016d5890`
+(submission 327), entries `0x401` and `0x411` write VU data; `0x242` and `0x356`
+then rewrite it; entry `0x2` updates qword 35 to an A+D GIFtag and clears
+qwords 37–85. The adjacent packet at qword 469 is still rejected for reserved
+GIFtag bits, and the accepted qword-35 packet remains state-only. These facts
+do not yet establish that the final consumer or normal renderer is the cause:
+the default build's world-mesh adapter is OFF, and this trace does not capture
+all GS input paths.
+
+The new diagnostic is disabled unless
+`OPENRAC_TRACE_VU1_STORE_QWORD=first-last` is set. Pair it with
+`OPENRAC_TRACE_VIF_DMA_ADDRESS=0x016d5890` and the VIF segment-follow setting
+to cap output to a selected VU data range. Run log and captured frames:
+`/tmp/sly-qword-consumer-20261117.log` and
+`/tmp/sly-qword-consumer-20261117/`. Build compiled 194/194 decomp units and
+85/85 port backfills; no matched decomp files changed.
+
+Next: trace the normal renderer's post-Continue GS input from this same frame
+and identify the first draw whose coordinates/state differ from the retail
+path. Keep the optional mesh adapter disabled until its output matches that
+draw boundary.
 
 ### Default-client visual recheck (2026-11-17, 12:03 CET)
 
