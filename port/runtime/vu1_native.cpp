@@ -729,6 +729,14 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                     state->acc[lane] = vu_mul(source[lane], target[broadcast]);
             return true;
         }
+        case 0x1C: // MULAq
+        case 0x1E: { // MULAi
+            const float scalar = special == 0x1C ? state->q : state->i;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = vu_mul(source[lane], scalar);
+            return true;
+        }
         case 0x10: case 0x11: case 0x12: case 0x13:
         case 0x14: case 0x15: case 0x16: case 0x17: {
             const bool to_int = special >= 0x14;
@@ -1355,13 +1363,13 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         const uint16_t vi7_before = vi_read(before, 7u);
         State upper_result = before;
         State lower_result = before;
-        if (!translate_upper(&upper_result, upper, unsupported_word)) {
-            dispatch_pending_kick(&pending_kick);
-            *paired_word = lower;
-            *stopped_pc = current_pc;
-            *stopped_pipeline = 0;
+        const bool upper_translated =
+            translate_upper(&upper_result, upper, unsupported_word);
+        if (!upper_translated) {
             static std::atomic<uint32_t> upper_fault_context_notice{0};
-            if (upper_fault_context_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
+            const uint32_t notice =
+                upper_fault_context_notice.fetch_add(1, std::memory_order_relaxed);
+            if (notice < 32u) {
                 std::ostringstream context;
                 const uint32_t first_cycle = cycle >= recent.size() - 1u
                     ? cycle - static_cast<uint32_t>(recent.size() - 1u) : 0u;
@@ -1372,9 +1380,14 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                             << " [" << recent_instruction.lower << '/'
                             << recent_instruction.upper << ']';
                 }
-                openrac::log::warn("native VU1 upper path to unsupported instruction entry={:#x}:{}",
-                                   entry, context.str());
+                openrac::log::warn(
+                    "native VU1 upper path to unsupported instruction entry={:#x}:{}",
+                    entry, context.str());
             }
+            dispatch_pending_kick(&pending_kick);
+            *paired_word = lower;
+            *stopped_pc = current_pc;
+            *stopped_pipeline = 0;
             return 0;
         }
         const char* xgkick_data_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
