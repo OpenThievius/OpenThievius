@@ -1,17 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-17, 08:21 CET)
+## Current checkpoint (2026-11-17, 11:07 CET)
 
-The default launcher, rebuilt from the current source with the optional Sly
-world renderer disabled, reaches and keeps the complete no-memory-card prompt
-in a later-frame capture. The known short white dash at the left edge remains.
-A process-local Cross still leads to a black frame. The isolated renderer
-experiment now associates captured strips with their detached packet
-addresses; its post-Continue output remains only a gray ground and horizon.
-Neither the packet-key fix nor the startup prompt is a playable level. See the
-[latest visual and packet audit](PLAYABLE_TODO.md#current-visual-and-packet-audit-2026-11-17)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#current-default-client-and-adapter-check-2026-11-17-0821-cet).
+The default host32 launcher still reaches the settled no-memory-card prompt;
+after Continue its captured output is black and it submits no native world
+meshes. The optional world-renderer build remains disabled by default and
+produces distorted purple surfaces over gray, not a Sly scene. The loaded-world
+VIF/VU path is also unresolved: entry `0x5f` increments `VI6` past a valid GIF
+tag at qword 468, then XGKICKs from qword 469, where the first A+D payload is
+rejected as an invalid tag. A fresh targeted audit rules out a simple VI
+register-delay explanation but does not establish the intended transfer
+context. The client is not playable and no level graphics are confirmed. See
+the [latest visual and packet audit](PLAYABLE_TODO.md#latest-opt-in-world-renderer-capture-2026-11-17)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#first-xgkick-pointer-audit-2026-11-17).
 
 ## Reset review (2026-11-16)
 

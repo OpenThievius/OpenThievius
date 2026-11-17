@@ -2416,3 +2416,30 @@ bits. The next kick at PC `0x6e`, qword 35, is accepted. Captured output still
 shows the full no-card prompt before the process-local Cross press and a black
 frame afterward. This removes one interpreter stop but is not a graphics or
 playability improvement yet. Run log: `/tmp/sly-mulaq-postinput-20261117.log`.
+
+## First XGKICK pointer audit (2026-11-17)
+
+A narrowly filtered native run traced the loaded retail program at entry
+`0x5f` through its first two XGKICKs. At PC `0x63`, `ILW VI6,12(VI4)` loads
+468. PC `0x67` executes `IADDIU VI6,VI6,1`, making the operand 469; PC `0x68`
+then executes `XGKICK VI6`. The data at 468 is the valid EOP GIFtag
+`0x100040000000806d`; 469 is its first A+D payload qword
+(`value=0x39001`, `address=0x48`). PC `0x6d` decrements VI7 from 36 to 35,
+and PC `0x6e` XGKICKs the independently generated valid GIFtag at qword 35.
+The captured sequence matches the loaded US retail VU words. The XGKICK at
+`0x68` still fails strict packet validation at 469.
+
+The public VU User's Manual says the IALU's dummy stages are bypassed and that
+XGKICK gives the external GIF the value of `VI[is]`, which GIF treats as the
+leading GIFtag address (§§3.4.7 and XGKICK). That rules out explaining this
+trace as a generic one-cycle VI write delay, but it does not explain why the
+retail program increments past the valid tag before the first kick. The
+missing fact is the transfer context that supplies or consumes the tag at
+qword 468, or a different verified interpretation of the captured VU
+memory/pointer state. Do not decrement the XGKICK address or relax GIF
+validation: an earlier retry from 468 produced no visible frame, and the
+current evidence does not establish that it is the correct packet boundary.
+
+Run log: `/tmp/sly-xgkick-pointer-audit-20261117.log`. The run was native and
+bounded; its timeout ended with exit 137 after the launcher did not exit on
+SIGINT. No source code changed, and no game data was added to the repository.

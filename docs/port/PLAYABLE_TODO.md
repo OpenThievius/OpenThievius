@@ -27,7 +27,9 @@ VU XGKICK, and any PATH1 submission) and correlate accepted XYZ writes to the
 actual native framebuffer. Preserve the default startup prompt; keep any
 renderer reconstruction in the port-only backfill layer.
 
-**Latest opt-in world-renderer capture (2026-11-17):** I inspected the
+### Latest opt-in world-renderer capture (2026-11-17)
+
+I inspected the
 world-only image from `/tmp/sly-one-slice-20261117/sly1-native-world-07.ppm`.
 It is not a black regression in the default client: the isolated renderer draws
 large distorted purple surfaces over gray, with no recognizable Sly scene.
