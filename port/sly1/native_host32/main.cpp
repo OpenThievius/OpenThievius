@@ -1090,7 +1090,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         if (std::getenv("OPENRAC_DUMP_SLY_MESH_VERTS") != nullptr && i < 32u &&
             vert_filter_match) {
             static u32 vert_notices = 0;
-            if (vert_notices++ < 128u)
+            if (vert_notices++ < 2048u)
                 std::fprintf(stderr,
                              "[native sly mesh vert] mesh=%#010x i=%u idx=%u flags=%02x xyz=%g,%g,%g\n",
                              mesh_address, i, source, flags,

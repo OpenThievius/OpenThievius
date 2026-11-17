@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 23:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 23:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Matrix-mode conclusion corrected; adapter default restored (2026-11-17, 23:45 CET)
+
+I logged the exact matrix uploaded for instance `0x5e54000000` and computed
+the projected NDC of its local bounds under both conventions. With mode 0
+(the row-major `model * viewProjection` uploaded column-major, so GLSL sees
+its transpose) the vertices project to a small but valid region; with mode 1
+they collapse near the origin. Re-examining the mode-1 image shows it is a
+**scaled-up fan**, not a coherent 3D object as the 21:55 CET note claimed.
+That interpretation was wrong. The adapter default is restored to mode 0,
+which matches the game's row-vector convention and the decomp audit.
+`OPENRAC_SLY_WORLD_MVP_MODE` remains available for comparison.
+
+A 40-second capture at frame 600 with mode 0 shows the same stable distorted
+scene as earlier frames, so the camera does not settle into a recognizable
+view. Capture: `/tmp/sly-late-scene-20261117/`. The fan is therefore a
+topology/data interpretation problem, not a matrix or timing problem. No
+launcher remains.
 
 ### Real native input verified (2026-11-17, 23:20 CET)
 

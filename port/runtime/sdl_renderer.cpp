@@ -509,10 +509,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 }
             }
         }
-        // Empirically the character meshes render as collapsed slivers with the raw
-        // row-major product (mode 0) and as coherent 3D geometry with its transpose
-        // (mode 1). Keep the other modes available for comparison.
-        int mvp_mode = 1;
+        // The game uses row vectors: p * model * viewProjection. The host's
+        // row-major product uploaded as column-major gives the transpose the
+        // GLSL column-vector shader needs, so mode 0 is the correct convention.
+        // Mode 1's larger image was a scaled-up fan, not correct geometry.
+        int mvp_mode = 0;
         if (std::getenv("OPENRAC_SLY_WORLD_AUTO_MATRIX") != nullptr)
             mvp_mode = mesh.model_is_identity ? 0 : 1;
         float position_scale = 1.0f;
@@ -543,6 +544,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 m[0], m[4], m[8], m[12], m[1], m[5], m[9], m[13],
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
+        }
+        if (std::getenv("OPENRAC_DUMP_WORLD_MATRIX") != nullptr) {
+            static unsigned notices = 0;
+            if ((mesh.instance >> 16u) == 0x005e5400u && notices++ < 4u) {
+                std::fprintf(stderr, "[native sly uploaded matrix] instance=%#llx mode=%d m=",
+                             static_cast<unsigned long long>(mesh.instance), mvp_mode);
+                for (std::size_t i = 0; i < 16; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", m[i]);
+                std::fprintf(stderr, " v0=");
+                for (std::size_t i = 0; i < 9; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", mesh.vertices[i]);
+                std::fputc('\n', stderr);
+            }
         }
         glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, m);
         glUniform1i(g_world_texture_location, 0);
@@ -1129,7 +1143,7 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
         static unsigned samples = 0;
         const unsigned sample = samples++;
-        if (sample < 64u) {
+        if (sample < 2048u) {
             float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
             float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
             float min_local[3]{1.0e30f, 1.0e30f, 1.0e30f};
@@ -1168,7 +1182,7 @@ extern "C" void openrac_native_sly_world_mesh_submit(
                          projected, inside, min_local[0], min_local[1], min_local[2],
                          max_local[0], max_local[1], max_local[2],
                          min_x, min_y, max_x, max_y, min_z, max_z);
-            if (sample < 4u) {
+            if (sample < 2048u) {
                 std::fprintf(stderr, "[native sly transform] instance=%#llx model rows=",
                              static_cast<unsigned long long>(instance));
                 for (std::size_t i = 0; i < 16; ++i)
