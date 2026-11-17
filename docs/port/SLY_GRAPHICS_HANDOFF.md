@@ -12,10 +12,15 @@ failure precedes later writes to qword 468. Submission 328's UNPACK at offset
 469 and strict parsing rejects it. The source bytes map to guest address
 `0x018d2650` in a REF segment starting at `0x018d1270` (326 qwords). Later
 UNPACKs in the same submission rewrite qword 468 after this rejected kick.
-The exact C producer remains unknown: model-strip output and targeted
-`ReserveVifUnpack`/`WriteVifUnpack` probes did not match this command. Do not
-assume the nearby `BuildLitStripMeshPacket` call chain produced these bytes.
-The latest visible check still goes from the retail no-card prompt to a black
+The exact C producer is now identified: kind-5 mesh `0x00a113c0` goes through
+`ReadPlacedObjectModel` to `BuildStripMeshPacket` (`0x00163ED8`). Its trailing
+strip loop reserves format-C/count-7 data at VU offset `0x1D4` (112 bytes).
+The live packet cursor minus detached start is 5,088 bytes; adding that to REF
+base `0x018d1270` gives `0x018d2650`, the qword-468 input source. The command
+is at `0x018d264c`. Trace: `/tmp/sly-strip-target-reserve-cross2-20261117.log`.
+The remaining defect is downstream at XGKICK VI6=469 and the separately
+observed non-finite transform path; preserve strict GIF validation and matched
+C while tracing those contracts. The latest visible check still goes from the retail no-card prompt to a black
 frame after one Cross. Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
@@ -25,11 +30,9 @@ shows VIF1 `TADR=0x003c3b00` submitted from caller `0x081328ab`, inside native
 `RunRenderThread` (`0x0015EE80`); its chain includes REF tag `0x003c3d60`,
 QWC 326, data `0x018d1270`. A prior model trace records the same pointer/QWC
 as mesh 0 of Sly's first skinned model (`source=0x00a113c0`, four bones).
-This proves which model packet is being submitted, but not yet the exact C
-writer for the UNPACK command. `BuildLitStripMeshPacket` is a candidate path
-for skinned packets, but its `pkt[1]` reservations use `hdr->p->off[0]`
-(initialized as `0x24`), which does not explain destination `0x1D4`. Do not
-attribute the command to that call solely from the mesh correlation. Evidence:
+The later targeted reserve/cursor probe identifies the exact writer as
+`BuildStripMeshPacket`, not `BuildLitStripMeshPacket`'s `pkt[1]` skin-weight
+stream. Evidence:
 `/tmp/sly-qword468-chain-visible-20261117.log`,
 `/tmp/sly-qword468-dma-caller-cross-20261117.log`, and
 `/tmp/sly-object-68-final-pose-20261116.log`.

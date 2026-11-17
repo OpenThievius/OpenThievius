@@ -21,16 +21,27 @@ identified it. Keep the guest packet writer open and preserve GIF validation.
 Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
+**Writer attribution is now resolved:** host-only source probes show that
+`ReadPlacedObjectModel` dispatches this kind-5 mesh to matched
+`BuildStripMeshPacket` (`0x00163ED8`). Its trailing strip loop calls
+`ReserveVifUnpack(pkt, 0xC, s->stride, off, ...)`; the live call has stride 7,
+VU offset `0x1D4`, and writes 112 bytes. The packet cursor was `0x01FFC880`
+and detached packet start `0x01FFB4A0`, a difference of 5,088 bytes. Adding
+that offset to REF data `0x018D1270` gives `0x018D2650`, exactly the source
+for qword 468; the preceding command is at `0x018D264C`. This closes the C
+writer question. The remaining fault is the VU1 `0x5f` XGKICK from qword 469
+despite the valid tag at 468, plus separate non-finite transform evidence for
+entry `0x411` below. Do not patch either path without tracing its data contract.
+Trace: `/tmp/sly-strip-target-reserve-cross2-20261117.log`.
+
 The DMA ownership trace now ties that REF segment to the frame submission:
 `TADR=0x003c3b00` is repeatedly submitted from retail `RunRenderThread`
 (`0x0015EE80`), and the chain contains REF tag `0x003c3d60`, QWC 326, data
 `0x018d1270`. Earlier model traces report that exact pointer and QWC as mesh 0
 of the first skinned model draw (Sly; source mesh `0x00a113c0`, four bones).
-This identifies the owning packet/model but not the exact writer of
-`0xC1D4`/destination `0x1D4`: the matched `BuildLitStripMeshPacket` source has
-several `pkt[1]` writes, but its normal/color reservations use the header's
-`off[0]` (initialized to `0x24`), not `0x1D4`. Keep the precise command
-producer open until the packet bytes or another writer trace proves it.
+This identifies the owning packet/model. The exact writer is now identified
+as `BuildStripMeshPacket` by the live stride/offset/cursor trace above; it is
+not the nearby `BuildLitStripMeshPacket` skin-weight stream.
 Fresh DMA trace: `/tmp/sly-qword468-chain-visible-20261117.log`; caller trace:
 `/tmp/sly-qword468-dma-caller-cross-20261117.log`; model pointer match:
 `/tmp/sly-object-68-final-pose-20261116.log`.
@@ -44,7 +55,7 @@ at frame 300 dismisses it; a later captured frame is fully black
 diagnostic timeout (137), and no launcher process remains. This confirms the
 known prompt-to-black failure, not a new boot regression.
 
-The latest trace resolves `entry 0x411`'s MSCAL caller to matched retail
+An earlier trace resolves `entry 0x411`'s MSCAL caller to matched retail
 function `0x00164868` (`BuildLitStripMeshPacket`). Its source calls
 `g_litSkinWeightProgram` from `pkt[1]` when `hdr->count > 0`; the nearby
 `0xC/count 8/address 0x1CB` reservations are in the strip loop using `pkt[2]`.
@@ -52,8 +63,10 @@ They are separate packet writers, so their shared function is not proof that
 the strip bytes are the skin program's input. A targeted trace found no
 `ReserveVifUnpack` record for format `0xC`, count 7, address `0x1D4`, matching
 the command that wrote qword 468. The source-level `WriteVifUnpack` probe did
-not identify that command's producer either. Keep this attribution open; do
-not reorder the writers or alter the VU input based on proximity alone.
+not identify that command's producer. The newer targeted trace above closes
+that attribution as `BuildStripMeshPacket`; this historical probe did not
+observe the trailing strip reservation because it had not yet been instrumented.
+Do not reorder writers or alter the VU input based on proximity alone.
 
 A fresh no-input run shows the complete retail no-card prompt in all eight
 sampled frames (`/tmp/sly1-native-frame-{00..07}.ppm`). A separate run injected

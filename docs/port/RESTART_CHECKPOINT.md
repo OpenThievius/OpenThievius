@@ -1,20 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-17, fresh client and VU input audit)
+## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
-**Additional packet-source trace:** on the current foreground client, one
-process-local Cross still changes the retail no-card prompt to a black world
+**Packet writer identified:** kind-5 mesh `0x00a113c0` is dispatched by
+`ReadPlacedObjectModel` to matched `BuildStripMeshPacket` (`0x00163ED8`). Its
+trailing strip loop reserves format-C/count-7 data at VU offset `0x1D4` (112
+bytes). The live cursor `0x01FFC880` minus detached packet start `0x01FFB4A0`
+is 5,088 bytes; adding this to REF data `0x018D1270` yields `0x018D2650`,
+exactly the source mapped to qword 468. The preceding command is at
+`0x018D264C`. This closes the exact C writer attribution. Trace:
+`/tmp/sly-strip-target-reserve-cross2-20261117.log`.
+
+The remaining packet issue is downstream: on the current foreground client,
+one process-local Cross still changes the retail no-card prompt to a black world
 frame. The VIF submission 328 UNPACK at stream offset 5916 writes the valid
 GIFtag at qword 468, with its A+D payload starting at qword 469. VU1 entry
 `0x5f` kicks from 469 and the parser rejects it; a subsequent kick from qword
 35 is accepted. The source mapper places qword 468's input at guest address
 `0x018d2650` inside REF data beginning `0x018d1270` (326 qwords). Later
-writes to qword 468 happen after the first rejection. Model-strip and C-writer
-traces still do not identify the command's producer, so do not attribute this
-buffer to `BuildLitStripMeshPacket` based only on nearby VU calls. The run was
-ended by the 8-second diagnostic timeout (137), and no launcher remains.
-Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
+writes to qword 468 happen after the first rejection. The run was ended by the 8-second diagnostic timeout (137), and no launcher
+remains. The earlier source-mapping evidence is in
+`/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
 The VIF DMA chain now has an owner: its root `TADR=0x003c3b00` is submitted
@@ -22,10 +29,9 @@ from matched retail `RunRenderThread` (`0x0015EE80`). Within that chain, REF
 tag `0x003c3d60` transfers 326 qwords from `0x018d1270`. Earlier model traces
 show this exact address and QWC as mesh 0 of the first skinned Sly model
 (source mesh `0x00a113c0`, four bones). This associates the faulting packet
-with the model/frame submission. It still does not prove which builder wrote
-the exact `0xC1D4` command: `BuildLitStripMeshPacket` writes several `pkt[1]`
-streams, but its `off[0]` is initialized to `0x24`, so the source alone does
-not explain destination `0x1D4`. Keep that exact writer unresolved. New trace:
+with the model/frame submission. The live reserve/cursor trace above now
+proves the exact `0xC1D4` writer is `BuildStripMeshPacket`, not the separate
+`BuildLitStripMeshPacket` `pkt[1]` stream. New trace:
 `/tmp/sly-qword468-chain-visible-20261117.log` and
 `/tmp/sly-qword468-dma-caller-cross-20261117.log`; model correlation:
 `/tmp/sly-object-68-final-pose-20261116.log`.
@@ -44,11 +50,10 @@ reservations and `MSCAL 0x411` to matched function `0x00164868`,
 `BuildLitStripMeshPacket`. In its matched source, `MSCAL 0x411` is
 `g_litSkinWeightProgram` submitted through `pkt[1]`; strip payloads are
 reserved later in the `pkt[2]` loop. The same function name does not establish
-that these are the same packet or data. The exact UNPACK `0xC1D4` at stream
-offset 5916 (qword 468) produced no matching targeted C reserve or
-`WriteVifUnpack` trace, so its producer is still unresolved. Do not edit the
-matched source or change VU/GIF behavior until the command's actual writer is
-identified.
+that these are the same packet or data. The exact UNPACK `0xC1D4` at stream offset 5916 (qword 468) is now attributed
+to the `BuildStripMeshPacket` trailing strip reserve. Keep matched source and
+VU/GIF behavior unchanged until the qword-469 transfer and transform issues
+are explained.
 
 A fresh no-input native run again shows the complete retail no-card prompt in
 all eight captured frames. A separate run injected Cross at frame 120; all
