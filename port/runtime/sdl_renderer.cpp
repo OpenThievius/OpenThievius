@@ -58,6 +58,7 @@ struct NativeWorldMesh {
     std::array<float, 16> mvp{};
     std::array<float, 16> model{};
     std::array<float, 16> view_projection{};
+    bool model_is_identity = false;
     std::uint64_t tex0 = 0;
     std::uint64_t tex1 = 0;
     std::uint64_t clamp = 0;
@@ -512,6 +513,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         // row-major product (mode 0) and as coherent 3D geometry with its transpose
         // (mode 1). Keep the other modes available for comparison.
         int mvp_mode = 1;
+        if (std::getenv("OPENRAC_SLY_WORLD_AUTO_MATRIX") != nullptr)
+            mvp_mode = mesh.model_is_identity ? 0 : 1;
         if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_MVP_MODE")) {
             char* end = nullptr;
             const long parsed = std::strtol(setting, &end, 0);
@@ -1076,6 +1079,11 @@ extern "C" void openrac_native_sly_world_mesh_submit(
             draw.mvp[row * 4u + column] = value;
         }
     }
+    draw.model_is_identity = true;
+    for (std::size_t row = 0; row < 4; ++row)
+        for (std::size_t column = 0; column < 4; ++column)
+            if (model[row * 4u + column] != (row == column ? 1.0f : 0.0f))
+                draw.model_is_identity = false;
     std::memcpy(draw.model.data(), model, sizeof(draw.model));
     std::memcpy(draw.view_projection.data(), view_projection, sizeof(draw.view_projection));
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {

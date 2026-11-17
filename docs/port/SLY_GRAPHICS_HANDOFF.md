@@ -1,8 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 22:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 22:35 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Per-mesh matrix selection refuted (2026-11-17, 22:35 CET)
+
+I tested the hypothesis that collision meshes (identity model matrix) need
+matrix mode 0 while transformed objects need mode 1, via opt-in
+`OPENRAC_SLY_WORLD_AUTO_MATRIX`. The bounded full-scene capture still shows
+fan-shaped solid-colour geometry, not a recognizable level. There is no
+per-mesh matrix convention that makes the current source-position adapter
+produce a coherent scene. Capture: `/tmp/sly-auto-scene-20261117/`.
+No launcher remains.
 
 ### Depth-state and native-input checks (2026-11-17, 22:20 CET)
 
