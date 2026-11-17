@@ -304,7 +304,8 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         const bool trace_xgkick_target = xgkick_trace_enabled &&
             destination_index >= trace_xgkick_range[0] &&
             destination_index <= trace_xgkick_range[1];
-        if (input_trace != nullptr && destination_index == 348u)
+        if (input_trace != nullptr &&
+            (destination_index == 348u || destination_index == 468u))
             input_trace->push_back({destination_index, stream_offset});
         const bool trace_target =
             (destination_index >= 27u && destination_index <= 30u) ||
@@ -836,13 +837,15 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     const bool dma_ok = execute_dma(value, &stream, &segments);
     const bool vif_ok = dma_ok && execute_vif_stream(
         stream, &direct_bytes, &unsupported, &trace, &input_trace);
-    static std::atomic<uint32_t> input_source_notice{0};
+    static std::array<std::atomic<uint32_t>, 2> input_source_notice{};
     const char* input_source_setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
     if (input_source_setting != nullptr && input_source_setting[0] != '\0' &&
         input_source_setting[0] != '0') {
         for (const VifInputTrace& input : input_trace) {
-            if (input_source_notice.fetch_add(1, std::memory_order_relaxed) >= 64u)
-                break;
+            const size_t notice_index = input.destination_qword == 348u ? 0u : 1u;
+            if (input_source_notice[notice_index].fetch_add(
+                    1, std::memory_order_relaxed) >= 64u)
+                continue;
             for (const DmaSegment& segment : segments) {
                 if (input.stream_offset < segment.stream_offset ||
                     input.stream_offset >= segment.stream_offset + segment.stream_size)
