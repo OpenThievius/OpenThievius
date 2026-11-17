@@ -14,14 +14,22 @@ A targeted VU trace of submission 327 follows the dynamic source
 `0x016d5890` through entries `0x401`, `0x411`, `0x242`, `0x356`, and `0x2`.
 Entry `0x2` updates an A+D state packet and clears qwords 37–85. The nearby
 qword-469 packet is still rejected for invalid GIFtag bits, while qword 35 is
-an accepted state-only packet. The trace does not cover all GS input paths, so
-it does not prove those VU packets are the sole route to the black framebuffer.
-The optional world-mesh renderer remains OFF by default.
+an accepted state-only packet.
 
-**Next:** capture and compare the normal renderer's GS input on the same
-post-Continue frame; locate the first draw with invalid coordinates or state,
-then fix that handoff in the port runtime. See the detailed trace and limits in
-`SLY_GRAPHICS_HANDOFF.md`. No matched decomp source changed.
+The DirectRenderer path handles UI packets. After Continue, it gets a
+943,776-byte transfer with no draws, then only small 6- and 36-vertex corner
+elements. Level meshes go through a separate optional native adapter, which is
+OFF in the default client. With that adapter ON, 234 meshes / 8,955 vertices
+are projected mostly inside the view, but the captured scene is still
+distorted; 66 of 69 unique materials resolved to placeholder textures. The
+adapter uses base mesh positions and one approximate triangle strip, so it
+does not reproduce the retail VU output yet.
+
+**Next:** compare one mesh's source vertices with its retail VU1 output, then
+trace GIF uploads for the mesh's TEX0 address. Keep the adapter off by default
+until those geometry and texture paths produce a recognizable scene. See
+`SLY_GRAPHICS_HANDOFF.md` for captures and trace limits. No matched decomp
+source changed.
 
 ## Fresh default-client audit (2026-11-17, 12:03 CET)
 

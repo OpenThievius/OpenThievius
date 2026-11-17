@@ -26,18 +26,38 @@ do not yet establish that the final consumer or normal renderer is the cause:
 the default build's world-mesh adapter is OFF, and this trace does not capture
 all GS input paths.
 
+A follow-up compared the two rendering paths directly. In the default build,
+the DirectRenderer receives the small UI packets: the transition has
+1,224/870 decoded vertices, followed by a 943,776-byte transfer packet with no
+vertices or draws; later packets decode only 6- or 36-vertex corner elements.
+The world meshes are in a separate host queue, so disabling the experimental
+world adapter leaves no level draw in the default client. With the adapter ON,
+the same post-Continue path submits 234 meshes / 8,955 vertices per stable
+sample and presents the captured distorted gray scene at
+`/tmp/sly-world-pass-20261117/frame-07.png`. Its projected bounds are mostly
+inside the view, so simple camera clipping is not the whole issue. Of 69
+unique material records logged, 66 resolved to the placeholder texture and
+only three to uploaded textures. The adapter also uses untransformed source
+mesh positions and approximates each vertex list as one triangle strip; it
+does not yet reproduce the retail VU output. These are concrete missing
+pieces, but the trace does not tell which one dominates the distortion.
+
 The new diagnostic is disabled unless
 `OPENRAC_TRACE_VU1_STORE_QWORD=first-last` is set. Pair it with
 `OPENRAC_TRACE_VIF_DMA_ADDRESS=0x016d5890` and the VIF segment-follow setting
 to cap output to a selected VU data range. Run log and captured frames:
 `/tmp/sly-qword-consumer-20261117.log` and
-`/tmp/sly-qword-consumer-20261117/`. Build compiled 194/194 decomp units and
-85/85 port backfills; no matched decomp files changed.
+`/tmp/sly-qword-consumer-20261117/`. The DirectRenderer comparison is in
+`/tmp/sly-direct-bounds-20261117.log`; the opt-in adapter captures and bounds
+are in `/tmp/sly-world-pass-20261117.log` and
+`/tmp/sly-world-pass-20261117/`. The source/camera matrix trace is in
+`/tmp/sly-world-transform-20261117.log`. Build compiled 194/194 decomp units
+and 85/85 port backfills; no matched decomp files changed.
 
-Next: trace the normal renderer's post-Continue GS input from this same frame
-and identify the first draw whose coordinates/state differ from the retail
-path. Keep the optional mesh adapter disabled until its output matches that
-draw boundary.
+Next: compare one adapter mesh's source vertices against its retail VU1 output,
+and trace the upload path for its TEX0 address until the texture resolves.
+Keep the optional mesh adapter disabled by default until both geometry and
+material handling produce a recognizable scene.
 
 ### Default-client visual recheck (2026-11-17, 12:03 CET)
 
