@@ -18,6 +18,7 @@ void openrac_guest_vu1_set_trace_context(uint32_t submission_id,
 void openrac_guest_vu1_set_trace_target_submission(uint32_t submission_id,
                                                   uint32_t stream_begin,
                                                   uint32_t stream_end);
+int openrac_guest_vu1_trace_target_context_matches(void);
 
 #ifdef __cplusplus
 }

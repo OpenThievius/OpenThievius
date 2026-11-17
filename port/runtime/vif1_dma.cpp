@@ -680,22 +680,30 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             break;
         case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
             {
+                const uint32_t mscal_offset =
+                    static_cast<uint32_t>(cursor - sizeof(uint32_t));
+                openrac_guest_vu1_set_trace_context(trace->submission_id, mscal_offset);
                 const char* trace_mscal_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
+                const char* target_mscal_setting =
+                    std::getenv("OPENRAC_TRACE_VIF_MSCAL_TARGET");
                 static std::atomic<uint32_t> mscal_trace_count{0};
                 const bool trace_mscal_enabled = trace_mscal_setting != nullptr &&
                     trace_mscal_setting[0] != '\0' && trace_mscal_setting[0] != '0';
                 const bool trace_selected_mscal =
                     trace_vu1_mscal_entry(immediate & 0xFFFFu);
+                const bool trace_target_mscal = target_mscal_setting != nullptr &&
+                    target_mscal_setting[0] != '\0' && target_mscal_setting[0] != '0' &&
+                    openrac_guest_vu1_trace_target_context_matches() != 0;
                 const uint32_t mscal_trace_ordinal = trace_mscal_enabled
                     ? mscal_trace_count.fetch_add(1, std::memory_order_relaxed)
                     : 0xFFFFFFFFu;
-                if (trace_selected_mscal ||
+                if (trace_selected_mscal || trace_target_mscal ||
                     (trace_mscal_enabled &&
                      ((immediate & 0xFFFFu) == 0x411u ||
                       mscal_trace_ordinal < 256u))) {
                     openrac::log::info(
                         "native VIF1 MSCAL submission={} stream_offset={} command={:#04x} entry={} ordinal={}",
-                        trace->submission_id, cursor - sizeof(uint32_t), command,
+                        trace->submission_id, mscal_offset, command,
                         immediate & 0xFFFFu, trace->mscal_total);
                 }
                 const uint32_t status = load_mmio(kVif1Status);
@@ -729,8 +737,6 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 uint32_t vu_pipeline = 0;
                 uint32_t vu_paired = 0;
                 const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
-                openrac_guest_vu1_set_trace_context(
-                    trace->submission_id, static_cast<uint32_t>(cursor - sizeof(uint32_t)));
                 if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
                                                &vu_pipeline, &vu_paired)) {
                     trace->failed_in_vu = true;

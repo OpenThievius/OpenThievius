@@ -1402,6 +1402,10 @@ extern "C" void openrac_guest_vu1_set_trace_target_submission(
     g_vu_trace_target_stream_end = stream_end;
 }
 
+extern "C" int openrac_guest_vu1_trace_target_context_matches(void) {
+    return trace_vu1_xgkick_context_matches() ? 1 : 0;
+}
+
 extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
                                            uint32_t* stopped_pc,
                                            uint32_t* stopped_pipeline,

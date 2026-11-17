@@ -11,6 +11,29 @@ previous black capture, so this check found no new visual regression. The
 launcher was stopped after the diagnostic run. Git author email is configured
 as `oeps46@gmail.com`.
 
+**Follow-up visual check and full lit-mesh call sequence (2026-11-17):** a
+fresh no-input run shows the complete memory-card warning at 3 and 6 seconds
+(`/tmp/sly-noinput-visual-check-3s-20261117.png` and
+`/tmp/sly-noinput-visual-check-6s-20261117.png`). The process-local Cross run
+is black after the input (`/tmp/sly-target-mscal-frame-after-20261117.png`).
+This confirms the same prompt-to-black transition; it does not show a startup
+regression. In the dynamically matched DMA stream for target address
+`0x016d5890`, the first lit mesh runs entries `0x318`, `0x401`, `0x411`,
+`0x51`, `0x242`, `0x356`, then finish entry `0x2`. The first five entries
+after `0x318` are present in the bounded VIF range; the next meshes repeat the
+same pattern, with some setup calls omitted by caching. Exact sequence:
+`/tmp/sly-target-mscal-20261117.log`.
+
+Offset-filtered XGKICK traces show no kick from entries `0x51` or `0x242`;
+entry `0x356` also completes without a pending kick. Entry `0x2` kicks an
+invalid payload from qword 461 and then a valid A+D state packet from qword
+35. These are preparation and state stages, not the missing scene-vertex
+submission. Keep following the mesh strip data after entry `0x356` and the
+later VIF/GIF handoff. Logs:
+`/tmp/sly-litbatch-middle-xgkick-20261117.log`,
+`/tmp/sly-focused-litbatch-finish-20261117.log`, and
+`/tmp/sly-focused-litbatch-20261117.log`.
+
 **Trace correction and new lead (2026-11-17):** the previous reader probe was
 filtered to hard-coded submission 327. Submission IDs change across launches,
 so that filter could miss the target altogether; I should not have treated it
@@ -59,10 +82,10 @@ a concrete malformed state packet, but does not establish that it alone causes
 the black frame. The bounded capture is
 `/tmp/sly-kind0-2c990-packet-20261117.log`.
 
-To keep future VU logs bounded, all `OPENRAC_TRACE_VU1_XGKICK_DATA` diagnostics
-now honor the DMA and MSCAL context filters. The next useful run can select
-only `OPENRAC_TRACE_XGKICK_MSCAL_OFFSETS=0x2c990`, then trace the later
-consumer of the 68-vector buffers from entries `0x401`/`0x411`.
+All `OPENRAC_TRACE_VU1_XGKICK_DATA` diagnostics honor the DMA and MSCAL context
+filters. The target chain has now been traced through entries `0x51`, `0x242`,
+`0x356`, and finish entry `0x2`; see the fresh sequence below. The remaining
+work is to follow the strip UNPACKs after `0x356` to the later GIF submission.
 
 **Latest client check (2026-11-17, 06:05 CET):** I inspected the fresh
 foreground capture `/tmp/sly-current-visible-postcross-20261117.png` after a
@@ -149,14 +172,13 @@ black intervals visible in the user's Nov 15 screen recording (17–116 ms in
 the cropped game window); whether those gaps are guest rendering or desktop
 presentation remains unresolved.
 
-**Next graphics task:** follow the VU data qwords written by `0x401` and
-`0x411` into their next consumer in the same VIF submission. Identify whether
-the consumer loads those qwords into another VU program or sends them through
-VIF DIRECT, then correlate any resulting GIF tag with the normal renderer's
-packet queue. Explain why the post-transition GIF frames contain only A+D
-descriptors. Preserve strict GIF validation. Keep the separately traced
-kind-5 qword-469 mismatch as an anomaly; it is not connected to Sly's kind-0
-calls. Do not treat
+**Next graphics task:** follow the strip data UNPACKs queued after entry `0x356`
+in the target VIF chain. Record their destination qwords and the next VU call
+that consumes them, then match any resulting GIF tag with the normal renderer's
+packet queue. The calls `0x51`, `0x242`, and `0x356` currently show no XGKICK;
+finish entry `0x2` submits only A+D state. Preserve strict GIF validation.
+Keep the separately traced kind-5 qword-469 mismatch as an anomaly; it is not
+connected to Sly's kind-0 calls. Do not treat
 `QueueModelPartDraws` counts as rendered geometry, and do not
 enable the optional kind-6 host mesh adapter as a fix for the retail packet
 path. Keep any host-only renderer experiment opt-in and separate from matched

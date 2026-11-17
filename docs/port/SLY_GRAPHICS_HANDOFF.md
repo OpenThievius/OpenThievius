@@ -11,6 +11,13 @@ Cross at frame 300. The visible output is black after Continue:
 `/tmp/sly-current-visible-postcross-20261117.png`. This matches the prior
 black frame; no playable state or new regression was observed.
 
+A separate no-input run captured the full memory-card warning at 3 and 6
+seconds (`/tmp/sly-noinput-visual-check-3s-20261117.png` and
+`/tmp/sly-noinput-visual-check-6s-20261117.png`). The updated post-Cross
+capture is also black (`/tmp/sly-target-mscal-frame-after-20261117.png`). The
+startup prompt remains intact; the black post-Continue state is still the
+known graphics blocker.
+
 The earlier VU read capture used hard-coded submission 327, although these
 IDs change between runs. That could silently filter out the relevant DMA
 submission. The trace now binds the VU read filter to the submission containing
@@ -22,15 +29,38 @@ it holds a valid tag; a second kick from qword 35 is accepted and emits that
 tag. A prior run's UNPACK trace at the corresponding stream offset records the
 valid tag at qword 460 followed by its payload at 461. The accepted packet is
 A+D state, not a vertex packet. This explains one rejected kick and why the
-accepted packet does not draw geometry, but the trace does not yet prove this is the
-only missing scene transfer. Continue by mapping entry `0x2`'s VIF input and
-subsequent consumers, then find where the 68-vector buffers from entries
-`0x401`/`0x411` should become vertex GIF packets. Do not relax GIF validation
-or modify matched decompilation.
+accepted packet does not draw geometry, but it is not the only missing scene
+transfer. The later target trace has now followed entries `0x401`/`0x411`
+through `0x51`, `0x242`, `0x356`, and finish `0x2`. See the current call
+sequence below; the remaining task is to follow strip UNPACKs after `0x356` to
+their later GIF submission. Do not relax GIF validation or modify matched
+decompilation.
 
 Trace logs: `/tmp/sly-kind0-xgkicks-follow16-20261117.log` and
 `/tmp/sly-kind0-allstores-20261117.log`. Host-only instrumentation is in
 `port/runtime/vif1_dma.cpp` and `port/runtime/vu1_native.cpp`.
+
+### Full target lit-mesh call sequence (2026-11-17)
+
+New host-only instrumentation logs MSCAL calls only while the dynamically
+selected DMA target address `0x016d5890` and its configured neighboring stream
+range are active. In the first mesh the observed sequence is `0x318`, `0x401`,
+`0x411`, `0x51`, `0x242`, `0x356`, then finish entry `0x2`. Later meshes repeat
+the lighting and finish stages; cached meshes can omit the initial `0x318`
+setup. Full bounded sequence:
+`/tmp/sly-target-mscal-20261117.log`.
+
+XGKICK filters at the exact VIF offsets for entries `0x51` and `0x242` recorded
+no kicks. Entry `0x356` likewise completed with no pending kick. Finish entry
+`0x2` does kick, but its qword-461 payload is rejected and its qword-35 kick is
+an A+D GS-state packet. These calls are preparation and state stages, not the
+missing scene-vertex submission. Continue tracing how the strip data queued
+after `0x356` reaches the renderer. Keep the separate kind-5 qword-469
+rejection out of this explanation.
+
+The MSCAL filter is `OPENRAC_TRACE_VIF_MSCAL_TARGET=1`; it uses the same
+dynamic target DMA address/range filter as the VU traces. The instrumentation
+is diagnostic only and does not change the retail packet path.
 
 ### Entry-`0x2` packet construction (2026-11-17)
 
@@ -98,10 +128,11 @@ All three returned with no pending XGKICK. This corrects the earlier narrow
 watch of qwords 136–142, which missed the actual output buffers. It does not
 yet show how the written vectors reach the GIF parser or graphics queue.
 
-The immediate next step is to follow these VU qwords through later commands
-in the same VIF submission, identify their consuming program or VIF DIRECT
-transfer, and correlate any GIF output with a queued renderer packet. Keep the
-kind-5 qword-469 anomaly separate. Capture:
+The captured VU qwords now have a traced consumer sequence through entries
+`0x51`, `0x242`, and `0x356`, followed by finish entry `0x2`. These intermediate
+calls do not issue XGKICK; the finish output is only A+D state. Follow the strip
+UNPACKs after `0x356` to their later GIF submission and correlate it with a
+queued renderer packet. Keep the kind-5 qword-469 anomaly separate. Capture:
 `/tmp/sly-kind0-allstores-20261117.log`.
 
 ### Latest client and VU/GIF boundary check (2026-11-17, 04:50–04:52 CET)
