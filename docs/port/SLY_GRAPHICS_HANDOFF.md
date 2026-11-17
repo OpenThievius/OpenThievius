@@ -4,43 +4,51 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
-### Latest client check (2026-11-17, 04:34–04:35 CET)
+### Latest client and VU/GIF boundary check (2026-11-17, 04:50–04:52 CET)
 
-The current host32 launcher was checked in two bounded foreground runs. With
-no input, eight internal GL framebuffer samples spaced 30 native presents
-apart all show the complete retail no-card prompt. See
-`/tmp/sly-current-cadence-montage.png` and
-`/tmp/sly-current-cadence-capture-20261117.log`. The user's Nov 15 screen
-recording does contain intermittent black intervals in the cropped game
-window (17–116 ms by FFmpeg's black-frame detector). Those gaps do not appear
-in today's internal framebuffer samples; their source and current behavior at
-the desktop compositor remain unverified.
+The foreground host32 window remains fully black after one process-local
+Cross at native frame 300. The fresh framebuffer `/tmp/sly1-native-frame-00.png`
+shows the same. The 14-second diagnostic ended by timeout (exit 137), not a
+reported guest crash.
 
-A separate run injected one process-local Cross at frame 300. The prompt
-clears, but eight later framebuffer samples are black. At game frames 326–330
-the native trace still reports world `0x6abdd0`, frame stage 2, and 2,426 CD
-sectors read. No recognizable level geometry or playable state appears. The
-run logs are `/tmp/sly-current-cross-audit-20261117.log`; the samples are
-`/tmp/sly-current-postcross-montage.png`. The timeout exit 137 is a bounded
-diagnostic stop, not evidence of a guest crash. Git remained clean on
-`wip/native-sly-port`, and `user.email` is `oeps46@gmail.com`.
+This run corrects the previous “still on Splash world” diagnosis. The periodic
+startup sampler reports world `0x6abdd0`, stage 2 and 2,426 sectors, but the
+post-input draw-list hook repeatedly sees level world `0x00870cf0`, 1,910 model
+parts and 23 parts queued. Deferred lists contain 39–48 requests, and model
+draw index 21 is Sly. Treat the periodic sampler as incomplete or separate
+state; it does not establish that level loading stalled. These are game-side
+draw requests, not proof the optional native GL mesh adapter rendered them.
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER` is OFF in the active CMake cache.
+
+The ordinary DirectRenderer sees GIF packets after the transition, but from
+direct frames 330–716, 373 of 387 batches decode to zero vertices and zero
+draws with no parser error. The other 14 batches have at most 36 vertices;
+some are clipped to a 64-by-64 corner and the larger examples are outside clip
+space (frame 359 and 418). The same run logs a rejected XGKICK from qword 469
+followed by accepted kicks from qword 35. This puts the visible failure after
+game-side level draw-list creation and before useful scene geometry reaches
+the host renderer. The precise VU/GIF contract fault is still unproven.
+Evidence: `/tmp/sly-direct-postcontinue-20261117.log`,
+`/tmp/sly-level-packets-after-continue-20261117.log`, and
+`/tmp/sly1-native-frame-00.png`.
+
+The earlier no-input cadence capture still shows the full no-card prompt in
+eight internal samples. It does not reproduce the intermittent black gaps
+visible in the user's Nov 15 recording; the desktop-compositor behavior is
+unverified. See `/tmp/sly-current-cadence-montage.png` and
+`/tmp/sly-current-cadence-capture-20261117.log`.
 
 ### Earlier packet and renderer trace (2026-11-17)
 
-An earlier actual Wayland window capture shows the complete retail no-card
-warning before input and a black window after one process-local Cross. This
-matches the earlier prompt-to-black checkpoint. The live trace shows that the
-presenter continues swapping frames. Entry `0x5f`'s first XGKICK at qword 469
-is rejected because that address contains A+D payload; its second kick at
-qword 35 is accepted. Despite that acceptance, the native Sly world queue has
-no submissions. The direct GIF renderer decodes some batches without parser
-errors, but one 24-vertex batch is entirely outside clip space. The trace does
-not classify that batch. The remaining work is to identify which decoded
-packets carry scene geometry and how they reach the world renderer. The Nov 15
-screen recording later confirms intermittent black flashes; today's spaced
-framebuffer samples do not reproduce them or identify their cause. Captures
-and traces are listed in `docs/port/PLAYABLE_TODO.md` under the latest client
-check.
+An earlier actual Wayland window capture showed the no-card prompt before
+input and black output after one process-local Cross. The newer trace above
+adds the missing distinction: game-side model requests are present, while
+ordinary GIF batches still produce almost no vertices. The earlier claim that
+the native Sly world queue had no submissions applied only to the optional
+host mesh adapter; it did not describe retail `QueueModelPartDraws`. Do not
+conflate those two queues. The Nov 15 screen recording still shows intermittent
+black flashes; the later internal cadence samples do not reproduce or explain
+them. Captures and traces are listed in `docs/port/PLAYABLE_TODO.md`.
 
 ### VU exceptional-float correction (2026-11-17)
 
@@ -51,11 +59,13 @@ values and divide-by-zero clamp to finite signed max. This keeps raw register
 loads/stores unchanged and normalizes only arithmetic. On entry `0x411`, the
 trace now shows `ERLENG` mapping zero length to `P=0x7f7fffff`; `MFP` no longer
 receives host IEEE infinity and the ensuing NaN transform cascade is gone.
-The visual remains black because entry `0x5f` still XGKICKs from qword 469,
-which is payload after the valid GIFtag at qword 468; strict packet validation
-continues to reject it. The ten-second foreground run injected one process-
-local Cross at frame 300, and ended at the diagnostic timeout (137), not a
-guest crash. The sampled post-input framebuffer is still black. Evidence:
+The visual remains black. Entry `0x5f`'s qword-469 XGKICK, whose address points
+at payload after the valid GIFtag at qword 468, is a confirmed packet-boundary
+anomaly, but the newer direct-render trace above shows that the complete cause
+is not established. Strict packet validation remains enabled. The ten-second
+foreground run injected one process-local Cross at frame 300 and ended at the
+diagnostic timeout (137), not a guest crash. The sampled post-input framebuffer
+is still black. Evidence:
 `/tmp/sly-vu-float-model-20261117.log` and
 `/tmp/sly1-native-visible-after-cross-20261117.png` (the previous baseline).
 Matched C and VU assembly were not changed. The model uses finite `0x7f7fffff`

@@ -3,26 +3,52 @@
 
 ## Current visual and packet audit (2026-11-17)
 
-**Latest client check (2026-11-17, 04:34–04:35 CET):** a foreground run of
-the current host32 target stayed on the complete no-card warning with no input.
-Eight GL framebuffer samples spaced 30 native presentations apart (about half
-a second) all contain the full text and border:
-`/tmp/sly-current-cadence-montage.png` and
-`/tmp/sly-current-cadence-capture-20261117.log`. This does not reproduce the
-flicker in the user's Nov 15 screen recording. That 6.56-second, 60-fps
-recording does show black intervals in the game-window crop, lasting 17–116 ms
-at several points. Today's internal framebuffer samples cannot tell whether
-those gaps came from the guest render path or desktop presentation, so the
-flicker remains unresolved rather than disproved.
+**Latest client check (2026-11-17, 04:50–04:52 CET):** the foreground
+host32 window is still fully black after the process-local Cross at native
+frame 300. The captured framebuffer `/tmp/sly1-native-frame-00.png` confirms
+the visible result. The launcher remained active until its 14-second
+diagnostic timeout (exit 137), not a reported guest crash.
 
-A separate foreground run injected one process-local Cross at native frame
-300. Eight later framebuffer samples are all black:
-`/tmp/sly-current-postcross-montage.png` and
-`/tmp/sly-current-cross-audit-20261117.log`. By game frame 326–330, the game
-had read 2,426 sectors but remained on world `0x6abdd0` at frame stage 2; no
-recognizable level geometry appeared. This is the post-Continue blocker, and
-the current build still does not reach a playable state. Both diagnostic runs
-were stopped by timeout (exit 137), not by a reported guest crash.
+The deeper trace corrects our previous diagnosis: the periodic startup sampler
+still reports Splash world `0x6abdd0`, frame stage 2 and 2,426 sectors read,
+but post-input draw-list traces repeatedly report level world `0x00870cf0`.
+That world has 1,910 model parts, 23 queued by `QueueModelPartDraws`, and 39–48
+deferred draw requests. Model draw index 21 is Sly. The startup sampler is
+therefore incomplete or sampling a different state; it is not proof that the
+level transition failed. These game-side request counts also do not mean that
+the optional host GL mesh renderer received or displayed those models; that
+renderer is disabled in the active build.
+
+The presenter's ordinary DirectRenderer trace is the stronger rendering
+boundary. From direct frames 330–716, 373 of 387 GIF batches decode with zero
+vertices and zero draws, without a parser error. The other 14 batches have at
+most 36 vertices; they are tiny corner batches, or lie wholly outside clip
+space (for example frame 359 and frame 418). The first rejected VU1 XGKICK at
+qword 469 and later accepted kick at qword 35 remain in the same run. This
+places the blocker after level draw-list construction and before useful scene
+geometry reaches the host renderer. It does not yet prove which VU/GIF transfer
+detail is wrong. Evidence: `/tmp/sly-direct-postcontinue-20261117.log`,
+`/tmp/sly-level-packets-after-continue-20261117.log`, and
+`/tmp/sly1-native-frame-00.png`.
+
+The earlier no-input cadence capture remains stable on the complete no-card
+warning in eight samples: `/tmp/sly-current-cadence-montage.png` and
+`/tmp/sly-current-cadence-capture-20261117.log`. It does not reproduce the
+black intervals visible in the user's Nov 15 screen recording (17–116 ms in
+the cropped game window); whether those gaps are guest rendering or desktop
+presentation remains unresolved.
+
+**Next graphics task:** trace one post-transition VIF submission end to end:
+identify which VU1 XGKICK output should contain the level's vertex stream, then
+follow the accepted GIF bytes into `DirectRenderer` and explain why almost all
+post-transition batches carry no vertices. Preserve strict GIF validation.
+Do not treat `QueueModelPartDraws` counts as rendered geometry, and do not
+enable the optional kind-6 host mesh adapter as a fix for the retail packet
+path. Keep any host-only renderer experiment opt-in and separate from matched
+decompilation. Start from `/tmp/sly-direct-postcontinue-20261117.log` and
+`/tmp/sly-level-packets-after-continue-20261117.log`; use
+`/tmp/sly-world-part-0.bin` through `-2.bin` only as local diagnostics, never
+repository inputs.
 
 **Earlier packet-boundary trace (2026-11-17):** a foreground Wayland run showed
 the no-card prompt before one process-local Cross press and black output after
@@ -49,16 +75,16 @@ Cross produces a black window (`/tmp/sly-current-postcontinue-client-20261117.pn
 This matches the previously recorded prompt-to-black result. A fresh XGKICK
 trace confirms the first kick (entry `0x5f`, PC `0x68`, qword 469) is rejected
 and the second (PC `0x6e`, qword 35) is accepted; see
-`/tmp/sly-current-xgkick-recheck-20261117.log`. The renderer keeps presenting,
-but the native Sly world queue has no submissions. Its generic direct parser
-does decode some batches without errors; one 24-vertex batch at direct frame
-233 lies wholly outside clip space, at `(-7.657,-22.815)..(-4.468,4.482)`.
+`/tmp/sly-current-xgkick-recheck-20261117.log`. The renderer keeps presenting.
+That run lacked enough world draw tracing to distinguish the retail game's
+draw-request lists from the optional host mesh adapter. Its generic direct
+parser does decode some batches without errors; one 24-vertex batch at direct
+frame 233 lies wholly outside clip space, at `(-7.657,-22.815)..(-4.468,4.482)`.
 The 1,254-vertex/five-draw batches appear before input too, so they do not by
 themselves prove world geometry. Full trace:
-`/tmp/sly-current-render-boundary-20261117.log`. That run's failure was at
-scene rendering, not a frozen presentation loop. It predates the spaced
-frame audit above; the user's recording shows intermittent black flashes, but
-the current framebuffer samples do not reproduce them or locate their cause.
+`/tmp/sly-current-render-boundary-20261117.log`. That older run did not have
+enough world draw tracing to establish the level transition or classify the
+post-transition GIF stream; the newer trace above supersedes those conclusions.
 
 **Writer attribution is now resolved:** host-only source probes show that
 `ReadPlacedObjectModel` dispatches this kind-5 mesh to matched
@@ -68,9 +94,11 @@ VU offset `0x1D4`, and writes 112 bytes. The packet cursor was `0x01FFC880`
 and detached packet start `0x01FFB4A0`, a difference of 5,088 bytes. Adding
 that offset to REF data `0x018D1270` gives `0x018D2650`, exactly the source
 for qword 468; the preceding command is at `0x018D264C`. This closes the C
-writer question. The remaining fault is the VU1 `0x5f` XGKICK from qword 469
-despite the valid tag at 468, plus separate non-finite transform evidence for
-entry `0x411` below. Do not patch either path without tracing its data contract.
+writer question. The VU1 `0x5f` XGKICK from qword 469 despite the valid tag at
+468 is a confirmed packet-boundary anomaly, but has not been proven to be the
+sole cause of black output. The latest direct trace above is the stronger
+failure boundary. Keep the separate entry `0x411` float correction in mind;
+do not patch either path without tracing its data contract.
 Trace: `/tmp/sly-strip-target-reserve-cross2-20261117.log`.
 
 **VU exceptional-float correction (2026-11-17):** the native VU translator
