@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Per-present texture correction (2026-11-17, 12:45 CET)
+
+A fresh opt-in renderer run shows the texture-placeholder count from the prior
+note was not a stable diagnosis. The first per-present sample resolved all 69
+unique material addresses to uploaded textures; later stable samples resolved
+all 54 with zero missing. The screen stayed gray and distorted. The earlier
+66-of-69 placeholder count was only a first-lookup snapshot and is superseded.
+Texture decoding/state may still be wrong, but missing uploads were not the
+blocker in this fresh run.
+
+The default client still renders the no-card prompt and turns black after
+Continue because its level mesh adapter is OFF. With the opt-in adapter ON, the
+game queues and projects the world mesh, but its source-position / triangle-strip
+approximation does not match retail VU output. The current frame remains
+unrecognizable.
+
+**Next:** capture the final VU1 output for one representative mesh, compare its
+vertex positions and order with the adapter input, and update the port-only
+adapter to match. Keep it OFF by default until the result shows a recognizable
+scene. Detailed evidence and the texture diagnostic are in
+`SLY_GRAPHICS_HANDOFF.md`.
+
 ## Post-Continue trace update (2026-11-17, 12:32 CET)
 
 The current default client still renders the no-card prompt, then produces a
@@ -21,13 +43,12 @@ The DirectRenderer path handles UI packets. After Continue, it gets a
 elements. Level meshes go through a separate optional native adapter, which is
 OFF in the default client. With that adapter ON, 234 meshes / 8,955 vertices
 are projected mostly inside the view, but the captured scene is still
-distorted; 66 of 69 unique materials resolved to placeholder textures. The
-adapter uses base mesh positions and one approximate triangle strip, so it
-does not reproduce the retail VU output yet.
+distorted. The adapter uses base mesh positions and one approximate triangle
+strip, so it does not reproduce the retail VU output yet. The per-present
+texture check above supersedes the earlier placeholder count.
 
-**Next:** compare one mesh's source vertices with its retail VU1 output, then
-trace GIF uploads for the mesh's TEX0 address. Keep the adapter off by default
-until those geometry and texture paths produce a recognizable scene. See
+**Next:** compare one mesh's source vertices with its retail VU1 output. Keep
+the adapter off by default until it produces a recognizable scene. See
 `SLY_GRAPHICS_HANDOFF.md` for captures and trace limits. No matched decomp
 source changed.
 

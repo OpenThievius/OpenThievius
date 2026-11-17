@@ -333,6 +333,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     unsigned long long inside_vertices = 0;
     std::unordered_set<std::uint64_t> present_instances;
     std::unordered_set<std::uint64_t> present_materials;
+    std::unordered_set<std::uint64_t> present_uploaded_textures;
+    std::unordered_set<std::uint64_t> present_missing_textures;
     unsigned duplicate_instances = 0;
     std::uint64_t present_signature = 1469598103934665603ull;
     float frame_min_x = 1.0e30f, frame_min_y = 1.0e30f, frame_min_z = 1.0e30f;
@@ -436,6 +438,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         auto texture = openrac::renderer::TextureHandle{};
         if (g_textures != nullptr && mesh.tex0 != 0) {
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
+            if (texture == g_textures->placeholder())
+                present_missing_textures.insert(mesh.tex0);
+            else
+                present_uploaded_textures.insert(mesh.tex0);
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
                 static std::unordered_map<std::uint64_t, bool> texture_notices;
                 if (texture_notices.emplace(mesh.tex0, true).second) {
@@ -510,10 +516,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
-                     "[native sly present bounds] frame=%u meshes=%zu unique=%zu duplicate=%u materials=%zu signature=%016llx projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
+                     "[native sly present bounds] frame=%u meshes=%zu unique=%zu duplicate=%u materials=%zu uploaded_textures=%zu missing_textures=%zu signature=%016llx projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
                      present_bounds_sample++, meshes.size(),
                      present_instances.size(), duplicate_instances,
-                     present_materials.size(),
+                     present_materials.size(), present_uploaded_textures.size(),
+                     present_missing_textures.size(),
                      static_cast<unsigned long long>(present_signature),
                      projected_meshes, intersecting_meshes, projected_vertices,
                      inside_vertices,

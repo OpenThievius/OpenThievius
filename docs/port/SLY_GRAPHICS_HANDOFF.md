@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 12:32 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 12:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Per-present texture and world-frame check (2026-11-17, 12:45 CET)
+
+The gray adapter capture prompted a follow-up on texture uploads. The previous
+material log was a first-lookup record: it reported 66 of 69 material addresses
+as placeholders in one run. A new per-present counter shows that result is not
+stable. In this fresh opt-in run, all 69 unique material addresses resolved to
+uploaded textures on world-present frame 0; every later stable sample had all
+54 addresses uploaded and zero missing. The frame remains distorted gray at
+`/tmp/sly-world-texture-counts-20261117/frame-07.png`. Therefore missing
+texture uploads do not explain this run's image. The actual material decode or
+the geometry path can still be wrong; uploaded status alone does not verify
+texture pixels, palette, alpha, or GS state.
+
+Added a read-only, single-TBP diagnostic: set
+`OPENRAC_TRACE_TEXTURE_MISS_TBP=0x2a80` to log the closest uploaded GS range
+when that exact TBP misses. In the traced run, TBP `0x2a80` resolved as a
+64x128 upload and emitted no miss. The diagnostic is disabled by default.
+Run log and frames: `/tmp/sly-world-texture-counts-20261117.log` and
+`/tmp/sly-world-texture-counts-20261117/`; material trace:
+`/tmp/sly-texture-miss-2a80-traced-20261117.log`.
+
+Next: trace one representative mesh's final retail VU1 output and compare its
+positions/order with the adapter's source `VertexRefs` list. The current
+triangle-strip approximation and base vertex positions remain unverified.
 
 ### Post-Continue world-path trace (2026-11-17, 12:32 CET)
 
@@ -35,12 +60,12 @@ world adapter leaves no level draw in the default client. With the adapter ON,
 the same post-Continue path submits 234 meshes / 8,955 vertices per stable
 sample and presents the captured distorted gray scene at
 `/tmp/sly-world-pass-20261117/frame-07.png`. Its projected bounds are mostly
-inside the view, so simple camera clipping is not the whole issue. Of 69
-unique material records logged, 66 resolved to the placeholder texture and
-only three to uploaded textures. The adapter also uses untransformed source
-mesh positions and approximates each vertex list as one triangle strip; it
-does not yet reproduce the retail VU output. These are concrete missing
-pieces, but the trace does not tell which one dominates the distortion.
+inside the view, so simple camera clipping is not the whole issue. The first
+material trace appeared to show 66 placeholder textures, but the subsequent
+per-present check above supersedes that snapshot: all unique textures were
+uploaded in the fresh run, and the scene remained distorted. The adapter also
+uses untransformed source mesh positions and approximates each vertex list as
+one triangle strip; it does not yet reproduce the retail VU output.
 
 The new diagnostic is disabled unless
 `OPENRAC_TRACE_VU1_STORE_QWORD=first-last` is set. Pair it with
@@ -54,10 +79,10 @@ are in `/tmp/sly-world-pass-20261117.log` and
 `/tmp/sly-world-transform-20261117.log`. Build compiled 194/194 decomp units
 and 85/85 port backfills; no matched decomp files changed.
 
-Next: compare one adapter mesh's source vertices against its retail VU1 output,
-and trace the upload path for its TEX0 address until the texture resolves.
-Keep the optional mesh adapter disabled by default until both geometry and
-material handling produce a recognizable scene.
+Next: compare one adapter mesh's source vertices against its retail VU1 output
+and preserve the retail vertex order and transforms in the adapter. Keep the
+optional mesh adapter disabled by default until it produces a recognizable
+scene.
 
 ### Default-client visual recheck (2026-11-17, 12:03 CET)
 

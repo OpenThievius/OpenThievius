@@ -394,6 +394,35 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     std::uint32_t offset = 0;
     const Stored* stored = upload_at(tex0.tbp0, offset);
     if (stored == nullptr) {
+        static const std::uint32_t trace_miss_tbp = [] {
+            const char* setting = std::getenv("OPENRAC_TRACE_TEXTURE_MISS_TBP");
+            if (setting == nullptr) return 0xFFFFFFFFu;
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            return end != setting && *end == '\0' && parsed <= 0xFFFFu
+                       ? static_cast<std::uint32_t>(parsed)
+                       : 0xFFFFFFFFu;
+        }();
+        static unsigned miss_trace_count = 0;
+        if (tex0.tbp0 == trace_miss_tbp && miss_trace_count++ < 16u) {
+            std::uint32_t nearest_base = 0;
+            std::uint32_t nearest_end = 0;
+            std::uint32_t nearest_distance = 0xFFFFFFFFu;
+            for (const auto& [base, candidate] : m_uploads) {
+                const std::uint32_t distance = tex0.tbp0 < base
+                    ? base - tex0.tbp0
+                    : tex0.tbp0 >= candidate.end ? tex0.tbp0 - candidate.end + 1u : 0u;
+                if (distance < nearest_distance) {
+                    nearest_base = base;
+                    nearest_end = candidate.end;
+                    nearest_distance = distance;
+                }
+            }
+            log::info(
+                "texture miss tbp={:#x} psm={:#x} tbw={} size={}x{} uploads={} nearest={:#x}..{:#x} distance={}",
+                tex0.tbp0, tex0.psm, tex0.tbw, tex0.width(), tex0.height(),
+                m_uploads.size(), nearest_base, nearest_end, nearest_distance);
+        }
         return 0;
     }
     // The palette's identity is part of the key; its colours are worked out only for a conversion.
