@@ -1,8 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 03:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 04:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Display-state and separate-pass attempts (2026-11-18, 04:00 CET)
+
+I tried the two fixes named in the previous note. Adding FRAME_1 (fbmsk=0),
+TEST_1 (depth off) and an XYOFFSET reset to the producer packet did not make
+the geometry appear: the DirectRenderer trace showed no draw with the
+producer's vertex count. I then removed the duplicate `gif_stream_write` and
+rendered the producer packet as a **separate** `g_direct->render()` pass from
+the HUD packets. That also produced eight black post-Cross frames — the
+DirectRenderer clears/restores the framebuffer on each pass when
+`last_frame_writes_display` is false, so the second pass loses the first.
+
+These results narrow the display gap: the HUD-only DirectRenderer cannot
+composite a second geometry pass without a frame-retention change, and the
+producer packet alone is not enough. The experiments are kept but remain
+opt-in; the default client is unchanged and no playable scene exists. No
+launcher remains. Capture: `/tmp/sly-state-20261117/`, `/tmp/sly-sep-20261117/`.
 
 ### Producer display-path audit (2026-11-18, 03:30 CET)
 

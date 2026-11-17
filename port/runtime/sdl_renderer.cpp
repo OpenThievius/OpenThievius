@@ -1414,9 +1414,14 @@ static std::vector<std::uint8_t> build_world_gif_packet(
             continue;
         const std::size_t count = mesh.vertices.size() / 9u;
         if (count < 3u || count > 4096u) continue;
+        // Display state: untextured, no alpha blend, always-pass depth, write all channels.
+        // FRAME_1 (0x4C): fbmsk = 0 in bits 32-63 => all channels written.
+        payload.push_back({0u, 0x4Cu});
+        // TEST_1 (0x47): zte=0 (bit 16 clear) => depth test off, draw always.
+        payload.push_back({0u, 0x47u});
         // Reset XYOFFSET (0x18) so make_vertex does not subtract stale UI offsets.
         payload.push_back({0u, 0x18u});
-        // PRIM = 4 (triangle strip)
+        // PRIM = 4 (triangle strip), tme=0 (untextured)
         payload.push_back({4u, 0x00u});
         for (std::size_t i = 0; i < count; ++i) {
             const float x = mesh.vertices[i * 9u + 0u];
@@ -1577,14 +1582,9 @@ extern "C" void openrac_native_window_present(void) {
     }
     std::vector<std::uint8_t> packets;
     { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
-    if (std::getenv("OPENRAC_SLY_GIF_PRODUCER") != nullptr && !world_meshes.empty()) {
-        std::vector<std::uint8_t> world_packet = build_world_gif_packet(world_meshes);
-        if (!world_packet.empty()) {
-            openrac_guest_gif_stream_write_from(
-                world_packet.data(), world_packet.size(), "sly-world-producer");
-            packets.insert(packets.end(), world_packet.begin(), world_packet.end());
-        }
-    }
+    std::vector<std::uint8_t> world_packet;
+    if (std::getenv("OPENRAC_SLY_GIF_PRODUCER") != nullptr && !world_meshes.empty())
+        world_packet = build_world_gif_packet(world_meshes);
     if (std::getenv("OPENRAC_TRACE_PRESENT") != nullptr) {
         std::fprintf(stderr, "[native present] frame=%llu packets=%zu world_draws=%zu\n",
                      static_cast<unsigned long long>(this_present), packets.size(),
@@ -1620,6 +1620,12 @@ extern "C" void openrac_native_window_present(void) {
         input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] = packets;
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
+        if (!world_packet.empty()) {
+            openrac::renderer::FrameInput world_input;
+            world_input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] =
+                world_packet;
+            g_direct->render(world_input, state);
+        }
         g_textures->end_frame();
     }
     const bool preserve_previous_frame = world_meshes.empty() &&
