@@ -6,10 +6,30 @@
 **Fresh client audit (2026-11-17):** I rebuilt and opened the current host32
 client in the foreground, sent one process-local Cross at frame 300, and
 captured `/tmp/sly-current-visible-postcross-20261117.png`. The visible frame
-is black after Continue; there is no new playable output. This agrees with the
-previous black capture, so this check found no new visual regression. The
-launcher was stopped after the diagnostic run. Git author email is configured
-as `oeps46@gmail.com`.
+is black after Continue; there is no new playable output. A fresh foreground
+check at 07:44 CET again showed the complete startup prompt, but also showed
+the short white dash at the left edge (about 12 by 3 pixels in the captured
+window): `/home/reaper/sly/sly-fresh-client-check-20261117.png`. This is the
+known unresolved artifact, so the earlier statement that there was no visual
+regression was too broad. A new process-local Cross run again produced a black
+post-Continue frame: `/home/reaper/sly/sly-fresh-postcontinue-check-20261117.png`.
+These still images confirm the prompt-to-black transition and the dash, but do
+not establish whether the user's reported flicker occurs during the run. The
+launcher was stopped after each bounded check.
+
+**Post-Continue pacing check (2026-11-17):** the render thread still signals
+frame-done semaphore 5; the observed signal gaps are about 0.7–0.8 seconds.
+The corresponding VIF1 DMA submissions each process roughly 470–498 KB across
+700–775 MSCAL calls and take 0.77–0.85 seconds, with DMA and VIF completion
+successful. A targeted VU timing run covered only nine calls and 15–19 ms of
+each submission, so it does not identify which of the remaining calls consume
+the time. This is a real pacing problem in the post-Continue path, but it does
+not explain the black image: the direct renderer still receives no scene
+vertices. Keep the next visual milestone focused on one real world object;
+avoid a broad VU profiler pass until a specific draw-boundary question needs it.
+Traces: `/tmp/sly-frame-done-timing-20261117.log`,
+`/tmp/sly-vif-frame-done-timing-20261117.log`, and
+`/tmp/sly-target-vu-call-timing-20261117.log`.
 
 **Follow-up visual check and full lit-mesh call sequence (2026-11-17):** a
 fresh no-input run shows the complete memory-card warning at 3 and 6 seconds
@@ -48,16 +68,26 @@ selected range. This pinpoints a malformed state kick, but it does not prove
 why scene vertices never reach GIF. Trace:
 `/tmp/sly-target-strip-qwords-20261117.log`.
 
-**Fresh client check (2026-11-17):** a foreground launch of the current
-host32 binary visibly rendered the full no-memory-card prompt and Continue
-button before any input. During the same idle run, the GIF queue hit its
-16 MiB cap and emitted repeated `native GIF packet queue full` warnings
-(`queued=16776752`, `incoming=704`). This is a new unresolved issue: verify
-that presented frames drain the queue and identify why idle frames can fill
-it. The screenshot is `/tmp/sly-live-client-check-20261117.png`; the warning
-was observed in the launcher output, which was not saved to a log. This shows
-the prompt path still works at launch, but it does not rule out later
-black-frame or flicker regressions.
+**Fresh client and queue check (2026-11-17):** a foreground launch of the
+current host32 binary visibly rendered the full no-memory-card prompt and
+Continue button before input. The screenshot is
+`/tmp/sly-live-client-check-20261117.png`. A later idle trace captured 894
+native presents in 15 seconds. GIF data averaged 208,935 bytes per present,
+peaked at 416,256 bytes, and produced no queue overflow warnings. A
+process-local Cross at frame 300 then produced 718 presents in 12 seconds
+with no overflow; the largest single frame was 2,098,896 bytes. The screenshot
+after Cross is black: `/tmp/sly-postcross-client-20261117.png`. Direct decode
+tracing shows the prompt frames decoding 1,254 vertices and 5 draws. After
+the transition, large packet batches at Direct frames 317-323 decode zero
+vertices and zero draws, followed only by occasional tiny draws. There are no
+GIF parse errors. The blocker remains that the post-transition stream
+supplies no drawable scene geometry, not a persistent queue leak. Traces:
+`/tmp/sly-queue-idle-15s-20261117.log`,
+`/tmp/sly-postcross-present-20261117.log`, and
+`/tmp/sly-postcross-direct-decode-20261117.log`. An earlier run did emit a
+real 16 MiB queue overflow warning (`queued=16776752`, `incoming=704`), but it
+has not recurred; keep the queue cap unchanged and correlate present and
+append traces if it returns.
 
 **Trace correction and new lead (2026-11-17):** the previous reader probe was
 filtered to hard-coded submission 327. Submission IDs change across launches,
