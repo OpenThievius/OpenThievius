@@ -3,6 +3,26 @@
 
 ## Current checkpoint (2026-11-17, fresh client and VU input audit)
 
+**Latest foreground client check:** the visible Wayland window rendered the
+complete no-card warning before input. One process-local Cross at frame 300
+dismissed it, after which the sampled frame was black. Captures:
+`/tmp/sly1-native-visible-before-cross-20261117.png` and
+`/tmp/sly1-native-visible-after-cross-20261117.png`; trace/build output:
+`/tmp/sly-vif-unpack-writer-cross-20261117.log`. The eight-second timeout
+ended the run (exit 137); no native launcher remains. This reproduces the
+existing post-Continue black state.
+
+New host-only caller traces map the repeated `0xC/count 8/address 0x1CB`
+reservations and `MSCAL 0x411` to matched function `0x00164868`,
+`BuildLitStripMeshPacket`. In its matched source, `MSCAL 0x411` is
+`g_litSkinWeightProgram` submitted through `pkt[1]`; strip payloads are
+reserved later in the `pkt[2]` loop. The same function name does not establish
+that these are the same packet or data. The exact UNPACK `0xC1D4` at stream
+offset 5916 (qword 468) produced no matching targeted C reserve or
+`WriteVifUnpack` trace, so its producer is still unresolved. Do not edit the
+matched source or change VU/GIF behavior until the command's actual writer is
+identified.
+
 A fresh no-input native run again shows the complete retail no-card prompt in
 all eight captured frames. A separate run injected Cross at frame 120; all
 eight sampled post-input 960x720 frames are black. Both diagnostic runs ended

@@ -4,6 +4,27 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### Latest foreground confirmation (2026-11-17)
+
+The visible Wayland client was freshly checked after the VIF diagnostics. Its
+no-input framebuffer shows the complete no-card warning; one process-local
+Cross at frame 300 dismisses the warning and the next captured world frame is
+black. Captures:
+`/tmp/sly1-native-visible-before-cross-20261117.png` and
+`/tmp/sly1-native-visible-after-cross-20261117.png`; diagnostic log:
+`/tmp/sly-vif-unpack-writer-cross-20261117.log`. This reproduces the known
+post-Continue failure. The 8-second timeout stopped the run; no launcher is
+left running.
+
+The host-only writer trace maps `MSCAL 0x411` to matched
+`BuildLitStripMeshPacket` (`0x00164868`) and confirms the source uses
+`g_litSkinWeightProgram` through `pkt[1]`. The `0xC/count 8/address 0x1CB`
+reserve comes through the same function's strip loop on `pkt[2]`; the shared
+caller does not prove the UNPACK is skin-weight input. The command that writes
+qword 468 (`0xC1D4`, count 7, address `0x1D4`) was not identified by either
+targeted helper probe. Its origin remains open. Preserve this distinction
+before attempting a packet-order or VU fix.
+
 ### Native client re-audit (2026-11-17)
 
 A fresh no-input run shows the complete retail no-card prompt in all eight

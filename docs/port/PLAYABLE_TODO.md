@@ -3,6 +3,26 @@
 
 ## Current visual and packet audit (2026-11-17)
 
+**Latest visible client check:** the native Wayland window was launched in the
+foreground. The no-input frame shows the complete retail no-card warning
+(`/tmp/sly1-native-visible-before-cross-20261117.png`). A process-local Cross
+at frame 300 dismisses it; a later captured frame is fully black
+(`/tmp/sly1-native-visible-after-cross-20261117.png`). The run log is
+`/tmp/sly-vif-unpack-writer-cross-20261117.log`; it ends at the 8-second
+diagnostic timeout (137), and no launcher process remains. This confirms the
+known prompt-to-black failure, not a new boot regression.
+
+The latest trace resolves `entry 0x411`'s MSCAL caller to matched retail
+function `0x00164868` (`BuildLitStripMeshPacket`). Its source calls
+`g_litSkinWeightProgram` from `pkt[1]` when `hdr->count > 0`; the nearby
+`0xC/count 8/address 0x1CB` reservations are in the strip loop using `pkt[2]`.
+They are separate packet writers, so their shared function is not proof that
+the strip bytes are the skin program's input. A targeted trace found no
+`ReserveVifUnpack` record for format `0xC`, count 7, address `0x1D4`, matching
+the command that wrote qword 468. The source-level `WriteVifUnpack` probe did
+not identify that command's producer either. Keep this attribution open; do
+not reorder the writers or alter the VU input based on proximity alone.
+
 A fresh no-input run shows the complete retail no-card prompt in all eight
 sampled frames (`/tmp/sly1-native-frame-{00..07}.ppm`). A separate run injected
 one Cross press at frame 120; all eight post-input 960x720 captures are exactly
@@ -56,7 +76,7 @@ UNPACK at offset 124968 and compare its payload with the entry `0x411` input
 layout, while keeping the qword-469 kick failure as a separate issue.
 No matched decompilation source was changed.
 
-## Current bounded task (2026-11-16, paced client audit)
+## Previous bounded task (2026-11-16, paced client audit)
 
 Fresh hidden captures confirm the standard client still has two distinct
 visual states. With no input, the retail memory-card prompt is stable across
