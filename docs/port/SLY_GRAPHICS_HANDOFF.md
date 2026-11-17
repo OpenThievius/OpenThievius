@@ -20,6 +20,20 @@ frame after one Cross. Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
+The DMA submission is now tied to the retail render thread. A foreground trace
+shows VIF1 `TADR=0x003c3b00` submitted from caller `0x081328ab`, inside native
+`RunRenderThread` (`0x0015EE80`); its chain includes REF tag `0x003c3d60`,
+QWC 326, data `0x018d1270`. A prior model trace records the same pointer/QWC
+as mesh 0 of Sly's first skinned model (`source=0x00a113c0`, four bones).
+This proves which model packet is being submitted, but not yet the exact C
+writer for the UNPACK command. `BuildLitStripMeshPacket` is a candidate path
+for skinned packets, but its `pkt[1]` reservations use `hdr->p->off[0]`
+(initialized as `0x24`), which does not explain destination `0x1D4`. Do not
+attribute the command to that call solely from the mesh correlation. Evidence:
+`/tmp/sly-qword468-chain-visible-20261117.log`,
+`/tmp/sly-qword468-dma-caller-cross-20261117.log`, and
+`/tmp/sly-object-68-final-pose-20261116.log`.
+
 The visible Wayland client was freshly checked after the VIF diagnostics. Its
 no-input framebuffer shows the complete no-card warning; one process-local
 Cross at frame 300 dismisses the warning and the next captured world frame is

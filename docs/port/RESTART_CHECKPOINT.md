@@ -17,6 +17,19 @@ ended by the 8-second diagnostic timeout (137), and no launcher remains.
 Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
+The VIF DMA chain now has an owner: its root `TADR=0x003c3b00` is submitted
+from matched retail `RunRenderThread` (`0x0015EE80`). Within that chain, REF
+tag `0x003c3d60` transfers 326 qwords from `0x018d1270`. Earlier model traces
+show this exact address and QWC as mesh 0 of the first skinned Sly model
+(source mesh `0x00a113c0`, four bones). This associates the faulting packet
+with the model/frame submission. It still does not prove which builder wrote
+the exact `0xC1D4` command: `BuildLitStripMeshPacket` writes several `pkt[1]`
+streams, but its `off[0]` is initialized to `0x24`, so the source alone does
+not explain destination `0x1D4`. Keep that exact writer unresolved. New trace:
+`/tmp/sly-qword468-chain-visible-20261117.log` and
+`/tmp/sly-qword468-dma-caller-cross-20261117.log`; model correlation:
+`/tmp/sly-object-68-final-pose-20261116.log`.
+
 **Latest foreground client check:** the visible Wayland window rendered the
 complete no-card warning before input. One process-local Cross at frame 300
 dismissed it, after which the sampled frame was black. Captures:

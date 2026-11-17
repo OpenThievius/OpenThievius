@@ -21,6 +21,20 @@ identified it. Keep the guest packet writer open and preserve GIF validation.
 Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
+The DMA ownership trace now ties that REF segment to the frame submission:
+`TADR=0x003c3b00` is repeatedly submitted from retail `RunRenderThread`
+(`0x0015EE80`), and the chain contains REF tag `0x003c3d60`, QWC 326, data
+`0x018d1270`. Earlier model traces report that exact pointer and QWC as mesh 0
+of the first skinned model draw (Sly; source mesh `0x00a113c0`, four bones).
+This identifies the owning packet/model but not the exact writer of
+`0xC1D4`/destination `0x1D4`: the matched `BuildLitStripMeshPacket` source has
+several `pkt[1]` writes, but its normal/color reservations use the header's
+`off[0]` (initialized to `0x24`), not `0x1D4`. Keep the precise command
+producer open until the packet bytes or another writer trace proves it.
+Fresh DMA trace: `/tmp/sly-qword468-chain-visible-20261117.log`; caller trace:
+`/tmp/sly-qword468-dma-caller-cross-20261117.log`; model pointer match:
+`/tmp/sly-object-68-final-pose-20261116.log`.
+
 **Latest visible client check:** the native Wayland window was launched in the
 foreground. The no-input frame shows the complete retail no-card warning
 (`/tmp/sly1-native-visible-before-cross-20261117.png`). A process-local Cross
