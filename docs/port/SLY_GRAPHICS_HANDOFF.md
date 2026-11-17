@@ -1,8 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 21:10 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 21:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### VU scratch position dump for the selected lit mesh (2026-11-17, 21:20 CET)
+
+I added `OPENRAC_TRACE_SLY_VU_POSITIONS`, a bounded read-only dump at
+`data_write()` for qwords 36-307, filtered with the existing VIF DMA address
+window so it selects one submission. A bounded 18-second run with a
+process-local Cross at frame 300 and target `0x016d5890` logged 2,176 stores:
+1,088 from entry `0x401` and 1,088 from `0x411`.
+
+The data is **not** clean clip-space geometry. Entry `0x401` writes qwords
+39,43,...307 with x roughly 3.8-40, y -27-30 and z about 32-43 for the finite
+records, but many lanes are `FLT_MAX` sentinels, and the fourth word is about
+8.42e6 — a fog value, not a homogeneous W. Entry `0x411` is largely sentinel
+values (about +/-1.8e19 or FLT_MAX). This confirms the backfill design's
+caveat: a faithful VU-output renderer would have to filter culled vertices,
+identify which program's parity is the final position set, reject the fog word
+as W, and still apply the correct view transform and topology. Simply feeding
+these qwords to GL with W division would be wrong.
+
+I therefore did **not** implement the VU-output backfill. The opt-in adapter
+remains unchanged and off by default. Capture:
+`/tmp/sly-vupos-20261117/run.log`. The wrapper exited 137 and no launcher
+remains. The default client still shows the no-card prompt and goes black
+after Continue; no playable scene is confirmed.
+
+For comparison, I also captured the best visible-object candidate, request
+`0x005e5400` (class 2, lit+skinned, 38 meshes), with the existing adapter: it
+is fully in-frustum (NDC `0.0613384,0.0243302..0.139417,0.0569177`, 1,506
+vertices) but renders as only about 100 pixels, alternating with black
+frames. That is consistent with the adapter's missing skinning. Capture:
+`/tmp/sly-target-5400-20261117/`.
 
 ### Visible-geometry candidate and backfill design (2026-11-17, 21:10 CET)
 

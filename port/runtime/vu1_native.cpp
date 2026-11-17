@@ -158,6 +158,15 @@ bool trace_clip_decision() {
     return notice.fetch_add(1, std::memory_order_relaxed) < 8192u;
 }
 
+bool trace_vu1_xgkick_context_matches();
+
+bool trace_sly_vu_positions() {
+    if (!openrac::env::flag(openrac::env::Var::TraceSlyVuPositions)) return false;
+    if (!trace_vu1_xgkick_context_matches()) return false;
+    static std::atomic<uint32_t> notice{0};
+    return notice.fetch_add(1, std::memory_order_relaxed) < 4096u;
+}
+
 bool trace_vu1_xgkick_context_matches() {
     bool has_filter = false;
     bool has_submission_filter = false;
@@ -454,6 +463,14 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
     if (trace_target || trace_xgkick_data || trace_store || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
+    if (address >= 36u && address <= 307u && trace_sly_vu_positions()) {
+        openrac::log::info(
+            "native sly VU position submission={} mscal_offset={:#x} entry={:#x} pc={:#x} qword={} x={:#010x} y={:#010x} z={:#010x} w={:#010x}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+            g_vu_trace_entry, pc, address,
+            std::bit_cast<uint32_t>(value[0]), std::bit_cast<uint32_t>(value[1]),
+            std::bit_cast<uint32_t>(value[2]), std::bit_cast<uint32_t>(value[3]));
+    }
     static std::atomic<uint32_t> xgkick_data_notice{0};
     uint32_t xgkick_data_limit = 256u;
     if (const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA_LIMIT")) {
@@ -1107,8 +1124,13 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             static std::atomic<uint32_t> xgkick_lq_notice{0};
             const bool trace_lq = xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
                 xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
-                g_vu_trace_entry == 0x411u &&
-                (state->pc == 0x447u || target == 3u || target == 11u);
+                ((g_vu_trace_entry == 0x411u &&
+                  (state->pc == 0x447u || target == 3u || target == 11u)) ||
+                 (g_vu_trace_entry == 0x356u &&
+                  (state->pc == 0x36Fu || state->pc == 0x370u ||
+                   state->pc == 0x371u || state->pc == 0x372u ||
+                   state->pc == 0x37Bu || state->pc == 0x37Cu ||
+                   state->pc == 0x387u || state->pc == 0x388u)));
             const bool nonfinite_input = trace_lq && std::any_of(
                 loaded.begin(), loaded.end(), [](float lane) { return !std::isfinite(lane); });
             const uint32_t lq_notice = trace_lq
