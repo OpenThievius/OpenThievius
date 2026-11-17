@@ -167,6 +167,91 @@ bool trace_sly_vu_positions() {
     return notice.fetch_add(1, std::memory_order_relaxed) < 4096u;
 }
 
+// Opt-in capture of the VU's final clip-space vertices. The retail batch programs
+// write NDC positions (w == 1) into VU scratch qwords; these are the drawable
+// vertices the missing GIF packet would have carried. Captured here so the port
+// renderer can use actual VU output instead of pre-VU source positions.
+struct VuNdcVertex { float x, y, z; uint32_t submission; uint32_t mscal; uint32_t entry; uint32_t qword; };
+std::vector<VuNdcVertex> g_vu_ndc_vertices;
+std::mutex g_vu_ndc_mutex;
+bool capture_vu_ndc_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_CAPTURE_VU_NDC");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+extern "C" std::size_t openrac_native_vu_ndc_copy(float* out, std::size_t max_floats) {
+    std::scoped_lock lock(g_vu_ndc_mutex);
+    std::size_t written = 0;
+    for (const auto& v : g_vu_ndc_vertices) {
+        if (written + 3u > max_floats) break;
+        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z;
+    }
+    return written;
+}
+
+extern "C" std::size_t openrac_native_vu_ndc_copy_full(float* out, std::size_t max_floats,
+                                                       unsigned* meta, std::size_t max_meta) {
+    std::scoped_lock lock(g_vu_ndc_mutex);
+    std::size_t written = 0, mwritten = 0;
+    for (const auto& v : g_vu_ndc_vertices) {
+        if (written + 3u > max_floats || mwritten + 4u > max_meta) break;
+        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z;
+        meta[mwritten++] = v.submission; meta[mwritten++] = v.mscal;
+        meta[mwritten++] = v.entry; meta[mwritten++] = v.qword;
+    }
+    return written;
+}
+
+extern "C" std::size_t openrac_native_vu_ndc_take(float* out, std::size_t max_floats,
+                                                  unsigned* meta, std::size_t max_meta) {
+    std::scoped_lock lock(g_vu_ndc_mutex);
+    std::size_t written = 0, mwritten = 0;
+    for (const auto& v : g_vu_ndc_vertices) {
+        if (written + 3u > max_floats || mwritten + 4u > max_meta) break;
+        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z;
+        meta[mwritten++] = v.submission; meta[mwritten++] = v.mscal;
+        meta[mwritten++] = v.entry; meta[mwritten++] = v.qword;
+    }
+    g_vu_ndc_vertices.clear();
+    return written;
+}
+
+extern "C" std::size_t openrac_native_vu_ndc_copy_group(float* out, std::size_t max_floats) {
+    std::scoped_lock lock(g_vu_ndc_mutex);
+    if (g_vu_ndc_vertices.empty()) return 0;
+    const auto& last = g_vu_ndc_vertices.back();
+    std::size_t begin = g_vu_ndc_vertices.size();
+    while (begin > 0u) {
+        const auto& v = g_vu_ndc_vertices[begin - 1u];
+        if (v.submission != last.submission || v.mscal != last.mscal || v.entry != last.entry)
+            break;
+        --begin;
+    }
+    std::size_t written = 0;
+    for (std::size_t i = begin; i < g_vu_ndc_vertices.size(); ++i) {
+        if (written + 3u > max_floats) break;
+        out[written++] = g_vu_ndc_vertices[i].x;
+        out[written++] = g_vu_ndc_vertices[i].y;
+        out[written++] = g_vu_ndc_vertices[i].z;
+    }
+    return written;
+}
+
+void capture_vu_ndc(uint32_t address, const Vector& value, uint32_t pc) {
+    if (!capture_vu_ndc_enabled()) return;
+    const float w = value[3];
+    if (w != 1.0f) return;
+    const float x = value[0], y = value[1], z = value[2];
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return;
+    if (std::fabs(x) > 4.0f || std::fabs(y) > 4.0f || std::fabs(z) > 4.0f) return;
+    std::scoped_lock lock(g_vu_ndc_mutex);
+    if (g_vu_ndc_vertices.size() >= 65536u) return;
+    g_vu_ndc_vertices.push_back({x, y, z, g_vu_trace_submission_id,
+                                 g_vu_trace_vif_command_offset, g_vu_trace_entry, address});
+}
+
 bool trace_vu1_xgkick_context_matches() {
     bool has_filter = false;
     bool has_submission_filter = false;
@@ -463,6 +548,7 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
     if (trace_target || trace_xgkick_data || trace_store || nan_output)
         std::memcpy(previous, guest_address(kVu1Data + address * 16u), sizeof(previous));
     std::memcpy(guest_address(kVu1Data + address * 16u), value.data(), 16u);
+    capture_vu_ndc(address, value, pc);
     if (address >= 36u && address <= 307u && trace_sly_vu_positions()) {
         openrac::log::info(
             "native sly VU position submission={} mscal_offset={:#x} entry={:#x} pc={:#x} qword={} x={:#010x} y={:#010x} z={:#010x} w={:#010x}",
@@ -494,7 +580,7 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
             next[0], next[1], next[2], next[3]);
     }
     static std::atomic<uint32_t> store_notice{0};
-    if (trace_store && store_notice.fetch_add(1, std::memory_order_relaxed) < 1024u) {
+    if (trace_store && store_notice.fetch_add(1, std::memory_order_relaxed) < 40000u) {
         uint32_t next[4]{};
         std::memcpy(next, value.data(), sizeof(next));
         openrac::log::info(

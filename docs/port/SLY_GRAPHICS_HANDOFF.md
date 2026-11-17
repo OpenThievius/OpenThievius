@@ -1,8 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 23:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 00:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### VU NDC output rendered directly (2026-11-18, 00:20 CET)
+
+Capturing the full VU store stream for one submission (40,000 records) revealed
+the decisive fact: the retail batch programs write **final normalized device
+coordinates** into VU scratch qwords, with `w == 1` and `z == 1`. For example
+qwords 36/39/42/45/48 hold
+`(0.3288,0.1785,1)`, `(0.275,0.1847,1)`, `(0.2928,0.1361,1)`, … with a
+three-qword stride — a triangle strip in write order. These are the vertices
+the missing GIF packet would have carried, and they are already in clip space.
+
+I added opt-in capture (`OPENRAC_CAPTURE_VU_NDC`) at `data_write()` for finite
+vertices with `w == 1`, grouped by submission/MSCAL/entry, and an opt-in
+renderer (`OPENRAC_SLY_VU_NDC_RENDER`) that draws each group as a
+`GL_TRIANGLE_STRIP` with an identity MVP. A bounded full-scene capture now
+shows large rectangular surfaces and a complex angular object rendered from
+**actual retail VU output** rather than pre-VU source positions. This is the
+first time the port renders the game's transformed geometry.
+
+The output is not yet a recognizable level: full-screen quads cover much of
+the frame and group boundaries still need validation. No launcher remains.
+Captures: `/tmp/sly-vu-ndc.csv`, `/tmp/sly-ndcrender2-20261117/` and
+`/tmp/sly-ndcall-20261117/`. All flags are opt-in; the default client is
+unchanged and no matched decompilation source was edited.
 
 ### Matrix-mode conclusion corrected; adapter default restored (2026-11-17, 23:45 CET)
 

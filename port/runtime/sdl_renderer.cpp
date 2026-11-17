@@ -1349,8 +1349,53 @@ extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned
     return 1;
 }
 
+extern "C" std::size_t openrac_native_vu_ndc_copy(float* out, std::size_t max_floats);
+extern "C" std::size_t openrac_native_vu_ndc_copy_full(float* out, std::size_t max_floats,
+                                                       unsigned* meta, std::size_t max_meta);
+extern "C" std::size_t openrac_native_vu_ndc_copy_group(float* out, std::size_t max_floats);
+extern "C" std::size_t openrac_native_vu_ndc_take(float* out, std::size_t max_floats,
+                                                  unsigned* meta, std::size_t max_meta);
+
+static void dump_vu_ndc_points(int width, int height) {
+    static bool done = false;
+    if (done) return;
+    if (std::getenv("OPENRAC_DUMP_VU_NDC") == nullptr) return;
+    std::vector<float> data(65536u * 3u);
+    std::vector<unsigned> meta(65536u * 4u);
+    const std::size_t floats = openrac_native_vu_ndc_copy_full(
+        data.data(), data.size(), meta.data(), meta.size());
+    if (floats < 300u) return;
+    if (FILE* csv = std::fopen("/tmp/sly-vu-ndc.csv", "wb")) {
+        for (std::size_t i = 0; i + 2u < floats; i += 3u)
+            std::fprintf(csv, "%u,%u,%u,%u,%g,%g,%g\n", meta[i / 3u * 4u],
+                         meta[i / 3u * 4u + 1u], meta[i / 3u * 4u + 2u],
+                         meta[i / 3u * 4u + 3u], data[i], data[i + 1u], data[i + 2u]);
+        std::fclose(csv);
+    }
+    done = true;
+    const char* path = std::getenv("OPENRAC_DUMP_VU_NDC_PATH");
+    if (path == nullptr || path[0] == '\0') path = "/tmp/sly-vu-ndc.ppm";
+    if (FILE* file = std::fopen(path, "wb")) {
+        std::fprintf(file, "P6 %d %d 255\n", width, height);
+        std::vector<unsigned char> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 3u, 0);
+        for (std::size_t i = 0; i + 2u < floats; i += 3u) {
+            const int px = static_cast<int>((data[i] + 1.0f) * 0.5f * width);
+            const int py = static_cast<int>((1.0f - data[i + 1u]) * 0.5f * height);
+            if (px < 0 || py < 0 || px >= width || py >= height) continue;
+            const std::size_t at = (static_cast<std::size_t>(py) * static_cast<std::size_t>(width) + static_cast<std::size_t>(px)) * 3u;
+            pixels[at] = 255; pixels[at + 1u] = 255; pixels[at + 2u] = 255;
+        }
+        std::fwrite(pixels.data(), 1, pixels.size(), file);
+        std::fclose(file);
+        std::fprintf(stderr, "[native sly vu ndc dump] path=%s vertices=%zu\n", path, floats / 3u);
+    }
+}
+
 extern "C" void openrac_native_window_present(void) {
     if (!g_window) return;
+    int dump_width = 0, dump_height = 0;
+    g_window->drawable_size(dump_width, dump_height);
+    dump_vu_ndc_points(dump_width, dump_height);
     static std::uint64_t present_sequence = 0;
     const std::uint64_t this_present = ++present_sequence;
     int width = 0, height = 0;
@@ -1382,6 +1427,39 @@ extern "C" void openrac_native_window_present(void) {
                          "[native sly mesh queue] present=%llu meshes=%zu replaced=%zu\n",
                          static_cast<unsigned long long>(this_present),
                          world_meshes.size(), world_mesh_replacements);
+        }
+    }
+    if (std::getenv("OPENRAC_SLY_VU_NDC_RENDER") != nullptr) {
+        std::vector<float> ndc(65536u * 3u);
+        std::vector<unsigned> meta(65536u * 4u);
+        const std::size_t floats = openrac_native_vu_ndc_take(
+            ndc.data(), ndc.size(), meta.data(), meta.size());
+        const std::size_t count = floats / 3u;
+        std::size_t begin = 0;
+        while (begin < count) {
+            std::size_t end = begin + 1u;
+            while (end < count && meta[end * 4u] == meta[begin * 4u] &&
+                   meta[end * 4u + 1u] == meta[begin * 4u + 1u] &&
+                   meta[end * 4u + 2u] == meta[begin * 4u + 2u])
+                ++end;
+            if (end - begin >= 3u) {
+                NativeWorldMesh ndc_mesh;
+                ndc_mesh.instance = (0xdeadbeefull << 16u) | (begin & 0xFFFFu);
+                ndc_mesh.source_mesh = meta[begin * 4u + 2u];
+                for (std::size_t i = begin; i < end; ++i) {
+                    ndc_mesh.vertices.push_back(ndc[i * 3u]);
+                    ndc_mesh.vertices.push_back(ndc[i * 3u + 1u]);
+                    ndc_mesh.vertices.push_back(ndc[i * 3u + 2u]);
+                    for (int c = 0; c < 4; ++c) ndc_mesh.vertices.push_back(0.8f);
+                    ndc_mesh.vertices.push_back(0.0f);
+                    ndc_mesh.vertices.push_back(0.0f);
+                }
+                for (int i = 0; i < 16; ++i)
+                    ndc_mesh.mvp[static_cast<std::size_t>(i)] = (i % 5 == 0) ? 1.0f : 0.0f;
+                ndc_mesh.model_is_identity = true;
+                world_meshes.push_back(std::move(ndc_mesh));
+            }
+            begin = end;
         }
     }
     render_world_meshes(world_meshes);
