@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Rebuilt default-client visual recheck (2026-11-17, 13:14 CET)
+
+I rebuilt `wave55-sdl32` from the current source and checked the default
+renderer (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`). In the delayed offscreen
+capture, eight sampled frames show the complete no-card prompt; the Continue
+highlight animates between selected and unselected. The first eight eligible
+captures before that delay are black, consistent with startup before the first
+UI draw. A process-local Cross at frame 300 reproduces the known transition:
+the last prompt samples are followed by a black frame. This does not establish
+whether the user's desktop-window flicker is present; offscreen captures do
+not test the desktop compositor. The default client still does not reach
+playable world graphics.
+
+The build completed with 194/194 staged decomp units and 85/85 port backfills;
+it reports 99 missing-function traps. Both bounded launches ended at timeout
+(exit 137), and no launcher remains. No matched decomp source changed. Local
+captures and logs are under `/tmp/sly-current-audit-20261117/`.
+
+**Next:** continue from the confirmed prompt-to-black boundary and identify
+the retail world-vertex GIF output. Do not treat the opt-in distorted world
+adapter as the default result.
+
 ## Lit-packet and rejected-kick correction (2026-11-17, 13:05 CET)
 
 The three sampled addresses are `ModelStrip`'s detached lit VIF buffers

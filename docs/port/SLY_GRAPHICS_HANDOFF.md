@@ -1,8 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 13:05 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 13:14 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Rebuilt default-client output (2026-11-17, 13:14 CET)
+
+Rebuilt `wave55-sdl32` from current source with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`. Eight delayed framebuffer samples
+show the complete memory-card warning; the Continue highlight animates. Eight
+earlier eligible samples, taken before that UI draw, are black. This is a
+startup interval, not evidence of alternating black frames after the prompt
+appears. A separate process-local Cross at frame 300 produced prompt samples
+followed by a black frame, reproducing the known post-Continue failure. The
+current default client therefore has not regressed at startup, but it still
+does not display the level. These captures use SDL's offscreen driver and do
+not determine whether the desktop-window flicker from the user's video is
+present. Both runs ended on their bounded timeout (exit 137); no launcher
+process remained. No matched decomp source changed.
+
+The framebuffer samples and logs are local under
+`/tmp/sly-current-audit-20261117/`. Build:
+`cmake --build build/port/wave55-sdl32 --target port_native_sdl_host32 -j4`
+(success; 194/194 staged decomp units, 85/85 port backfills, 99
+missing-function traps).
 
 ### Three lit-packet windows and rejected-kick correction (2026-11-17, 13:05 CET)
 
