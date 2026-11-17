@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 10:46 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 11:22 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Rejected kind-5 packet snapshot (2026-11-17, 11:22 CET)
+
+Added an opt-in, read-only snapshot at the first-invalid-GIFtag rejection in
+`kick_gif`. With `OPENRAC_DUMP_REJECTED_XGKICK_PREV_PACKET=1`, it saves up to
+four bounded packets to `/tmp` from the qword immediately before the rejected
+XGKICK address. It does not adjust the address or submit the snapshot to the
+renderer. The 10-second native run captured the kind-5 path at entry `0x5f`,
+PC `0x68`: the rejected address is qword 469, while qword 468 contains a valid
+110-qword EOP packet (`0x100040000000806d`, 109 A+D writes). All four snapshots
+have the same SHA-256 and decode identically. Their A+D destinations are PRIM
+(`0x00`, 104 writes), TEX0_2 (`0x07`), CLAMP_2 (`0x09`), TEX1_2 (`0x15`), plus
+two reserved/unrecognized addresses (`0x43`, `0x48`). None target XYZ2
+(`0x05`) or XYZF2 (`0x04`), so this packet is GS setup state and cannot explain
+the missing world geometry. The separate PC `0x6e` kick at qword 35 remains
+accepted. This confirms the preceding-tag interpretation but still does not
+justify retrying at qword 468: that would submit state, not vertices.
+
+Build succeeded for `port_native_sdl_host32` (194/194 decomp units and 85/85
+port backfills). The bounded launch ended with timeout exit 137 because the
+launcher did not exit on SIGINT; no launcher remained afterward. Log:
+`/tmp/sly-first-packet-window-dump-20261117.log`; snapshots:
+`/tmp/sly1-vu1-rejected-prev-packet-00.bin` through `-03.bin`.
+Instrumentation is host-side and disabled unless the environment variable is
+set; no matched decompilation source changed.
 
 ### Fresh current-client visual review (2026-11-17, 10:46 CET)
 
@@ -2449,12 +2474,16 @@ SIGINT. No source code changed, and no game data was added to the repository.
 A separate targeted run dumped the naturally occurring PC `0x6e` XGKICK from
 qword 35 in submission 328, immediately after the rejected PC `0x68` kick.
 The packet is accepted by strict GIF validation. Its 1,760 bytes contain an
-EOP PACKED GIFtag with 109 A+D writes. Decoding each address from the low byte
-of the second 64-bit half, as the native GIF renderer does, shows that all
-109 writes target PRIM (`0x00`); there are no XYZ2 (`0x05`) or XYZF2 (`0x0d`)
-writes. This accepted packet cannot submit screen vertices. It corrects the
-earlier observation that qword 35 appeared only in a removed backstep retry,
-but it does not recover the mesh packet rejected at PC `0x68`.
+EOP PACKED GIFtag with 109 A+D writes. Decoding each destination from the low
+byte of the second 64-bit half, as the native GIF renderer does, shows 104
+writes to PRIM (`0x00`) and one each to TEX0_2 (`0x07`), CLAMP_2 (`0x09`),
+TEX1_2 (`0x15`), and two reserved/unrecognized addresses (`0x43`, `0x48`).
+There are no XYZ2 (`0x05`) or XYZF2 (`0x04`) writes, so this is not a vertex
+packet. The corrected decode supersedes the earlier statement that all 109
+writes targeted PRIM. The accepted kick still does not recover the mesh packet
+rejected at PC `0x68`. Do not conflate this 109-write capture with the separate
+entry-`0x2` qword-35 capture later in this handoff, which has a 70-loop tag and
+a different payload.
 
 Run log: `/tmp/sly-qword35-packet-audit-20261117.log`; local dump:
 `/tmp/sly1-vu1-kick-00.bin`. The 10-second native run ended via timeout with

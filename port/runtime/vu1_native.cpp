@@ -466,6 +466,59 @@ int32_t sign_extend(uint32_t value, uint32_t bits) {
     return static_cast<int32_t>((value ^ sign) - sign);
 }
 
+void dump_preceding_gif_packet(uint32_t rejected_address) {
+    const char* setting = std::getenv("OPENRAC_DUMP_REJECTED_XGKICK_PREV_PACKET");
+    if (setting == nullptr || setting[0] == '\0' || setting[0] == '0' ||
+        !trace_vu1_xgkick_context_matches())
+        return;
+
+    const uint32_t tag_address =
+        (rejected_address + static_cast<uint32_t>(kVu1Quadwords) - 1u) & 0x3FFu;
+    const uint8_t* tag = guest_address(kVu1Data + tag_address * 16u);
+    uint64_t low = 0;
+    std::memcpy(&low, tag, sizeof(low));
+    constexpr uint64_t kGifReservedMask = 0x00003FFFFFFF0000ull;
+    if ((low & kGifReservedMask) != 0 || ((low >> 15u) & 1u) == 0) return;
+
+    const uint32_t loops = static_cast<uint32_t>(low & 0x7FFFu);
+    const uint32_t format = static_cast<uint32_t>((low >> 58u) & 3u);
+    uint32_t registers = static_cast<uint32_t>((low >> 60u) & 0xFu);
+    if (registers == 0) registers = 16;
+    size_t payload_qwords = 0;
+    if (format == 0) payload_qwords = static_cast<size_t>(loops) * registers;
+    else if (format == 1)
+        payload_qwords = (static_cast<size_t>(loops) * registers + 1u) / 2u;
+    else payload_qwords = loops;
+    const size_t packet_qwords = payload_qwords + 1u;
+    constexpr size_t kMaxDiagnosticQwords = 4096u;
+    if (packet_qwords > kMaxDiagnosticQwords) return;
+
+    static std::atomic<uint32_t> dump_count{0};
+    const uint32_t index = dump_count.fetch_add(1, std::memory_order_relaxed);
+    if (index >= 4u) return;
+    char path[96];
+    std::snprintf(path, sizeof(path),
+                  "/tmp/sly1-vu1-rejected-prev-packet-%02u.bin", index);
+    FILE* file = std::fopen(path, "wb");
+    if (file == nullptr) return;
+    bool written = true;
+    for (size_t qword = 0; qword < packet_qwords; ++qword) {
+        const size_t address = (tag_address + qword) & (kVu1Quadwords - 1u);
+        const uint8_t* data = guest_address(kVu1Data + address * 16u);
+        if (std::fwrite(data, 16u, 1u, file) != 1u) {
+            written = false;
+            break;
+        }
+    }
+    std::fclose(file);
+    if (written)
+        openrac::log::info(
+            "native VU1 rejected XGKICK preceding packet snapshot submission={} mscal_offset={:#x} entry={:#x} rejected_address={} tag_address={} tag={:#018x} qwords={} path={}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+            g_vu_trace_entry, rejected_address & 0x3FFu, tag_address, low,
+            packet_qwords, path);
+}
+
 uint16_t vi_read(const State& state, uint32_t index) {
     return index == 0 ? 0 : state.vi[index & 15u];
 }
@@ -496,6 +549,8 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
             *first_tag = low;
         constexpr uint64_t kGifReservedMask = 0x00003FFFFFFF0000ull;
         if ((low & kGifReservedMask) != 0) {
+            if (consumed_qwords == 0)
+                dump_preceding_gif_packet(static_cast<uint32_t>(cursor));
             static std::atomic<uint32_t> bad_tag_dump_count{0};
             if (bad_tag_dump_count.fetch_add(1, std::memory_order_relaxed) < 4u) {
                 for (int32_t relative = -2; relative <= 2; ++relative) {

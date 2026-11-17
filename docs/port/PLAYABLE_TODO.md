@@ -1,6 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Latest native checkpoint (2026-11-17, 11:22 CET)
+
+The default client remains at the same milestone: it can render the memory-card
+prompt, but after Continue it still has no recognizable world graphics. The
+latest bounded native run built successfully and captured the qword before the
+kind-5 VU path's rejected XGKICK. Qword 468 is a valid EOP GIFtag with 109 A+D
+writes; the payload contains 104 PRIM writes, three texture/clamp state writes,
+and two reserved/unrecognized register destinations. It contains no XYZ2 or
+XYZF2 writes. So starting the kick at 468 would submit state, not geometry,
+and would not fix the black post-Continue image. The independently accepted
+qword-35 packet is also state-only. Preserve strict GIF parsing and keep
+matched decompilation untouched.
+
+The new host-only diagnostic is opt-in via
+`OPENRAC_DUMP_REJECTED_XGKICK_PREV_PACKET=1`; it writes at most four captures
+under `/tmp` without changing guest memory, the kick address, or renderer
+input. Build passed; the bounded run ended on timeout (exit 137), and the
+launcher was no longer running afterward. Full packet/register findings and
+capture paths are in `SLY_GRAPHICS_HANDOFF.md`.
+
 ## Fresh visual review (2026-11-17, 10:46 CET)
 
 The current default host32 launcher was rebuilt with diagnostics and inspected
