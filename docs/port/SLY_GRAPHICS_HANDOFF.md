@@ -1,8 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 12:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 12:56 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Targeted world VU/GIF trace (2026-11-17, 12:56 CET)
+
+Rebuilt the opt-in `wave55-sdl32-release` client and captured eight paired
+world frames after one process-local Cross press at native frame 300. The first
+world frame is a gray horizon; subsequent frames show the same two stretched,
+distorted structures over the horizon. The stable symptom is therefore
+reproducible in the opt-in adapter. The default renderer remains OFF and still
+has no level draw after Continue.
+
+Filtered the VIF1 chain containing source address `0x016d5890`: submission 322,
+segment 287, stream range `[177312,182688)`. In that range, VU entries `0x401`,
+`0x411`, `0x242`, and `0x356` write transformed vectors and per-vertex fields
+into VU data memory. Entry `0x2` at MSCAL offset `0x2c990` then rejects a kick
+at address 461 and accepts a 1,136-byte kick at address 35. Its GIF tag is a
+70-loop, packed A+D tag. Decoding all 70 A+D address bytes in the captured
+packet gives 53 writes to GS address `0x00` (PRIM) and 17 to `0x80`; it contains
+no XYZ2/XYZF2 destinations. The accepted-packet parser verifies GIF structure,
+not that the packet contains drawable geometry. This is evidence that this
+specific accepted kick is not the world-vertex packet; it does not establish
+that no other kick or DMA chain submits the geometry.
+
+The opt-in adapter still renders the level from source `VertexRefs` positions,
+not the observed VU output. This trace does not justify treating its distorted
+surfaces as a faithful rendering. Next, enumerate accepted kicks from the same
+selected stream and adjacent world submissions, decode their GS register
+destinations, and identify the packet that carries XYZ writes before changing
+the VU translator or renderer. Keep the adapter disabled by default.
+
+Logs, captures, and the accepted kick are local under
+`/tmp/sly-vu-packet-store-trace-20261117/`,
+`/tmp/sly-vu-submission-kicks-20261117/`, and
+`/tmp/sly-vu-mesh-capture-20261117-3/`; none are repository inputs. The
+offscreen launch ended with timeout exit 137 and left no launcher process.
+Build compiled 194/194 decomp units and 85/85 port backfills; no matched
+decompilation source changed.
 
 ### Per-present texture and world-frame check (2026-11-17, 12:45 CET)
 

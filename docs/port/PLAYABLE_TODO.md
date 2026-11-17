@@ -1,6 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Targeted world VU/GIF trace (2026-11-17, 12:56 CET)
+
+The current opt-in client reproducibly draws a gray horizon and two stretched
+structures after Continue; the default client still has no level draw. A
+trace of the VIF1 chain containing `0x016d5890` found VU transform work in
+entries `0x401`, `0x411`, `0x242`, and `0x356`, followed by entry `0x2` emitting
+a valid 70-loop A+D packet. That packet writes only PRIM (`0x00`) and address
+`0x80`; it has no XYZ2/XYZF2 destinations, so it is not the world-vertex
+packet. This is one accepted kick in one selected chain, not proof that no
+other chain submits geometry. The native adapter still draws from source
+positions and is not a faithful rendering of retail VU output.
+
+**Next:** enumerate accepted kicks in the same selected chain and adjacent
+world submissions, decode GS register destinations, and locate the actual
+XYZ output packet. Then compare that packet with the native renderer input.
+Do not change the VU translator or enable the adapter by default until that
+boundary is established. Full trace limits and local captures are in
+`SLY_GRAPHICS_HANDOFF.md`.
+
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
 A fresh opt-in renderer run shows the texture-placeholder count from the prior
