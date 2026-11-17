@@ -3,6 +3,19 @@
 
 ## Current checkpoint (2026-11-17, 19:55 CET)
 
+**Next:** choose an in-frustum single-object target before any silhouette
+comparison. A silhouette has been captured, but it is clipped and
+unrecognizable, so it cannot yet be checked against a retail reference. The
+solid-purple filtered single-object image is a flat-color filtered view of that
+one object, not a color change of the whole opt-in scene, which is still the
+distorted gray horizon and stretched structures. Keep both tasks explicit:
+resolve the optional adapter's primitive topology and vertex order
+(`GL_TRIANGLE_STRIP` over one shared `VertexRefs` list at
+`port/runtime/sdl_renderer.cpp:581`), and trace one representative visible model
+through VU1 and its GIF output to find where its triangle packet disappears.
+The VU/GIF trace remains the retail-output task. Do not add renderer features
+until that boundary is understood and a usable silhouette is available.
+
 I finished the interrupted three-part capture after correcting two problems.
 The stale orchestrator had used `timeout` without `--kill-after` and hung
 because the launcher ignores `SIGTERM`; I killed it and confirmed no launcher
@@ -11,8 +24,9 @@ remains. More importantly, `OPENRAC_NATIVE_SLY_WORLD_RENDERER` is a
 `--native-sly-world-renderer` in `port/tools/compile_decomp_host32.py:2517`),
 not an environment variable. The interrupted script used the renderer-ON
 Release binary for all three stages, so its "default" captures were not default
-at all. Both on-disk binaries predated HEAD `545ead7`; I rebuilt both targets
-from current source and recaptured from the distinct binaries.
+at all. The audit was performed while the branch was at `545ead7` and is
+recorded in commit `58e162b`; I rebuilt both on-disk targets from current source
+and recaptured from the distinct binaries.
 
 Three cases, 960x720 hidden-window, eight frames each, one process-local Cross
 at native frame 300 for the post-input cases (logs and PPMs in
@@ -37,7 +51,9 @@ which was already checked. Provable adapter divergences from the matched decomp
 are missing skinning, missing per-vertex W/fog, missing normals/lighting, and
 subsampled material state; `FrameSource` handling as material passes over
 shared geometry is structurally correct. A single-object silhouette can be
-captured today with existing opt-in flags — no code change needed.
+captured with existing opt-in flags — no code change is needed to take that
+capture, but the resulting silhouette is clipped and unrecognizable, so no
+usable silhouette is available for comparison yet.
 
 **Next:** trace one representative visible model through its VU1 execution and
 GIF output to find where its triangle packet disappears. Do not add renderer

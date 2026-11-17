@@ -178,6 +178,7 @@ enum class Var : std::uint16_t {
     TileBased,
     TimeScale,
     Trace,
+    TraceAcceptedKickXyz,
     TraceCd,
     TraceInput,
     TraceMissing,

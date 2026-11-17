@@ -1,12 +1,96 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 19:55 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 20:35 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Accepted-kick XYZ census and three refuted leads (2026-11-17, 20:35 CET)
+
+I added one opt-in, read-only diagnostic, `OPENRAC_TRACE_ACCEPTED_KICK_XYZ`,
+that logs one bounded line per accepted GIF append at both append sites
+(`kick_gif` in `port/runtime/vu1_native.cpp` and the VIF DIRECT path in
+`port/runtime/vif1_dma.cpp`). Its first 64-line cap filled with startup sprites
+before the injected Cross, so I raised the bound to 4096. The rebuilt
+OFF/default binary ran 18 seconds with a process-local Cross at native frame
+300; the wrapper exited 137 and no launcher remains. The census in
+`/tmp/sly-accepted-kick-xyz2-20261117/run.log` covered 3,819 accepted appends
+(718 VIF DIRECT, 3,101 VU1 XGKICK) without saturating the cap. Cross is logged
+at line 614; 3,211 appends follow it.
+
+Only four VU kicks carried any XYZ at all: two `XYZF2` and three `XYZ2`
+writes, five point writes total, all with PRIM 0 and no triangle PRIM. The
+post-Cross VIF DIRECT XYZ traffic is the same PRIM 6 sprites and PRIM 0x200
+points already documented. No accepted packet, VU or DIRECT, contains a
+triangle-list or triangle-strip XYZZ/XYZF2 write. This puts the loss upstream
+of the GIF append: no world triangle packet is ever submitted, so the parser
+and SDL renderer are not dropping it.
+
+Three candidate explanations are now ruled down by parallel audits:
+
+- **VU FTOI/ITOF shift error.** The code at `port/runtime/vu1_native.cpp:986`
+  computes `(special - base) * 4`, giving shifts 8/12 where
+  `port/tools/hostgen/asm.py:310-311` requires 12/15 for `vftoi12`/`vftoi15`.
+  The arithmetic bug is real (8-16x mis-scale), but decoding the retail
+  `.vutext` shows no `vftoi12`/`vftoi15` in the lit or unlit batch programs:
+  only `vftoi0`/`vitof0` execute, and shift 0 is computed correctly. It cannot
+  remove XYZ writes even hypothetically, so no fix is warranted for this
+  symptom.
+- **Silent VU abort on an unimplemented instruction.** Translate failures are
+  loud, fail the whole VIF stream, and do not skip to E-bit
+  (`vu1_native.cpp:1665-1689`, `1748-1772`; `vif1_dma.cpp:797-834`). Decoding
+  entries `0x2`, `0x51`, `0x242`, `0x356`, and `0x5f` shows only implemented
+  opcodes, and all reach E-bit. Historical stops were instruction-budget
+  stops, not unsupported opcodes.
+- **XGKICK reserved-bit rejection.** The `kGifReservedMask` check at
+  `vu1_native.cpp:597-623` is a host over-validation: GIFtag bits 16-45 are
+  unused on hardware (PS2Tek GIFtags; PCSX2 `Gif_Unit.h` names them
+  `_dummy0/_dummy1`, and `_vuXGKICK` passes VI[is] directly with no tag/payload
+  check). The guest `IADDIU vi01, vi06, 1` at PC `0xb` makes the kick from
+  461 genuine. Relaxing the check would forward about 1.5 MB of state garbage
+  and add no geometry, so strict parsing stays; it must not be described as
+  hardware behaviour.
+
+The one remaining upstream lead is a VIF path-2 / UNLOAD handoff from VU data
+memory to GIF PATH1: if the retail mesh sends transformed vertices that way,
+an unimplemented UNLOAD would explain why no XYZ packet is appended. That is
+under investigation. Keep every diagnostic opt-in; the default client still
+produces black after Continue.
+
+Capture and trace: `/tmp/sly-accepted-kick-xyz2-20261117/run.log`,
+`/tmp/sly-one-silhouette-20261117/run.log`,
+`/tmp/sly-silhouette-attempt1-20261117/` and
+`/tmp/sly-silhouette-attempt2-20261117/`. Two further bounded silhouette
+attempts found request `0x005e4a00` fully in-frustum (NDC
+`-0.408702,0.00783889,-0.980044..-0.118778,0.209965,-0.934758`, 260/260
+vertices inside, 6,226 pixels in a 138x72 box) but still a flat reddish wedge;
+`0x005e4e00` projected to 56 pixels and is not usable. No recognizable target
+silhouette exists yet.
+
+### One-object silhouette capture and adapter topology audit (2026-11-17, 20:10 CET)
+
+I captured a flat-color filtered view of a single opt-in world object to check
+the optional adapter's primitive topology and vertex order (`GL_TRIANGLE_STRIP`
+over one shared `VertexRefs` list at `port/runtime/sdl_renderer.cpp:581`). The
+solid-purple filtered single-object image is a flat-color filtered view of that
+one object, not a color change of the whole opt-in scene; the unfiltered opt-in
+scene is still the distorted gray horizon and stretched structures recorded
+earlier.
+
+A silhouette was captured, but it is clipped and unrecognizable, so it cannot be
+compared with a retail reference yet. An in-frustum target must be chosen before
+any silhouette comparison is meaningful: a clipped or off-screen object does not
+test topology or vertex order. Resolving that topology and vertex order remains
+the adapter's open question, and this capture does not settle it.
+
+The retail-output task is unchanged: trace one representative visible model
+through its VU1 execution and GIF output to find where its triangle packet
+disappears, then compare that output with the adapter. Keep every diagnostic
+opt-in and port-only, and keep the default renderer OFF.
 
 ### Corrected three-part visual audit (2026-11-17, 19:55 CET)
 
-I finished the interrupted bounded capture. The branch is clean at `545ead7`;
+I finished the interrupted bounded capture. The corrected three-part audit was
+performed while the branch was at `545ead7` and is recorded in commit `58e162b`;
 the sibling decomp was not touched. Two corrections were needed first.
 
 The stale capture was driven by one zsh orchestrator (PID 499811, started
@@ -52,9 +136,12 @@ case:
 These offscreen captures cannot test desktop-compositor flicker. No launcher
 remains. The visual-regression question from the paused session is now settled:
 default post-Continue is black, opt-in output is the same distorted gray scene
-recorded earlier. Next, trace one representative visible model through VU1 and
-its GIF output to find where its triangle packet disappears. Do not add
-renderer features until that boundary and a target silhouette are established.
+recorded earlier. A single-object silhouette has now been captured, but it is
+clipped and unrecognizable, so an in-frustum target must be chosen before any
+comparison. Next, choose that target and, separately, trace one representative
+visible model through VU1 and its GIF output to find where its triangle packet
+disappears; the VU/GIF trace remains the retail-output task. Do not add renderer
+features until that boundary is established and a usable silhouette is available.
 
 ### Correct strip-to-list comparison and whole-part probe (2026-11-17, 17:16 CET)
 

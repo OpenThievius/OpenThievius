@@ -20,7 +20,13 @@
 #include <sstream>
 #include <vector>
 
+#include "common/env.h"
 #include "common/log.h"
+
+// Read-only diagnostic shared with the VIF1 DIRECT path (vif1_dma.cpp): summarises every
+// accepted GIF append so a capture can answer whether any of them writes XYZ2/XYZF2.
+extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
+                                                 const char* origin);
 
 namespace {
 constexpr uint32_t kVu1Data = 0x1100C000u;
@@ -670,6 +676,7 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
                               g_vu_trace_submission_id,
                               g_vu_trace_vif_command_offset, g_vu_trace_entry);
             }
+            openrac_trace_accepted_kick_xyz(packet.data(), packet.size(), trace_origin);
             openrac_guest_gif_stream_write_from(packet.data(), packet.size(),
                                                 trace_origin);
             const char* dump_setting = std::getenv("OPENRAC_DUMP_VU1_KICKS");
@@ -1512,6 +1519,127 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
 }
 
 } // namespace
+
+// Opt-in, read-only summary of an accepted GIF append. Defined here so the VU1 XGKICK and the
+// VIF1 DIRECT paths report identical fields; it only reads `data` and never touches guest state.
+// Bounded to 4096 one-line summaries: startup UI sprites fill a smaller cap before the
+// injected Cross. The gate comes from common/env.h's variable table.
+extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
+                                                 const char* origin) {
+    if (!openrac::env::flag(openrac::env::Var::TraceAcceptedKickXyz)) return;
+    if (data == nullptr || size < 16u) return;
+    static std::atomic<uint32_t> trace_count{0};
+    if (trace_count.fetch_add(1, std::memory_order_relaxed) >= 4096u) return;
+
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    uint64_t first_low = 0;
+    uint64_t first_high = 0;
+    std::memcpy(&first_low, bytes, sizeof(first_low));
+    std::memcpy(&first_high, bytes + 8u, sizeof(first_high));
+    const uint32_t first_nloop = static_cast<uint32_t>(first_low & 0x7FFFu);
+    const uint32_t first_flg = static_cast<uint32_t>((first_low >> 58u) & 3u);
+    const uint32_t first_nreg = static_cast<uint32_t>((first_low >> 60u) & 0xFu);
+    const uint32_t first_prim = static_cast<uint32_t>((first_low >> 47u) & 0x7FFu);
+
+    uint32_t xyz2_qwords = 0;
+    uint32_t xyzf2_qwords = 0;
+    uint32_t prim_writes = 0;
+    uint32_t prim_values[8] = {};
+    size_t prim_count = 0;
+    const auto note_prim = [&](uint32_t value) {
+        ++prim_writes;
+        if (prim_count < 8u) prim_values[prim_count++] = value;
+    };
+    // The PRE field is only a PRIM write when the PRE flag (bit 46) is set.
+    if (((first_low >> 46u) & 1u) != 0u) note_prim(first_prim);
+
+    size_t cursor = 0;
+    bool tag_loaded = false;
+    uint64_t tag_high = 0;
+    uint32_t nreg = 0;
+    uint32_t flg = 0;
+    size_t total_registers = 0;
+    size_t remaining = 0;
+    size_t register_index = 0;
+    while (cursor + 16u <= size) {
+        if (!tag_loaded) {
+            uint64_t low = 0;
+            std::memcpy(&low, bytes + cursor, sizeof(low));
+            std::memcpy(&tag_high, bytes + cursor + 8u, sizeof(tag_high));
+            nreg = static_cast<uint32_t>((low >> 60u) & 0xFu);
+            if (nreg == 0) nreg = 16u;
+            flg = static_cast<uint32_t>((low >> 58u) & 3u);
+            const uint32_t loops = static_cast<uint32_t>(low & 0x7FFFu);
+            total_registers = static_cast<size_t>(loops) * nreg;
+            if (flg == 0u) remaining = total_registers;
+            else if (flg == 1u) remaining = (total_registers + 1u) / 2u;
+            else remaining = loops; // IMAGE (2/3): NLOOP payload qwords, no registers.
+            register_index = 0;
+            tag_loaded = true;
+            if (cursor != 0 && ((low >> 46u) & 1u) != 0u)
+                note_prim(static_cast<uint32_t>((low >> 47u) & 0x7FFu));
+            cursor += 16u;
+            if (remaining == 0) tag_loaded = false;
+            continue;
+        }
+
+        const uint8_t* qword = bytes + cursor;
+        if (flg <= 1u) { // PACKED (0) or REGLIST (1); IMAGE (2/3) carries no register writes.
+            const uint32_t halves = flg == 0u ? 1u : 2u;
+            for (uint32_t half = 0; half < halves && register_index < total_registers; ++half) {
+                uint64_t value = 0;
+                std::memcpy(&value, qword + half * 8u, sizeof(value));
+                uint64_t meta = 0;
+                if (flg == 0u) std::memcpy(&meta, qword + 8u, sizeof(meta));
+                const uint32_t descriptor = static_cast<uint32_t>(
+                    (tag_high >> ((register_index % nreg) * 4u)) & 0xFu);
+                if (descriptor == 0x0Eu) {
+                    // A+D writes nothing in REGLIST (direct.cpp:232-234); in PACKED the
+                    // register address is the low byte of the qword's upper half
+                    // (gs_stream.cpp:267, direct.cpp:213).
+                    if (flg == 0u) {
+                        const uint32_t address = static_cast<uint32_t>(meta & 0xFFu);
+                        if (address == 0x04u) ++xyzf2_qwords;
+                        else if (address == 0x05u) ++xyz2_qwords;
+                        else if (address == 0x00u)
+                            note_prim(static_cast<uint32_t>(value & 0x7FFu));
+                    }
+                } else if (descriptor == 0x04u || descriptor == 0x05u) {
+                    // PACKED XYZ2/XYZF2 with ADC (bit 47 of meta) set write XYZ3/XYZF3
+                    // instead (gs_stream.cpp:297-298); REGLIST holds native 64-bit values
+                    // and the descriptor is the register address (direct.cpp:232-236).
+                    const bool adc = flg == 0u && ((meta >> 47u) & 1u) != 0u;
+                    if (!adc) {
+                        if (descriptor == 0x04u) ++xyzf2_qwords;
+                        else ++xyz2_qwords;
+                    }
+                } else if (descriptor == 0x00u) {
+                    note_prim(static_cast<uint32_t>(value & 0x7FFu)); // PRIM register write.
+                }
+                ++register_index;
+            }
+        }
+        cursor += 16u;
+        if (remaining > 0) --remaining;
+        if (remaining == 0) tag_loaded = false;
+    }
+
+    char prims[96] = "";
+    size_t used = 0;
+    for (size_t i = 0; i < prim_count; ++i) {
+        const int written = std::snprintf(prims + used, sizeof(prims) - used, "%s%#x",
+                                          i == 0 ? "" : ",", prim_values[i]);
+        if (written <= 0 || static_cast<size_t>(written) >= sizeof(prims) - used) break;
+        used += static_cast<size_t>(written);
+    }
+    std::fprintf(stderr,
+                 "[accepted kick XYZ] origin=%s bytes=%zu tag=%#018llx nloop=%u nreg=%u flg=%u regs=%#018llx prim=%#x xyz2=%u xyzf2=%u prim_writes=%u prim_seen=%s\n",
+                 origin != nullptr ? origin : "unspecified", size,
+                 static_cast<unsigned long long>(first_low), first_nloop,
+                 first_nreg == 0 ? 16u : first_nreg, first_flg,
+                 static_cast<unsigned long long>(first_high), first_prim,
+                 xyz2_qwords, xyzf2_qwords, prim_writes, prims);
+}
 
 extern "C" void openrac_guest_vu1_set_itop(uint32_t value) {
     std::lock_guard lock(g_vu_mutex);

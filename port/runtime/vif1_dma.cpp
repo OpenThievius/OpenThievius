@@ -17,6 +17,10 @@
 
 #include "common/log.h"
 
+// Defined in vu1_native.cpp; same read-only accepted-append summary as the VU1 XGKICK path.
+extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
+                                                 const char* origin);
+
 namespace {
 constexpr uint32_t kVif1Chcr = 0x10009000u;
 constexpr uint32_t kDmacCtrl = 0x1000E000u;
@@ -625,6 +629,7 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                               "vif1-direct submission=%u offset=%u",
                               trace->submission_id, command_offset);
             }
+            openrac_trace_accepted_kick_xyz(stream.data() + cursor, bytes, trace_origin);
             openrac_guest_gif_stream_write_from(stream.data() + cursor, bytes,
                                                 trace_origin);
             cursor += bytes;

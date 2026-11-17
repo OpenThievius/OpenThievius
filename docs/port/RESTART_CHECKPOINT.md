@@ -8,9 +8,10 @@ without `--kill-after` and hung when the launcher ignored `SIGTERM`; I killed
 it and confirmed no launcher remains. I also found that
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER` is a compile-time CMake option, not an
 environment variable, so the interrupted script's three stages all used the
-renderer-ON Release binary and its "default" labels were wrong. Both binaries
-were stale relative to HEAD `545ead7`; I rebuilt both and recaptured three
-separate cases under `/tmp/sly-corrected-audit-20261117/` (8 frames each,
+renderer-ON Release binary and its "default" labels were wrong. The audit was
+performed while the branch was at `545ead7` and is recorded in commit `58e162b`;
+I rebuilt both binaries and recaptured three separate cases under
+`/tmp/sly-corrected-audit-20261117/` (8 frames each,
 hidden window, process-local Cross at native frame 300 for the post-input
 cases):
 
@@ -23,8 +24,10 @@ cases):
   (SHA-256 `dab343deece79ddf...`), the opt-in adapter only.
 
 Offscreen captures cannot assess desktop-window flicker. No game process is
-running. The next task remains tracing one visible model through VU1/GIF to
-find where its triangle packet disappears; see `SLY_GRAPHICS_HANDOFF.md`.
+running. The next task is to choose an in-frustum target first — the captured
+single-object silhouette is clipped and unrecognizable — then trace one visible
+model through VU1/GIF to find where its triangle packet disappears; see
+`SLY_GRAPHICS_HANDOFF.md`.
 
 ## Current checkpoint (2026-11-17, 16:27 CET; transition-frame audit)
 
