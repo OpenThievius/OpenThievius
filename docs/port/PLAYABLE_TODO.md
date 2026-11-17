@@ -27,6 +27,29 @@ VU XGKICK, and any PATH1 submission) and correlate accepted XYZ writes to the
 actual native framebuffer. Preserve the default startup prompt; keep any
 renderer reconstruction in the port-only backfill layer.
 
+**Latest opt-in world-renderer capture (2026-11-17):** I inspected the
+world-only image from `/tmp/sly-one-slice-20261117/sly1-native-world-07.ppm`.
+It is not a black regression in the default client: the isolated renderer draws
+large distorted purple surfaces over gray, with no recognizable Sly scene.
+The default renderer remains off (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`),
+and the earlier rebuilt default capture still shows the settled memory-card
+prompt before input. After Continue, that default path is still black as
+already recorded above.
+
+The opt-in pass queues about 80 meshes per stable frame and resolves multiple
+textures, but that is not evidence of a correct scene. Its computed bounds
+remain broad and implausible (approximately NDC x `-2.3..1.8`, y
+`-1.45..1.9`); one startup sample is much worse. The captured 68/89/106
+vertex kind-6 sources belong to class `0x54`, while `DrawModelPart` also sees
+many class-4 parts, so rendering only the kind-6 subset is not a valid level
+renderer. The adapter still sends expanded `VertexRefs` as one GL triangle
+strip and reconstructs a row-major `model * view_projection` matrix. Those
+approximations are not yet justified by the decomp's `StripHeader` or the
+retail VU output. Keep this experiment isolated and disabled; do not change
+matrix order or add more renderer behavior without a bounded retail-to-native
+draw conversion. Capture/log: `/tmp/sly-one-slice-20261117/` and
+`/tmp/sly-one-slice-20261117.log`.
+
 ## Current visual and packet audit (2026-11-17)
 
 **Rebuilt default-client check (2026-11-17, 10:02 CET):** the default
