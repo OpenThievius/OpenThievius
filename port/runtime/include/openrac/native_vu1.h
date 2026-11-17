@@ -13,6 +13,8 @@ int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
                               uint32_t* stopped_pc, uint32_t* stopped_pipeline,
                               uint32_t* paired_word);
 void openrac_guest_vu1_set_itop(uint32_t value);
+void openrac_guest_vu1_set_trace_context(uint32_t submission_id,
+                                         uint32_t vif_command_offset);
 
 #ifdef __cplusplus
 }

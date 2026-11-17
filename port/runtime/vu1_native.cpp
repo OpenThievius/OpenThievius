@@ -28,6 +28,8 @@ constexpr uint32_t kVif1Top = 0x10003CE0u;
 constexpr size_t kVu1Doublewords = 2048;
 constexpr size_t kVu1Quadwords = 1024;
 constexpr uint32_t kMaxInstructions = 4096;
+thread_local uint32_t g_vu_trace_submission_id = 0xFFFFFFFFu;
+thread_local uint32_t g_vu_trace_vif_command_offset = 0xFFFFFFFFu;
 
 uint8_t* guest_address(uint32_t address) {
 #if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
@@ -969,7 +971,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                         target == 3u &&
                         xgkick_lqi_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
                         openrac::log::info(
-                            "native VU1 XGKICK LQI entry={:#x} pc={:#x} VF{} <- qword={} VI{}={} instruction={:#010x} data={:#010x},{:#010x},{:#010x},{:#010x}",
+                            "native VU1 XGKICK LQI submission={} mscal_offset={:#x} entry={:#x} pc={:#x} VF{} <- qword={} VI{}={} instruction={:#010x} data={:#010x},{:#010x},{:#010x},{:#010x}",
+                            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
                             g_vu_trace_entry, state->pc, target, address, base, old_address,
                             word, std::bit_cast<uint32_t>(loaded[0]),
                             std::bit_cast<uint32_t>(loaded[1]),
@@ -1187,6 +1190,12 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
 extern "C" void openrac_guest_vu1_set_itop(uint32_t value) {
     std::lock_guard lock(g_vu_mutex);
     g_state.itop = static_cast<uint16_t>(value & 0x3FFu);
+}
+
+extern "C" void openrac_guest_vu1_set_trace_context(uint32_t submission_id,
+                                                      uint32_t vif_command_offset) {
+    g_vu_trace_submission_id = submission_id;
+    g_vu_trace_vif_command_offset = vif_command_offset;
 }
 
 extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
@@ -1485,6 +1494,26 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                 vi_read(g_state, 5u), vi_read(g_state, 6u), vi_read(g_state, 8u),
                 vi_read(g_state, 9u), vi_read(g_state, 10u), vi_read(g_state, 14u),
                 vi_read(g_state, 15u), branch_delay ? 1u : 0u, end_delay ? 1u : 0u);
+        }
+        const uint32_t transform_vi8 = vi_read(before, 8u);
+        const bool trace_transform_range = entry == 0x411u &&
+            (current_pc >= 0x420u && current_pc <= 0x450u) &&
+            (cycle < 128u || (transform_vi8 >= 450u && transform_vi8 <= 470u) ||
+             next_pc != current_pc + 1u);
+        static std::atomic<uint32_t> transform_trace_count{0};
+        if (loop_trace_enabled && trace_transform_range &&
+            transform_trace_count.fetch_add(1, std::memory_order_relaxed) < 512u) {
+            openrac::log::info(
+                "native VU1 transform loop submission={} mscal_offset={:#x} entry={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} next={:#x} VI5={}->{} VI6={}->{} VI8={}->{} VI9={}->{} VI10={}->{} VI14={} VI15={} branch_delay={} end_delay={}",
+                g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                entry, cycle, current_pc, lower, upper, next_pc,
+                vi_read(before, 5u), vi_read(g_state, 5u),
+                vi_read(before, 6u), vi_read(g_state, 6u),
+                transform_vi8, vi_read(g_state, 8u),
+                vi_read(before, 9u), vi_read(g_state, 9u),
+                vi_read(before, 10u), vi_read(g_state, 10u),
+                vi_read(g_state, 14u), vi_read(g_state, 15u),
+                branch_delay ? 1u : 0u, end_delay ? 1u : 0u);
         }
         if (loop_trace_enabled && entry == 0x26Du &&
             current_pc == 0x2A9u && !trace_world_iteration &&

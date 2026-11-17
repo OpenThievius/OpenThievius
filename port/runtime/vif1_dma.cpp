@@ -238,7 +238,7 @@ uint32_t read_bits(const uint8_t* source, size_t bit_offset, uint32_t bit_count)
 
 bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
                 const uint8_t* source, size_t source_size, size_t stream_offset,
-                std::vector<VifInputTrace>* input_trace) {
+                uint32_t submission_id, std::vector<VifInputTrace>* input_trace) {
     const bool masking = (command & 0x10u) != 0;
     const uint32_t vectors = count == 0 ? 256u : count;
     const uint32_t format = command & 0xFu;
@@ -384,8 +384,8 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
              transform_write_notice.fetch_add(1, std::memory_order_relaxed) < 64u);
         if (trace_write) {
             openrac::log::info(
-                "native VIF1 UNPACK wrote VU qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
-                destination_index, command, immediate, vector_index, vectors,
+                "native VIF1 UNPACK wrote VU submission={} qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} TOP={} TOPS={} BASE={} OFFSET={} DBF={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+                submission_id, destination_index, command, immediate, vector_index, vectors,
                 stream_offset - sizeof(uint32_t),
                 stream_offset + vector_index * input_bytes_per_vector,
                 load_mmio(kVif1Top) & 0x3FFu, load_mmio(kVif1Tops) & 0x3FFu,
@@ -400,8 +400,8 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
             xgkick_write_notice[destination_index].fetch_add(
                 1, std::memory_order_relaxed) < 8u) {
             openrac::log::info(
-                "native VIF1 XGKICK UNPACK qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
-                destination_index, command, immediate, vector_index, vectors,
+                "native VIF1 XGKICK UNPACK submission={} qword={} command={:#04x} immediate={:#06x} vector={}/{} stream_command_offset={} stream_data_offset={} input={:#010x},{:#010x},{:#010x},{:#010x} mask={:#010x} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+                submission_id, destination_index, command, immediate, vector_index, vectors,
                 stream_offset - sizeof(uint32_t),
                 stream_offset + vector_index * input_bytes_per_vector,
                 input_lanes[0], input_lanes[1], input_lanes[2], input_lanes[3], mask,
@@ -414,6 +414,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
 }
 
 struct VifTrace {
+    uint32_t submission_id = 0xFFFFFFFFu;
     std::array<uint32_t, 0x80> command_counts{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mpg{};
     std::array<std::pair<uint32_t, uint32_t>, 32> mscal{};
@@ -530,7 +531,8 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint64_t bytes = bytes_per_vector * loops;
             if (bytes > stream.size() - cursor) return false;
             if (!unpack_vu1(command, count, immediate, stream.data() + cursor,
-                            static_cast<size_t>(bytes), cursor, input_trace)) {
+                            static_cast<size_t>(bytes), cursor, trace->submission_id,
+                            input_trace)) {
                 *unsupported_command = command;
                 return false;
             }
@@ -597,6 +599,17 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             break;
         case 0x14: case 0x15: case 0x17: // MSCAL / MSCALF / MSCNT
             {
+                const char* trace_mscal_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
+                static std::atomic<uint32_t> mscal_trace_count{0};
+                if (trace_mscal_setting != nullptr && trace_mscal_setting[0] != '\0' &&
+                    trace_mscal_setting[0] != '0' &&
+                    ((immediate & 0xFFFFu) == 0x411u ||
+                     mscal_trace_count.fetch_add(1, std::memory_order_relaxed) < 256u)) {
+                    openrac::log::info(
+                        "native VIF1 MSCAL submission={} stream_offset={} command={:#04x} entry={} ordinal={}",
+                        trace->submission_id, cursor - sizeof(uint32_t), command,
+                        immediate & 0xFFFFu, trace->mscal_total);
+                }
                 const uint32_t status = load_mmio(kVif1Status);
                 const uint32_t base = load_mmio(kVif1Base) & 0x3FFu;
                 const uint32_t offset = load_mmio(kVif1Offset) & 0x3FFu;
@@ -628,6 +641,8 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 uint32_t vu_pipeline = 0;
                 uint32_t vu_paired = 0;
                 const uint32_t entry = command == 0x17u ? 0xFFFFFFFFu : immediate;
+                openrac_guest_vu1_set_trace_context(
+                    trace->submission_id, static_cast<uint32_t>(cursor - sizeof(uint32_t)));
                 if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
                                                &vu_pipeline, &vu_paired)) {
                     trace->failed_in_vu = true;
@@ -663,8 +678,10 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                         }
                     }
                     *unsupported_command = command;
+                    openrac_guest_vu1_set_trace_context(0xFFFFFFFFu, 0xFFFFFFFFu);
                     return false;
                 }
+                openrac_guest_vu1_set_trace_context(0xFFFFFFFFu, 0xFFFFFFFFu);
             }
             break;
         case 0x00: case 0x05: case 0x06: case 0x07:
@@ -771,6 +788,8 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
     VifTrace trace;
+    static std::atomic<uint32_t> submission_sequence{0};
+    trace.submission_id = submission_sequence.fetch_add(1, std::memory_order_relaxed);
     const bool dma_ok = execute_dma(value, &stream, &segments);
     const bool vif_ok = dma_ok && execute_vif_stream(
         stream, &direct_bytes, &unsupported, &trace, &input_trace);
@@ -947,5 +966,7 @@ extern "C" int openrac_guest_vif1_fifo_write(uint32_t word0, uint32_t word1,
     size_t direct_bytes = 0;
     uint32_t unsupported = 0xFFFFFFFFu;
     VifTrace trace;
+    static std::atomic<uint32_t> fifo_sequence{0x80000000u};
+    trace.submission_id = fifo_sequence.fetch_add(1, std::memory_order_relaxed);
     return execute_vif_stream(stream, &direct_bytes, &unsupported, &trace, nullptr) ? 1 : 0;
 }
