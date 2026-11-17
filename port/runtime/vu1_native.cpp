@@ -1360,6 +1360,21 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             *paired_word = lower;
             *stopped_pc = current_pc;
             *stopped_pipeline = 0;
+            static std::atomic<uint32_t> upper_fault_context_notice{0};
+            if (upper_fault_context_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
+                std::ostringstream context;
+                const uint32_t first_cycle = cycle >= recent.size() - 1u
+                    ? cycle - static_cast<uint32_t>(recent.size() - 1u) : 0u;
+                for (uint32_t trace_cycle = first_cycle; trace_cycle <= cycle; ++trace_cycle) {
+                    const RecentInstruction& recent_instruction =
+                        recent[trace_cycle % recent.size()];
+                    context << " pc=" << std::hex << recent_instruction.pc
+                            << " [" << recent_instruction.lower << '/'
+                            << recent_instruction.upper << ']';
+                }
+                openrac::log::warn("native VU1 upper path to unsupported instruction entry={:#x}:{}",
+                                   entry, context.str());
+            }
             return 0;
         }
         const char* xgkick_data_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
