@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 21:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 21:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### PATH3 census closes the last append blind spot (2026-11-17, 21:30 CET)
+
+I found a gap in the accepted-append census: GIF channel 2 (PATH3) DMA chains
+are handed directly to `openrac_native_renderer_submit_dma_chain` by the
+port-only `func_00202A80.c:14-32` and appended at
+`port/runtime/sdl_renderer.cpp:833`, bypassing `gif_stream_write` and the
+census hook. I added the same read-only summary at that append site with the
+origin `gif-dma-chain` and reran the bounded 18-second capture with a
+process-local Cross at frame 300.
+
+The census now covers all three append paths: 691 GIF-DMA chains, 709 VIF
+DIRECT appends and 2,696 VU1 XGKICKs. PATH3 does carry substantial XYZF2
+traffic — 300 chains of about 206 KB with 376 XYZF2 writes each, and 336
+chains with 40 each — but every PRIM observed is a sprite variant (0x6, and
+values whose low three bits are 6), with no PRIM 3 or 4. The earlier
+conclusion is therefore complete: **no triangle-list or triangle-strip XYZ
+write reaches any native append path**, including PATH3. The missing world
+geometry is not hidden in a queue the census could not see.
+
+Capture: `/tmp/sly-path3-census-20261117/run.log`. The wrapper exited 137 and
+no launcher remains. The default client still renders the no-card prompt and
+goes black after Continue; no playable scene is confirmed.
 
 ### VU scratch position dump for the selected lit mesh (2026-11-17, 21:20 CET)
 

@@ -34,6 +34,10 @@
 #include <unistd.h>
 #include <vector>
 
+// Defined in vu1_native.cpp; the same read-only accepted-append summary for the PATH3 chain.
+extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
+                                                 const char* origin);
+
 // The standalone Sly window renders straight to framebuffer 0 without MSAA.
 // OpenRAC's DirectRenderer uses this adapter only when a packet samples the
 // current frame back into itself.
@@ -831,6 +835,7 @@ extern "C" void openrac_native_renderer_submit_dma_chain(std::uint32_t source_ad
             return;
         }
         g_packets.insert(g_packets.end(), stream.begin(), stream.end());
+        openrac_trace_accepted_kick_xyz(stream.data(), stream.size(), "gif-dma-chain");
         trace_gif_queue_append("dma-chain", stream.size(), source_address);
     }
     if (std::getenv("OPENRAC_TRACE_DMA_CALL") != nullptr) {
