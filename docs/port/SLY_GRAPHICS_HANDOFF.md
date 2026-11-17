@@ -1,8 +1,60 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 17:16 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 19:55 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Corrected three-part visual audit (2026-11-17, 19:55 CET)
+
+I finished the interrupted bounded capture. The branch is clean at `545ead7`;
+the sibling decomp was not touched. Two corrections were needed first.
+
+The stale capture was driven by one zsh orchestrator (PID 499811, started
+17:19) that had only completed its `default-pre` stage before hanging. The
+launcher ignores `SIGTERM`, so `timeout 8s` without `--kill-after` waited
+indefinitely and left a zombie child. I killed the wrapper and its descendants;
+no launcher remained. Re-running `timeout -s KILL` gave a reliable exit 137 on
+each bounded stage.
+
+More importantly, `OPENRAC_NATIVE_SLY_WORLD_RENDERER` is a **compile-time
+option only**. `port/CMakeLists.txt:21-31` turns it into
+`--native-sly-world-renderer` for `port/tools/compile_decomp_host32.py`, which
+rewrites only `main/placed_object_model.cpp` to call the mesh bridges in
+`port/sly1/native_host32/main.cpp` that feed `g_world_meshes` in
+`port/runtime/sdl_renderer.cpp`. No source reads it from the environment. The
+interrupted script used the `wave55-sdl32-release` binary (option ON) for all
+three stages and set `OPENRAC_NATIVE_SLY_WORLD_RENDERER=1` only for the last,
+so that variable did nothing and its "default" labels were wrong. Use two
+distinct binaries instead.
+
+Both on-disk launchers predated HEAD (`sdl_renderer.cpp` was newer than the
+OFF binary), so I rebuilt both with
+`cmake --build build/port/{wave55-sdl32,wave55-sdl32-release} --target
+port_native_sdl_host32 -j4`; each succeeded with 99 missing-function traps.
+Then I recaptured three genuinely separate cases under
+`/tmp/sly-corrected-audit-20261117/`, 960x720, hidden window, one process-local
+Cross at native frame 300 for the two post-input cases, and eight frames per
+case:
+
+- **OFF/default, no input:** all eight frames show the complete no-card
+  Continue prompt (about 374,452 nonblack pixels); the hashes differ only in
+  the animated highlight.
+- **OFF/default, after Cross:** all eight frames are pixel-identical pure
+  black (SHA-256 `768f866988705498...` for all eight). The log injects Cross
+  at native frame 300 before the first dump. This confirms the known
+  post-Continue failure on the rebuilt default binary; it is not a regression
+  to startup black.
+- **ON/release, after Cross:** all eight frames are pixel-identical distorted
+  gray geometry, a horizon with stretched structures (SHA-256
+  `dab343deece79ddf...` for all eight). This is the opt-in adapter, not the
+  default path.
+
+These offscreen captures cannot test desktop-compositor flicker. No launcher
+remains. The visual-regression question from the paused session is now settled:
+default post-Continue is black, opt-in output is the same distorted gray scene
+recorded earlier. Next, trace one representative visible model through VU1 and
+its GIF output to find where its triangle packet disappears. Do not add
+renderer features until that boundary and a target silhouette are established.
 
 ### Correct strip-to-list comparison and whole-part probe (2026-11-17, 17:16 CET)
 

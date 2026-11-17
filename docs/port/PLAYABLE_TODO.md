@@ -1,6 +1,49 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-17, 19:55 CET)
+
+I finished the interrupted three-part capture after correcting two problems.
+The stale orchestrator had used `timeout` without `--kill-after` and hung
+because the launcher ignores `SIGTERM`; I killed it and confirmed no launcher
+remains. More importantly, `OPENRAC_NATIVE_SLY_WORLD_RENDERER` is a
+**compile-time** option (`port/CMakeLists.txt:21-31` →
+`--native-sly-world-renderer` in `port/tools/compile_decomp_host32.py:2517`),
+not an environment variable. The interrupted script used the renderer-ON
+Release binary for all three stages, so its "default" captures were not default
+at all. Both on-disk binaries predated HEAD `545ead7`; I rebuilt both targets
+from current source and recaptured from the distinct binaries.
+
+Three cases, 960x720 hidden-window, eight frames each, one process-local Cross
+at native frame 300 for the post-input cases (logs and PPMs in
+`/tmp/sly-corrected-audit-20261117/`):
+
+- OFF/default, no input: the full no-card Continue prompt, stable apart from
+  its animated highlight.
+- OFF/default, after Cross: eight pixel-identical pure-black frames (SHA-256
+  `768f866988705498...`). The default client still reaches the known
+  post-Continue failure.
+- ON/release, after Cross: eight pixel-identical distorted gray frames
+  (SHA-256 `dab343deece79ddf...`), the same horizon and stretched structures
+  seen before. This is the opt-in adapter only.
+
+Visual regression status is now confirmed: no new default-path regression, and
+no playable scene. Offscreen captures cannot test desktop-compositor flicker.
+
+A parallel read-only audit of the opt-in adapter found its main unresolved
+unknown is primitive topology and vertex order (`GL_TRIANGLE_STRIP` over all
+`VertexRefs` at `port/runtime/sdl_renderer.cpp:581`), not the matrix convention,
+which was already checked. Provable adapter divergences from the matched decomp
+are missing skinning, missing per-vertex W/fog, missing normals/lighting, and
+subsampled material state; `FrameSource` handling as material passes over
+shared geometry is structurally correct. A single-object silhouette can be
+captured today with existing opt-in flags — no code change needed.
+
+**Next:** trace one representative visible model through its VU1 execution and
+GIF output to find where its triangle packet disappears. Do not add renderer
+features until that boundary is understood and a target silhouette can be
+compared with the reference. Keep all diagnostics opt-in and port-only.
+
 ## Current checkpoint (2026-11-17, 17:16 CET)
 
 I corrected the earlier triangle-list experiment: setting `GL_TRIANGLES`
