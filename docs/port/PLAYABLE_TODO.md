@@ -1,7 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-17, 16:08 CET)
+## Current checkpoint (2026-11-17, 16:27 CET)
+
+I checked the current default host32 client again and inspected the actual
+captured frames. With no input, it displays the complete no-memory-card
+Continue prompt and the known small white dash at the left edge. One
+process-local Cross at native frame 300 makes the prompt shrink during its
+dismissal; the sampled frame is black by eligible frame 315. Eight later
+consecutive frames are pixel-identical black. The client still does not reach
+playable world graphics.
+
+A short run also captured one thin green-line frame after input. It did not
+recur in a longer capture and is not evidence of a stable scene. SDL's offscreen
+driver cannot rule out flicker in the desktop window. See the transition
+captures and logs in `/tmp/sly-client-transition-verify-20261117-1626/` and
+`/tmp/sly-client-postcontinue-verify2-20261117-1625/`; the launcher ended at
+the bounded diagnostic timeout (137).
+
+**Next:** keep the focus on the missing world triangles. Trace one
+representative `DrawModelPart` through its DMA/VIF range, VU output, and GIF
+input. Do not treat the dismissal animation or isolated green-line image as a
+rendered level.
+
+## Previous checkpoint (2026-11-17, 16:08 CET)
 
 I rebuilt and visually inspected the current default host32 client. With no
 input, a settled capture shows the complete no-memory-card Continue prompt and

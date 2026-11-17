@@ -1,8 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 16:08 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 16:27 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Fresh client output audit (2026-11-17, 16:27 CET)
+
+I reran the current default `wave55-sdl32` binary offscreen and inspected the
+captured images. With no input, the full no-card Continue prompt is present;
+its highlight animates and the known small white dash remains at the left
+edge. A process-local Cross at native frame 300 was sampled across eligible
+frames 280–315: the prompt shrinks during dismissal, then the display becomes
+black. Eight consecutive later frames are pixel-identical black. This confirms
+the known post-Continue black state, not a regression to startup black.
+
+One separate short run captured a single frame of thin green lines after the
+input. It did not recur in the longer run, which produced eight identical
+black frames. Treat it as an unexplained transient capture, not stable world
+graphics. These SDL offscreen captures cannot confirm or rule out flicker in
+the desktop window. Contact sheets and logs are in
+`/tmp/sly-client-verify-20261117-1624/`,
+`/tmp/sly-client-transition-verify-20261117-1626/`,
+`/tmp/sly-client-postcontinue-verify-20261117-1624/`, and
+`/tmp/sly-client-postcontinue-verify2-20261117-1625/`. Runs ended at their
+diagnostic timeouts (137); no launcher remains.
+
+The input transition itself is captured now, so the next graphics task remains
+the same: trace a representative world mesh through VU1 to determine where its
+triangle output is lost. Do not treat the shrinking UI or transient green-line
+frame as level rendering.
 
 ### Current visual and GS audit (2026-11-17, 16:08 CET)
 

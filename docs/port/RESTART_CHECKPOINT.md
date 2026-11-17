@@ -1,7 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-17, 16:08 CET; visual and primitive recheck)
+## Current checkpoint (2026-11-17, 16:27 CET; transition-frame audit)
+
+I inspected fresh captures from the current default host32 binary. A no-input
+run shows the full no-card Continue prompt and known left-edge white dash. One
+process-local Cross at native frame 300 shrinks the prompt during dismissal;
+the sampled image is black by eligible frame 315. Eight later consecutive
+frames are pixel-identical black. This confirms the existing prompt-to-black
+failure, not a startup regression.
+
+A separate short run produced one thin green-line frame after input. It did
+not recur in the longer run and is not evidence of stable world graphics. The
+offscreen capture cannot resolve flicker specific to the desktop window. The
+three capture sets and logs are under `/tmp/sly-client-verify-20261117-1624/`,
+`/tmp/sly-client-transition-verify-20261117-1626/`, and
+`/tmp/sly-client-postcontinue-verify2-20261117-1625/`. The bounded launcher
+runs ended at their requested timeouts (137); no game process remains.
+
+The next task is still to trace a representative world mesh through VU1 to
+find where triangle output is lost. Do not interpret the dismissal animation
+or isolated green-line capture as world rendering.
+
+## Previous checkpoint (2026-11-17, 16:08 CET; visual and primitive recheck)
 
 The current default host32 client was rebuilt and inspected offscreen. A settled
 no-input frame shows the no-card Continue prompt and the known small white dash
