@@ -55,12 +55,16 @@ The saved first Sly mesh packet (`/tmp/sly-world-part-0.bin`, 141 qwords)
 decodes as VIF commands, not GIF output: it UNPACKs a three-vector header,
 then 68 V4-32 vectors to VU1 address `0x027`, calls `MSCAL 0x318`, writes
 another 68 V4-32 vectors at address `0x188`, and calls `MSCAL 0x401`. This
-confirms the correct next trace target for the Sly class-2 kind-0 path. It does
-not yet show which XGKICK bytes those programs produce or correlate them to a
-particular queued GIF packet. Continue by tracing these entries and their kicks
-in the running port, then match the results to the packet-only A+D captures.
-Trace:
-`/tmp/sly-detach-mesh-trace-cross-20261117.log` and
+is tied to DMA segment 287 at guest address `0x016d5890` in the current host32
+run. MSCAL calls at VIF offsets 178904 (`0x318`), 180020 (`0x401`), and 181408
+(`0x411`) were observed in that stream. An XGKICK trace filtered to those
+offsets recorded no kick, while the qword-469 rejection belongs to a separate
+kind-5 entry `0x5f` path at offset `0x1790`. This removes the rejected kick as
+an established explanation for Sly's missing geometry; the output handoff
+from the kind-0 VU programs is still unknown. Evidence:
+`/tmp/sly-kind0-offset-xgkick-20261117.log`,
+`/tmp/sly-kind0-xgkick-20261117.log`,
+`/tmp/sly-detach-mesh-trace-cross-20261117.log`, and
 `/tmp/sly-world-mesh-capture-20261117.log`.
 
 The earlier no-input cadence capture remains stable on the complete no-card
@@ -70,12 +74,12 @@ black intervals visible in the user's Nov 15 screen recording (17–116 ms in
 the cropped game window); whether those gaps are guest rendering or desktop
 presentation remains unresolved.
 
-**Next graphics task:** trace Sly's class-2 kind-0 lit model from
-`BuildLitStripMeshPacket` through its VIF/MSCAL data and XGKICK output. Match
-those outputs to a specific queued packet and identify why the post-transition
-GIF frames contain only A+D descriptors. Preserve strict GIF validation. Keep
-the separately traced kind-5 qword-469 mismatch as an anomaly; it is not yet
-connected to the Sly model path. Do not treat
+**Next graphics task:** inspect the VU stop/return state and output data from
+Sly's kind-0 `0x318`/`0x401` calls, then follow their output to the normal
+renderer and a specific queued packet. Explain why the post-transition GIF
+frames contain only A+D descriptors. Preserve strict GIF validation. Keep the
+separately traced kind-5 qword-469 mismatch as an anomaly; it is not connected
+to Sly's kind-0 calls. Do not treat
 `QueueModelPartDraws` counts as rendered geometry, and do not
 enable the optional kind-6 host mesh adapter as a fix for the retail packet
 path. Keep any host-only renderer experiment opt-in and separate from matched

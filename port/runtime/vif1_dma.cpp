@@ -227,27 +227,57 @@ void trace_target_dma_chain(uint32_t chcr, uint32_t madr, uint32_t qwc,
     const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
     if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
     static std::atomic_flag emitted = ATOMIC_FLAG_INIT;
+    uint32_t target_address = 0x018d1270u;
+    bool custom_target = false;
+    if (const char* address_setting =
+            std::getenv("OPENRAC_TRACE_VIF_DMA_ADDRESS")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(address_setting, &end, 0);
+        if (end != address_setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            target_address = static_cast<uint32_t>(parsed);
+            custom_target = true;
+        }
+    }
     const auto target = std::find_if(segments.begin(), segments.end(),
-        [](const DmaSegment& segment) {
-            return segment.tag_address == 0x003c3d60u &&
-                   segment.data_address == 0x018d1270u;
+        [target_address, custom_target](const DmaSegment& segment) {
+            return segment.data_address == target_address &&
+                   (custom_target || segment.tag_address == 0x003c3d60u);
         });
     if (target == segments.end() || emitted.test_and_set(std::memory_order_relaxed))
         return;
+    const size_t target_index = static_cast<size_t>(target - segments.begin());
     openrac::log::info(
-        "native VIF1 target DMA root CHCR={:#010x} MADR={:#010x} QWC={} TADR={:#010x} segments={}",
-        chcr, madr, qwc, tadr, segments.size());
-    for (const DmaSegment& segment : segments) {
-        if (segment.tag_address == 0x003c3d60u ||
-            segment.tag_address == 0x003c3d50u ||
-            segment.tag_address == 0x003c3d70u ||
-            segment.data_address == 0x018d1270u) {
-            openrac::log::info(
-                "native VIF1 target DMA neighbor id={} qwc={} tag={:#010x} data={:#010x} stream_offset={} bytes={}",
-                segment.id, segment.qwc, segment.tag_address, segment.data_address,
-                segment.stream_offset, segment.stream_size);
-        }
+        "native VIF1 target DMA root target={:#010x} segment_index={} CHCR={:#010x} MADR={:#010x} QWC={} TADR={:#010x} segments={}",
+        target_address, target_index, chcr, madr, qwc, tadr, segments.size());
+    const size_t first = target_index == 0 ? 0 : target_index - 1u;
+    const size_t last = std::min(segments.size(), target_index + 2u);
+    for (size_t index = first; index < last; ++index) {
+        const DmaSegment& segment = segments[index];
+        openrac::log::info(
+            "native VIF1 target DMA neighbor index={} id={} qwc={} tag={:#010x} data={:#010x} stream_offset={} bytes={}",
+            index, segment.id, segment.qwc, segment.tag_address,
+            segment.data_address, segment.stream_offset, segment.stream_size);
     }
+}
+
+bool trace_vu1_mscal_entry(uint32_t entry) {
+    const char* setting = std::getenv("OPENRAC_TRACE_VU1_MSCAL_ENTRIES");
+    if (setting == nullptr) return false;
+    const char* cursor = setting;
+    while (*cursor != '\0') {
+        while (*cursor == ',' || *cursor == ' ' || *cursor == '\t') ++cursor;
+        if (*cursor == '\0') break;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(cursor, &end, 0);
+        if (end == cursor) {
+            while (*cursor != '\0' && *cursor != ',') ++cursor;
+            continue;
+        }
+        if (parsed == entry) return true;
+        cursor = end;
+        while (*cursor != '\0' && *cursor != ',') ++cursor;
+    }
+    return false;
 }
 
 bool skip_bytes(size_t* cursor, size_t amount, size_t size) {
@@ -631,10 +661,17 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             {
                 const char* trace_mscal_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
                 static std::atomic<uint32_t> mscal_trace_count{0};
-                if (trace_mscal_setting != nullptr && trace_mscal_setting[0] != '\0' &&
-                    trace_mscal_setting[0] != '0' &&
-                    ((immediate & 0xFFFFu) == 0x411u ||
-                     mscal_trace_count.fetch_add(1, std::memory_order_relaxed) < 256u)) {
+                const bool trace_mscal_enabled = trace_mscal_setting != nullptr &&
+                    trace_mscal_setting[0] != '\0' && trace_mscal_setting[0] != '0';
+                const bool trace_selected_mscal =
+                    trace_vu1_mscal_entry(immediate & 0xFFFFu);
+                const uint32_t mscal_trace_ordinal = trace_mscal_enabled
+                    ? mscal_trace_count.fetch_add(1, std::memory_order_relaxed)
+                    : 0xFFFFFFFFu;
+                if (trace_selected_mscal ||
+                    (trace_mscal_enabled &&
+                     ((immediate & 0xFFFFu) == 0x411u ||
+                      mscal_trace_ordinal < 256u))) {
                     openrac::log::info(
                         "native VIF1 MSCAL submission={} stream_offset={} command={:#04x} entry={} ordinal={}",
                         trace->submission_id, cursor - sizeof(uint32_t), command,

@@ -4,6 +4,36 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### Sly kind-0 packet follow-up (2026-11-17)
+
+A rebuilt host32 client traces Sly's saved first kind-0 mesh address,
+`0x016d5890`, to DMA segment 287: 141 QWC at VIF stream offset 177776. The
+adjacent segment starts at offset 180032. In the same stream, selected MSCAL
+calls occur at offsets 178904 (`0x318`), 180020 (`0x401`), and 181408
+(`0x411`). These are now tied to Sly's packet address rather than inferred
+from shared VU entry numbers.
+
+An XGKICK trace filtered to those three command offsets records no kick from
+any of them. In contrast, the qword-469 rejection is logged at entry `0x5f`,
+VIF offset `0x1790`, followed by the accepted qword-35 kick. That is a separate
+kind-5 path in the same large VIF batch, not a demonstrated failure in Sly's
+kind-0 calls. This corrects the earlier assumption that tracing those shared
+entries would directly expose the failing Sly kick. The reason the kind-0
+calls do not produce a logged kick, and where their output should enter the
+GIF stream, remain open.
+
+The offset-filtered run injected one process-local Cross press; it did not
+capture a confirming image. The playable screen remains unverified beyond the
+previously confirmed black frame. No matched decompilation or gameplay
+behavior was changed. Build and run evidence:
+`/tmp/sly-kind0-offset-xgkick-20261117.log`;
+the earlier submission-filtered run is
+`/tmp/sly-kind0-xgkick-20261117.log`.
+
+Next, trace the VU program stop/return state and the data written by the
+kind-0 `0x318`/`0x401` calls, then match any later output to the normal
+renderer’s queued GIF packets. Keep the kind-5 qword-469 anomaly separate.
+
 ### Latest client and VU/GIF boundary check (2026-11-17, 04:50–04:52 CET)
 
 The foreground host32 window remains fully black after one process-local

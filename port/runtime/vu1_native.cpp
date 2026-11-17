@@ -111,6 +111,46 @@ std::atomic<uint32_t> g_vu_kick_notice_count{0};
 std::atomic<uint32_t> g_vu_kick_success_notice_count{0};
 thread_local uint32_t g_vu_trace_entry = 0xFFFFFFFFu;
 
+bool trace_vu1_xgkick_context_matches() {
+    bool has_filter = false;
+    bool matches = true;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_XGKICK_SUBMISSION")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            has_filter = true;
+            matches = matches && parsed == g_vu_trace_submission_id;
+        }
+    }
+    if (const char* setting = std::getenv("OPENRAC_TRACE_XGKICK_MSCAL_OFFSETS")) {
+        const char* cursor = setting;
+        bool valid_value = false;
+        bool offset_matches = false;
+        while (*cursor != '\0') {
+            while (*cursor == ',' || *cursor == ' ' || *cursor == '\t') ++cursor;
+            if (*cursor == '\0') break;
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(cursor, &end, 0);
+            if (end == cursor) {
+                while (*cursor != '\0' && *cursor != ',') ++cursor;
+                continue;
+            }
+            if (parsed <= 0xFFFFFFFFul) {
+                valid_value = true;
+                if (parsed == g_vu_trace_vif_command_offset)
+                    offset_matches = true;
+            }
+            cursor = end;
+            while (*cursor != '\0' && *cursor != ',') ++cursor;
+        }
+        if (valid_value) {
+            has_filter = true;
+            matches = matches && offset_matches;
+        }
+    }
+    return !has_filter || matches;
+}
+
 Vector vf_read(const State& state, uint32_t index) {
     if (index == 0) return {0.0f, 0.0f, 0.0f, 1.0f};
     return state.vf[index & 31u];
@@ -484,18 +524,22 @@ void dispatch_pending_kick(PendingKick* pending) {
         if (end != setting && *end == '\0' && parsed <= 100000u)
             state_trace_limit = static_cast<uint32_t>(parsed);
     }
-    const bool trace_this_kick =
-        trace_state != nullptr && trace_state[0] != '\0' && trace_state[0] != '0' &&
-        state_trace_count.fetch_add(1, std::memory_order_relaxed) < state_trace_limit;
+    const bool trace_enabled = trace_state != nullptr && trace_state[0] != '\0' &&
+        trace_state[0] != '0';
+    const bool trace_this_kick = trace_enabled &&
+        trace_vu1_xgkick_context_matches() &&
+        state_trace_count.fetch_add(1, std::memory_order_relaxed) <
+            state_trace_limit;
     if (trace_this_kick) {
         uint32_t tag_loaded = 0;
         uint32_t remaining_qwords = 0;
         uint64_t tag_low = 0;
         openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
         openrac::log::info(
-            "native VU1 XGKICK parser state entry={:#x} PC={:#x} address={} active={} remaining={} tag={:#018x}",
-            g_vu_trace_entry, pending->pc, pending->address, tag_loaded, remaining_qwords,
-            tag_low);
+            "native VU1 XGKICK parser state submission={} mscal_offset={:#x} entry={:#x} PC={:#x} address={} active={} remaining={} tag={:#018x}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+            g_vu_trace_entry, pending->pc, pending->address, tag_loaded,
+            remaining_qwords, tag_low);
     }
 
     uint32_t failure = 0;
@@ -508,9 +552,10 @@ void dispatch_pending_kick(PendingKick* pending) {
                                    &failed_tag_high);
     if (trace_this_kick) {
         openrac::log::info(
-            "native VU1 XGKICK trace entry={:#x} PC={:#x} address={} accepted={} first_tag={:#018x} failed_address={} failed_tag={:#018x}:{:#018x} failure={}",
-            g_vu_trace_entry, pending->pc, pending->address, accepted, first_tag, failed_address,
-            failed_tag_high, failed_tag,
+            "native VU1 XGKICK trace submission={} mscal_offset={:#x} entry={:#x} PC={:#x} address={} accepted={} first_tag={:#018x} failed_address={} failed_tag={:#018x}:{:#018x} failure={}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+            g_vu_trace_entry, pending->pc, pending->address, accepted,
+            first_tag, failed_address, failed_tag_high, failed_tag,
             failure == 0 ? "none" : failure == 1 ? "packet exceeds native limit" :
             failure == 2 ? "missing EOP" : "GIFtag has reserved bits set");
     }
@@ -1127,6 +1172,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 static std::atomic<uint32_t> kick_address_notice{0};
                 if (kick_address_trace != nullptr && kick_address_trace[0] != '\0' &&
                     kick_address_trace[0] != '0' &&
+                    trace_vu1_xgkick_context_matches() &&
                     kick_address_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
                     const uint32_t previous_qword = (address + kVu1Quadwords - 1u) & 0x3FFu;
                     const uint8_t* previous_data = guest_address(
@@ -1138,7 +1184,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                     std::memcpy(&target_high, target_data + sizeof(target_low),
                                 sizeof(target_high));
                     openrac::log::info(
-                        "native VU1 XGKICK operand entry={:#x} pc={:#x} instruction={:#010x} source=VI{} value={} VI3={} VI4={} VI6={} VI7={} previous_qword={} previous_low={:#018x} target_low={:#018x} target_high={:#018x}",
+                        "native VU1 XGKICK operand submission={} mscal_offset={:#x} entry={:#x} pc={:#x} instruction={:#010x} source=VI{} value={} VI3={} VI4={} VI6={} VI7={} previous_qword={} previous_low={:#018x} target_low={:#018x} target_high={:#018x}",
+                        g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
                         g_vu_trace_entry, state->pc, word, source, address,
                         vi_read(*state, 3u), vi_read(*state, 4u),
                         vi_read(*state, 6u), vi_read(*state, 7u), previous_qword,
