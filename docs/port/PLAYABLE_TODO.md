@@ -3,6 +3,39 @@
 
 ## Current visual and packet audit (2026-11-17)
 
+**Fresh default-client verification (2026-11-17, 08:21 CET; supersedes the
+07:44-only visual checkpoint):** I rebuilt the default `wave55-sdl32` launcher
+from the current source with `OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`, then
+captured eight later hidden frames after native frame 500. They all show the
+complete no-memory-card prompt. The short white dash at the left edge remains
+visible. The sampled frames do not show a whole-screen flicker; the Continue
+highlight changes slightly between samples. Capture contact sheet:
+`/home/reaper/sly/sly-default-client-contact-20261117.png`; final frame:
+`/home/reaper/sly/sly-default-client-check-frame-20261117.png`. A separate
+default-build run with one process-local Cross at frame 300 still shows a
+black post-Continue frame:
+`/home/reaper/sly/sly-default-postcontinue-frame-20261117.png`. This is the
+known post-Continue failure, not a regression in the startup prompt. The first
+eight frames immediately after process launch were black before the later
+prompt frames; do not use those early frames as the settled startup result.
+
+**Isolated world-renderer check (2026-11-17, 08:17 CET):** the opt-in
+`wave55-sdl32-release` build remains separate from the default launcher. Its
+mesh capture now keys by strip header and binds to the detached packet address;
+the previous source-mesh-only key conflated different strip instances. The
+bounded trace records 32 successful packet-address submissions with no lookup
+miss in that logged sample. The resulting post-Continue frame is still only a
+flat gray ground and horizon, without a recognizable level:
+`/home/reaper/sly/sly-packet-key-check-frame-20261117.png`; trace:
+`/home/reaper/sly/sly-packet-key-check-20261117.log`. Solid-color mode shows a
+single teal full-cover mesh; skipping that mesh leaves only a teal horizon
+against black sky. Captures:
+`/home/reaper/sly/sly-packet-key-solid-check-frame-20261117.png` and
+`/home/reaper/sly/sly-packet-key-skip-check-frame-20261117.png`. This confirms
+the key collision was one adapter error, but the renderer still does not
+produce the other recognizable world geometry. The default option stays OFF,
+and no matched decompilation source was changed.
+
 **Fresh client audit (2026-11-17):** I rebuilt and opened the current host32
 client in the foreground, sent one process-local Cross at frame 300, and
 captured `/tmp/sly-current-visible-postcross-20261117.png`. The visible frame
@@ -142,11 +175,11 @@ filters. The target chain has now been traced through entries `0x51`, `0x242`,
 `0x356`, and finish entry `0x2`; see the fresh sequence below. The remaining
 work is to follow the strip UNPACKs after `0x356` to the later GIF submission.
 
-**Latest client check (2026-11-17, 06:05 CET):** I inspected the fresh
-foreground capture `/tmp/sly-current-visible-postcross-20261117.png` after a
-process-local Cross at native frame 300. The client still shows a fully black
-frame after Continue. This is a repeatable failure, not a newly observed
-regression; the port is not playable yet. No launcher is currently running.
+**Earlier draw-list trace (2026-11-17, 06:05 CET):** the foreground capture
+`/tmp/sly-current-visible-postcross-20261117.png` followed a process-local
+Cross at native frame 300 and showed a fully black frame after Continue. The
+later 07:44 CET check is recorded at the top of this section; this 06:05 trace
+remains useful for its game-side and DirectRenderer details below.
 
 The deeper trace corrects our previous diagnosis: the periodic startup sampler
 still reports Splash world `0x6abdd0`, frame stage 2 and 2,426 sectors read,
@@ -891,12 +924,14 @@ identify the next one; the bounded task above replaces the old candidate
 ranking plan. Evidence: `/tmp/sly-targeted-world-part.log`, its
 `/tmp/sly-world-part-{0,1,2}.bin` captures, and the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
-## Latest status (2026-11-15, native kind-6 renderer prototype)
+## Historical host32 and kind-6 renderer experiment (2026-11-15)
 
-The sibling decomp remains at `1cbb33fd`: 4,807/4,807 US functions and 100% of
-code matched. The host32 build compiles 194 matched units and 85 separate
-port-only backfills, maps 4,400 catalogued entries, and links 99 fallback
-traps. Those totals describe build coverage, not game readiness.
+At the time of this capture, the staged source was `1cbb33fd`: 4,807/4,807 US
+functions and 100% of code matched. The current sibling checkout and active
+staging snapshot have since advanced to `8f7a85a3`. The host32 build recorded
+here compiled 194 matched units and 85 separate port-only backfills, mapped
+4,400 catalogued entries, and linked 99 fallback traps. Those totals describe
+build coverage, not game readiness.
 
 The corrected focused trace changes the diagnosis. After one process-local
 Cross press, the no-card page clears, the active world changes from the Splash

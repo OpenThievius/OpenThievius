@@ -1,8 +1,38 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17. The active host32 staging snapshot and sibling
-`sly1-decomp` checkout are both at public master `8f7a85a3`.
+Last checked: 2026-11-17, 08:21 CET. The active host32 staging snapshot and
+sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Current default-client and adapter check (2026-11-17, 08:21 CET)
+
+The current default launcher was rebuilt with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`. Eight later hidden frames after native
+frame 500 show the full no-memory-card prompt, with the known short white dash
+at the left edge. The Continue highlight varies slightly in this sample; the
+prompt does not disappear or turn into a full-screen black frame. See
+`/home/reaper/sly/sly-default-client-contact-20261117.png`. A separate
+process-local Cross at native frame 300 still produces a black post-Continue
+frame (`/home/reaper/sly/sly-default-postcontinue-frame-20261117.png`). The
+initial eight frames at process startup were black, so use later captures when
+checking the settled prompt.
+
+The opt-in `wave55-sdl32-release` renderer experiment is isolated from that
+default build. Its capture map now binds each strip header's captured geometry
+to the detached packet address used by `PartMesh::addr0`. This removes the
+source-mesh-key collision where distinct strip packets reused one source mesh.
+The bounded fresh trace records 32 successful packet-address submissions
+without a lookup miss in that logged sample. The resulting frame is a flat
+gray ground/horizon, still without a recognizable level:
+`/home/reaper/sly/sly-packet-key-check-frame-20261117.png` and
+`/home/reaper/sly/sly-packet-key-check-20261117.log`. Solid-color mode shows
+one teal full-cover mesh; skipping that mesh leaves only a teal horizon
+against black sky. See
+`/home/reaper/sly/sly-packet-key-solid-check-frame-20261117.png` and
+`/home/reaper/sly/sly-packet-key-skip-check-frame-20261117.png`. The packet-key
+fix removes one adapter aliasing error, but the experiment still fails to
+produce recognizable world geometry. The default option remains OFF; matched
+decompilation sources were not edited.
 
 ### Fresh client and dynamic-target trace (2026-11-17)
 

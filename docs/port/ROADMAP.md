@@ -1,6 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
+## Current checkpoint (2026-11-17, 08:21 CET)
+
+The default launcher, rebuilt from the current source with the optional Sly
+world renderer disabled, reaches and keeps the complete no-memory-card prompt
+in a later-frame capture. The known short white dash at the left edge remains.
+A process-local Cross still leads to a black frame. The isolated renderer
+experiment now associates captured strips with their detached packet
+addresses; its post-Continue output remains only a gray ground and horizon.
+Neither the packet-key fix nor the startup prompt is a playable level. See the
+[latest visual and packet audit](PLAYABLE_TODO.md#current-visual-and-packet-audit-2026-11-17)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#current-default-client-and-adapter-check-2026-11-17-0821-cet).
+
 ## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated
@@ -33,10 +45,11 @@ fact before writing more renderer code.
 
 The code match is complete for US functions, but that does not make the port
 host-ready. VU microcode remains assembly, and host-generation still needs
-port-only replacements and fallback traps. Public decomp master is `8f7a85a3`;
-the sibling checkout is older at `1cbb33fd`. A separate current-source
-staging build compiles 194 matched units and 85 port-only backfills. Keep such
-replacements under `port/game/sly1-us/native/`, not in matching source.
+port-only replacements and fallback traps. Public decomp master and the
+sibling checkout are both at `8f7a85a3`; the active host32 staging snapshot is
+also sourced from that revision. Its 194 matched units and 85 port-only
+backfills describe build coverage, not game readiness. Keep such replacements
+under `port/game/sly1-us/native/`, not in matching source.
 
 See [the playable TODO](PLAYABLE_TODO.md) for the bounded work slice,
 [the graphics handoff](SLY_GRAPHICS_HANDOFF.md) for evidence, and
