@@ -1,7 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-17, 16:27 CET)
+## Current checkpoint (2026-11-17, 16:40 CET)
+
+I reran the default host32 client with SDL's offscreen driver and inspected
+eight settled frames sampled 30 eligible presents apart. Every frame shows the
+complete no-memory-card Continue prompt; only its highlight animates. This
+does not reproduce a screen-wide flicker in the captured render buffer, and
+does not test flicker in the desktop compositor. The default build cache has
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`; its known post-Continue result remains
+black. The separate Release cache has that option ON and produces gray fan-like
+surfaces. Do not compare that diagnostic image with default-client output.
+
+The opt-in image confirms the source-position adapter is still malformed, not
+that the default client regressed. The adapter approximates shared geometry
+with one GL triangle strip and draws the full vertex list once for each
+material pass. The matched `FrameSource` offsets are VU-memory offsets, not
+vertex boundaries, so splitting the vertex array by source would also be
+wrong. Capture: `/tmp/sly-native-world-strip-audit-20261117/contact.png`.
+Fresh default capture and log:
+`/tmp/sly-client-foreground-audit-20261117/contact.png` and
+`/tmp/sly-client-foreground-audit-20261117/run.log`. The bounded launcher
+ended at timeout (137); no game process remains. No decomp source changed.
+
+**Next:** keep the adapter off by default and derive one object's primitive
+topology and material coverage from its retail VU/GIF output before changing
+the port renderer. The last selected VU kick was state-only; it is not yet
+correlated with the triangles represented by this mesh.
+
+## Previous checkpoint (2026-11-17, 16:27 CET)
 
 I checked the current default host32 client again and inspected the actual
 captured frames. With no input, it displays the complete no-memory-card

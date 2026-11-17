@@ -1,19 +1,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-17, 11:07 CET)
+## Current checkpoint (2026-11-17, 16:40 CET)
 
-The default host32 launcher still reaches the settled no-memory-card prompt;
-after Continue its captured output is black and it submits no native world
-meshes. The optional world-renderer build remains disabled by default and
-produces distorted purple surfaces over gray, not a Sly scene. The loaded-world
-VIF/VU path is also unresolved: entry `0x5f` increments `VI6` past a valid GIF
-tag at qword 468, then XGKICKs from qword 469, where the first A+D payload is
-rejected as an invalid tag. A fresh targeted audit rules out a simple VI
-register-delay explanation but does not establish the intended transfer
-context. The client is not playable and no level graphics are confirmed. See
-the [latest visual and packet audit](PLAYABLE_TODO.md#latest-opt-in-world-renderer-capture-2026-11-17)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#first-xgkick-pointer-audit-2026-11-17).
+The default host32 launcher shows the settled no-memory-card prompt; its known
+post-Continue output is black. A fresh offscreen capture found no screen-wide
+flicker in the renderer buffer but cannot assess the desktop compositor. The
+optional diagnostic build remains distorted and is not used by default. The
+selected loaded-world VU path still has not been tied to a valid triangle
+packet, so the client is not playable and no level graphics are confirmed.
+See the [latest visual and packet audit](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1640-cet)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#default-and-diagnostic-client-check-2026-11-17-1640-cet).
 
 ## Reset review (2026-11-16)
 

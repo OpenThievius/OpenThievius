@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 16:27 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 16:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Default and diagnostic client check (2026-11-17, 16:40 CET)
+
+Eight settled default-client frames sampled 30 eligible presents apart all
+show the no-memory-card Continue prompt. Only the Continue highlight changes.
+This offscreen capture did not reproduce a full-frame flicker, but cannot
+evaluate desktop-compositor flicker. The ordinary `wave55-sdl32` cache has
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`; its known post-Continue result remains
+black. The separate `wave55-sdl32-release` cache has the option ON and its
+captured output is gray fan-like geometry. No default-path startup regression
+was observed. The bounded run ended at timeout (137), and no launcher remains.
+
+The optional adapter still submits a whole shared `VertexRefs` sequence as a
+single GL triangle strip for every material pass. Its captured distortion is
+therefore an adapter defect; it is not a reason to change the default path.
+Matched source offsets point to VU-memory locations and do not define vertex
+range boundaries. Derive primitive topology and pass coverage from one
+retail object's VU/GIF output before changing this adapter. Captures:
+`/tmp/sly-client-foreground-audit-20261117/` and
+`/tmp/sly-native-world-strip-audit-20261117/`.
 
 ### Fresh client output audit (2026-11-17, 16:27 CET)
 
