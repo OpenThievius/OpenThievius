@@ -3,18 +3,20 @@
 
 ## Current checkpoint (2026-11-17, 19:55 CET)
 
-**Next:** the JALR helper decode is complete and found no PRIM-3/4 writer
-anywhere in the retail VU microcode (graphics handoff, 20:45 CET section).
-World triangles must therefore come from EE-built VIF DIRECT/PATH2 or GIF DMA
-packets. Find why those submissions are absent after Cross, checking VU
-clipping and the port's float-flag model as well as the EE packet path. Do not
-change the VU translator, kick address or GIF parser on the old premise.
+**Next:** every low-level transport hypothesis is now refuted (graphics
+handoff, 21:10 CET section): no VU PRIM writer, no EE world DIRECT packet,
+complete VU uploads, no unhandled VIF command, mixed clipping, and a clean
+GIF parser. Game-level culling passes 23 parts, so geometry does reach VU1.
+Focus on request `0x005e5400` (class 2, lit+skinned, 38 meshes, likely the
+player character) as the first visible object, and decide between capturing
+its geometry directly and building the opt-in VU-output backfill designed at
+21:10 CET. The backfill would capture VU-transformed positions at
+`data_write()` and draw them with identity MVP; it bypasses the missing retail
+packet and must not be enabled by default.
 
-Keep the adapter opt-in and the default renderer OFF. For the later silhouette
-comparison, use request `0x005e4700` (one mesh, 31 vertices, fully in-frustum)
-with FIRST_PASS=1 and SOLID_COLORS=1; the earlier clipped object and the flat
-`0x005e4a00` wedge are not comparison targets. Do not add renderer features
-until the missing geometry packet is identified.
+Keep the adapter opt-in and the default renderer OFF. The class-4 requests
+`0x005e4700` and `0x005e4a00` are collision geometry (flat sliver and flat
+wedge), not comparison targets. No playable scene is confirmed.
 
 I finished the interrupted three-part capture after correcting two problems.
 The stale orchestrator had used `timeout` without `--kill-after` and hung

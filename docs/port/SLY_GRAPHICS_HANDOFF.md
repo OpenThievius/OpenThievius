@@ -1,8 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 21:05 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 21:10 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Visible-geometry candidate and backfill design (2026-11-17, 21:10 CET)
+
+Four more read-only audits narrowed the upstream question. Game-level culling
+is not the cause: of 1,910 parts queued after Cross, the camera masks and
+plane tests pass 23 and the alpha/fade gates are not firing (`fade=0`,
+`zero=0`, `fade=3f800000`), so concrete mesh submissions do reach VU1. Of the
+post-Cross draw requests, the best candidate for a visible object is
+**request `0x005e5400`, index 21, owner `0x016d2fa0`**: class 2 (ordinary
+PlacedObject, not the class-4 collider path), lit and skinned with four bones,
+38 meshes, paired with a 47-strip companion from the same owner. Earlier
+large-surface candidates (`0x005e4700`, `0x005e4980`, `0x005e4a00`) are all
+class-4 collider geometry; `0x005e4700` is a flat sliver and `0x005e4a00` a
+flat wedge. Its VU1 trace reaches XGKICK (rejected qword 469, accepted qword
+35) but no XYZ-bearing kick is recorded for it.
+
+A design study for an opt-in backfill concluded that the single faithful
+seam is `data_write()` in `port/runtime/vu1_native.cpp`, where VU-transformed
+clip-space positions are stored into qwords 36-307 before later programs
+overwrite them. A capture keyed by submission/MSCAL/qword could feed GL
+vertices with an identity MVP and W division, avoiding the source-position
+adapter's unverified transform and missing skinning. It remains a diagnostic
+that **bypasses** the missing retail PRIM-3/4 handoff, not a repair of it;
+topology, vertex order, W semantics and depth convention are still unverified
+and the default path must stay unchanged.
+
+The authorized OpenRAC reference offers no shortcut: OpenRAC bypasses VU1 and
+GS entirely with game-specific renderers, and its world renderers are
+Ratchet-specific and cannot be reused. The sourced lesson is to work from
+Sly's own draw-data boundary, which is what these audits now provide.
+
+No source was changed for these audits. The next step is to decide, from the
+request `0x005e5400` evidence, whether to build the opt-in VU-output capture
+or to first capture that request's geometry directly. Keep the adapter and
+all new diagnostics opt-in; no playable scene is confirmed.
 
 ### Clip decisions are mixed, not all-cull (2026-11-17, 21:05 CET)
 
