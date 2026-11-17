@@ -586,7 +586,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         }
-        if (debug_primitive == GL_TRIANGLES) {
+        if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr) {
+            // VertexRefs records are authored in triples (triangle list), not strip
+            // order. Draw the raw sequence as independent triangles.
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh.vertices.size() / 9u));
+        } else if (debug_primitive == GL_TRIANGLES) {
             // Expand the source sequence as a triangle strip. GL_TRIANGLES over
             // the original vertices groups unrelated corners and is not a valid
             // strip-to-list comparison.

@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 21:55 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 22:10 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Topology experiment: raw triangle lists (2026-11-17, 22:10 CET)
+
+A partial vertex dump (`OPENRAC_DUMP_SLY_MESH_VERTS`) showed that the
+capture hook's `refs[].pos` indices come in repeating groups of three for
+the character mesh (e.g. 0,1,2 then 3,4,5 then 0,1,6), suggesting the list
+might be authored as independent triangles rather than a strip. I added
+`OPENRAC_SLY_WORLD_RAW_TRIANGLES`, which calls `glDrawArrays(GL_TRIANGLES)`
+directly over the source vertices, unlike the existing strip-expansion
+mode. A bounded full-scene capture with this flag produced eight entirely
+black frames, both with and without solid colours. The raw-triangle
+interpretation is therefore refuted for this data; the earlier
+strip-expansion comparison remains the only supported interpretation.
+
+The dump also confirmed sane model-space source positions (symmetric
+x/y pairs, z roughly -42..-7), so the fan-shaped output is not caused by
+corrupt source vertices. No launcher remains. Captures:
+`/tmp/sly-rawtri-scene-20261117/` and `/tmp/sly-rawtri-solid-20261117/`.
 
 ### Empirical matrix-mode audit of the opt-in adapter (2026-11-17, 21:55 CET)
 
