@@ -1,6 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Lit-packet and rejected-kick correction (2026-11-17, 13:05 CET)
+
+The three sampled addresses are `ModelStrip`'s detached lit VIF buffers
+(QWC 141, 87, 77), not three `FrameSource` records. Their windows converge on
+the same finish call. Its rejected XGKICK at 461 points one qword past a valid
+71-qword A+D state packet at 460; the accepted packet at 35 is also A+D state.
+Neither packet contains XYZ2/XYZF2 writes, so shifting or retrying the rejected
+kick will not restore geometry. The selected VIF path runs MSCAL entries
+`0x401`, `0x411`, `0x242`, `0x356`, then `0x2`; only the final call kicks in
+that range.
+
+**Next:** trace `DrawModelPart`'s separate finish/direct packets and their VIF
+DIRECT/GIF submissions until a drawable XYZ packet is tied to the queued mesh.
+Keep the optional source-position adapter off by default. Details and exact
+capture limits are in `SLY_GRAPHICS_HANDOFF.md`.
+
 ## Targeted world VU/GIF trace (2026-11-17, 12:56 CET)
 
 The current opt-in client reproducibly draws a gray horizon and two stretched

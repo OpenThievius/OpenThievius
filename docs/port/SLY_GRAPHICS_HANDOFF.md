@@ -1,8 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 12:56 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 13:05 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Three lit-packet windows and rejected-kick correction (2026-11-17, 13:05 CET)
+
+The addresses `0x016d5890`, `0x016d6160`, and `0x016d66d0` are the three
+detached VIF packet buffers on the sampled `ModelStrip`, with QWC sizes 141,
+87, and 77. They are not three `FrameSource` records. The matched
+`BuildLitStripMeshPacket` builds these three streams, and `DrawModelPart`
+combines them with finish programs. Their selected DMA windows overlap and
+reach the same finish call at stream offset `0x2c990` (decimal 182672).
+
+In repeated submissions, that finish call rejects XGKICK address 461, then
+accepts address 35. A bounded snapshot proves address 461 is exactly one
+qword after a valid 71-qword packed A+D packet beginning at 460. Four
+repeated snapshots are byte-identical (SHA-256
+`b7988f273b7141e471902508598e79a11fb05bad486982e4c3a908cdf1fa6de7`); the
+packet contains no XYZ2/XYZF2 destinations. The accepted 1,136-byte packet at
+35 is also a 70-loop A+D state packet, with no XYZ destinations. Neither
+observation justifies changing the kick address: both sampled packets are
+state, not drawable geometry.
+
+The filtered source windows show MSCAL entries `0x401`, `0x411`, `0x242`,
+`0x356`, then `0x2`; only the final entry kicks in the selected range. This
+does not establish that all world geometry lacks XGKICK output. It establishes
+that this strip's sampled lit-packet finish is not the drawable vertex source.
+Next trace the separate finish/direct path in `DrawModelPart` and its VIF
+DIRECT/GIF submissions until the first XYZ2/XYZF2 writes are tied to the
+queued mesh. Keep the experimental adapter disabled by default.
+
+The matched source review was read-only. New logs and snapshots remain local
+under `/tmp/sly-vu-lit-mscal-sequence-20261117/`,
+`/tmp/sly-vu-rejected-late-packet-20261117/`,
+`/tmp/sly-vu-source6160-confirm-20261117/`,
+`/tmp/sly-vu-source66d0-20261117/`, and `/tmp`. No decomp source changed.
 
 ### Targeted world VU/GIF trace (2026-11-17, 12:56 CET)
 
