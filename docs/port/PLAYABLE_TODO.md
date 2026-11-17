@@ -22,30 +22,38 @@ Two independent graphics-path failures are now more specific:
    XGKICK from 35 is accepted. Do not subtract one from XGKICK addresses or
    relax validation without explaining this two-kick sequence and checking
    transfer ordering.
-2. VU1 entry `0x411` reads past ordinary vector data into packet words. At
-   PC `0x448`, `LQI` loads `VF3` from sequential qwords starting at 392. The
-   qword 460 load is `0x0005b001, 0, 0x47, 0`; the same VIF stream writes those
-   integer-like words at command offset 124968 after earlier UNPACK data had
-   placed ordinary floats there. At PC `0x43b`, `MULA` multiplies finite
+2. VU1 entry `0x411` reads sequential qwords starting at 392. The new
+   submission-correlated trace confirms VIF submission 144 writes qword 460
+   as `0x0005b001, 0, 0x47, 0` at command offset 124968, then runs this VU
+   entry at stream offset `0x2c4a0`; the entry reads qwords 460, 461, and 462
+   at PC `0x448`. Its loop uses `VI6=316` as the target and exits after
+   consuming qword 462. This is within one submission, so the earlier
+   ordinary-float writes to qword 460 are overwritten before the VU reads it.
+   The exact producer/layout contract is still unknown; compare the packet
+   writer and VU input layout before changing either side. At PC `0x43b`,
+   `MULA` multiplies finite
    `VF20` by `VF3.x`; this subnormal bit pattern makes ACC subnormal. Later
    `ERLENG` at PC `0x44a` squares a subnormal vector to zero and sets P to
    positive infinity. That value flows through `MFP` at PC `0x436` into
    `VF24.x`, then zero-times-infinity creates non-finite transform values.
    The first bad store is `SQ` at PC `0x445` from **VF27** (not VF11); its
-   qword is later loaded into `VF2`. We have not established why this VU loop
-   consumes qword 460 after the stream has reused it for packet data. Trace
-   the VU loop's intended bound and the VIF/VU buffer lifetime next. Do not
-   clamp the output vertices as a workaround.
+   qword is later loaded into `VF2`. Do not clamp output vertices as a
+   workaround. Next, identify which packet builder emitted the UNPACK at
+   offset 124968 and verify its expected data layout against the retail VU
+   program before changing the port's VIF/VU behavior.
 
+The final same-build visual check is `/tmp/sly-final-visual-audit-20261117.log`
+and `/tmp/sly-final-continue-audit-20261117.log`; the first confirms the
+prompt and the second has two prompt frames followed by six black frames.
 Trace logs include `/tmp/sly-xgkick-address-audit-20261117.log`,
 `/tmp/sly-gif-origin-audit-20261117.log`,
 `/tmp/sly-vu-store-q300-320-20261117.log`, and
-`/tmp/sly-q460-writer-20261117.log`. Detailed VU instrumentation uses
+`/tmp/sly-transform-correlated-20261117.log`. Detailed VU instrumentation uses
 `OPENRAC_TRACE_VU1_XGKICK_DATA=1`; ordinary captures used
 `OPENRAC_TEST_HIDDEN_WINDOW=1`, and only the post-Continue run used
-`OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=120`. Next, establish the VU loop bound and
-the intended lifetime of qwords 392–495, while keeping the qword-469 kick
-failure as a separate issue.
+`OPENRAC_TEST_PRESS_CROSS_AT_FRAMES=120`. Next, identify the producer of the
+UNPACK at offset 124968 and compare its payload with the entry `0x411` input
+layout, while keeping the qword-469 kick failure as a separate issue.
 No matched decompilation source was changed.
 
 ## Current bounded task (2026-11-16, paced client audit)

@@ -12,14 +12,22 @@ at their timeouts (exit 137), not a confirmed crash. Evidence:
 `/tmp/sly1-native-frame-{00..07}.ppm`.
 
 The VU1 non-finite trace was corrected: `SQ` at entry `0x411`, PC `0x445`,
-stores **VF27**, not VF11. The earlier assumed NaN chain was downstream of a
-bad sequential load: `LQI` at PC `0x448` reads qword 460 as
-`0x0005b001, 0, 0x47, 0` after a later VIF UNPACK reuses that qword for packet
-words. `MULA` at PC `0x43b` multiplies the resulting subnormal VF3.x by finite
+stores **VF27**, not VF11. The submission-correlated trace confirms that VIF
+submission 144 writes qword 460 as `0x0005b001, 0, 0x47, 0` at offset
+124968, then calls entry `0x411` at offset `0x2c4a0`. The loop reads
+sequentially from qword 392 through 462; its `VI6=316` target makes qword 462
+the final load. `MULA` at PC `0x43b` multiplies the resulting subnormal VF3.x by finite
 VF20, and a later `ERLENG` squares the subnormal vector to zero and sets P to
-positive infinity. The VU loop bound and qword-buffer lifetime are unresolved;
-do not clamp geometry or edit matched decompilation files. Trace:
-`/tmp/sly-q460-writer-20261117.log`.
+positive infinity. The next task is to identify the packet builder that emitted
+offset 124968 and compare that payload layout with the VU input layout. Do not
+clamp geometry or edit matched decompilation files. Trace:
+`/tmp/sly-transform-correlated-20261117.log`.
+
+The latest same-build visual audit confirms the no-card prompt before input
+and black output after one Cross press; logs are
+`/tmp/sly-final-visual-audit-20261117.log` and
+`/tmp/sly-final-continue-audit-20261117.log`. Both hidden runs were ended by
+the 12-second timeout, not a guest crash.
 
 The sibling `sly1-decomp` checkout and its fetched `origin/master` are both at
 `8f7a85a3`; no newer decomp source is available locally. Its 100% code

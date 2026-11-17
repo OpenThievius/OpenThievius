@@ -11,8 +11,9 @@ sampled frames (`/tmp/sly1-native-frame-{00..07}.ppm`). A separate run injected
 Cross at frame 120 and captured eight post-input frames; each 960x720 image is
 exactly black. These runs reproduce the known prompt-then-black behavior, not a
 new regression. Both processes ended at their diagnostic timeouts (exit 137),
-not a confirmed crash. Logs: `/tmp/sly-fresh-noinput-audit-20261117.log` and
-`/tmp/sly-fresh-client-audit-20261117.log`.
+not a confirmed crash. Fresh logs: `/tmp/sly-final-visual-audit-20261117.log`
+and `/tmp/sly-final-continue-audit-20261117.log`; the Cross run captured two
+prompt frames followed by six black frames.
 
 The qword-469 rejection is an address/transfer-flow question, not evidence that
 the GIFtag itself is invalid. Entry `0x5f`, PC `0x68` reads `VI6=469`. VIF
@@ -24,18 +25,22 @@ why the guest issues both kicks or whether native VU/GIF transfer timing is
 missing a required state transition. Do not change the address or weaken GIF
 validation until the sequence is understood.
 
-The VU1 entry `0x411` trace now identifies an invalid input chain. Its `LQI`
-at PC `0x448` advances through sequential qwords beginning at 392. At qword
-460 it reads `0x0005b001, 0, 0x47, 0`; a preceding VIF UNPACK wrote ordinary
-float data at that location, then a later UNPACK at stream offset 124968
-reused it for packet words. The `MULA` at PC `0x43b` uses the tiny subnormal
+The VU1 entry `0x411` trace now correlates the writes and reads by VIF
+submission. Submission 144 writes qword 460 as `0x0005b001, 0, 0x47, 0` at
+stream offset 124968, then invokes entry `0x411` at offset `0x2c4a0`. The
+entry's loop starts reading at qword 392 and uses `VI6=316` as its target;
+the last sequential loads are qwords 460, 461, and 462 before it exits. The
+same VIF submission had earlier written ordinary float data at qword 460,
+but offset 124968 overwrites it before this VU call. The remaining question
+is which packet builder emitted that UNPACK and whether its payload layout is
+what this retail VU program expects. The `MULA` at PC `0x43b` uses the tiny subnormal
 `VF3.x` with finite `VF20`, making ACC subnormal. `ERLENG` at PC `0x44a` then
 squares the tiny vector to zero and sets P to positive infinity. `MFP` copies
 P into `VF24.x`; zero-times-infinity later contaminates the transform. The
 first bad `SQ` at PC `0x445` stores **VF27**, not VF11; this corrects the
-earlier trace attribution error. The unresolved question is why the VU loop
-continues to read qword 460 after that location has been reused. See
-`/tmp/sly-q460-writer-20261117.log` and
+earlier trace attribution error. Do not clamp vertices or change matched
+decompilation. See
+`/tmp/sly-transform-correlated-20261117.log` and
 `/tmp/sly-vu-store-q300-320-20261117.log`. Matched game C was not changed; the
 VU microprogram is retail assembly and remains outside the decompilation.
 
