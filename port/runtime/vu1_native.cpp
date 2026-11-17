@@ -116,6 +116,72 @@ Vector vf_read(const State& state, uint32_t index) {
     return state.vf[index & 31u];
 }
 
+// VU values are IEEE-shaped, but the VU does not implement IEEE denormals,
+// infinities, or NaNs. Keep register loads/stores bit exact; normalize only
+// when a value enters arithmetic, then clamp/flush the arithmetic result.
+float vu_operand(float value) {
+    const uint32_t bits = std::bit_cast<uint32_t>(value);
+    const uint32_t exponent = bits & 0x7F800000u;
+    if (exponent == 0u) return std::bit_cast<float>(bits & 0x80000000u);
+    if (exponent == 0x7F800000u) {
+        const uint32_t finite = (bits & 0x80000000u) | 0x7F7FFFFFu;
+        return std::bit_cast<float>(finite);
+    }
+    return value;
+}
+
+float vu_result(float value) {
+    if (!std::isfinite(value)) {
+        const uint32_t sign = std::signbit(value) ? 0x80000000u : 0u;
+        return std::bit_cast<float>(sign | 0x7F7FFFFFu);
+    }
+    const uint32_t bits = std::bit_cast<uint32_t>(value);
+    if ((bits & 0x7F800000u) == 0u)
+        return std::bit_cast<float>(bits & 0x80000000u);
+    return value;
+}
+
+float vu_add(float a, float b) {
+    return vu_result(vu_operand(a) + vu_operand(b));
+}
+
+float vu_sub(float a, float b) {
+    return vu_result(vu_operand(a) - vu_operand(b));
+}
+
+float vu_mul(float a, float b) {
+    return vu_result(vu_operand(a) * vu_operand(b));
+}
+
+float vu_madd(float accumulator, float a, float b) {
+    return vu_result(std::fma(vu_operand(a), vu_operand(b),
+                              vu_operand(accumulator)));
+}
+
+float vu_msub(float accumulator, float a, float b) {
+    return vu_result(std::fma(-vu_operand(a), vu_operand(b),
+                              vu_operand(accumulator)));
+}
+
+float vu_div(float numerator, float denominator) {
+    numerator = vu_operand(numerator);
+    denominator = vu_operand(denominator);
+    if (denominator == 0.0f) {
+        const uint32_t sign = std::signbit(numerator) != std::signbit(denominator)
+            ? 0x80000000u : 0u;
+        return std::bit_cast<float>(sign | 0x7F7FFFFFu);
+    }
+    return vu_result(numerator / denominator);
+}
+
+float vu_sqrt(float value) {
+    return vu_result(std::sqrt(std::fabs(vu_operand(value))));
+}
+
+float vu_reciprocal_sqrt(float value) {
+    return vu_div(1.0f, vu_sqrt(value));
+}
+
 void vf_write(State* state, uint32_t index, const Vector& value, uint32_t mask) {
     if ((index & 31u) == 0) return;
     Vector& destination = state->vf[index & 31u];
@@ -508,16 +574,16 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
         const uint32_t group = opcode >> 2u;
         const uint32_t broadcast = opcode & 3u;
         for (uint32_t lane = 0; lane < 4; ++lane) {
-            const float a = source[lane];
-            const float b = target[broadcast];
+            const float a = vu_operand(source[lane]);
+            const float b = vu_operand(target[broadcast]);
             switch (group) {
-            case 0: result[lane] = a + b; break;
-            case 1: result[lane] = a - b; break;
-            case 2: result[lane] = state->acc[lane] + a * b; break;
-            case 3: result[lane] = state->acc[lane] - a * b; break;
+            case 0: result[lane] = vu_add(a, b); break;
+            case 1: result[lane] = vu_sub(a, b); break;
+            case 2: result[lane] = vu_madd(state->acc[lane], a, b); break;
+            case 3: result[lane] = vu_msub(state->acc[lane], a, b); break;
             case 4: result[lane] = std::max(a, b); break;
             case 5: result[lane] = std::min(a, b); break;
-            case 6: result[lane] = a * b; break;
+            case 6: result[lane] = vu_mul(a, b); break;
             default: *unsupported = word; return false;
             }
         }
@@ -569,17 +635,17 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                          opcode == 0x2B || opcode == 0x29 || opcode == 0x21 ||
                          opcode == 0x23;
         for (uint32_t lane = 0; lane < 4; ++lane) {
-            const float a = source[lane];
-            const float b = use_scalar ? scalar : target[lane];
+            const float a = vu_operand(source[lane]);
+            const float b = vu_operand(use_scalar ? scalar : target[lane]);
             if (opcode == 0x2B || opcode == 0x1D) result[lane] = std::max(a, b);
             else if (opcode == 0x2F || opcode == 0x1F) result[lane] = std::min(a, b);
-            else if (multiply && add) result[lane] = state->acc[lane] + a * b;
+            else if (multiply && add) result[lane] = vu_madd(state->acc[lane], a, b);
             else if (multiply) result[lane] = opcode == 0x2D || opcode == 0x25 ||
                                                    opcode == 0x27
-                                               ? state->acc[lane] - a * b
-                                               : a * b;
-            else if (add) result[lane] = a + b;
-            else result[lane] = a - b;
+                                               ? vu_msub(state->acc[lane], a, b)
+                                               : vu_mul(a, b);
+            else if (add) result[lane] = vu_add(a, b);
+            else result[lane] = vu_sub(a, b);
         }
         if (opcode == 0x21 || opcode == 0x23 || opcode == 0x25 || opcode == 0x27 ||
             opcode == 0x29 || opcode == 0x2D)
@@ -589,9 +655,12 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
         return true;
     }
     case 0x2E: // OPM-SUB
-        result = {state->acc[0] - (source[1] * target[2] - source[2] * target[1]),
-                  state->acc[1] - (source[2] * target[0] - source[0] * target[2]),
-                  state->acc[2] - (source[0] * target[1] - source[1] * target[0]),
+        result = {vu_sub(state->acc[0], vu_sub(vu_mul(source[1], target[2]),
+                                               vu_mul(source[2], target[1]))),
+                  vu_sub(state->acc[1], vu_sub(vu_mul(source[2], target[0]),
+                                               vu_mul(source[0], target[2]))),
+                  vu_sub(state->acc[2], vu_sub(vu_mul(source[0], target[1]),
+                                               vu_mul(source[1], target[0]))),
                   state->acc[3]};
         update_float_flags(state, result, mask);
         vf_write(state, fd, result, mask);
@@ -607,14 +676,14 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             const uint32_t broadcast = special & 3u;
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] + target[broadcast];
+                    state->acc[lane] = vu_add(source[lane], target[broadcast]);
             return true;
         }
         case 0x04: case 0x05: case 0x06: case 0x07: { // SUBAbc
             const uint32_t broadcast = special & 3u;
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] - target[broadcast];
+                    state->acc[lane] = vu_sub(source[lane], target[broadcast]);
             return true;
         }
         case 0x1F: // CLIPw.xyz vf[fs], vf[ft].w
@@ -634,28 +703,30 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 3; ++lane) {
                 const uint32_t a = (lane + 1u) % 3u;
                 const uint32_t b = (lane + 2u) % 3u;
-                state->acc[lane] = source[a] * target[b];
+                state->acc[lane] = vu_mul(source[a], target[b]);
             }
             return true;
         case 0x08: case 0x09: case 0x0A: case 0x0B: { // MADDAbc
             const uint32_t broadcast = special & 3u;
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] += source[lane] * target[broadcast];
+                    state->acc[lane] = vu_madd(state->acc[lane], source[lane],
+                                               target[broadcast]);
             return true;
         }
         case 0x0C: case 0x0D: case 0x0E: case 0x0F: { // MSUBAbc
             const uint32_t broadcast = special & 3u;
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] -= source[lane] * target[broadcast];
+                    state->acc[lane] = vu_msub(state->acc[lane], source[lane],
+                                               target[broadcast]);
             return true;
         }
         case 0x18: case 0x19: case 0x1A: case 0x1B: { // MULAx/y/z/w
             const uint32_t broadcast = special & 3u;
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] * target[broadcast];
+                    state->acc[lane] = vu_mul(source[lane], target[broadcast]);
             return true;
         }
         case 0x10: case 0x11: case 0x12: case 0x13:
@@ -684,31 +755,33 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
         case 0x28: { // ADDA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] + target[lane];
+                    state->acc[lane] = vu_add(source[lane], target[lane]);
             return true;
         }
         case 0x29: { // MADDA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] += source[lane] * target[lane];
+                    state->acc[lane] = vu_madd(state->acc[lane], source[lane],
+                                               target[lane]);
             return true;
         }
         case 0x2A: { // MULA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] * target[lane];
+                    state->acc[lane] = vu_mul(source[lane], target[lane]);
             return true;
         }
         case 0x2C: { // SUBA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] = source[lane] - target[lane];
+                    state->acc[lane] = vu_sub(source[lane], target[lane]);
             return true;
         }
         case 0x2D: { // MSUBA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
-                    state->acc[lane] -= source[lane] * target[lane];
+                    state->acc[lane] = vu_msub(state->acc[lane], source[lane],
+                                               target[lane]);
             return true;
         }
         case 0x30: // MOVE
@@ -832,11 +905,11 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         }
         if ((word & 0x7FFu) == 0x73Fu) { // ERLENG P, VF[fs]
             const Vector value = vf_read(*state, source);
-            const float length_squared = value[0] * value[0] +
-                                         value[1] * value[1] +
-                                         value[2] * value[2];
+            const float length_squared = vu_add(
+                vu_add(vu_mul(value[0], value[0]), vu_mul(value[1], value[1])),
+                vu_mul(value[2], value[2]));
             const float previous_p = state->p;
-            state->p = 1.0f / std::sqrt(length_squared);
+            state->p = vu_reciprocal_sqrt(length_squared);
             const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
             static std::atomic<uint32_t> p_trace_notice{0};
             const uint32_t p_notice = p_trace_notice.fetch_add(1, std::memory_order_relaxed);
@@ -859,7 +932,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             const uint32_t field = (word >> 21u) & 3u;
             const float value = vf_read(*state, source)[field];
             const float previous_p = state->p;
-            state->p = 1.0f / std::sqrt(std::fabs(value));
+            state->p = vu_reciprocal_sqrt(value);
             const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
             static std::atomic<uint32_t> p_trace_notice{0};
             const uint32_t p_notice = p_trace_notice.fetch_add(1, std::memory_order_relaxed);
@@ -895,7 +968,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             state->status_flags = static_cast<uint16_t>(
                 (state->status_flags & ~0x30u) | divide_flags |
                 (divide_flags << 6u));
-            state->q = numerator / denominator;
+            state->q = vu_div(numerator, denominator);
             const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
             static std::atomic<uint32_t> divide_notice{0};
             if (setup_trace != nullptr && setup_trace[0] != '\0' &&
@@ -915,7 +988,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             const uint32_t fsf = (word >> 21u) & 3u;
             const float numerator = vf_read(*state, target)[ftf];
             const float denominator = vf_read(*state, source)[fsf];
-            state->q = numerator / std::sqrt(std::fabs(denominator));
+            state->q = vu_div(numerator, vu_sqrt(denominator));
             return true;
         }
         switch (function) {
