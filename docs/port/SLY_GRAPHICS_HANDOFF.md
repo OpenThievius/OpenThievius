@@ -1,8 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 13:40 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 13:55 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Explicit VU submission filter (2026-11-17, 13:55 CET)
+
+The `OPENRAC_TRACE_VIF_DMA_ADDRESS` filter can be invalidated before a delayed
+XGKICK dispatch when nested DMA changes the active VU target window. An
+explicit `OPENRAC_TRACE_XGKICK_SUBMISSION` now takes precedence over that
+address window; pair it with `OPENRAC_TRACE_XGKICK_MSCAL_OFFSETS` to retain
+submission and command-offset provenance. The opt-in renderer build passed
+(194/194 staged units, 85/85 port backfills, 99 missing-function traps).
+
+With the address window active, the selected mesh was submission 322 and its
+`0x411` program ran at VU trace offset `0x2c4a0`, completing after 1800 cycles.
+No parser acceptance/rejection record was emitted for that invocation, so the
+trace does not show that this program submits the final GIF packet. A follow-up
+run intended for the later `0x356` call did not reach the selected mesh before
+the 12-second timeout; it only logged startup DIRECT traffic. Generic
+malformed-tag warnings therefore remain unattributed. Logs:
+`/tmp/sly-target-mesh-vu-offset-20261117/run.log`,
+`/tmp/sly-target-mesh-vu-parser-20261117/run.log`,
+`/tmp/sly-target-mesh-vu-parser2-20261117/run.log`,
+`/tmp/sly-target-mesh-vu-accepted-20261117/run.log`, and
+`/tmp/sly-target-mesh-vu356-20261117/run.log`.
+
+Next: capture the target submission's VIF command offsets in the same run as
+the exact VU parser state, then follow the later `0x356` call only if the
+selected mesh's packet reaches it.
 
 ### VU trace target lifetime fix (2026-11-17, 13:48 CET)
 

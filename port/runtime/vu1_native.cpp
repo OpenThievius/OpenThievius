@@ -148,12 +148,14 @@ thread_local uint32_t g_vu_trace_target_stream_end = 0xFFFFFFFFu;
 
 bool trace_vu1_xgkick_context_matches() {
     bool has_filter = false;
+    bool has_submission_filter = false;
     bool matches = true;
     if (const char* setting = std::getenv("OPENRAC_TRACE_XGKICK_SUBMISSION")) {
         char* end = nullptr;
         const unsigned long parsed = std::strtoul(setting, &end, 0);
         if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
             has_filter = true;
+            has_submission_filter = true;
             matches = matches && parsed == g_vu_trace_submission_id;
         }
     }
@@ -183,17 +185,22 @@ bool trace_vu1_xgkick_context_matches() {
             matches = matches && offset_matches;
         }
     }
-    if (const char* setting = std::getenv("OPENRAC_TRACE_VIF_DMA_ADDRESS")) {
-        char* end = nullptr;
-        const unsigned long parsed = std::strtoul(setting, &end, 0);
-        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
-            has_filter = true;
-            matches = matches && g_vu_trace_target_submission_id != 0xFFFFFFFFu &&
-                g_vu_trace_submission_id == g_vu_trace_target_submission_id &&
-                g_vu_trace_target_stream_begin != 0xFFFFFFFFu &&
-                g_vu_trace_target_stream_end != 0xFFFFFFFFu &&
-                g_vu_trace_vif_command_offset >= g_vu_trace_target_stream_begin &&
-                g_vu_trace_vif_command_offset < g_vu_trace_target_stream_end;
+    // An explicit unique submission filter is stronger than the DMA address
+    // window. The latter is discovered while executing a chain but can be
+    // invalidated by nested DMA before a delayed XGKICK dispatches.
+    if (!has_submission_filter) {
+        if (const char* setting = std::getenv("OPENRAC_TRACE_VIF_DMA_ADDRESS")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+                has_filter = true;
+                matches = matches && g_vu_trace_target_submission_id != 0xFFFFFFFFu &&
+                    g_vu_trace_submission_id == g_vu_trace_target_submission_id &&
+                    g_vu_trace_target_stream_begin != 0xFFFFFFFFu &&
+                    g_vu_trace_target_stream_end != 0xFFFFFFFFu &&
+                    g_vu_trace_vif_command_offset >= g_vu_trace_target_stream_begin &&
+                    g_vu_trace_vif_command_offset < g_vu_trace_target_stream_end;
+            }
         }
     }
     return !has_filter || matches;
