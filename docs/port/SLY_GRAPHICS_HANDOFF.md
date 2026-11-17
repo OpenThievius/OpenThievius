@@ -1,8 +1,42 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 21:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 21:55 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Empirical matrix-mode audit of the opt-in adapter (2026-11-17, 21:55 CET)
+
+I added an opt-in `OPENRAC_SLY_WORLD_MVP_MODE` (0-3) to the adapter to compare
+the row-major product, its transpose, the reverse product and that transpose.
+Four bounded captures each of request `0x005e5400` (class-2 lit/skinned
+character, 38 meshes) and `0x005e4700` (class-4 collision geometry) gave:
+
+| mode | character nonblack pixels (settled) | collision nonblack |
+|---|---|---|
+| 0 raw product | ~110-130 | ~5,350 |
+| 1 transposed product | 112,203 / 190,352 / 301,782 | 0 |
+| 2 reverse product | 0 | ~5,370 |
+| 3 reverse + transpose | 367,574 / 600,282 | 0 |
+
+Mode 1 turns the character from a ~100-pixel dash into a large coherent 3D
+form (a limb/body surface); mode 3 is larger but more distorted. Modes 0 and
+2 keep the flat collision sliver. This **contradicts the earlier 15:51 CET
+conclusion** that the raw product was already correct: the empirical evidence
+favours the transpose for the character meshes, so the adapter now defaults
+to mode 1. The other modes remain available for comparison.
+
+Related experiments in this round: capturing the `verts`/`ents` morph arrays
+through the builder hook (`OPENRAC_SLY_WORLD_USE_SKINNED`) and splitting the
+strip on `VertexRefs.flags & 0x80` (`OPENRAC_SLY_WORLD_SPLIT_STRIPS`) were
+stable but did **not** change the visible result; the flag is the fog bias,
+not a strip boundary. Partial vertex dumps show sane model-space positions
+(symmetric x/y pairs, z roughly -42..-7), so the remaining distortion is in
+the transform/topology rather than corrupt source data.
+
+The full scene with mode 1 still shows fan-like distorted geometry, not a
+recognizable level. The adapter remains opt-in and off by default; the
+default client is unchanged and still black after Continue. No matched
+decompilation source was edited. No launcher remains.
 
 ### PATH3 census closes the last append blind spot (2026-11-17, 21:30 CET)
 

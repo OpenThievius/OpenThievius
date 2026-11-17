@@ -54,7 +54,10 @@ struct NativeWorldMesh {
     std::uint64_t instance = 0;
     std::uint32_t source_mesh = 0;
     std::vector<float> vertices;
+    std::vector<std::uint8_t> strip_starts;
     std::array<float, 16> mvp{};
+    std::array<float, 16> model{};
+    std::array<float, 16> view_projection{};
     std::uint64_t tex0 = 0;
     std::uint64_t tex1 = 0;
     std::uint64_t clamp = 0;
@@ -505,7 +508,34 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 }
             }
         }
-        glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, mesh.mvp.data());
+        // Empirically the character meshes render as collapsed slivers with the raw
+        // row-major product (mode 0) and as coherent 3D geometry with its transpose
+        // (mode 1). Keep the other modes available for comparison.
+        int mvp_mode = 1;
+        if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_MVP_MODE")) {
+            char* end = nullptr;
+            const long parsed = std::strtol(setting, &end, 0);
+            if (end != setting && parsed >= 0 && parsed <= 3) mvp_mode = static_cast<int>(parsed);
+        }
+        float m[16];
+        if (mvp_mode >= 2) {
+            for (std::size_t row = 0; row < 4; ++row)
+                for (std::size_t column = 0; column < 4; ++column) {
+                    float value = 0.0f;
+                    for (std::size_t k = 0; k < 4; ++k)
+                        value += mesh.view_projection[row * 4u + k] * mesh.model[k * 4u + column];
+                    m[row * 4u + column] = value;
+                }
+        } else {
+            std::memcpy(m, mesh.mvp.data(), sizeof(m));
+        }
+        if (mvp_mode & 1u) {
+            const float t[16] = {
+                m[0], m[4], m[8], m[12], m[1], m[5], m[9], m[13],
+                m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
+            std::memcpy(m, t, sizeof(m));
+        }
+        glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, m);
         glUniform1i(g_world_texture_location, 0);
         glUniform1i(g_world_textured_location,
                     !debug_solid_colors && texture != 0 && mesh.tex0 != 0 ? 1 : 0);
@@ -582,8 +612,24 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glBufferData(GL_ARRAY_BUFFER,
                          static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
                          mesh.vertices.data(), GL_STREAM_DRAW);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0,
-                         static_cast<GLsizei>(mesh.vertices.size() / 9u));
+            const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            const bool split = std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr &&
+                mesh.strip_starts.size() == vertex_count;
+            if (!split) {
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
+            } else {
+                std::size_t run_begin = 0;
+                for (std::size_t vertex = 1; vertex < vertex_count; ++vertex) {
+                    if (mesh.strip_starts[vertex] == 0u) continue;
+                    if (vertex - run_begin >= 3u)
+                        glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                                     static_cast<GLsizei>(vertex - run_begin));
+                    run_begin = vertex;
+                }
+                if (vertex_count - run_begin >= 3u)
+                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                                 static_cast<GLsizei>(vertex_count - run_begin));
+            }
         }
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {
@@ -998,7 +1044,7 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
-    std::uint32_t vertex_count, std::uint32_t source_mesh,
+    std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* strip_starts,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t test) {
     if (world == 0 || vertices == nullptr || vertex_count < 3 || vertex_count > 4096 ||
@@ -1008,6 +1054,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     draw.instance = instance;
     draw.source_mesh = source_mesh;
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
+    if (strip_starts != nullptr)
+        draw.strip_starts.assign(strip_starts, strip_starts + vertex_count);
     draw.tex0 = tex0;
     draw.tex1 = tex1;
     draw.clamp = clamp;
@@ -1021,6 +1069,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
             draw.mvp[row * 4u + column] = value;
         }
     }
+    std::memcpy(draw.model.data(), model, sizeof(draw.model));
+    std::memcpy(draw.view_projection.data(), view_projection, sizeof(draw.view_projection));
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
         static unsigned samples = 0;
         const unsigned sample = samples++;

@@ -44,6 +44,7 @@ struct NativeSlyMesh {
     std::vector<NativeSlyFrameSource> sources;
     std::vector<NativeSlyMaterial> materials;
     std::vector<float> vertices;
+    std::vector<u8> strip_starts;
 };
 static std::mutex g_native_sly_mesh_mutex;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
@@ -973,7 +974,9 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
                                                    u32 tints_address, u32 uvs_address,
                                                    u32 vertex_count, u32 refs_address,
-                                                   u32 cursor_address, u32 header_address) {
+                                                   u32 cursor_address, u32 header_address,
+                                                   u32 ents_address, u32 verts_address,
+                                                   u32 nweights) {
     if (mesh_address == 0 || vecs_address == 0 ||
         refs_address == 0 || header_address == 0 || vertex_count < 3 ||
         vertex_count > 4096)
@@ -1045,13 +1048,49 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         captured.materials.push_back(material);
     }
     if (captured.materials.empty()) return;
+    const bool use_skinned =
+        std::getenv("OPENRAC_SLY_WORLD_USE_SKINNED") != nullptr &&
+        nweights != 0u && ents_address != 0u && verts_address != 0u;
+    // WeightIndices is { u16* pos; u16* nrm; }; ents[k].pos points at the index array.
+    const volatile u16* morph_indices = use_skinned
+        ? *reinterpret_cast<const volatile u16* const*>(ents_address) : nullptr;
+    const volatile float* skinned = use_skinned
+        ? reinterpret_cast<const volatile float*>(verts_address) : nullptr;
+    if (use_skinned) {
+        static u32 skin_notices = 0;
+        if (skin_notices++ < 8u) {
+            std::fprintf(stderr,
+                         "[native sly skinned] mesh=%#010x verts=%u nweights=%u ents=%#010x verts_ptr=%#010x first=%u,%u,%u,%u floats=%g,%g,%g\n",
+                         mesh_address, vertex_count, nweights, ents_address, verts_address,
+                         morph_indices[0], morph_indices[1], morph_indices[2], morph_indices[3],
+                         static_cast<double>(skinned[0]), static_cast<double>(skinned[1]),
+                         static_cast<double>(skinned[2]));
+        }
+    }
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
         const u8 flags = refs[i * 4u + 3u];
-        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u]));
-        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u + 1u]));
-        captured.vertices.push_back(static_cast<float>(positions[position_index * 3u + 2u]));
+        captured.strip_starts.push_back(static_cast<u8>((flags & 0x80u) != 0u));
+        u32 source = position_index;
+        if (use_skinned) {
+            const u32 index = morph_indices[i];
+            if (index < 4096u) source = index;
+        }
+        const volatile float* chosen = use_skinned ? skinned : positions;
+        if (std::getenv("OPENRAC_DUMP_SLY_MESH_VERTS") != nullptr && i < 32u) {
+            static u32 vert_notices = 0;
+            if (vert_notices++ < 128u)
+                std::fprintf(stderr,
+                             "[native sly mesh vert] mesh=%#010x i=%u idx=%u flags=%02x xyz=%g,%g,%g\n",
+                             mesh_address, i, source, flags,
+                             static_cast<double>(chosen[source * 3u]),
+                             static_cast<double>(chosen[source * 3u + 1u]),
+                             static_cast<double>(chosen[source * 3u + 2u]));
+        }
+        captured.vertices.push_back(static_cast<float>(chosen[source * 3u]));
+        captured.vertices.push_back(static_cast<float>(chosen[source * 3u + 1u]));
+        captured.vertices.push_back(static_cast<float>(chosen[source * 3u + 2u]));
         for (u32 channel = 0; channel < 4u; ++channel) {
             const u8 base = mesh[4u + channel];
             const float color = tint_index == 0x7Fu || tints == nullptr
@@ -1348,6 +1387,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             openrac_native_sly_world_mesh_submit(
                 world, instance, mesh.vertices.data(),
                 static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
+                mesh.strip_starts.size() == mesh.vertices.size() / 9u
+                    ? mesh.strip_starts.data() : nullptr,
                 model, view_projection, material.tex0, material.tex1,
                 material.clamp, material.test);
         }
@@ -1614,7 +1655,8 @@ extern "C" void sly1_native_trace_queue_model_result(u32, u32, u32, u32, u32, u3
 extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, float, float, float, u32) {}
 extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
-extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32,
+                                               u32, u32, u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_part_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
