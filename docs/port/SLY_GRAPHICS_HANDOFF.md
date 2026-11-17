@@ -4,9 +4,30 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
-### Fresh client and renderer check (2026-11-17)
+### Latest client check (2026-11-17, 04:34–04:35 CET)
 
-The latest actual Wayland window capture shows the complete retail no-card
+The current host32 launcher was checked in two bounded foreground runs. With
+no input, eight internal GL framebuffer samples spaced 30 native presents
+apart all show the complete retail no-card prompt. See
+`/tmp/sly-current-cadence-montage.png` and
+`/tmp/sly-current-cadence-capture-20261117.log`. The user's Nov 15 screen
+recording does contain intermittent black intervals in the cropped game
+window (17–116 ms by FFmpeg's black-frame detector). Those gaps do not appear
+in today's internal framebuffer samples; their source and current behavior at
+the desktop compositor remain unverified.
+
+A separate run injected one process-local Cross at frame 300. The prompt
+clears, but eight later framebuffer samples are black. At game frames 326–330
+the native trace still reports world `0x6abdd0`, frame stage 2, and 2,426 CD
+sectors read. No recognizable level geometry or playable state appears. The
+run logs are `/tmp/sly-current-cross-audit-20261117.log`; the samples are
+`/tmp/sly-current-postcross-montage.png`. The timeout exit 137 is a bounded
+diagnostic stop, not evidence of a guest crash. Git remained clean on
+`wip/native-sly-port`, and `user.email` is `oeps46@gmail.com`.
+
+### Earlier packet and renderer trace (2026-11-17)
+
+An earlier actual Wayland window capture shows the complete retail no-card
 warning before input and a black window after one process-local Cross. This
 matches the earlier prompt-to-black checkpoint. The live trace shows that the
 presenter continues swapping frames. Entry `0x5f`'s first XGKICK at qword 469
@@ -15,10 +36,11 @@ qword 35 is accepted. Despite that acceptance, the native Sly world queue has
 no submissions. The direct GIF renderer decodes some batches without parser
 errors, but one 24-vertex batch is entirely outside clip space. The trace does
 not classify that batch. The remaining work is to identify which decoded
-packets carry scene geometry and how they reach the world renderer. This does
-not establish the cause of the black flashes in the user's recording. Captures
+packets carry scene geometry and how they reach the world renderer. The Nov 15
+screen recording later confirms intermittent black flashes; today's spaced
+framebuffer samples do not reproduce them or identify their cause. Captures
 and traces are listed in `docs/port/PLAYABLE_TODO.md` under the latest client
-and renderer check.
+check.
 
 ### VU exceptional-float correction (2026-11-17)
 
@@ -40,7 +62,7 @@ Matched C and VU assembly were not changed. The model uses finite `0x7f7fffff`
 as a host representation of VU max; exact bit-level saturation/flag behavior
 remains to be validated.
 
-### Latest foreground confirmation (2026-11-17)
+### Earlier source-mapped foreground trace (2026-11-17)
 
 The latest source-mapped VIF run also confirms that the first world XGKICK
 failure precedes later writes to qword 468. Submission 328's UNPACK at offset
@@ -58,8 +80,8 @@ The qword-469 kick remains rejected, while the newer trace accepts the second
 kick from qword 35; the target renderer still receives no native Sly world
 meshes. Preserve strict GIF validation and matched C while tracing that
 transfer and scene-render contract. The separate non-finite transform path has
-a targeted VU arithmetic correction described above. The latest visible check
-still goes from the retail no-card prompt to a black frame after one Cross.
+a targeted VU arithmetic correction described above. A later client check is
+recorded at the top of this document.
 Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.

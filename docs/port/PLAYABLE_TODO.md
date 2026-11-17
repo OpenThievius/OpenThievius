@@ -3,7 +3,28 @@
 
 ## Current visual and packet audit (2026-11-17)
 
-**Fresh visible trace (2026-11-17):** another foreground Wayland run showed
+**Latest client check (2026-11-17, 04:34–04:35 CET):** a foreground run of
+the current host32 target stayed on the complete no-card warning with no input.
+Eight GL framebuffer samples spaced 30 native presentations apart (about half
+a second) all contain the full text and border:
+`/tmp/sly-current-cadence-montage.png` and
+`/tmp/sly-current-cadence-capture-20261117.log`. This does not reproduce the
+flicker in the user's Nov 15 screen recording. That 6.56-second, 60-fps
+recording does show black intervals in the game-window crop, lasting 17–116 ms
+at several points. Today's internal framebuffer samples cannot tell whether
+those gaps came from the guest render path or desktop presentation, so the
+flicker remains unresolved rather than disproved.
+
+A separate foreground run injected one process-local Cross at native frame
+300. Eight later framebuffer samples are all black:
+`/tmp/sly-current-postcross-montage.png` and
+`/tmp/sly-current-cross-audit-20261117.log`. By game frame 326–330, the game
+had read 2,426 sectors but remained on world `0x6abdd0` at frame stage 2; no
+recognizable level geometry appeared. This is the post-Continue blocker, and
+the current build still does not reach a playable state. Both diagnostic runs
+were stopped by timeout (exit 137), not by a reported guest crash.
+
+**Earlier packet-boundary trace (2026-11-17):** a foreground Wayland run showed
 the no-card prompt before one process-local Cross press and black output after
 it. The launcher was stopped at the eight-second diagnostic timeout (exit
 137), and `ps` confirmed no process remained. In VIF submission 328, the
@@ -21,7 +42,7 @@ tracing why the VU kick starts one qword after that tag. Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
-**Latest client and renderer check (2026-11-17):** I relaunched the current
+**Earlier client and renderer check (2026-11-17):** I relaunched the current
 host32 target and captured the actual Wayland window. Before input it shows the
 full no-card warning (`/tmp/sly-current-client-20261117.png`); one in-process
 Cross produces a black window (`/tmp/sly-current-postcontinue-client-20261117.png`).
@@ -34,10 +55,10 @@ does decode some batches without errors; one 24-vertex batch at direct frame
 233 lies wholly outside clip space, at `(-7.657,-22.815)..(-4.468,4.482)`.
 The 1,254-vertex/five-draw batches appear before input too, so they do not by
 themselves prove world geometry. Full trace:
-`/tmp/sly-current-render-boundary-20261117.log`. The current failure remains
-at scene rendering, not a frozen presentation loop. Rapid follow-up screenshots
-captured the desktop instead of Sly and are discarded as flicker evidence;
-the intermittent black flashes in the user's recording remain unverified.
+`/tmp/sly-current-render-boundary-20261117.log`. That run's failure was at
+scene rendering, not a frozen presentation loop. It predates the spaced
+frame audit above; the user's recording shows intermittent black flashes, but
+the current framebuffer samples do not reproduce them or locate their cause.
 
 **Writer attribution is now resolved:** host-only source probes show that
 `ReadPlacedObjectModel` dispatches this kind-5 mesh to matched
@@ -78,7 +99,7 @@ Fresh DMA trace: `/tmp/sly-qword468-chain-visible-20261117.log`; caller trace:
 `/tmp/sly-qword468-dma-caller-cross-20261117.log`; model pointer match:
 `/tmp/sly-object-68-final-pose-20261116.log`.
 
-**Latest visible client check:** the native Wayland window was launched in the
+**Earlier visible client check:** the native Wayland window was launched in the
 foreground. The no-input frame shows the complete retail no-card warning
 (`/tmp/sly1-native-visible-before-cross-20261117.png`). A process-local Cross
 at frame 300 dismisses it; a later captured frame is fully black
