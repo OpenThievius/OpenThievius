@@ -1964,9 +1964,13 @@ and checked the output directly. The idle framebuffer captures around native
 frames 300–399 show the no-card prompt steadily; the Continue highlight blinks.
 That does not explain the brief black flashes in the user's 2026-11-15 desktop
 recording: 8-fps samples contain seven full-black frames among 52, while the
-native framebuffer readbacks in the idle run stay stable. Capture the actual
-post-swap window output next to separate a presentation problem from a
-readback-only difference.
+native framebuffer readbacks in the idle run stay stable. One Spectacle
+active-window capture also shows the Sly prompt correctly. A separate
+post-swap `GL_FRONT` readback returned all-zero frames on Wayland, so that
+readback is not reliable evidence of what the compositor displayed. Repeated
+active-window sampling lost the Sly window after focus changed and was
+discarded. The black flashes remain unresolved; get a recording bound to the
+Sly window before attributing them to the renderer or the desktop compositor.
 
 With one process-local Cross press at native frame 300, the prompt first
 remains visible, then contracts with overlapping copies for about fifteen
