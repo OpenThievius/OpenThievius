@@ -4,6 +4,22 @@
 Last checked: 2026-11-17, 13:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### VU trace target lifetime fix (2026-11-17, 13:48 CET)
+
+The VU XGKICK target window was kept thread-local after its matching VIF DMA
+submission. Since later DMA chains restart their stream offsets at zero, an
+unmatched chain with the same offsets could inherit stale target provenance.
+`vif1_dma.cpp` now updates or clears the VU target window for every successful
+DMA decode. The opt-in renderer build passed (194/194 staged units, 85/85
+port backfills, 99 missing-function traps). A 12-second offscreen run matched
+mesh address `0x016d5890` to submission 322 and its narrow stream window
+`[177312,182688)`; the VU finish call still needs a clean callsite-specific
+capture before assigning any generic XGKICK rejection to this mesh. No
+decomp source changed. Log: `/tmp/sly-target-mesh-exact-20261117/run.log`.
+
+Next: use the submission and per-command trace together to capture the exact
+VU program output for mesh 0, then compare it with the adapter's source packet.
+
 ### Mesh packet provenance correction (2026-11-17, 13:40 CET)
 
 The broad trace followed the frame's 773-segment VIF chain and mixed several

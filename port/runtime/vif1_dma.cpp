@@ -1000,11 +1000,16 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     if (dma_ok) {
         uint32_t trace_stream_begin = 0xFFFFFFFFu;
         uint32_t trace_stream_end = 0xFFFFFFFFu;
-        if (trace_target_dma_chain(trace.submission_id, value, initial_madr,
-                                   initial_qwc, initial_tadr, segments,
-                                   &trace_stream_begin, &trace_stream_end))
-            openrac_guest_vu1_set_trace_target_submission(
-                trace.submission_id, trace_stream_begin, trace_stream_end);
+        trace_target_dma_chain(trace.submission_id, value, initial_madr,
+                               initial_qwc, initial_tadr, segments,
+                               &trace_stream_begin, &trace_stream_end);
+        // The VU trace context is thread-local and DMA stream offsets restart
+        // at zero for each submission. Clear the previous target on every
+        // unmatched chain so an identical offset in a later submission cannot
+        // inherit stale target provenance.
+        openrac_guest_vu1_set_trace_target_submission(
+            trace_stream_begin == 0xFFFFFFFFu ? 0xFFFFFFFFu : trace.submission_id,
+            trace_stream_begin, trace_stream_end);
     }
     const bool vif_ok = dma_ok && execute_vif_stream(
         stream, &direct_bytes, &unsupported, &trace, &input_trace);
