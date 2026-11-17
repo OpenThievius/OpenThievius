@@ -48,6 +48,7 @@ GifParser g_parser;
 uint32_t g_gif_trace_count = 0;
 char g_gif_input_origin[96] = "unspecified";
 uint32_t g_gs_register_trace_count = 0;
+std::array<uint64_t, 8>* g_trace_xyz_primitive_counts = nullptr;
 std::vector<openrac_gs_vertex> g_current_frame;
 std::vector<openrac_gs_vertex> g_published_frame;
 
@@ -171,6 +172,11 @@ void submit_vertex(uint64_t value) {
 void write_gs_register(uint32_t address, uint64_t value) {
     if (address >= g_parser.gs_registers.size()) return;
     ++g_parser.register_write_counts[address];
+    if ((address == 0x04u || address == 0x05u) &&
+        g_trace_xyz_primitive_counts != nullptr) {
+        const uint32_t primitive = static_cast<uint32_t>(g_parser.gs_registers[0] & 7u);
+        ++(*g_trace_xyz_primitive_counts)[primitive];
+    }
     const char* xyz_trace_origin = std::getenv("OPENRAC_TRACE_GS_XYZ_ORIGIN");
     const bool xyz_origin_matches = xyz_trace_origin == nullptr ||
         std::strncmp(g_gif_input_origin, xyz_trace_origin,
@@ -316,6 +322,14 @@ void gif_stream_write(const void* source, size_t size, const char* origin) {
         openrac_native_renderer_append_gif_stream(source, size, origin);
     const auto* bytes = static_cast<const uint8_t*>(source);
     std::lock_guard lock(g_parser_mutex);
+    const bool trace_xyz_summary =
+        std::getenv("OPENRAC_TRACE_GS_XYZ_SUMMARY") != nullptr;
+    std::array<uint64_t, 8> xyz_primitive_counts{};
+    g_trace_xyz_primitive_counts = trace_xyz_summary ? &xyz_primitive_counts : nullptr;
+    const uint64_t xyz2_before = g_parser.register_write_counts[0x04u];
+    const uint64_t xyzf2_before = g_parser.register_write_counts[0x05u];
+    const uint64_t prim_before = g_parser.register_write_counts[0x00u];
+    const size_t vertices_before = g_current_frame.size();
     std::snprintf(g_gif_input_origin, sizeof(g_gif_input_origin), "%s",
                   origin != nullptr ? origin : "unspecified");
     size_t cursor = 0;
@@ -350,6 +364,30 @@ void gif_stream_write(const void* source, size_t size, const char* origin) {
         cursor += 15u;
         if (g_parser.remaining_qwords > 0) --g_parser.remaining_qwords;
         if (g_parser.remaining_qwords == 0) finish_tag();
+    }
+    if (trace_xyz_summary) {
+        g_trace_xyz_primitive_counts = nullptr;
+        const uint64_t xyz2_writes = g_parser.register_write_counts[0x04u] - xyz2_before;
+        const uint64_t xyzf2_writes = g_parser.register_write_counts[0x05u] - xyzf2_before;
+        if (xyz2_writes != 0 || xyzf2_writes != 0) {
+            std::fprintf(stderr,
+                         "[gif XYZ summary] origin=%s bytes=%zu PRIM=%#llx PRIM_writes=%llu XYZ2=%llu XYZF2=%llu prim_xyz=0:%llu,1:%llu,2:%llu,3:%llu,4:%llu,5:%llu,6:%llu,7:%llu native_vertices=%zu\n",
+                         g_gif_input_origin, size,
+                         static_cast<unsigned long long>(g_parser.gs_registers[0]),
+                         static_cast<unsigned long long>(
+                             g_parser.register_write_counts[0x00u] - prim_before),
+                         static_cast<unsigned long long>(xyz2_writes),
+                         static_cast<unsigned long long>(xyzf2_writes),
+                         static_cast<unsigned long long>(xyz_primitive_counts[0]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[1]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[2]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[3]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[4]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[5]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[6]),
+                         static_cast<unsigned long long>(xyz_primitive_counts[7]),
+                         g_current_frame.size() - vertices_before);
+        }
     }
 }
 } // namespace

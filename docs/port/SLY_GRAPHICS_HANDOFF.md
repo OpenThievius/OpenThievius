@@ -1,8 +1,79 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 15:41 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 16:08 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Current visual and GS audit (2026-11-17, 16:08 CET)
+
+I rebuilt and inspected the current default `wave55-sdl32` client using SDL's
+offscreen driver. A no-input capture after 100 eligible frames shows the
+complete no-memory-card Continue prompt, plus the known small white dash at the
+left edge. After one process-local Cross at frame 300, eight captures beginning
+at eligible frame 330 are black. This reproduces the known prompt-to-black
+transition; I found no new default-path regression. Offscreen captures cannot
+confirm or rule out the desktop-window flicker from the user's recording.
+Images and bounded-run logs are in `/tmp/sly-visual-page-20261117/` and
+`/tmp/sly-visual-recheck-20261117/`.
+
+The default `wave55-sdl32` client still reaches the same black post-Continue
+state. I added opt-in `OPENRAC_TRACE_GS_XYZ_SUMMARY=1`; it reports each GIF
+input call that writes XYZ2/XYZF2, without the prior 64-write global cap. With
+`OPENRAC_TRACE_GS_XYZ=1`, VU origins include submission, MSCAL offset, and VU
+entry. VIF DIRECT origins include submission and byte offset. This is
+port-runtime diagnostics only and does not change guest packet handling.
+
+One process-local Cross at frame 300 produced 56 XYZ-writing GIF input calls
+in the bounded post-input capture: 52 VIF DIRECT and four VU1 XGKICK calls. A
+per-write primitive counter proves those calls wrote 5 points
+(`PRIM & 7 == 0`) and 1,354 sprites (`PRIM & 7 == 6`), with zero triangle-list
+or triangle-strip writes (3 or 4). The four VU1 packets write only points:
+submission 326 at MSCAL offsets `0x57920` (entry `0x2`, two points) and
+`0x71220` (entry `0x6da`, one point), then submission 327 at `0x579f0` (entry
+`0x2`, one point) and `0x712f0` (entry `0x6da`, one point). These offsets are
+outside the selected Sly mesh window `[177312,182688)` and do not establish
+model geometry. The accepted XGKICK packets previously traced for that
+selected mesh contain only GS state.
+
+This is the clearest current explanation for the blank world: after Continue,
+the native GS input sees UI points/sprites and a few VU points, but no world
+triangles. It does not yet identify why the retail mesh path fails to emit
+triangle primitives or whether the native VU/GIF handoff drops the triangle
+packet before the parser. Next, correlate a representative `DrawModelPart`
+range with the per-call summaries and inspect the VU packet's PRIM writes
+before changing the parser or renderer. The authoritative per-write capture
+is `/tmp/sly-gif-xyz-prim-accurate-20261117/run.log`; the earlier origin
+capture is `/tmp/sly-gif-xyz-context-20261117/run.log`. The latest bounded run
+ended at 14 seconds (137), with no launcher left running.
+
+### Matrix-convention audit of the opt-in adapter (2026-11-17, 15:51 CET)
+
+I tested whether the experimental world adapter's distorted geometry came
+from matrix order or OpenGL packing. The matched decomp settles the convention:
+`BuildProjectionMatrix` places the projective terms at row-major `m[2][3]`
+and `m[3][2]`, captured model transforms put translation in row 3, and
+`BuildViewProjectionMatrix` combines the view and projection in that same
+layout. The game transforms row vectors, so its final transform is
+`model * viewProjection`. Passing the row-major product buffer to OpenGL as
+column-major gives the transpose required by the GLSL column-vector multiply.
+The pre-existing adapter code already did this; the apparent packing/order
+bug was a false lead.
+
+Two temporary opt-in builds changed the product order and/or packing and were
+captured after one process-local Cross. Both remained unrecognizable gray
+geometry; the changed order produced near-zero NDC bounds. Those experiments
+did not improve rendering and their source edits have been reverted. They did
+not change the default renderer, which remains OFF. Captures/logs are under
+`/tmp/sly-world-matrix-fix-20261117/` and
+`/tmp/sly-world-matrix-order-fix-20261117/`; the latter launcher ended at its
+14-second timeout (137) and no launcher remains.
+
+Do not revisit the matrix convention or repeat the global XYZ capture. Next,
+map a representative retail `DrawModelPart` and its DMA/VIF range through the
+matched strip builder, VU program, XGKICK/DIRECT output, and the new per-write
+PRIM trace. The goal is to find whether triangle packets are never emitted or
+are lost before reaching the GIF parser. Keep the incomplete source-position
+adapter disabled by default.
 
 ### Re-audit of the selected lit-mesh finish (2026-11-17, 15:41 CET)
 

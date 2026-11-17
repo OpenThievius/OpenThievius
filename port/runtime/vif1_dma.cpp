@@ -620,6 +620,10 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 std::snprintf(trace_origin, sizeof(trace_origin),
                               "vif1-direct target submission=%u offset=%u",
                               trace->submission_id, command_offset);
+            } else if (std::getenv("OPENRAC_TRACE_GS_XYZ_SUMMARY") != nullptr) {
+                std::snprintf(trace_origin, sizeof(trace_origin),
+                              "vif1-direct submission=%u offset=%u",
+                              trace->submission_id, command_offset);
             }
             openrac_guest_gif_stream_write_from(stream.data() + cursor, bytes,
                                                 trace_origin);
