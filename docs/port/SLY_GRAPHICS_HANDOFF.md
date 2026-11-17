@@ -32,6 +32,36 @@ Evidence: `/tmp/sly-direct-postcontinue-20261117.log`,
 `/tmp/sly-level-packets-after-continue-20261117.log`, and
 `/tmp/sly1-native-frame-00.png`.
 
+I parsed the 16 queued-packet dumps for eligible frames 330–345. Every GIF tag
+uses a single A+D register descriptor; none uses an XYZ2, XYZF2, XYZ3 or XYZF3
+descriptor. Those packets carry GS register state, not scene vertices. Local
+packet dumps:
+`/tmp/sly1-native-render-packets-00.bin` through `-15.bin`.
+
+The saved first Sly kind-0 mesh packet at
+`/tmp/sly-world-part-0.bin` (141 qwords) is a VIF stream. It writes a
+three-vector header, UNPACKs 68 V4-32 vectors at VU1 address `0x027`, calls
+`MSCAL 0x318`, then UNPACKs 68 more V4-32 vectors at `0x188` and calls
+`MSCAL 0x401`. This identifies the two guest program entries to trace for
+Sly's geometry. The current traces do not yet show those programs' XGKICK
+payloads or link them to a queued GIF packet, so the cause of black output is
+still open.
+
+The qword-469 trace is for kind-5 mesh source `0x00a113c0`, sent through
+`BuildStripMeshPacket`; it is not the Sly model draw. Sly is model draw index 21,
+a class-2 draw with 38 kind-0 lit meshes. Do not treat the kind-5 mismatch as
+the proven cause of missing Sly geometry. In that kind-5 trace, guest microcode
+sets VI6 to 468 at PC `0x63`, increments it to 469 at PC `0x67`, then issues
+XGKICK VI6 at PC `0x68`; later it decrements VI7 from 36 to 35 before the kick
+at PC `0x6e`. The
+[VU instruction manual](https://www.ps2dev.com/files/vu-instruction-manual.pdf)
+defines XGKICK's PATH1 source as the value of VI[is]. Thus 469 is that
+microcode's explicit operand, not a host-side pointer calculation. A prior
+diagnostic backstep to 468 passed packet validation but left the frame black.
+Trace `/tmp/sly-detach-mesh-trace-cross-20261117.log`. The next trace should
+follow Sly's kind-0 lit mesh through VU entries `0x318` and `0x401`, capture
+their XGKICK output, then match that output to one of the queued GIF packets.
+
 The earlier no-input cadence capture still shows the full no-card prompt in
 eight internal samples. It does not reproduce the intermittent black gaps
 visible in the user's Nov 15 recording; the desktop-compositor behavior is

@@ -31,6 +31,38 @@ detail is wrong. Evidence: `/tmp/sly-direct-postcontinue-20261117.log`,
 `/tmp/sly-level-packets-after-continue-20261117.log`, and
 `/tmp/sly1-native-frame-00.png`.
 
+The 16 raw queued-packet dumps at eligible frames 330–345 were also walked as
+GIF packets. Every tag uses a single A+D register descriptor; none uses an
+XYZ2/XYZF2/XYZ3/XYZF3 descriptor. This confirms those queued packets contain
+GS register state, not the scene vertex stream. Packet dump paths are
+`/tmp/sly1-native-render-packets-00.bin` through `-15.bin` and are local
+diagnostics only.
+
+The qword-469 trace is for kind-5 mesh source `0x00a113c0`, which goes through
+`BuildStripMeshPacket`; it is not the Sly model draw below. The latter is a
+class-2 draw with 38 kind-0 lit meshes (`index=21`). Do not treat the kind-5
+XGKICK mismatch as the proven cause of missing Sly geometry. The VU setup trace
+for that kind-5 path shows the guest setting VI6 to 468 at PC `0x63`,
+incrementing it to 469 at PC `0x67`, then issuing XGKICK VI6 at PC `0x68`.
+Later it changes VI7 from 36 to 35 before the XGKICK at PC `0x6e`. The
+[PlayStation 2 VU instruction manual](https://www.ps2dev.com/files/vu-instruction-manual.pdf)
+defines XGKICK as starting PATH1 with the value of VI[is]. So 469 is the guest
+microcode's explicit operand, not a host address calculation error. A prior
+diagnostic backstep to 468 was accepted by the parser but still produced a
+black frame.
+
+The saved first Sly mesh packet (`/tmp/sly-world-part-0.bin`, 141 qwords)
+decodes as VIF commands, not GIF output: it UNPACKs a three-vector header,
+then 68 V4-32 vectors to VU1 address `0x027`, calls `MSCAL 0x318`, writes
+another 68 V4-32 vectors at address `0x188`, and calls `MSCAL 0x401`. This
+confirms the correct next trace target for the Sly class-2 kind-0 path. It does
+not yet show which XGKICK bytes those programs produce or correlate them to a
+particular queued GIF packet. Continue by tracing these entries and their kicks
+in the running port, then match the results to the packet-only A+D captures.
+Trace:
+`/tmp/sly-detach-mesh-trace-cross-20261117.log` and
+`/tmp/sly-world-mesh-capture-20261117.log`.
+
 The earlier no-input cadence capture remains stable on the complete no-card
 warning in eight samples: `/tmp/sly-current-cadence-montage.png` and
 `/tmp/sly-current-cadence-capture-20261117.log`. It does not reproduce the
@@ -38,11 +70,13 @@ black intervals visible in the user's Nov 15 screen recording (17–116 ms in
 the cropped game window); whether those gaps are guest rendering or desktop
 presentation remains unresolved.
 
-**Next graphics task:** trace one post-transition VIF submission end to end:
-identify which VU1 XGKICK output should contain the level's vertex stream, then
-follow the accepted GIF bytes into `DirectRenderer` and explain why almost all
-post-transition batches carry no vertices. Preserve strict GIF validation.
-Do not treat `QueueModelPartDraws` counts as rendered geometry, and do not
+**Next graphics task:** trace Sly's class-2 kind-0 lit model from
+`BuildLitStripMeshPacket` through its VIF/MSCAL data and XGKICK output. Match
+those outputs to a specific queued packet and identify why the post-transition
+GIF frames contain only A+D descriptors. Preserve strict GIF validation. Keep
+the separately traced kind-5 qword-469 mismatch as an anomaly; it is not yet
+connected to the Sly model path. Do not treat
+`QueueModelPartDraws` counts as rendered geometry, and do not
 enable the optional kind-6 host mesh adapter as a fix for the retail packet
 path. Keep any host-only renderer experiment opt-in and separate from matched
 decompilation. Start from `/tmp/sly-direct-postcontinue-20261117.log` and
