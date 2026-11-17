@@ -11,13 +11,13 @@ never edited by the host staging adapter.
 
 The sibling decomp checkout is at `8f7a85a3`; US and PAL code remain 100%
 matched. The native host32 target is still an experimental compatibility
-build, not a playable port. A fresh default-build capture at 09:41 local time
-shows the full no-card warning across eight later frames. The Continue text
-animates and a small white dash remains at the left edge. A process-local Cross
-gets past the warning into world loading, but the display goes black. The
-current trace associates the failure with a VU1 XGKICK whose qword-469 payload
-is rejected as a malformed GIF tag. No title or controllable level graphics
-are confirmed. See the dated visual and packet evidence in
+build, not a playable port. A rebuilt default configuration checked at 10:02
+CET shows the full no-card warning across eight settled frames. Continue
+animates and the small white dash remains at the left edge. A process-local
+Cross at frame 300 produces eight all-black frames. The unfiltered run also
+logs a qword-469 XGKICK rejection, but does not prove that record belongs to
+Sly's target kind-0 mesh path. No title or controllable level graphics are
+confirmed. See the dated visual and packet evidence in
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
 
 ## Historical build snapshot (2026-11-14)

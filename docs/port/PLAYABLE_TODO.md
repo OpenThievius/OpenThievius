@@ -3,6 +3,23 @@
 
 ## Current visual and packet audit (2026-11-17)
 
+**Rebuilt default-client check (2026-11-17, 10:02 CET):** the default
+`wave55-sdl32` executable on disk predated today's source, and the newer
+Release build had `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`. I rebuilt
+`port_native_sdl_host32` in the default cache and verified that option is OFF.
+Eight consecutive settled frames before input show the complete no-card prompt
+and animated Continue, with the known white dash at the left edge. One
+process-local Cross at native frame 300 yields eight identical black frames.
+That reproduces the existing post-Continue failure; it is not a new regression
+in the startup prompt. The captured renderer buffer cannot confirm or rule out
+flicker in the presented desktop window. The unfiltered post-input log also
+contains a qword-469 invalid-tag rejection, but this run does not tie that
+record to the target kind-0 Sly mesh, so use the graphics handoff for that
+investigation. Images and logs:
+`/home/reaper/sly/sly-client-check-20261117b/contact.png`,
+`/home/reaper/sly/sly-client-postcontinue-check-20261117b/contact.png`, and
+`/tmp/sly-client-postcontinue-check-20261117b-2.log`.
+
 **Fresh default-client verification (2026-11-17, 08:21 CET; supersedes the
 07:44-only visual checkpoint):** I rebuilt the default `wave55-sdl32` launcher
 from the current source with `OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`, then

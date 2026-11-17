@@ -3,19 +3,24 @@
 
 ## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
-**Fresh default-client visual audit (09:41 local):** ran the default
-`wave55-sdl32` launcher with its hidden-window flag and captured eight later
-frames after skipping the initial packet burst. Every frame contains the full
-no-card warning; none is black. The Continue highlight changes brightness,
-while the small white dash on the left edge remains. This does not reproduce a
-screen-wide flicker in the sampled framebuffer. It does not explain the user's
-reported desktop-window flicker, because this check reads the renderer buffer
-before presentation. A process-local Cross test on the separate traced build
-again reached world loading and produced a black post-input image. Its trace
-still reports the qword-469 XGKICK failing GIF-tag validation. Both bounded
-runs ended at timeout (137), not a confirmed guest crash. Captures and logs
-are under `/home/reaper/sly/sly-current-client-audit-20261117/` and
-`/home/reaper/sly/sly-model-parts-cross-audit-20261117.log`.
+**Fresh default-client visual audit (10:02 CET):** I found that the on-disk
+`wave55-sdl32` executable was older than today's source, while the newer
+`wave55-sdl32-release` cache has the optional world renderer enabled. I
+rebuilt the default target and confirmed
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF` before checking it. Eight consecutive
+settled frames before input all show the complete no-card warning and the
+animated Continue text; the small white dash on the left edge remains. This
+does not reproduce a screen-wide flicker in the captured renderer buffer, but
+it cannot rule out flicker in the presented desktop window. A process-local
+Cross at native frame 300 then produced eight identical all-black frames. The
+post-input trace again logs an XGKICK rejected at qword 469, but this unfiltered
+record does not establish that it belongs to Sly's target kind-0 lit-mesh path;
+see the graphics handoff before treating it as causal. Both bounded runs ended
+at timeout (137), not a confirmed guest crash, and no launcher remains. The
+rebuilt executable's compile completed with the existing warnings. Captures
+and logs are under `/home/reaper/sly/sly-client-check-20261117b/`,
+`/home/reaper/sly/sly-client-postcontinue-check-20261117b/`, and
+`/tmp/sly-client-check-20261117b.log`.
 
 The model-part diagnostic did not emit its expected model-part records even
 though the renderer logged mesh submissions. The model trace hook is therefore
@@ -28,11 +33,12 @@ operands/results and maps unsupported exponent-255 values and divide-by-zero
 to finite signed max. This addresses the traced `0x411` `ERLENG` case where a
 tiny vector squared to zero and host IEEE division produced infinity. The new
 run logs `P=0x7f7fffff` instead of infinity and removes the `MFP` infinity
-input, but the world remains black because the separate qword-469 XGKICK still
-fails strict GIF-tag validation. The change is in port runtime only; retail C
-and VU assembly were not edited. Build succeeded with the existing warning
-set; the 10-second native run ended at its diagnostic timeout (137), not a
-confirmed crash. Trace: `/tmp/sly-vu-float-model-20261117.log`.
+input. The world remains black; the separate qword-469 XGKICK failure is not
+established as the cause of Sly's missing scene geometry. The change is in
+port runtime only; retail C and VU assembly were not edited. Build succeeded
+with the existing warning set; the 10-second native run ended at its
+diagnostic timeout (137), not a confirmed crash. Trace:
+`/tmp/sly-vu-float-model-20261117.log`.
 
 **Packet writer identified:** kind-5 mesh `0x00a113c0` is dispatched by
 `ReadPlacedObjectModel` to matched `BuildStripMeshPacket` (`0x00163ED8`). Its

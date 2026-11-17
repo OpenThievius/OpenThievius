@@ -53,14 +53,16 @@ backfills. The code-match percentage is not a measure of native host
 readiness: VU microcode remains assembly and some translated call paths still
 need port replacements.
 
-The default native host32 build shows the complete no-card warning; a fresh
-hidden capture sampled eight later frames at 09:41 local time on 2026-11-17.
-The prompt stayed visible, with the Continue highlight animating and a small
-white dash at the left edge. A process-local Cross press dismisses the prompt
-and enters world loading, but the post-input client is black. The VU1 packet
-trace still rejects an XGKICK at qword 469 as a malformed GIF tag. No title or
-controllable level is confirmed. The opt-in kind-6 renderer is disabled and
-its uniform-gray result is not progress. The next milestone is recognizable
+The default native host32 build shows the complete no-card warning; a rebuilt
+default configuration was checked at 10:02 CET on 2026-11-17. Eight settled
+frames show the prompt and animated Continue, with a small white dash at the
+left edge. A process-local Cross press at frame 300 yields all-black frames.
+This reproduces the existing post-Continue failure, not a new startup-prompt
+regression. The frame captures cannot confirm desktop-window flicker. The
+unfiltered trace also logs an invalid qword-469 XGKICK, but does not assign it
+to Sly's target kind-0 mesh path. No title or controllable level is confirmed.
+The opt-in kind-6 renderer remains disabled in the default build and its
+uniform-gray result is not progress. The next milestone is recognizable
 loaded-world geometry, based on evidence about object role, bounds, draw order
 and material. Avoid unrelated startup/backfill work unless a current run
 shows it blocks this milestone. See the
