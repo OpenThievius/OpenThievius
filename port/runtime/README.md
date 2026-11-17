@@ -74,6 +74,14 @@ active task and evidence. The VIF command and DMA tag formats follow the public
 [PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
 and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
 
+`vu1_native.cpp` keeps VU VF/ACC/P/Q state and translates the observed VU1
+instruction subset. Its arithmetic helpers preserve raw register transfers,
+flush exponent-zero arithmetic inputs/results to signed zero, and clamp
+unsupported exponent-255 arithmetic and divide-by-zero to a finite signed-max
+host value. This currently models a traced exceptional-float case, not the
+complete VU flags, rounding, or saturation rules. The active graphics blocker
+and trace are in the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md).
+
 `sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
 It takes two host Count samples and updates the matching extended-counter
 globals in guest RAM; `kernel.cpp` supplies the monotonic 294.912 MHz Count.

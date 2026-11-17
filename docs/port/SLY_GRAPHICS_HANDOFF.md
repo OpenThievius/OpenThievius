@@ -4,6 +4,26 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### VU exceptional-float correction (2026-11-17)
+
+The translator now models the observed VU exceptional-float behavior for
+vector arithmetic, accumulator operations, `ERLENG`, `ERSQRT`, `DIV`, and
+`RSQRT`: exponent-zero values flush to signed zero, unsupported exponent-255
+values and divide-by-zero clamp to finite signed max. This keeps raw register
+loads/stores unchanged and normalizes only arithmetic. On entry `0x411`, the
+trace now shows `ERLENG` mapping zero length to `P=0x7f7fffff`; `MFP` no longer
+receives host IEEE infinity and the ensuing NaN transform cascade is gone.
+The visual remains black because entry `0x5f` still XGKICKs from qword 469,
+which is payload after the valid GIFtag at qword 468; strict packet validation
+continues to reject it. The ten-second foreground run injected one process-
+local Cross at frame 300, and ended at the diagnostic timeout (137), not a
+guest crash. The sampled post-input framebuffer is still black. Evidence:
+`/tmp/sly-vu-float-model-20261117.log` and
+`/tmp/sly1-native-visible-after-cross-20261117.png` (the previous baseline).
+Matched C and VU assembly were not changed. The model uses finite `0x7f7fffff`
+as a host representation of VU max; exact bit-level saturation/flag behavior
+remains to be validated.
+
 ### Latest foreground confirmation (2026-11-17)
 
 The latest source-mapped VIF run also confirms that the first world XGKICK

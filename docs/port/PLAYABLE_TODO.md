@@ -34,6 +34,20 @@ despite the valid tag at 468, plus separate non-finite transform evidence for
 entry `0x411` below. Do not patch either path without tracing its data contract.
 Trace: `/tmp/sly-strip-target-reserve-cross2-20261117.log`.
 
+**VU exceptional-float correction (2026-11-17):** the native VU translator
+previously used host IEEE arithmetic for VU vector operations and `ERLENG`.
+On the reproduced entry `0x411` path, a subnormal vector squared to zero and
+host division produced infinity; `MFP` then copied infinity into a transform,
+and later multiply operations could produce NaNs. The port runtime now flushes
+exponent-zero operands/results to signed zero and clamps unsupported exponent-
+255 inputs/results and divide-by-zero to finite signed max. The corrected
+trace shows `ERLENG` returning `0x7f7fffff`, and no longer propagating an IEEE
+infinity into `MFP`. This is a targeted host model in
+`port/runtime/vu1_native.cpp`; matched decompilation and VU assembly remain
+untouched. The post-Cross capture is still black because the independent
+qword-469 XGKICK rejection persists. Build and trace:
+`/tmp/sly-vu-float-model-20261117.log`.
+
 The DMA ownership trace now ties that REF segment to the frame submission:
 `TADR=0x003c3b00` is repeatedly submitted from retail `RunRenderThread`
 (`0x0015EE80`), and the chain contains REF tag `0x003c3d60`, QWC 326, data

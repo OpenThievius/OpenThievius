@@ -3,6 +3,17 @@
 
 ## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
+**VU arithmetic update:** native VU arithmetic now normalizes exponent-zero
+operands/results and maps unsupported exponent-255 values and divide-by-zero
+to finite signed max. This addresses the traced `0x411` `ERLENG` case where a
+tiny vector squared to zero and host IEEE division produced infinity. The new
+run logs `P=0x7f7fffff` instead of infinity and removes the `MFP` infinity
+input, but the world remains black because the separate qword-469 XGKICK still
+fails strict GIF-tag validation. The change is in port runtime only; retail C
+and VU assembly were not edited. Build succeeded with the existing warning
+set; the 10-second native run ended at its diagnostic timeout (137), not a
+confirmed crash. Trace: `/tmp/sly-vu-float-model-20261117.log`.
+
 **Packet writer identified:** kind-5 mesh `0x00a113c0` is dispatched by
 `ReadPlacedObjectModel` to matched `BuildStripMeshPacket` (`0x00163ED8`). Its
 trailing strip loop reserves format-C/count-7 data at VU offset `0x1D4` (112
