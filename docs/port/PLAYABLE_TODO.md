@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-17, 14:03 CET)
+
+The latest rebuilt default client still draws the no-card prompt. One
+process-local Cross at frame 300 reaches the established post-Continue boundary;
+eight explicitly post-transition offscreen captures at presents 318–325 are
+black. This matches
+the previous result, so this check found no new default-path visual regression.
+It does not test desktop flicker. Captures and logs are under
+`/tmp/sly-latest-current-audit-20261117/`,
+`/tmp/sly-latest-postcross-20261117/`, and
+`/tmp/sly-latest-transition-20261117/` and
+`/tmp/sly-latest-verified-frames-20261117/`.
+
+The actionable graphics finding is narrower than the generic warnings in old
+logs: selected kind-0 lit mesh submission 322 ends at VU entry `0x2`, which
+rejects a kick from qword 461 because it points at the payload of a valid A+D
+packet beginning at 460. The later accepted packet from qword 35 is also A+D
+state. Neither has XYZ2/XYZF2 writes. This does not identify the level's vertex
+packet and does not justify changing the retail kick address. The separate
+kind-5 qword-469 rejection is not shown to cause this mesh's missing geometry.
+
+**Next:** trace the selected model's separate finish/direct path until an
+XYZ2/XYZF2 packet is tied to that model and reaches the GS. Keep the
+source-position adapter off by default until its output matches retail. The
+fresh build compiles 194/194 decomp units and 85/85 port backfills; 99 missing
+function traps remain in the native host (4,400/4,807 function entries are
+catalogued, with 95 unresolved addresses). These are port gaps, not unfinished
+decompilation. The sibling decomp is clean and current at `8f7a85a3`; no decomp
+source changed.
+
 ## Mesh packet provenance correction (2026-11-17, 13:40 CET)
 
 The earlier broad trace followed target address `0x016d5890` across all 773

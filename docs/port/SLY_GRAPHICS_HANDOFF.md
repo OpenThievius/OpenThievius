@@ -1,8 +1,50 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 13:55 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 14:03 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Fresh default-client audit and mesh finish trace (2026-11-17, 14:03 CET)
+
+I rebuilt the default `wave55-sdl32` client from the current branch with the
+optional Sly world renderer OFF. Its framebuffer shows the no-card prompt. A
+process-local Cross at native frame 300 reaches the same transition as before;
+eight captured frames for native presents 318–325 are all black. This
+reproduces the known post-Continue failure, with no new visual regression in
+the default path. The run used SDL's offscreen driver, so it does not assess the desktop
+compositor or the flicker in the user's visible-window recording. The captures
+and logs are under `/tmp/sly-latest-current-audit-20261117/`,
+`/tmp/sly-latest-postcross-20261117/`, and
+`/tmp/sly-latest-transition-20261117/`. The bounded launches ended with exit
+137 and left no launcher running.
+
+The fresh build compiled 194/194 staged decomp units and 85/85 port backfills;
+the host link catalogs 4,400/4,807 function entries, with 95 unresolved
+addresses and 99 missing-function traps. Those are port link/runtime gaps, not
+unfinished decompilation. The sibling decomp checkout is clean at `8f7a85a3`,
+matching `origin/master`. No decomp source changed.
+
+The capture-window correction matters: the first eight-frame sample filled its
+limit before the injected press, so it only showed startup. The corrected run
+pairs each screenshot with present-frame logging and confirms the post-Continue
+black output specifically at frames 318–325. Its log and contact sheet are under
+`/tmp/sly-latest-verified-frames-20261117/`.
+
+The selected kind-0 lit mesh is submission 322, DMA segment 287, stream range
+`[177312,182688)`. Its finish entry `0x2` at stream offset 182672 kicks from
+qword 461. The preceding UNPACK writes a valid 71-qword A+D GIF packet at
+qword 460; qword 461 is its first payload word. The kick is rejected when the
+strict parser reads that payload as a GIFtag. The same entry later accepts an
+A+D state packet from qword 35. Neither packet contains XYZ2/XYZF2 writes, so
+this trace identifies no drawable world geometry and is not a reason to shift
+the kick address. This is distinct from the older kind-5 qword-469 warning;
+that warning is not evidence for this selected mesh. Exact log:
+`/tmp/sly-target-mesh-all-mscal-20261117/run.log`.
+
+Next: trace the selected model's other finish/direct path until a retail
+XYZ2/XYZF2 packet is tied to that model and reaches the GS. Keep the optional
+source-position world adapter disabled by default; it produces distorted
+geometry and does not yet reproduce the retail VU output.
 
 ### Explicit VU submission filter (2026-11-17, 13:55 CET)
 
@@ -26,9 +68,8 @@ malformed-tag warnings therefore remain unattributed. Logs:
 `/tmp/sly-target-mesh-vu-accepted-20261117/run.log`, and
 `/tmp/sly-target-mesh-vu356-20261117/run.log`.
 
-Next: capture the target submission's VIF command offsets in the same run as
-the exact VU parser state, then follow the later `0x356` call only if the
-selected mesh's packet reaches it.
+Superseded by the exact selected-mesh finish trace above: its `0x2` finish call
+and both packet contents are now captured.
 
 ### VU trace target lifetime fix (2026-11-17, 13:48 CET)
 
@@ -43,8 +84,8 @@ mesh address `0x016d5890` to submission 322 and its narrow stream window
 capture before assigning any generic XGKICK rejection to this mesh. No
 decomp source changed. Log: `/tmp/sly-target-mesh-exact-20261117/run.log`.
 
-Next: use the submission and per-command trace together to capture the exact
-VU program output for mesh 0, then compare it with the adapter's source packet.
+Superseded by the exact selected-mesh finish trace above. The actual drawable
+XYZ output for this model remains to be found.
 
 ### Mesh packet provenance correction (2026-11-17, 13:40 CET)
 
@@ -78,9 +119,9 @@ no sibling decomp source changed. Bounded offscreen captures ended at timeout
 `/tmp/sly-model-part-target-map-20261117/run.log`, and
 `/tmp/sly-model-part-item-map-20261117/run.log`.
 
-Next: trace mesh 0's VU output from its MSCAL calls and correlate it with the
-packet captured by the optional native adapter. Filter by the selected
-submission and command offsets; a broad frame chain contains unrelated draws.
+Superseded by the exact selected-mesh finish trace above. Continue with the
+separate finish/direct path; broad frame-chain matches still include unrelated
+draws.
 
 ### Rebuilt default-client output (2026-11-17, 13:14 CET)
 

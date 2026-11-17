@@ -33,24 +33,25 @@ stores, validates source-chain spans, updates the DMAC completion registers,
 and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
 extracts the small color-only primitive subset used by the diagnostic geometry
 path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
-`DirectRenderer` and texture pool. The host32 `AddGifRegisterWrite` ABI
-adapter now fixes the no-card prompt's collapsed scissor; the prompt is visible
-but had occasional black frames in native captures. A 224-line screen-fill
-classification fix removed the late black fill that covered the prompt. A
-five-second hidden capture now shows the prompt in eight consecutive frames;
-2 of 227 later readback frames remain black, each with only a full-screen
-textured draw and no prompt geometry. Packet-empty presents are too rare to
-explain the remaining frames; see the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md).
-The user's prior Space press moved the game into world `0x870cf0`; a separate
-offscreen native input probe also reached world drawing. The first VU XGKICK
-uses VI6=`469` even though VIF UNPACK placed a valid EOP GIFtag at qword 468.
-A diagnostic retry from 468 still left the captured frame black and exposed a
-second failing XGKICK from VI7=`35`; that retry is removed. See the [graphics
-handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for evidence and the active
-task. The opt-in setup trace also records VIF source offsets and VU stores
-around qwords 32–38 and 464–476. The first XGKICK failure snapshot now includes
-VI3 and VF7; it shows the next SQ targets qword 627, separate from the later
-XGKICK at qword 35.
+`DirectRenderer` and texture pool. The current default client checkpoint is in
+the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md): a fresh
+offscreen capture shows the no-card prompt, then black frames after one
+process-local Cross. This reproduces the known post-Continue failure; it does
+not test desktop flicker. The `AddGifRegisterWrite` ABI adapter fixes the
+prompt's collapsed scissor, and a screen-fill classification fix removed the
+late black fill that covered it. Older captures recorded occasional black
+frames around the prompt, so use the latest handoff before diagnosing those
+historical samples.
+
+Do not conflate the two rejected kicks in older traces. In the selected
+kind-0 lit-mesh path, submission 322's finish entry `0x2` kicks from qword 461,
+one qword after an A+D state packet at 460; its later accepted kick from 35 is
+also state-only. This establishes no drawable geometry and is not a reason to
+shift the guest address. A separate kind-5 path rejects qword 469 after an
+UNPACK at 468; it is not proven to cause the missing level image. Both records
+and the next actionable graphics step are documented in the [graphics
+handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md). The opt-in setup trace also
+records VIF source offsets and VU stores around qwords 32–38 and 464–476.
 The native port requires SDL3.
 
 `vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
