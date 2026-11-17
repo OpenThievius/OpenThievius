@@ -1,8 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 23:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 23:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Real native input verified (2026-11-17, 23:20 CET)
+
+I launched the default host32 launcher under the X11 SDL driver with
+`OPENRAC_TRACE_PAD=1` and sent a real desktop Return keypress through XTEST
+(a throwaway script under `/tmp`, not a repository file). The log records the
+SDL key events (`[key] type=down key=0xd`) and the game's pad report changing
+from `held=0000` to `held=4000` and back — `0x4000` is the Cross bit that the
+retail no-card menu consumes. This confirms **real native keyboard input
+reaches the game's pad path**; the process-local test press is an additional
+diagnostic, not the only input mechanism. The world/VU activity after the
+press is the same as with the injected press. No launcher remains. Log:
+`/tmp/sly-realinput-20261117.log`.
+
+Graphics remain the blocker: the default client output after Continue is
+still black, and the opt-in adapter does not produce a recognizable level.
 
 ### Topology/scale audit and VU-source diff (2026-11-17, 23:00 CET)
 
