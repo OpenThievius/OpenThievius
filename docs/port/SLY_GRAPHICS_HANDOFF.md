@@ -1,25 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 16:55 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 17:16 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
-### Selected mesh topology probe (2026-11-17, 16:55 CET)
+### Correct strip-to-list comparison and whole-part probe (2026-11-17, 17:16 CET)
 
-The optional adapter can isolate a `source_mesh`, keep its first material
-pass, and select GL triangle-strip or triangle-list submission. For source
-mesh `0x00a0eb48` (85 vertices), both modes remain a purple sliver; list mode
-changes its fan pattern without producing a recognizable object. This is a
-diagnostic only. The default renderer remains OFF.
+The earlier `GL_TRIANGLES` debug mode grouped each three source vertices. That
+was not a valid conversion from a triangle strip and its changed fan pattern
+was not evidence about the source topology. The optional adapter now expands
+a strip into triangles with alternating winding. For source mesh
+`0x00a0eb48` (85 vertices), a paired visible frame is pixel-identical between
+strip and expanded-list draws. This rules out GL primitive selection for that
+captured sequence, but does not establish the retail VU output. Paired captures
+are in `/tmp/sly-valid-strip-list-20261117/`.
 
-A fresh VU store trace follows submission 326 for the same mesh through
-entries `0x318`, `0x51`, `0x242`, and `0x356`; entry `0x356` writes the VU
-vertex buffer. The following entry `0x2` finish calls emit the selected
-XGKICKs, whose accepted packets carry GS state without XYZ2/XYZF2 output. The
-source-level GL adapter cannot stand in for that missing native draw output.
-Captures and trace: `/tmp/sly-object-topology-20261117/` and
-`/tmp/sly-selected-vu-buffer-trace-20261117/full-range.log`.
+The mesh maps to draw request `0x005e4980` (draw index 9), class 4, unskinned;
+its request has four meshes and the selected mesh has three material sources.
+I added `OPENRAC_DEBUG_SLY_WORLD_REQUEST=<address>` to isolate the whole request.
+The full request yields a larger clipped slab. Adjacent unskinned request
+`0x005e4a00` yields a small fragment. Neither is recognizable world graphics.
+Captures are in `/tmp/sly-full-part-20261117/` and
+`/tmp/sly-adjacent-part-20261117/`.
 
+The default `wave55-sdl32` build still has world rendering OFF and remains
+black after Continue. Keep the diagnostic adapter opt-in. Next, identify a
+complete visible world object from its owner and all of its parts, then
+validate its transforms, material uploads, and screen bounds before changing
+rendering behavior.
 ### Default and diagnostic client check (2026-11-17, 16:40 CET)
 
 Eight settled default-client frames sampled 30 eligible presents apart all

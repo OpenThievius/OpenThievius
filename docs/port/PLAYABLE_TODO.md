@@ -1,30 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-17, 16:55 CET)
+## Current checkpoint (2026-11-17, 17:16 CET)
 
-I added opt-in selectors to the isolated world adapter so a single captured
-source mesh and its first material pass can be rendered as either a GL
-triangle strip or a GL triangle list. On source mesh `0x00a0eb48` (85
-vertices), both modes draw only a purple sliver after Continue; triangle-list
-mode changes the fan pattern but neither image is recognizable. This rules
-out a primitive-mode switch by itself as a graphics fix. The diagnostic flags
-are `OPENRAC_DEBUG_SLY_WORLD_SOURCE`,
-`OPENRAC_DEBUG_SLY_WORLD_FIRST_PASS`, and
-`OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE=triangles`; the default renderer is
-unchanged and remains OFF. Captures:
-`/tmp/sly-object-topology-20261117/strip-contact.png` and
-`/tmp/sly-object-topology-20261117/triangles-contact.png`.
+I corrected the earlier triangle-list experiment: setting `GL_TRIANGLES`
+directly grouped each three input vertices, which is not a strip conversion.
+The optional adapter now expands each strip triangle in alternating winding.
+On a frame where source mesh `0x00a0eb48` is present, the expanded list and
+`GL_TRIANGLE_STRIP` captures are pixel-identical. This rules out GL's primitive
+mode for that captured input sequence. Both outputs still show only a clipped,
+gray-purple slab, not a recognizable scene. The comparison and captures are in
+`/tmp/sly-valid-strip-list-20261117/`; `sly1-native-world-03.ppm` matches
+pixel-for-pixel in both modes.
 
-The fresh VU buffer trace for submission 326 reaches the selected 85-vertex
-mesh through MSCAL entries `0x318`, `0x51`, `0x242`, and `0x356`; the latter
-writes the VU vertex buffer. The following entry `0x2` finish calls emit the
-selected XGKICKs. Their accepted packets carry GS state without XYZ2/XYZF2.
-Trace:
-`/tmp/sly-selected-vu-buffer-trace-20261117/full-range.log`. The next boundary
-remains the native VU/GIF handoff for this mesh; do not promote either
-source-position draw variant into the default client.
+The mesh maps to unskinned model draw request `0x005e4980` (draw index 9),
+class 4, and contains 85 vertices. Its request has four meshes; the selected
+mesh has three material sources. I added
+`OPENRAC_DEBUG_SLY_WORLD_REQUEST=<address>` to isolate all meshes and material
+passes belonging to one request. Rendering all of request `0x005e4980` gives a
+larger but still clipped slab; adjacent unskinned request `0x005e4a00` is only
+a small fragment. Captures are in `/tmp/sly-full-part-20261117/` and
+`/tmp/sly-adjacent-part-20261117/`.
 
+These experiments use the optional Release renderer; the ordinary build stays
+unchanged with world rendering OFF. Its post-Continue output remains black.
+No playable scene is confirmed. The earlier VU buffer trace for submission
+326 remains evidence about a separate VU/GIF boundary; it does not validate
+the source-position adapter as retail output.
+
+**Next:** stop changing primitive modes. Identify a complete visible world
+object from its draw owner and all of its parts, then use the captured,
+unskinned inputs to check its transforms, material uploads, and screen bounds.
+Keep the adapter opt-in until that object is recognizable.
 ## Previous checkpoint (2026-11-17, 16:40 CET)
 
 I reran the default host32 client with SDL's offscreen driver and inspected

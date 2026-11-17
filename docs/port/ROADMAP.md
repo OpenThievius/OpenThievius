@@ -1,18 +1,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-17, 16:55 CET)
+## Current checkpoint (2026-11-17, 17:16 CET)
 
-The default host32 launcher shows the settled no-memory-card prompt; its known
-post-Continue output is black. A fresh offscreen capture found no screen-wide
-flicker in the renderer buffer but cannot assess the desktop compositor. The
-optional diagnostic build remains distorted and is not used by default. An
-isolated 85-vertex mesh remained a sliver in both strip and triangle-list
-experiments. Its selected VU finish kick still does not carry XYZ output, so
-the client is not playable and no level graphics are confirmed. See the
-[latest graphics checkpoint](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1655-cet)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#selected-mesh-topology-probe-2026-11-17-1655-cet).
+The default host32 client still displays the no-card prompt and goes black
+after Continue. The optional Release renderer remains distorted and disabled
+in the ordinary build. A corrected strip-to-list conversion rendered the
+selected 85-vertex source exactly like GL triangle-strip mode in a paired
+frame, so primitive selection alone does not explain its clipped appearance.
+Rendering its full unskinned request is still only a clipped slab; an adjacent
+request is a small fragment. No recognizable scene or playable client is
+confirmed. See the [latest graphics checkpoint](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1716-cet)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#correct-strip-to-list-comparison-and-whole-part-probe-2026-11-17-1716-cet).
 
+**Next:** identify one complete visible world object from its draw owner and
+all of its parts, then validate its transforms, material uploads, and screen
+bounds. Keep the diagnostic adapter disabled by default.
 ## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated

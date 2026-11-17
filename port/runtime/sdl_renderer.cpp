@@ -330,6 +330,16 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             debug_source_filter = true;
         }
     }
+    bool debug_request_filter = false;
+    std::uint32_t debug_request = 0;
+    if (const char* setting = std::getenv("OPENRAC_DEBUG_SLY_WORLD_REQUEST")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            debug_request = static_cast<std::uint32_t>(parsed);
+            debug_request_filter = true;
+        }
+    }
     const bool debug_first_material_pass =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_FIRST_PASS") != nullptr;
     GLenum debug_primitive = GL_TRIANGLE_STRIP;
@@ -338,12 +348,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             debug_primitive = GL_TRIANGLES;
     }
     static unsigned debug_selection_notice = 0;
-    if ((debug_source_filter || debug_first_material_pass ||
+    if ((debug_source_filter || debug_request_filter || debug_first_material_pass ||
          debug_primitive != GL_TRIANGLE_STRIP) && debug_selection_notice++ < 1u) {
         std::fprintf(stderr,
-                     "[native sly debug selection] source=%s%#010x first_pass=%u primitive=%s\n",
+                     "[native sly debug selection] source=%s%#010x request=%s%#010x first_pass=%u primitive=%s\n",
                      debug_source_filter ? "" : "all/",
                      debug_source_mesh,
+                     debug_request_filter ? "" : "all/",
+                     debug_request,
                      debug_first_material_pass ? 1u : 0u,
                      debug_primitive == GL_TRIANGLES ? "triangles" : "triangle-strip");
     }
@@ -381,6 +393,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
     for (const auto& mesh : meshes) {
         if (debug_source_filter && mesh.source_mesh != debug_source_mesh) continue;
+        if (debug_request_filter &&
+            static_cast<std::uint32_t>(mesh.instance >> 16u) != debug_request)
+            continue;
         if (debug_first_material_pass && (mesh.instance & 0xFFu) != 0u) continue;
         if (trace_projected_bounds) {
             if (!present_instances.insert(mesh.instance).second) ++duplicate_instances;
@@ -537,11 +552,35 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         }
-        glBufferData(GL_ARRAY_BUFFER,
-                     static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
-                     mesh.vertices.data(), GL_STREAM_DRAW);
-        glDrawArrays(debug_primitive, 0,
-                     static_cast<GLsizei>(mesh.vertices.size() / 9u));
+        if (debug_primitive == GL_TRIANGLES) {
+            // Expand the source sequence as a triangle strip. GL_TRIANGLES over
+            // the original vertices groups unrelated corners and is not a valid
+            // strip-to-list comparison.
+            std::vector<float> triangles;
+            const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            if (vertex_count >= 3u)
+                triangles.reserve((vertex_count - 2u) * 3u * 9u);
+            for (std::size_t vertex = 2u; vertex < vertex_count; ++vertex) {
+                const std::size_t a = (vertex & 1u) != 0u ? vertex - 1u : vertex - 2u;
+                const std::size_t b = (vertex & 1u) != 0u ? vertex - 2u : vertex - 1u;
+                for (const std::size_t index : {a, b, vertex}) {
+                    const auto begin = mesh.vertices.begin() +
+                        static_cast<std::ptrdiff_t>(index * 9u);
+                    triangles.insert(triangles.end(), begin, begin + 9);
+                }
+            }
+            glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(triangles.size() * sizeof(float)),
+                         triangles.data(), GL_STREAM_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0,
+                         static_cast<GLsizei>(triangles.size() / 9u));
+        } else {
+            glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
+                         mesh.vertices.data(), GL_STREAM_DRAW);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0,
+                         static_cast<GLsizei>(mesh.vertices.size() / 9u));
+        }
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
