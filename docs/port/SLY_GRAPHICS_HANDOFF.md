@@ -1,8 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 13:14 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 13:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Mesh packet provenance correction (2026-11-17, 13:40 CET)
+
+The broad trace followed the frame's 773-segment VIF chain and mixed several
+parts' draw packets. The mesh packet run begins at DMA segment 286, stream range
+`[177312,182688)`: segment 287 is tag `0x003c8560`, data `0x016d5890`, QWC
+141. It contains VIF UNPACKs and no VIF DIRECT command.
+
+Opt-in instrumentation in `compile_decomp_host32.py` adds range callbacks to
+the generated host32 staging source around `DrawModelPart` and each mesh or
+strip writer loop. The target tag maps to request `0x005e5400`, part
+`0x016d4460`, mesh 0 of 38, a lit and skinned part. Mesh 0's writer range is
+`[0x003c8380,0x003c85d0)` and includes the tag; the detached payload is at
+`0x016d5890`. This establishes provenance from the decomp call to the DMA
+input without changing the sibling decomp repository.
+
+The wide trace's 44-QWC DIRECT packet at segment 612 (40 XYZ2 writes, PRIM 6)
+and two-QWC packet at segment 771 belong to a different part: request
+`0x005e5480`, part `0x016d44d0`, unlit with 47 strips. Likewise, broad VU XYZ
+observations at segments 587 and 723 are outside the selected mesh range. None
+of these observations establish that the selected mesh reaches the GS.
+
+The opt-in DIRECT-origin label in `vif1_dma.cpp` remains useful for narrowed
+captures. The host32 build passed with 194/194 staged units, 85/85 port
+backfills, and 99 missing-function traps. Staged changes are diagnostic only;
+no sibling decomp source changed. Bounded offscreen captures ended at timeout
+137 and left no launcher process. Logs:
+`/tmp/sly-target-direct-xyz-20261117/run.log`,
+`/tmp/sly-focused-model-direct-20261117/run.log`,
+`/tmp/sly-model-part-range-20261117/run.log`,
+`/tmp/sly-model-part-target-map-20261117/run.log`, and
+`/tmp/sly-model-part-item-map-20261117/run.log`.
+
+Next: trace mesh 0's VU output from its MSCAL calls and correlate it with the
+packet captured by the optional native adapter. Filter by the selected
+submission and command offsets; a broad frame chain contains unrelated draws.
 
 ### Rebuilt default-client output (2026-11-17, 13:14 CET)
 
@@ -322,15 +358,13 @@ captures remain black. Contact sheet and raw images:
 The same fresh run traced the full 773-segment VIF1 chain containing the
 dynamic target address `0x016d5890` (submission 326, selected stream range
 `[177312,497328)`). With the renderer's XGKICK origin filter, it reports three
-writes to XYZ2/XYZF2 in that chain: two at MSCAL offset `0x57920` / entry
-`0x2`, and one at `0x71220` / entry `0x6da`. A matching later submission 327
-has one more write at offset `0x712f0` / entry `0x6da`. The entry-`0x2` XY
-positions decode outside the visible viewport
-using the currently stored XYOFFSET; the later XYZF2 values are near zero
-while XYOFFSET is still very large. This is not a real scene-geometry stream.
-The trace does **not** cover every renderer input path or independently verify
-GS PATH1 state, so it cannot prove there are no other vertex submissions.
-Diagnostic capture: `/tmp/sly-whole-chain-xyzstate-20261117.log`.
+writes to XYZ2/XYZF2 at MSCAL offsets `0x57920` and `0x71220`; the matching
+later submission 327 has one more at `0x712f0`. The broad follow range includes
+many other draw packets: offsets `0x57920` and `0x71220` map to segments 587
+and 723, while the selected mesh buffers are at segment 287. These writes
+cannot be attributed to that mesh. The trace does **not** cover every renderer
+input path or independently verify GS PATH1 state. Diagnostic capture:
+`/tmp/sly-whole-chain-xyzstate-20261117.log`.
 
 The prior investigation was too narrowly summarized as “no XYZ output.” There
 are a few XYZ register writes, but their observed coordinates/state are not

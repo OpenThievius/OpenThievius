@@ -613,8 +613,16 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                             sizeof(trace->direct_prefix));
                 trace->has_direct_prefix = true;
             }
+            char trace_origin[96] = "vif1-direct";
+            const char* xyz_trace_setting = std::getenv("OPENRAC_TRACE_GS_XYZ");
+            if (trace_target_command && xyz_trace_setting != nullptr &&
+                xyz_trace_setting[0] != '\0' && xyz_trace_setting[0] != '0') {
+                std::snprintf(trace_origin, sizeof(trace_origin),
+                              "vif1-direct target submission=%u offset=%u",
+                              trace->submission_id, command_offset);
+            }
             openrac_guest_gif_stream_write_from(stream.data() + cursor, bytes,
-                                                "vif1-direct");
+                                                trace_origin);
             cursor += bytes;
             *direct_bytes += bytes;
             continue;

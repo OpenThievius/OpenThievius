@@ -1354,6 +1354,46 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     }
 }
 
+extern "C" void sly1_native_trace_model_part_packet_range(
+    u32 request, u32 part, u32 begin, u32 end, u32 meshes, u32 strips,
+    u32 flags, u32 lit, u32 skinned) {
+    const char* setting = std::getenv("OPENRAC_TRACE_MODEL_PART_PACKET_ADDRESS");
+    if (setting == nullptr || request == 0 || part == 0) return;
+    char* parse_end = nullptr;
+    const unsigned long parsed = std::strtoul(setting, &parse_end, 0);
+    if (parse_end == setting || *parse_end != '\0' || parsed > 0xFFFFFFFFul) return;
+    const u32 target = static_cast<u32>(parsed);
+    const u32 range_bytes = end - begin;
+    const u32 target_offset = target - begin;
+    if (range_bytes == 0 || range_bytes > 0x01000000u ||
+        target_offset >= range_bytes)
+        return;
+    std::fprintf(stderr,
+                 "[native model part packet range] request=%#010x part=%#010x range=[%#010x,%#010x) bytes=%u target=%#010x target_offset=%#x meshes=%u strips=%u flags=%#x lit=%u skinned=%u\n",
+                 request, part, begin, end, range_bytes, target, target_offset,
+                 meshes, strips, flags, lit, skinned);
+}
+
+extern "C" void sly1_native_trace_model_part_item_packet_range(
+    u32 request, u32 part, u32 begin, u32 end, u32 index, u32 kind,
+    u32 count, u32 flags, u32) {
+    const char* setting = std::getenv("OPENRAC_TRACE_MODEL_PART_PACKET_ADDRESS");
+    if (setting == nullptr || request == 0 || part == 0) return;
+    char* parse_end = nullptr;
+    const unsigned long parsed = std::strtoul(setting, &parse_end, 0);
+    if (parse_end == setting || *parse_end != '\0' || parsed > 0xFFFFFFFFul) return;
+    const u32 target = static_cast<u32>(parsed);
+    const u32 range_bytes = end - begin;
+    const u32 target_offset = target - begin;
+    if (range_bytes == 0 || range_bytes > 0x01000000u ||
+        target_offset >= range_bytes)
+        return;
+    std::fprintf(stderr,
+                 "[native model part item packet range] request=%#010x part=%#010x kind=%s index=%u/%u range=[%#010x,%#010x) bytes=%u target=%#010x target_offset=%#x flags=%#x\n",
+                 request, part, kind == 0 ? "mesh" : "strip", index, count,
+                 begin, end, range_bytes, target, target_offset, flags);
+}
+
 extern "C" void sly1_native_trace_model_build(u32 mesh_address, u32 vecs_address,
                                                  u32 uvs_address, u32 vertex_count,
                                                  u32 refs_address, u32 header_address) {
@@ -1577,6 +1617,8 @@ extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_part_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_part_item_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_deferred_requests(u32, u32, u32, u32, u32) {}

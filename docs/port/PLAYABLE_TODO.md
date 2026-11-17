@@ -1,6 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Mesh packet provenance correction (2026-11-17, 13:40 CET)
+
+The earlier broad trace followed target address `0x016d5890` across all 773
+segments in the frame DMA. The mesh packet run begins at DMA segment 286, stream range
+`[177312,182688)`: segment 287 is tag `0x003c8560`, data `0x016d5890`, QWC
+141. A narrow trace found UNPACKs in this range but no VIF DIRECT command.
+
+Port-only instrumentation in the generated host32 staging source brackets
+`DrawModelPart` and each mesh/strip's `g_vifPacketWriter` range. It maps
+`0x003c8560` to request `0x005e5400`, part `0x016d4460`, mesh 0 of 38. The part
+is lit and skinned. The mesh-item range is `[0x003c8380,0x003c85d0)`; it
+contains the DMA tag, while the payload is the target address above. This is
+the direct source-to-DMA association needed for the next renderer trace.
+
+The broad range did contain a 44-QWC DIRECT packet at segment 612 (40 XYZ2
+writes using `PRIM=6`) and a two-QWC packet at segment 771. Those belong to a
+later, unrelated part: request `0x005e5480`, part `0x016d44d0`, an unlit part
+with 47 strips. They are not evidence of the selected lit mesh's output. The
+broad VU XYZ writes at segments 587 and 723 are likewise outside its DMA
+range. Do not treat those packets or their coordinates as the selected mesh.
+
+The matched-range VIF DIRECT origin label remains an opt-in diagnostic. Build
+passed with 194/194 staged decomp units, 85/85 port backfills, and 99
+missing-function traps. The only staged-source changes were diagnostic
+instrumentation; no files in the sibling decomp checkout were changed. The
+bounded offscreen run ended at timeout (137) with no launcher left. Relevant
+logs: `/tmp/sly-target-direct-xyz-20261117/run.log`,
+`/tmp/sly-focused-model-direct-20261117/run.log`,
+`/tmp/sly-model-part-range-20261117/run.log`,
+`/tmp/sly-model-part-target-map-20261117/run.log`, and
+`/tmp/sly-model-part-item-map-20261117/run.log`.
+
+**Next:** trace the selected mesh's own VU output from its MSCAL calls and
+correlate that output with the packet captured by the optional native adapter.
+Keep each trace tied to the selected submission and command offsets; wide
+frame-chain matches include unrelated draws.
+
 ## Rebuilt default-client visual recheck (2026-11-17, 13:14 CET)
 
 I rebuilt `wave55-sdl32` from the current source and checked the default
@@ -236,21 +273,20 @@ the shrink is an intended transition. Prior settled post-Continue captures
 are black. This needs a frame-by-frame comparison with the supplied PCSX2
 recording before calling the effect a regression or expected animation.
 
-The fresh, dynamically selected VIF chain for address `0x016d5890` was traced
-through all 773 segments. It contains three observed XYZ2/XYZF2 writes: two at
-finish entry `0x2` and one at entry `0x6da`; the following matching submission
-has one more at `0x6da`. Their observed XY positions are outside the viewport
-under the current XYOFFSET state, so they do not explain visible world geometry. The trace is
-limited to this selected VIF chain and XGKICK-origin writes; it does not cover
-all GS input paths or independently observe PATH1 state. Capture details are
-in `SLY_GRAPHICS_HANDOFF.md`; full trace:
+The fresh trace selected the VIF DMA chain containing address `0x016d5890`,
+then followed all 773 segments. It recorded three XGKICK-origin XYZ2/XYZF2
+writes at offsets `0x57920` and `0x71220`, plus one at `0x712f0` in the next
+submission. That wide range includes unrelated draw packets: the writes at
+`0x57920` and `0x71220` map to segments 587 and 723, while the selected mesh
+buffers are at segment 287. They cannot be attributed to that mesh. The trace
+does not cover all GS input paths or independently observe PATH1 state.
+Capture details are in `SLY_GRAPHICS_HANDOFF.md`; full trace:
 `/tmp/sly-whole-chain-xyzstate-20261117.log`.
 
-Next: compare the transition frames against the supplied PCSX2 video, then
-instrument one boundary across all renderer input paths (including VIF DIRECT,
-VU XGKICK, and any PATH1 submission) and correlate accepted XYZ writes to the
-actual native framebuffer. Preserve the default startup prompt; keep any
-renderer reconstruction in the port-only backfill layer.
+Next: map each `DrawModelPart` writer range to its DMA segments, then trace
+one mesh through all GS input paths and correlate its writes with the
+framebuffer. Preserve the default startup prompt; keep renderer reconstruction
+in the port-only backfill layer.
 
 ### Latest opt-in world-renderer capture (2026-11-17)
 

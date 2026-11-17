@@ -4946,6 +4946,72 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart matrix setup for native renderer")
             adapted = adapted.replace(needle, replacement, 1)
+            signature = (
+                "void DrawModelPart(PartDrawRequest* self)\n{"
+            )
+            trace_scope = (
+                'extern "C" void sly1_native_trace_model_part_packet_range(\n'
+                '    u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                'struct SlyNativeModelPartPacketRangeTrace {\n'
+                '    u32 request, part, begin, meshes, strips, flags, lit, skinned;\n'
+                '    SlyNativeModelPartPacketRangeTrace(PartDrawRequest* r, DrawnModelPart* p)\n'
+                '        : request((u32)r), part((u32)p), begin(g_vifPacketWriter.curU),\n'
+                '          meshes((u32)p->nmeshes), strips((u32)p->nstrips),\n'
+                '          flags(p->flags), lit((u32)p->lit), skinned((u32)p->skinned) {}\n'
+                '    ~SlyNativeModelPartPacketRangeTrace() {\n'
+                '        sly1_native_trace_model_part_packet_range(\n'
+                '            request, part, begin, g_vifPacketWriter.curU, meshes, strips,\n'
+                '            flags, lit, skinned);\n'
+                '    }\n'
+                '};\n' + signature
+            )
+            if adapted.count(signature) != 1:
+                raise RuntimeError("expected DrawModelPart definition for packet ranges")
+            adapted = adapted.replace(signature, trace_scope, 1)
+            needle = "    b.m = self->m;\n"
+            replacement = needle + (
+                "    SlyNativeModelPartPacketRangeTrace packet_range(self, part);\n"
+            )
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected DrawModelPart packet-range scope point")
+            adapted = adapted.replace(needle, replacement, 1)
+            item_trace_type = (
+                'extern "C" void sly1_native_trace_model_part_item_packet_range(\n'
+                '    u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                'struct SlyNativeModelPartItemPacketRangeTrace {\n'
+                '    u32 request, part, begin, index, kind, count, flags;\n'
+                '    SlyNativeModelPartItemPacketRangeTrace(PartDrawRequest* r, DrawnModelPart* p, u32 i, u32 k)\n'
+                '        : request((u32)r), part((u32)p), begin(g_vifPacketWriter.curU),\n'
+                '          index(i), kind(k), count(k == 0 ? (u32)p->nmeshes : (u32)p->nstrips),\n'
+                '          flags(p->flags) {}\n'
+                '    ~SlyNativeModelPartItemPacketRangeTrace() {\n'
+                '        sly1_native_trace_model_part_item_packet_range(\n'
+                '            request, part, begin, g_vifPacketWriter.curU, index, kind, count, flags, 0);\n'
+                '    }\n'
+                '};\n'
+            )
+            item_type_needle = 'struct SlyNativeModelPartPacketRangeTrace {\n'
+            if adapted.count(item_type_needle) != 1:
+                raise RuntimeError("expected model-part packet range helper")
+            adapted = adapted.replace(item_type_needle, item_trace_type + item_type_needle, 1)
+            mesh_needle = "        e = &part->meshes[i];\n"
+            if adapted.count(mesh_needle) != 1:
+                raise RuntimeError("expected DrawModelPart mesh loop")
+            adapted = adapted.replace(
+                mesh_needle,
+                mesh_needle + "        SlyNativeModelPartItemPacketRangeTrace item_range(self, part, i, 0);\n",
+                1,
+            )
+            strip_needle = (
+                "        PartStrip* s = &part->strips[t];\n"
+            )
+            if adapted.count(strip_needle) != 1:
+                raise RuntimeError("expected DrawModelPart strip loop")
+            adapted = adapted.replace(
+                strip_needle,
+                strip_needle + "        SlyNativeModelPartItemPacketRangeTrace item_range(self, part, t, 1);\n",
+                1,
+            )
         if args.trace_world_draw_lists and rel.as_posix() == "main/group_marker.cpp":
             adapted = ('extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32);\n' + adapted)
             needle = "    ListFrame f1;\n    ListFrame f2;\n    ListFrame f3;\n"
