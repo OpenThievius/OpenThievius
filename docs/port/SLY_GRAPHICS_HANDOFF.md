@@ -4,6 +4,22 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### Fresh client and renderer check (2026-11-17)
+
+The latest actual Wayland window capture shows the complete retail no-card
+warning before input and a black window after one process-local Cross. This
+matches the earlier prompt-to-black checkpoint. The live trace shows that the
+presenter continues swapping frames. Entry `0x5f`'s first XGKICK at qword 469
+is rejected because that address contains A+D payload; its second kick at
+qword 35 is accepted. Despite that acceptance, the native Sly world queue has
+no submissions. The direct GIF renderer decodes some batches without parser
+errors, but one 24-vertex batch is entirely outside clip space. The trace does
+not classify that batch. The remaining work is to identify which decoded
+packets carry scene geometry and how they reach the world renderer. This does
+not establish the cause of the black flashes in the user's recording. Captures
+and traces are listed in `docs/port/PLAYABLE_TODO.md` under the latest client
+and renderer check.
+
 ### VU exceptional-float correction (2026-11-17)
 
 The translator now models the observed VU exceptional-float behavior for
@@ -38,10 +54,13 @@ strip loop reserves format-C/count-7 data at VU offset `0x1D4` (112 bytes).
 The live packet cursor minus detached start is 5,088 bytes; adding that to REF
 base `0x018d1270` gives `0x018d2650`, the qword-468 input source. The command
 is at `0x018d264c`. Trace: `/tmp/sly-strip-target-reserve-cross2-20261117.log`.
-The remaining defect is downstream at XGKICK VI6=469 and the separately
-observed non-finite transform path; preserve strict GIF validation and matched
-C while tracing those contracts. The latest visible check still goes from the retail no-card prompt to a black
-frame after one Cross. Evidence:
+The qword-469 kick remains rejected, while the newer trace accepts the second
+kick from qword 35; the target renderer still receives no native Sly world
+meshes. Preserve strict GIF validation and matched C while tracing that
+transfer and scene-render contract. The separate non-finite transform path has
+a targeted VU arithmetic correction described above. The latest visible check
+still goes from the retail no-card prompt to a black frame after one Cross.
+Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 

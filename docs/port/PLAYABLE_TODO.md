@@ -21,6 +21,24 @@ tracing why the VU kick starts one qword after that tag. Evidence:
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
+**Latest client and renderer check (2026-11-17):** I relaunched the current
+host32 target and captured the actual Wayland window. Before input it shows the
+full no-card warning (`/tmp/sly-current-client-20261117.png`); one in-process
+Cross produces a black window (`/tmp/sly-current-postcontinue-client-20261117.png`).
+This matches the previously recorded prompt-to-black result. A fresh XGKICK
+trace confirms the first kick (entry `0x5f`, PC `0x68`, qword 469) is rejected
+and the second (PC `0x6e`, qword 35) is accepted; see
+`/tmp/sly-current-xgkick-recheck-20261117.log`. The renderer keeps presenting,
+but the native Sly world queue has no submissions. Its generic direct parser
+does decode some batches without errors; one 24-vertex batch at direct frame
+233 lies wholly outside clip space, at `(-7.657,-22.815)..(-4.468,4.482)`.
+The 1,254-vertex/five-draw batches appear before input too, so they do not by
+themselves prove world geometry. Full trace:
+`/tmp/sly-current-render-boundary-20261117.log`. The current failure remains
+at scene rendering, not a frozen presentation loop. Rapid follow-up screenshots
+captured the desktop instead of Sly and are discarded as flicker evidence;
+the intermittent black flashes in the user's recording remain unverified.
+
 **Writer attribution is now resolved:** host-only source probes show that
 `ReadPlacedObjectModel` dispatches this kind-5 mesh to matched
 `BuildStripMeshPacket` (`0x00163ED8`). Its trailing strip loop calls
