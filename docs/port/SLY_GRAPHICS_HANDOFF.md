@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 02:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 03:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Producer display-path audit (2026-11-18, 03:30 CET)
+
+I audited why the committed producer's PRIM-4 packets do not produce a visible
+frame. The GS summary confirms the producer emits correct packets after Cross
+(`origin=sly-world-producer PRIM=0x4 PRIM_writes=234 XYZF2=9098`), and the
+first run where the packets also passed through `gif_stream_write` recorded
+`native_vertices=54276` — so the parser does turn the writes into vertices.
+
+The DirectRenderer display path, however, does not show them. Two experiments:
+- Removing the duplicate `gif_stream_write` (keeping only the DirectRenderer
+  insert) left post-Cross frames black; the DirectRenderer needs additional GS
+  state (TEX0/FRAME/fbmsk) that the synthetic packet does not set.
+- Skipping the GL world pass (`OPENRAC_SLY_GIF_SKIP_GL`) with the producer on
+  also produced black post-Cross frames; the game's own post-Cross packets are
+  state-only, so there is nothing else to composite.
+
+A longer run hit a `double free or corruption` abort that may relate to the
+producer's packet lifetime, not yet diagnosed. These experiments were reverted;
+the committed producer remains opt-in and the tree is clean. No launcher runs.
+
+The remaining concrete gap is display state: the producer writes geometry but
+no TEX0/FRAME/FBMSK, so the DirectRenderer's `last_frame_writes_display` is
+false and the previous frame is restored instead of the new geometry. A future
+change must set those registers in the synthetic packet. No playable scene.
 
 ### Port-side GIF vertex-packet producer (2026-11-18, 02:45 CET)
 
