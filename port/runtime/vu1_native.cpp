@@ -171,7 +171,7 @@ bool trace_sly_vu_positions() {
 // write NDC positions (w == 1) into VU scratch qwords; these are the drawable
 // vertices the missing GIF packet would have carried. Captured here so the port
 // renderer can use actual VU output instead of pre-VU source positions.
-struct VuNdcVertex { float x, y, z; uint32_t submission; uint32_t mscal; uint32_t entry; uint32_t qword; };
+struct VuNdcVertex { float x, y, z, w; uint32_t submission; uint32_t mscal; uint32_t entry; uint32_t qword; };
 std::vector<VuNdcVertex> g_vu_ndc_vertices;
 std::mutex g_vu_ndc_mutex;
 bool capture_vu_ndc_enabled() {
@@ -207,12 +207,18 @@ extern "C" std::size_t openrac_native_vu_ndc_copy_full(float* out, std::size_t m
 extern "C" std::size_t openrac_native_vu_ndc_take(float* out, std::size_t max_floats,
                                                   unsigned* meta, std::size_t max_meta) {
     std::scoped_lock lock(g_vu_ndc_mutex);
+    // VU scratch is reused: keep the last write to each qword, then emit in
+    // ascending qword order. This is the final geometry state for the frame.
+    std::vector<const VuNdcVertex*> last(1024u, nullptr);
+    for (const auto& v : g_vu_ndc_vertices)
+        if (v.qword < last.size()) last[v.qword] = &v;
     std::size_t written = 0, mwritten = 0;
-    for (const auto& v : g_vu_ndc_vertices) {
-        if (written + 3u > max_floats || mwritten + 4u > max_meta) break;
-        out[written++] = v.x; out[written++] = v.y; out[written++] = v.z;
-        meta[mwritten++] = v.submission; meta[mwritten++] = v.mscal;
-        meta[mwritten++] = v.entry; meta[mwritten++] = v.qword;
+    for (const auto* v : last) {
+        if (v == nullptr || written + 3u > max_floats || mwritten + 4u > max_meta) continue;
+        out[written++] = v->x / v->w; out[written++] = v->y / v->w;
+        out[written++] = v->z / v->w;
+        meta[mwritten++] = v->submission; meta[mwritten++] = v->mscal;
+        meta[mwritten++] = v->entry; meta[mwritten++] = v->qword;
     }
     g_vu_ndc_vertices.clear();
     return written;
@@ -242,13 +248,13 @@ extern "C" std::size_t openrac_native_vu_ndc_copy_group(float* out, std::size_t 
 void capture_vu_ndc(uint32_t address, const Vector& value, uint32_t pc) {
     if (!capture_vu_ndc_enabled()) return;
     const float w = value[3];
-    if (w != 1.0f) return;
     const float x = value[0], y = value[1], z = value[2];
-    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return;
-    if (std::fabs(x) > 4.0f || std::fabs(y) > 4.0f || std::fabs(z) > 4.0f) return;
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) || !std::isfinite(w)) return;
+    if (w <= 1.0e-6f || w >= 1.0e9f) return;
+    if (std::fabs(x / w) > 4.0f || std::fabs(y / w) > 4.0f) return;
     std::scoped_lock lock(g_vu_ndc_mutex);
     if (g_vu_ndc_vertices.size() >= 65536u) return;
-    g_vu_ndc_vertices.push_back({x, y, z, g_vu_trace_submission_id,
+    g_vu_ndc_vertices.push_back({x, y, z, w, g_vu_trace_submission_id,
                                  g_vu_trace_vif_command_offset, g_vu_trace_entry, address});
 }
 

@@ -1,8 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 00:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 00:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### VU NDC renderer refinements (2026-11-18, 00:45 CET)
+
+I refined the VU-output renderer: W division is now applied to every captured
+vertex (not just `w == 1`), scratch qwords are deduplicated by keeping the
+last write, and strip groups are split where the qword stride exceeds six.
+These changes produce coherent large surfaces and angular objects rendered
+entirely from retail VU output — with no source-position adapter involved.
+`OPENRAC_SLY_VU_NDC_GROUP` isolates one strip group for comparison.
+
+The result is still not a recognizable level: full-screen quads and large
+environment surfaces dominate, and per-group material/texture assignment is
+absent. Captures: `/tmp/sly-ndcdedup-20261117/` and
+`/tmp/sly-ndcgroup{0,1,2}-20261117/`. No launcher remains.
 
 ### VU NDC output rendered directly (2026-11-18, 00:20 CET)
 

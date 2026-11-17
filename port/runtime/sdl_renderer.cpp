@@ -1435,14 +1435,21 @@ extern "C" void openrac_native_window_present(void) {
         const std::size_t floats = openrac_native_vu_ndc_take(
             ndc.data(), ndc.size(), meta.data(), meta.size());
         const std::size_t count = floats / 3u;
+        int wanted_group = -1;
+        if (const char* setting = std::getenv("OPENRAC_SLY_VU_NDC_GROUP")) {
+            char* end = nullptr;
+            const long parsed = std::strtol(setting, &end, 0);
+            if (end != setting && parsed >= 0 && parsed < 1000) wanted_group = static_cast<int>(parsed);
+        }
+        int group_index = 0;
         std::size_t begin = 0;
         while (begin < count) {
             std::size_t end = begin + 1u;
-            while (end < count && meta[end * 4u] == meta[begin * 4u] &&
-                   meta[end * 4u + 1u] == meta[begin * 4u + 1u] &&
-                   meta[end * 4u + 2u] == meta[begin * 4u + 2u])
+            while (end < count &&
+                   meta[end * 4u + 3u] > meta[(end - 1u) * 4u + 3u] &&
+                   meta[end * 4u + 3u] - meta[(end - 1u) * 4u + 3u] <= 6u)
                 ++end;
-            if (end - begin >= 3u) {
+            if (end - begin >= 3u && (wanted_group < 0 || group_index == wanted_group)) {
                 NativeWorldMesh ndc_mesh;
                 ndc_mesh.instance = (0xdeadbeefull << 16u) | (begin & 0xFFFFu);
                 ndc_mesh.source_mesh = meta[begin * 4u + 2u];
@@ -1459,6 +1466,7 @@ extern "C" void openrac_native_window_present(void) {
                 ndc_mesh.model_is_identity = true;
                 world_meshes.push_back(std::move(ndc_mesh));
             }
+            ++group_index;
             begin = end;
         }
     }
