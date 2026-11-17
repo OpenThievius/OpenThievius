@@ -49,7 +49,7 @@ namespace sly1 {
 extern const NativeFunctionAddress sly1_native_function_addresses[];
 extern const u32 sly1_native_function_address_count;
 }
-extern "C" unsigned int sly1_native_host32_retail_for_pc(unsigned int pc) {
+extern "C" unsigned int sly1_native_host32_preceding_retail_mapping_for_pc(unsigned int pc) {
     u32 native_function = 0;
     u32 retail_function = 0;
     for (u32 i = 0; i < sly1::sly1_native_function_address_count; ++i) {
@@ -1481,12 +1481,23 @@ sly1_native_trace_semaphore_event(const char* event, int identifier, int count,
     const bool render_frame_semaphore = identifier == 4 || identifier == 5;
     const u32 frame_event = render_frame_semaphore
         ? frame_ready_events.fetch_add(1u, std::memory_order_relaxed) : 0u;
-    if (index >= 64 &&
+    const bool trace_frame_done = identifier == 5 &&
+        std::getenv("OPENRAC_TRACE_FRAME_DONE_SEMA") != nullptr;
+    if (index >= 64 && !trace_frame_done &&
         (!render_frame_semaphore || (frame_event >= 16u && frame_event % 256u != 0u)))
         return;
+    std::uint64_t frame_done_gap_ms = 0;
+    if (trace_frame_done && event[0] == 's') {
+        static std::atomic<std::uint64_t> previous_signal_ms{0};
+        const std::uint64_t now = SDL_GetTicks();
+        const std::uint64_t previous = previous_signal_ms.exchange(
+            now, std::memory_order_relaxed);
+        if (previous != 0) frame_done_gap_ms = now - previous;
+    }
     std::fprintf(stderr,
-                 "[native semaphore] event=%u %s id=%d count=%d caller=%08x\n",
-                 index, event, identifier, count, caller);
+                 "[native semaphore] event=%u %s id=%d count=%d caller=%08x frame_done_gap_ms=%llu\n",
+                 index, event, identifier, count, caller,
+                 static_cast<unsigned long long>(frame_done_gap_ms));
 }
 
 extern "C" __attribute__((no_instrument_function)) void
@@ -1548,7 +1559,7 @@ void trace_game_thread_pc(pthread_t thread, unsigned sample) {
     }
     const u32 offset = pc >= native_function ? pc - native_function : 0;
     std::fprintf(stderr,
-                 "[native game thread] sample=%u signal=%d sequence=%d pc=%#010x sp=%#010x bp=%#010x stack=%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x nearest_retail=%#010x native=%#010x offset=%#x\n",
+                 "[native game thread] sample=%u signal=%d sequence=%d pc=%#010x sp=%#010x bp=%#010x stack=%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x,%#010x preceding_retail_mapping=%#010x native_mapping=%#010x offset_from_mapping=%#x\n",
                  sample, signal_result, (int)g_native_pc_sample_sequence,
                  pc, sp, bp,
                  (u32)g_native_pc_sample_stack[0],

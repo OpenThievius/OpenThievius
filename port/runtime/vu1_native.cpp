@@ -9,6 +9,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -1414,6 +1415,31 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         stopped_pc == nullptr || stopped_pipeline == nullptr || paired_word == nullptr) return 0;
     std::lock_guard lock(g_vu_mutex);
     g_vu_trace_entry = entry;
+    const char* timing_setting = std::getenv("OPENRAC_TRACE_VU1_TIMING");
+    const bool timing_enabled = timing_setting != nullptr &&
+        timing_setting[0] != '\0' && timing_setting[0] != '0' &&
+        trace_vu1_xgkick_context_matches();
+    struct VUTimingTrace {
+        bool active;
+        uint32_t submission;
+        uint32_t command_offset;
+        uint32_t entry;
+        std::chrono::steady_clock::time_point start;
+        ~VUTimingTrace() {
+            if (!active) return;
+            static std::atomic<uint32_t> notices{0};
+            if (notices.fetch_add(1, std::memory_order_relaxed) >= 4096u) return;
+            const auto elapsed_us = std::chrono::duration_cast<
+                std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
+            openrac::log::info(
+                "native VU1 timing submission={} mscal_offset={:#x} entry={:#x} elapsed_us={}",
+                submission, command_offset, entry, elapsed_us);
+        }
+    } timing_trace{
+        timing_enabled,
+        g_vu_trace_submission_id, g_vu_trace_vif_command_offset, entry,
+        timing_enabled ? std::chrono::steady_clock::now()
+                       : std::chrono::steady_clock::time_point{}};
     const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
     static std::atomic<uint32_t> xgkick_entry_state_notice{0};
     if (entry == 0x26Du && xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&

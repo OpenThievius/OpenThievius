@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -839,7 +840,7 @@ std::atomic<uint32_t> g_traced_transfer_count{0};
 std::atomic_flag g_unsupported_notice = ATOMIC_FLAG_INIT;
 }
 
-extern "C" unsigned int sly1_native_host32_retail_for_pc(unsigned int pc)
+extern "C" unsigned int sly1_native_host32_preceding_retail_mapping_for_pc(unsigned int pc)
     __attribute__((weak));
 
 extern "C" void sly1_native_trace_vif_mscal(uint32_t entry, uint32_t command,
@@ -847,11 +848,11 @@ extern "C" void sly1_native_trace_vif_mscal(uint32_t entry, uint32_t command,
     if (entry != 0x411u) return;
     const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
     if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
-    const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
-        ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+    const uint32_t retail_mapping = sly1_native_host32_preceding_retail_mapping_for_pc != nullptr
+        ? sly1_native_host32_preceding_retail_mapping_for_pc(callsite) : 0u;
     openrac::log::info(
-        "native VIF target MSCAL entry={:#x} command={:#04x} caller={:#x} retail_caller={:#010x}",
-        entry, command, callsite, retail_caller);
+        "native VIF target MSCAL entry={:#x} command={:#04x} caller={:#x} preceding_retail_mapping={:#010x}",
+        entry, command, callsite, retail_mapping);
 }
 
 extern "C" void sly1_native_trace_vif_unpack_writer(uint32_t writer,
@@ -863,11 +864,11 @@ extern "C" void sly1_native_trace_vif_unpack_writer(uint32_t writer,
     if (format != 0xCu || count != 7u || vu_address != 0x1D4u) return;
     const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
     if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
-    const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
-        ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+    const uint32_t retail_mapping = sly1_native_host32_preceding_retail_mapping_for_pc != nullptr
+        ? sly1_native_host32_preceding_retail_mapping_for_pc(callsite) : 0u;
     openrac::log::info(
-        "native VIF target WriteVifUnpack writer={:#x} format={:#x} count={} source={:#x} vu={:#x} caller={:#x} retail_caller={:#010x}",
-        writer, format, count, source, vu_address, callsite, retail_caller);
+        "native VIF target WriteVifUnpack writer={:#x} format={:#x} count={} source={:#x} vu={:#x} caller={:#x} preceding_retail_mapping={:#010x}",
+        writer, format, count, source, vu_address, callsite, retail_mapping);
 }
 
 extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
@@ -882,11 +883,11 @@ extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
     if (format == 0xCu && count == 7u) {
         static std::atomic<uint32_t> seven_vector_notice{0};
         if (seven_vector_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
-            const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
-                ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+            const uint32_t retail_mapping = sly1_native_host32_preceding_retail_mapping_for_pc != nullptr
+                ? sly1_native_host32_preceding_retail_mapping_for_pc(callsite) : 0u;
             openrac::log::info(
-                "native VIF seven-vector reserve writer={:#x} vu={:#x} bytes={} cursor={:#x} caller={:#x} retail_caller={:#010x}",
-                writer, vu_address, byte_count, cursor, callsite, retail_caller);
+                "native VIF seven-vector reserve writer={:#x} vu={:#x} bytes={} cursor={:#x} caller={:#x} preceding_retail_mapping={:#010x}",
+                writer, vu_address, byte_count, cursor, callsite, retail_mapping);
         }
     }
     struct PendingRange {
@@ -939,12 +940,12 @@ extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
         (format == 0xCu && count == 7u && vu_address == 0x1D4u)) {
         static std::atomic<uint32_t> target_notice_count{0};
         if (target_notice_count.fetch_add(1, std::memory_order_relaxed) < 64u) {
-            const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
-                ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+            const uint32_t retail_mapping = sly1_native_host32_preceding_retail_mapping_for_pc != nullptr
+                ? sly1_native_host32_preceding_retail_mapping_for_pc(callsite) : 0u;
             openrac::log::info(
-                "native VIF target reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x} caller={:#x} retail_caller={:#010x}",
+                "native VIF target reserve writer={:#x} format={:#x} count={} vu={:#x} bytes={} cursor={:#x} caller={:#x} preceding_retail_mapping={:#010x}",
                 writer, format, count, vu_address, byte_count, cursor, callsite,
-                retail_caller);
+                retail_mapping);
         }
     }
     previous = {writer, format, count, vu_address, byte_count, cursor, callsite};
@@ -976,6 +977,9 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     const uint32_t initial_madr = load_mmio(kVif1Chcr + 0x10u);
     const uint32_t initial_qwc = load_mmio(kVif1Chcr + 0x20u);
     const uint32_t initial_tadr = load_mmio(kVif1Chcr + 0x30u);
+    const bool trace_timing = std::getenv("OPENRAC_TRACE_VIF_DMA_TIMING") != nullptr;
+    const auto timing_start = trace_timing ? std::chrono::steady_clock::now()
+                                           : std::chrono::steady_clock::time_point{};
     std::vector<uint8_t> stream;
     std::vector<DmaSegment> segments;
     std::vector<VifInputTrace> input_trace;
@@ -996,6 +1000,18 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     }
     const bool vif_ok = dma_ok && execute_vif_stream(
         stream, &direct_bytes, &unsupported, &trace, &input_trace);
+    if (trace_timing) {
+        static std::atomic<uint32_t> timing_notice_count{0};
+        if (timing_notice_count.fetch_add(1, std::memory_order_relaxed) < 512u) {
+            const auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - timing_start).count();
+            openrac::log::info(
+                "native VIF1 DMA timing submission={} dma_ok={} vif_ok={} bytes={} segments={} MSCAL={} DIRECT_bytes={} elapsed_us={}",
+                trace.submission_id, dma_ok ? 1u : 0u, vif_ok ? 1u : 0u,
+                stream.size(), segments.size(), trace.mscal_total, direct_bytes,
+                elapsed_us);
+        }
+    }
     static std::array<std::atomic<uint32_t>, 2> input_source_notice{};
     const char* input_source_setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
     if (input_source_setting != nullptr && input_source_setting[0] != '\0' &&
