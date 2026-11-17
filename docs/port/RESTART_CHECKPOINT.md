@@ -3,6 +3,26 @@
 
 ## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
+**Fresh default-client visual audit (09:41 local):** ran the default
+`wave55-sdl32` launcher with its hidden-window flag and captured eight later
+frames after skipping the initial packet burst. Every frame contains the full
+no-card warning; none is black. The Continue highlight changes brightness,
+while the small white dash on the left edge remains. This does not reproduce a
+screen-wide flicker in the sampled framebuffer. It does not explain the user's
+reported desktop-window flicker, because this check reads the renderer buffer
+before presentation. A process-local Cross test on the separate traced build
+again reached world loading and produced a black post-input image. Its trace
+still reports the qword-469 XGKICK failing GIF-tag validation. Both bounded
+runs ended at timeout (137), not a confirmed guest crash. Captures and logs
+are under `/home/reaper/sly/sly-current-client-audit-20261117/` and
+`/home/reaper/sly/sly-model-parts-cross-audit-20261117.log`.
+
+The model-part diagnostic did not emit its expected model-part records even
+though the renderer logged mesh submissions. The model trace hook is therefore
+not observing this active draw path; do not treat its missing records as proof
+that model callbacks are absent. The source adapter hook or its build selection
+needs to be traced before relying on this diagnostic.
+
 **VU arithmetic update:** native VU arithmetic now normalizes exponent-zero
 operands/results and maps unsupported exponent-255 values and divide-by-zero
 to finite signed max. This addresses the traced `0x411` `ERLENG` case where a

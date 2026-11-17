@@ -44,25 +44,26 @@ path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
 Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 `game/sly1-us/native/`, outside `sly1-decomp`.
 
-## Current native status (2026-11-15)
+## Current native status (2026-11-17)
 
-Public `sly1-decomp` master is `8f7a85a3` (4,807/4,807 US functions matched;
-99.97% of data matched). The sibling checkout is still `1cbb33fd`. A separate
-staging snapshot of `8f7a85a3` has compiled 194 matched units plus 85 port-only
-backfills and linked; the launcher still reports fallback traps for functions
-without host C. The code-match percentage is not a measure of native host
+The clean sibling `sly1-decomp` checkout and `origin/master` are both at
+`8f7a85a3` (4,807/4,807 US functions matched; 99.97% of data matched). The
+native build uses a separate staged source tree and links with port-only
+backfills. The code-match percentage is not a measure of native host
 readiness: VU microcode remains assembly and some translated call paths still
 need port replacements.
 
-The host32 game loop dismisses the no-card warning when given input, loads
-world `0x870cf0`, and advances at about 56 frames per second. It reaches model
-draw callbacks, but no title or controllable level is confirmed. The last
-successful visible game screen is the memory-card warning. The opt-in kind-6
-renderer produced a uniform gray frame, so it is disabled and counts as a
-failed experiment. The next milestone is the first recognizable loaded-world
-geometry, selected from evidence about object role, bounds, draw order and
-material. Stop adding startup/backfill fixes unless a current run demonstrates
-that one blocks this milestone. See the
+The default native host32 build shows the complete no-card warning; a fresh
+hidden capture sampled eight later frames at 09:41 local time on 2026-11-17.
+The prompt stayed visible, with the Continue highlight animating and a small
+white dash at the left edge. A process-local Cross press dismisses the prompt
+and enters world loading, but the post-input client is black. The VU1 packet
+trace still rejects an XGKICK at qword 469 as a malformed GIF tag. No title or
+controllable level is confirmed. The opt-in kind-6 renderer is disabled and
+its uniform-gray result is not progress. The next milestone is recognizable
+loaded-world geometry, based on evidence about object role, bounds, draw order
+and material. Avoid unrelated startup/backfill work unless a current run
+shows it blocks this milestone. See the
 [clean reset review](../docs/port/PLAYABLE_TODO.md#clean-reset-review-2026-11-15),
 the [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and
 the [roadmap](../docs/port/ROADMAP.md).

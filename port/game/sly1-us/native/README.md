@@ -7,34 +7,26 @@ remain unavailable to the native build. They are separate from
 when hostable matching source becomes available. The source decomp checkout is
 never edited by the host staging adapter.
 
-## Current state (2026-11-14, Wave 400)
+## Current state (2026-11-17)
 
-The decomp checkout is clean and current at
-`9489f7a0c3e9142accb8662da5897a39043c57e5`; its US and PAL code remain 100%
-matched. The native host32 target builds from 194 matched source units plus
-71 port-only backfills. It is not playable: a hidden run reaches world loading
-after one in-process Cross press, then crashes in matched
-`RefreshOscillatorFrames` during the weight loop. EIP `0x080d687b` uses ECX
-`0x08712e40` as an invalid loop index, producing write address `0xfa4ee400`.
-The exact register dump is in
+The sibling decomp checkout is at `8f7a85a3`; US and PAL code remain 100%
+matched. The native host32 target is still an experimental compatibility
+build, not a playable port. A fresh default-build capture at 09:41 local time
+shows the full no-card warning across eight later frames. The Continue text
+animates and a small white dash remains at the left edge. A process-local Cross
+gets past the warning into world loading, but the display goes black. The
+current trace associates the failure with a VU1 XGKICK whose qword-469 payload
+is rejected as a malformed GIF tag. No title or controllable level graphics
+are confirmed. See the dated visual and packet evidence in
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
 
-Recent host-only staging work fixed several earlier startup faults, including
-MIPS-oriented sound-call ordering, retail-address callback resolution, and
-unaligned matrix inputs. The current indexed oscillator loop and stack-base
-reload adapters do not fix the corrupted host loop state. The no-card warning
-is the latest user-confirmed visual; no title or level graphics are confirmed.
+## Historical build snapshot (2026-11-14)
 
-## Current build state (2026-11-14)
-
-The sibling decomp checkout is up to date at
-`9489f7a0c3e9142accb8662da5897a39043c57e5` (public master, 2026-11-14). Its US
-report matches 4,807/4,807 functions and 100% of code (4,498 exact C and 311
-original assembly), plus 99.9675% of data. The 28 commits since `241a7865`
-document functions and object fields; `Oscillator.entries` is now explicitly
-named as eight 0xD0-byte entries. These changes clarify the current source but
-do not change the function's behavior or matching totals. The host32 build has
-been refreshed against this snapshot.
+At that time the staging snapshot used decomp revision
+`9489f7a0c3e9142accb8662da5897a39043c57e5` (US 4,807/4,807 functions and 100%
+of code matched; 99.9675% of data). It is superseded by the current decomp
+revision `8f7a85a3` documented above. The counts below are historical and are
+not current build totals.
 
 The native host32 build compiles 194 Sly source units and 68 port-only
 backfills. Its latest combined object contains 262 compiled objects and
