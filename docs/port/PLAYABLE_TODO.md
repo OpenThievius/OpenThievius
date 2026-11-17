@@ -3,13 +3,12 @@
 
 ## Current checkpoint (2026-11-17, 19:55 CET)
 
-**Next:** decode the VU1 JALR helper bodies reached from the batch programs
-(entry `0x34a` PC `0x34c` target 667, plus targets near 628, 1193 and 1649).
-The six main entries compute transformed XYZ into VU scratch (qwords 36-307)
-but never store positions into the kicked packet region at qwords 460+, and no
-entry writes PRIM 3/4. That is the missing producer/consumer link; every
-alternative has now been ruled down in the graphics handoff's 20:30 CET
-section. Do not change the VU translator, kick address or GIF parser first.
+**Next:** the JALR helper decode is complete and found no PRIM-3/4 writer
+anywhere in the retail VU microcode (graphics handoff, 20:45 CET section).
+World triangles must therefore come from EE-built VIF DIRECT/PATH2 or GIF DMA
+packets. Find why those submissions are absent after Cross, checking VU
+clipping and the port's float-flag model as well as the EE packet path. Do not
+change the VU translator, kick address or GIF parser on the old premise.
 
 Keep the adapter opt-in and the default renderer OFF. For the later silhouette
 comparison, use request `0x005e4700` (one mesh, 31 vertices, fully in-frustum)

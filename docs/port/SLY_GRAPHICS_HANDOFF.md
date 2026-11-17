@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 20:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 20:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### All VU helpers decoded; no PRIM writer exists (2026-11-17, 20:45 CET)
+
+I decoded every JALR/BAL helper reachable from the batch entries. Helper `0x29b`
+(667) is a per-vertex normal/lighting loop; helper `0x274` (628) is a clip-flag
+check; helper `0x4a9` (1193) writes four scalar results; helper `0x5ef` (1519)
+and helper `0x671` (1649) kick only the VIF-written state/tag region. None
+writes PRIM 3 or 4, and none packs positions into a kicked packet. Helper
+`0x671` does execute after the injected Cross (its kick PCs `0x6e2`, `0x6e8`,
+`0x6f9`, `0x701`, `0x711`, `0x719` appear in live traces), but every kick is a
+PRIM-0 state packet. The A+D register-address patches (`ISW.z` at `0x2da`,
+`0x396`, etc.) are in the callers, not the helpers.
+
+An exhaustive scan of all 13 MPG upload sessions in the retail `.vutext`
+(VU PCs `0x000-0x755`, including re-uploads), all 25 XGKICK sites, all 34
+`ISW` and 194 `SQ` writes, and every 16-byte-aligned tag found **zero** PRIM-3
+or PRIM-4 writes and zero GIFtags with descriptor `0x04`/`0x05`. No VU program
+in the game assembles a world triangle packet. The earlier "decode the JALR
+helpers" task is therefore complete and its premise refuted.
+
+The consequence is a change of direction: retail world triangles must be
+submitted by the EE through VIF DIRECT (PATH2) or GIF DMA (PATH3), not by VU1.
+The post-Cross census sees no such packet. The live questions are now (a)
+whether EE-side world DIRECT packets are being built but blocked, and (b)
+whether VU clipping or the port's float-flag model culls every vertex so the
+EE's draw path never reaches a submission. Three read-only audits of those
+questions are running. Keep the adapter opt-in and the default renderer OFF;
+no playable scene is confirmed.
 
 ### Where the world triangles stop: VU scratch vs kicked packet (2026-11-17, 20:30 CET)
 
@@ -27,10 +55,9 @@ is triangle-strip, but no PRIM-3/4 packet is ever produced in the native stream.
 The remaining candidate is a VU helper reached by JALR from entry `0x34a` (PC
 `0x34c`, target VI14=667) and from other entries (targets around 628, 1193 and
 1649). Those helper bodies lie outside the six decoded entry ranges and were
-not decoded. The next task is to decode them and find the instruction sequence
-that assembles transformed positions into a GIF packet with a triangle PRIM.
-Do not change the VU translator, the kick address, or the GIF parser until that
-producer is identified.
+not decoded. That task is now complete: the 20:45 CET section below shows no such
+instruction sequence exists in the game's VU microcode. Do not change the VU
+translator, the kick address, or the GIF parser on the basis of that premise.
 
 Every alternative examined is now ruled down or refuted:
 
@@ -68,8 +95,14 @@ such change is in the working tree.
 For a future silhouette comparison, the best fully in-frustum candidate is
 request `0x005e4700` (one mesh, source `0x00a0db58`, 31 vertices, NDC
 `-0.607409,0.064102..-0.0760409,0.303055`, about 255x86 pixels), using the
-existing request filter with FIRST_PASS=1 and SOLID_COLORS=1. It has not been
-captured yet; the earlier in-frustum request `0x005e4a00` is a flat wedge.
+existing request filter with FIRST_PASS=1 and SOLID_COLORS=1. I captured it on
+the clean rebuilt ON binary: the filter matched, 31/31 vertices were inside,
+the settled NDC was `-0.610377,0.0641558,-0.981956..-0.0763433,0.304376`,
+and the image is a small flat reddish sliver of about 5,353 pixels — not a
+recognizable object. This confirms the source-position adapter produces flat
+fragments even for a fully in-frustum target; the earlier in-frustum request
+`0x005e4a00` was likewise a flat wedge. Captures:
+`/tmp/sly-target-4700-20261117/`.
 
 ### Accepted-kick XYZ census and three refuted leads (2026-11-17, 20:25 CET)
 
