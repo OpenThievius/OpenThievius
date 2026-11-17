@@ -2443,3 +2443,20 @@ current evidence does not establish that it is the correct packet boundary.
 Run log: `/tmp/sly-xgkick-pointer-audit-20261117.log`. The run was native and
 bounded; its timeout ended with exit 137 after the launcher did not exit on
 SIGINT. No source code changed, and no game data was added to the repository.
+
+## Accepted second kick packet audit (2026-11-17)
+
+A separate targeted run dumped the naturally occurring PC `0x6e` XGKICK from
+qword 35 in submission 328, immediately after the rejected PC `0x68` kick.
+The packet is accepted by strict GIF validation. Its 1,760 bytes contain an
+EOP PACKED GIFtag with 109 A+D writes. Decoding each address from the low byte
+of the second 64-bit half, as the native GIF renderer does, shows that all
+109 writes target PRIM (`0x00`); there are no XYZ2 (`0x05`) or XYZF2 (`0x0d`)
+writes. This accepted packet cannot submit screen vertices. It corrects the
+earlier observation that qword 35 appeared only in a removed backstep retry,
+but it does not recover the mesh packet rejected at PC `0x68`.
+
+Run log: `/tmp/sly-qword35-packet-audit-20261117.log`; local dump:
+`/tmp/sly1-vu1-kick-00.bin`. The 10-second native run ended via timeout with
+exit 137 after the launcher did not exit on SIGINT. No repository source or
+retail data changed.

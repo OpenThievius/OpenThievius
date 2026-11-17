@@ -830,14 +830,19 @@ simply sees the old VI6. See the manual's [IALU pipeline section
 (3.4.7)](https://docs.alexrp.com/mips/ee_vu.pdf) and XGKICK instruction
 reference (4.6.24).
 
-The trace records no VIF or VU store to qwords 34–35 before the failed first
-kick; qword 37 is written by a separate UNPACK. The later qword-35 kick
-appeared only in the removed backstep experiment, where qword 34 was zero. The
-remaining mismatch is not explained by VI increment behavior alone. Next,
-compare retail VIF TOPS/BASE/OFFSET/DBF state and all relevant UNPACKs with the
-native trace, and establish how this VU program expects its second packet to
-be produced. Keep VIF/VU instruction semantics unchanged until that data flow
-is accounted for.
+The earlier trace saw no VIF or VU store to qwords 34–35 before the failed
+first kick, and its qword-35 packet appeared only in a removed backstep retry.
+A fresh targeted native capture now sees the unmodified retail program reach
+both instructions naturally: PC `0x68` rejects the payload kick; PC `0x6e`
+then accepts the A+D packet at qword 35. The 1,760-byte packet dump contains
+109 A+D writes, all to PRIM (`0x00`) under the same address decoding used by
+the renderer. It contains no XYZ2 or XYZF2 writes, so this accepted packet
+does not submit screen vertices. This corrects the earlier
+backstep-only observation without explaining the first kick's missing tag.
+Keep VIF/VU instruction semantics unchanged until the source of the skipped
+tag is accounted for. Log and first packet:
+`/tmp/sly-qword35-packet-audit-20261117.log`,
+`/tmp/sly1-vu1-kick-00.bin`.
 
 The follow-up hidden capture `/tmp/sly-vif-state-sequence-20261116.log` now
 records that state through the failing call. For the three earlier MSCAL calls,
