@@ -1,7 +1,49 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-17, packet writer identified; client audit)
+## Current checkpoint (2026-11-17, 16:08 CET; visual and primitive recheck)
+
+The current default host32 client was rebuilt and inspected offscreen. A settled
+no-input frame shows the no-card Continue prompt and the known small white dash
+at the left edge. One process-local Cross at frame 300 followed by eight
+sampled frames shows black. This is the established prompt-to-black behavior,
+not a newly observed default-path regression. The capture does not assess the
+desktop-window flicker. Images and logs:
+`/tmp/sly-visual-page-20261117/` and `/tmp/sly-visual-recheck-20261117/`.
+
+**Native GS output:** the opt-in `OPENRAC_TRACE_GS_XYZ_SUMMARY=1` diagnostic
+now counts each XYZ write by the PRIM active at that write. After one
+process-local Cross at frame 300, 56 post-input GIF calls wrote XYZ2/XYZF2:
+52 VIF DIRECT calls and four VU1 XGKICK calls. The writes were 5 points and
+1,354 sprites, with zero triangle-list/strip writes. The VU points came from
+submissions 326–327 at MSCAL offsets `0x57920`, `0x71220`, `0x579f0`, and
+`0x712f0`; these do not match the selected Sly mesh's DMA window. This explains
+why accepted GIF traffic still produces no world but does not yet locate where
+the mesh triangle packet is lost. Capture:
+`/tmp/sly-gif-xyz-prim-accurate-20261117/run.log`.
+
+Next: correlate a representative `DrawModelPart` DMA/VIF range with its strip
+builder, VU entry, XGKICK/DIRECT output, and per-write PRIM counts. Locate
+whether the retail triangle packet is never emitted or disappears before the
+GIF parser. Keep strict GIF parsing and the optional source-position adapter
+unchanged until that boundary is understood.
+
+**Opt-in renderer matrix audit:** the suspected row/column-major error was a
+false lead. Matched `matrix.cpp` stores the game's transforms row-major with
+translation in row 3; `camera.cpp` builds the view-projection in the same
+convention. Sly transforms row vectors with `model * viewProjection`, and the
+existing row-major buffer is intentionally seen by OpenGL as its transpose for
+the GLSL column-vector shader. I briefly changed order/packing in the
+port-only renderer, captured both variants, found neither improved the gray
+distorted output, then reverted all source edits. The default renderer was
+never changed. Captures/logs:
+`/tmp/sly-world-matrix-fix-20261117/` and
+`/tmp/sly-world-matrix-order-fix-20261117/`.
+
+Continue with the port-only adapter's missing skin-weight/bone/delta handling
+and actual strip-to-GIF geometry path. Keep it disabled by default. Also trace
+world XYZ2/XYZF2 writes with per-submission or world-call filtering; earlier
+global capture limits filled on startup sprites.
 
 **Re-audit correction (15:41 CET):** in submission 322, retail finish-program
 entry `0x2` explicitly computes `VI1=VI6+1` (`VI6=460`) and XGKICKs address

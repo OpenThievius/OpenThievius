@@ -1,7 +1,52 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-17, 14:03 CET)
+## Current checkpoint (2026-11-17, 16:08 CET)
+
+I rebuilt and visually inspected the current default host32 client. With no
+input, a settled capture shows the complete no-memory-card Continue prompt and
+the known small white dash at the left edge. One process-local Cross at native
+frame 300 followed by eight sampled frames shows black after Continue. This
+matches the established behavior and is not a new default-path regression.
+The captures use SDL's offscreen driver and do not evaluate the desktop flicker
+from the user's recording. See `/tmp/sly-visual-page-20261117/` and
+`/tmp/sly-visual-recheck-20261117/`.
+
+I audited the adapter's transform against the current matched decomp. Sly's
+matrices are row-major with translation in row 3; the game uses row vectors
+and `model * viewProjection`. The adapter's original row-major product passed
+to OpenGL as column-major is the expected transpose for its shader. Temporary
+changes to matrix order/packing did not improve the gray distorted output and
+have been reverted. Captures are under
+`/tmp/sly-world-matrix-fix-20261117/` and
+`/tmp/sly-world-matrix-order-fix-20261117/`.
+
+**Next:** leave matrix handling alone; the convention was checked against the
+matched decomp and the earlier global XYZ trace has been replaced by a
+per-write primitive trace. Follow one representative `DrawModelPart` and its
+DMA/VIF range through the matched strip builder and VU program into the GIF
+input. Establish whether world triangles are not emitted or are lost before
+the GIF parser. Keep the incomplete source-position adapter off by default.
+
+The earlier finding that selected submission 322's final accepted XGKICK is
+state-only remains valid for that one mesh. It is not established as the cause
+of the black world; see `SLY_GRAPHICS_HANDOFF.md` for exact packet evidence.
+
+A per-write primitive trace of the default path found 56 post-input GIF calls
+with XYZ writes: 52 VIF DIRECT calls and four VU1 XGKICKs. The 1,359 XYZ writes
+were 5 points and 1,354 sprites; no triangle-list/strip writes occurred. The
+VU points came from submissions 326–327 at MSCAL offsets `0x57920`, `0x71220`,
+`0x579f0`, and `0x712f0`, outside the selected Sly mesh range. This confirms
+that accepted post-Continue GIF traffic consists of UI points/sprites and a
+few unrelated VU points, not world triangles. Capture:
+`/tmp/sly-gif-xyz-prim-accurate-20261117/run.log`.
+
+**Updated next step:** map one representative `DrawModelPart` submission to
+its VU/GIF output and determine why no triangle PRIM/XYZ packets reach the GS.
+Do not alter matrix handling, strict GIF parsing, or turn on the distorted
+source-position adapter until this boundary is understood.
+
+## Earlier checkpoint (2026-11-17, 14:03 CET; superseded)
 
 The latest rebuilt default client still draws the no-card prompt. One
 process-local Cross at frame 300 reaches the established post-Continue boundary;
