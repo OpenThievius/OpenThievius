@@ -320,6 +320,33 @@ void main() {
 void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     using namespace openrac::gl;
     if (!g_world_shader || meshes.empty()) return;
+    bool debug_source_filter = false;
+    std::uint32_t debug_source_mesh = 0;
+    if (const char* setting = std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOURCE")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            debug_source_mesh = static_cast<std::uint32_t>(parsed);
+            debug_source_filter = true;
+        }
+    }
+    const bool debug_first_material_pass =
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_FIRST_PASS") != nullptr;
+    GLenum debug_primitive = GL_TRIANGLE_STRIP;
+    if (const char* setting = std::getenv("OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE")) {
+        if (std::strcmp(setting, "triangles") == 0)
+            debug_primitive = GL_TRIANGLES;
+    }
+    static unsigned debug_selection_notice = 0;
+    if ((debug_source_filter || debug_first_material_pass ||
+         debug_primitive != GL_TRIANGLE_STRIP) && debug_selection_notice++ < 1u) {
+        std::fprintf(stderr,
+                     "[native sly debug selection] source=%s%#010x first_pass=%u primitive=%s\n",
+                     debug_source_filter ? "" : "all/",
+                     debug_source_mesh,
+                     debug_first_material_pass ? 1u : 0u,
+                     debug_primitive == GL_TRIANGLES ? "triangles" : "triangle-strip");
+    }
     const bool trace_projected_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
     const bool debug_solid_colors =
@@ -353,6 +380,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     glBindVertexArray(g_world_vao);
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
     for (const auto& mesh : meshes) {
+        if (debug_source_filter && mesh.source_mesh != debug_source_mesh) continue;
+        if (debug_first_material_pass && (mesh.instance & 0xFFu) != 0u) continue;
         if (trace_projected_bounds) {
             if (!present_instances.insert(mesh.instance).second) ++duplicate_instances;
             present_materials.insert(mesh.tex0);
@@ -511,7 +540,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         glBufferData(GL_ARRAY_BUFFER,
                      static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
                      mesh.vertices.data(), GL_STREAM_DRAW);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0,
+        glDrawArrays(debug_primitive, 0,
                      static_cast<GLsizei>(mesh.vertices.size() / 9u));
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {

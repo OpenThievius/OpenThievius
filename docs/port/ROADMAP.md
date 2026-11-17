@@ -1,16 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-17, 16:40 CET)
+## Current checkpoint (2026-11-17, 16:55 CET)
 
 The default host32 launcher shows the settled no-memory-card prompt; its known
 post-Continue output is black. A fresh offscreen capture found no screen-wide
 flicker in the renderer buffer but cannot assess the desktop compositor. The
-optional diagnostic build remains distorted and is not used by default. The
-selected loaded-world VU path still has not been tied to a valid triangle
-packet, so the client is not playable and no level graphics are confirmed.
-See the [latest visual and packet audit](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1640-cet)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#default-and-diagnostic-client-check-2026-11-17-1640-cet).
+optional diagnostic build remains distorted and is not used by default. An
+isolated 85-vertex mesh remained a sliver in both strip and triangle-list
+experiments. Its selected VU finish kick still does not carry XYZ output, so
+the client is not playable and no level graphics are confirmed. See the
+[latest graphics checkpoint](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1655-cet)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#selected-mesh-topology-probe-2026-11-17-1655-cet).
 
 ## Reset review (2026-11-16)
 

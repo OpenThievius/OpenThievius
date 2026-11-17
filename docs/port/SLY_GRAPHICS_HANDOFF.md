@@ -1,8 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 16:40 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 16:55 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Selected mesh topology probe (2026-11-17, 16:55 CET)
+
+The optional adapter can isolate a `source_mesh`, keep its first material
+pass, and select GL triangle-strip or triangle-list submission. For source
+mesh `0x00a0eb48` (85 vertices), both modes remain a purple sliver; list mode
+changes its fan pattern without producing a recognizable object. This is a
+diagnostic only. The default renderer remains OFF.
+
+A fresh VU store trace follows submission 326 for the same mesh through
+entries `0x318`, `0x51`, `0x242`, and `0x356`; entry `0x356` writes the VU
+vertex buffer. The following entry `0x2` finish calls emit the selected
+XGKICKs, whose accepted packets carry GS state without XYZ2/XYZF2 output. The
+source-level GL adapter cannot stand in for that missing native draw output.
+Captures and trace: `/tmp/sly-object-topology-20261117/` and
+`/tmp/sly-selected-vu-buffer-trace-20261117/full-range.log`.
 
 ### Default and diagnostic client check (2026-11-17, 16:40 CET)
 
