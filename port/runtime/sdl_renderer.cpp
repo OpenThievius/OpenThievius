@@ -1193,16 +1193,24 @@ extern "C" void openrac_native_window_present(void) {
     if (dump_world_frame) {
         const auto pixels = openrac::renderer::read_rgba(0, width, height);
         if (world_frame_dump < 8) {
-            char path[96];
+            char path[512];
             paired_world_frame = static_cast<int>(world_frame_dump++);
-            std::snprintf(path, sizeof(path), "/tmp/sly1-native-world-%02u.ppm",
-                          paired_world_frame);
-            if (FILE* file = std::fopen(path, "wb")) {
-                std::fprintf(file, "P6 %d %d 255\n", width, height);
-                for (std::size_t i = 0; i + 3 < pixels.size(); i += 4)
-                    std::fwrite(pixels.data() + i, 1, 3, file);
-                std::fclose(file);
-                std::fprintf(stderr, "[native world frame dump] path=%s\n", path);
+            const char* dump_directory = std::getenv(
+                "OPENRAC_DUMP_NATIVE_WORLD_FRAME_DIR");
+            if (dump_directory == nullptr || dump_directory[0] == '\0')
+                dump_directory = "/tmp";
+            const int path_length = std::snprintf(
+                path, sizeof(path), "%s/sly1-native-world-%02u.ppm",
+                dump_directory, paired_world_frame);
+            if (path_length >= 0 &&
+                static_cast<std::size_t>(path_length) < sizeof(path)) {
+                if (FILE* file = std::fopen(path, "wb")) {
+                    std::fprintf(file, "P6 %d %d 255\n", width, height);
+                    for (std::size_t i = 0; i + 3 < pixels.size(); i += 4)
+                        std::fwrite(pixels.data() + i, 1, 3, file);
+                    std::fclose(file);
+                    std::fprintf(stderr, "[native world frame dump] path=%s\n", path);
+                }
             }
         }
     }
@@ -1281,15 +1289,24 @@ extern "C" void openrac_native_window_present(void) {
         if (eligible && eligible_frame >= skip &&
             (eligible_frame - skip) % stride == 0u && frame_dump < 8) {
             const auto pixels = openrac::renderer::read_rgba(0, width, height);
-            char path[96];
-            std::snprintf(path, sizeof(path), "/tmp/sly1-native-frame-%02u.ppm", frame_dump++);
-            if (FILE* file = std::fopen(path, "wb")) {
-                std::fprintf(file, "P6 %d %d 255\n", width, height);
-                for (std::size_t i = 0; i + 3 < pixels.size(); i += 4) {
-                    std::fwrite(pixels.data() + i, 1, 3, file);
+            char path[512];
+            const char* dump_directory = std::getenv(
+                "OPENRAC_DUMP_NATIVE_FRAME_DIR");
+            if (dump_directory == nullptr || dump_directory[0] == '\0')
+                dump_directory = "/tmp";
+            const int path_length = std::snprintf(
+                path, sizeof(path), "%s/sly1-native-frame-%02u.ppm",
+                dump_directory, frame_dump++);
+            if (path_length >= 0 &&
+                static_cast<std::size_t>(path_length) < sizeof(path)) {
+                if (FILE* file = std::fopen(path, "wb")) {
+                    std::fprintf(file, "P6 %d %d 255\n", width, height);
+                    for (std::size_t i = 0; i + 3 < pixels.size(); i += 4) {
+                        std::fwrite(pixels.data() + i, 1, 3, file);
+                    }
+                    std::fclose(file);
+                    std::fprintf(stderr, "[native frame dump] path=%s\n", path);
                 }
-                std::fclose(file);
-                std::fprintf(stderr, "[native frame dump] path=%s\n", path);
             }
         }
     }
