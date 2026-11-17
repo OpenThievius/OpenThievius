@@ -27,13 +27,24 @@ The remaining packet issue is downstream: on the current foreground client,
 one process-local Cross still changes the retail no-card prompt to a black world
 frame. The VIF submission 328 UNPACK at stream offset 5916 writes the valid
 GIFtag at qword 468, with its A+D payload starting at qword 469. VU1 entry
-`0x5f` kicks from 469 and the parser rejects it; a subsequent kick from qword
-35 is accepted. The source mapper places qword 468's input at guest address
+`0x5f` kicks from 469, so the strict parser sees that payload as a tag and
+rejects it; a subsequent kick from qword 35 is accepted. The source mapper
+places qword 468's input at guest address
 `0x018d2650` inside REF data beginning `0x018d1270` (326 qwords). Later
 writes to qword 468 happen after the first rejection. The run was ended by the 8-second diagnostic timeout (137), and no launcher
 remains. The earlier source-mapping evidence is in
 `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
+
+**VU stop removed:** public VU ISA documentation identifies the former upper
+faults at PCs `0x52d`, `0x52f`, and `0x531` as selector `0x1c` `MULAq`
+operations. The port runtime now handles these and adjacent selector `0x1e`
+(`MULAi`, using I). The unsupported-upper skip experiment is removed. A fresh
+host32 run passes the former stop and reproduces the qword-469 GIF rejection;
+the no-card prompt is visible before Cross and the post-Cross frame is black.
+The run timed out at its 10-second diagnostic bound (137), and no launcher
+remains. This is a port-runtime change only; matched C and retail VU assembly
+are untouched. Trace: `/tmp/sly-mulaq-postinput-20261117.log`.
 
 The VIF DMA chain now has an owner: its root `TADR=0x003c3b00` is submitted
 from matched retail `RunRenderThread` (`0x0015EE80`). Within that chain, REF

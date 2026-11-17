@@ -14,11 +14,11 @@ tag. A later XGKICK from qword 35 succeeds. A source-address trace maps the
 UNPACK data at stream offset 5920 to REF segment data `0x018d1270`, guest
 source `0x018d2650`, within the 326-qword segment. Later UNPACKs overwrite
 qword 468 in that same VIF submission only after the first rejected kick;
-those writes cannot explain the first kick's contents. This narrows the input
-buffer but does **not** identify the retail C function that produced the
-command; neither the model-strip trace nor the targeted C writer probes
-identified it. Keep the guest packet writer open and preserve GIF validation.
-Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
+those writes cannot explain the first kick's contents. The kick starts at
+qword 469, which contains the first A+D payload; its GIFtag is at qword 468.
+The retail packet writer is identified below. Preserve GIF validation while
+tracing why the VU kick starts one qword after that tag. Evidence:
+`/tmp/sly-vif-model-packet-source-cross-20261117.log` and
 `/tmp/sly-vif-gif-range-cross-20261117.log`.
 
 **Writer attribution is now resolved:** host-only source probes show that

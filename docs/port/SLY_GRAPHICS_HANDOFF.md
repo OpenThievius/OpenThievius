@@ -1989,3 +1989,22 @@ launcher only; no emulator was used. Earlier broad packet instrumentation
 produced an oversized temporary log and was stopped; use the targeted failure
 context instead. The build reports 99 missing-function traps, a separate
 coverage limit that is not the error that stopped this VU stream.
+
+## VU scalar accumulator instructions (2026-11-17)
+
+The 16-pair trace identifies upper words `0x01e049fc`, `0x01c039fc`, and
+`0x01e099fc` as special selector `0x1c`: VU `MULAq` operations. The translator
+had implemented neighboring `MULAx/y/z/w`, but not `MULAq` or `MULAi` (`0x1e`).
+The public VU instruction manual defines these as scalar multiplies into ACC
+using Q or I. The native translator now implements both under the VU runtime;
+no matched Sly C or VU assembly changed. The diagnostic that skipped unknown
+upper instructions was removed.
+
+A rebuilt host32 run no longer stops at those instructions. It continues to
+the existing GIF boundary: XGKICK at PC `0x68` starts at qword 469, while the
+valid GIFtag is at qword 468 and qword 469 contains `0x0000000000039001` with
+its A+D payload. The strict parser rejects the latter as a tag with reserved
+bits. The next kick at PC `0x6e`, qword 35, is accepted. Captured output still
+shows the full no-card prompt before the process-local Cross press and a black
+frame afterward. This removes one interpreter stop but is not a graphics or
+playability improvement yet. Run log: `/tmp/sly-mulaq-postinput-20261117.log`.
