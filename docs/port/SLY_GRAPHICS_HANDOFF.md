@@ -1,10 +1,77 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 20:35 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 20:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
-### Accepted-kick XYZ census and three refuted leads (2026-11-17, 20:35 CET)
+### Where the world triangles stop: VU scratch vs kicked packet (2026-11-17, 20:30 CET)
+
+Sixteen parallel read-only audits converged on one concrete boundary. I decoded
+the retail `.vutext` upload stream for the lit and unlit batch entries
+(`0x2`, `0x51`, `0x242`, `0x356`, `0x34a`, `0x5f`) with PCs cross-checked against
+live VU word dumps. Entry `0x356` stores transformed clip-space XYZ into VU data
+memory at qwords 36/39/40/43/44/47/48 and nearby scratch; entry `0x242` writes
+more vertex scratch. **No store in any of those programs writes qword 460 or
+above.** The 460/468/476 region is written only by EE-side VIF UNPACKs, which
+place the GIFtags; the VU programs only load it (`0x2` PC `0xa`, `0x5f` PC
+`0x66`). The kicked packets therefore carry the copied VIF state/tag words and
+never the computed positions. That is the missing producer/consumer link: the
+positions stay in VU scratch while the kicked packet carries only GS state.
+
+The only address-byte write in these programs is `ISW.z` at `0x356` PCs
+`0x396/3a7/3b8/3c9`, which patches the A+D register-address word of the frame
+header. No entry writes GS register `0x00` with PRIM 3 (triangle list) or 4
+(triangle strip); the kicked tags all have PRIM 0. The intended retail primitive
+is triangle-strip, but no PRIM-3/4 packet is ever produced in the native stream.
+
+The remaining candidate is a VU helper reached by JALR from entry `0x34a` (PC
+`0x34c`, target VI14=667) and from other entries (targets around 628, 1193 and
+1649). Those helper bodies lie outside the six decoded entry ranges and were
+not decoded. The next task is to decode them and find the instruction sequence
+that assembles transformed positions into a GIF packet with a triangle PRIM.
+Do not change the VU translator, the kick address, or the GIF parser until that
+producer is identified.
+
+Every alternative examined is now ruled down or refuted:
+
+- FTOI/ITOF shift error is real (`vu1_native.cpp:986` gives 8/12 where 12/15 is
+  required) but only `vftoi0`/`vitof0` execute on this path, with shift 0.
+- Silent VU abort is refuted: failures are loud and fail the whole VIF stream;
+  all six entries reach E-bit and use only implemented opcodes. Historical
+  stops were instruction-budget limits.
+- The XGKICK reserved-bit rejection is a host over-validation (hardware ignores
+  tag bits 16-45), but the rejected qword 461/469 payloads are GS state with no
+  XYZ; backstepping or relaxing it would forward about 1 MB of garbage.
+- GIF parser carry is correct and matches PCSX2; the target-filtered probe found
+  a clean EOP boundary (`tag_loaded=0`, `remaining_qwords=0`).
+- There is no VIF UNLOAD command in the PS2 ISA. Both real VU1→GIF paths,
+  XGKICK and DIRECT/DIRECTHL, are implemented.
+- The 16 MiB queue guard drops whole buffers content-blind, but it fired only
+  in the interrupted run after all eight frames were dumped; the corrected run
+  never hit it, and world meshes bypass that queue entirely.
+- No missing-function trap lies on the draw path (the only reachable one is
+  `ScheduleAlarm`), and a trap would exit loudly, not drop triangles.
+- Segment 612's 40-XYZ2 PRIM-6 packet is a HUD sprite list, not a world model.
+- The five VU XYZ writes in the census are UI points at MSCAL offsets
+  `0x57920/0x71220/0x579f0/0x712f0`, far outside the mesh window.
+- Ignored material state (ALPHA1, FOGCOL, texture registers) affects appearance,
+  not geometry; `TEST1` depth state is honored.
+- Commits `8e44809` and `545ead7` changed only opt-in renderer paths and cannot
+  affect the default client, which remains black after Continue.
+
+A transient, unrequested source edit appeared during this audit (20:19-20:23)
+that split the adapter's single strip using a `VertexRefs` flag bit. It built,
+but the opt-in client crashed with SIGSEGV after Cross. The source was reverted
+by 20:26; I rebuilt both targets from the clean tree and they are stable. No
+such change is in the working tree.
+
+For a future silhouette comparison, the best fully in-frustum candidate is
+request `0x005e4700` (one mesh, source `0x00a0db58`, 31 vertices, NDC
+`-0.607409,0.064102..-0.0760409,0.303055`, about 255x86 pixels), using the
+existing request filter with FIRST_PASS=1 and SOLID_COLORS=1. It has not been
+captured yet; the earlier in-frustum request `0x005e4a00` is a flat wedge.
+
+### Accepted-kick XYZ census and three refuted leads (2026-11-17, 20:25 CET)
 
 I added one opt-in, read-only diagnostic, `OPENRAC_TRACE_ACCEPTED_KICK_XYZ`,
 that logs one bounded line per accepted GIF append at both append sites
@@ -62,7 +129,8 @@ Capture and trace: `/tmp/sly-accepted-kick-xyz2-20261117/run.log`,
 `/tmp/sly-silhouette-attempt2-20261117/`. Two further bounded silhouette
 attempts found request `0x005e4a00` fully in-frustum (NDC
 `-0.408702,0.00783889,-0.980044..-0.118778,0.209965,-0.934758`, 260/260
-vertices inside, 6,226 pixels in a 138x72 box) but still a flat reddish wedge;
+vertices inside, 6,226 pixels in a 137x72 box in settled frames 04-07) but
+still a flat reddish wedge;
 `0x005e4e00` projected to 56 pixels and is not usable. No recognizable target
 silhouette exists yet.
 

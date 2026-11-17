@@ -24,10 +24,13 @@ cases):
   (SHA-256 `dab343deece79ddf...`), the opt-in adapter only.
 
 Offscreen captures cannot assess desktop-window flicker. No game process is
-running. The next task is to choose an in-frustum target first — the captured
-single-object silhouette is clipped and unrecognizable — then trace one visible
-model through VU1/GIF to find where its triangle packet disappears; see
-`SLY_GRAPHICS_HANDOFF.md`.
+running. The VU1/GIF trace has now identified the boundary: the lit/unlit batch
+programs store transformed XYZ only in VU scratch (qwords 36-307) and never in
+the kicked packet region (qwords 460+); no entry writes PRIM 3/4. The next task
+is to decode the JALR helper bodies (targets 667, 628, 1193, 1649) that may
+assemble the missing triangle packet. Keep the adapter opt-in; a future
+silhouette comparison should use request `0x005e4700`, which is fully
+in-frustum. See the 20:30 CET section of `SLY_GRAPHICS_HANDOFF.md`.
 
 ## Current checkpoint (2026-11-17, 16:27 CET; transition-frame audit)
 

@@ -3,18 +3,19 @@
 
 ## Current checkpoint (2026-11-17, 19:55 CET)
 
-**Next:** choose an in-frustum single-object target before any silhouette
-comparison. A silhouette has been captured, but it is clipped and
-unrecognizable, so it cannot yet be checked against a retail reference. The
-solid-purple filtered single-object image is a flat-color filtered view of that
-one object, not a color change of the whole opt-in scene, which is still the
-distorted gray horizon and stretched structures. Keep both tasks explicit:
-resolve the optional adapter's primitive topology and vertex order
-(`GL_TRIANGLE_STRIP` over one shared `VertexRefs` list at
-`port/runtime/sdl_renderer.cpp:581`), and trace one representative visible model
-through VU1 and its GIF output to find where its triangle packet disappears.
-The VU/GIF trace remains the retail-output task. Do not add renderer features
-until that boundary is understood and a usable silhouette is available.
+**Next:** decode the VU1 JALR helper bodies reached from the batch programs
+(entry `0x34a` PC `0x34c` target 667, plus targets near 628, 1193 and 1649).
+The six main entries compute transformed XYZ into VU scratch (qwords 36-307)
+but never store positions into the kicked packet region at qwords 460+, and no
+entry writes PRIM 3/4. That is the missing producer/consumer link; every
+alternative has now been ruled down in the graphics handoff's 20:30 CET
+section. Do not change the VU translator, kick address or GIF parser first.
+
+Keep the adapter opt-in and the default renderer OFF. For the later silhouette
+comparison, use request `0x005e4700` (one mesh, 31 vertices, fully in-frustum)
+with FIRST_PASS=1 and SOLID_COLORS=1; the earlier clipped object and the flat
+`0x005e4a00` wedge are not comparison targets. Do not add renderer features
+until the missing geometry packet is identified.
 
 I finished the interrupted three-part capture after correcting two problems.
 The stale orchestrator had used `timeout` without `--kill-after` and hung
