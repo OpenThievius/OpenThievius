@@ -34,7 +34,8 @@ struct NativeSlyMesh {
     u64 test = 0;
 };
 static std::mutex g_native_sly_mesh_mutex;
-static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes;
+static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
+static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_packet;
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
 extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
 extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
@@ -960,9 +961,10 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
                                                    u32 tints_address, u32 uvs_address,
                                                    u32 vertex_count, u32 refs_address,
-                                                   u32 cursor_address) {
+                                                   u32 cursor_address, u32 header_address) {
     if (mesh_address == 0 || vecs_address == 0 ||
-        refs_address == 0 || vertex_count < 3 || vertex_count > 4096)
+        refs_address == 0 || header_address == 0 || vertex_count < 3 ||
+        vertex_count > 4096)
         return;
     const volatile u8* mesh = reinterpret_cast<const volatile u8*>(mesh_address);
     if (mesh[0] != 0u && mesh[0] != 6u) return;
@@ -1042,12 +1044,31 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         // The VU consumes XYZ and supplies its homogeneous coordinate separately.
     }
     std::scoped_lock lock(g_native_sly_mesh_mutex);
-    g_native_sly_meshes[mesh_address] = std::move(captured);
+    g_native_sly_meshes_by_header[header_address] = std::move(captured);
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static u32 notices = 0;
         if (notices++ < 16u)
-            std::fprintf(stderr, "[native sly mesh capture] mesh=%#010x vertices=%u registered=%zu\n",
-                         mesh_address, vertex_count, g_native_sly_meshes.size());
+            std::fprintf(stderr, "[native sly mesh capture] mesh=%#010x header=%#010x vertices=%u registered=%zu\n",
+                         mesh_address, header_address, vertex_count,
+                         g_native_sly_meshes_by_header.size());
+    }
+}
+
+extern "C" void sly1_native_bind_model_mesh(u32 header_address,
+                                                u32 packet_address) {
+    if (header_address == 0 || packet_address == 0) return;
+    std::scoped_lock lock(g_native_sly_mesh_mutex);
+    const auto captured = g_native_sly_meshes_by_header.find(header_address);
+    if (captured == g_native_sly_meshes_by_header.end()) return;
+    const std::size_t vertex_count = captured->second.vertices.size() / 9u;
+    g_native_sly_meshes_by_packet[packet_address] = std::move(captured->second);
+    g_native_sly_meshes_by_header.erase(captured);
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static u32 notices = 0;
+        if (notices++ < 32u)
+            std::fprintf(stderr,
+                         "[native sly mesh bind] header=%#010x packet=%#010x vertices=%zu\n",
+                         header_address, packet_address, vertex_count);
     }
 }
 
@@ -1212,6 +1233,7 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     for (u32 i = 0; i < mesh_count; ++i) {
         const u32 part_mesh = mesh_address + i * 0x50u;
         const u32 source_mesh = *reinterpret_cast<const volatile u32*>(part_mesh + 0x18u);
+        const u32 packet_address = *reinterpret_cast<const volatile u32*>(part_mesh + 0x44u);
         if (source_mesh == 0) continue;
         const u8 kind = *reinterpret_cast<const volatile u8*>(source_mesh);
         if (kind != 0u && kind != 6u)
@@ -1219,20 +1241,21 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         NativeSlyMesh mesh;
         {
             std::scoped_lock lock(g_native_sly_mesh_mutex);
-            const auto found = g_native_sly_meshes.find(source_mesh);
-            if (found == g_native_sly_meshes.end()) {
+            const auto found = g_native_sly_meshes_by_packet.find(packet_address);
+            if (packet_address == 0 || found == g_native_sly_meshes_by_packet.end()) {
                 if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
-                    std::fprintf(stderr, "[native sly mesh miss] source=%#010x kind=%u registered=%zu request=%#010x\n",
-                                 source_mesh, *reinterpret_cast<const volatile u8*>(source_mesh),
-                                 g_native_sly_meshes.size(), request_address);
+                    std::fprintf(stderr, "[native sly mesh miss] source=%#010x packet=%#010x kind=%u registered=%zu request=%#010x\n",
+                                 source_mesh, packet_address,
+                                 *reinterpret_cast<const volatile u8*>(source_mesh),
+                                 g_native_sly_meshes_by_packet.size(), request_address);
                 continue;
             }
             mesh = found->second;
         }
         const u64 instance = (static_cast<u64>(request_address) << 8u) | i;
         if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
-            std::fprintf(stderr, "[native sly mesh submit] source=%#010x request=%#010x mesh=%u vertices=%zu\n",
-                         source_mesh, request_address, i, mesh.vertices.size() / 9u);
+            std::fprintf(stderr, "[native sly mesh submit] source=%#010x packet=%#010x request=%#010x mesh=%u vertices=%zu\n",
+                         source_mesh, packet_address, request_address, i, mesh.vertices.size() / 9u);
         openrac_native_sly_world_mesh_submit(world, instance, mesh.vertices.data(),
                                               static_cast<u32>(mesh.vertices.size() / 9u),
                                               source_mesh,
@@ -1461,7 +1484,8 @@ extern "C" void sly1_native_trace_queue_model_result(u32, u32, u32, u32, u32, u3
 extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, float, float, float, u32) {}
 extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
-extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}
 extern "C" void sly1_native_trace_world_draw_lists(u32, u32, u32, u32, u32, u32) {}
