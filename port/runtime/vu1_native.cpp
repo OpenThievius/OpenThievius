@@ -542,6 +542,22 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
         consumed_qwords += payload_qwords + 1u;
         cursor = (cursor + payload_qwords + 1u) & (kVu1Quadwords - 1u);
         if (((low >> 15u) & 1u) != 0) {
+            const char* parser_state_setting =
+                std::getenv("OPENRAC_TRACE_XGKICK_PARSER_STATE");
+            static std::atomic<uint32_t> parser_state_trace_count{0};
+            if (parser_state_setting != nullptr && parser_state_setting[0] != '\0' &&
+                parser_state_setting[0] != '0' && trace_vu1_xgkick_context_matches() &&
+                parser_state_trace_count.fetch_add(1, std::memory_order_relaxed) < 16u) {
+                uint32_t tag_loaded = 0;
+                uint32_t remaining_qwords = 0;
+                uint64_t tag_low = 0;
+                openrac_guest_gif_parser_probe(&tag_loaded, &remaining_qwords, &tag_low);
+                openrac::log::info(
+                    "native VU1 XGKICK GIF parser before append submission={} mscal_offset={:#x} entry={:#x} start={} bytes={} tag_loaded={} remaining_qwords={} tag_low={:#018x} prior_eop_count={}",
+                    g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                    g_vu_trace_entry, address & 0x3FFu, packet.size(), tag_loaded,
+                    remaining_qwords, tag_low, openrac_guest_gif_eop_count());
+            }
             openrac_guest_gif_stream_write_from(packet.data(), packet.size(),
                                                 "vu1-xgkick");
             const char* dump_setting = std::getenv("OPENRAC_DUMP_VU1_KICKS");

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 08:21 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 10:24 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
 ### Current default-client and adapter check (2026-11-17, 08:21 CET)
@@ -135,6 +135,48 @@ relax GIF validation without resolving the packet contract. Log:
 This narrows the next step to the `MeshFrameData` copied after entry `0x356`:
 trace how its qwords are meant to be consumed by finish entry `0x2`, and locate
 the producer that turns the transformed position vectors into XYZ GIF writes.
+
+### Finish-entry instruction trace (2026-11-17, 10:17 CET)
+
+A fresh hidden native run with a process-local Cross captures the matched Sly
+target range and the retail VU1 program at entry `0x2`. The program dump ends
+at PC `0x1c` (E bit). In this VIF call sequence, the MSCAL values match the
+decomp's byte-address labels divided by eight: `g_flushBatchProgram`
+`0x18c0/8 = 0x318`, `g_skinWeightProgram` `0x2008/8 = 0x401`,
+`g_litSkinWeightProgram` `0x2088/8 = 0x411`, `g_litBatchProgram`
+`0x288/8 = 0x51`, `g_litBatchSecondProgram` `0x1210/8 = 0x242`,
+`g_litBatchThirdProgram` `0x1ab0/8 = 0x356`, and
+`g_litBatchFinishProgram` `0x10/8 = 0x2`. This ties the observed sequence
+to the named retail packet stages.
+
+At entry `0x2`, the VU loads qword 460 at PC `0x0a`. It contains the valid
+GIFtag `0x1000400000008046`. At PC `0x0c`, instruction `0x80000efc` issues
+XGKICK from VI1, whose value is 461; that address holds the following payload,
+not a GIFtag, and strict parsing rejects it. At PC `0x0e`, the program copies
+qword 460 to qword 35; at PC `0x12`, it kicks VI1=35. That second kick is
+accepted as a 70-loop A+D packet, with no XYZ register writes. The microprogram
+completes normally in 49 cycles with no pending kick. The exact-filter dump of
+the accepted qword-35 packet is decoded later in this handoff: it has no XYZ
+writes and includes invalid A+D addresses. The accepted state packet still
+does not account for the missing world geometry. Full bounded capture:
+`/tmp/sly-finish-entry2-audit-20261117.log`.
+
+Keep this lit-batch finish trace distinct from the other qword-469 rejection
+at entry `0x5f`, which belongs to the separate kind-5 strip path. The next
+graphics step remains tracing where the target model's transformed vectors
+become XYZ GIF writes and whether a preceding PATH1 packet is still active.
+
+### Finish-entry parser carry check (2026-11-17, 10:24 CET)
+
+Added an opt-in, target-filtered probe of the native GIF parser immediately
+before the qword-35 XGKICK append. A fresh run with one process-local Cross
+press reports `tag_loaded=0`, `remaining_qwords=0`, and a nonzero prior EOP
+count for every captured `0x2c990` finish call. In the native parser path,
+there is no incomplete GIFtag for the finish packet to continue. This does
+not observe hardware PATH1 state independently, so it does not justify
+changing packet boundaries or GIF validation. The next graphics step remains
+locating the VU output path that should produce XYZ writes. Capture:
+`/tmp/sly-parser-carry-check-20261117.log`.
 
 ### Fresh client and queue check (2026-11-17)
 
