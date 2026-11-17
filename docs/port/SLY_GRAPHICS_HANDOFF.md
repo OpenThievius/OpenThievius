@@ -1,8 +1,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 22:10 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 22:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Depth-state and native-input checks (2026-11-17, 22:20 CET)
+
+I added `OPENRAC_SLY_WORLD_NO_DEPTH` to force depth test and depth writes
+off for every world mesh. A bounded full-scene capture produced the same
+fan-shaped gray geometry as the normal depth path, so depth state is not
+the cause of the distortion. Native input is already wired: SDL events are
+pumped in `port/runtime/sdl_renderer.cpp` (`g_input->update()`) and the game
+reads them through `openrac_native_pad_read` in
+`port/game/sly1-us/native/func_002042C8.cpp`; the process-local test press is
+an additional diagnostic, not the only input path. No launcher remains.
+
+Capture: `/tmp/sly-nodepth-scene-20261117/`.
 
 ### Topology experiment: raw triangle lists (2026-11-17, 22:10 CET)
 

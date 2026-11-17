@@ -563,7 +563,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
-        if (test.zte) {
+        if (std::getenv("OPENRAC_SLY_WORLD_NO_DEPTH") != nullptr) {
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+        } else if (test.zte) {
             glEnable(GL_DEPTH_TEST);
             switch (test.ztst) {
                 case openrac::renderer::gs::DepthTest::Never:
