@@ -4752,12 +4752,44 @@ void LoadEffectSpawner"""
                         name, "decomp_" + name, 1) + " ", adapted)
         if args.trace_model_draws and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32, u32);\n' + adapted
+            adapted = ('extern "C" void sly1_native_trace_detached_mesh_packet(u32, u32, u32, u32, u32, u32);\n' + adapted)
+            adapted = ('extern "C" void sly1_native_trace_strip_reserve(u32, u32, u32, u32);\n' + adapted)
             needle = "    PartSkin* skin = self->skin;\n"
             replacement = needle + (
                 "    sly1_native_trace_model_part((u32)self, (u32)g_currentWorld, (u32)g_camera);\n")
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart request initialization")
             adapted = adapted.replace(needle, replacement, 1)
+            detach = (
+                "                        DetachPacketBufferCopy((PacketWriter*)&pw[n], &strip->qwc[n], &starts[n], (s32*)&strip->addr[n], 0x13);\n"
+            )
+            if adapted.count(detach) != 1:
+                raise RuntimeError("expected strip mesh packet detach")
+            adapted = adapted.replace(
+                detach,
+                detach +
+                "                        sly1_native_trace_detached_mesh_packet((u32)mesh, (u32)mesh->kind, n, (u32)strip->qwc[n], starts[n], (u32)strip->addr[n]);\n",
+                1)
+            builder_signature = (
+                "void BuildStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 mode, StripHeader* hdr, StripMesh* mesh,\n"
+                "                   Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs, s32 n, VertexRefs* recs,\n"
+                "                   WeightIndices* ents, Vec3* verts, Vec3* vnrms, f32* weights, PacketWriter* pkt,\n"
+                "                   s32** outs)\n{"
+            )
+            if adapted.count(builder_signature) != 1:
+                raise RuntimeError("expected BuildStripMeshPacket definition for strip reserve trace")
+            builder_start = adapted.index(builder_signature)
+            builder_end = adapted.index("// Builds the VIF packets of a lit strip mesh", builder_start)
+            builder = adapted[builder_start:builder_end]
+            strip_reserve = "        ReserveVifUnpack(pkt, 0xC, s->stride, off, &c, (u8**)&d);\n"
+            if builder.count(strip_reserve) != 1:
+                raise RuntimeError("expected one trailing strip ReserveVifUnpack")
+            builder = builder.replace(
+                strip_reserve,
+                "        sly1_native_trace_strip_reserve((u32)mesh, (u32)s->stride, (u32)off, (u32)pkt);\n" +
+                strip_reserve,
+                1)
+            adapted = adapted[:builder_start] + builder + adapted[builder_end:]
             adapted = ('extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32);\n' + adapted)
             signature = (
                 "void BuildStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 mode, StripHeader* hdr, StripMesh* mesh,\n"
@@ -4880,16 +4912,6 @@ void LoadEffectSpawner"""
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition for native renderer")
             adapted = adapted.replace(signature, replacement, 1)
-            lit_signature = (
-                "void BuildLitStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 unused2, s32 mode, StripHeader* hdr,\n"
-                "                   StripMesh* mesh, Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs,\n"
-                "                   s32 n, VertexRefs* recs, WeightIndices* ents, Vec3* verts, Vec3* vnrms,\n"
-                "                   f32* weights, PacketSlot* pkt, s32** outs)\n{"
-            )
-            lit_replacement = lit_signature
-            if adapted.count(lit_signature) != 1:
-                raise RuntimeError("expected BuildLitStripMeshPacket definition for native renderer")
-            adapted = adapted.replace(lit_signature, lit_replacement, 1)
             source_hook = (
                 "    if (node == 0 && mesh->hook != 0) {\n"
                 "        node = ((CursorHook*)mesh->hook)->vt[5]((CursorHook*)mesh->hook, mesh);\n"

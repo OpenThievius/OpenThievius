@@ -771,6 +771,16 @@ extern "C" void sly1_native_trace_vif_reserve(uint32_t writer,
                                                 uint32_t callsite) {
     const char* setting = std::getenv("OPENRAC_TRACE_VIF_WRITES");
     if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
+    if (format == 0xCu && count == 7u) {
+        static std::atomic<uint32_t> seven_vector_notice{0};
+        if (seven_vector_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
+            const uint32_t retail_caller = sly1_native_host32_retail_for_pc != nullptr
+                ? sly1_native_host32_retail_for_pc(callsite) : 0u;
+            openrac::log::info(
+                "native VIF seven-vector reserve writer={:#x} vu={:#x} bytes={} cursor={:#x} caller={:#x} retail_caller={:#010x}",
+                writer, vu_address, byte_count, cursor, callsite, retail_caller);
+        }
+    }
     struct PendingRange {
         uint32_t writer = 0;
         uint32_t format = 0;

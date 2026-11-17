@@ -1416,8 +1416,43 @@ extern "C" void sly1_native_trace_draw_object(u32 world_address,
     }
     std::fputc('\n', stderr);
 }
+
+extern "C" void sly1_native_trace_detached_mesh_packet(u32 mesh, u32 kind,
+                                                          u32 packet,
+                                                          u32 qwc,
+                                                          u32 start,
+                                                          u32 destination) {
+    if (std::getenv("OPENRAC_TRACE_VIF_WRITES") == nullptr ||
+        (destination < 0x018d0000u || destination >= 0x018e0000u))
+        return;
+    static std::atomic<u32> notice_count{0};
+    if (notice_count.fetch_add(1, std::memory_order_relaxed) >= 32u) return;
+    std::fprintf(stderr,
+                 "[native detached mesh packet] mesh=%#010x kind=%u packet=%u qwc=%u start=%#010x destination=%#010x\n",
+                 mesh, kind, packet, qwc, start, destination);
+}
+
+extern "C" void sly1_native_trace_strip_reserve(u32 mesh, u32 stride,
+                                                    u32 offset,
+                                                    u32 writer) {
+    if (std::getenv("OPENRAC_TRACE_VIF_WRITES") == nullptr ||
+        (stride != 7u && offset != 0x1D4u))
+        return;
+    static std::atomic<u32> target_notice_count{0};
+    static std::atomic<u32> sample_notice_count{0};
+    const u32 notice = offset == 0x1D4u
+        ? target_notice_count.fetch_add(1, std::memory_order_relaxed)
+        : sample_notice_count.fetch_add(1, std::memory_order_relaxed);
+    if (notice >= 64u) return;
+    std::fprintf(stderr,
+                 "[native strip reserve] mesh=%#010x stride=%u vu=%#x writer=%#010x\n",
+                 mesh, stride, offset, writer);
+}
+
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_detached_mesh_packet(u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_strip_reserve(u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_placed_object_load(u32, u32, u32) {}
 extern "C" void sly1_native_trace_pose_rotation(u32, u32, u32, u32, u32, float, float, float) {}
 extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32) {}
