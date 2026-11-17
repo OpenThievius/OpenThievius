@@ -590,6 +590,23 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint32_t qwc = immediate == 0 ? 0x10000u : immediate;
             const size_t bytes = static_cast<size_t>(qwc) * 16u;
             if (bytes > stream.size() - cursor) return false;
+            const char* target_command_setting =
+                std::getenv("OPENRAC_TRACE_VIF_TARGET_COMMANDS");
+            const uint32_t command_offset = static_cast<uint32_t>(cursor - sizeof(code));
+            openrac_guest_vu1_set_trace_context(trace->submission_id, command_offset);
+            const bool trace_target_command = target_command_setting != nullptr &&
+                target_command_setting[0] != '\0' && target_command_setting[0] != '0' &&
+                openrac_guest_vu1_trace_target_context_matches() != 0;
+            if (trace_target_command) {
+                uint32_t first[4]{};
+                if (bytes >= sizeof(first))
+                    std::memcpy(first, stream.data() + cursor, sizeof(first));
+                openrac::log::info(
+                    "native VIF1 target DIRECT submission={} command_offset={} command={:#04x} qwc={} bytes={} first={:#010x},{:#010x},{:#010x},{:#010x}",
+                    trace->submission_id, command_offset, command, qwc, bytes,
+                    first[0], first[1], first[2], first[3]);
+            }
+            openrac_guest_vu1_set_trace_context(0xFFFFFFFFu, 0xFFFFFFFFu);
             if (!trace->has_direct_prefix && bytes >= sizeof(trace->direct_prefix)) {
                 std::memcpy(trace->direct_prefix.data(), stream.data() + cursor,
                             sizeof(trace->direct_prefix));
@@ -611,9 +628,36 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const uint64_t bytes_per_vector = ((bits + 31u) / 32u) * 4u;
             const uint64_t bytes = bytes_per_vector * loops;
             if (bytes > stream.size() - cursor) return false;
-            if (!unpack_vu1(command, count, immediate, stream.data() + cursor,
-                            static_cast<size_t>(bytes), cursor, trace->submission_id,
-                            input_trace)) {
+            const char* target_command_setting =
+                std::getenv("OPENRAC_TRACE_VIF_TARGET_COMMANDS");
+            const uint32_t command_offset = static_cast<uint32_t>(cursor - sizeof(code));
+            openrac_guest_vu1_set_trace_context(trace->submission_id, command_offset);
+            const bool trace_target_command = target_command_setting != nullptr &&
+                target_command_setting[0] != '\0' && target_command_setting[0] != '0' &&
+                openrac_guest_vu1_trace_target_context_matches() != 0;
+            if (trace_target_command) {
+                uint32_t destination = immediate & 0x3FFu;
+                const uint32_t tops = load_mmio(kVif1Tops) & 0x3FFu;
+                if ((immediate & 0x8000u) != 0)
+                    destination = (destination + tops) & 0x3FFu;
+                const uint32_t cycle = load_mmio(kVif1Cycle);
+                const uint32_t cycle_length = (cycle & 0xFFu) == 0
+                    ? 256u : cycle & 0xFFu;
+                const uint32_t write_length = ((cycle >> 8u) & 0xFFu) == 0
+                    ? 256u : (cycle >> 8u) & 0xFFu;
+                const uint32_t stride = write_length == cycle_length
+                    ? 1u : cycle_length;
+                openrac::log::info(
+                    "native VIF1 target UNPACK submission={} command_offset={} data_offset={} command={:#04x} format={:#x} vectors={} immediate={:#06x} destination={} stride={} TOP={} TOPS={} bytes={}",
+                    trace->submission_id, command_offset, cursor, command,
+                    command & 0xFu, loops, immediate, destination, stride,
+                    load_mmio(kVif1Top) & 0x3FFu, tops, bytes);
+            }
+            const bool unpack_ok = unpack_vu1(
+                command, count, immediate, stream.data() + cursor,
+                static_cast<size_t>(bytes), cursor, trace->submission_id, input_trace);
+            openrac_guest_vu1_set_trace_context(0xFFFFFFFFu, 0xFFFFFFFFu);
+            if (!unpack_ok) {
                 *unsupported_command = command;
                 return false;
             }

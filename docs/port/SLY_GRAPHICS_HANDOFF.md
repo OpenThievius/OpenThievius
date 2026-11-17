@@ -62,6 +62,43 @@ The MSCAL filter is `OPENRAC_TRACE_VIF_MSCAL_TARGET=1`; it uses the same
 dynamic target DMA address/range filter as the VU traces. The instrumentation
 is diagnostic only and does not change the retail packet path.
 
+### Target UNPACK and DIRECT trace (2026-11-17)
+
+`OPENRAC_TRACE_VIF_TARGET_COMMANDS=1` now logs VIF UNPACK and DIRECT metadata
+only while the dynamically matched target DMA address/range is active. In
+submission 328, the `0x51`, `0x242`, `0x356`, `0x2` call sequence matches
+`BuildLitVertexPacket` in the read-only decomp checkout. After entry `0x356`,
+three V4-32 UNPACKs write eight vectors each at VU1 qwords 460, 468, and 476.
+The first vector at each destination is a GIFtag; the one at qword 460 is
+`0x1000400000008046`. Qword 461 is the first A+D payload.
+
+Finish entry `0x2` attempts XGKICK from qword 461, which the strict GIF parser
+rejects as a malformed tag. It then copies qword 460 to qword 35 and emits an
+A+D state packet. No VIF DIRECT occurs in the selected stream range. The trace
+therefore proves a tag/payload boundary mismatch in this finish path, but the
+accepted packet still contains no vertex registers and this does not alone
+explain all missing scene geometry. Do not change the guest start address or
+relax GIF validation without resolving the packet contract. Log:
+`/tmp/sly-target-strip-qwords-20261117.log`.
+
+This narrows the next step to the `MeshFrameData` copied after entry `0x356`:
+trace how its qwords are meant to be consumed by finish entry `0x2`, and locate
+the producer that turns the transformed position vectors into XYZ GIF writes.
+
+### Fresh client check and queue saturation (2026-11-17)
+
+A fresh foreground launch of the current host32 binary showed the complete
+no-memory-card prompt and Continue button before any input. During the same
+idle run, the native GIF queue hit its 16 MiB cap and emitted repeated
+`native GIF packet queue full` warnings; one reported `queued=16776752` and
+`incoming=704`. The screenshot is
+`/tmp/sly-live-client-check-20261117.png`. Launcher output was not saved to a
+log. This confirms the prompt still renders at startup, but the later queue
+overflow may contribute to the black/flickering output. First verify that
+presented frames drain the queue, then trace why the idle path can enqueue
+packets faster than they are consumed. Do not raise or silently bypass the
+queue cap as a fix.
+
 ### Entry-`0x2` packet construction (2026-11-17)
 
 A follow-up capture confirms the dataflow for submission 328 at MSCAL offset

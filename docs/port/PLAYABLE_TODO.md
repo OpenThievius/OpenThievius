@@ -34,6 +34,31 @@ later VIF/GIF handoff. Logs:
 `/tmp/sly-focused-litbatch-finish-20261117.log`, and
 `/tmp/sly-focused-litbatch-20261117.log`.
 
+**Target VIF payload trace (2026-11-17):** the new
+`OPENRAC_TRACE_VIF_TARGET_COMMANDS=1` filter logs UNPACK and DIRECT commands
+only inside the dynamically selected DMA range. In submission 328,
+`BuildLitVertexPacket`'s later sequence is `0x51`, `0x242`, `0x356`, then
+finish `0x2`. After `0x356`, three V4-32 UNPACKs write 8 vectors at qwords
+460, 468, and 476. The first vector at each range is a GIFtag; at qword 460 it
+is `0x1000400000008046`. The next vector at qword 461 is A+D payload, but
+finish entry `0x2` starts XGKICK there, so strict parsing treats that payload
+as a malformed GIFtag and rejects it. The program then copies qword 460 to
+qword 35 and emits an A+D state packet. No VIF DIRECT command appears in the
+selected range. This pinpoints a malformed state kick, but it does not prove
+why scene vertices never reach GIF. Trace:
+`/tmp/sly-target-strip-qwords-20261117.log`.
+
+**Fresh client check (2026-11-17):** a foreground launch of the current
+host32 binary visibly rendered the full no-memory-card prompt and Continue
+button before any input. During the same idle run, the GIF queue hit its
+16 MiB cap and emitted repeated `native GIF packet queue full` warnings
+(`queued=16776752`, `incoming=704`). This is a new unresolved issue: verify
+that presented frames drain the queue and identify why idle frames can fill
+it. The screenshot is `/tmp/sly-live-client-check-20261117.png`; the warning
+was observed in the launcher output, which was not saved to a log. This shows
+the prompt path still works at launch, but it does not rule out later
+black-frame or flicker regressions.
+
 **Trace correction and new lead (2026-11-17):** the previous reader probe was
 filtered to hard-coded submission 327. Submission IDs change across launches,
 so that filter could miss the target altogether; I should not have treated it
@@ -172,13 +197,12 @@ black intervals visible in the user's Nov 15 screen recording (17–116 ms in
 the cropped game window); whether those gaps are guest rendering or desktop
 presentation remains unresolved.
 
-**Next graphics task:** follow the strip data UNPACKs queued after entry `0x356`
-in the target VIF chain. Record their destination qwords and the next VU call
-that consumes them, then match any resulting GIF tag with the normal renderer's
-packet queue. The calls `0x51`, `0x242`, and `0x356` currently show no XGKICK;
-finish entry `0x2` submits only A+D state. Preserve strict GIF validation.
-Keep the separately traced kind-5 qword-469 mismatch as an anomaly; it is not
-connected to Sly's kind-0 calls. Do not treat
+**Next graphics task:** trace the `MeshFrameData` blocks copied after entry
+`0x356` through `BuildLitVertexPacket`'s finish stage. Find why finish entry
+`0x2` starts at qword 461 while the matching tag is at qword 460, and determine
+where the transformed position vectors become XYZ GIF writes. Keep strict GIF
+validation. Keep the separately traced kind-5 qword-469 mismatch as an
+anomaly; it is not connected to Sly's kind-0 calls. Do not treat
 `QueueModelPartDraws` counts as rendered geometry, and do not
 enable the optional kind-6 host mesh adapter as a fix for the retail packet
 path. Keep any host-only renderer experiment opt-in and separate from matched
