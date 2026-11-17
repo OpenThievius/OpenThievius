@@ -1,8 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 01:40 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 02:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### The kicked packet contains floats with PRIM addresses (2026-11-18, 02:15 CET)
+
+I added opt-in `OPENRAC_DUMP_KICK_PAYLOAD` to dump the accepted qword-35
+XGKICK's payload directly from VU memory. The payload qwords are raw floats:
+qword 36 `lo=0x3e36c8b43ea85879 hi=0x3f8000003f800000` (UV ~0.18/0.22, then
+1.0/1.0), qword 38 `lo=0x41294d8441a2270b hi=0x4b008ff000000000`
+(positions ~10.3/9.5 and a fog value), qword 39 another UV pair. Crucially the
+A+D address byte (`hi & 0xFF`) is **0x00 (PRIM) for 3,534 payload qwords**, with
+only state addresses (0x80, 0x34, 0x3b, …) elsewhere — **never 0x04/0x05**
+(XYZF2/XYZ2). The VU stores the vertex data as plain floats into a packet whose
+register descriptors say PRIM, so the GS sees state writes, not vertices.
+
+The `ISW.z VI10,[0xd+VI4]` sites that should patch A+D addresses were traced:
+they write values like 1, not 4/5, and only at VU qword 13, never at the kicked
+payload qwords 36-105. So the port's VU does not assemble a vertex packet.
+
+I re-tested the qword-461/469 rejected kicks with the reserved-bit check
+relaxed (`OPENRAC_RELAX_GIFTAG`): 866 VU kicks then carry XYZ but **still no
+PRIM 3/4**, and every frame is solid full-screen garbage. The rejected kicks are
+malformed; relaxing validation does not recover geometry. The experiment was
+reverted.
+
+This is the concrete root cause: the game's vertex floats reach VU scratch but
+no code path in the port turns them into a GIF packet with XYZZ/XYZF2 register
+addresses. A faithful fix must implement that packet producer in the port, not
+relax parsing or render raw floats. No launcher remains. Captures:
+`/tmp/sly-kickpayload-20261117/`, `/tmp/sly-iswtrace3-20261117/`,
+`/tmp/sly-relax-20261117/`.
 
 ### Default client rendered from VU output (2026-11-18, 01:40 CET)
 

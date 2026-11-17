@@ -777,10 +777,23 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
             if (failed_tag != nullptr) *failed_tag = low;
             return false;
         }
+        const bool dump_payload =
+            std::getenv("OPENRAC_DUMP_KICK_PAYLOAD") != nullptr && consumed_qwords == 0u &&
+            address == 35u;
         for (size_t qword = 0; qword <= payload_qwords; ++qword) {
             const size_t memory_qword = (cursor + qword) & (kVu1Quadwords - 1u);
             const uint8_t* data = guest_address(kVu1Data + memory_qword * 16u);
             packet.insert(packet.end(), data, data + 16u);
+            if (dump_payload && qword > 0u && qword <= 72u) {
+                uint64_t lo = 0, hi = 0;
+                std::memcpy(&lo, data, sizeof(lo));
+                std::memcpy(&hi, data + 8u, sizeof(hi));
+                static std::atomic<uint32_t> payload_notice{0};
+                if (payload_notice.fetch_add(1, std::memory_order_relaxed) < 4096u)
+                    openrac::log::info(
+                        "native kick payload qword={} lo={:#018x} hi={:#018x} addr={:#04x}",
+                        memory_qword, lo, hi, static_cast<unsigned>(hi & 0xFFu));
+            }
         }
         consumed_qwords += payload_qwords + 1u;
         cursor = (cursor + payload_qwords + 1u) & (kVu1Quadwords - 1u);
