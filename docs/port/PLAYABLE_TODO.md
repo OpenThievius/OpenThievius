@@ -1,7 +1,50 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest native checkpoint (2026-11-17, 11:22 CET)
+## Latest native checkpoint (2026-11-17, 11:30 CET)
+
+I reviewed fresh framebuffer captures from the opt-in world-renderer build
+after a process-local Cross at native frame 300. The prompt visibly overlaps
+itself as it contracts; later samples go black, then show a gray horizon and
+distorted purple surfaces. This confirms the transition artifact in the native
+capture and confirms that the optional adapter eventually draws something. It
+does not establish whether the contraction matches PCSX2 or make the world
+renderer playable. These images came from `wave55-sdl32-release`, whose
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER` option is ON. The default build keeps that
+option OFF and its last settled post-Continue capture is still black.
+
+Do not conflate the two geometry experiments: the normal DirectRenderer trace
+decodes a 7.38 MB post-Continue packet into 76,053 vertices and 3,157 draws,
+but only 889 vertices land inside clip space. The purple surfaces are from the
+separate opt-in adapter. Its current conversion takes a whole `VertexRefs`
+array, reads material state from only the first `FrameSource`, and submits the
+array as one GL triangle strip. The matched decomp's `BuildStripMeshPacket`
+loops over every `nstrips` source and queues each at a separate VU offset. This
+is a proven structural mismatch in the experiment and a strong candidate for
+the broken shapes, but it does not yet explain the normal renderer's black
+output. Reconstruct per-strip geometry boundaries from packet/VU evidence
+before changing that adapter.
+
+The all-path GS XYZ trace was not a valid absence-of-geometry check: its shared
+64-write cap filled with startup VIF DIRECT sprite writes before the injected
+Cross. A filtered VU XGKICK trace captured only five XYZ writes and is not a
+complete view of VIF DIRECT or PATH1. Keep those limitations attached to any
+claims based on these logs.
+
+Captures and logs: `/tmp/sly-actual-postcontinue-20261117/`,
+`/tmp/sly-actual-postcontinue-capture-20261117.log`,
+`/tmp/sly-actual-settled-postcontinue-20261117/`,
+`/tmp/sly-actual-settled-postcontinue-20261117.log`,
+`/tmp/sly-all-input-path-draw-audit-20261117.log`, and
+`/tmp/sly-vu-only-world-xyz-audit-20261117.log`. The decomp checkout was
+checked at `8f7a85a3`; it had no uncommitted changes or newer fetched commits.
+No matched decomp source changed.
+
+Next: use one mesh packet to correlate each `StripHeader` offset and
+`FrameSource` with the resulting VU output and renderer input. Keep the default
+renderer configuration unchanged until that conversion is evidence-based.
+
+### Previous checkpoint (2026-11-17, 11:22 CET)
 
 The default client remains at the same milestone: it can render the memory-card
 prompt, but after Continue it still has no recognizable world graphics. The

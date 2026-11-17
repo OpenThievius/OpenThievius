@@ -1,8 +1,59 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 11:22 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 11:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Fresh client-output and trace audit (2026-11-17, 11:30 CET)
+
+I inspected the current actual framebuffer captures, including the settled
+frames after one process-local Cross at native frame 300. The prompt visibly
+contracts and overlaps during the transition. Later samples show a black
+interval, then a gray horizon and distorted purple surfaces. The transition
+artifact appears in native framebuffer captures; sparse samples do not
+establish whether the desktop window flickered between presents or whether the
+same transition occurs in PCSX2. The settled
+gray/purple frames are from the experimental `wave55-sdl32-release` build with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`. The default configuration remains OFF
+and its last settled post-Continue capture is black. These are separate client
+configurations and must not be described as one renderer producing both
+results.
+
+The normal DirectRenderer's post-Continue packet audit is separate from that
+adapter image. It decoded 7,383,744 bytes into 76,053 vertices and 3,157 draws;
+the computed bounds span NDC x `-11.467..14.931`, y `-33.504..23.699`, with
+889 vertices inside clip space. This confirms the normal path receives a large
+batch, but the packet audit alone does not establish what the desktop window
+presented.
+
+The opt-in adapter has a concrete, decomp-backed structural mismatch. Its
+`sly1_native_capture_model_mesh` reads only `sources[0]` for material state and
+copies the full `VertexRefs` list; `render_world_meshes` submits that list as
+one `GL_TRIANGLE_STRIP`. In the matched decomp, `BuildStripMeshPacket` loops
+over all `mesh->nstrips`, queues each `FrameSource` at a distinct VU offset,
+and records that offset in `StripHeader::p->strip[i]`. This proves the adapter
+does not preserve strip/source structure and is a credible explanation for
+its stretched purple geometry. It does not prove the exact correct GL topology
+or explain the normal DirectRenderer's black frame. The next step is to map
+one real header/source pair through the packet and VU output before changing
+the conversion.
+
+There is also a trace-limit correction: the all-input-path XYZ run filled its
+shared 64-write capture budget with startup `vif1-direct` sprite writes before
+Cross at frame 300. Treat it as saturated; it cannot establish post-input XYZ
+traffic. The filtered VU-only run recorded five XYZ writes, which is likewise
+not a complete view of VIF DIRECT or PATH1. Logs:
+`/tmp/sly-all-input-path-draw-audit-20261117.log` and
+`/tmp/sly-vu-only-world-xyz-audit-20261117.log`.
+
+Visual captures: `/tmp/sly-actual-postcontinue-20261117/contact.png` and
+`/tmp/sly-actual-settled-postcontinue-20261117/contact.png`. Their run logs
+are the matching `*-20261117.log` files in `/tmp`. The decomp checkout was
+fetched and checked at `8f7a85a3`; it had no new commits or working-tree
+changes. No decomp files were edited.
+
+No source changes were made during this audit. Current repository HEAD remains
+`5ab4cb7`; the email configured for commits is `oeps46@gmail.com`.
 
 ### Rejected kind-5 packet snapshot (2026-11-17, 11:22 CET)
 
