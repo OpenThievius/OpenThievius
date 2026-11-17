@@ -1,6 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Fresh visual review (2026-11-17, 10:46 CET)
+
+The current default host32 launcher was rebuilt with diagnostics and inspected
+from captured framebuffer output. Eight frames sampled after a process-local
+Cross at native frame 300 show the no-card prompt shrinking toward the center;
+this capture stops before the settled state, and it is not yet clear whether
+the shrink is an intended transition. Prior settled post-Continue captures
+are black. This needs a frame-by-frame comparison with the supplied PCSX2
+recording before calling the effect a regression or expected animation.
+
+The fresh, dynamically selected VIF chain for address `0x016d5890` was traced
+through all 773 segments. It contains three observed XYZ2/XYZF2 writes: two at
+finish entry `0x2` and one at entry `0x6da`; the following matching submission
+has one more at `0x6da`. Their observed XY positions are outside the viewport
+under the current XYOFFSET state, so they do not explain visible world geometry. The trace is
+limited to this selected VIF chain and XGKICK-origin writes; it does not cover
+all GS input paths or independently observe PATH1 state. Capture details are
+in `SLY_GRAPHICS_HANDOFF.md`; full trace:
+`/tmp/sly-whole-chain-xyzstate-20261117.log`.
+
+Next: compare the transition frames against the supplied PCSX2 video, then
+instrument one boundary across all renderer input paths (including VIF DIRECT,
+VU XGKICK, and any PATH1 submission) and correlate accepted XYZ writes to the
+actual native framebuffer. Preserve the default startup prompt; keep any
+renderer reconstruction in the port-only backfill layer.
+
 ## Current visual and packet audit (2026-11-17)
 
 **Rebuilt default-client check (2026-11-17, 10:02 CET):** the default

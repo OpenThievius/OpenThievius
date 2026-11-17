@@ -558,8 +558,18 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
                     g_vu_trace_entry, address & 0x3FFu, packet.size(), tag_loaded,
                     remaining_qwords, tag_low, openrac_guest_gif_eop_count());
             }
+            char trace_origin[96] = "vu1-xgkick";
+            const char* xyz_trace_setting =
+                std::getenv("OPENRAC_TRACE_GS_XYZ");
+            if (xyz_trace_setting != nullptr && xyz_trace_setting[0] != '\0' &&
+                xyz_trace_setting[0] != '0' && trace_vu1_xgkick_context_matches()) {
+                std::snprintf(trace_origin, sizeof(trace_origin),
+                              "vu1-xgkick submission=%u mscal=%#x entry=%#x",
+                              g_vu_trace_submission_id,
+                              g_vu_trace_vif_command_offset, g_vu_trace_entry);
+            }
             openrac_guest_gif_stream_write_from(packet.data(), packet.size(),
-                                                "vu1-xgkick");
+                                                trace_origin);
             const char* dump_setting = std::getenv("OPENRAC_DUMP_VU1_KICKS");
             static std::atomic<uint32_t> dump_count{0};
             if (dump_setting != nullptr && dump_setting[0] != '\0' &&

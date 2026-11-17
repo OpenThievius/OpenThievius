@@ -1,8 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 10:24 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 10:46 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Fresh current-client visual review (2026-11-17, 10:46 CET)
+
+I rebuilt the default host32 launcher with diagnostic-only trace changes and
+captured eight actual framebuffer images during a process-local Cross press at
+native frame 300. The first captured frame shows the complete no-card prompt;
+the following sampled frames show that prompt shrinking toward the center.
+The dump limit ended while the prompt was still visible, so these eight frames
+do not themselves establish the settled post-Continue image or explain whether
+the shrink is the intended transition. The prior settled post-Continue
+captures remain black. Contact sheet and raw images:
+`/tmp/sly-current-client-review-20261117/contact.png` and
+`/tmp/sly-current-client-review-20261117/sly1-native-frame-00.ppm` through
+`sly1-native-frame-07.ppm`; bounded run log:
+`/tmp/sly-current-client-review-20261117.log`.
+
+The same fresh run traced the full 773-segment VIF1 chain containing the
+dynamic target address `0x016d5890` (submission 326, selected stream range
+`[177312,497328)`). With the renderer's XGKICK origin filter, it reports three
+writes to XYZ2/XYZF2 in that chain: two at MSCAL offset `0x57920` / entry
+`0x2`, and one at `0x71220` / entry `0x6da`. A matching later submission 327
+has one more write at offset `0x712f0` / entry `0x6da`. The entry-`0x2` XY
+positions decode outside the visible viewport
+using the currently stored XYOFFSET; the later XYZF2 values are near zero
+while XYOFFSET is still very large. This is not a real scene-geometry stream.
+The trace does **not** cover every renderer input path or independently verify
+GS PATH1 state, so it cannot prove there are no other vertex submissions.
+Diagnostic capture: `/tmp/sly-whole-chain-xyzstate-20261117.log`.
+
+The prior investigation was too narrowly summarized as “no XYZ output.” There
+are a few XYZ register writes, but their observed coordinates/state are not
+drawable world geometry. The next investigation must correlate the shrinking
+transition frames and all renderer input paths with their framebuffer output,
+then establish the first expected world draw at a specific call boundary. Do
+not change matched decompilation or relax GIF parsing based on the current
+evidence.
 
 ### Current default-client and adapter check (2026-11-17, 08:21 CET)
 

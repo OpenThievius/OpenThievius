@@ -254,7 +254,7 @@ bool trace_target_dma_chain(uint32_t submission_id, uint32_t chcr,
             std::getenv("OPENRAC_TRACE_VIF_DMA_FOLLOW_SEGMENTS")) {
         char* end = nullptr;
         const unsigned long parsed = std::strtoul(follow_setting, &end, 10);
-        if (end != follow_setting && *end == '\0' && parsed <= 128ul)
+        if (end != follow_setting && *end == '\0' && parsed <= 1024ul)
             follow_segments = static_cast<size_t>(parsed);
     }
     const size_t last = std::min(segments.size(), target_index + follow_segments + 1u);

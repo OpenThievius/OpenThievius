@@ -46,7 +46,7 @@ struct GifParser {
 std::mutex g_parser_mutex;
 GifParser g_parser;
 uint32_t g_gif_trace_count = 0;
-const char* g_gif_input_origin = "unspecified";
+char g_gif_input_origin[96] = "unspecified";
 uint32_t g_gs_register_trace_count = 0;
 std::vector<openrac_gs_vertex> g_current_frame;
 std::vector<openrac_gs_vertex> g_published_frame;
@@ -171,6 +171,27 @@ void submit_vertex(uint64_t value) {
 void write_gs_register(uint32_t address, uint64_t value) {
     if (address >= g_parser.gs_registers.size()) return;
     ++g_parser.register_write_counts[address];
+    const char* xyz_trace_origin = std::getenv("OPENRAC_TRACE_GS_XYZ_ORIGIN");
+    const bool xyz_origin_matches = xyz_trace_origin == nullptr ||
+        std::strncmp(g_gif_input_origin, xyz_trace_origin,
+                     std::strlen(xyz_trace_origin)) == 0;
+    if ((address == 0x04u || address == 0x05u) && xyz_origin_matches &&
+        std::getenv("OPENRAC_TRACE_GS_XYZ") != nullptr) {
+        static std::atomic<uint32_t> xyz_trace_count{0};
+        if (xyz_trace_count.fetch_add(1, std::memory_order_relaxed) < 64u) {
+            std::fprintf(stderr,
+                         "[gif XYZ input] origin=%s tag=%#018llx regs=%#018llx format=%u address=%#04x prim=%#018llx xyoffset=%#018llx rgba=%#010x index=%u value=%#018llx\n",
+                         g_gif_input_origin,
+                         static_cast<unsigned long long>(g_parser.tag_low),
+                         static_cast<unsigned long long>(g_parser.tag_registers),
+                         g_parser.format, address,
+                         static_cast<unsigned long long>(g_parser.gs_registers[0]),
+                         static_cast<unsigned long long>(g_parser.gs_registers[0x18u]),
+                         g_parser.current_rgba,
+                         g_parser.register_index,
+                         static_cast<unsigned long long>(value));
+        }
+    }
     g_parser.gs_registers[address] = value;
     if (address == 0x00u) {
         g_parser.primitive_vertex_count = 0;
@@ -295,7 +316,8 @@ void gif_stream_write(const void* source, size_t size, const char* origin) {
         openrac_native_renderer_append_gif_stream(source, size, origin);
     const auto* bytes = static_cast<const uint8_t*>(source);
     std::lock_guard lock(g_parser_mutex);
-    g_gif_input_origin = origin != nullptr ? origin : "unspecified";
+    std::snprintf(g_gif_input_origin, sizeof(g_gif_input_origin), "%s",
+                  origin != nullptr ? origin : "unspecified");
     size_t cursor = 0;
     while (cursor + 16u <= size) {
         if (!g_parser.tag_loaded) {
@@ -354,7 +376,7 @@ extern "C" void openrac_guest_gs_reset(void) {
     std::lock_guard lock(g_parser_mutex);
     g_parser = GifParser{};
     g_gif_trace_count = 0;
-    g_gif_input_origin = "unspecified";
+    std::snprintf(g_gif_input_origin, sizeof(g_gif_input_origin), "%s", "unspecified");
     g_gs_register_trace_count = 0;
     g_current_frame.clear();
     g_published_frame.clear();
