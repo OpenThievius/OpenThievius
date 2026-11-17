@@ -221,6 +221,35 @@ bool execute_dma(uint32_t chcr, std::vector<uint8_t>* stream,
     return true;
 }
 
+void trace_target_dma_chain(uint32_t chcr, uint32_t madr, uint32_t qwc,
+                            uint32_t tadr,
+                            const std::vector<DmaSegment>& segments) {
+    const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+    if (setting == nullptr || setting[0] == '\0' || setting[0] == '0') return;
+    static std::atomic_flag emitted = ATOMIC_FLAG_INIT;
+    const auto target = std::find_if(segments.begin(), segments.end(),
+        [](const DmaSegment& segment) {
+            return segment.tag_address == 0x003c3d60u &&
+                   segment.data_address == 0x018d1270u;
+        });
+    if (target == segments.end() || emitted.test_and_set(std::memory_order_relaxed))
+        return;
+    openrac::log::info(
+        "native VIF1 target DMA root CHCR={:#010x} MADR={:#010x} QWC={} TADR={:#010x} segments={}",
+        chcr, madr, qwc, tadr, segments.size());
+    for (const DmaSegment& segment : segments) {
+        if (segment.tag_address == 0x003c3d60u ||
+            segment.tag_address == 0x003c3d50u ||
+            segment.tag_address == 0x003c3d70u ||
+            segment.data_address == 0x018d1270u) {
+            openrac::log::info(
+                "native VIF1 target DMA neighbor id={} qwc={} tag={:#010x} data={:#010x} stream_offset={} bytes={}",
+                segment.id, segment.qwc, segment.tag_address, segment.data_address,
+                segment.stream_offset, segment.stream_size);
+        }
+    }
+}
+
 bool skip_bytes(size_t* cursor, size_t amount, size_t size) {
     if (amount > size - *cursor) return false;
     *cursor += amount;
@@ -826,6 +855,9 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     if (!guest_memory_available()) return 1;
 
     store_mmio(kVif1Chcr, value);
+    const uint32_t initial_madr = load_mmio(kVif1Chcr + 0x10u);
+    const uint32_t initial_qwc = load_mmio(kVif1Chcr + 0x20u);
+    const uint32_t initial_tadr = load_mmio(kVif1Chcr + 0x30u);
     std::vector<uint8_t> stream;
     std::vector<DmaSegment> segments;
     std::vector<VifInputTrace> input_trace;
@@ -835,6 +867,8 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     static std::atomic<uint32_t> submission_sequence{0};
     trace.submission_id = submission_sequence.fetch_add(1, std::memory_order_relaxed);
     const bool dma_ok = execute_dma(value, &stream, &segments);
+    if (dma_ok) trace_target_dma_chain(value, initial_madr, initial_qwc,
+                                       initial_tadr, segments);
     const bool vif_ok = dma_ok && execute_vif_stream(
         stream, &direct_bytes, &unsupported, &trace, &input_trace);
     static std::array<std::atomic<uint32_t>, 2> input_source_notice{};
