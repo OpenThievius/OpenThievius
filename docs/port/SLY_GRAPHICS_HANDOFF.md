@@ -1960,10 +1960,26 @@ targets now cover `func_001E9108`, `func_00194D30`, and `func_001936A0`. See
 ## Fresh native client check and VU1 stop (2026-11-17)
 
 Rebuilt `port_native_sdl_host32` from the current `wip/native-sly-port` source
-and checked its output directly. With the permitted test Cross press at native
-frame 300, the captured 960x720 frames remain fully black. The visible client
-does not reach a playable scene. This is a current failure; the capture alone
-does not establish which earlier change introduced it.
+and checked the output directly. The idle framebuffer captures around native
+frames 300–399 show the no-card prompt steadily; the Continue highlight blinks.
+That does not explain the brief black flashes in the user's 2026-11-15 desktop
+recording: 8-fps samples contain seven full-black frames among 52, while the
+native framebuffer readbacks in the idle run stay stable. Capture the actual
+post-swap window output next to separate a presentation problem from a
+readback-only difference.
+
+With one process-local Cross press at native frame 300, the prompt first
+remains visible, then contracts with overlapping copies for about fifteen
+frames and the output becomes black. No world meshes are submitted. This is
+not a playable transition; the overlapping frames have not been confirmed
+against retail. The current run therefore reproduces both the prompt and the
+post-input visual artifact, rather than showing an all-black frame throughout.
+It does not establish which earlier source change introduced the artifact.
+Logs: `/tmp/sly-current-client-20261117.log`,
+`/tmp/sly-current-idle-flicker-20261117.log`, and
+`/tmp/sly-current-direct-state-20261117b.log`. Local captures:
+`/tmp/sly-current-idle-montage.png` and
+`/tmp/sly-current-postinput-montage.png`.
 
 The same run catches VIF submission 328's first mesh packet. VU1's XGKICK at
 PC `0x68` points to qword 469, where the GIF tag `0x0000000000039001` is
