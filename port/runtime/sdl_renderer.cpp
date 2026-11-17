@@ -1393,6 +1393,74 @@ static void dump_vu_ndc_points(int width, int height) {
     }
 }
 
+// Port-side replacement for the retail VU1 vertex-packet producer: turn a
+// captured model's transformed vertices into a GIF packet with PRIM 4
+// (triangle strip) and XYZ2 register writes, then feed the native DirectRenderer.
+static std::vector<std::uint8_t> build_world_gif_packet(
+    const std::vector<NativeWorldMesh>& meshes) {
+    std::vector<std::uint8_t> out;
+    out.reserve(16u + meshes.size() * 64u * 16u);
+    struct Qword { std::uint64_t lo = 0, hi = 0; };
+    std::vector<Qword> payload;
+    std::uint32_t only_request = 0;
+    if (const char* setting = std::getenv("OPENRAC_SLY_GIF_PRODUCER_REQUEST")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0') only_request = static_cast<std::uint32_t>(parsed);
+    }
+    for (const auto& mesh : meshes) {
+        if (only_request != 0u &&
+            static_cast<std::uint32_t>(mesh.instance >> 16u) != only_request)
+            continue;
+        const std::size_t count = mesh.vertices.size() / 9u;
+        if (count < 3u || count > 4096u) continue;
+        // Reset XYOFFSET (0x18) so make_vertex does not subtract stale UI offsets.
+        payload.push_back({0u, 0x18u});
+        // PRIM = 4 (triangle strip)
+        payload.push_back({4u, 0x00u});
+        for (std::size_t i = 0; i < count; ++i) {
+            const float x = mesh.vertices[i * 9u + 0u];
+            const float y = mesh.vertices[i * 9u + 1u];
+            const float z = mesh.vertices[i * 9u + 2u];
+            float clip[4]{};
+            for (std::size_t row = 0; row < 4; ++row)
+                clip[row] = mesh.mvp[row] * x + mesh.mvp[4u + row] * y +
+                            mesh.mvp[8u + row] * z + mesh.mvp[12u + row];
+            if (!std::isfinite(clip[3]) || std::abs(clip[3]) < 1.0e-6f) continue;
+            const float nx = clip[0] / clip[3];
+            const float ny = clip[1] / clip[3];
+            if (!std::isfinite(nx) || !std::isfinite(ny)) continue;
+            // GS field 640x224, 4 subpixel bits. Y grows downward.
+            const int sx = static_cast<int>(std::lround((nx + 1.0f) * 0.5f * 640.0f * 16.0f));
+            const int sy = static_cast<int>(std::lround((1.0f - ny) * 0.5f * 224.0f * 16.0f));
+            const std::uint64_t packed =
+                (static_cast<std::uint64_t>(static_cast<std::uint16_t>(sx))) |
+                (static_cast<std::uint64_t>(static_cast<std::uint16_t>(sy)) << 16u);
+            if (std::getenv("OPENRAC_SLY_GIF_PRODUCER_VERBOSE") != nullptr) {
+                static unsigned vnotice = 0;
+                if (vnotice++ < 24u)
+                    std::fprintf(stderr,
+                        "[sly producer] src=%#010x i=%zu ndc=%g,%g sx=%d sy=%d packed=%#llx\n",
+                        mesh.source_mesh, i, nx, ny, sx, sy,
+                        static_cast<unsigned long long>(packed));
+            }
+            payload.push_back({packed, 0x05u}); // XYZ2
+        }
+    }
+    if (payload.empty()) return out;
+    const std::uint64_t tag_lo =
+        static_cast<std::uint64_t>(payload.size()) | (1ull << 15u) | // NLOOP + EOP
+        (0ull << 58u) | (1ull << 60u);                                // PACKED, NREG=1
+    const std::uint64_t tag_hi = 0xEu; // A+D descriptor
+    auto append_qword = [&](std::uint64_t lo, std::uint64_t hi) {
+        for (int b = 0; b < 8; ++b) out.push_back(static_cast<std::uint8_t>(lo >> (b * 8u)));
+        for (int b = 0; b < 8; ++b) out.push_back(static_cast<std::uint8_t>(hi >> (b * 8u)));
+    };
+    append_qword(tag_lo, tag_hi);
+    for (const auto& q : payload) append_qword(q.lo, q.hi);
+    return out;
+}
+
 extern "C" void openrac_native_window_present(void) {
     if (!g_window) return;
     int dump_width = 0, dump_height = 0;
@@ -1509,6 +1577,14 @@ extern "C" void openrac_native_window_present(void) {
     }
     std::vector<std::uint8_t> packets;
     { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
+    if (std::getenv("OPENRAC_SLY_GIF_PRODUCER") != nullptr && !world_meshes.empty()) {
+        std::vector<std::uint8_t> world_packet = build_world_gif_packet(world_meshes);
+        if (!world_packet.empty()) {
+            openrac_guest_gif_stream_write_from(
+                world_packet.data(), world_packet.size(), "sly-world-producer");
+            packets.insert(packets.end(), world_packet.begin(), world_packet.end());
+        }
+    }
     if (std::getenv("OPENRAC_TRACE_PRESENT") != nullptr) {
         std::fprintf(stderr, "[native present] frame=%llu packets=%zu world_draws=%zu\n",
                      static_cast<unsigned long long>(this_present), packets.size(),

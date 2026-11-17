@@ -1,8 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 02:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 02:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Port-side GIF vertex-packet producer (2026-11-18, 02:45 CET)
+
+I implemented the producer the previous note called for. `build_world_gif_packet`
+in `port/runtime/sdl_renderer.cpp` takes each captured model's source vertices,
+transforms them with the game's `model * viewProjection`, and emits a real GIF
+packet: XYOFFSET reset (register 0x18), PRIM 4 (triangle strip), and XYZ2
+(register 0x05) writes with screen-space coordinates. The packet is submitted
+through `openrac_guest_gif_stream_write_from` and the native DirectRenderer.
+
+The opt-in `OPENRAC_SLY_GIF_PRODUCER` path works: the GS summary records
+`origin=sly-world-producer PRIM=0x4 PRIM_writes=444 XYZF2=18980
+prim_xyz=4:18980 native_vertices=54276` — for the first time, triangle-strip
+vertex writes from Sly geometry reach a native GIF append path, entirely in
+port code with no matched decompilation edited. With a per-request filter the
+single mesh `0x005e4700` produces 3 PRIM + 93 XYZ2 writes.
+
+The rendered result is still not a recognizable level. Resetting XYOFFSET made
+one sampled post-Continue frame show varied geometry (685,831 nonblack pixels,
+extrema 0-255) instead of a uniform fill, but a longer 30-second capture hit a
+"double free or corruption" abort that I have not diagnosed. This is a
+functional producer milestone, not a playable scene; every flag is opt-in and
+the default client is unchanged. No launcher remains. Captures:
+`/tmp/sly-producer-20261117/`, `/tmp/sly-prod-xyoff-20261117/`.
 
 ### The kicked packet contains floats with PRIM addresses (2026-11-18, 02:15 CET)
 
