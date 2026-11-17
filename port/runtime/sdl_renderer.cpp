@@ -515,6 +515,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         int mvp_mode = 1;
         if (std::getenv("OPENRAC_SLY_WORLD_AUTO_MATRIX") != nullptr)
             mvp_mode = mesh.model_is_identity ? 0 : 1;
+        float position_scale = 1.0f;
+        if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_SCALE")) {
+            char* end = nullptr;
+            const float parsed = std::strtof(setting, &end);
+            if (end != setting && parsed > 0.0f && parsed <= 1000.0f) position_scale = parsed;
+        }
         if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_MVP_MODE")) {
             char* end = nullptr;
             const long parsed = std::strtol(setting, &end, 0);
@@ -619,14 +625,48 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDrawArrays(GL_TRIANGLES, 0,
                          static_cast<GLsizei>(triangles.size() / 9u));
         } else {
+            std::vector<float> scaled_vertices;
+            const float* vertex_data = mesh.vertices.data();
+            if (position_scale != 1.0f) {
+                scaled_vertices = mesh.vertices;
+                for (std::size_t i = 0; i < scaled_vertices.size(); i += 9u) {
+                    scaled_vertices[i] *= position_scale;
+                    scaled_vertices[i + 1u] *= position_scale;
+                    scaled_vertices[i + 2u] *= position_scale;
+                }
+                vertex_data = scaled_vertices.data();
+            }
             glBufferData(GL_ARRAY_BUFFER,
                          static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
-                         mesh.vertices.data(), GL_STREAM_DRAW);
+                         vertex_data, GL_STREAM_DRAW);
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
-            const bool split = std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr &&
-                mesh.strip_starts.size() == vertex_count;
+            const bool restart_split =
+                std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr;
+            const bool split = (std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr &&
+                mesh.strip_starts.size() == vertex_count) || restart_split;
             if (!split) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
+            } else if (restart_split) {
+                // A strip restart repeats the first one or two vertices of the
+                // current run. Splitting there avoids long bridging triangles.
+                std::size_t run_begin = 0;
+                for (std::size_t vertex = 2; vertex + 1 < vertex_count; ++vertex) {
+                    const float* a = &mesh.vertices[vertex * 9u];
+                    const float* b = &mesh.vertices[run_begin * 9u];
+                    bool same_a = true, same_b = true;
+                    for (int c = 0; c < 3; ++c) {
+                        if (a[c] != b[c]) same_a = false;
+                        if (a[c] != mesh.vertices[(run_begin + 1u) * 9u + static_cast<std::size_t>(c)]) same_b = false;
+                    }
+                    if ((same_a || same_b) && vertex - run_begin >= 3u) {
+                        glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                                     static_cast<GLsizei>(vertex - run_begin));
+                        run_begin = vertex;
+                    }
+                }
+                if (vertex_count - run_begin >= 3u)
+                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                                 static_cast<GLsizei>(vertex_count - run_begin));
             } else {
                 std::size_t run_begin = 0;
                 for (std::size_t vertex = 1; vertex < vertex_count; ++vertex) {

@@ -1,8 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 22:35 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 23:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Topology/scale audit and VU-source diff (2026-11-17, 23:00 CET)
+
+I captured the adapter's per-vertex source data and the VU scratch output in
+the same bounded run, filtered to source mesh `0x00a0e3c8` and DMA target
+`0x016d5890`. The adapter's first vertices are
+`(-7.683, 8.753, -59.207)` repeated, then `(7.683, 8.753, -59.207)`,
+`(-7.683, 20.710, -58.689)`, … — a strip with a leading repeated vertex.
+The VU stores at qwords 39,43,… from entry `0x401` are
+`(9.174, 25.730, 42.290)`, the same value at qword 43, then
+`(6.830, 25.740, 46.530)` — the repeated-vertex pattern is preserved, but
+the values are not the adapter's source positions. Entry `0x401` is the skin
+weight program, so those qwords are intermediate skinned data, not final
+clip-space positions; no entry `0x356` store was captured in that DMA window.
+
+I tested three topology/scale hypotheses on the full scene, all opt-in:
+`OPENRAC_SLY_WORLD_SPLIT_RESTARTS` (split the strip where a vertex repeats the
+current run's first pair), `OPENRAC_SLY_WORLD_SCALE` (10x source positions),
+and raw triangle lists. None produced a recognizable level: the restart
+split kept the fan pattern, scale 10 produced a large flat ground and a dark
+polygon, and raw triangles were black. The adapter still does not reproduce
+one retail object's silhouette. No launcher remains. Captures:
+`/tmp/sly-topology-diff4-20261117/`, `/tmp/sly-restart-scene-20261117/` and
+`/tmp/sly-scale10-20261117/`.
 
 ### Per-mesh matrix selection refuted (2026-11-17, 22:35 CET)
 
