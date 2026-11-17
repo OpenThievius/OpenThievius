@@ -4935,7 +4935,8 @@ void LoadEffectSpawner"""
                 raise RuntimeError("expected strip packet address bind point")
             adapted = adapted.replace(
                 bind_needle,
-                "                sly1_native_bind_model_mesh((u32)strip, (u32)strip->addr[0]);\n" + bind_needle,
+                bind_needle +
+                "                sly1_native_bind_model_mesh((u32)strip, (u32)strip->addr[0]);\n",
                 1,
             )
             needle = "    b.m = self->m;\n"

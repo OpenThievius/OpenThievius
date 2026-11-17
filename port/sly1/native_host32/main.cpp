@@ -26,12 +26,24 @@ extern "C" char* getenv(const char*);
 #include <unistd.h>
 #include <ucontext.h>
 alignas(16) thread_local u8 g_fault_trace_alt_stack[64 * 1024];
-struct NativeSlyMesh {
-    std::vector<float> vertices;
+struct NativeSlyFrameSource {
+    int stride_qwc = 0;
+    u32 base = 0;
+};
+// Port-only material state for one FrameSource pass; the VU remains the source
+// of truth for how the retail program combines these passes.
+struct NativeSlyMaterial {
     u64 tex0 = 0;
     u64 tex1 = 0;
     u64 clamp = 0;
     u64 test = 0;
+};
+struct NativeSlyMesh {
+    u32 source_mesh = 0;
+    int source_frame = 0;
+    std::vector<NativeSlyFrameSource> sources;
+    std::vector<NativeSlyMaterial> materials;
+    std::vector<float> vertices;
 };
 static std::mutex g_native_sly_mesh_mutex;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
@@ -973,8 +985,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
     const volatile float* uvs = uvs_address != 0
         ? reinterpret_cast<const volatile float*>(uvs_address) : nullptr;
-    // Each FrameSource describes a frame-strided payload. For these Sly
-    // meshes, the payload is a packed GIF A+D material packet consumed by VU1.
+    // Each FrameSource describes a frame-strided GIF A+D state packet. These
+    // packets share the VertexRefs array; they are not independent vertex spans.
     const u32 source_count = *reinterpret_cast<const volatile u32*>(mesh_address + 0x18u);
     const u32 sources_address = *reinterpret_cast<const volatile u32*>(mesh_address + 0x1Cu);
     if (source_count == 0u || source_count > 16u ||
@@ -987,41 +999,52 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         return;
     }
     NativeSlyMesh captured;
+    captured.source_mesh = mesh_address;
     captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
     const volatile u32* sources = reinterpret_cast<const volatile u32*>(sources_address);
-    const std::int32_t stride_qwc = static_cast<std::int32_t>(sources[0]);
-    const u32 base = sources[1];
     std::int32_t frame = 0;
     if (cursor_address != 0) {
         const volatile u32* cursor = reinterpret_cast<const volatile u32*>(cursor_address);
         frame = static_cast<std::int32_t>(cursor[2]);
     }
-    const std::int64_t selected = static_cast<std::int64_t>(base) +
-        static_cast<std::int64_t>(frame) * stride_qwc * 16;
-    if (stride_qwc < 7 || selected <= 0 || selected > 0xFFFFFFFFll - 0x70ll)
-        return;
-    const volatile u64* packet = reinterpret_cast<const volatile u64*>(
-        static_cast<u32>(selected));
-    const u64 gif_tag = packet[0];
-    const u64 gif_registers = packet[1];
-    const u32 loop_count = static_cast<u32>(gif_tag & 0x7FFFu);
-    const u32 format = static_cast<u32>((gif_tag >> 58u) & 3u);
-    const u32 register_count = static_cast<u32>((gif_tag >> 60u) & 0xFu);
-    if (format != 0u || register_count != 1u ||
-        (gif_registers & 0xFu) != 0xEu || loop_count == 0u ||
-        loop_count + 1u > static_cast<u32>(stride_qwc))
-        return;
-    for (u32 i = 0; i < loop_count; ++i) {
-        const u64 value = packet[2u + i * 2u];
-        const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
-        switch (address) {
-        case 0x47: captured.test = value; break;   // TEST1
-        case 0x06: captured.tex0 = value; break;   // TEX0_1
-        case 0x14: captured.tex1 = value; break;   // TEX1_1
-        case 0x08: captured.clamp = value; break;  // CLAMP1
-        default: break;                            // ALPHA1, FOGCOL, and others
-        }
+    captured.source_frame = frame;
+    captured.sources.reserve(source_count);
+    for (u32 i = 0; i < source_count; ++i) {
+        captured.sources.push_back({
+            static_cast<std::int32_t>(sources[i * 2u]), sources[i * 2u + 1u]});
     }
+    for (const auto& source : captured.sources) {
+        const std::int64_t selected = static_cast<std::int64_t>(source.base) +
+            static_cast<std::int64_t>(frame) * source.stride_qwc * 16;
+        if (source.stride_qwc < 7 || source.stride_qwc > 4096 ||
+            selected < 0x10ll || selected > 0x01FFFF80ll)
+            continue;
+        const volatile u64* packet = reinterpret_cast<const volatile u64*>(
+            static_cast<u32>(selected));
+        const u64 gif_tag = packet[0];
+        const u64 gif_registers = packet[1];
+        const u32 loop_count = static_cast<u32>(gif_tag & 0x7FFFu);
+        const u32 format = static_cast<u32>((gif_tag >> 58u) & 3u);
+        const u32 register_count = static_cast<u32>((gif_tag >> 60u) & 0xFu);
+        if (format != 0u || register_count != 1u ||
+            (gif_registers & 0xFu) != 0xEu || loop_count == 0u || loop_count > 6u ||
+            loop_count + 1u > static_cast<u32>(source.stride_qwc))
+            continue;
+        NativeSlyMaterial material;
+        for (u32 i = 0; i < loop_count; ++i) {
+            const u64 value = packet[2u + i * 2u];
+            const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
+            switch (address) {
+            case 0x47: material.test = value; break;   // TEST1
+            case 0x06: material.tex0 = value; break;  // TEX0_1
+            case 0x14: material.tex1 = value; break;  // TEX1_1
+            case 0x08: material.clamp = value; break; // CLAMP1
+            default: break;                           // ALPHA1, FOGCOL, and others
+            }
+        }
+        captured.materials.push_back(material);
+    }
+    if (captured.materials.empty()) return;
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
@@ -1062,6 +1085,7 @@ extern "C" void sly1_native_bind_model_mesh(u32 header_address,
     if (captured == g_native_sly_meshes_by_header.end()) return;
     const std::size_t vertex_count = captured->second.vertices.size() / 9u;
     g_native_sly_meshes_by_packet[packet_address] = std::move(captured->second);
+    const NativeSlyMesh& bound = g_native_sly_meshes_by_packet[packet_address];
     g_native_sly_meshes_by_header.erase(captured);
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static u32 notices = 0;
@@ -1069,6 +1093,65 @@ extern "C" void sly1_native_bind_model_mesh(u32 header_address,
             std::fprintf(stderr,
                          "[native sly mesh bind] header=%#010x packet=%#010x vertices=%zu\n",
                          header_address, packet_address, vertex_count);
+    }
+    if (std::getenv("OPENRAC_TRACE_SLY_STRIP_LAYOUT") != nullptr) {
+        static u32 layout_notices = 0;
+        if (bound.sources.size() > 1u && layout_notices++ < 64u) {
+            if (header_address < 0x10u || header_address >= 0x02000000u)
+                return;
+            const volatile u8* header = reinterpret_cast<const volatile u8*>(header_address);
+            const u32 unpack_address = *reinterpret_cast<const volatile u32*>(header + 0x1Cu);
+            const std::int32_t header_count =
+                *reinterpret_cast<const volatile std::int32_t*>(header + 0x24u);
+            std::fprintf(stderr,
+                         "[native sly strip layout] mesh=%#010x header=%#010x packet=%#010x verts=%zu sources=%zu frame=%d unpack=%#010x count=%d",
+                         bound.source_mesh, header_address, packet_address, vertex_count,
+                         bound.sources.size(), bound.source_frame, unpack_address,
+                         header_count);
+            if (unpack_address >= 0x10u && unpack_address < 0x02000000u) {
+                const volatile u16* unpack = reinterpret_cast<const volatile u16*>(unpack_address);
+                std::fprintf(stderr,
+                             " off=%u,%u,%u,%u strip=%u,%u,%u,%u flags=%u,%u",
+                             unpack[0], unpack[1], unpack[2], unpack[3],
+                             unpack[4], unpack[5], unpack[6], unpack[7],
+                             unpack[8], unpack[9]);
+            }
+            std::fprintf(stderr, "\n");
+            for (std::size_t i = 0; i < bound.sources.size(); ++i) {
+                const auto& source = bound.sources[i];
+                const std::int64_t selected = static_cast<std::int64_t>(source.base) +
+                    static_cast<std::int64_t>(bound.source_frame) * source.stride_qwc * 16;
+                u64 tag = 0;
+                u64 regs = 0;
+                if (source.stride_qwc > 0 && selected >= 0x10ll &&
+                    selected <= 0x01FFFF80ll) {
+                    const volatile u64* packet = reinterpret_cast<const volatile u64*>(
+                        static_cast<u32>(selected));
+                    tag = packet[0];
+                    regs = packet[1];
+                }
+                std::fprintf(stderr,
+                             "[native sly strip source] mesh=%#010x index=%zu stride_qwc=%d base=%#010x selected=%#010llx gif=%016llx,%016llx",
+                             bound.source_mesh, i, source.stride_qwc, source.base,
+                             static_cast<unsigned long long>(selected),
+                             static_cast<unsigned long long>(tag),
+                             static_cast<unsigned long long>(regs));
+                const u32 gif_loops = static_cast<u32>(tag & 0x7FFFu);
+                if (tag != 0 && gif_loops <= 6u &&
+                    gif_loops + 1u <= static_cast<u32>(source.stride_qwc)) {
+                    const volatile u64* packet = reinterpret_cast<const volatile u64*>(
+                        static_cast<u32>(selected));
+                    for (u32 entry = 0; entry < gif_loops; ++entry) {
+                        const u64 value = packet[2u + entry * 2u];
+                        const u32 address = static_cast<u32>(
+                            packet[3u + entry * 2u] & 0x7Fu);
+                        std::fprintf(stderr, " r%02x=%016llx", address,
+                                     static_cast<unsigned long long>(value));
+                    }
+                }
+                std::fprintf(stderr, "\n");
+            }
+        }
     }
 }
 
@@ -1252,15 +1335,22 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             }
             mesh = found->second;
         }
-        const u64 instance = (static_cast<u64>(request_address) << 8u) | i;
-        if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
-            std::fprintf(stderr, "[native sly mesh submit] source=%#010x packet=%#010x request=%#010x mesh=%u vertices=%zu\n",
-                         source_mesh, packet_address, request_address, i, mesh.vertices.size() / 9u);
-        openrac_native_sly_world_mesh_submit(world, instance, mesh.vertices.data(),
-                                              static_cast<u32>(mesh.vertices.size() / 9u),
-                                              source_mesh,
-                                              model, view_projection, mesh.tex0, mesh.tex1,
-                                              mesh.clamp, mesh.test);
+        for (std::size_t pass = 0; pass < mesh.materials.size(); ++pass) {
+            const NativeSlyMaterial& material = mesh.materials[pass];
+            const u64 instance = (static_cast<u64>(request_address) << 16u) |
+                                 (static_cast<u64>(i) << 8u) | pass;
+            if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
+                std::fprintf(stderr,
+                             "[native sly mesh submit] source=%#010x packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx\n",
+                             source_mesh, packet_address, request_address, i, pass,
+                             mesh.materials.size(), mesh.vertices.size() / 9u,
+                             static_cast<unsigned long long>(material.tex0));
+            openrac_native_sly_world_mesh_submit(
+                world, instance, mesh.vertices.data(),
+                static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
+                model, view_projection, material.tex0, material.tex1,
+                material.clamp, material.test);
+        }
     }
 }
 

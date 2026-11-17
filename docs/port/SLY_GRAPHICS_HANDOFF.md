@@ -1,8 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 11:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 11:54 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Multi-source material-pass experiment (2026-11-17, 11:54 CET)
+
+The previous 11:30 note called the `FrameSource` entries separate geometry
+strips. A targeted native trace after process-local Cross at frame 300 corrects
+that: one representative kind-0 mesh (`0x00a0db58`) has one shared 31-vertex
+`VertexRefs` list and three 8-qword `FrameSource` packets. The sources
+share the same six-register GIF A+D layout while `TEX0_1` changes per pass to
+`0x2003e5c5d940aa80`, `0x2003e5e5d940aa80`, and `0x2003e605d940aa80`. A second
+captured mesh (`0x00a0d4a0`) confirms per-source `TEST1` values `0x717eb`,
+`0x53001`, `0x53001`, and `ALPHA1` values `0x44`, `0x48`, `0x48`. A separate
+83-vertex mesh's header recorded its source offsets as `451`, `459`, and `467`.
+This is strong evidence the sources hold material/state passes over shared geometry;
+they do not partition `VertexRefs` into independent vertex spans. The earlier
+direction to reconstruct one geometry boundary per source was incorrect.
+
+The opt-in adapter now captures each valid source packet and submits the
+shared geometry once per source. The trace shows 276, then 237–234 submissions
+per sampled frame, versus about 80 before. The settled framebuffer changed
+from purple surfaces to gray distorted surfaces, still without a recognizable
+level. This is a measured output change, not a correct renderer yet: GL
+blending/alpha test and the exact VU/GS draw behavior remain unverified. The
+adapter still approximates each `VertexRefs` list as one `GL_TRIANGLE_STRIP`.
+Keep the renderer option OFF by default. Next, correlate each `StripUnpack`
+source offset with its VU output and the matching GS `PRIM`, `ALPHA`, `TEST`,
+and texture state before adjusting raster behavior.
+
+Build: `cmake --build build/port/wave55-sdl32-release --target
+port_native_sdl_host32 -j4` succeeded (194/194 decomp units, 85/85 port
+backfills, 183 compiler warnings, 99 missing-function traps). The offscreen
+12-second run injected one Cross press at native frame 300, dumped eight
+frames, ended with timeout exit 137, and left no launcher process. The build
+uses `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`; the default renderer was not
+changed. Captures and trace:
+`/tmp/sly-multipass-capture-20261117/contact.png`,
+`/tmp/sly-multipass-visual-20261117.log`,
+`/tmp/sly-multipass-run-20261117.log`, and
+`/tmp/sly-strip-register-audit-20261117.log`. No matched decomp files changed.
 
 ### Fresh client-output and trace audit (2026-11-17, 11:30 CET)
 
@@ -26,17 +64,13 @@ the computed bounds span NDC x `-11.467..14.931`, y `-33.504..23.699`, with
 batch, but the packet audit alone does not establish what the desktop window
 presented.
 
-The opt-in adapter has a concrete, decomp-backed structural mismatch. Its
-`sly1_native_capture_model_mesh` reads only `sources[0]` for material state and
-copies the full `VertexRefs` list; `render_world_meshes` submits that list as
-one `GL_TRIANGLE_STRIP`. In the matched decomp, `BuildStripMeshPacket` loops
-over all `mesh->nstrips`, queues each `FrameSource` at a distinct VU offset,
-and records that offset in `StripHeader::p->strip[i]`. This proves the adapter
-does not preserve strip/source structure and is a credible explanation for
-its stretched purple geometry. It does not prove the exact correct GL topology
-or explain the normal DirectRenderer's black frame. The next step is to map
-one real header/source pair through the packet and VU output before changing
-the conversion.
+The opt-in adapter then read only `sources[0]` for material state and copied
+the full `VertexRefs` list as one `GL_TRIANGLE_STRIP`, while the matched lit
+and unlit decomp builders queued every `FrameSource` at a distinct VU offset.
+The 11:54 follow-up below
+shows these are state passes over shared geometry, not separate geometry
+spans; it supersedes the earlier geometry-boundary interpretation. This
+adapter mismatch did not explain the normal DirectRenderer's black frame.
 
 There is also a trace-limit correction: the all-input-path XYZ run filled its
 shared 64-write capture budget with startup `vif1-direct` sprite writes before
@@ -52,8 +86,9 @@ are the matching `*-20261117.log` files in `/tmp`. The decomp checkout was
 fetched and checked at `8f7a85a3`; it had no new commits or working-tree
 changes. No decomp files were edited.
 
-No source changes were made during this audit. Current repository HEAD remains
-`5ab4cb7`; the email configured for commits is `oeps46@gmail.com`.
+At 11:30 no source changes had been made during that audit. The follow-up
+experiment and its port-only changes are documented above. The commit email
+is configured as `oeps46@gmail.com`.
 
 ### Rejected kind-5 packet snapshot (2026-11-17, 11:22 CET)
 

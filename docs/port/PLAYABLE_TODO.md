@@ -1,7 +1,38 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Latest native checkpoint (2026-11-17, 11:30 CET)
+## Latest native checkpoint (2026-11-17, 11:54 CET)
+
+The strip-layout follow-up corrects the 11:30 working theory. A bounded trace
+after Cross at frame 300 shows a representative kind-0 mesh using one shared
+31-vertex `VertexRefs` list and three `FrameSource` packets. Each packet is an
+8-qword GIF A+D state block. The material passes have different
+`TEX0_1` values (`0x2003e5c5d940aa80`, `0x2003e5e5d940aa80`, and
+`0x2003e605d940aa80`). A second representative mesh confirms the packets vary
+`TEST1` and `ALPHA1` state as well. These are material/state passes over shared
+geometry, not three independent geometry spans. A separate 83-vertex mesh's
+completed header recorded source offsets `451`, `459`, and `467`. The earlier
+suggestion to reconstruct one geometry boundary per source was wrong and is
+superseded.
+
+The port-only opt-in adapter now reads every valid source packet and submits
+the shared mesh once per source. Its world submission count rose from about 80
+to 234–276 per sampled frame. The settled capture changed from purple to gray
+distorted surfaces, still with no recognizable scene. That change confirms
+the passes affect output; it does not validate the pass order, alpha/blend
+semantics, vertex topology, or transforms. The experiment remains opt-in and
+the default renderer remains OFF. Build succeeded with 194/194 decomp units
+and 85/85 separate port backfills; the bounded 12-second launch ended at the
+timeout (exit 137), and no launcher remained. No matched decomp source changed.
+
+The adapter still approximates each shared `VertexRefs` list as one GL
+triangle strip. Before further visual changes, correlate each source offset
+with its actual VU output and GS `PRIM`/`ALPHA`/`TEST` state, then preserve the
+retail draw semantics in the port adapter. Captures and logs:
+`/tmp/sly-multipass-capture-20261117/contact.png`,
+`/tmp/sly-multipass-visual-20261117.log`,
+`/tmp/sly-multipass-run-20261117.log`, and
+`/tmp/sly-strip-register-audit-20261117.log`.
 
 I reviewed fresh framebuffer captures from the opt-in world-renderer build
 after a process-local Cross at native frame 300. The prompt visibly overlaps
@@ -13,17 +44,17 @@ renderer playable. These images came from `wave55-sdl32-release`, whose
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER` option is ON. The default build keeps that
 option OFF and its last settled post-Continue capture is still black.
 
-Do not conflate the two geometry experiments: the normal DirectRenderer trace
+Do not conflate the two rendering experiments: the normal DirectRenderer trace
 decodes a 7.38 MB post-Continue packet into 76,053 vertices and 3,157 draws,
 but only 889 vertices land inside clip space. The purple surfaces are from the
 separate opt-in adapter. Its current conversion takes a whole `VertexRefs`
 array, reads material state from only the first `FrameSource`, and submits the
-array as one GL triangle strip. The matched decomp's `BuildStripMeshPacket`
-loops over every `nstrips` source and queues each at a separate VU offset. This
-is a proven structural mismatch in the experiment and a strong candidate for
-the broken shapes, but it does not yet explain the normal renderer's black
-output. Reconstruct per-strip geometry boundaries from packet/VU evidence
-before changing that adapter.
+array as one GL triangle strip. The matched decomp's lit and unlit strip
+builders loop over every `nstrips` source and queue each at a separate VU offset. The
+11:54 follow-up shows those packets hold material state for shared geometry;
+they do not divide the vertex list into separate spans. Preserving all passes
+is now an opt-in experiment, but its current image remains distorted and does
+not explain the normal renderer's black output.
 
 The all-path GS XYZ trace was not a valid absence-of-geometry check: its shared
 64-write cap filled with startup VIF DIRECT sprite writes before the injected
@@ -40,9 +71,9 @@ Captures and logs: `/tmp/sly-actual-postcontinue-20261117/`,
 checked at `8f7a85a3`; it had no uncommitted changes or newer fetched commits.
 No matched decomp source changed.
 
-Next: use one mesh packet to correlate each `StripHeader` offset and
-`FrameSource` with the resulting VU output and renderer input. Keep the default
-renderer configuration unchanged until that conversion is evidence-based.
+Next: correlate one mesh's `StripHeader` source offsets with the resulting VU
+output and GS draw state. Keep the default renderer configuration unchanged
+until the port adapter matches those semantics.
 
 ### Previous checkpoint (2026-11-17, 11:22 CET)
 
