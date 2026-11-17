@@ -37,11 +37,38 @@ The corrected dynamic-target instrumentation is in
 `/tmp/sly-kind0-allstores-20261117.log`, and
 `/tmp/sly-current-visible-postcross-20261117.png`.
 
-**Latest client check (2026-11-17, 04:50–04:52 CET):** the foreground
-host32 window is still fully black after the process-local Cross at native
-frame 300. The captured framebuffer `/tmp/sly1-native-frame-00.png` confirms
-the visible result. The launcher remained active until its 14-second
-diagnostic timeout (exit 137), not a reported guest crash.
+**Entry-`0x2` dataflow confirmation (2026-11-17):** the narrower runtime
+trace now confirms the packet construction in submission 328 at MSCAL offset
+`0x2c990`: entry `0x2` loads qword 460, whose value is the valid tag
+`0x1000400000008046`; it attempts XGKICK from qword 461 and strict parsing
+rejects the payload; then the VU stores qword 460 into qword 35 and XGKICKs
+from qword 35 successfully. The accepted GIFtag has NLOOP 70, one register
+descriptor (A+D), and no vertex register descriptor. This matches the
+renderer audit, which found only A+D packets in the selected post-transition
+queue. The invalid kick is real, but this entry's accepted packet is GS
+register state; neither fact identifies the missing scene-vertex producer.
+Evidence: `/tmp/sly-kind0-filtered-20261117.log`.
+
+The accepted kick was also dumped and decoded from
+`/tmp/sly1-vu1-kick-00.bin` (1,136 bytes: GIFtag plus 70 payload qwords).
+All 70 payloads use A+D as specified by the tag. Their address bytes are
+`0x00` 53 times and `0x80` 17 times; none address XYZ2/XYZF2/XYZ3/XYZF3.
+Address `0x80` is outside the GS register address range. This packet therefore
+contains no vertex writes, and part of its A+D stream is invalid. That makes it
+a concrete malformed state packet, but does not establish that it alone causes
+the black frame. The bounded capture is
+`/tmp/sly-kind0-2c990-packet-20261117.log`.
+
+To keep future VU logs bounded, all `OPENRAC_TRACE_VU1_XGKICK_DATA` diagnostics
+now honor the DMA and MSCAL context filters. The next useful run can select
+only `OPENRAC_TRACE_XGKICK_MSCAL_OFFSETS=0x2c990`, then trace the later
+consumer of the 68-vector buffers from entries `0x401`/`0x411`.
+
+**Latest client check (2026-11-17, 06:05 CET):** I inspected the fresh
+foreground capture `/tmp/sly-current-visible-postcross-20261117.png` after a
+process-local Cross at native frame 300. The client still shows a fully black
+frame after Continue. This is a repeatable failure, not a newly observed
+regression; the port is not playable yet. No launcher is currently running.
 
 The deeper trace corrects our previous diagnosis: the periodic startup sampler
 still reports Splash world `0x6abdd0`, frame stage 2 and 2,426 sectors read,

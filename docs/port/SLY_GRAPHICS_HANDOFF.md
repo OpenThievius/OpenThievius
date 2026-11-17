@@ -32,6 +32,33 @@ Trace logs: `/tmp/sly-kind0-xgkicks-follow16-20261117.log` and
 `/tmp/sly-kind0-allstores-20261117.log`. Host-only instrumentation is in
 `port/runtime/vif1_dma.cpp` and `port/runtime/vu1_native.cpp`.
 
+### Entry-`0x2` packet construction (2026-11-17)
+
+A follow-up capture confirms the dataflow for submission 328 at MSCAL offset
+`0x2c990`: VU entry `0x2` loads qword 460, whose tag is
+`0x1000400000008046`. It attempts XGKICK from qword 461, and strict parsing
+rejects that payload as a tag. The program then copies qword 460 to qword 35
+and XGKICKs qword 35 successfully. That tag has NLOOP 70, one register
+descriptor, A+D. It is GS register traffic rather than XYZ vertex output,
+consistent with the renderer audit's A+D-only packets. The rejected kick is
+confirmed, but entry `0x2`'s accepted output does not explain the missing
+scene geometry. Do not relax GIF validation on this evidence.
+
+Capture: `/tmp/sly-kind0-filtered-20261117.log`. VU debug output was adjusted
+to honor the dynamic DMA and MSCAL filters; the remaining 42,882-line capture
+still includes neighboring microprograms because the selected range spans 16
+DMA segments. For the next run, add
+`OPENRAC_TRACE_XGKICK_MSCAL_OFFSETS=0x2c990` to isolate this entry.
+
+The accepted kick was then dumped with the exact MSCAL filter to
+`/tmp/sly1-vu1-kick-00.bin` and decoded: 71 qwords total, with a 70-loop packed
+A+D tag. The 70 address bytes are `0x00` (53 writes) and `0x80` (17 writes);
+there are no XYZ2/XYZF2/XYZ3/XYZF3 addresses, and `0x80` is outside the GS
+register range. This packet contains no vertex writes and includes invalid
+A+D addresses. Treat it as a malformed state packet, not yet as the sole cause
+of the black frame. The exact filtered run is
+`/tmp/sly-kind0-2c990-packet-20261117.log` (2,912 lines).
+
 ### Sly kind-0 packet follow-up (2026-11-17)
 
 A rebuilt host32 client traces Sly's saved first kind-0 mesh address,
