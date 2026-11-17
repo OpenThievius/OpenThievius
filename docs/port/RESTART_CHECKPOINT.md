@@ -3,6 +3,20 @@
 
 ## Current checkpoint (2026-11-17, fresh client and VU input audit)
 
+**Additional packet-source trace:** on the current foreground client, one
+process-local Cross still changes the retail no-card prompt to a black world
+frame. The VIF submission 328 UNPACK at stream offset 5916 writes the valid
+GIFtag at qword 468, with its A+D payload starting at qword 469. VU1 entry
+`0x5f` kicks from 469 and the parser rejects it; a subsequent kick from qword
+35 is accepted. The source mapper places qword 468's input at guest address
+`0x018d2650` inside REF data beginning `0x018d1270` (326 qwords). Later
+writes to qword 468 happen after the first rejection. Model-strip and C-writer
+traces still do not identify the command's producer, so do not attribute this
+buffer to `BuildLitStripMeshPacket` based only on nearby VU calls. The run was
+ended by the 8-second diagnostic timeout (137), and no launcher remains.
+Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
+`/tmp/sly-vif-gif-range-cross-20261117.log`.
+
 **Latest foreground client check:** the visible Wayland window rendered the
 complete no-card warning before input. One process-local Cross at frame 300
 dismissed it, after which the sampled frame was black. Captures:

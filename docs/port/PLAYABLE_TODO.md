@@ -3,6 +3,24 @@
 
 ## Current visual and packet audit (2026-11-17)
 
+**Fresh visible trace (2026-11-17):** another foreground Wayland run showed
+the no-card prompt before one process-local Cross press and black output after
+it. The launcher was stopped at the eight-second diagnostic timeout (exit
+137), and `ps` confirmed no process remained. In VIF submission 328, the
+UNPACK at stream offset 5916 writes qword 468 with GIFtag
+`0x100040000000806d`; qword 469 is its first A+D payload. Entry `0x5f` then
+XGKICKs from qword 469 and the strict GIF parser rejects that payload as a
+tag. A later XGKICK from qword 35 succeeds. A source-address trace maps the
+UNPACK data at stream offset 5920 to REF segment data `0x018d1270`, guest
+source `0x018d2650`, within the 326-qword segment. Later UNPACKs overwrite
+qword 468 in that same VIF submission only after the first rejected kick;
+those writes cannot explain the first kick's contents. This narrows the input
+buffer but does **not** identify the retail C function that produced the
+command; neither the model-strip trace nor the targeted C writer probes
+identified it. Keep the guest packet writer open and preserve GIF validation.
+Evidence: `/tmp/sly-vif-model-packet-source-cross-20261117.log` and
+`/tmp/sly-vif-gif-range-cross-20261117.log`.
+
 **Latest visible client check:** the native Wayland window was launched in the
 foreground. The no-input frame shows the complete retail no-card warning
 (`/tmp/sly1-native-visible-before-cross-20261117.png`). A process-local Cross

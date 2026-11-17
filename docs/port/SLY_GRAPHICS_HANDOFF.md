@@ -6,6 +6,20 @@ Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 
 ### Latest foreground confirmation (2026-11-17)
 
+The latest source-mapped VIF run also confirms that the first world XGKICK
+failure precedes later writes to qword 468. Submission 328's UNPACK at offset
+5916 writes the GIFtag at 468, with payload at 469; entry `0x5f` kicks from
+469 and strict parsing rejects it. The source bytes map to guest address
+`0x018d2650` in a REF segment starting at `0x018d1270` (326 qwords). Later
+UNPACKs in the same submission rewrite qword 468 after this rejected kick.
+The exact C producer remains unknown: model-strip output and targeted
+`ReserveVifUnpack`/`WriteVifUnpack` probes did not match this command. Do not
+assume the nearby `BuildLitStripMeshPacket` call chain produced these bytes.
+The latest visible check still goes from the retail no-card prompt to a black
+frame after one Cross. Evidence:
+`/tmp/sly-vif-model-packet-source-cross-20261117.log` and
+`/tmp/sly-vif-gif-range-cross-20261117.log`.
+
 The visible Wayland client was freshly checked after the VIF diagnostics. Its
 no-input framebuffer shows the complete no-card warning; one process-local
 Cross at frame 300 dismisses the warning and the next captured world frame is
