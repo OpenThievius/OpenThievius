@@ -3,6 +3,40 @@
 
 ## Current visual and packet audit (2026-11-17)
 
+**Fresh client audit (2026-11-17):** I rebuilt and opened the current host32
+client in the foreground, sent one process-local Cross at frame 300, and
+captured `/tmp/sly-current-visible-postcross-20261117.png`. The visible frame
+is black after Continue; there is no new playable output. This agrees with the
+previous black capture, so this check found no new visual regression. The
+launcher was stopped after the diagnostic run. Git author email is configured
+as `oeps46@gmail.com`.
+
+**Trace correction and new lead (2026-11-17):** the previous reader probe was
+filtered to hard-coded submission 327. Submission IDs change across launches,
+so that filter could miss the target altogether; I should not have treated it
+as stable. The host-only trace now discovers the submission by the known DMA
+target address `0x016d5890` and bounds VU reads to that submission's adjacent
+DMA stream range. In the fresh capture it found target segment 287 in
+submission 328, stream offsets `[177312, 193088)`. Within that submission,
+VU entry `0x2` at stream offset `0x2c990` XGKICKs from qword 461, where the
+packet parser sees payload `0x00000000000797eb:0x47` and rejects it as an
+invalid GIFtag. The preceding qword 460 is a valid GIFtag
+`0x1000400000008046`; the same VU entry then XGKICKs from qword 35 and the
+parser accepts that tag. In a prior run, a VIF UNPACK at the corresponding
+stream offset wrote the tag to qword 460 and its next payload to qword 461.
+The accepted tag describes an A+D register packet, not scene vertices. This
+is a concrete VIF/VU/GIF boundary lead and is consistent with the host seeing
+GS state but no useful geometry. It is not yet proven to be the sole cause of
+the black frame: the next step is to trace how the entry-`0x2` packet is built
+and locate the VU/DMA operation that should emit scene vertices. Keep strict
+GIF validation and do not change matched decompilation.
+
+The corrected dynamic-target instrumentation is in
+`port/runtime/vif1_dma.cpp` and `port/runtime/vu1_native.cpp`. Evidence:
+`/tmp/sly-kind0-xgkicks-follow16-20261117.log`,
+`/tmp/sly-kind0-allstores-20261117.log`, and
+`/tmp/sly-current-visible-postcross-20261117.png`.
+
 **Latest client check (2026-11-17, 04:50–04:52 CET):** the foreground
 host32 window is still fully black after the process-local Cross at native
 frame 300. The captured framebuffer `/tmp/sly1-native-frame-00.png` confirms

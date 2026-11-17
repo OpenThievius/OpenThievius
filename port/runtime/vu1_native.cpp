@@ -112,6 +112,9 @@ std::atomic_flag g_vu_context_notice = ATOMIC_FLAG_INIT;
 std::atomic<uint32_t> g_vu_kick_notice_count{0};
 std::atomic<uint32_t> g_vu_kick_success_notice_count{0};
 thread_local uint32_t g_vu_trace_entry = 0xFFFFFFFFu;
+thread_local uint32_t g_vu_trace_target_submission_id = 0xFFFFFFFFu;
+thread_local uint32_t g_vu_trace_target_stream_begin = 0xFFFFFFFFu;
+thread_local uint32_t g_vu_trace_target_stream_end = 0xFFFFFFFFu;
 
 bool trace_vu1_xgkick_context_matches() {
     bool has_filter = false;
@@ -150,7 +153,45 @@ bool trace_vu1_xgkick_context_matches() {
             matches = matches && offset_matches;
         }
     }
+    if (const char* setting = std::getenv("OPENRAC_TRACE_VIF_DMA_ADDRESS")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            has_filter = true;
+            matches = matches && g_vu_trace_target_submission_id != 0xFFFFFFFFu &&
+                g_vu_trace_submission_id == g_vu_trace_target_submission_id &&
+                g_vu_trace_target_stream_begin != 0xFFFFFFFFu &&
+                g_vu_trace_target_stream_end != 0xFFFFFFFFu &&
+                g_vu_trace_vif_command_offset >= g_vu_trace_target_stream_begin &&
+                g_vu_trace_vif_command_offset < g_vu_trace_target_stream_end;
+        }
+    }
     return !has_filter || matches;
+}
+
+bool trace_vu1_read_target(uint32_t address) {
+    static const std::array<uint32_t, 2> selected_range = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_READ_QWORD");
+        if (setting == nullptr) return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        char* end = nullptr;
+        const unsigned long first = std::strtoul(setting, &end, 0);
+        if (end == setting || first >= kVu1Quadwords)
+            return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        unsigned long last = first;
+        if (*end == '-') {
+            char* range_end = nullptr;
+            last = std::strtoul(end + 1, &range_end, 0);
+            if (range_end == end + 1 || *range_end != '\0' ||
+                last >= kVu1Quadwords || last < first)
+                return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        } else if (*end != '\0') {
+            return std::array<uint32_t, 2>{0xFFFFFFFFu, 0xFFFFFFFFu};
+        }
+        return std::array<uint32_t, 2>{static_cast<uint32_t>(first),
+                                       static_cast<uint32_t>(last)};
+    }();
+    return address >= selected_range[0] && address <= selected_range[1] &&
+        trace_vu1_xgkick_context_matches();
 }
 
 Vector vf_read(const State& state, uint32_t index) {
@@ -330,6 +371,19 @@ Vector data_read(uint32_t address) {
             std::bit_cast<uint32_t>(value[3]));
     }
     return value;
+}
+
+void trace_vu1_data_load(uint32_t address, uint32_t pc, const Vector& value,
+                         const char* operation) {
+    if (!trace_vu1_read_target(address)) return;
+    static std::atomic<uint32_t> notice_count{0};
+    if (notice_count.fetch_add(1, std::memory_order_relaxed) >= 8192u) return;
+    openrac::log::info(
+        "native VU1 watched load submission={} mscal_offset={:#x} entry={:#x} operation={} pc={:#x} qword={} data={:#010x},{:#010x},{:#010x},{:#010x}",
+        g_vu_trace_submission_id, g_vu_trace_vif_command_offset, g_vu_trace_entry,
+        operation, pc, address, std::bit_cast<uint32_t>(value[0]),
+        std::bit_cast<uint32_t>(value[1]), std::bit_cast<uint32_t>(value[2]),
+        std::bit_cast<uint32_t>(value[3]));
 }
 
 void data_write(uint32_t address, const Vector& value, uint32_t pc) {
@@ -868,6 +922,7 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         if (primary == 0x00u) {
             const uint32_t address = (vi_read(*state, source & 15u) + offset) & 0x3FFu;
             const Vector loaded = data_read(address);
+            trace_vu1_data_load(address, state->pc, loaded, "LQ");
             const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
             static std::atomic<uint32_t> xgkick_lq_notice{0};
             const bool trace_lq = xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
@@ -1092,6 +1147,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 if (decrement) vi_write(state, base, address);
                 if (load) {
                     const Vector loaded = data_read(address);
+                    trace_vu1_data_load(address, state->pc, loaded,
+                                        decrement ? "LQD" : "LQI");
                     const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
                     static std::atomic<uint32_t> xgkick_lqi_notice{0};
                     if (xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
@@ -1326,6 +1383,13 @@ extern "C" void openrac_guest_vu1_set_trace_context(uint32_t submission_id,
                                                       uint32_t vif_command_offset) {
     g_vu_trace_submission_id = submission_id;
     g_vu_trace_vif_command_offset = vif_command_offset;
+}
+
+extern "C" void openrac_guest_vu1_set_trace_target_submission(
+    uint32_t submission_id, uint32_t stream_begin, uint32_t stream_end) {
+    g_vu_trace_target_submission_id = submission_id;
+    g_vu_trace_target_stream_begin = stream_begin;
+    g_vu_trace_target_stream_end = stream_end;
 }
 
 extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,

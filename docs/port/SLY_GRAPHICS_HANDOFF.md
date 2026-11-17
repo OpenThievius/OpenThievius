@@ -4,6 +4,34 @@
 Last checked: 2026-11-17. The active host32 staging snapshot and sibling
 `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
+### Fresh client and dynamic-target trace (2026-11-17)
+
+The rebuilt foreground host32 client was checked again with one process-local
+Cross at frame 300. The visible output is black after Continue:
+`/tmp/sly-current-visible-postcross-20261117.png`. This matches the prior
+black frame; no playable state or new regression was observed.
+
+The earlier VU read capture used hard-coded submission 327, although these
+IDs change between runs. That could silently filter out the relevant DMA
+submission. The trace now binds the VU read filter to the submission containing
+target address `0x016d5890` and its configured neighboring segments. In the new
+capture this is submission 328, segment 287, with selected stream range
+`[177312, 193088)`. VU entry `0x2` at offset `0x2c990` first kicks qword 461,
+whose payload is rejected as an invalid GIFtag. Qword 460 immediately before
+it holds a valid tag; a second kick from qword 35 is accepted and emits that
+tag. A prior run's UNPACK trace at the corresponding stream offset records the
+valid tag at qword 460 followed by its payload at 461. The accepted packet is
+A+D state, not a vertex packet. This explains one rejected kick and why the
+accepted packet does not draw geometry, but the trace does not yet prove this is the
+only missing scene transfer. Continue by mapping entry `0x2`'s VIF input and
+subsequent consumers, then find where the 68-vector buffers from entries
+`0x401`/`0x411` should become vertex GIF packets. Do not relax GIF validation
+or modify matched decompilation.
+
+Trace logs: `/tmp/sly-kind0-xgkicks-follow16-20261117.log` and
+`/tmp/sly-kind0-allstores-20261117.log`. Host-only instrumentation is in
+`port/runtime/vif1_dma.cpp` and `port/runtime/vu1_native.cpp`.
+
 ### Sly kind-0 packet follow-up (2026-11-17)
 
 A rebuilt host32 client traces Sly's saved first kind-0 mesh address,

@@ -15,6 +15,9 @@ int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
 void openrac_guest_vu1_set_itop(uint32_t value);
 void openrac_guest_vu1_set_trace_context(uint32_t submission_id,
                                          uint32_t vif_command_offset);
+void openrac_guest_vu1_set_trace_target_submission(uint32_t submission_id,
+                                                  uint32_t stream_begin,
+                                                  uint32_t stream_end);
 
 #ifdef __cplusplus
 }
