@@ -1,31 +1,45 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 15:27 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 15:41 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
-### Re-audit of the selected lit-mesh finish (2026-11-17, 15:27 CET)
+### Re-audit of the selected lit-mesh finish (2026-11-17, 15:41 CET)
 
-I revisited the exact filtered log rather than relying on the earlier summary.
 For submission 322, DMA segment 287 begins the selected lit/skinned mesh at
-stream offset 177312. At offset 182272, VIF UNPACK writes a complete 71-qword
-packed A+D GIF packet beginning at VU qword 460. The retail VU finish entry
-`0x2`, at stream offset 182672, issues XGKICK from qword 461. The strict native
-GIF parser then reads qword 461's payload (`0x797eb`) as a tag and rejects it.
-This is a concrete packet-pointer discrepancy on the selected model path; the
-earlier note was too dismissive in saying the result gave no reason to inspect
-the kick address. The same finish entry next kicks qword 35, which is accepted.
-That accepted packet is A+D state only and has no XYZ2/XYZF2 writes. Thus the
-trace exposes a likely relevant failure in this model path, but does not yet
-prove that it alone explains the black world or justify changing retail VU
-behavior. Verify how entry `0x2` computes VI7 and compare the native VU
-instruction/address semantics with the matched retail code before patching.
+stream offset 177312. At offset 182272, VIF UNPACK writes a 71-qword packed A+D
+GIF packet at VU qword 460. The `g_litBatchFinishProgram` symbol is the retail
+VU1 program at entry `0x2` (`D_00000010`). Its captured words show the first
+XGKICK is intentional: PC `0xb` (`0x10013001`) computes `VI1 = VI6 + 1`, then
+PC `0xc` (`0x80000efc`) issues `XGKICK VI1`; the live state is `VI6=460`, so
+the requested address is 461. The parser therefore reads the first A+D payload
+qword as a tag and rejects it. This is what the retail microcode requests, not
+an off-by-one from the host C writer or an accidental native VI calculation;
+do not normalize it to qword 460. The same program later kicks qword 35, which
+is accepted and contains A+D state only, with no XYZ2/XYZF2 writes.
 
-The separate rejected qword-469 warning is emitted by another VU finish path
-and remains unattributed to this selected mesh. Do not conflate it with the
-qword-461 rejection. Exact lines are in
+The EE VU manual specifies that XGKICK passes VI[is] as the leading GIFtag
+address, and PCSX2's current implementation passes the raw VI value to GIF
+packet-size validation and cancels a transfer when the tag is invalid. That
+supports treating this particular rejected transfer as non-drawable rather
+than as a port arithmetic bug. It still does not tell us why the retail
+microcode attempts it, and its relationship to the running GIF path is not
+fully modeled here. The accepted qword-35 state packet is not the missing world
+geometry; continue tracing the other draw paths until a packet with XYZ2/XYZF2
+is tied to the world model and GS.
+
+The separate rejected qword-469 warning comes from another VU finish path and
+remains unattributed to this selected mesh. Do not conflate it with the
+qword-461 attempt. Exact lines are in
 `/tmp/sly-lit-final-qword-audit-filtered-20261117/run.log` (submission 322,
-stream offsets 182272 and 182672).
+stream offsets 182272 and 182672); the earlier instruction capture is in
+`/tmp/sly-finish-entry2-audit-20261117.log`.
+
+Reference material: [Sony VU User's Manual, XGKICK](https://docs.alexrp.com/mips/ee_vu.pdf)
+and [PCSX2 VUops.cpp](https://github.com/PCSX2/pcsx2/blob/master/pcsx2/VUops.cpp#L1818-L1922).
+The canonical decomp checkout remains clean at `8f7a85a3`, matching
+`origin/master`; the active `wave55-sdl32-release` CMake source snapshot is an
+exact file copy of that checkout.
 
 ### Fresh default-client audit and mesh finish trace (2026-11-17, 14:03 CET)
 

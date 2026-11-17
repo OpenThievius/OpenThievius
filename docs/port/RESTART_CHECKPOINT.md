@@ -3,15 +3,14 @@
 
 ## Current checkpoint (2026-11-17, packet writer identified; client audit)
 
-**Re-audit correction (15:27 CET):** the selected lit/skinned model mesh does
-have a concrete rejected packet: submission 322 writes a complete 71-qword
-A+D GIF packet at VU qword 460, then retail VU finish entry `0x2` kicks qword
-461, which the strict parser rejects as payload interpreted as a GIFtag. Its
-next kick at qword 35 is accepted but contains GS state only, without XYZ2 or
-XYZF2. This pointer discrepancy needs investigation in the matched finish
-program and native VU address semantics. It is not yet proven to be the sole
-cause of the black world, and it is distinct from the unrelated/unattributed
-qword-469 warning. Exact trace:
+**Re-audit correction (15:41 CET):** in submission 322, retail finish-program
+entry `0x2` explicitly computes `VI1=VI6+1` (`VI6=460`) and XGKICKs address
+461; it later XGKICKs qword 35. The first rejection at 461 is not an
+off-by-one in host C or native VI arithmetic, so do not change it to 460. The
+qword-35 packet is accepted but contains state only, without XYZ2/XYZF2. This
+trace is not the missing geometry and does not establish the black world's
+cause. It is distinct from the other path's qword-469 warning. Exact
+instruction/output logs are `/tmp/sly-finish-entry2-audit-20261117.log` and
 `/tmp/sly-lit-final-qword-audit-filtered-20261117/run.log`.
 
 **Fresh default-client visual audit (10:02 CET):** I found that the on-disk
