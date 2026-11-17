@@ -1,8 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 00:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 01:10 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Per-mesh VU epochs (2026-11-18, 01:10 CET)
+
+The VU write stream shows 39 descending-qword resets per 4,000 stores — one
+per mesh, because each mesh restarts its scratch near qword 36. I changed the
+NDC capture to split the write stream at those resets and keep the last write
+per qword within each epoch, so earlier meshes are no longer overwritten by
+the final one. Each epoch is emitted as a separate strip group.
+
+The capture still renders large abstract surfaces rather than a recognizable
+level. This indicates the remaining gap is material/texture assignment and
+strip-boundary validation within each epoch, not loss of geometry — the
+vertices are now genuine retail VU output. Capture:
+`/tmp/sly-ndcepoch-20261117/`. No launcher remains.
 
 ### VU NDC renderer refinements (2026-11-18, 00:45 CET)
 

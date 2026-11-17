@@ -207,19 +207,32 @@ extern "C" std::size_t openrac_native_vu_ndc_copy_full(float* out, std::size_t m
 extern "C" std::size_t openrac_native_vu_ndc_take(float* out, std::size_t max_floats,
                                                   unsigned* meta, std::size_t max_meta) {
     std::scoped_lock lock(g_vu_ndc_mutex);
-    // VU scratch is reused: keep the last write to each qword, then emit in
-    // ascending qword order. This is the final geometry state for the frame.
-    std::vector<const VuNdcVertex*> last(1024u, nullptr);
-    for (const auto& v : g_vu_ndc_vertices)
-        if (v.qword < last.size()) last[v.qword] = &v;
+    // A descending qword address marks the start of a new mesh: the VU restarts
+    // its scratch at the base. Keep the last write per qword within each mesh
+    // epoch, then emit epochs in order so every mesh survives.
+    std::size_t epoch_begin = 0;
     std::size_t written = 0, mwritten = 0;
-    for (const auto* v : last) {
-        if (v == nullptr || written + 3u > max_floats || mwritten + 4u > max_meta) continue;
-        out[written++] = v->x / v->w; out[written++] = v->y / v->w;
-        out[written++] = v->z / v->w;
-        meta[mwritten++] = v->submission; meta[mwritten++] = v->mscal;
-        meta[mwritten++] = v->entry; meta[mwritten++] = v->qword;
+    auto emit_epoch = [&](std::size_t b, std::size_t e) {
+        std::vector<const VuNdcVertex*> last(1024u, nullptr);
+        for (std::size_t i = b; i < e; ++i) {
+            const auto& v = g_vu_ndc_vertices[i];
+            if (v.qword < last.size()) last[v.qword] = &v;
+        }
+        for (const auto* v : last) {
+            if (v == nullptr || written + 3u > max_floats || mwritten + 4u > max_meta) continue;
+            out[written++] = v->x / v->w; out[written++] = v->y / v->w;
+            out[written++] = v->z / v->w;
+            meta[mwritten++] = v->submission; meta[mwritten++] = v->mscal;
+            meta[mwritten++] = v->entry; meta[mwritten++] = v->qword;
+        }
+    };
+    for (std::size_t i = 1; i < g_vu_ndc_vertices.size(); ++i) {
+        if (g_vu_ndc_vertices[i].qword < g_vu_ndc_vertices[i - 1u].qword) {
+            emit_epoch(epoch_begin, i);
+            epoch_begin = i;
+        }
     }
+    emit_epoch(epoch_begin, g_vu_ndc_vertices.size());
     g_vu_ndc_vertices.clear();
     return written;
 }
