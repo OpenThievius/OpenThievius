@@ -31,6 +31,8 @@ constexpr uint32_t kMaxInstructions = 4096;
 thread_local uint32_t g_vu_trace_submission_id = 0xFFFFFFFFu;
 thread_local uint32_t g_vu_trace_vif_command_offset = 0xFFFFFFFFu;
 
+bool trace_vu1_xgkick_context_matches();
+
 uint8_t* guest_address(uint32_t address) {
 #if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
     return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(address));
@@ -71,7 +73,7 @@ bool trace_xgkick_data_target(uint32_t address) {
         return std::array<uint32_t, 2>{static_cast<uint32_t>(first),
                                        static_cast<uint32_t>(last)};
     }();
-    return enabled && (selected_range[0] == 0u
+    return enabled && trace_vu1_xgkick_context_matches() && (selected_range[0] == 0u
         ? address == 27u || address == 35u
         : address >= selected_range[0] && address <= selected_range[1]);
 }
@@ -363,7 +365,7 @@ void data_write(uint32_t address, const Vector& value, uint32_t pc) {
         uint32_t next[4]{};
         std::memcpy(next, value.data(), sizeof(next));
         openrac::log::info(
-            "native VU1 XGKICK buffer write entry={:#x} pc={:#x} instruction={:#010x}/{:#010x} qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
+            "native VU1 watched store entry={:#x} pc={:#x} instruction={:#010x}/{:#010x} qword={} old={:#010x},{:#010x},{:#010x},{:#010x} new={:#010x},{:#010x},{:#010x},{:#010x}",
             g_vu_trace_entry, pc, instruction[0], instruction[1], address,
             previous[0], previous[1], previous[2], previous[3],
             next[0], next[1], next[2], next[3]);
@@ -1363,6 +1365,21 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     const char* loop_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
     const bool loop_trace_enabled = loop_trace_setting != nullptr &&
         loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
+    const bool stop_trace_enabled = xgkick_trace != nullptr &&
+        xgkick_trace[0] != '\0' && xgkick_trace[0] != '0';
+    static std::atomic<uint32_t> stop_trace_count{0};
+    const auto trace_stop = [&](uint32_t stop_pc, uint32_t cycle, bool completed) {
+        if (!stop_trace_enabled || !trace_vu1_xgkick_context_matches() ||
+            stop_trace_count.fetch_add(1, std::memory_order_relaxed) >= 128u)
+            return;
+        openrac::log::info(
+            "native VU1 program {} submission={} mscal_offset={:#x} entry={:#x} cycles={} stop_pc={:#x} VI5={} VI6={} VI7={} VI8={} VI9={} VI10={} VI14={} VI15={} pending_kick={}",
+            completed ? "completed" : "stopped", g_vu_trace_submission_id,
+            g_vu_trace_vif_command_offset, entry, cycle, stop_pc,
+            vi_read(g_state, 5u), vi_read(g_state, 6u), vi_read(g_state, 7u),
+            vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 10u),
+            vi_read(g_state, 14u), vi_read(g_state, 15u), pending_kick.active ? 1u : 0u);
+    };
     static std::atomic<uint32_t> world_iteration_notice{0};
     static std::atomic<uint32_t> stream_iteration_notice{0};
     bool trace_world_iteration = false;
@@ -1391,6 +1408,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     std::array<RecentInstruction, 16> recent{};
     for (uint32_t cycle = 0; cycle < instruction_limit; ++cycle) {
         if (pc >= kVu1Doublewords) {
+            trace_stop(pc, cycle, false);
             *unsupported_word = 0xFFFFFFFFu;
             *paired_word = 0xFFFFFFFFu;
             *stopped_pc = pc;
@@ -1413,6 +1431,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         const bool upper_translated =
             translate_upper(&upper_result, upper, unsupported_word);
         if (!upper_translated) {
+            trace_stop(current_pc, cycle, false);
             static std::atomic<uint32_t> upper_fault_context_notice{0};
             const uint32_t notice =
                 upper_fault_context_notice.fetch_add(1, std::memory_order_relaxed);
@@ -1494,6 +1513,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             upper_result.i = std::bit_cast<float>(lower);
         } else if (!translate_lower(&lower_result, lower, &next_pc,
                                     unsupported_word, &pending_kick)) {
+            trace_stop(current_pc, cycle, false);
             dispatch_pending_kick(&pending_kick);
             *paired_word = upper;
             *stopped_pc = current_pc;
@@ -1591,12 +1611,14 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             if (end_delay) {
                 g_state.pc = pc;
                 dispatch_pending_kick(&pending_kick);
+                trace_stop(pc, cycle + 1u, true);
                 return 1;
             }
             end_delay = true;
         } else if (end_delay) {
             g_state.pc = pc;
             dispatch_pending_kick(&pending_kick);
+            trace_stop(pc, cycle + 1u, true);
             return 1;
         }
         if (next_pc != current_pc + 1u) {

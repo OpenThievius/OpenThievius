@@ -18,9 +18,10 @@ any of them. In contrast, the qword-469 rejection is logged at entry `0x5f`,
 VIF offset `0x1790`, followed by the accepted qword-35 kick. That is a separate
 kind-5 path in the same large VIF batch, not a demonstrated failure in Sly's
 kind-0 calls. This corrects the earlier assumption that tracing those shared
-entries would directly expose the failing Sly kick. The reason the kind-0
-calls do not produce a logged kick, and where their output should enter the
-GIF stream, remain open.
+entries would directly expose the failing Sly kick. A follow-up store trace
+shows the three calls complete and write intermediate VU data, but do not
+kick. Their later consumer and the transfer that should put their output into
+the GIF stream remain unknown; see the output capture below.
 
 The offset-filtered run injected one process-local Cross press; it did not
 capture a confirming image. The playable screen remains unverified beyond the
@@ -30,9 +31,23 @@ behavior was changed. Build and run evidence:
 the earlier submission-filtered run is
 `/tmp/sly-kind0-xgkick-20261117.log`.
 
-Next, trace the VU program stop/return state and the data written by the
-kind-0 `0x318`/`0x401` calls, then match any later output to the normal
-renderer’s queued GIF packets. Keep the kind-5 qword-469 anomaly separate.
+### Kind-0 VU output capture (2026-11-17)
+
+A bounded foreground run captured the selected VU stores and normal E-bit
+completion for the first Sly mesh. Submission 327's `0x318` call completed at
+micro-PC `0x31f` after 30 cycles and wrote four setup qwords (14–17). The
+`0x401` call completed at `0x411` after 1,803 cycles and wrote 68 vectors to
+qwords 39–307 at stride four. The `0x411` call completed at `0x45c` after
+1,800 cycles and wrote another 68 vectors to qwords 36–304 at stride four.
+All three returned with no pending XGKICK. This corrects the earlier narrow
+watch of qwords 136–142, which missed the actual output buffers. It does not
+yet show how the written vectors reach the GIF parser or graphics queue.
+
+The immediate next step is to follow these VU qwords through later commands
+in the same VIF submission, identify their consuming program or VIF DIRECT
+transfer, and correlate any GIF output with a queued renderer packet. Keep the
+kind-5 qword-469 anomaly separate. Capture:
+`/tmp/sly-kind0-allstores-20261117.log`.
 
 ### Latest client and VU/GIF boundary check (2026-11-17, 04:50–04:52 CET)
 

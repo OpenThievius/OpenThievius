@@ -67,6 +67,20 @@ from the kind-0 VU programs is still unknown. Evidence:
 `/tmp/sly-detach-mesh-trace-cross-20261117.log`, and
 `/tmp/sly-world-mesh-capture-20261117.log`.
 
+**Fresh kind-0 VU output check (2026-11-17):** a bounded rerun recorded normal
+E-bit completion for all three calls in submission 327: `0x318` stopped at
+micro-PC `0x31f` after 30 cycles, `0x401` at `0x411` after 1,803 cycles, and
+`0x411` at `0x45c` after 1,800 cycles. None returned with a pending XGKICK.
+The calls wrote respectively four setup qwords (14–17), 68 vectors at
+qwords 39–307 with stride four, and 68 vectors at qwords 36–304 with stride
+four. Those 136 vector writes are real VU data-memory output; they were missed
+by the earlier qword 136–142-only watch. They are still not proof that the
+normal GIF renderer receives scene vertices. The active question is which
+later VU/VIF operation consumes these buffers, and where it should submit
+geometry. The three selected calls produce no XGKICK themselves. Run log:
+`/tmp/sly-kind0-allstores-20261117.log`; the host-only bounded trace was added
+under `port/runtime/vu1_native.cpp` and leaves matched decompilation untouched.
+
 The earlier no-input cadence capture remains stable on the complete no-card
 warning in eight samples: `/tmp/sly-current-cadence-montage.png` and
 `/tmp/sly-current-cadence-capture-20261117.log`. It does not reproduce the
@@ -74,12 +88,14 @@ black intervals visible in the user's Nov 15 screen recording (17–116 ms in
 the cropped game window); whether those gaps are guest rendering or desktop
 presentation remains unresolved.
 
-**Next graphics task:** inspect the VU stop/return state and output data from
-Sly's kind-0 `0x318`/`0x401` calls, then follow their output to the normal
-renderer and a specific queued packet. Explain why the post-transition GIF
-frames contain only A+D descriptors. Preserve strict GIF validation. Keep the
-separately traced kind-5 qword-469 mismatch as an anomaly; it is not connected
-to Sly's kind-0 calls. Do not treat
+**Next graphics task:** follow the VU data qwords written by `0x401` and
+`0x411` into their next consumer in the same VIF submission. Identify whether
+the consumer loads those qwords into another VU program or sends them through
+VIF DIRECT, then correlate any resulting GIF tag with the normal renderer's
+packet queue. Explain why the post-transition GIF frames contain only A+D
+descriptors. Preserve strict GIF validation. Keep the separately traced
+kind-5 qword-469 mismatch as an anomaly; it is not connected to Sly's kind-0
+calls. Do not treat
 `QueueModelPartDraws` counts as rendered geometry, and do not
 enable the optional kind-6 host mesh adapter as a fix for the retail packet
 path. Keep any host-only renderer experiment opt-in and separate from matched
