@@ -1,8 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 11:54 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 12:03 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Default-client visual recheck (2026-11-17, 12:03 CET)
+
+I rebuilt `wave55-sdl32` from the current branch and confirmed
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=OFF`. Eight steady no-input captures show
+the full no-card prompt and Continue highlight, with the known small white dash
+at the left edge. After a process-local Cross at native frame 300, eight
+samples starting after frame 350 are completely black. The trace repeats the
+qword-469 rejected XGKICK and the accepted qword-35 state packet; that sequence
+is not yet causal proof. The current default client therefore reproduces the
+known startup prompt and known black post-Continue state. The gray distorted
+scene from the prior experiment belongs only to the separate opt-in renderer.
+The capture used SDL's offscreen driver, so it says nothing about visible
+desktop flicker. Both bounded launches ended with timeout exit 137 and left no
+launcher process. Captures/logs:
+`/tmp/sly-default-fresh-noinput-contact-20261117.png`,
+`/tmp/sly-default-fresh-check-20261117/`,
+`/tmp/sly-default-fresh-check-20261117.log`, and
+`/tmp/sly-default-fresh-postcross-20261117.log`.
 
 ### Multi-source material-pass experiment (2026-11-17, 11:54 CET)
 

@@ -1,6 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Fresh default-client audit (2026-11-17, 12:03 CET)
+
+I rebuilt the current default host32 client and captured the framebuffer with
+the world renderer option confirmed OFF. Eight steady no-input frames show the
+complete no-card prompt and Continue highlight. The small white dash at the
+left edge is still present. A separate bounded run injected one process-local
+Cross at native frame 300; eight sampled frames after frame 350 are fully
+black. Its trace again records the rejected XGKICK at qword 469 and an accepted
+state packet from qword 35, but this does not prove which packet causes the
+black output. This matches the documented post-Continue failure; the latest
+code did not regress the startup prompt, and the world is still not playable.
+Both runs used SDL's offscreen driver, ended at the 10/12-second timeout
+(exit 137), and left no launcher process. The offscreen captures do not assess
+desktop-present flicker. The default build compiled 194/194 decomp units and
+85/85 port backfills, with 790/791 reachable direct calls defined. No matched
+decompilation source changed.
+
+Captures and logs:
+`/tmp/sly-default-fresh-noinput-contact-20261117.png`,
+`/tmp/sly-default-fresh-check-20261117/`,
+`/tmp/sly-default-fresh-check-20261117.log`, and
+`/tmp/sly-default-fresh-postcross-20261117.log`.
+
 ## Latest native checkpoint (2026-11-17, 11:54 CET)
 
 The strip-layout follow-up corrects the 11:30 working theory. A bounded trace
