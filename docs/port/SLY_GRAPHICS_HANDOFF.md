@@ -1,8 +1,68 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-17, 20:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-17, 21:05 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Clip decisions are mixed, not all-cull (2026-11-17, 21:05 CET)
+
+I added `OPENRAC_TRACE_VU1_CLIP_DECISION`, a bounded read-only trace at the
+CLIPw and FCAND execution sites in `port/runtime/vu1_native.cpp` (8192 lines,
+submission/MSCAL/entry/PC, raw VF bit patterns, accumulated clip flags and the
+FCAND result). A bounded 18-second run of the default launcher with a
+process-local Cross at frame 300 produced 8,192 records: 4,577 from entry
+`0x356` and 3,615 from `0x34a`. For `0x356`, FCAND wrote `vi1=0` in 1,386
+decisions and `vi1=1` in 826; CLIPw's per-vertex `current` was zero in 1,537
+cases and small nonzero values (0x15-0x2a) in the rest. Clipping is therefore
+**mixed**: many vertices pass and some are culled. The "every vertex is
+culled" hypothesis is refuted, consistent with the audit's finding that the
+port's CLIPw tends to under-report clipping rather than over-report it.
+
+The wrapper exited 137 and no launcher remains. Capture:
+`/tmp/sly-clipdecision3-20261117/run.log`. Both new diagnostics are opt-in and
+off by default; the default client still renders the no-card prompt and goes
+black after Continue.
+
+Every low-level hypothesis now examined is refuted or ruled down: VU PRIM
+writes, JALR helpers, EE DIRECT world packets, VU upload completeness,
+unhandled VIF commands, clipping, the GIF parser, the queue guard, XGKICK
+validation, missing-function traps and material state. The remaining work is
+to correlate the game-side world draw-request list with the specific requests
+whose VU programs should feed a visible object, and to establish whether the
+port is drawing only collision/background meshes rather than the level's
+visible geometry. Do not promote the source-position adapter into the
+default path on the strength of these negatives.
+
+### EE path, VU uploads and unsupported VIF commands (2026-11-17, 20:55 CET)
+
+Three further audits narrowed the paradox. The matched decomp has **no**
+EE-built world DIRECT packet at all: every `WriteVifDirect*` caller is UI,
+texture upload, screen fill or a HUD arc, and the sole PRIM-4 DIRECT tag in
+the game is a HUD outline. The world path is VIF UNPACK/REF/MSCAL into VU1,
+so there is no EE submission being blocked by a game-state gate. VU microcode
+uploads are also complete: all 13 MPG sessions are accepted untruncated,
+re-uploads overwrite correctly, and word dumps match the retail `.vutext`
+(108/108 and 22/22 words). A clipping-culls-everything hypothesis is
+undetermined; the port's CLIPw/FCAND/FCOR match PCSX2 for ordinary values and
+its divergences tend to *under*-report clipping, i.e. to keep vertices.
+
+I closed the remaining "a geometry stream is silently rejected" lead by
+adding the opt-in `OPENRAC_TRACE_VIF_UNSUPPORTED_ALL`, which logs every
+unhandled VIF1 command instead of only the first, with submission, command,
+count, immediate and stream offset, capped at 256 lines. A bounded 18-second
+run of the rebuilt default launcher with a process-local Cross at frame 300
+logged **zero** unsupported commands. No VIF stream is being killed by an
+unhandled opcode; that lead is refuted. Capture:
+`/tmp/sly-vif-unsupported-all-20261117/run.log`. The wrapper exited 137 and
+no launcher remains.
+
+The next task is the bounded clip-decision trace proposed by the audit:
+`OPENRAC_TRACE_VU1_CLIP_DECISION`, logging CLIPw inputs, accumulated clip
+flags and the FCAND/IBEQ branch outcome per vertex in the `0x356` loop
+(`vu1_native.cpp` CLIPw around :932-943, FCAND around :1462-1464, capped at
+512 lines). That will establish whether every vertex takes the cull branch.
+Keep all of this opt-in and port-only; the default client is still black
+after Continue and no playable scene is confirmed.
 
 ### All VU helpers decoded; no PRIM writer exists (2026-11-17, 20:45 CET)
 

@@ -184,6 +184,8 @@ enum class Var : std::uint16_t {
     TraceMissing,
     TraceRelocation,
     TraceSif,
+    TraceVifUnsupportedAll,
+    TraceVu1ClipDecision,
     TraceWad,
     UiColors,
     UiLog,

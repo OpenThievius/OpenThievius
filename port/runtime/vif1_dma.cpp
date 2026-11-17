@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/env.h"
 #include "common/log.h"
 
 // Defined in vu1_native.cpp; same read-only accepted-append summary as the VU1 XGKICK path.
@@ -844,6 +845,15 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
         case 0x10: case 0x11: case 0x13:
             break;
         default:
+            if (openrac::env::flag(openrac::env::Var::TraceVifUnsupportedAll)) {
+                static std::atomic<uint32_t> unsupported_notice{0};
+                if (unsupported_notice.fetch_add(1, std::memory_order_relaxed) < 256u) {
+                    openrac::log::warn(
+                        "native VIF1 unsupported command submission={} offset={} command={:#04x} count={} immediate={:#06x} code={:#010x}",
+                        trace->submission_id, cursor - sizeof(code), command, count,
+                        immediate, code);
+                }
+            }
             *unsupported_command = command;
             return false;
         }

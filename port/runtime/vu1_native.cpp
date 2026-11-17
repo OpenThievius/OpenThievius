@@ -152,6 +152,12 @@ thread_local uint32_t g_vu_trace_target_submission_id = 0xFFFFFFFFu;
 thread_local uint32_t g_vu_trace_target_stream_begin = 0xFFFFFFFFu;
 thread_local uint32_t g_vu_trace_target_stream_end = 0xFFFFFFFFu;
 
+bool trace_clip_decision() {
+    if (!openrac::env::flag(openrac::env::Var::TraceVu1ClipDecision)) return false;
+    static std::atomic<uint32_t> notice{0};
+    return notice.fetch_add(1, std::memory_order_relaxed) < 8192u;
+}
+
 bool trace_vu1_xgkick_context_matches() {
     bool has_filter = false;
     bool has_submission_filter = false;
@@ -939,6 +945,17 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 }
                 state->clip_flags = ((state->clip_flags << 6u) | current_clip) &
                                     0x00FFFFFFu;
+                if (trace_clip_decision()) {
+                    openrac::log::info(
+                        "native VU1 clipdec kind=CLIPw submission={} mscal_offset={:#x} entry={:#x} pc={:#x} xyz={:#010x},{:#010x},{:#010x} w={:#010x} current={:#x} clip={:#x}",
+                        g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                        g_vu_trace_entry, state->pc,
+                        std::bit_cast<uint32_t>(source[0]),
+                        std::bit_cast<uint32_t>(source[1]),
+                        std::bit_cast<uint32_t>(source[2]),
+                        std::bit_cast<uint32_t>(target[3]), current_clip,
+                        state->clip_flags);
+                }
                 return true;
             }
             break;
@@ -1065,6 +1082,27 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             const uint32_t address = (vi_read(*state, source & 15u) + offset) & 0x3FFu;
             const Vector loaded = data_read(address);
             trace_vu1_data_load(address, state->pc, loaded, "LQ");
+            // Opt-in: the 0x671 helper copies transformed vertices into a kicked
+            // packet. Log its LQ source range so the producer can be identified.
+            const char* copy_trace = std::getenv("OPENRAC_TRACE_VU1_COPY_SOURCE");
+            static std::atomic<uint32_t> copy_notice{0};
+            if (copy_trace != nullptr && copy_trace[0] != '\0' && copy_trace[0] != '0' &&
+                state->pc >= 0x4A9u && state->pc <= 0x700u &&
+                trace_vu1_xgkick_context_matches() &&
+                copy_notice.fetch_add(1, std::memory_order_relaxed) < 256u) {
+                const uint8_t* header = guest_address(
+                    kVu1Data + ((vi_read(*state, 4u) + 11u) & 0x3FFu) * 16u);
+                uint32_t header_words[4]{};
+                std::memcpy(header_words, header, sizeof(header_words));
+                openrac::log::info(
+                    "native VU1 copy source submission={} mscal_offset={:#x} entry={:#x} pc={:#x} VI4={} VI6={} VI7={} VI8={} VI9={} VI11={} VI13={} source_qword={} header[11]={:#010x},{:#010x},{:#010x},{:#010x}",
+                    g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                    g_vu_trace_entry, state->pc, vi_read(*state, 4u),
+                    vi_read(*state, 6u), vi_read(*state, 7u), vi_read(*state, 8u),
+                    vi_read(*state, 9u), vi_read(*state, 11u), vi_read(*state, 13u),
+                    address, header_words[0], header_words[1], header_words[2],
+                    header_words[3]);
+            }
             const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
             static std::atomic<uint32_t> xgkick_lq_notice{0};
             const bool trace_lq = xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
@@ -1440,6 +1478,13 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             return true;
         case 0x12: // FCAND
             vi_write(state, 1, static_cast<uint16_t>((state->clip_flags & immediate24) != 0));
+            if (trace_clip_decision()) {
+                openrac::log::info(
+                    "native VU1 clipdec kind=FCAND submission={} mscal_offset={:#x} entry={:#x} pc={:#x} imm={:#x} clip={:#x} vi1={}",
+                    g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                    g_vu_trace_entry, state->pc, immediate24, state->clip_flags,
+                    vi_read(*state, 1u));
+            }
             return true;
         case 0x13: // FCOR
             vi_write(state, 1, static_cast<uint16_t>(
@@ -1492,6 +1537,19 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
     }
     if (primary == 0x24u || primary == 0x25u) { // JR / JALR
         const uint16_t jump_target = vi_read(*state, source);
+        const char* copy_trace = std::getenv("OPENRAC_TRACE_VU1_COPY_SOURCE");
+        static std::atomic<uint32_t> jalr_notice{0};
+        if (copy_trace != nullptr && copy_trace[0] != '\0' && copy_trace[0] != '0' &&
+            g_vu_trace_entry == 0x5Fu &&
+            trace_vu1_xgkick_context_matches() &&
+            jalr_notice.fetch_add(1, std::memory_order_relaxed) < 256u) {
+            openrac::log::info(
+                "native VU1 helper jump submission={} mscal_offset={:#x} entry={:#x} pc={:#x} target={:#x} VI4={} VI5={} VI7={} VI8={} VI9={} VI11={} VI15={}",
+                g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
+                g_vu_trace_entry, state->pc, jump_target, vi_read(*state, 4u),
+                vi_read(*state, 5u), vi_read(*state, 7u), vi_read(*state, 8u),
+                vi_read(*state, 9u), vi_read(*state, 11u), vi_read(*state, 15u));
+        }
         if (primary == 0x25u)
             vi_write(state, target, static_cast<uint16_t>(state->pc + 2u));
         *next_pc = jump_target & 0x7FFu;
