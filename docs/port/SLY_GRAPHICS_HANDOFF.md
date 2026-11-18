@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 09:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 10:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Validated fixes now correct-by-default (2026-11-19, 10:00 CET)
+
+I made the validated fixes default behaviour (no env flags needed):
+- **Default level load**: `sly1_native_boot_level_key_for_sdl()` now returns
+  0x0100 when no env var is set (the retail Proven QueueWorldLoad path), and
+  the stage-2 hook always fires the force boot. `OPENRAC_NO_DEFAULT_LEVEL`
+  restores the Splash-only boot; OPENRAC_DEFAULT_LEVEL/OPENRAC_BOOT_LEVEL still
+  override the key.
+- **Area mask**: default 0x1 when OPENRAC_NO_DEFAULT_LEVEL is not set;
+  OPENRAC_FIX_AREA_MASK overrides.
+- **Placeholder meshes**: skipped by default; OPENRAC_SHOW_PLACEHOLDER_MESH
+  restores the old magenta behaviour.
+
+Verified over 3 hidden runs with NO env flags: level loads deterministically
+(cd_reads 6, sectors 2473, world 0x88d5b0), no crash, and frames render the
+detailed textured terrain without the magenta fan. The windowed run with input
+reached gameplay only intermittently (one run stalled at world=0, frame 58) —
+an unstable level-load timing issue that remains. The default frame is still
+not a recognizable level (no character silhouette/HUD). A Debug build with
+line tables/frame pointers was created at build/port/wave55-sdl32-debug but
+did not reproduce the abort in short runs. Checks pass.
 
 ### Player model IS present; cull is camera-frustum (2026-11-19, 09:15 CET)
 

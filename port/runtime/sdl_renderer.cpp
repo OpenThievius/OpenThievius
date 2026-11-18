@@ -492,12 +492,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
             if (texture == g_textures->placeholder()) {
                 present_missing_textures.insert(mesh.tex0);
-                // Opt-in: a placeholder texture is the host's magenta/black
+                // A placeholder texture is the host's magenta/black
                 // checkerboard, not real game art. Drawing it modulates that
-                // magenta into the frame (u_textured stays 1 below) and hides
-                // the real geometry behind it. Skip such meshes so the actual
-                // textured level is visible. Off by default.
-                if (getenv("OPENRAC_SKIP_PLACEHOLDER_MESH") != nullptr)
+                // magenta into the frame and hides the real level geometry.
+                // Skip such meshes by default; OPENRAC_SHOW_PLACEHOLDER_MESH
+                // restores the original behaviour.
+                if (getenv("OPENRAC_SHOW_PLACEHOLDER_MESH") == nullptr)
                     continue;
             } else
                 present_uploaded_textures.insert(mesh.tex0);

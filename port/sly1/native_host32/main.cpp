@@ -2494,18 +2494,21 @@ sly1_native_drive_splash_notifier() {
         *(volatile u32*)(obj + 0x2E8u) = (u32)(uintptr_t)walker; // host
 }
 
-// Opt-in forced-level boot for the SDL build (see compile_decomp_host32.py).
+// Default level boot for the SDL build (see compile_decomp_host32.py).
+// The native port has no title/movie flow to reach a level on its own, so it
+// boots the retail level 0x0100 through the proven QueueWorldLoad path. This
+// is the retail catalog's "A Stealthy Approach" entry. OPENRAC_DEFAULT_LEVEL
+// (or legacy OPENRAC_BOOT_LEVEL) overrides the key; OPENRAC_NO_DEFAULT_LEVEL
+// restores the retail Splash-only boot.
 extern "C" u32 sly1_native_boot_level_key_for_sdl(void) {
-    // OPENRAC_DEFAULT_LEVEL is the user-facing name for loading a level at
-    // boot; OPENRAC_BOOT_LEVEL is the legacy opt-in probe name. Both feed the
-    // same proven retail QueueWorldLoad path.
+    if (getenv("OPENRAC_NO_DEFAULT_LEVEL") != nullptr) return 0;
     const char* value = getenv("OPENRAC_DEFAULT_LEVEL");
     if (value == nullptr) value = getenv("OPENRAC_BOOT_LEVEL");
-    if (value == nullptr || *value == '\0') return 0;
+    if (value == nullptr || *value == '\0') return 0x0100u;
     char* end = nullptr;
     const unsigned long parsed = strtoul(value, &end, 0);
     return (end != value && *end == '\0' && parsed <= 0xFFFFFFFFul)
-               ? (u32)parsed : 0u;
+               ? (u32)parsed : 0x0100u;
 }
 extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     extern u8 D_00247AF0[]; // g_keyedEntries (46 x 0x2C)
@@ -2643,29 +2646,27 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
-    if (stage == 2 && (getenv("OPENRAC_BOOT_LEVEL") != nullptr ||
-                       getenv("OPENRAC_DEFAULT_LEVEL") != nullptr))
+    // Level boot is on by default; sly1_native_force_level_boot() itself
+    // returns early when the key is 0 (OPENRAC_NO_DEFAULT_LEVEL).
+    if (stage == 2)
         sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
-        // Opt-in area-mask override. With no value tree loaded, the retail
+        // Area-mask correction: with no usable value tree, the retail
         // LookupValueTreeLeaf returns the all-areas sentinel 0x0FFFFFFF, so
-        // QueueModelPartDraws' test (st->mask & views) != views culls ~1923 of
-        // the level's 1962 parts. The camera is in no defined area, so a mask
-        // of 0 makes that test pass for every part. Gate by env, off by default.
-        if (const char* mask_setting = getenv("OPENRAC_FIX_AREA_MASK")) {
-            const u32 wanted_mask = (u32)strtoul(mask_setting, nullptr, 0);
+        // QueueModelPartDraws culls ~1923 of the level's 1962 parts. A mask of
+        // 0x1 (the area the playable geometry uses) reveals the level. This is
+        // on by default so the port shows its level; OPENRAC_NO_DEFAULT_LEVEL
+        // restores the retail-only behaviour, and OPENRAC_FIX_AREA_MASK
+        // overrides the value (0 disables the override).
+        if (getenv("OPENRAC_NO_DEFAULT_LEVEL") == nullptr) {
+            u32 wanted_mask = 0x1u;
+            if (const char* mask_setting = getenv("OPENRAC_FIX_AREA_MASK"))
+                wanted_mask = (u32)strtoul(mask_setting, nullptr, 0);
             extern u32 D_00261990; // g_camera pointer
             const u32 cam = D_00261990;
-            if (cam >= 0x00010000u && cam < 0x02000000u) {
-                const u32 before = *(volatile u32*)(cam + 0x21Cu);
+            if (cam >= 0x00010000u && cam < 0x02000000u)
                 *(volatile u32*)(cam + 0x21Cu) = wanted_mask;
-                static volatile u32 last_before = 0xFFFFFFFFu;
-                if (before != last_before) {
-                    last_before = before;
-                    write_hex("native host32: area_mask before ", (int)before);
-                }
-            }
         }
         if (getenv("OPENRAC_TRACE_PLAYER") != nullptr && frame == 340u) {
             extern u32 D_00262E10; // g_player
