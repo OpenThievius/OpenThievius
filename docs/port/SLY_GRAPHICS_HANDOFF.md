@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 12:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 12:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Game-thread drive moves the graph off its idle self-edge (2026-11-18, 12:40 CET)
+
+I reproduced the missing timer dispatch from the correct game-thread context:
+an opt-in `sly1_native_drive_splash_notifier()` is injected into `RunMainLoop`
+(right after `RunWorldFrameLists`) and called when
+`OPENRAC_DRIVE_SPLASH_NOTIFIER` is set. It finds the countdown notifier created
+at load (`0x00847ef0`, tracked from the CreateTypedRecord hook) and calls the
+retail `CreateStateWalker` (`func_001B6290`, via its exact C++ symbol) on the
+notifier's `stateGraph` (`0x25F` link, `0x0084cfb0`) with event `0x263`, storing
+the result as the notifier's `host` — exactly what retail
+`SetStateNotifierState(state 6)` does when `host==0`. No field is fabricated;
+only the retail function is invoked.
+
+Verified: the created walker's `current` is state index **3**, and the graph's
+four state keys are `0x260, 0x262, 0x261, 0x263` — so index 3 is key **`0x263`**.
+The graph's walker is therefore moved off its idle self-edge (index 2 / `0x261`)
+onto the `0x263` transition state. Calling this from the trace hook segfaulted;
+from `RunMainLoop` on the game thread it does not. Direct calls via
+`resolve_native` hit the wrong address, which explained the earlier crash.
+
+The visible scene still does not change: after the graph reaches `0x263`, the
+world/ui state remains `0x870cf0` / `ui=3` with the same distant sub-scene and
+no HUD or character. So the graph transition is necessary but not sufficient
+for a recognizable, controllable level — the script event attached to `0x263`
+does not (in this port) produce a playable level transition. Opt-in and off by
+default; tree clean at `0904912` plus the hooks; checks pass. Captures:
+`/tmp/sly-walker3-20261118/`, `/tmp/sly-gamedrive-20261118/`.
 
 ### Persistent CreateTypedRecord/notifier hooks; notifier IS created but not updated (2026-11-18, 12:00 CET)
 

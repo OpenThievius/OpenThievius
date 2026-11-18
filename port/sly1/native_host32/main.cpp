@@ -2461,6 +2461,34 @@ sly1_native_trace_create_typed_record(u32 index, u32 id, u32 world) {
 }
 
 extern "C" u32 first_notifier_object();
+// Retail CreateStateWalker(StateGraph*, void*, int, int).
+extern "C" void* retail_create_state_walker(void*, void*, int, int)
+    asm("_Z13func_001B6290P10StateGraphPvii");
+
+// Opt-in drive of the Splash countdown notifier through its OWN retail state
+// setter (descriptor method m2F at +0xCC), called from RunMainLoop on the game
+// thread so the call has the right context. This reproduces the retail
+// state-2 -> state-6 / event-0x263 transition the graph needs, without forcing
+// any field.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_drive_splash_notifier() {
+    if (getenv("OPENRAC_DRIVE_SPLASH_NOTIFIER") == nullptr) return;
+    static volatile u32 driven = 0;
+    if (__atomic_load_n(&driven, __ATOMIC_RELAXED) != 0u) return;
+    const u32 obj = first_notifier_object();
+    if (obj < 0x00010000u || obj >= 0x02000000u) return;
+    const u32 graph = *(volatile u32*)(obj + 0x2E4u); // stateGraph link (0x25F)
+    if (graph < 0x00010000u || graph >= 0x02000000u) return;
+    __atomic_store_n(&driven, 1u, __ATOMIC_RELAXED);
+    // Retail SetStateNotifierState(state 6 -> event 0x263) with host==0 creates
+    // a StateWalker on the notifier's graph at event 0x263. Call that retail
+    // function directly via its exact symbol and store it as the notifier's
+    // host, so the graph has a walker targeting 0x263 instead of idling on
+    // its self-edge at 0x261. No graph/field values are fabricated.
+    void* walker = retail_create_state_walker((void*)graph, (void*)obj, 0x263, 0);
+    if (walker != nullptr)
+        *(volatile u32*)(obj + 0x2E8u) = (u32)(uintptr_t)walker; // host
+}
 
 // Opt-in trace of the Splash countdown notifier's per-frame update.
 extern "C" __attribute__((no_instrument_function)) void

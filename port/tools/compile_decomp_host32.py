@@ -4299,6 +4299,7 @@ void StartStateGraph"""
                     'extern s32 D_002701B8;\n'
                     'extern "C" void sly1_native_trace_startup(u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_frame_stage(u32);\n'
+                    'extern "C" void sly1_native_drive_splash_notifier();\n'
                     'extern "C" void sly1_native_trace_note_world(u32);\n'
                     'extern "C" void sly1_native_trace_memory_gate(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
                     'extern "C" void sly1_native_trace_memory_timing(float, float, float);\n'
@@ -4329,7 +4330,8 @@ void StartStateGraph"""
             world_walk = "            RunWorldFrameLists(g_currentWorld, g_camera);"
             adapted = adapted.replace(
                 world_walk,
-                "            sly1_native_trace_note_world((u32)g_currentWorld);\n" + world_walk,
+                "            sly1_native_trace_note_world((u32)g_currentWorld);\n"
+                "            sly1_native_drive_splash_notifier();\n" + world_walk,
                 1)
             end_frame = "            SubmitRenderFrame();\n        }\n        g_frameCount++;"
             end_frame_replacement = (
