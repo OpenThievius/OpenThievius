@@ -1,8 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 19:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 20:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Reader-entry cursor comparison: object is never the level model (2026-11-18, 20:15 CET)
+
+I logged stream cursor + remaining at entry to `ReadPlacedObjectModel` and the
+count/cursor at the count read, in the forced-level build:
+- entry cursor e.g. `0x70001588` (remaining `0xa78`), count cursor `0x7000158e`
+  — a delta of exactly **6 bytes**, the expected three U8 reads (`a`, `b`,
+  `nids`) before `count`. Entry→count deltas are 6 bytes across all samples.
+  So the reader field sequence consumes the correct bytes; the counts (0/1/6)
+  are the actual values in those streams.
+- Owner objects at reader entry are all at `0x0084xxxx..0x0085xxxx` (15 distinct
+  small placed objects), never a class-4 level model object.
+
+So the divergence vs the old wave's count 1,962 is not reader positioning or
+field offsets: the current build **never passes the level model object to
+`ReadPlacedObjectModel`**. The object that would carry 1,962 parts either is not
+created or is not parsed through this path in the current build. That is further
+upstream (level object-record creation / which objects get a model read) and is
+the real frontier. All instrumentation was opt-in and reverted; tree clean at
+`0904912` plus earlier opt-in hooks, checks pass. Captures:
+`/tmp/sly-entry-20261118/`, `/tmp/sly-entry2-20261118/`. No fields forced.
 
 ### ASM vs decomp reader comparison: identical field reads (2026-11-18, 19:30 CET)
 
