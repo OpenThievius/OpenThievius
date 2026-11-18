@@ -1,8 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 03:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 04:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Why the gameplay frame is abstract: camera far from level (2026-11-19, 04:15 CET)
+
+I checked the submitted meshes with the loaded level in gameplay
+(`/tmp/sly-meshdbg-20261119/`):
+- The large meshes are still background geometry: local coords ±50000, NDC
+  `-2.67..4.10` / `-56..0.50`, only ~25-50 of 68/106 vertices inside the clip.
+  These produce the thin yellow strips at the horizon.
+- The small near meshes (58 vertices, 3 passes) project to NDC ~`-0.048,-0.014`
+  — a tiny spot near screen center (the tiny object in the captured frame).
+- 8 distinct uploaded tex0 values on the meshes.
+
+So even in `ui_state=3`, the camera view (translation ~`4005,390,10890`) looks
+at the level from very far away; the playable geometry occupies a tiny patch.
+The big magenta radial fan is the producer/untextured geometry path, not a real
+textured level surface. Two things remain for a recognizable frame: the camera
+must be positioned at the play area (it does not follow the player on this
+path), and the world-mesh colours/textures must be correct. These are renderer
+and camera-state gaps, not a game-state problem any more.
+
+No code changed this turn. Checks pass.
 
 ### Input advances the loaded level to gameplay ui_state=3 (2026-11-19, 03:45 CET)
 
