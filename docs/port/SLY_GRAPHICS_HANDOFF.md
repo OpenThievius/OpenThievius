@@ -1,8 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 05:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 05:50 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Framing, input progression and crash audit (2026-11-18, 05:50 CET)
+
+I looked at why the visible scene is only a distant sub-scene. Mesh clip bounds
+(`OPENRAC_TRACE_SLY_WORLD_BOUNDS`, `/tmp/sly-bounds3-20261117/`) show the
+submitted meshes are mostly large background geometry: e.g. instance
+`0x5e53800000` has local coordinates `-50000..50000` and NDC
+`-178..2.24`, with only ~39/106 vertices inside the clip volume. A handful of
+small objects (instance `0x5e47...`) sit at NDC `-0.61..-0.08`, `0.06..0.30`.
+There is no large, near-camera level mesh in the submission set — the distant
+grate-like structure in the captures is the in-range part of that background
+geometry, not a wrong camera matrix.
+
+I injected a burst of ten Cross presses (frames 300..480, 20 apart) via the
+comma-separated `OPENRAC_TEST_PRESS_CROSS_AT_FRAMES`; all ten reached the pad,
+but the scene at frame 520+ was unchanged. So input reaches the game but does
+not advance it to a recognisable level — either the game is still in a
+pre-level state (title/cinematic) or more than Cross is required. Only Cross
+can be injected by the current test harness (`port/platform/sly_input.cpp`).
+
+I re-tested the alternate matrix convention (`OPENRAC_SLY_WORLD_AUTO_MATRIX=1`)
+against the now-correct compositing: it produces a fan of huge triangles from
+one point (`/tmp/sly-mode1-20261117/contact.png`), confirming mode 0 is right.
+
+I could not reproduce the `double free or corruption` abort in two 60-second
+runs (with and without the producer), so it is intermittent; the existing
+fault-trace handler did not fire. 32-bit ASan is unavailable in this toolchain
+(the `libasan.so` linker script points at a missing `/usr/lib/libasan.so.8.0.0`).
+No code changed this audit; the tree is clean at `32a2588`.
 
 ### World geometry finally visible (2026-11-18, 05:15 CET)
 
