@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 03:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 03:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Input advances the loaded level to gameplay ui_state=3 (2026-11-19, 03:45 CET)
+
+Following the alignment fix, I drove the loaded level through its menus with
+real windowed input (`--trace` keeps the run stable):
+- Page 7 is `g_pauseMenuPages[7]` = "No Sly Cooper Save File ... Do you want to
+  create a Sly Cooper Save File?" (a 2-item Yes/No prompt). Up+Cross selects Yes
+  and advances it. (`OPENRAC_TEST_PRESS_CROSS_AT_FRAMES` alone only sends Cross,
+  which keeps the default No, so windowed Up+Cross was needed.)
+- The state sequence (`/tmp/sly-resume-20261119/run.log`) is
+  `ui_state 0 -> 3 (page 7, save-file prompt) -> 6 (transition) -> 3 (page 0,
+  gameplay)` with `pause_open=0`, world `0x88d5b0`, frames climbing past 297.
+  So the game is now in the gameplay state with the level loaded.
+
+**But the rendered frame is still abstract** (`/tmp/sly-resume-20261119/`):
+gray sky, two thin yellow strips at the horizon and a magenta radial fan below,
+with a tiny object near the horizon — no recognizable Sly level, character or
+HUD. So the game logic reaches gameplay, but the world-mesh render path draws
+the loaded level's geometry with wrong colours/textures (the magenta fan looks
+like a placeholder texture). That is the remaining gap for a visible level.
+
+The intermittent heap-corruption abort (`malloc(): unaligned tcache chunk`,
+`free(): double free detected in tcache 2`) still occurs on some runs, usually
+with input or without `--trace`; its stack runs through the world-mesh submit /
+packet-writer path. No code changed this turn (windowed input runs only).
 
 ### Alignment fault fixed: game thread survives, level renders (2026-11-19, 03:00 CET)
 
