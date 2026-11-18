@@ -2842,6 +2842,27 @@ def main(argv=None):
             adapted = adapted.replace(" throw(bad_alloc)", "")
         elif rel.as_posix() == "main/pad_input.cpp":
             adapted = adapted.replace("fabsf(", "__builtin_fabsf(")
+        elif rel.as_posix() == "main/curve_segment.cpp":
+            # FindEarliestTimeWithinCurveLimits walks the PS2 EE's 8-byte vararg
+            # slots by hand (__builtin_next_arg - 56, 8-byte steps). On native
+            # i386 those slots are garbage, so the forced level load faults here
+            # (c pointer is invalid). Rebuild the vararg walk with host <cstdarg>:
+            # each pair is a curve pointer and a double time limit, then the
+            # result pointer. The matched decompilation source is untouched.
+            cursor_line = "    char* ap = (char*)__builtin_next_arg(n) - 56;"
+            if adapted.count(cursor_line) == 1:
+                adapted = adapted.replace(
+                    cursor_line,
+                    "    __builtin_va_list ap;\n    __builtin_va_start(ap, n);")
+            adapted = adapted.replace(
+                "        f32* c = *(f32**)((ap += 8) - 8);\n"
+                "        f32 t = ConvertDoubleToFloat(*(u64*)((ap += 8) - 8));",
+                "        f32* c = __builtin_va_arg(ap, f32*);\n"
+                "        double t64 = __builtin_va_arg(ap, double);\n"
+                "        f32 t = (f32)t64;")
+            adapted = adapted.replace(
+                "    **(f32**)((ap += 8) - 8) = best;\n}",
+                "    *__builtin_va_arg(ap, f32*) = best;\n    __builtin_va_end(ap);\n}")
         elif rel.as_posix() in ("main/file_1B7968.cpp", "main/collider.cpp"):
             # This helper manually walks the original EE 8-byte vararg slots.
             # The host32 C++ ABI places each word argument in a 4-byte stack

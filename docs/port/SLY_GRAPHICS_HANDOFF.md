@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 00:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 01:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Native varargs fix: level load passes stages 6/7 (2026-11-19, 01:15 CET)
+
+I diagnosed the crash at `func_00130C58` (`FindEarliestTimeWithinCurveLimits`) as
+a PS2-EE-vs-i386 varargs ABI mismatch: the decomp body walks EE 8-byte vararg
+slots (`__builtin_next_arg(n) - 56`, `(ap += 8) - 8`), so on native i386 it read
+a garbage curve pointer. I added a `curve_segment.cpp` branch in
+`compile_decomp_host32.py` that rebuilds that walk with
+`__builtin_va_list`/`va_arg` (curve pointer + double limit pairs, result
+pointer), leaving the matched decompilation source untouched.
+
+Verified: both the normal and forced level loads now pass `LoadWorld` stages
+6 **and** 7 (`CloseBufferedStream`) with no fault at `func_00130C58` — the
+world rebuild from the stream completes. The process still faults later in
+post-load player control: fault eip `0x0816a457` =
+`func_001C49E8` (`ReadTurningColliderStickHeading`, ASM-only) via
+`func_00173888` (Player) — a bad turning-collider reference while the placed
+player's controller runs. That is the new frontier. Captures:
+`/tmp/sly-wlstage7-20261118/`, `/tmp/sly-wlstage8-20261118/`. Checks pass; no
+fields forced.
 
 ### ASM-only trap replaced; level load advances to object setup (2026-11-19, 00:30 CET)
 
