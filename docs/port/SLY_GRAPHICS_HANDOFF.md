@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 05:50 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 06:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Input formats and direct level boot (2026-11-18, 06:20 CET)
+
+I verified both real input paths. `port/game/sly1-us/native/func_002042C8.cpp`
+swaps the button bytes so standard DualShock masks reach Sly's internal masks:
+X11 SPACE gives Cross (`held=0x4000` -> internal `0x0040`), X11 Return gives
+Start (`held=0x0008` -> internal `0x0800`). All presses were observed in the
+`OPENRAC_TRACE_PAD` output, so input is delivered correctly.
+
+The decomp's prompt text is "Press START button for New Game"
+(`g_promptTexts` in `screen_element.cpp`). I sent three Returns then three
+SPACES via XTEST to a windowed launcher (`/tmp/send_start.py`): all reached the
+pad, but the scene did not become a recognisable level — the world meshes even
+disappeared at frame 700+, suggesting a state change without level activation.
+
+I retried the `OPENRAC_BOOT_LEVEL=0x0100` direct-load probe (catalogued "A
+Stealthy Approach", sector 867214) against the fixed renderer. It shows the
+same distant sub-scene as the normal path, not a populated playable level.
+Prior notes already record that several level-construction/update functions
+remain no-C stubs, so a parsed resource does not imply a valid, controllable
+world. The heap abort still did not reproduce in these runs. No code changed;
+tree clean at `40b6e69`. Captures: `/tmp/sly-startinput-20261117/`,
+`/tmp/sly-bootlevel2-20261117/`.
 
 ### Framing, input progression and crash audit (2026-11-18, 05:50 CET)
 
