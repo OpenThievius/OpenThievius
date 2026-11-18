@@ -1,8 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 22:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 23:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Post-input gameplay frame captured — not recognizable (2026-11-19, 23:30 CET)
+
+I made the gameplay frame dump sticky (once ui_state=3 is seen, keep capturing)
+and finally captured 64 frames at gameplay state in /tmp/sly-latch3/ (run 3 of
+5, ui_state=3 confirmed in the trace). I viewed the captured frames
+(g00.png, gameplay.png): they show a severely distorted view — gray surfaces
+and thin yellow/grey strips converging, as if the camera is clipping into or
+very close to the road/bridge geometry. There is NO recognizable Sly level, NO
+character, and NO HUD. This is direct evidence that reaching ui_state=3 does
+not yield a playable frame: the camera framing/scale during gameplay is wrong
+and the player character (kind-5 meshes filtered) and HUD are absent.
+
+So the goal is definitively not met despite reaching the gameplay state. The
+remaining work is substantial: correct the gameplay camera placement/scale,
+decode/render the kind-5 player, reproduce the HUD, fix the save-prompt
+navigation reliability, and pin the mesh-submit heap corruption (needs an ASan
+or symbol-rich reproducing build). No game-state was forced; the frame is a
+genuine capture. Checks pass.
 
 ### Gameplay state (ui_state=3) reached via windowed input (2026-11-19, 22:30 CET)
 

@@ -1778,12 +1778,15 @@ extern "C" void openrac_native_window_present(void) {
             const unsigned long parsed = std::strtoul(setting, &end, 10);
             if (end != setting && *end == '\0') start_present = static_cast<unsigned>(parsed);
         }
-        // Opt-in: only capture frames while the game reports the gameplay UI
-        // state (3), so a post-input playable frame is not lost among menus.
+        // Opt-in: once the game reports the gameplay UI state (3), latch and
+        // keep capturing. The gameplay window can be shorter than the present
+        // cadence, so a strict per-frame check misses it entirely.
+        static bool gameplay_seen = false;
         bool gameplay_only_ok = true;
         if (std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr) {
             const unsigned int packed = sly1_native_menu_page_and_state();
-            gameplay_only_ok = ((packed >> 8u) & 0xFFu) == 3u;
+            if (((packed >> 8u) & 0xFFu) == 3u) gameplay_seen = true;
+            gameplay_only_ok = gameplay_seen;
         }
         const unsigned dump_cap = std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr
             ? 64u : 8u;
