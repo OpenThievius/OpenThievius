@@ -1,8 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 14:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 14:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Card emulation now default (2026-11-19, 14:45 CET)
+
+I made memory-card emulation default (OPENRAC_NO_MEMCARD restores no-card),
+so the retail "no memory card" prompt no longer blocks progression. Verified:
+the no-card page (3) is gone; the saved states show card_state=3/card_result=0
+(a formatted card) and only pages 0 and 7 (the save-file prompt) appear.
+
+The game still does not reliably reach controllable gameplay: the game thread
+runs very slowly with the new default (~frame 71 in 26s) and stalls at page 7;
+windowed input also desyncs the frame-semaphore handshake. The intermittent
+heap abort (`malloc(): unaligned tcache chunk detected`) reproduces in the
+Release build once per ~2 runs but not in the -O2 RelWithDebInfo build (timing
+shift), so a resolved abort backtrace is still unavailable. No code beyond the
+card default changed this turn; checks pass.
 
 ### Windowed-load desync diagnosed (2026-11-19, 14:00 CET)
 

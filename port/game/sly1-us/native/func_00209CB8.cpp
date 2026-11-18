@@ -11,7 +11,8 @@ extern "C" char* getenv(const char*);
 
 extern "C" s32 func_00209CB8(s32, s32, s32* card_type,
                               s32* free_blocks, s32* card_result) {
-    const bool emulate_card = getenv("OPENRAC_NATIVE_MEMCARD") != nullptr;
+    // Emulate a formatted card by default (see func_00209B80.cpp).
+    const bool emulate_card = getenv("OPENRAC_NO_MEMCARD") == nullptr;
     if (card_type != nullptr) *card_type = emulate_card ? 2 : 0;
     if (free_blocks != nullptr) *free_blocks = emulate_card ? 8192 : 0;
     if (card_result != nullptr) *card_result = emulate_card ? 1 : 0;

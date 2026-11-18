@@ -12,7 +12,10 @@
 extern "C" char* getenv(const char*);
 
 extern "C" s32 func_00209B80(s32 no_wait, s32* operation, s32* result) {
-    const bool emulate_card = getenv("OPENRAC_NATIVE_MEMCARD") != nullptr;
+    // Emulate a formatted card by default: the native port has no real memory
+    // card, and the retail no-card prompt would otherwise block progression to
+    // gameplay. OPENRAC_NO_MEMCARD restores the no-card behaviour.
+    const bool emulate_card = getenv("OPENRAC_NO_MEMCARD") == nullptr;
     if (operation != nullptr) *operation = 1;
     if (result != nullptr) *result = emulate_card ? 0 : -1;
     (void)no_wait;
