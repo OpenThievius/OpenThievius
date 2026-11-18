@@ -1,8 +1,38 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 08:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 08:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Splash graph state transition derived from retail code (2026-11-18, 08:30 CET)
+
+I traced the state machine the project TODO points at, using the canonical
+build's `[state-graph-trace]` diagnostic. Actual Splash graph state:
+`graph=0x84b620 states=4 edges=7 armed=0 walker current=2 state_key=0x261
+state_next=2 edge 2->2 flags=0x1 weight=5 player_time advancing`.
+
+Derivation from `src/main/state_walker.cpp` / `state_notifier.cpp`:
+- `StartStateGraph` only spawns the initial walker when `armed != 0`; here
+  `armed=0`, so no graph-driven transition is scheduled.
+- The one walker that exists replays the 2->2 self-edge: `StartNextStateWalkerEdge`
+  keeps selecting the self-loop because the walker's `target=0`, so
+  `HandleStateWalkerTrackEnd` commits arrival back to state 2 forever.
+- The transition out is not internal to the graph: `HandleCountdownNotifierNotification`
+  only fires mode 1 / completion when its host walker reaches key `0x263`, and
+  `CountDownNotifierTimer` only counts while field `f338` (the gate reference)
+  is set. The runtime notifier is in state 0 with `f338` null and timer 0, so
+  it never advances and `0x263` is never reached.
+- `f338` and the `armed` flag are populated from the asset's property records
+  / object links (via `ReadPropertyRecords` in `LoadStateGraph`), not from decomp
+  C. So the retail transition depends on asset data that the current load path
+  does not resolve into these fields.
+
+This is a genuine asset-link/graph-arming gap, exactly the open question the
+project TODO records ("determine whether the asset intentionally leaves +0x338
+null"). Resolving it correctly means finding which retail property record or
+linker step sets `armed` and `f338` for this object and reproducing that in the
+port loader — not forcing either field. I did not force them. No code changed;
+tree clean at `0904912`. Trace: `/tmp/sly-graph-20261118/run.log`.
 
 ### Opt-in memory-card emulation (2026-11-18, 08:00 CET)
 
