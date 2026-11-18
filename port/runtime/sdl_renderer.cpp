@@ -1333,6 +1333,40 @@ extern "C" int openrac_native_window_poll_input(void) {
         }
     }
     ++test_frame;
+    // Opt-in Up+Cross sequence (bitmask: 0x10=Up, 0x40=Cross, 0x08=Start)
+    // at native frames, for driving menus in hidden/stable mode.
+    {
+        static std::vector<unsigned> seq_frames;
+        static std::vector<unsigned> seq_buttons;
+        static bool seq_parsed = false;
+        static std::size_t seq_next = 0;
+        if (!seq_parsed) {
+            seq_parsed = true;
+            const char* s = std::getenv("OPENRAC_TEST_BUTTONS_AT_FRAMES");
+            if (s != nullptr) {
+                // format: frame:mask,frame:mask,...
+                const char* p = s;
+                while (*p != '\0' && seq_frames.size() < 32u) {
+                    char* end = nullptr;
+                    const unsigned long f = std::strtoul(p, &end, 0);
+                    if (end == p || *end != ':') break;
+                    p = end + 1;
+                    const unsigned long m = std::strtoul(p, &end, 0);
+                    if (end == p) break;
+                    seq_frames.push_back(static_cast<unsigned>(f));
+                    seq_buttons.push_back(static_cast<unsigned>(m));
+                    p = end;
+                    if (*p == ',') ++p; else break;
+                }
+            }
+        }
+        while (seq_next < seq_frames.size() && test_frame >= seq_frames[seq_next]) {
+            g_input->test_press_buttons_once(seq_buttons[seq_next]);
+            std::fprintf(stderr, "[test-input] injected buttons %#x at native frame %u\n",
+                         seq_buttons[seq_next], test_frame);
+            ++seq_next;
+        }
+    }
     while (test_cross_next < test_cross_count && test_frame >= test_cross_frames[test_cross_next]) {
         g_input->test_press_cross_once();
         std::fprintf(stderr, "[test-input] injected Cross press %u at native frame %u\n",

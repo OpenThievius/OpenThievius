@@ -43,6 +43,19 @@ void Input::test_press_cross_once() {
     m_test_cross_pending = true;
 }
 
+void Input::test_press_buttons_once(unsigned int buttons) {
+    m_test_buttons_pending |= buttons;
+    m_test_button_frames = 1;
+}
+
+void Input::apply_test_buttons(openrac::platform::Pad& pad) {
+    if (m_test_button_frames <= 0) return;
+    for (unsigned b = 0; b < 16; ++b)
+        if (m_test_buttons_pending & (1u << b)) pad.set(static_cast<Button>(1u << b), true);
+    --m_test_button_frames;
+    if (m_test_button_frames == 0) m_test_buttons_pending = 0;
+}
+
 const openrac::platform::Pad& Input::pad(int port) const {
     static const openrac::platform::Pad disconnected{};
     return port >= 0 && port < 2 ? m_pads[static_cast<std::size_t>(port)] : disconnected;
@@ -82,6 +95,7 @@ void Input::refresh_pad(int port) {
             pad.set(Button::Cross, true);
             m_test_cross_pending = false;
         }
+        if (port == 0) apply_test_buttons(pad);
         return;
     }
 
@@ -114,6 +128,7 @@ void Input::refresh_pad(int port) {
         pad.set(Button::Cross, true);
         m_test_cross_pending = false;
     }
+    if (port == 0) apply_test_buttons(pad);
 }
 
 }  // namespace sly1::platform

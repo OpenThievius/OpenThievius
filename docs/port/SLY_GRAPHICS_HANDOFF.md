@@ -1,8 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 14:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 15:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Test-input button-sequence harness (2026-11-19, 15:30 CET)
+
+I extended the hidden-mode test harness with a generic button-sequence injection:
+OPENRAC_TEST_BUTTONS_AT_FRAMES='frame:mask,...' (mask 0x10=Up, 0x40=Cross,
+0x08=Start) injects multi-button presses at given native frames, via a new
+Input::test_press_buttons_once() bitmask path. This lets menu navigation
+(Up+Cross) be driven in hidden mode without the windowed semaphore desync.
+
+Verified: all 8 scheduled sequences were injected; the game reached page 7.
+But the run still hit the heap abort (`malloc(): unaligned tcache chunk`) and
+the level-load stall (`world=0` until frame 61, then page 7), so gameplay was
+not reached. The harness is a diagnostic aid; it does not fix the desync or the
+abort. Checks pass.
 
 ### Card emulation now default (2026-11-19, 14:45 CET)
 

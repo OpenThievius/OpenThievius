@@ -20,13 +20,17 @@ public:
     void handle_event(const SDL_Event& event);
     void update();
     void test_press_cross_once();
+    void test_press_buttons_once(unsigned int buttons);
     const openrac::platform::Pad& pad(int port) const;
 
 private:
     void refresh_pad(int port);
+    void apply_test_buttons(openrac::platform::Pad& pad);
     std::array<SDL_Gamepad*, 2> m_gamepads{};
     std::array<openrac::platform::Pad, 2> m_pads{};
     bool m_test_cross_pending{};
+    unsigned int m_test_buttons_pending{};  // bitmask of platform::Button
+    int m_test_button_frames{};
 };
 
 }  // namespace sly1::platform
