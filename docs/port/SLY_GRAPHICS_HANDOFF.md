@@ -48,8 +48,25 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 08:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 09:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Rank-1 hierarchical propagation identified (2026-11-20, 09:00 CET)
+
+I analyzed all dumped bone matrices: bones 8 and 29 have row_cross=1.0 (valid
+orthogonal rotations), while bones 1,2,3,4,5,7,9 are rank-1 (row_cross=0.0).
+All bad bones share the SAME rotation direction (normalized ~(-0.35,0.26,-0.87)),
+and their magnitudes grow geometrically: idx3 ~63, idx4 ~1.8e5, idx5 ~1.4e8.
+Their translation vectors are proportional to that same direction. This is the
+signature of a rank-1 matrix being composed down the pose hierarchy: once one
+bone's m110 becomes rank-1, every descendant stays rank-1 and its scale
+compounds (parent.m110 rotates the child pos into the same direction).
+
+The matrix builders (func_00188850 BuildEulerRotationMatrix, func_00188A20) are
+real translations, not stubs, so the root is a bad pose input (axis/angle or a
+pose-source getRot returning a degenerate matrix) for one bone, then hierarchical
+propagation. Decompiling the pose-source evaluation that produces the first rank-1
+matrix is the concrete remaining task. No code changed this turn; checks pass.
 
 ### Bone corruption pattern and timing (2026-11-20, 08:00 CET)
 
