@@ -1,8 +1,38 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 09:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 10:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Decisive: no notifier object exists to drive (2026-11-18, 10:15 CET)
+
+I implemented an opt-in port-only hook (`drive_splash_notifier_stage8`, on the
+always-called `sly1_native_trace_frame_stage`) to locate the CountdownNotifier
+at runtime and drive it through its retail state setters (state 2 ->
+`timerEnabled=1` via `func_00147AB0`, then state 6 / event `0x263` via
+`func_00148FF0`), rather than forcing any field. To find it I walked the live
+world's `objectsById` table and the `list3C/48/54/6C/78` + `hashLists` at the
+world base read from `g_currentWorld` (`D_00275710`).
+
+Class histogram of every reachable object (opt-in `seen class` trace) in both
+the Splash world `0x6abdd0` and post-Cross `0x870cf0`:
+`02,04,1e,4d,51,53,6c,6d,75,78,7a,7d,83,88,8e`.
+Class `0x88` (StateGraph) **is** present, but **none** of the notifier classes
+`0x55/0x57/0x58/0x5A/0x5B` exists. There is literally no CountdownNotifier
+object in the loaded world to drive, so the transition cannot be reproduced
+by driving it — the object the retail graph relies on was never created by
+this loader path. This supersedes the earlier assumption that a notifier with
+a null gate merely needed its state advanced.
+
+I also confirmed the SDL host maps game memory at guest addresses directly
+(`openrac_guest_base` is null; e.g. `*(volatile u32*)0x006abdd0u` works). The
+list-walk hit an invalid `next` pointer and segfaulted once; I reverted all
+experimental hook code, so the tree is clean at `0904912`. Captures:
+`/tmp/sly-hist5-20261118/`, `/tmp/sly-drive*-20261118/`.
+
+The remaining task is now clear: find why the asset's notifier object (class
+0x57) is not instantiated during load, which requires the retail asset/object
+reference. No fields were forced. No code changed.
 
 ### Full notifier/graph state chain (2026-11-18, 09:30 CET)
 
