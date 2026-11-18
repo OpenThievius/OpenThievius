@@ -1,8 +1,57 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 05:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 06:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Parallel investigation + area-mask root cause confirmed (2026-11-19, 06:30 CET)
+
+Four parallel subagents investigated the remaining gaps. Integrated findings:
+
+1. **Render-list activation (decisive).** The class-4 owner IS populated with
+   1,962 parts and walked every frame — the "no owner / 0/1/6 count" story was
+   from older waves. The cause of the sparse render is `cam->areaMask =
+   0x0FFFFFFF` (the "no value tree" sentinel, `LookupValueTreeLeaf` /
+   `QueryValueListMask` in warp_menu.cpp). `QueueModelPartDraws`
+   (`point_graph.cpp:211`, `(st->mask & views) != views`) culls **1,923 of 1,962**
+   parts (planes cull 33; only 6 queued). The "16 meshes" was a logging cap
+   (`main.cpp:1122`), not a real count — ~135 submissions occur.
+   The player is a separate, genuine absence: `g_player.drawPartCount=0`.
+2. **Colour/texture.** The magenta fan is the host's magenta/black placeholder
+   checkerboard (texture_pool.cpp:96-105), for two rasters (TBP 0x1480/0x1880)
+   never uploaded; `u_textured` stays 1 and modulates magenta in. Vertex colours
+   are already 0-1 floats and the shader's `*255` is correct — no scale bug.
+   CLUT handling works for the 6 real paletted textures.
+3. **Heap corruption.** Reproduced (`malloc(): unaligned tcache chunk detected`
+   / `free(): double free detected in tcache 2`) with an interposer confirming a
+   real double-free in mmap'd worker-thread arenas. The strongest suspect
+   (vector copy outside mutex) was DISPROVEN — both accesses hold the lock.
+   The VIF/GS writer helpers (ReserveVifUnpack/CopyWordsToWriter) have no `end`
+   check and can overrun guest packet regions (not glibc heap). Exact free line
+   unresolved (release binary lacks line info).
+4. **Default flow.** The retail boot loads Splash via
+   `StartObjectFade(&g_sessionFadeKey,-1,0)` (game_progress.cpp:1355). All
+   functions for Splash->title->New Game->level are linked (none stubbed); the
+   gap is the trigger, not missing code. Most faithful default-load fix:
+   redirect that boot fade to the 0x0100 level entry.
+
+**Verified fixes applied (both opt-in, off by default):**
+- `OPENRAC_FIX_AREA_MASK=<hex>` writes the camera's areaMask each frame. With
+  `0x1`/`0x3`, the culled level geometry appears: captured frames
+  (`/tmp/sly-area-mask-0x1/first.png`) show a detailed GRAY TEXTURED environment
+  (rocky/cliff terrain with texture detail) instead of the blank abstract sky —
+  the area-mask culling was genuinely hiding the level. `0x0` (all parts) crashes
+  (un-culling all 1,962 overflows the SPR/deferred queue).
+- `OPENRAC_SKIP_PLACEHOLDER_MESH=1` skips placeholder-textured meshes, removing
+  the magenta fan. Combined (`/tmp/sly-combo-0x1/first.png`) shows the detailed
+  world alone.
+
+**Still not a recognizable level:** no character, HUD, or coherent level layout;
+the revealed geometry is displaced gray terrain (textures render grayscale,
+placement/orientation off). The player's model parts are genuinely absent
+(drawPartCount=0). Making a playable frame still needs: correct value-tree area
+mask (or faithful area assignment), correct texture/fade reproduction, and
+player model population — substantial game-logic work. Checks pass.
 
 ### Meshes are from the correct world, but only 16 are submitted (2026-11-19, 05:30 CET)
 

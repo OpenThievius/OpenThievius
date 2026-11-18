@@ -2643,6 +2643,25 @@ sly1_native_trace_frame_stage(u32 stage) {
         sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
+        // Opt-in area-mask override. With no value tree loaded, the retail
+        // LookupValueTreeLeaf returns the all-areas sentinel 0x0FFFFFFF, so
+        // QueueModelPartDraws' test (st->mask & views) != views culls ~1923 of
+        // the level's 1962 parts. The camera is in no defined area, so a mask
+        // of 0 makes that test pass for every part. Gate by env, off by default.
+        if (const char* mask_setting = getenv("OPENRAC_FIX_AREA_MASK")) {
+            const u32 wanted_mask = (u32)strtoul(mask_setting, nullptr, 0);
+            extern u32 D_00261990; // g_camera pointer
+            const u32 cam = D_00261990;
+            if (cam >= 0x00010000u && cam < 0x02000000u) {
+                const u32 before = *(volatile u32*)(cam + 0x21Cu);
+                *(volatile u32*)(cam + 0x21Cu) = wanted_mask;
+                static volatile u32 last_before = 0xFFFFFFFFu;
+                if (before != last_before) {
+                    last_before = before;
+                    write_hex("native host32: area_mask before ", (int)before);
+                }
+            }
+        }
         if (getenv("OPENRAC_TRACE_PLAYER") != nullptr && frame == 340u) {
             extern u32 D_00262E10; // g_player
             const u32 player = D_00262E10;
