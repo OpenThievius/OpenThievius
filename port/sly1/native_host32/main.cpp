@@ -2494,10 +2494,49 @@ sly1_native_drive_splash_notifier() {
         *(volatile u32*)(obj + 0x2E8u) = (u32)(uintptr_t)walker; // host
 }
 
+// Opt-in forced-level boot for the SDL build (see compile_decomp_host32.py).
+extern "C" u32 sly1_native_boot_level_key_for_sdl(void) {
+    const char* value = getenv("OPENRAC_BOOT_LEVEL");
+    if (value == nullptr || *value == '\0') return 0;
+    char* end = nullptr;
+    const unsigned long parsed = strtoul(value, &end, 0);
+    return (end != value && *end == '\0' && parsed <= 0xFFFFFFFFul)
+               ? (u32)parsed : 0u;
+}
+extern "C" u32 sly1_keyed_entries_for_sdl(void) {
+    extern u8 D_00247AF0[]; // g_keyedEntries (46 x 0x2C)
+    return (u32)(uintptr_t)D_00247AF0;
+}
+
+// One-shot forced-level boot, called from the game-thread frame-stage hook.
+// Queues the matching catalog key through the retail QueueWorldLoad so the
+// normal RunPendingWorldLoad path loads the level.
+extern "C" void retail_queue_world_load(void* request, void* key, int, int, int)
+    asm("_Z13func_001E4E80P16WorldLoadRequestP13WorldKeyBlockiii");
+extern "C" void sly1_native_force_level_boot() {
+    const u32 wanted = sly1_native_boot_level_key_for_sdl();
+    if (wanted == 0) return;
+    static volatile u32 done = 0;
+    if (__atomic_load_n(&done, __ATOMIC_RELAXED) != 0u) return;
+    __atomic_store_n(&done, 1u, __ATOMIC_RELAXED);
+    extern u8 D_00247AF0[];
+    extern u8 D_00275AF0[]; // g_worldLoadRequest
+    const u32 table = (u32)(uintptr_t)D_00247AF0;
+    for (u32 i = 0; i < 46u; ++i) {
+        const u32 entry = table + i * 0x2Cu;
+        if (*(volatile u32*)(entry + 0x20u) != wanted) continue;
+        write_hex("native host32: forcing level entry ", (int)i);
+        retail_queue_world_load((void*)D_00275AF0, (void*)entry, 0, 0, 0);
+        return;
+    }
+    write_hex("native host32: level key not in catalog ", (int)wanted);
+}
+
 // Opt-in trace of script events dispatched to the Splash state graph.
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_graph_event(u32 key, u32 scope, u32 list) {
     if (getenv("OPENRAC_TRACE_GRAPH_EVENT") == nullptr) return;
+
     static volatile u32 notices = 0;
     if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) < 64u)
         write_hex("native host32: graph event ", (int)((key << 16) | (list & 0xFFFFu))),
@@ -2517,6 +2556,8 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
+    if (stage == 2 && getenv("OPENRAC_BOOT_LEVEL") != nullptr)
+        sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
         if (getenv("OPENRAC_TRACE_PLAYER") != nullptr && frame == 340u) {

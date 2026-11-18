@@ -5286,6 +5286,50 @@ void LoadEffectSpawner"""
             if adapted.count(frame_end) != 1:
                 raise RuntimeError("expected one RunMainLoop frame boundary")
             adapted = adapted.replace(frame_end, paced_frame_end, 1)
+        if rel.as_posix() == "main/on_off_object.cpp":
+            # Opt-in forced-level boot for the SDL build: the port backfill's
+            # sly1_native_boot_level_key shortcut is not linked here (decomp C
+            # func_001E4EA8 wins). Reproduce it at the top of RunPendingWorldLoad:
+            # once, if a level key was requested, find the catalog entry whose
+            # +0x20 word is that key and queue it for the retail loader.
+            boot_hook = (
+                'extern "C" u32 sly1_native_boot_level_key_for_sdl(void);\n'
+                'extern "C" u32 sly1_keyed_entries_for_sdl(void);\n')
+            adapted = boot_hook + adapted
+            needle = ("void RunPendingWorldLoad(WorldLoadRequest* self)\n{\n"
+                      "    KeyId key;\n    WorldKeyBlock blob;")
+            replacement = (
+                "void RunPendingWorldLoad(WorldLoadRequest* self)\n{\n"
+                "    KeyId key;\n    WorldKeyBlock blob;\n"
+                "    if (self->key == 0) {\n"
+                "        const u32 wanted = sly1_native_boot_level_key_for_sdl();\n"
+                "        const u32 table = sly1_keyed_entries_for_sdl();\n"
+                "        if (wanted != 0 && table != 0) {\n"
+                "            for (u32 bi = 0; bi < 46u; ++bi) {\n"
+                "                u8* e = (u8*)table + bi * 0x2Cu;\n"
+                "                if (*(u32*)(e + 0x20u) == wanted) {\n"
+                "                    *(WorldKeyBlock**)&self->key = (WorldKeyBlock*)e;\n"
+                "                    break;\n"
+                "                }\n"
+                "            }\n"
+                "        }\n"
+                "    }")
+            if adapted.count(needle) == 1:
+                adapted = adapted.replace(needle, replacement, 1)
+        if rel.as_posix() == "main/commentary_best_time.cpp":
+            # Port-only guard: the forced-level boot can run this caption init
+            # while RunPendingWorldLoad has g_currentWorld == 0. Retail never
+            # triggers it then; guard the dereferences to avoid the null crash.
+            needle = ("void InitCommentaryPromptElement(SprintCaption* self)\n{\n"
+                      "    const LevelEntry* e;\n\n"
+                      "    SetupScreenElementText(self);")
+            replacement = ("void InitCommentaryPromptElement(SprintCaption* self)\n{\n"
+                           "    const LevelEntry* e;\n\n"
+                           "    if (g_currentWorld == 0) return;\n"
+                           "    if (g_currentWorld->commentaryRecord == 0) return;\n"
+                           "    SetupScreenElementText(self);")
+            if adapted.count(needle) == 1:
+                adapted = adapted.replace(needle, replacement, 1)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":

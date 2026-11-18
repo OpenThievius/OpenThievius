@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 21:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 22:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Opt-in SDL forced-level boot now reads the level (2026-11-18, 22:45 CET)
+
+I closed the "forced-level was a no-op" gap: I added an opt-in boot-level hook
+to the SDL build:
+- `compile_decomp_host32.py` exposes two host functions to the staged decomp and
+  guards two null derefs in `InitCommentaryPromptElement` (`g_currentWorld == 0`
+  and `commentaryRecord == 0`) that crashed when the level load runs outside the
+  normal title flow.
+- `native_host32/main.cpp` implements `sly1_native_boot_level_key_for_sdl`
+  (`OPENRAC_BOOT_LEVEL`), `sly1_keyed_entries_for_sdl` (catalog `D_00247AF0`), and
+  a one-shot `sly1_native_force_level_boot` called from the game-thread frame
+  hook, which calls the retail `QueueWorldLoad` (`func_001E4E80`) with the
+  catalog entry whose `+0x20` word matches the key.
+
+Result (`/tmp/sly-forceboot4-20261118/`): the hook finds level entry 3 and the
+level resource is now actually read (cd_reads 6, sectors 2473 vs 1/74 before),
+with no crash after the caption guards. But after the load the game thread is
+stuck at `game_frames=1`, `world=0`, `entry_returned=0` with a `[native critical]
+owner=0` watchdog — the level load does not complete/rebuild the world. So the
+level bytes are now loaded, but world construction from them stalls. This is a
+real milestone (level data loaded in SDL) and the frontier moves to why
+`RunPendingWorldLoad` leaves `g_currentWorld == 0`. All changes are opt-in (`env
+OPENRAC_BOOT_LEVEL`) with off-by-default guards; the default path is unaffected
+(no crash, no forced boot). Checks pass (0 problems, 6 unit tests).
 
 ### Correction: forced-level probe was not active in SDL builds (2026-11-18, 21:45 CET)
 
