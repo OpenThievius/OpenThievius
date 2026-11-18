@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 18:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 18:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Decisive: model count read as 0/1/6, never 1,962 (2026-11-18, 18:45 CET)
+
+I instrumented `ReadPlacedObjectModel` (`func_00162890`) directly at the
+`self->count = ReadBufferedU16(stream)` line (injected via compile script, since
+the asm trace_calls don't fire for decomp C), logging the count and reader
+cursor. `ModelRecord::count` at +0x0C of the record (object +0x238) is exactly
+what the render path reads as `drawPartCount`. Results:
+- normal post-Cross: 64 reads, counts almost all **1** (a few 0 and 6), e.g.
+  `model count 0x78dc0000` (count 0, cursor `0x7000158e`, remaining 0xa72),
+  `0x811c0006` (count 6, cursor `0x70001629`).
+- forced level `0x0100`: **max count 6** across all reads — never 1,962.
+
+So the current decomp `ReadPlacedObjectModel` reads tiny part counts from the
+level stream; it never produces the 1,962-part model the old exact-ASM reader
+saw (old note: top count 1,962, failure later at part 1,093 cursor `0x7000011a`,
+`nstrips=0xFF02`). The divergence is a stream-layout / field-offset difference
+between the decomp `ModelRecord` struct and the retail reader, not a missing
+`BuildTexturePackets` write: `drawPartCount` is populated from the count the
+reader extracts, and that count is wrong (0/1/6) in this build.
+
+To restore a populated model owner, the next concrete step is to compare the
+decomp `ModelRecord`/`ReadPlacedObjectModel` field reads against the retail ASM
+offsets around the count field — specifically why the reader lands at cursor
+`0x7000158e` reading count 0 instead of the retail path's count 1,962. All
+instrumentation was opt-in and reverted; tree clean at `0904912` plus earlier
+opt-in hooks, checks pass. Captures: `/tmp/sly-modelcount*-20261118/`,
+`/tmp/sly-cursor-20261118/`. No fields forced.
 
 ### Old-wave launcher re-run: owner evidence was loader-only (2026-11-18, 18:00 CET)
 
