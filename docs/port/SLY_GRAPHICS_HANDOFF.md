@@ -48,8 +48,30 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 07:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 08:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Bone corruption pattern and timing (2026-11-20, 08:00 CET)
+
+I dumped the full 16-float bone matrices (OPENRAC_DUMP_BONE_ALL) and added a
+time series (OPENRAC_BONE_TIMESERIES). Findings:
+- The corrupted bone matrices are RANK-1: every row, including the translation
+  row, is parallel to a single direction (e.g. bone idx 3 rows -1.65,1.25,-4.09
+  / -6.36,4.79,-15.7 / 5.26,-3.96,13.0, translation -28,20,-64 — all parallel).
+  A valid bone matrix has three orthogonal rotation rows.
+- The corruption grows down the bone hierarchy: idx 3 max ~63, idx 4 ~1.8e5,
+  idx 5 ~1.4e8, idx 7 ~2.3e7 — while leaf bones (idx 8 ~831, idx 29 ~657) are
+  valid orthogonal rotations. This is a bad pose-axis/matrix composition, not
+  random heap corruption.
+- Time series for bone idx 5: it is ALREADY 1.4e8 at the first sample (frame 0)
+  and does not grow over frames (then the region is reused). So the bad matrix
+  is written at pose setup, not compounded per frame.
+
+The bone palette fill is in ASM pose-evaluation code (func_00172EE0 and related,
+with no decomp C), and the existing pose-rotation trace sites in pose_source.cpp
+are not reached for this object. Reproducing/fixing the pose evaluation is a
+large task requiring that ASM to be decompiled or backfilled. No state forced;
+opt-in diagnostics, checks pass.
 
 ### Bone corruption confirmed at authoritative VIF source (2026-11-20, 07:00 CET)
 

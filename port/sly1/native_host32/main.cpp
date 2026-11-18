@@ -2754,14 +2754,40 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_bone_unpack(u32 skin, u32 matrix_addr) {
     if (getenv("OPENRAC_TRACE_BONE_UNPACK") == nullptr) return;
+    // Time-series mode: log bone idx 5's matrix max with a frame counter to
+    // test whether it compounds over frames (a per-frame multiply bug).
+    if (getenv("OPENRAC_BONE_TIMESERIES") != nullptr) {
+        static volatile u32 ts = 0;
+        if (matrix_addr != 0x01876c20u) return;  // bone idx 5
+        const u32 n = __atomic_fetch_add(&ts, 1u, __ATOMIC_RELAXED);
+        if (n % 20u != 0u || n > 400u) return;
+        const volatile float* v = reinterpret_cast<const volatile float*>(matrix_addr);
+        float mx = 0.0f;
+        for (u32 i = 0; i < 16u; ++i) mx = std::max(mx, std::fabs(v[i]));
+        std::fprintf(stderr, "[bone-series] n=%u max=%g\n", n, (double)mx);
+        return;
+    }
     static volatile u32 notices = 0;
     if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 16u) return;
     if (matrix_addr < 0x00010000u || matrix_addr >= 0x02000000u) return;
     const volatile float* v = reinterpret_cast<const volatile float*>(matrix_addr);
     float mx = 0.0f;
     for (u32 i = 0; i < 16u; ++i) mx = std::max(mx, std::fabs(v[i]));
-    std::fprintf(stderr, "[bone-unpack] skin=%#010x addr=%#010x max=%g\n",
-                 skin, matrix_addr, (double)mx);
+    // With DUMP_BONE_ALL, dump the full 16-float matrix of every unpack.
+    if (getenv("OPENRAC_DUMP_BONE_ALL") != nullptr) {
+        const int count = *reinterpret_cast<const volatile int*>(skin + 0x40u);
+        const u32 bones = *reinterpret_cast<const volatile u32*>(skin + 0x04u);
+        u32 index = bones != 0 && matrix_addr >= bones
+            ? (matrix_addr - bones) / 0x90u : 0xFFFFFFFFu;
+        std::fprintf(stderr, "[bone-unpack] skin=%#010x bones=%#010x count=%d idx=%u addr=%#010x max=%g m=",
+                     skin, bones, count, index, matrix_addr, (double)mx);
+        for (u32 i = 0; i < 16u; ++i)
+            std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", (double)v[i]);
+        std::fputc('\n', stderr);
+    } else {
+        std::fprintf(stderr, "[bone-unpack] skin=%#010x addr=%#010x max=%g\n",
+                     skin, matrix_addr, (double)mx);
+    }
 }
 
 // Opt-in trace of ComputePlacedObjectWorldFrame rotation inputs/output.
