@@ -633,7 +633,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         }
         if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr ||
             (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
-             mesh.source_mesh == 0x00a2d9a8u)) {
+             mesh.source_mesh == 0x00a2d9a8u &&
+             getenv("OPENRAC_PLAYER_SPLIT_STRIPS") == nullptr)) {
             // Player kind-5 VertexRefs are authored in triples (triangle list),
             // not strip order; a single strip yields a giant bridging triangle.
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh.vertices.size() / 9u));
@@ -652,6 +653,23 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                     const auto begin = mesh.vertices.begin() +
                         static_cast<std::ptrdiff_t>(index * 9u);
                     triangles.insert(triangles.end(), begin, begin + 9);
+                }
+            }
+            // Opt-in player-only vertex scale (kind-5 character). The retained
+            // kind-5 vertices are character-scale but project far too small;
+            // scale just this mesh to find the correct retail VU factor.
+            float player_scale = 1.0f;
+            if (const char* setting = std::getenv("OPENRAC_PLAYER_VERTEX_SCALE")) {
+                char* end = nullptr;
+                const float parsed = std::strtof(setting, &end);
+                if (end != setting && parsed > 0.0f && parsed <= 1000.0f)
+                    player_scale = parsed;
+            }
+            if (player_scale != 1.0f) {
+                for (std::size_t i = 0; i < triangles.size(); i += 9u) {
+                    triangles[i] *= player_scale;
+                    triangles[i + 1u] *= player_scale;
+                    triangles[i + 2u] *= player_scale;
                 }
             }
             glBufferData(GL_ARRAY_BUFFER,
@@ -676,7 +694,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                          vertex_data, GL_STREAM_DRAW);
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
             const bool restart_split =
-                std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr;
+                std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
+                (mesh.source_mesh == 0x00a2d9a8u &&
+                 getenv("OPENRAC_PLAYER_SPLIT_STRIPS") != nullptr);
             const bool split = (std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr &&
                 mesh.strip_starts.size() == vertex_count) || restart_split;
             if (!split) {

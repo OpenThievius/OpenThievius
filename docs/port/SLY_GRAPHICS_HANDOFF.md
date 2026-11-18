@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-20, 02:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 03:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Kind-5 scale/topology investigation (2026-11-20, 03:00 CET)
+
+I tried opt-in player-only scale (OPENRAC_PLAYER_VERTEX_SCALE) and split-strip
+rendering (OPENRAC_PLAYER_SPLIT_STRIPS) to make the kind-5 character visible.
+The raw kind-5 verts are character-scale (local +-20, z 43-116) with strip-restart
+flags (0xff=start). Scaling 4/8/16x and switching between GL_TRIANGLES and
+split-strip modes all produced only flat gray/yellow wedges — no recognizable
+character. The VU1 NDC capture contains only world geometry (one submission
+group spanning the screen), not the player, so it cannot supply the retail
+player transform either.
+
+Conclusion: the kind-5 player mesh data is captured but does not form a
+recognizable character through any host primitive/scale combination tried. The
+retail VU1 strip program (g_stripMeshMode1Program / g_unlitBatchProgram) applies
+a transform/topology the host path does not reproduce, and its exact behavior
+cannot be derived from the port's data alone. Making the character render needs
+that retail microprogram decoded — a bounded but real task requiring the retail
+VU program listing (part of the disc, extractable in principle but not trivial).
+No state was forced. Checks pass.
 
 ### Kind-5 player matrix/primitive decode (2026-11-20, 02:00 CET)
 
