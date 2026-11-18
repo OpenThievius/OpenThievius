@@ -18,6 +18,7 @@ extern "C" char* getenv(const char*);
 #include <mutex>
 #include <pthread.h>
 #include <signal.h>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -41,9 +42,11 @@ struct NativeSlyMaterial {
 struct NativeSlyMesh {
     u32 source_mesh = 0;
     int source_frame = 0;
+    u32 skin_weight_count = 0;
     std::vector<NativeSlyFrameSource> sources;
     std::vector<NativeSlyMaterial> materials;
     std::vector<float> vertices;
+    std::vector<float> skin_weights;
     std::vector<u8> strip_starts;
 };
 static std::mutex g_native_sly_mesh_mutex;
@@ -976,7 +979,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                                                    u32 vertex_count, u32 refs_address,
                                                    u32 cursor_address, u32 header_address,
                                                    u32 ents_address, u32 verts_address,
-                                                   u32 nweights) {
+                                                   u32 nweights, u32 weights_address,
+                                                   u32 header_weight_count) {
     if (mesh_address == 0 || vecs_address == 0 ||
         refs_address == 0 || header_address == 0 || vertex_count < 3 ||
         vertex_count > 4096)
@@ -1007,7 +1011,12 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     }
     NativeSlyMesh captured;
     captured.source_mesh = mesh_address;
+    captured.skin_weight_count = header_weight_count;
     captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
+    if (weights_address != 0 && header_weight_count > 0u &&
+        header_weight_count <= 4u)
+        captured.skin_weights.reserve(static_cast<std::size_t>(vertex_count) *
+                                      header_weight_count);
     const volatile u32* sources = reinterpret_cast<const volatile u32*>(sources_address);
     std::int32_t frame = 0;
     if (cursor_address != 0) {
@@ -1106,6 +1115,14 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         captured.vertices.push_back(static_cast<float>(chosen[source * 3u]));
         captured.vertices.push_back(static_cast<float>(chosen[source * 3u + 1u]));
         captured.vertices.push_back(static_cast<float>(chosen[source * 3u + 2u]));
+        if (weights_address != 0 && header_weight_count > 0u &&
+            header_weight_count <= 4u) {
+            const volatile float* input_weights =
+                reinterpret_cast<const volatile float*>(weights_address);
+            for (u32 j = 0; j < header_weight_count; ++j)
+                captured.skin_weights.push_back(static_cast<float>(
+                    input_weights[position_index * header_weight_count + j]));
+        }
         for (u32 channel = 0; channel < 4u; ++channel) {
             const u8 base = mesh[4u + channel];
             const float color = tint_index == 0x7Fu || tints == nullptr
@@ -1369,6 +1386,27 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     if (mesh_count == 0 || mesh_address == 0) return;
     const float* model = reinterpret_cast<const float*>(request_address + 0x10u);
     const float* view_projection = reinterpret_cast<const float*>(camera_address + 0x100u);
+    const u32 owner_address = request[0x70 / 4];
+    const u32 skin_address = request[0x74 / 4];
+    const u32 attachment_address = owner_address >= 0x00010000u &&
+            owner_address <= 0x01FFFFD0u
+        ? owner_address + 0x22Cu : 0u;
+    const volatile u32* attachment_block = attachment_address != 0
+        ? reinterpret_cast<const volatile u32*>(attachment_address) : nullptr;
+    const std::int32_t attachment_count_raw = attachment_block != nullptr
+        ? *reinterpret_cast<const volatile std::int32_t*>(attachment_address) : 0;
+    const u32 attachment_count = attachment_count_raw > 0 &&
+            attachment_count_raw <= 256
+        ? static_cast<u32>(attachment_count_raw) : 0u;
+    const u32 attachment_items = attachment_block != nullptr
+        ? attachment_block[1] : 0u;
+    const u32 attachment_keys = attachment_block != nullptr
+        ? attachment_block[2] : 0u;
+    const bool trace_attachments =
+        std::getenv("OPENRAC_TRACE_SLY_ATTACHMENTS") != nullptr;
+    static u32 traced_attachment_owner = 0;
+    bool trace_this_owner = false;
+    std::array<bool, 256> traced_bones{};
     static u32 notices = 0;
     for (u32 i = 0; i < mesh_count; ++i) {
         const u32 part_mesh = mesh_address + i * 0x50u;
@@ -1379,6 +1417,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         if (!(kind == 0u || kind == 1u || kind == 4u || kind == 5u || kind == 6u ||
               kind == 7u || kind == 8u || kind == 9u || kind == 10u))
             continue;
+        const bool trace_owner_candidate = trace_attachments && kind == 5u &&
+            owner_address != 0 && owner_address != traced_attachment_owner;
         NativeSlyMesh mesh;
         {
             std::scoped_lock lock(g_native_sly_mesh_mutex);
@@ -1407,6 +1447,175 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 }
             }
             mesh = found->second;
+        }
+        if (trace_owner_candidate) {
+            traced_attachment_owner = owner_address;
+            trace_this_owner = true;
+            std::fprintf(stderr,
+                         "[native sly attachment list] owner=%#010x skin=%#010x list=%#010x count=%d items=%#010x keys=%#010x palette=%#010x\n",
+                         owner_address, skin_address, attachment_address,
+                         attachment_count_raw, attachment_items, attachment_keys,
+                         skin_address >= 0x00010000u && skin_address < 0x02000000u
+                             ? *reinterpret_cast<const volatile u32*>(skin_address + 0x04u)
+                             : 0u);
+        }
+        const u32 bone_count = *reinterpret_cast<const volatile u32*>(part_mesh + 0x24u);
+        const u32 bone_array_address = skin_address != 0
+            ? *reinterpret_cast<const volatile u32*>(skin_address + 0x04u) : 0u;
+        const volatile u32* bone_indices = kind == 5u
+            ? reinterpret_cast<const volatile u32*>(part_mesh + 0x28u) : nullptr;
+        const u32 vertex_count = static_cast<u32>(mesh.vertices.size() / 9u);
+        const std::size_t expected_weights =
+            static_cast<std::size_t>(vertex_count) * mesh.skin_weight_count;
+        bool skin_applied = false;
+        const bool apply_skinning =
+            std::getenv("OPENRAC_SLY_WORLD_APPLY_SKINNING") != nullptr;
+        if (trace_this_owner && kind == 5u && bone_indices != nullptr &&
+            mesh.skin_weight_count > 0u && mesh.skin_weight_count <= 4u &&
+            mesh.skin_weights.size() == expected_weights &&
+            attachment_count != 0u && attachment_items >= 0x00010000u &&
+            attachment_items < 0x02000000u) {
+            for (u32 joint = 0; joint < mesh.skin_weight_count; ++joint) {
+                float max_weight = 0.0f;
+                for (u32 vertex = 0; vertex < vertex_count; ++vertex) {
+                    const float weight = mesh.skin_weights[
+                        static_cast<std::size_t>(vertex) * mesh.skin_weight_count + joint];
+                    if (std::isfinite(weight) && weight > max_weight)
+                        max_weight = weight;
+                }
+                if (max_weight <= 1.0e-6f) continue;
+
+                const u32 bone_index = bone_indices[joint];
+                if (bone_index >= attachment_count || bone_index >= traced_bones.size() ||
+                    traced_bones[bone_index])
+                    continue;
+                traced_bones[bone_index] = true;
+                const u64 entry_address = static_cast<u64>(attachment_items) +
+                    static_cast<u64>(bone_index) * 0x90u;
+                if (entry_address < 0x00010000ull ||
+                    entry_address + 0x90u > 0x02000000ull) {
+                    std::fprintf(stderr,
+                                 "[native sly attachment] index=%u weight=%g entry=%#010llx outside EE RAM\n",
+                                 bone_index, max_weight,
+                                 static_cast<unsigned long long>(entry_address));
+                    continue;
+                }
+                const u32 entry = static_cast<u32>(entry_address);
+                const u32 target = *reinterpret_cast<const volatile u32*>(entry);
+                const u64 key_address = static_cast<u64>(attachment_keys) +
+                    static_cast<u64>(bone_index) * 4u;
+                const u32 key = key_address >= 0x00010000ull &&
+                        key_address + sizeof(u32) <= 0x02000000ull
+                    ? *reinterpret_cast<const volatile u32*>(
+                          static_cast<u32>(key_address))
+                    : 0u;
+                std::fprintf(stderr,
+                             "[native sly attachment] index=%u key=%u weight=%g entry=%#010x target=%#010x\n",
+                             bone_index, key, max_weight, entry, target);
+                for (u32 matrix_kind = 0; matrix_kind < 2u; ++matrix_kind) {
+                    const char* matrix_name = matrix_kind == 0u ? "local" : "final";
+                    const u32 matrix_address = entry + (matrix_kind == 0u ? 0x10u : 0x50u);
+                    const volatile float* values =
+                        reinterpret_cast<const volatile float*>(matrix_address);
+                    std::fprintf(stderr, "[native sly attachment %s] index=%u m=",
+                                 matrix_name, bone_index);
+                    for (u32 element = 0; element < 16u; ++element)
+                        std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
+                                     static_cast<double>(values[element]));
+                    std::fputc('\n', stderr);
+                }
+            }
+        }
+        if (apply_skinning && kind == 5u && bone_count > 0u && bone_count <= 4u &&
+            mesh.skin_weight_count > 0u && mesh.skin_weight_count <= bone_count &&
+            mesh.skin_weights.size() == expected_weights &&
+            bone_array_address >= 0x00010000u &&
+            bone_array_address < 0x02000000u) {
+            std::array<const volatile float*, 4> bone_matrices{};
+            bool valid_palette = true;
+            for (u32 joint = 0; joint < mesh.skin_weight_count; ++joint) {
+                const u32 bone_index = bone_indices[joint];
+                const u64 matrix_address = static_cast<u64>(bone_array_address) +
+                    static_cast<u64>(bone_index) * 0x90u + 0x50u;
+                if (matrix_address < 0x00010000ull ||
+                    matrix_address + 0x40u > 0x02000000ull) {
+                    valid_palette = false;
+                    break;
+                }
+                bone_matrices[joint] = reinterpret_cast<const volatile float*>(
+                    static_cast<u32>(matrix_address));
+                for (u32 element = 0; element < 16u; ++element)
+                    if (!std::isfinite(bone_matrices[joint][element]))
+                        valid_palette = false;
+                if (!valid_palette) break;
+            }
+            if (valid_palette) {
+                float first_before[3] = {};
+                float first_after[3] = {};
+                for (u32 vertex = 0; vertex < vertex_count; ++vertex) {
+                    const std::size_t vertex_at = static_cast<std::size_t>(vertex) * 9u;
+                    const float x = mesh.vertices[vertex_at];
+                    const float y = mesh.vertices[vertex_at + 1u];
+                    const float z = mesh.vertices[vertex_at + 2u];
+                    float skinned[3] = {};
+                    for (u32 joint = 0; joint < mesh.skin_weight_count; ++joint) {
+                        const float weight = mesh.skin_weights[
+                            static_cast<std::size_t>(vertex) * mesh.skin_weight_count + joint];
+                        const volatile float* matrix = bone_matrices[joint];
+                        skinned[0] += weight * (x * matrix[0] + y * matrix[4] +
+                                                z * matrix[8] + matrix[12]);
+                        skinned[1] += weight * (x * matrix[1] + y * matrix[5] +
+                                                z * matrix[9] + matrix[13]);
+                        skinned[2] += weight * (x * matrix[2] + y * matrix[6] +
+                                                z * matrix[10] + matrix[14]);
+                    }
+                    if (vertex == 0u) {
+                        first_before[0] = x;
+                        first_before[1] = y;
+                        first_before[2] = z;
+                        first_after[0] = skinned[0];
+                        first_after[1] = skinned[1];
+                        first_after[2] = skinned[2];
+                    }
+                    mesh.vertices[vertex_at] = skinned[0];
+                    mesh.vertices[vertex_at + 1u] = skinned[1];
+                    mesh.vertices[vertex_at + 2u] = skinned[2];
+                }
+                skin_applied = true;
+                if (std::getenv("OPENRAC_TRACE_SLY_SKINNING") != nullptr) {
+                    static u32 skin_notices = 0;
+                    if (skin_notices++ < 12u) {
+                        std::fprintf(stderr,
+                                     "[native sly skin applied] source=%#010x request=%#010x mesh=%u vertices=%u weights=%u bones=%u palette=",
+                                     source_mesh, request_address, i, vertex_count,
+                                     mesh.skin_weight_count, bone_count);
+                        for (u32 joint = 0; joint < mesh.skin_weight_count; ++joint)
+                            std::fprintf(stderr, "%s%u", joint == 0u ? "" : ",",
+                                         bone_indices[joint]);
+                        std::fprintf(stderr, " first=(%g,%g,%g)->(%g,%g,%g)\n",
+                                     first_before[0], first_before[1], first_before[2],
+                                     first_after[0], first_after[1], first_after[2]);
+                        for (u32 joint = 0; joint < mesh.skin_weight_count; ++joint) {
+                            std::fprintf(stderr, "[native sly skin matrix] joint=%u weight=%g m=",
+                                         joint, mesh.skin_weights[joint]);
+                            for (u32 element = 0; element < 16u; ++element)
+                                std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
+                                             static_cast<double>(bone_matrices[joint][element]));
+                            std::fputc('\n', stderr);
+                        }
+                    }
+                }
+            }
+        }
+        if (apply_skinning && kind == 5u && !skin_applied &&
+            std::getenv("OPENRAC_TRACE_SLY_SKINNING") != nullptr) {
+            static u32 skin_skip_notices = 0;
+            if (skin_skip_notices++ < 12u)
+                std::fprintf(stderr,
+                             "[native sly skin skipped] source=%#010x mesh=%u vertices=%u weights=%u/%zu bones=%u skin=%#010x palette=%#010x\n",
+                             source_mesh, i, vertex_count, mesh.skin_weight_count,
+                             mesh.skin_weights.size(), bone_count, skin_address,
+                             bone_array_address);
         }
         for (std::size_t pass = 0; pass < mesh.materials.size(); ++pass) {
             const NativeSlyMaterial& material = mesh.materials[pass];
@@ -1691,7 +1900,7 @@ extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, f
 extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32,
-                                               u32, u32, u32) {}
+                                               u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_part_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}

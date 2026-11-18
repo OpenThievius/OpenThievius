@@ -1,6 +1,53 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Attachment pose trace (2026-11-18)
+
+I added the opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` trace at the native model
+submission boundary and ran the renderer-enabled hidden launcher once. It
+reached world `0x88d5b0` and the player mesh. The class-97 owner has 31
+attachment records; all 29 weighted bone indices sampled have non-null target
+pointers. The binder is therefore populating the skeleton, which rules out a
+missing-target explanation for the distorted player.
+
+The captured local matrices remain plausible (largest absolute component about
+158), while the corresponding final matrices are already badly corrupted
+before host skinning is applied (largest absolute component about 142 million).
+This moves the blocker upstream of the host skinning adapter, into the guest
+attachment pose update or the transforms it consumes. The trace does not yet
+record those input transforms, so it does not identify which input or update
+produces the first bad result. Next, capture the owner, parent, and target
+transforms immediately before `UpdateAttachmentFrames` composes them, then
+compare them with its output. Keep any corrective implementation in the port
+backfills until the matching decomp C is available.
+
+Evidence: `/tmp/sly-attachment-trace-20261118/run.log`. The run used the
+renderer-enabled `wave55-sdl32-release` build, a hidden SDL window, and only
+process-local test inputs; it was bounded to 30 seconds. It also logged the
+independent VU1 stop at PC `0x526`, so that graphics-stream issue remains.
+
+### Player skinning trace (2026-11-18)
+
+The player reaches the native model draw path in world `0x88d5b0` as a class-97
+owner with 30 kind-5 `PartMesh` entries. Each has four bone indices; the part
+has no `PartStrip` entries. `BuildStripMeshPacket` supplies four per-vertex
+weights, which are normalized in the captured samples. The capture hook had
+discarded those weights, so the host renderer drew only base positions.
+
+The port now retains those weights and has an experimental CPU skinning path
+behind `OPENRAC_SLY_WORLD_APPLY_SKINNING`. It reads the four bone indices from
+the corresponding `PartMesh` and matrices from the part skin's bone array. A
+hidden native run showed that the current matrix interpretation is not safe:
+some matrices contain very large basis values, and applying them sends vertices
+far outside the mesh's original bounds. The attachment trace above now shows
+that some final matrices already have extreme values before the host adapter
+uses them. The feature stays opt-in until the guest pose inputs and matrix
+convention are understood.
+
+The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
+instruction. That is independent of this host-side skinning experiment. No
+recognizable level or playable frame is confirmed.
+
 Last checked: 2026-11-20, 04:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
 
@@ -299,7 +346,7 @@ runs) and the slow/variable load transition. No code changed; checks pass.
 ### Test-input button-sequence harness (2026-11-19, 15:30 CET)
 
 I extended the hidden-mode test harness with a generic button-sequence injection:
-OPENRAC_TEST_BUTTONS_AT_FRAMES='frame:mask,...' (mask 0x10=Up, 0x40=Cross,
+OPENRAC_TEST_BUTTONS_AT_FRAMES='frame:mask,...' (mask 0x10=Up, 0x4000=Cross,
 0x08=Start) injects multi-button presses at given native frames, via a new
 Input::test_press_buttons_once() bitmask path. This lets menu navigation
 (Up+Cross) be driven in hidden mode without the windowed semaphore desync.

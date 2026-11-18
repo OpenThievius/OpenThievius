@@ -5052,7 +5052,7 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(needle, replacement, 1)
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
-                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
                 'extern "C" void sly1_native_bind_model_mesh(u32, u32);\n'
                 'extern "C" void sly1_native_trace_mesh_sources(u32, u32);\n'
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
@@ -5080,7 +5080,8 @@ void LoadEffectSpawner"""
                 "    sly1_native_trace_mesh_sources((u32)mesh, (u32)node);\n"
                 "    sly1_native_capture_model_mesh((u32)mesh, (u32)vecs, (u32)tints, "
                 "(u32)uvs, (u32)n, (u32)recs, (u32)node, (u32)hdr, "
-                "(u32)ents, (u32)verts, (u32)self->nweights);\n",
+                "(u32)ents, (u32)verts, (u32)self->nweights, (u32)weights, "
+                "(u32)hdr->count);\n",
             )
             bind_needle = (
                 "                // address arithmetic over a variable index\n"
