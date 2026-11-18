@@ -1,8 +1,38 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 14:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 15:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Render-list traversal trace: only one 1-part object submitted (2026-11-18, 15:00 CET)
+
+I traced the camera/render-list traversal with the FRAME_TRACE build flag (the
+guest-call `OPENRAC_TRACE_RENDER_CALLBACKS` counter sees nothing because decomp
+C calls are direct, not through the guest bridge). With `--trace` (which sets
+`g_startup_trace_enabled`), the existing `sly1_native_trace_draw_object` hook at
+`DrawPlacedObjectParts` (`active_set_solver.cpp`) shows, at the post-Cross world
+`0x870cf0`, exactly ONE object reaching the part drawer: `0x018cedf0`, kind 3,
+`parts=1`, matrix pointer `0x00000000` — and all 16 sampled frames are that same
+object. No populated model owner reaches `DrawPlacedObjectParts`.
+
+I then scanned all mapped EE RAM for a class-4 object in world `0x870cf0` with a
+`drawPartCount` >= 100 and a valid parts array. There are **none**. The README's
+"populated class-4 owner at 0xa811f0 with 1,962 parts" was from the forced-level
+probe (`OPENRAC_BOOT_LEVEL`), not the normal post-Cross path.
+
+So on the ordinary post-Cross path the active world's render list contains no
+populated character/level model to submit — there is nothing to route into the
+native world-mesh renderer. The distant sub-scene is what that world actually
+contains. This is why no amount of routing/capturing in the current world
+produces a recognizable level: the model data simply isn't in that world on the
+normal path. The forced-level path does load a populated world but still shows
+the same distant sub-scene, so the prepared level model is not being drawn there
+either — a separate, deeper gap in the level render path.
+
+All diagnostics were opt-in (env/flags) and reverted; FRAME_TRACE set back to
+OFF; tree clean at `0904912` plus the opt-in hooks from earlier commits. Checks
+pass (0 problems, 6 unit tests). Captures: `/tmp/sly-drawobj3-20261118/`,
+`/tmp/sly-owners2-20261118/`. No fields forced.
 
 ### Player draw path: no model parts (2026-11-18, 14:30 CET)
 
