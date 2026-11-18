@@ -1429,6 +1429,9 @@ static std::vector<std::uint8_t> build_world_gif_packet(
         payload.push_back({0u, 0x18u});
         // PRIM = 4 (triangle strip), tme=0 (untextured)
         payload.push_back({4u, 0x00u});
+        // RGBAQ (0x01): opaque mid-gray. Without this the vertices inherit the
+        // stale colour (0,0,0,0) and the untextured geometry is invisible.
+        payload.push_back({0x80808080u, 0x01u});
         for (std::size_t i = 0; i < count; ++i) {
             const float x = mesh.vertices[i * 9u + 0u];
             const float y = mesh.vertices[i * 9u + 1u];
@@ -1627,6 +1630,9 @@ extern "C" void openrac_native_window_present(void) {
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
         if (!world_packet.empty()) {
+            // The HUD pass leaves full-screen quads in the interpreter's vertex list;
+            // without clearing, the world draw starts at vertex 0 and bridges them.
+            g_direct->interpreter().clear();
             openrac::renderer::FrameInput world_input;
             world_input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] =
                 world_packet;
@@ -1667,7 +1673,13 @@ extern "C" void openrac_native_window_present(void) {
         }
         const bool eligible = packets.size() >= minimum_bytes;
         const unsigned eligible_frame = eligible ? frame_seen++ : 0u;
-        if (eligible && eligible_frame >= skip &&
+        unsigned start_present = 0;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_START")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0') start_present = static_cast<unsigned>(parsed);
+        }
+        if (eligible && this_present >= start_present && eligible_frame >= skip &&
             (eligible_frame - skip) % stride == 0u && frame_dump < 8) {
             const auto pixels = openrac::renderer::read_rgba(0, width, height);
             char path[512];
