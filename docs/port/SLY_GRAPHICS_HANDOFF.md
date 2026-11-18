@@ -1,8 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 17:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 18:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Old-wave launcher re-run: owner evidence was loader-only (2026-11-18, 18:00 CET)
+
+I ran the archived old-wave launcher (`canonical-55d39f28/sly1_native`) directly
+with `OPENRAC_BOOT_LEVEL=0x0100` to check whether the build that reported the
+1,962-part owner ever rendered a recognizable level. It produced only repeated
+`native GIF DMA transfer ... bytes=144` lines and **zero** drawing evidence
+(no native vertices, draws, triangles, or frame/present output). The 1,962-part
+owner was a loader-side observation from a bounded trace, not a rendered frame;
+there is no evidence any wave actually displayed that model as a level.
+
+This reframes the whole "restore the owner" line: even the wave that had it
+never demonstrated a visible, controllable level. The current SDL build's
+textured sub-scene is the most that has been rendered. No code changed.
 
 ### Old-wave report comparison (2026-11-18, 17:30 CET)
 
