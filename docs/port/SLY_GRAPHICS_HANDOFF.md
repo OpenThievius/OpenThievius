@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 07:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 08:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Default level-load wired via proven path (2026-11-19, 08:30 CET)
+
+I wired a default level-load trigger using the PROVEN retail QueueWorldLoad
+path (not the boot-fade redirect, which crashed deterministically 3/3 —
+fading straight to the level entry at boot with g_currentWorld==0 destabilises
+startup). `OPENRAC_DEFAULT_LEVEL=<key>` now feeds the same existing
+`sly1_native_boot_level_key_for_sdl()` as the legacy OPENRAC_BOOT_LEVEL probe,
+and the stage-2 frame hook fires `sly1_native_force_level_boot()` when either
+env var is set. Verified (`/tmp/sly-def2-20261119/`, `/tmp/sly-def-combo-20261119/`):
+with `OPENRAC_DEFAULT_LEVEL=0x100` and no probe flag, the level resource loads
+(cd_reads 6, sectors 2473), world becomes `0x88d5b0`, and with windowed
+Yes/Resume input the state reaches `ui_state=3, pause_open=0` (gameplay).
+
+Combined with the opt-in area-mask (0x1) and placeholder-skip fixes, the captured
+gameplay frame shows the detailed textured terrain (gray cliff/rock) with
+yellow placeholder regions where textures are missing — still NO recognizable
+Sly level, character, or HUD. The boot-fade redirect experiment was reverted
+(crashed); only the proven hook is wired. Checks pass, default (no env) path
+unchanged.
 
 ### Value-tree source traced (2026-11-19, 07:30 CET)
 

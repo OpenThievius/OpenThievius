@@ -2496,7 +2496,11 @@ sly1_native_drive_splash_notifier() {
 
 // Opt-in forced-level boot for the SDL build (see compile_decomp_host32.py).
 extern "C" u32 sly1_native_boot_level_key_for_sdl(void) {
-    const char* value = getenv("OPENRAC_BOOT_LEVEL");
+    // OPENRAC_DEFAULT_LEVEL is the user-facing name for loading a level at
+    // boot; OPENRAC_BOOT_LEVEL is the legacy opt-in probe name. Both feed the
+    // same proven retail QueueWorldLoad path.
+    const char* value = getenv("OPENRAC_DEFAULT_LEVEL");
+    if (value == nullptr) value = getenv("OPENRAC_BOOT_LEVEL");
     if (value == nullptr || *value == '\0') return 0;
     char* end = nullptr;
     const unsigned long parsed = strtoul(value, &end, 0);
@@ -2639,7 +2643,8 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
-    if (stage == 2 && getenv("OPENRAC_BOOT_LEVEL") != nullptr)
+    if (stage == 2 && (getenv("OPENRAC_BOOT_LEVEL") != nullptr ||
+                       getenv("OPENRAC_DEFAULT_LEVEL") != nullptr))
         sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
