@@ -1,8 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 06:50 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 07:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Object/draw-path trace and controllability (2026-11-18, 07:30 CET)
+
+I traced the post-Cross world `0x870cf0` object and draw path. The two flags in
+the request (`OPENRAC_TRACE_OBJECTS`, `OPENRAC_TRACE_UI_CALLBACKS`) live in
+`port/sly1/main.cpp`, the non-SDL host path; the SDL launcher uses
+`port/sly1/native_host32/main.cpp`, which has no such flags. Its equivalents
+(`OPENRAC_TRACE_SLY_WORLD`, `OPENRAC_TRACE_PLACED_OBJECT_*`,
+`OPENRAC_TRACE_NATIVE_MODEL_BUILDS`) show:
+- `sly1_native_submit_model_part` is called from `DrawModelPart` for every
+  drawn part (`build/.../main/placed_object_model.cpp:2046`). The port captures
+  all kind-0/kind-6 meshes: **zero** `native sly mesh miss` events, up to **276**
+  drawn meshes per frame, with real uploaded textures. The draw path is not
+  missing — there is nothing to "implement active" there.
+- The largest submitted mesh is 106 vertices; the visible scene is these real
+  background/environment meshes, not a wrong camera matrix.
+
+Controllability test: holding the Right arrow for 4 seconds produced
+`[pad] held=0020` (Right reached the pad) but the camera view matrix was
+unchanged across the hold (only 8 slight positional drifts over the whole run,
+no response to input). So input is delivered but does not drive the player or
+camera — the game is in a non-interactive (Splash/cinematic) state, consistent
+with the earlier note that the automatic Splash-to-title/state transition is
+missing in several no-C graph functions. Those graph/state functions are not
+`missing_functions.S` traps (zero called), so they would need to be implemented
+from the decomp as new port backfills — a substantially larger task than a
+compositing fix, requiring the Splash/world graph state machine to be completed
+so the game leaves its non-interactive state.
+
+No code changes from this audit (the trace-cap tweak was reverted); tree clean
+at `77fa12d`. Captures: `/tmp/sly-objall-20261118/`, `/tmp/sly-move-20261118/`.
 
 ### No-C stubs are NOT the active blocker (2026-11-18, 06:50 CET)
 
