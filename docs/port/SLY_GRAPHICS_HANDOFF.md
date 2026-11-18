@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 04:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 05:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Correction: camera DOES track the player (2026-11-19, 05:00 CET)
+
+I instrumented g_camera (class 0x6D) and g_player at frame 100 in the stable
+windowed gameplay run (`/tmp/sly-cam3-20261119/`):
+- camera position (cam+0x40): `(2269.6, -21242.7, 742.6)`
+- player position (player+0x100): `(2190.9, -21603.0, -506.2)`
+- delta `(78.7, 360.2, 1248.8)`, distance ~1302 units.
+
+So the camera is **not** far from the player — it tracks it at a normal ~1300
+unit game-world distance. My earlier "camera far from level" conclusion was
+wrong: the view_projection translation is a matrix component, not the camera's
+world position. The player is in view.
+
+The real gap is therefore the submitted **mesh set**: the bounds trace shows
+large background geometry (local +-50000) and a small 58-vertex patch at local
+(-566,-25281,~8..324) ~2800 units from the player, but no level/character model
+at the player's own position — consistent with the earlier finding that the
+player has drawPartCount=0 and no populated model owner reaches the renderer.
+The magenta fan is the producer/untextured path drawing far geometry. That is
+the remaining frontier: the near-player model is never submitted to the
+renderer, so there is nothing to draw at the play area.
+
+No code changed this turn (camera trace was opt-in and reverted).
+Checksum: checks pass.
 
 ### Why the gameplay frame is abstract: camera far from level (2026-11-19, 04:15 CET)
 
