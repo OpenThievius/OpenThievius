@@ -1392,22 +1392,24 @@ extern "C" int openrac_native_window_poll_input(void) {
             drive_step = 0;
             std::fprintf(stderr, "[menu-driver] page changed to %u ui=%u\n", page, uistate);
         }
-        // Button bitmask: 0x10=Up, 0x4000=Cross, 0x08=Start. Advance one
-        // step every ~12 host frames.
-        if ((test_frame % 12u) == 0u) {
+        // Button bitmask: 0x10=Up, 0x4000=Cross, 0x08=Start. On page 7 replay
+        // the windowed sequence that reliably reaches gameplay (Cross, Up,
+        // Cross, Start, Cross, Down, Cross, Start). Hold each press ~30 host
+        // frames (~0.5s) so the game thread's ~3 fps pad poll cannot miss it.
+        constexpr unsigned int kSequence[] = {
+            0x4000u, 0x10u, 0x4000u, 0x08u,
+            0x4000u, 0x40u, 0x4000u, 0x08u};
+        constexpr unsigned kStepFrames = 40u;
+        constexpr unsigned kHoldFrames = 30u;
+        if ((test_frame % kStepFrames) == 0u) {
             unsigned int buttons = 0;
-            if (page == 7u) {
-                // Cycle Start, Cross, Up: the retail save-file prompt is
-                // confirmed with Start/Cross and navigated with Up.
-                const unsigned phase = drive_step % 3u;
-                buttons = phase == 0u ? 0x08u : (phase == 1u ? 0x4000u : 0x10u);
-            } else if (page != 0xFFFFFFFFu && uistate == 5u) {
-                buttons = 0x4000u;  // Cross on other menu pages
+            if (page == 7u || (uistate == 5u && page != 0u)) {
+                buttons = kSequence[drive_step % (sizeof(kSequence) / sizeof(kSequence[0]))];
+            } else if (uistate == 5u) {
+                buttons = 0x08u;  // Start to dismiss a remaining menu
             }
             if (buttons != 0) {
-                // Hold across ~8 host frames so the game thread's much slower
-                // pad poll reliably observes the press (a 1-frame press is lost).
-                g_input->test_press_buttons_once(buttons, 8);
+                g_input->test_press_buttons_once(buttons, kHoldFrames);
                 std::fprintf(stderr, "[menu-driver] inject %#x at page %u step %u\n",
                              buttons, page, drive_step);
             }
@@ -1776,8 +1778,16 @@ extern "C" void openrac_native_window_present(void) {
             const unsigned long parsed = std::strtoul(setting, &end, 10);
             if (end != setting && *end == '\0') start_present = static_cast<unsigned>(parsed);
         }
-        if (eligible && this_present >= start_present && eligible_frame >= skip &&
-            (eligible_frame - skip) % stride == 0u && frame_dump < 8) {
+        // Opt-in: only capture frames while the game reports the gameplay UI
+        // state (3), so a post-input playable frame is not lost among menus.
+        bool gameplay_only_ok = true;
+        if (std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr) {
+            const unsigned int packed = sly1_native_menu_page_and_state();
+            gameplay_only_ok = ((packed >> 8u) & 0xFFu) == 3u;
+        }
+        if (eligible && gameplay_only_ok && this_present >= start_present &&
+            eligible_frame >= skip && (eligible_frame - skip) % stride == 0u &&
+            frame_dump < 8) {
             const auto pixels = openrac::renderer::read_rgba(0, width, height);
             char path[512];
             const char* dump_directory = std::getenv(

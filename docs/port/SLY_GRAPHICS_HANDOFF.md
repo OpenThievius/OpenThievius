@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 21:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 22:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Gameplay state (ui_state=3) reached via windowed input (2026-11-19, 22:30 CET)
+
+MILESTONE: the native launcher reached `ui_state=3` (gameplay, pause_open=0)
+with windowed keyboard input. The sequence
+`CROSS, UP, CROSS, START, CROSS, DOWN, CROSS, START`
+(from /tmp/nav_full.py, 0.2s holds / 0.4s gaps) navigated the save-file prompt
+into gameplay. Verified in /tmp/sly-navfull/run.log: `f=65 w=0x88d5b0 ui=3
+p=0 pg=7`, and over a repeat run /tmp/sly-rep2: 7 frames at ui_state=3. The
+camera moved during the transition (pos 2616->2372, vp0 -0.138->-0.198).
+
+However this is INTERMITTENT (~1/4 windowed runs reach ui=3; others reach ui=4
+or stay at ui=5). The synthetic state-driven menu driver with the same sequence
+and long holds still does NOT advance the prompt — real keyboard events differ
+from the injected pad bits in a way not yet understood. I added an opt-in
+OPENRAC_DUMP_GAMEPLAY_ONLY frame filter to capture frames only at ui_state=3,
+but did not yet capture one in a successful run (the window is brief and the
+heap abort ends many runs).
+
+So gameplay is reachable natively, but no post-input frame yet shows a
+recognizable character/HUD — the kind-5 player meshes are still filtered out
+and the UI text/menu render path is not reproducing the HUD. Checks pass.
 
 ### Heap corruption isolated to mesh submission (2026-11-19, 21:15 CET)
 
