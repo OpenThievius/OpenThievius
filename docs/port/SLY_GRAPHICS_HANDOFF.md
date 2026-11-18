@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 17:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 17:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Old-wave report comparison (2026-11-18, 17:30 CET)
+
+I compared the archived old-wave build (`build/port/canonical-55d39f28/`) with
+the current build at the generated-source level:
+- `resource_object_common.c` differs: the old wave used a gaddr-based native
+  backfill (`game_sly1_discard`, `game_trace_common_reader`), the current a
+  host-pointer backfill. Neither writes `+0x238` drawParts directly.
+- Old-wave `hostgen/us/report.json`: `func_00162890` was an exact ASM selection
+  (call graph of retail readers `func_00137A60/.../func_00137F08`, no port
+  `sly1_native_*` helpers), while `func_0011E580` used the port object factory
+  (`sly1_native_call_constructor`, `sly1_native_trace_font`). The current build
+  uses matched decomp C for `func_00162890`
+  (`ReadPlacedObjectModel(ModelRecord*, void*, PlacedObject*)`).
+- So the old 1,962-part owner was produced by exact retail ASM for the model
+  reader plus the port object factory; the current build swaps in decomp C for
+  the model reader. `TextureRenderObject::drawParts` (+0x238) is set downstream
+  by `BuildTexturePackets`/range records, not by either reader.
+
+Pinpointing which specific change removed the owner needs a runtime trace of the
+old launcher (the archived `canonical-55d39f28/sly1_native` binary) with the
+current model-owner probe, which is a separate experiment. No code changed.
 
 ### Loader comparison: where drawParts population diverged (2026-11-18, 17:00 CET)
 
