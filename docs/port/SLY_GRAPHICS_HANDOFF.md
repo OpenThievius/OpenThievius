@@ -48,8 +48,33 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 04:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 05:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Attachment transform corruption localized (2026-11-20, 05:00 CET)
+
+Building on the other agent's attachment/skinning trace (commit 6a00d81), I added
+OPENRAC_TRACE_ATTACH_COMPOSE at the exact MultiplyMatrices call in
+UpdateAttachmentFrames (placed_object_model.cpp:1633). It dumps the owner
+inverse (e), the local pose (q10), and the attachment object's sub140/sub110
+that BuildMatrixFromRotationAndTranslation reads to form c.
+
+Decisive result: the owner transform (v140/m110 = translation 2179,-21570,740
+and a valid rotation) and every local pose q10 (max component <= ~54) are
+plausible. The corruption is entirely in the attachment objects' transforms
+(obj.sub110 rotation rows): some are degenerate (zero rows) and some are scaled
+~1e5 (e.g. rotation rows -857971,-28812,1.69e6 / -644977,-21659,1.27e6 /
+-220217,-7395,434593, position 48172,-20024,-90022). Because BuildMatrix reads
+only the first 3 rotation rows and the position, the garbage in later columns
+of my 16-float dumps is not the cause; the first rows themselves are bad.
+
+So the final bone matrix (m50) is corrupted BEFORE host skinning, by whatever
+writes the FramedObject sub110/sub140 transforms (guest pose/animation logic not
+present as decomp C). This confirms the other agent's upstream conclusion and
+localizes it to the input transforms. Fixing it needs that pose update backfilled
+in the port once its decomp C is available — not a host-side matrix tweak. The
+vt->f method resolves to func_001660A0/func_001DDE90 but those are likely
+address-reuse coincidences, not the actual writer. No state forced; checks pass.
 
 ### VU1 microprogram path ruled out for the player (2026-11-20, 04:00 CET)
 

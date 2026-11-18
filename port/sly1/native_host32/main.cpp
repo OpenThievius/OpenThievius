@@ -18,6 +18,7 @@ extern "C" char* getenv(const char*);
 #include <mutex>
 #include <pthread.h>
 #include <signal.h>
+#include <algorithm>
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -2747,6 +2748,47 @@ extern "C" u32 sly1_native_boot_level_key_for_sdl(void) {
 extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     extern u8 D_00247AF0[]; // g_keyedEntries (46 x 0x2C)
     return (u32)(uintptr_t)D_00247AF0;
+}
+
+// Opt-in trace of the attachment-frame matrix composition. Dumps the owner's
+// inverse (e) and the local pose (q10) that MultiplyMatrices combines into the
+// final bone matrix, so we can find where extreme values enter.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_attachment_compose(u32 self, u32 el, u32 e_addr, u32 q10_addr) {
+    if (getenv("OPENRAC_TRACE_ATTACH_COMPOSE") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 24u) return;
+    auto dump = [](const char* name, u32 addr) {
+        if (addr < 0x00010000u || addr >= 0x02000000u) return;
+        const volatile float* v = reinterpret_cast<const volatile float*>(addr);
+        std::fprintf(stderr, "[attach-compose] %s ", name);
+        float mx = 0.0f;
+        for (u32 i = 0; i < 16u; ++i) mx = std::max(mx, std::fabs(v[i]));
+        for (u32 i = 0; i < 16u; ++i)
+            std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", static_cast<double>(v[i]));
+        std::fprintf(stderr, " max=%g\n", static_cast<double>(mx));
+    };
+    std::fprintf(stderr, "[attach-compose] --- self=%#010x el=%#010x ---\n", self, el);
+    dump("e", e_addr);
+    dump("q10", q10_addr);
+    // Owner transform v140 (position) / m110 (rotation), and the attachment
+    // object's sub140/sub110, are at known offsets from self and el.
+    if (self >= 0x00010000u && self < 0x02000000u) {
+        dump("self.v140", self + 0x140u);
+        dump("self.m110", self + 0x110u);
+    }
+    if (el >= 0x00010000u && el < 0x02000000u) {
+        const u32 obj = *reinterpret_cast<const volatile u32*>(el);
+        if (obj >= 0x00010000u && obj < 0x02000000u) {
+            dump("obj.sub140", obj + 0x140u);
+            dump("obj.sub110", obj + 0x110u);
+            const u32 vt = *reinterpret_cast<const volatile u32*>(obj);
+            if (vt >= 0x08000000u && vt < 0x09000000u) {
+                const u32 f = *reinterpret_cast<const volatile u32*>(vt + 0xC0u);
+                write_hex("[attach-compose] obj vt->f ", (int)f);
+            }
+        }
+    }
 }
 
 // Opt-in trace of PollPadInput: does the pad state machine poll, and does

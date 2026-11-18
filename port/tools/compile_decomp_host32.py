@@ -4890,6 +4890,17 @@ void LoadEffectSpawner"""
                 adapted = definition.sub(
                     lambda match: match.group("header").replace(
                         name, "decomp_" + name, 1) + " ", adapted)
+        if rel.as_posix() == "main/placed_object_model.cpp":
+            # Opt-in: trace the inputs UpdateAttachmentFrames composes into the
+            # final bone matrix (owner inverse a, attachment transform c, local
+            # q10) and its output m50, to find where extreme values enter.
+            adapted = ('extern "C" void sly1_native_trace_attachment_compose(u32,u32,u32,u32);\n') + adapted
+            compose_needle = (
+                "                *(Mat4A*)&el->m50 = MultiplyMatrices(*(Mat4A*)&e, *(Mat4A*)&el->q10);")
+            if adapted.count(compose_needle) == 1:
+                adapted = adapted.replace(compose_needle,
+                    "                sly1_native_trace_attachment_compose((u32)self, (u32)el, (u32)&e, (u32)&el->q10);\n"
+                    "                *(Mat4A*)&el->m50 = MultiplyMatrices(*(Mat4A*)&e, *(Mat4A*)&el->q10);", 1)
         if args.trace_model_draws and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32, u32);\n' + adapted
             adapted = ('extern "C" void sly1_native_trace_detached_mesh_packet(u32, u32, u32, u32, u32, u32);\n' + adapted)
