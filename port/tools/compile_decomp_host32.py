@@ -5386,7 +5386,24 @@ void LoadEffectSpawner"""
                      "    if (spinSum != 0) { __builtin_memcpy(spinSum, &W, sizeof(W)); }")
             if adapted.count(tneedle) == 1:
                 adapted = adapted.replace(tneedle, trepl, 1)
+        if rel.as_posix() == "main/placed_object_model.cpp":
+            # Opt-in: dump the authoritative bone matrix the retail VIF unpack
+            # sends (skin->bones[k].m), to confirm whether it is corrupt at the
+            # source regardless of the host skinning adapter's address math.
+            adapted = ('extern "C" void sly1_native_trace_bone_unpack(u32,u32);\n') + adapted
+            bone_needle = (
+                "                VifPacketWriter::UnpackAt(&g_vifPacketWriter, &skin->bones[e->bones[k]].m, 0x40, 0x6C04C000, addr);")
+            if adapted.count(bone_needle) == 1:
+                adapted = adapted.replace(bone_needle,
+                    "                sly1_native_trace_bone_unpack((u32)skin, (u32)&skin->bones[e->bones[k]].m);\n" + bone_needle, 1)
         if rel.as_posix() == "main/placed_object.cpp":
+            # Opt-in: trace ComputePlacedObjectWorldFrame's rotation inputs and
+            # output to find where the ~1e6 bone rotation rows originate.
+            adapted = ('extern "C" void sly1_native_trace_world_frame(u32,u32,u32,u32,u32);\n') + adapted
+            wf_needle = "    u32 kind = self->bits24;\n"
+            if adapted.count(wf_needle) == 1:
+                adapted = adapted.replace(wf_needle,
+                    "    sly1_native_trace_world_frame((u32)self, (u32)&self->rot, (u32)&self->m110, (u32)self->parent, (u32)&self->pos);\n" + wf_needle, 1)
             # Opt-in: trace the unscaleByParent division that could blow up the
             # attachment rotations if the parent matrix diagonal is near zero.
             adapted = ('extern "C" void sly1_native_trace_unscale(u32,u32,f32,f32,f32);\n') + adapted

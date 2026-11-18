@@ -48,8 +48,31 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 06:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 07:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Bone corruption confirmed at authoritative VIF source (2026-11-20, 07:00 CET)
+
+I added OPENRAC_TRACE_BONE_UNPACK at the exact VIF unpack of
+`skin->bones[k].m` in DrawModelPart (placed_object_model.cpp:2109) — the matrix
+the retail actually sends to the VU. It confirmed the bone matrices are corrupt
+at the SOURCE, not just in the host adapter: sampled bone matrices have max
+absolute components of 1.4e8, 2.3e7, 1.7e5 (a valid bone matrix is ~1e2),
+while others are normal (~40-800). So the player's skin bone palette contains
+garbage before any host processing. This definitively rules out the host
+skinning adapter and the attachment compose path as the origin.
+
+The bone palette is filled by pose evaluation (pose_source.cpp / ASM functions
+like func_00172EE0 Player::pose) — not present as decomp C — via the axis-angle
+and ramp values traced by the existing pose-rotation probe. Finding which pose
+input produces the first bad bone needs tracing the pose evaluation into the
+bone matrix writes, which is deeper ASM logic with no decomp C to instrument.
+
+The attachment objects are class 79 (0x4F, descriptor D_00219260), standard
+PlacedObjects whose transforms come from frame propagation; ComputePlacedObjectWorldFrame
+and unscaleByParent both ruled out as the direct writers of the 1e6 rows.
+
+No state forced; opt-in diagnostics, checks pass.
 
 ### unscaleByParent ruled out (2026-11-20, 06:00 CET)
 

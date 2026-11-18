@@ -2750,6 +2750,41 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     return (u32)(uintptr_t)D_00247AF0;
 }
 
+// Opt-in trace of the authoritative bone matrix the VIF unpack sends.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_bone_unpack(u32 skin, u32 matrix_addr) {
+    if (getenv("OPENRAC_TRACE_BONE_UNPACK") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 16u) return;
+    if (matrix_addr < 0x00010000u || matrix_addr >= 0x02000000u) return;
+    const volatile float* v = reinterpret_cast<const volatile float*>(matrix_addr);
+    float mx = 0.0f;
+    for (u32 i = 0; i < 16u; ++i) mx = std::max(mx, std::fabs(v[i]));
+    std::fprintf(stderr, "[bone-unpack] skin=%#010x addr=%#010x max=%g\n",
+                 skin, matrix_addr, (double)mx);
+}
+
+// Opt-in trace of ComputePlacedObjectWorldFrame rotation inputs/output.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_world_frame(u32 self, u32 rot_addr, u32 m110_addr, u32 parent, u32 pos_addr) {
+    if (getenv("OPENRAC_TRACE_WORLD_FRAME") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 40u) return;
+    auto maxabs = [](u32 addr) -> float {
+        if (addr < 0x00010000u || addr >= 0x02000000u) return 0.0f;
+        const volatile float* v = reinterpret_cast<const volatile float*>(addr);
+        float m = 0.0f;
+        for (u32 i = 0; i < 12u; ++i) m = std::max(m, std::fabs(v[i]));
+        return m;
+    };
+    const float rmax = maxabs(rot_addr);
+    // Only print objects with a suspicious local rot or output, to avoid spam.
+    if (rmax < 2.0f && maxabs(m110_addr) < 2.0f) return;
+    std::fprintf(stderr,
+        "[world-frame] self=%#010x parent=%#010x local_rot_max=%g out_m110_max=%g pos_max=%g\n",
+        self, parent, (double)rmax, (double)maxabs(m110_addr), (double)maxabs(pos_addr));
+}
+
 // Opt-in trace of the unscaleByParent division: a near-zero parent matrix
 // diagonal would blow up the attachment rotation.
 extern "C" __attribute__((no_instrument_function)) void
@@ -2796,16 +2831,16 @@ sly1_native_trace_attachment_compose(u32 self, u32 el, u32 e_addr, u32 q10_addr)
             dump("obj.sub140", obj + 0x140u);
             dump("obj.sub110", obj + 0x110u);
             const u32 vt = *reinterpret_cast<const volatile u32*>(obj);
-            if (vt >= 0x08000000u && vt < 0x09000000u) {
+            if (vt >= 0x00010000u && vt < 0x10000000u) {
+                // A FramedObject's vt is a ClassDescriptor: id at +4, flags at +8.
                 static volatile u32 vt_notices = 0;
-                if (__atomic_fetch_add(&vt_notices, 1u, __ATOMIC_RELAXED) < 2u) {
-                    write_hex("[attach-compose] obj vt ", (int)vt);
-                    for (u32 slot = 0; slot < 0xD0u; slot += 4u) {
-                        const u32 fn = *reinterpret_cast<const volatile u32*>(vt + slot);
-                        if (fn >= 0x08000000u && fn < 0x09000000u &&
-                            (slot == 0xC0u || slot == 0x0u || slot == 0x4u))
-                            std::fprintf(stderr, "[attach-compose] vt[%#x]=%#010x\n", slot, fn);
-                    }
+                if (__atomic_fetch_add(&vt_notices, 1u, __ATOMIC_RELAXED) < 4u) {
+                    const int class_id = *reinterpret_cast<const volatile int*>(vt + 4u);
+                    const int class_flags = *reinterpret_cast<const volatile int*>(vt + 8u);
+                    const u32 f = *reinterpret_cast<const volatile u32*>(vt + 0xC0u);
+                    std::fprintf(stderr,
+                        "[attach-compose] obj=%#010x vt=%#010x class=%d flags=%#x f=%#010x\n",
+                        obj, vt, class_id, class_flags, f);
                 }
             }
         }
