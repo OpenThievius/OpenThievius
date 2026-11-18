@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 04:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 04:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Draw-buffer block mismatch (2026-11-18, 04:30 CET)
+
+I traced Sly's FRAME register: all 35 writes are `0x4D = 0x0000000000010126`,
+i.e. `fbp=0x126` → draw buffer block `0x24c0`, with `fbw=1`. The game's
+`BlitFrameToDisplay` samples TEX0_2 at TBP `0x24c0` (decoded from the runtime
+`0x0000000d980064c0`). The port never configured its draw buffer, leaving
+Ratchet's `g_draw_buffer_block = 0x1000`, and `is_offscreen()` rejected `0x24c0`
+on both counts, so the buffer was never registered and the blit sampled the
+placeholder (`texture=0x1`, `fbmsk=0xffffffff` → no visible write).
+
+I added an opt-in `OPENRAC_SLY_DRAW_BLOCK` override and changed `is_offscreen()`
+so a configured display/draw buffer is on-screen even with a narrow `fbw`, while
+unknown blocks stay offscreen (a first version wrongly registered 48 garbage
+FRAME buffers; corrected). Verified with `OPENRAC_TRACE_FRAME_SOURCE`: the blit's
+`frame_source(0x24c0)` now returns `found=1 xy=0,0` — the bug is genuinely fixed.
+
+The post-Cross frame is still black. The reason is separate and deeper: after
+Cross the DirectRenderer decodes `decoded_vertices=0 draws=0` for the game's
+packets — the world geometry arrives only as VU1 XGKICK packets the interpreter
+cannot turn into draws, and no writable UI/blit draw follows. The draw-block fix
+is correct but cannot make the scene visible on its own. Capture:
+`/tmp/sly-finalfix-20261117/`, `/tmp/sly-fs5-20261117/`.
 
 ### Display-state and separate-pass attempts (2026-11-18, 04:00 CET)
 

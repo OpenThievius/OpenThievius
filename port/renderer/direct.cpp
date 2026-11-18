@@ -958,8 +958,12 @@ void GifInterpreter::kick(bool draw) {
 
 bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
     const std::uint32_t block = f.fbp * 32;
-    return static_cast<int>(f.fbw) * 64 < m_config.screen_width
-        || (block != m_config.display_block && block != g_draw_buffer_block);
+    // An unknown buffer is offscreen. The configured display and draw buffers are
+    // on-screen even when a game writes a narrow frame register for them (Sly writes
+    // fbw=1 for its 0x24c0 draw buffer, which the blit samples as a 64x64 page).
+    if (block != m_config.display_block && block != g_draw_buffer_block)
+        return true;
+    return false;
 }
 
 std::uint32_t GifInterpreter::offscreen_target() const {

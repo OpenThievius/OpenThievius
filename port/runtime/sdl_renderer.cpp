@@ -1242,6 +1242,12 @@ extern "C" int openrac_native_window_create(void) {
 
     g_textures = std::make_unique<openrac::renderer::TexturePool>();
     openrac::renderer::RenderState state{*g_textures, {0, 960, 720}};
+    if (const char* setting = std::getenv("OPENRAC_SLY_DRAW_BLOCK")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFu)
+            openrac::renderer::set_draw_buffer_block(static_cast<std::uint32_t>(parsed), 416);
+    }
     g_direct = std::make_unique<openrac::renderer::DirectRenderer>(
         "sly1-direct", openrac::renderer::Bucket::Hud,
         openrac::renderer::DirectConfig{640, 224, 0},
