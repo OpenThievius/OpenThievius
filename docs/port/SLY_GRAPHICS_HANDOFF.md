@@ -1,8 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 09:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 09:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Full notifier/graph state chain (2026-11-18, 09:30 CET)
+
+I completed the retail-source derivation of the transition chain in
+`state_notifier.cpp`, which closes the `f338` question:
+- `timerEnabled` (offset 0x338, the "null gate") is set to `1` in code at
+  `SetStateNotifierState` case 2 (`state_notifier.cpp:958`), guarded by
+  `timerDisabled == 0`. It is NOT a property record.
+- `SetStateNotifierState` maps notifier states to graph events: state 0 ->
+  `0x261` (idle/self-edge), state 6 -> `0x263` (the transition the countdown
+  notifier waits for), state 7 -> `0x262`, state 3 -> `0x260`.
+- `CountDownNotifierTimer` requires `timerEnabled != 0`, then on timeout calls
+  `SetCountdownNotifierState` -> state 6 -> event `0x263`; only then does
+  `HandleCountdownNotifierNotification` advance and notify the world.
+
+So the retail sequence is: notifier asset/link puts the notifier into state 2
+(enabling its timer), the timer expires, the notifier goes to state 6 / event
+`0x263`, and the graph walker leaves the idle self-edge. The runtime notifier
+is in state 0 with `timerEnabled` null, so it never starts the timer. All of
+`SetStateNotifierState`, `SetCountdownNotifierState`, `CountDownNotifierTimer`
+and `LoadStateGraph` are real decomp C in the staging build (not stubs/traps),
+and the port stages the decomp `ReadPropertyRecords`. The initial notifier
+state and `idleEvent` come from the asset's property records/object links.
+
+I attempted to instrument the property reader at load time, but hostgen
+regenerates the staged decomp sources on every build, so a direct staged-file
+edit does not persist and `func_001B5F50`'s backfill is not the active path
+(the decomp `LoadStateGraph` wins). A persistent trace needs a hostgen C-level
+hook, which is a separate tooling change.
+
+The remaining task is to identify which asset property record sets the
+notifier's initial state / `idleEvent` to a non-idle value and reproduce that
+link resolution. That value is present in the retail resource data, not in decomp
+C, so it needs a retail asset reference to identify precisely. I did not force
+the fields. No code changed; tree clean at `6a1eced`. Source:
+`/home/reaper/sly/sly1-decomp/src/main/state_notifier.cpp`.
 
 ### Property-descriptor level of the graph arming (2026-11-18, 09:00 CET)
 
