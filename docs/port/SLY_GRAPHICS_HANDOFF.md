@@ -1,8 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 13:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 14:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Windowed-load desync diagnosed (2026-11-19, 14:00 CET)
+
+I traced the intermittent windowed stall (never reaching controllable gameplay
+reliably). The pad input reaches the game (`held=0010` D-pad, `held=4000` Cross),
+and `sly1_native_force_level_boot()` queues the level (cd_reads 6), but
+`g_currentWorld` stays 0 and the game thread blocks in `BeginRenderFrame`
+(`func_0015E9F0`, render_frame.cpp:348) on `g_frameDoneSemaphore`
+(`sly1_native_wait_semaphore`). The render thread (which posts the semaphore at
+render_frame.cpp:490, `func_0015EE80`) stops posting after ~63 events in the
+stalled windowed run, while `RunPendingWorldLoad` calls `DrainRenderFrames(1)`
+which awaits two frame-done semaphores — a game/render thread handshake desync
+specific to windowed mode (hidden runs are stable). QueueModelPartDraws is still
+called on the class-4 owner (views=0x1, 1962 parts), so the world partially
+exists; the trace read of g_currentWorld=0 is inconsistent with that.
+
+This is a concurrency bug in the frame-semaphore handshake, distinct from the
+draw/material gaps. A faithful fix needs the render-thread posting cadence
+corrected for the windowed path. No code changed this turn; checks pass.
 
 ### Matrix convention fix: coherent level geometry (2026-11-19, 13:15 CET)
 
