@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 15:40 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 16:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Definitive: no class-4 model owner in current builds (2026-11-18, 16:30 CET)
+
+I implemented the requested descriptor-validated full-RAM scan safely: object
+`desc` fields are host pointers, and class descriptors live in host
+`.data.rel.ro` (`0x0825b000..0x082e3000`), so I restricted `desc` to that
+mapped range before reading `+4` (class id) and `+0xC` (size), requiring class
+`0x04` and size `0x3A0` before reading the object's `drawPartCount` (+0x238)
+and `drawParts` (+0x23C). I also wired the retail `SetPlacedObjectSpecialFlag`
+(`func_0012B550`, `_Z13func_0012B550P12PlacedObjecti`) to clear flag bit 32 from
+the game-thread frame-stage hook (the context proven safe for retail calls).
+
+Result on the forced-level path (`OPENRAC_BOOT_LEVEL=0x0100`): the scan runs to
+completion without a fault but finds **zero** class-4 objects with a populated
+parts array. Earlier looser descriptor ranges faulted (unmapped pages); the
+validated range does not. So the README's "class-4 owner at 0xa811f0 with 1,962
+parts" belongs to an older build/wave and is **not present** in the current
+build's forced-level path. There is no populated model owner to unhide or route
+into the renderer, on either the normal or forced-level path. The hidden-flag
+mechanism is real (retail clears bit 32 to reveal objects), but it has no object
+to act on here.
+
+All experimental code reverted, tree clean at `0904912` plus earlier opt-in
+hooks, checks pass (0 problems, 6 unit tests). Captures:
+`/tmp/sly-unhide5..8-20261118/`. No field forced.
 
 ### Forced-level model owner: derived cause and scan limit (2026-11-18, 15:40 CET)
 
