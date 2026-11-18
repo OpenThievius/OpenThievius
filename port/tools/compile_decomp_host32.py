@@ -3275,6 +3275,19 @@ def main(argv=None):
                     raise RuntimeError("expected two legacy Hermite calls in " +
                                        rel.as_posix())
         elif rel.as_posix() == "main/pooled_object.cpp":
+            # Opt-in trace of QueuePlacedObjectDraw: log the object, its draw
+            # range and part count to see why so few objects reach DrawModelPart.
+            adapted = ('extern "C" void sly1_native_trace_queue_draw(u32, u32, u32, u32);\n') + adapted
+            qneedle = ("void QueuePlacedObjectDraw(TextureRenderObject* self, s32 unused, void* a2)\n{\n"
+                       "    (void)unused;\n"
+                       "    if (self->drawRange != 0) {")
+            qrepl = ("void QueuePlacedObjectDraw(TextureRenderObject* self, s32 unused, void* a2)\n{\n"
+                     "    (void)unused;\n"
+                     "    sly1_native_trace_queue_draw((u32)self, (u32)self->drawRange, "
+                     "(u32)self->drawPartCount, (u32)g_currentWorld);\n"
+                     "    if (self->drawRange != 0) {")
+            if adapted.count(qneedle) == 1:
+                adapted = adapted.replace(qneedle, qrepl, 1)
             adapted = adapted.replace(
                 "void* GetListLinks(void* a, void* b);",
                 "ListLink* GetListLinks(ObjectList* a, void* b);")
@@ -5311,6 +5324,23 @@ void LoadEffectSpawner"""
         # Without this, a u64 register shifts the value by one stack word on
         # i386 and GS writes such as SCISSOR_1 become corrupt.
         adapted = normalize_gif_register_writer_abi(adapted)
+        if rel.as_posix() == "main/placed_object.cpp":
+            # Opt-in trace of QueuePlacedObjectModelParts: count objects and
+            # parts entering the main model draw path (and how many are culled).
+            adapted = ('extern "C" void sly1_native_trace_model_parts_enter(u32, u32, u32);\n'
+                       'extern "C" void sly1_native_trace_model_draw_result(u32, u32);\n') + adapted
+            qneedle = ("void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{\n"
+                       "    ModelPartRequest rec;\n    ModelPartState* state = 0;\n    s32 drawn = 0;")
+            qrepl = ("void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{\n"
+                     "    ModelPartRequest rec;\n    ModelPartState* state = 0;\n    s32 drawn = 0;\n"
+                     "    sly1_native_trace_model_parts_enter((u32)self, (u32)self->drawPartCount, (u32)g_currentWorld);")
+            if adapted.count(qneedle) == 1:
+                adapted = adapted.replace(qneedle, qrepl, 1)
+            # Log parts drawn just before the function returns (find the tail).
+            tail = "    if (drawn != 0) {\n        self->desc02()->m27(self, src);"
+            if adapted.count(tail) == 1:
+                adapted = adapted.replace(tail,
+                    "    sly1_native_trace_model_draw_result((u32)self, (u32)drawn);\n" + tail, 1)
         if rel.as_posix() == "main/placed_object.cpp":
             # The final Vec4 aggregate writes compile to aligned SSE movaps on
             # host32, but retail callers can pass a less-than-16-byte-aligned

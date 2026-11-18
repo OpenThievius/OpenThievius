@@ -2531,6 +2531,59 @@ sly1_native_trace_turn_heading(u32 self, u32 pad) {
     }
 }
 
+// Opt-in trace of QueuePlacedObjectModelParts: count objects and drawn parts.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_model_parts_enter(u32 self, u32 partCount, u32 world) {
+    if (getenv("OPENRAC_TRACE_MODEL_PARTS") == nullptr) return;
+    static volatile u32 objects = 0, zero_parts = 0;
+    const u32 n = __atomic_add_fetch(&objects, 1u, __ATOMIC_RELAXED);
+    if (partCount == 0u) __atomic_add_fetch(&zero_parts, 1u, __ATOMIC_RELAXED);
+    if (n <= 40u) {
+        write_hex("native host32: queue_model_parts self ", (int)self);
+        write_hex("  parts ", (int)partCount);
+        write_hex("  world ", (int)world);
+    }
+    if (n == 300u) {
+        write_hex("native host32: queue_model_parts OBJECTS ", (int)n);
+        write_hex("  zero_part_objects ", (int)__atomic_load_n(&zero_parts, __ATOMIC_RELAXED));
+    }
+}
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_model_draw_result(u32 self, u32 drawn) {
+    if (getenv("OPENRAC_TRACE_MODEL_PARTS") == nullptr) return;
+    static volatile u32 draws = 0;
+    const u32 n = __atomic_add_fetch(&draws, 1u, __ATOMIC_RELAXED);
+    if (n <= 40u || drawn > 0u) {
+        write_hex("native host32: model_draw_result self ", (int)self);
+        write_hex("  drawn ", (int)drawn);
+    }
+}
+
+// Opt-in trace of QueuePlacedObjectDraw: histogram of objects with/without a
+// draw range and their part counts.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_queue_draw(u32 self, u32 drawRange, u32 partCount, u32 world) {
+    if (getenv("OPENRAC_TRACE_QUEUE_DRAW") == nullptr) return;
+    static volatile u32 with_range = 0, without_range = 0;
+    static volatile u32 with_parts = 0, total = 0;
+    const u32 t = __atomic_add_fetch(&total, 1u, __ATOMIC_RELAXED);
+    if (drawRange != 0u) __atomic_add_fetch(&with_range, 1u, __ATOMIC_RELAXED);
+    else __atomic_add_fetch(&without_range, 1u, __ATOMIC_RELAXED);
+    if (partCount > 0u) __atomic_add_fetch(&with_parts, 1u, __ATOMIC_RELAXED);
+    if (t <= 60u || (t % 200u == 0u)) {
+        write_hex("native host32: queue_draw self ", (int)self);
+        write_hex("  drawRange ", (int)drawRange);
+        write_hex("  partCount ", (int)partCount);
+        write_hex("  world ", (int)world);
+    }
+    if (t == 300u) {
+        write_hex("native host32: queue_draw TOTAL ", (int)total);
+        write_hex("  with_range ", (int)__atomic_load_n(&with_range, __ATOMIC_RELAXED));
+        write_hex("  without_range ", (int)__atomic_load_n(&without_range, __ATOMIC_RELAXED));
+        write_hex("  with_parts ", (int)__atomic_load_n(&with_parts, __ATOMIC_RELAXED));
+    }
+}
+
 // Opt-in stage marker inside RunPendingWorldLoad.
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_world_load_stage(u32 stage) {
