@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 11:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 12:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Kind-5 transform/material decode attempted (2026-11-19, 12:30 CET)
+
+I attempted the dedicated kind-5 decode. The player's model matrix read by
+`submit_model_part` IS correct: translation (2179,-21570,740), a rotation,
+and the view_projection with translation (3998,396,10870,-10634). Recomputing
+the projection of local points (±20, z 43..116) through mvp = model*vp puts
+the character near screen centre (NDC ~0) spanning ~2% of the screen — a small
+blob, not sub-pixel (an earlier 17-value misparse had wrongly suggested
++-0.22/-0.13). The material is `tex0=0` (untextured) because the kind-5 strip
+packet's frame-source format the capture hook expects carries no TEX0 register.
+
+So a faithful player needs: (1) the correct kind-5 material (TEX0) source —
+kind-5 strips take their texture from the part's material, not the captured
+packet registers; and (2) correct scale — the ~2% blob should be a full
+character. Enabling kind 5 with the generic path still triggers the heap abort.
+This is a dedicated decode of BuildStripMeshPacket's material/scale, a real
+bounded task. The experiment was reverted; tree clean at `242d7b8`, checks pass.
 
 ### Kind-5 decode detail (2026-11-19, 11:45 CET)
 
