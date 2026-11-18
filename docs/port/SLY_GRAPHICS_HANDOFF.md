@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 11:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 11:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Kind-5 decode detail (2026-11-19, 11:45 CET)
+
+I dumped the player's kind-5 mesh vertices directly
+(OPENRAC_DUMP_SLY_MESH_VERTS=0xa2d9a8): they are valid character-scale
+positions (e.g. `(-8.9,-20.2,80.4)`, `(-15.6,-13.8,82.3)`, local bounds roughly
++-20 x/y, z 43..116). So the capture hook reads the vertex positions correctly —
+the earlier "sub-pixel local +-12" was the projected/NDC result, not the raw
+data. The problem is the transform/material: with kind 5 enabled the projected
+NDC is ~+-0.01 (a few pixels) and `tex0=0` (kind-5 mesh packets carry no TEX0
+register in the format the capture hook expects), so the character is drawn
+untextured and far too small, and the run hits the heap abort.
+
+So kind-5 needs: (1) the correct model/view transform for BuildStripMeshPacket
+geometry (the generic kind-0/6 mvp is wrong for it), and (2) the correct
+material/texture source. Both are a dedicated decode path for the kind-5
+packet format — a bounded but real task. The experiment was reverted; tree
+clean at `44b0b27`, checks pass.
 
 ### Why the player character is invisible: kind-5 mesh format (2026-11-19, 11:00 CET)
 
