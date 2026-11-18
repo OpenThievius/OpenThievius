@@ -1,8 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 06:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 07:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Value-tree source traced (2026-11-19, 07:30 CET)
+
+I traced the area-mask sentinel to its source. `UpdateCameraLocation`
+(camera.cpp:897) calls `LookupValueTreeLeaf(g->valueListObject, &in, &out)` and
+only updates `areaMask` when `out != 0`. On the loaded world
+`0x88d5b0`:
+- `valueListObject = 0x00a806b0`, `data38 = 0x00a80700`, count 88 nodes,
+  6 values `[0x11,0x3a,0x0c,0x2e,0x13,0x3a]` — the value tree IS loaded.
+- Calling the retail `func_001EEBB0` at the camera position, the player
+  position, and a coarse ±12000 grid returned **0 everywhere** — so `out==0`,
+  `areaMask` stays at the reset sentinel `0x0FFFFFFF`, and the cull at
+  `QueueModelPartDraws` (point_graph.cpp:211) discards 1923/1962 parts.
+- The first tree node at `0xa80700` is a valid `LinkedItem`:
+  normal `(0,-0,1)`, offset `0x45aaac76` (~1361), links `0xa80720` and
+  `0x80000000` (a leaf with mask value 0).
+
+So the tree data is structurally present but its lookups yield area mask 0 —
+either the tree was built for a different coordinate frame/level, or the
+leaf-mask values are all zero for this build's resource. The retail game, given
+this data, would also keep the sentinel; the area-mask override that reveals
+the level is therefore compensating for a value-tree/resource mismatch that is
+deeper than a simple "tree not loaded". A faithful fix requires identifying why
+this level's value tree yields no area (asset/resource mismatch), which needs
+the retail level-stream reference to compare against.
+
+All probes were opt-in and reverted; tree clean at `baf915d`, checks pass.
 
 ### Parallel investigation + area-mask root cause confirmed (2026-11-19, 06:30 CET)
 
