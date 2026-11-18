@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 13:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 14:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Player exists, is in view, but its model is not rendered (2026-11-18, 14:00 CET)
+
+I checked whether a player character object exists at all. `g_player`
+(`D_00262E10`) is non-null at a post-Cross frame: object `0x016c8ed0`, class
+**0x07**, id 0x05, world `0x00870cf0` (the active post-Cross world). Its `pos`
+(Vec4 at +0x100) is `(-4373.5, 9332.9, -554.2)`. Projecting that through the
+captured view-projection matrix (row-vector convention) gives clip
+`(35.81, 61.3, -309.7, 448.8)` -> NDC `(0.080, 0.137, -0.690)` — **on screen**,
+near center. So the camera is tracking the player and the player is in view.
+
+The visible scene still shows only the distant background meshes (the
+`0x870cf0` world-mesh submissions) and no character. Therefore the player's
+character model is not going through the captured kind-0/6 world-mesh draw path
+that the native renderer draws; it must use a different moby/draw path that the
+port does not render. That is the concrete, final gap for a visible character:
+the player object and camera are correct, but no model is drawn for the player.
+
+This is opt-in diagnostics only (off by default); tree clean at `0904912` plus
+hooks, checks pass. Capture: `/tmp/sly-player4-20261118/`.
 
 ### Why the 0x263 transition has no visible effect (2026-11-18, 13:30 CET)
 

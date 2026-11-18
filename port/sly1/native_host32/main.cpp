@@ -2517,8 +2517,27 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
-    if (stage == 8)
-        __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
+    if (stage == 8) {
+        const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
+        if (getenv("OPENRAC_TRACE_PLAYER") != nullptr && frame == 340u) {
+            extern u32 D_00262E10; // g_player
+            const u32 player = D_00262E10;
+            write_hex("native host32: g_player ", (int)player);
+            if (player >= 0x00010000u && player < 0x02000000u) {
+                const u32 desc = *(volatile u32*)player;
+                write_hex("  player desc ", (int)desc);
+                if (desc >= 0x00010000u && desc < 0x10000000u) {
+                    write_hex("  player class ", (int)*(volatile u32*)(desc + 4u));
+                    write_hex("  player id ", (int)*(volatile u32*)(player + 8u));
+                    write_hex("  player world ", (int)*(volatile u32*)(player + 0x14u));
+                    // pos (Vec4) at +0x100, raw float bits
+                    write_hex("  player pos.x ", (int)*(volatile u32*)(player + 0x100u));
+                    write_hex("  player pos.y ", (int)*(volatile u32*)(player + 0x104u));
+                    write_hex("  player pos.z ", (int)*(volatile u32*)(player + 0x108u));
+                }
+            }
+        }
+    }
 }
 
 extern "C" __attribute__((no_instrument_function)) void
