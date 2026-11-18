@@ -1,8 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 20:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 21:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Heap corruption isolated to mesh submission (2026-11-19, 21:15 CET)
+
+I added opt-in isolation flags and ran a controlled abort matrix (MALLOC_CHECK_=3,
+hidden mode). The corruption is definitively in the mesh-submit path:
+- Splash only (OPENRAC_NO_DEFAULT_LEVEL=1): 0/4 aborts — level/mesh-specific.
+- Mesh submit OFF (OPENRAC_NO_MESH_SUBMIT=1): 0/6 aborts.
+- World-mesh queue OFF but vector copy ON (OPENRAC_NO_WORLD_MESH_QUEUE=1):
+  1/8 aborts (`free(): double free detected in tcache 2`).
+- GL world render OFF: 1/4 aborts.
+- Full path: ~1/6 aborts (plus an occasional SIGSEGV).
+
+Key deduction: with the queue OFF, no world meshes are ever submitted, so the
+present path frees no mesh vectors — yet a double-free still occurred. So the
+corruption is NOT in the present/queue path; it is in `submit_model_part` itself
+or the shared mesh maps. Both the vector copy (`mesh = found->second`) and the
+queue call can trigger the abort, i.e. both are downstream malloc sites that
+detect an already-corrupted tcache. Removing the copy earlier made it 6/6 —
+confirming the copy is only a detector, not the cause.
+
+Guest heap backfills (bump allocators in guest RAM) and VU-NDC copy helpers are
+bounds-checked and ruled out. Guest RAM (0..0x02000000) cannot reach the host
+arena at 0x0d6xxxxx. 32-bit ASan is unavailable (dangling libasan.a), no gdb,
+guard.so cannot preload, and every instrumented build hides the bug. The exact
+corrupting write remains unpinned with this toolchain — a genuine environment
+blocker. The isolation flags are opt-in and off by default; checks pass.
 
 ### Menu navigation: mask bug fixed, prompt still blocks (2026-11-19, 20:15 CET)
 

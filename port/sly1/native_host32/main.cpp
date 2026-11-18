@@ -1351,6 +1351,9 @@ extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_addr
 extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                                                  u32 camera_address) {
     if (request_address == 0 || world == 0 || camera_address == 0) return;
+    // Isolation flag: skip all mesh submission to test whether the intermittent
+    // host-heap corruption originates in this path.
+    if (getenv("OPENRAC_NO_MESH_SUBMIT") != nullptr) return;
     const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
     const u32 part_address = request[0x78 / 4];
     if (part_address == 0) return;
@@ -1394,6 +1397,7 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                              source_mesh, packet_address, request_address, i, pass,
                              mesh.materials.size(), mesh.vertices.size() / 9u,
                              static_cast<unsigned long long>(material.tex0));
+            if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;
             openrac_native_sly_world_mesh_submit(
                 world, instance, mesh.vertices.data(),
                 static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
