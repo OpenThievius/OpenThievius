@@ -1785,9 +1785,11 @@ extern "C" void openrac_native_window_present(void) {
             const unsigned int packed = sly1_native_menu_page_and_state();
             gameplay_only_ok = ((packed >> 8u) & 0xFFu) == 3u;
         }
+        const unsigned dump_cap = std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr
+            ? 64u : 8u;
         if (eligible && gameplay_only_ok && this_present >= start_present &&
             eligible_frame >= skip && (eligible_frame - skip) % stride == 0u &&
-            frame_dump < 8) {
+            frame_dump < dump_cap) {
             const auto pixels = openrac::renderer::read_rgba(0, width, height);
             char path[512];
             const char* dump_directory = std::getenv(
