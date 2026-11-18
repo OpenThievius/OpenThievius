@@ -1,8 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 21:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 21:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Correction: forced-level probe was not active in SDL builds (2026-11-18, 21:45 CET)
+
+I traced `sly1_host_cd_read` and found only **one** CD read in the whole run:
+sector `0x0c8494` (820372, the Splash resource), 74 sectors, to `0x002c3b00`.
+The level resource (sector 867214) is **never** read. Root cause: the forced-level
+hook `sly1_native_boot_level_key()` lives in the port backfill
+`func_001E4EA8.c`, but the SDL build links the **decomp C** `func_001E4EA8`
+(mangled `_Z13func_001E4EA8P16WorldLoadRequest` at `0x080ebb40`), which has no
+boot-level shortcut. `game_sly1_native_boot_level_key()` is only in the non-SDL
+`port/sly1/main.cpp`. So `OPENRAC_BOOT_LEVEL=0x0100` was a **no-op** in every SDL
+test — all my "forced-level" conclusions were actually the normal Splash path.
+This also explains why the class-4 object's stream had zeros: no level was loaded.
+
+To actually force-load a level in the SDL build, the boot-level shortcut must be
+port-ed into the SDL `func_001E4EA8` path (or `sly1_native_boot_level_key` defined
+and the backfill selected) — a concrete follow-up. It does not change the normal
+path's conclusion: the game never reaches a title/level load on its own because
+the title/movie flow is unimplemented. All instrumentation opt-in and reverted;
+tree clean at `0904912` plus earlier opt-in hooks, checks pass. Capture:
+`/tmp/sly-cdread-20261118/`. No fields forced.
 
 ### Root cause: level stream data at count cursor is empty (2026-11-18, 21:00 CET)
 
