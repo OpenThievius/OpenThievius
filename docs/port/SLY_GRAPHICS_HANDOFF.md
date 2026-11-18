@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 10:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 11:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Why the player character is invisible: kind-5 mesh format (2026-11-19, 11:00 CET)
+
+I found the concrete reason the player's on-screen character never appears.
+The player's `textureObject` (0x1876610) has 30 meshes, all with source mesh
+`0x00a2d9a8` and `kind=5`. `submit_model_part` and `sly1_native_capture_model_mesh`
+both only accept kinds 0 and 6, so kind-5 meshes are neither captured nor
+submitted — the character contributes no geometry to the renderer at all.
+
+I tested extending both filters to all strip kinds (1,4,5,6,7,8,9,10). The
+player's 30 meshes (104 vertices each) were then captured and submitted, but
+their projected bounds were local +-12 units / NDC ~-0.02..0.006 — a sub-pixel
+patch near screen center, not a character. That means the kind-5 mesh uses a
+different vertex-packet format than kind 0/6; the capture hook reads its
+VertexRefs at the wrong offsets and produces invalid, tiny geometry. Enabling
+it also made the run hit the heap-corruption abort (`malloc(): unaligned tcache
+chunk detected`). The captured frame was unchanged (no character).
+
+So a faithful player character needs the kind-5 (BuildStripMeshPacket) mesh
+format decoded correctly in `sly1_native_capture_model_mesh` — a distinct,
+bounded task that requires understanding that packet layout. The experiment was
+reverted; tree clean at `aeddc15`, checks pass.
 
 ### Validated fixes now correct-by-default (2026-11-19, 10:00 CET)
 
