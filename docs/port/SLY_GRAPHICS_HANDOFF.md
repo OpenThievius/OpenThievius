@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 23:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 00:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Heap stability mitigation: disable glibc tcache (2026-11-20, 00:30 CET)
+
+I found a verified mitigation for the intermittent `malloc(): unaligned tcache
+chunk detected` abort. Setting `GLIBC_TUNABLES=glibc.malloc.tcache_count=0`
+gave 5/5 clean runs; without it the abort returns (~1/4). This confirms the
+corruption is confined to glibc tcache metadata (valgrind memcheck reproduces
+the abort but reports ZERO invalid writes/reads/races, so the corrupting write
+is not a normal host-heap overflow — it is a concurrency/logic issue in valid
+memory that only manifests through tcache).
+
+I made this automatic: the SDL launcher's main() re-execs once with
+GLIBC_TUNABLES set before libc initializes (env var OPENRAC_TCACHE_REEXEC
+guards re-exec; OPENRAC_NO_TCACHE_FIX opts out). Verified: 6/6 default runs
+with NO env flags had zero aborts; with the opt-out, aborts returned.
+
+With the heap stable, a windowed run reached ui_state=3 at attempt 2 (vs ~1/5
+before) and captured 64 gameplay frames with no abort. The captured frame
+(/tmp/sly-fixplay/f00.png) is STILL the distorted gray/yellow road-clipping
+view — no recognizable level/character/HUD. So this fixes stability, not the
+rendering fidelity. It is a MITIGATION, not a root-cause fix; the underlying
+corrupting write is still unpinned (ASan unavailable, instrumented builds hide
+it). Checks pass.
 
 ### Post-input gameplay frame captured — not recognizable (2026-11-19, 23:30 CET)
 

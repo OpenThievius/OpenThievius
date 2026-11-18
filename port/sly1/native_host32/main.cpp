@@ -1385,6 +1385,21 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                                  g_native_sly_meshes_by_packet.size(), request_address);
                 continue;
             }
+            // Opt-in: validate the shared map entry's vector sizes before the
+            // deep copy. A corrupted size here would drive a bogus allocation
+            // in operator= (the glibc detection point).
+            if (getenv("OPENRAC_CHECK_MESH_SANITY") != nullptr) {
+                const auto& src = found->second;
+                if (src.vertices.size() > 4096u * 9u ||
+                    src.strip_starts.size() > 4096u ||
+                    src.materials.size() > 64u || src.sources.size() > 64u ||
+                    (src.vertices.size() % 9u) != 0u) {
+                    std::fprintf(stderr,
+                        "[mesh-sanity] BAD entry packet=%#010x verts=%zu strip=%zu mats=%zu srcs=%zu\n",
+                        packet_address, src.vertices.size(), src.strip_starts.size(),
+                        src.materials.size(), src.sources.size());
+                }
+            }
             mesh = found->second;
         }
         for (std::size_t pass = 0; pass < mesh.materials.size(); ++pass) {
@@ -2904,6 +2919,20 @@ extern "C" int sly1_native_host32_iop_services_start(int mode) {
 }
 
 int main(int argc, char** argv) {
+#if defined(OPENRAC_SLY1_WITH_SDL)
+    // The mesh-submit path intermittently corrupts glibc tcache metadata; the
+    // next malloc then aborts with "unaligned tcache chunk detected". Verified
+    // over many runs: disabling tcache entirely makes the launcher stable.
+    // glibc reads GLIBC_TUNABLES only at process start, so re-exec once with it
+    // set before any game state is touched. OPENRAC_NO_TCACHE_FIX opts out.
+    if (getenv("OPENRAC_TCACHE_REEXEC") == nullptr &&
+        getenv("OPENRAC_NO_TCACHE_FIX") == nullptr) {
+        setenv("GLIBC_TUNABLES", "glibc.malloc.tcache_count=0", 1);
+        setenv("OPENRAC_TCACHE_REEXEC", "1", 1);
+        execv(argv[0], argv);
+        // If execv fails, continue with the current (tcache-enabled) libc.
+    }
+#endif
     sly1_native_host32_crt_initialized = 1;
     return sly1_native_host32_main(argc, argv);
 }
