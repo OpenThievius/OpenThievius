@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 05:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 05:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Meshes are from the correct world, but only 16 are submitted (2026-11-19, 05:30 CET)
+
+I confirmed in the stable gameplay run (`/tmp/sly-meshworld-20261119/`) that the
+rendered meshes come from the **loaded level world** `0x88d5b0` (all
+`native sly world queued` lines name that world; it matches `g_currentWorld`).
+So the renderer is not drawing stale Splash-world data. However only **16**
+meshes are queued (`draws=16`), and their bounds are the distant background
+geometry plus a small far patch — none at the player's position. The level's
+near-player objects simply are not in the render list that reaches
+`DrawModelPart` (consistent with the earlier one-object render-list trace and
+drawPartCount=0 on the player). That is the concrete remaining gap for a
+recognizable level: the game's active/render list is not populated with the
+play-area objects. Resolving it needs the object-activation/render-list logic
+that the port has not implemented — a substantial game-logic task, not a
+renderer tweak.
+
+No code changed this turn; checks pass.
 
 ### Correction: camera DOES track the player (2026-11-19, 05:00 CET)
 
