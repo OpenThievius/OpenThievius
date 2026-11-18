@@ -2534,6 +2534,9 @@ sly1_native_trace_frame_stage(u32 stage) {
                     write_hex("  player pos.x ", (int)*(volatile u32*)(player + 0x100u));
                     write_hex("  player pos.y ", (int)*(volatile u32*)(player + 0x104u));
                     write_hex("  player pos.z ", (int)*(volatile u32*)(player + 0x108u));
+                    write_hex("  player drawPartCount ", (int)*(volatile u32*)(player + 0x238u));
+                    write_hex("  player drawParts ", (int)*(volatile u32*)(player + 0x23Cu));
+                    write_hex("  player partStates ", (int)*(volatile u32*)(player + 0x240u));
                 }
             }
         }

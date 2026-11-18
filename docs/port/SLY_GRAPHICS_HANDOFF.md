@@ -1,8 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 14:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 14:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Player draw path: no model parts (2026-11-18, 14:30 CET)
+
+I traced why no character model is drawn. The player draws through
+`QueuePlacedObjectModelParts` -> `DrawModelPart` (class 0x07 descriptor supplies
+`QueuePlacedObjectModelParts`), the same path captured by
+`sly1_native_submit_model_part`. But at a post-Cross frame the player object
+`0x016c8ed0` has `drawPartCount = 0` and `drawParts = null` (PlacedObject +0x238
+/ +0x23C), so `QueuePlacedObjectModelParts` iterates zero parts and submits
+nothing. The player exists, is in view (previous note), but has no model parts
+to draw.
+
+This matches the long-standing note in `port/game/sly1-us/hand/native_c/README.md`:
+a forced-level post-parse trace finds the populated class-4 owner at `0xa811f0`
+with **1,962 parts**, `drawParts=0x00dc41a0`, `partStates=0x00df9c00`, but its
+descriptor's `QueueModelPartDraws` (`0x0018f9d8`) and `DrawCollider`
+(`0x001b93d8`) callbacks never appear in the draw trace — the populated model
+object is excluded from the camera/render-list traversal. `func_00126270` is
+only called for two empty class-0x51 objects. So the root cause is upstream of
+mesh parsing: the render-list traversal does not include the populated model
+owner (nor give the player parts), and that is where the character/level model
+would be submitted. Finding why the traversal excludes these objects requires
+the render-callback/render-list trace (`OPENRAC_TRACE_RENDER_CALLBACKS`), a
+focused follow-up.
+
+All diagnostics opt-in/off by default; checks pass. Capture:
+`/tmp/sly-player5-20261118/`.
 
 ### Player exists, is in view, but its model is not rendered (2026-11-18, 14:00 CET)
 
