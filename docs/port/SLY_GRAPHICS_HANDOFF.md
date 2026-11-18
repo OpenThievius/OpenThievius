@@ -1,8 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 16:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 17:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Double-free free-site is in the present thread (2026-11-19, 17:30 CET)
+
+I used a malloc/free interposer (dfree.so) that confirmed a real double-free on
+the first Release run. The free-side return addresses resolved to
+`openrac_native_window_present -> sly1_native_host32_main -> main`, i.e. the
+HOST/present thread destroys a vector whose buffer was already freed. The
+detection side (glibc abort) resolves to the vector copy in
+`sly1_native_submit_model_part` on the game thread. So the corruption crosses
+threads: a buffer owned by a world-mesh vector is freed in the present thread
+and then copied/reallocated by the game thread.
+
+I audited the guest heap backfills (func_0018D500/0018D5C0, front_heap_reset):
+they are bounds-checked bump allocators in guest RAM (0x00010000..0x02000000),
+NOT host malloc, so they cannot directly corrupt the host tcache. The host
+`g_world_meshes` vector is mutex-protected on both submit and present, so it is
+not an obvious double-owner.
+
+I built an `-O3 -g` build (wave55-sdl32-relg) to get line tables in the runtime
+units while preserving Release timing — but adding `-g` changes the binary
+layout enough that the abort no longer reproduces in 6 runs. Every instrumented
+build (Debug -O1, RelWithDebInfo -O2, -O3 -g) shifts timing/layout and hides the
+bug; only the exact Release binary reproduces it. So the exact offending free
+remains unpinned with the available tooling (32-bit ASan is unavailable in this
+toolchain). This is a genuine environment/tooling blocker for the heap bug.
+
+No code changed this turn; checks pass.
 
 ### Heap abort backtrace resolved to vector copy (2026-11-19, 16:45 CET)
 
