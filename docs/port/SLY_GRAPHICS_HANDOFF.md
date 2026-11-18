@@ -1,8 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 06:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 06:50 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### No-C stubs are NOT the active blocker (2026-11-18, 06:50 CET)
+
+I tested the premise that level-construction/update no-C functions are what
+stops a controllable world. It is refuted by runtime evidence:
+- A 20-second post-Cross run produced **zero** `sly1_missing_function` calls
+  (that handler writes to fd 2, same as the captured log) and **zero** `ee`
+  trap warnings. None of the 95 no-op stubs in `missing_functions.S` is reached
+  during the loaded-world frame loop. Implementing them cannot change the
+  running scene.
+- The game does advance on Cross. `OPENRAC_STARTUP_TRACE` shows, across the
+  injected press at frame 300: frame 301 `ui_state=5 pause_open=1
+  pause_page=3 world=0x6abdd0 elapsed=0x409f778c`, frame 359 `ui_state=3
+  pause_open=0 pause_page=-1 world=0x870cf0 elapsed=0x40d86e9c`. `0x870cf0` is
+  the world that submits the rendered meshes. So input, state transition and
+  world load all work.
+- The view matrix is live, not a reset default: `view_projection` translation
+  is `(-1679.88,-17.89,5127.31,-4975.52)`, versus `g_cameraResetPosition`
+  `(0,-2000,500)`. The meshes are genuinely distant from a real camera.
+
+The project's own `PLAYABLE_TODO.md` "Immediate next steps" says not to spend
+the next slice on broad missing-function closure or loader repair; it calls for
+validating one complete kind-6 strip against a retail capture. There is no
+retail frame capture in the repository to validate against (and using an
+emulator to make one is out of policy). That is the point where I need a
+decision from the user: supply a retail reference frame/capture to compare the
+strip against, or choose a different validation target. No code changed; tree
+clean at `77fa12d`. Trace logs: `/tmp/sly-traps-20261118/`,
+`/tmp/sly-startup-20261118/`, `/tmp/sly-camera2-20261118/`.
 
 ### Input formats and direct level boot (2026-11-18, 06:20 CET)
 
