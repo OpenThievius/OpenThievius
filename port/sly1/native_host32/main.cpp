@@ -2441,6 +2441,37 @@ sly1_native_trace_sorter(u32 stage, u32 world, u32 axis, u32 value) {
     write_hex("native host32: sorter value ", (int)value);
 }
 
+// Opt-in trace of CreateTypedRecord calls during resource loading. Logs the
+// class index, object id and world to diagnose why the Splash notifier (class
+// index 0x57) is never instantiated.
+static volatile u32 g_first_notifier = 0;
+extern "C" u32 first_notifier_object() { return g_first_notifier; }
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_create_typed_record(u32 index, u32 id, u32 world) {
+    if (getenv("OPENRAC_TRACE_CREATE_RECORD") == nullptr) return;
+    static volatile u32 notices = 0;
+    const u32 n = __atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED);
+    if (n < 4096u)
+        write_hex("native host32: create record ", (int)((index << 16) | (id & 0xFFFFu)));
+    if (index == 0x57u) {
+        write_hex("  notifier object ", (int)id);
+        if (__atomic_load_n(&g_first_notifier, __ATOMIC_RELAXED) == 0u)
+            __atomic_store_n(&g_first_notifier, id, __ATOMIC_RELAXED);
+    }
+}
+
+extern "C" u32 first_notifier_object();
+
+// Opt-in trace of the Splash countdown notifier's per-frame update.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left) {
+    if (getenv("OPENRAC_TRACE_NOTIFIER_TIMER") == nullptr) return;
+    static volatile u32 notices = 0;
+    const u32 n = __atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED);
+    if (n < 12u || (self == first_notifier_object() && n < 4096u))
+        write_hex("native host32: notifier timer ", (int)((state << 24) | (enabled << 16) | (time_left & 0xFFFFu)));
+}
+
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);

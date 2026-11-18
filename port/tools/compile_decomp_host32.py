@@ -3009,6 +3009,28 @@ def main(argv=None):
                 raise RuntimeError("expected one side-effect-only IOP option helper")
             adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/pose_source.cpp":
+            # Port-only trace of object creation during resource loading. Log
+            # every CreateTypedRecord class index so the loader's handling of
+            # the Splash notifier (class index 0x57) can be diagnosed. The host
+            # function gates on an env var and is a no-op otherwise.
+            adapted = ('extern "C" void sly1_native_trace_create_typed_record('
+                       'u32, u32, u32);\n') + adapted
+            create_needle = (
+                "BaseObject* CreateTypedRecord(s32 index, void* a1, BaseObject* a2, s32 a3, s32 a4)\n{\n"
+                "    s32 off = index << 2;")
+            create_replacement = (
+                "BaseObject* CreateTypedRecord(s32 index, void* a1, BaseObject* a2, s32 a3, s32 a4)\n{\n"
+                "    s32 off = index << 2;")
+            if adapted.count(create_needle) == 1:
+                adapted = adapted.replace(create_needle, create_replacement, 1)
+            # Log the created object once it has a descriptor and id, so the
+            # notifier's lifetime can be followed (class index 0x57).
+            create_end = "    r->desc->m00(r);\n    return r;\n}"
+            create_end_new = ("    r->desc->m00(r);\n"
+                              "    sly1_native_trace_create_typed_record((u32)index, (u32)r, (u32)a1);\n"
+                              "    return r;\n}")
+            if adapted.count(create_end) == 1:
+                adapted = adapted.replace(create_end, create_end_new, 1)
             # These closure byte arrays hold Mat02 values passed to VU0
             # routines. Their retail stack layout is quadword-aligned even
             # though the byte-array declarations do not express it to GCC.
@@ -3377,7 +3399,23 @@ def main(argv=None):
                 if adapted.count(selected_eval_body) != 1:
                     raise RuntimeError("expected graph script body evaluation")
                 adapted = adapted.replace(selected_eval_body, eval_trace, 1)
-        elif rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
+        elif rel.as_posix() == "main/state_notifier.cpp":
+            # Trace whether the Splash countdown notifier's per-frame update
+            # runs. When primed (state 2, timerEnabled, timeLeft 0) it should
+            # transition to state 6 / event 0x263. Env-gated host function.
+            adapted = ('extern "C" void sly1_native_trace_notifier_timer('
+                       'u32, u32, u32, u32);\n') + adapted
+            timer_needle = (
+                "void CountDownNotifierTimer(CountdownNotifier* self, f32 dt)\n{\n"
+                "    UpdateStateNotifier(self, dt);")
+            timer_repl = (
+                "void CountDownNotifierTimer(CountdownNotifier* self, f32 dt)\n{\n"
+                "    sly1_native_trace_notifier_timer((u32)self, (u32)self->state, "
+                "(u32)self->timerEnabled, (u32)self->timeLeft);\n"
+                "    UpdateStateNotifier(self, dt);")
+            if adapted.count(timer_needle) == 1:
+                adapted = adapted.replace(timer_needle, timer_repl, 1)
+        if rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
             # Log the retail notifier objects that select camera/state-graph
             # keys. This is diagnostic staging only; notifier decisions stay
             # in matching source.

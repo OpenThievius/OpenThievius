@@ -1,8 +1,48 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 11:20 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 12:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Persistent CreateTypedRecord/notifier hooks; notifier IS created but not updated (2026-11-18, 12:00 CET)
+
+I added persistent, opt-in hostgen C-level hooks (in
+`compile_decomp_host32.py`, injected into the staged decomp C):
+- `sly1_native_trace_create_typed_record` at the end of `CreateTypedRecord`
+  (`OPENRAC_TRACE_CREATE_RECORD`) logs each created object's class index + pointer.
+- `sly1_native_trace_notifier_timer` at the top of `CountDownNotifierTimer`
+  (`OPENRAC_TRACE_NOTIFIER_TIMER`) logs whether the notifier update runs.
+
+This **refutes** my earlier whole-RAM-scan conclusion that the notifier was
+never instantiated (that scan required descriptor pointers in the guest range
+`0x00200000..=0x01000000`, but object `desc` fields are **host** pointers like
+`0x0827d100`, so it was a false negative). Evidence:
+- `CreateTypedRecord` IS called for class index **0x57** twice, with
+  `id=0x54c` — matching the `0057 054c ffff` record at asset offset `0x15cc`.
+  The notifier objects are `0x00847ef0` and `0x013afb80`.
+- The first notifier at `0x00847ef0` is healthy at frames 300..308: descriptor
+  class **0x57**, size 0x3a0, `state=2`, `timerEnabled=1`, `timeLeft=0` —
+  exactly primed per retail `SetStateNotifierState` case 2.
+- But `CountDownNotifierTimer` is **never called** (0 calls with the timer hook
+  on). `SetStateNotifierState` case 2 leaves the notifier in state 2, and
+  `CountDownNotifierTimer` early-returns unless `state == 0`, so the countdown
+  that reaches state 6 / event `0x263` never starts. The graph's walker stays
+  on the idle `0x261` self-edge.
+
+I attempted to drive the notifier off that edge by calling the retail state
+setters (`func_00147AB0` state 2, `func_00148FF0` state 6) from the trace hook.
+Both the guest-call bridge and a direct resolved-function call segfaulted
+(rc=139) — calling game internals from that hook needs correct thread/ABI
+context, which this diagnostic hook does not have. That experimental drive
+code was reverted; only the two opt-in traces remain.
+
+The precise blocker is now: the countdown notifier is created and primed but
+its per-frame update (`m17` / `CountDownNotifierTimer`) is never dispatched, so
+it cannot reach state 6 / event `0x263`. Resolving that requires finding why
+the notifier isn't in the world's update list (or dispatching its timer
+correctly) — a focused follow-up. Tree clean at `0904912` plus the two trace
+hooks; checks pass. Captures: `/tmp/sly-createtrace*-20261118/`,
+`/tmp/sly-notifstate*-20261118/`, `/tmp/sly-timer-20261118/`.
 
 ### Double-free allocator check (2026-11-18, 11:20 CET)
 
