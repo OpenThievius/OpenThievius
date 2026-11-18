@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 17:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 18:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Vector copy proven to be only the detector (2026-11-19, 18:15 CET)
+
+I tested a structural fix at the detection point: instead of
+`NativeSlyMesh mesh; mesh = found->second;` (a deep copy of four vectors) in
+`sly1_native_submit_model_part`, I referenced the map entry directly under the
+lock (`const NativeSlyMesh& mesh = found->second;`), eliminating the copy.
+
+Result: the abort became MORE frequent (6/6 runs aborted with
+`malloc(): unaligned tcache chunk detected`, vs ~1/2 before). This definitively
+proves the vector copy was only the glibc DETECTION point (the next allocation
+after an already-corrupted heap), not the cause. The corrupting write is a real
+cross-thread heap overwrite elsewhere; removing one detection site just moves
+it to the next malloc. The change was reverted.
+
+32-bit ASan remains unavailable (the `libasan.a` symlink is dangling and the
+`.so` script points at a missing file), and every instrumented build (Debug
+-O1, RelWithDebInfo -O2, -O3 -g, -fno-omit-frame-pointer) shifts layout/timing
+enough to hide the abort. Only the exact Release binary reproduces it. This is
+a genuine environment blocker: pinning the corrupting write needs an ASan
+build or a reproducing symbol-rich build, neither of which this toolchain
+provides. Checks pass, tree clean.
 
 ### Double-free free-site is in the present thread (2026-11-19, 17:30 CET)
 
