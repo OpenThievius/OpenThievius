@@ -1,8 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 20:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 21:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Root cause: level stream data at count cursor is empty (2026-11-18, 21:00 CET)
+
+I closed the object-creation question and traced to the actual root cause:
+- A class histogram of `CreateTypedRecord` during the forced-level load shows
+  class 4 **is** created (once), at `0x008476b0`. So the level model object is
+  created — the earlier "object never created" hypothesis was wrong.
+- That class-4 object **is** passed to `ReadPlacedObjectModel` (it was owner
+  `0x008476b0` at the count-0 read, cursor `0x7000158e`). Entry→count cursor
+  delta is 6 bytes (correct field reads).
+- I dumped the raw stream data at the count cursor (`0x7000158c`, scratchpad is
+  direct-mapped): the halfwords are `0x0000` at the count position (zeros), with
+  unrelated data around. The retail stream at this point should hold the part
+  count (1,962 = `0x07A2` in the old wave); here it is empty.
+
+So the definitive root cause is: **the level resource bytes are not present at
+the expected stream cursor when the class-4 model is read** — the disc/resource
+loader positions or fills the stream incorrectly (or the level resource range
+is not the one the reader expects). The reader and object creation are correct;
+the data is missing. Fixing this is upstream in the resource/disc loader and
+requires the retail level-stream reference to know the correct sector/cursor.
+All instrumentation was opt-in and reverted; tree clean at `0904912` plus
+earlier opt-in hooks, checks pass. Captures: `/tmp/sly-createhist2-20261118/`,
+`/tmp/sly-c4-20261118/`, `/tmp/sly-cbytes2-20261118/`. No fields forced.
 
 ### Reader-entry cursor comparison: object is never the level model (2026-11-18, 20:15 CET)
 
