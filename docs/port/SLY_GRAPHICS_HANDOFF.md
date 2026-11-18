@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 16:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 17:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Loader comparison: where drawParts population diverged (2026-11-18, 17:00 CET)
+
+I compared the current model-record loader against the older wave that produced
+the 1,962-part owner, to find where drawParts population was lost:
+- `func_00162890` = `ReadPlacedObjectModel` (`placed_object_model.cpp:455`). The
+  current build uses the **matched decomp C** (symbol
+  `func_00162890(ModelRecord*, void*, PlacedObject*)`), not the port partial
+  reader. The old partial reader in `resource_object_common.c` is behind
+  `#ifndef SLY1_RETAIL_ASM_FUNC_00162890` and is therefore excluded. So the old
+  `nstrips=0xFF02` stream-misalignment / heap-exhaustion failure (PLAYABLE_TODO
+  "Forced-level model-reader failure") is from that partial reader and does not
+  apply to the current decomp-based reader.
+- `TextureRenderObject::drawPartCount` / `drawParts` (+0x238/+0x23C) are set by
+  `BuildTexturePackets` (`func_00152E48`, `pooled_object.cpp:2407`) from the
+  range record — not by `ReadPlacedObjectModel`. Neither the decomp nor the port
+  hand code writes +0x238 directly; it comes from the retail path.
+
+So the older wave's 1,962-part owner was produced by the older mix of the port
+partial reader + exact ASM, while the current build's decomp `ReadPlacedObjectModel`
+takes a different path. The divergence is at the range-record / texture-packet
+loader (`func_00152E48` and the object-record reader), not in the strip parser.
+Pinpointing the exact lost step needs a side-by-side of the generated host
+reports or staged sources for `func_00152E48` and the object-record reader
+between the old wave build and now — a focused but separate comparison.
+
+This is diagnostic only; no code changed, tree clean at `18148ff`, checks pass.
+No fields forced.
 
 ### Definitive: no class-4 model owner in current builds (2026-11-18, 16:30 CET)
 
