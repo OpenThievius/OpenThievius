@@ -1,8 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-20, 03:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 04:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### VU1 microprogram path ruled out for the player (2026-11-20, 04:00 CET)
+
+I traced the retail VU1 program stream (OPENRAC_TRACE_VU1_LOOP / program traces)
+to find the kind-5 character transform. The VU1 submissions use program entries
+0x401, 0x34a, 0x5f, 0x411, 0x318, 0x242, 0x17e, 0x2 — these are the world/UI
+VU programs from the producer path. There is NO submission for the player's
+kind-5 mesh (no mscal at g_unlitBatchProgram 0x1a50 anywhere in the stream).
+The player's 30 meshes are captured on the game thread and rendered through my
+host GL path; they never enter the VU1 interpreter in this build.
+
+Therefore decoding g_stripMeshMode1Program / g_unlitBatchProgram cannot fix the
+player character — those VU programs are not applied to it in the native port.
+The character's invisibility is in the host GL path: the captured kind-5
+vertices + model matrix produce only a ~2% blob or a flat wedge under every
+primitive/scale combination tried (GL_TRIANGLES, split strips, scales 4/8/16).
+The missing piece is the correct host-side reconstruction of the kind-5 mesh
+from its VertexRefs — which needs the retail mesh format/matrix convention that
+the port's capture does not yet reproduce. This cannot be derived from the
+port's current data alone without guessing. No code changed; checks pass.
 
 ### Kind-5 scale/topology investigation (2026-11-20, 03:00 CET)
 
