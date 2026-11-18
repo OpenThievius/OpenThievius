@@ -2674,7 +2674,10 @@ def main(argv=None):
     flags = [
         "-m32", "-malign-double", "-msse2", "-mstackrealign", "-std=gnu++20",
         "-fno-exceptions", "-fno-rtti",
-        "-O2",
+        # Keep line tables in every staged unit so host crashes (e.g. the
+        # intermittent mesh-submit double-free) can be resolved to a source
+        # line with addr2line. -g does not change generated code or ABI.
+        "-g", "-O2",
         "-fno-pie", "-fno-pic", "-ffunction-sections", "-fdata-sections",
         "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-fpermissive",
         "-flax-vector-conversions",
