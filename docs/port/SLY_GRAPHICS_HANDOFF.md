@@ -1,8 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 08:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 09:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Player model IS present; cull is camera-frustum (2026-11-19, 09:15 CET)
+
+I corrected the "player has no model" assumption. `g_player` (0x016737e0) is
+the TurningCollider; its character model is on `textureObject` at +0x243C =
+`0x01876610`, which has `drawPartCount=1` and valid `drawParts=0x01877af0`
+(class 0x61). That object DOES reach `QueuePlacedObjectDraw` every frame. So a
+player model part is submitted — it is not missing.
+
+I also refined the dominant cull cause. The class-4 owner's parts carry
+`mask=0xfffffff` and the camera `views=0xfffffff`, so the area-mask test
+`(st->mask & views) != views` PASSES them. The `[native model cull]` trace
+shows the actual rejection is the **camera plane test**
+`Vu0::PlaneSigns(...) ^ 0xF0` (point_graph.cpp:216-219): parts at positions like
+`(5700,-26736,454)` with radii ~1000-2500 are outside the camera planes with
+`signs=0x80/0xf0/0x90/...`. The area-mask override that revealed terrain helps
+a DIFFERENT subset (parts with smaller masks); it does not fix the owner's
+frustum-culled parts. The class-4 owner is a large distributed collider (parts
+spread over ±20000 units), and its near-player parts are frustum-culled because
+the camera looks at a distant region.
+
+Together: the near-player character model exists (textureObject, 1 part) and
+the level owner's parts are mostly frustum-culled. The abstract frame is a
+combination of mis-framed camera relative to the distributed level geometry and
+wrong textures (placeholders). Faithful fixes need the retail camera targeting
+and value-tree/area setup; no code changed this turn, checks pass.
 
 ### Default level-load wired via proven path (2026-11-19, 08:30 CET)
 
