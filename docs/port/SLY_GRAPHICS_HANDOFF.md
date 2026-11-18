@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 15:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 15:40 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Forced-level model owner: derived cause and scan limit (2026-11-18, 15:40 CET)
+
+I followed the forced-level (`OPENRAC_BOOT_LEVEL=0x0100`) path to understand why
+its populated class-4 owner's draw callbacks never fire. The authoritative
+note in `RESTART_CHECKPOINT.md:824` derives the cause: the owner's flags are
+`0x2115ffff00`, so flag bit 32 (`0x100000000`) is set, and
+`ApplyPlacedObjectTransform` returns immediately
+(`placed_object.cpp:1984`, `flags & (0x8000 << 17)`). Retail clears that bit
+with `SetPlacedObjectSpecialFlag(self, 0)` during normal play; the forced probe
+bypasses the reveal step, so the owner stays hidden and its
+`DrawCollider`/`QueueModelPartDraws` (`0x0018f9d8`) never run. That is a real,
+derived mechanism — bit 32 is the "hidden/special" flag, not a rendering bug.
+
+With FRAME_TRACE + `--trace` on the current build, the `DrawPlacedObjectParts`
+hook still shows only the single 1-part object (`0x018cedf0`, matrix null) in
+world `0x870cf0`, both with and without the forced-level flag. I tried to scan
+for the class-4 owner to clear its bit-32 flag and observe the draw, but:
+- restricting descriptor pointers to the guest range missed them (object
+  descriptors are host pointers, as established earlier);
+- widening to host pointers caused an invalid read (rc=139) because not every
+  value in that range is a valid descriptor.
+
+A correct scan needs descriptor validation (class id + size `0x3A0`) before
+dereferencing — a focused follow-up. All experimental code reverted, FRAME_TRACE
+back to OFF, tree clean at `0904912` plus earlier opt-in hooks, checks pass.
+Captures: `/tmp/sly-forced-20261118/`, `/tmp/sly-unhide*-20261118/`. No field was
+forced.
 
 ### Render-list traversal trace: only one 1-part object submitted (2026-11-18, 15:00 CET)
 
