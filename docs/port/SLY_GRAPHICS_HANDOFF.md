@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 18:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 19:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### ASM vs decomp reader comparison: identical field reads (2026-11-18, 19:30 CET)
+
+I compared the current decomp `ReadPlacedObjectModel` against the old wave's
+exact ASM translation of `func_00162890`
+(`build/port/canonical-55d39f28/hostgen/us/asm_7.c:1914`), the build that saw
+count 1,962. They are structurally identical:
+- ASM reads `a`, `b`, `nids` via `func_00137B90` (ReadBufferedU8), then `nids`
+  ids via `func_00137D10` (S16), then `nweights` (U8), weights bytes, then
+  `count` via `func_00137BE0` (ReadBufferedU16) — and stores count at `self+12`
+  (ModelRecord::count, object +0x238).
+- Decomp (`placed_object_model.cpp:455`) reads the same fields with the same
+  functions (`ReadBufferedU8/S16/U16`) in the same order, storing count at the
+  same offset.
+- The old wave's *prep* decomp source (`file_15F678.c:3084`) is also identical.
+
+So the reader code is not the divergence. Since the reader is identical but the
+observed count is 0/1/6 now vs 1,962 in the old wave, the difference is the
+**stream data passed to it**: the current build feeds a different or
+differently-positioned level stream into `ReadPlacedObjectModel`. That is
+upstream in the resource/disc loader (sector ranges, stream cursor at
+`ReadPlacedObjectModel` entry, object-record layout), not in the model reader
+or `BuildTexturePackets`. The next concrete step is to log the stream cursor
+and remaining bytes at *entry* to `ReadPlacedObjectModel` in both builds and
+compare — not to change reader field offsets.
+
+This is diagnostic only; instrumentation was opt-in and reverted, tree clean at
+`0904912` plus earlier opt-in hooks, checks pass. No fields forced.
 
 ### Decisive: model count read as 0/1/6, never 1,962 (2026-11-18, 18:45 CET)
 
