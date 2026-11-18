@@ -1,8 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 11:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 11:20 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Double-free allocator check (2026-11-18, 11:20 CET)
+
+I ran three 35-second bounded post-Cross sessions with `MALLOC_CHECK_=3` and
+`MALLOC_PERTURB_=165` to reproduce the intermittent `double free or corruption`
+abort. All three exited 137 (timeout kill) with zero corruption/fault lines.
+With no reproduction and no core available, there is no stack trace to act on;
+the abort is intermittent and remains undiagnosed. Captures:
+`/tmp/sly-malloc-20261118/`. 32-bit ASan is unavailable in this toolchain
+(its linker script points at a missing `/usr/lib/libasan.so.8.0.0`).
 
 ### Definitive whole-RAM notifier scan (2026-11-18, 11:00 CET)
 
