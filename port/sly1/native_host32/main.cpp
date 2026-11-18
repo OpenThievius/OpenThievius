@@ -982,7 +982,11 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         vertex_count > 4096)
         return;
     const volatile u8* mesh = reinterpret_cast<const volatile u8*>(mesh_address);
-    if (mesh[0] != 0u && mesh[0] != 6u) return;
+    // The player's character meshes are kind 5 (BuildStripMeshPacket); accept
+    // the strip kinds alongside the lit kind 0 so the character is captured.
+    const u8 mk = mesh[0];
+    if (!(mk == 0u || mk == 1u || mk == 4u || mk == 5u || mk == 6u ||
+          mk == 7u || mk == 8u || mk == 9u || mk == 10u)) return;
     const volatile u8* refs = reinterpret_cast<const volatile u8*>(refs_address);
     const volatile float* positions = reinterpret_cast<const volatile float*>(vecs_address);
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
@@ -1038,11 +1042,12 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             const u64 value = packet[2u + i * 2u];
             const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
             switch (address) {
-            case 0x47: material.test = value; break;   // TEST1
-            case 0x06: material.tex0 = value; break;  // TEX0_1
-            case 0x14: material.tex1 = value; break;  // TEX1_1
-            case 0x08: material.clamp = value; break; // CLAMP1
-            default: break;                           // ALPHA1, FOGCOL, and others
+            // Kind-5 strips use context-2 GS registers; kind-0 uses context-1.
+            case 0x47: case 0x48: material.test = value; break;   // TEST_1 / TEST_2
+            case 0x06: case 0x07: material.tex0 = value; break;  // TEX0_1 / TEX0_2
+            case 0x14: case 0x15: material.tex1 = value; break;  // TEX1_1 / TEX1_2
+            case 0x08: case 0x09: material.clamp = value; break; // CLAMP_1 / CLAMP_2
+            default: break;                                      // ALPHA, FOGCOL, and others
             }
         }
         captured.materials.push_back(material);
@@ -1371,7 +1376,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         const u32 packet_address = *reinterpret_cast<const volatile u32*>(part_mesh + 0x44u);
         if (source_mesh == 0) continue;
         const u8 kind = *reinterpret_cast<const volatile u8*>(source_mesh);
-        if (kind != 0u && kind != 6u)
+        if (!(kind == 0u || kind == 1u || kind == 4u || kind == 5u || kind == 6u ||
+              kind == 7u || kind == 8u || kind == 9u || kind == 10u))
             continue;
         NativeSlyMesh mesh;
         {

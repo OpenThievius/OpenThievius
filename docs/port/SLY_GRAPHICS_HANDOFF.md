@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-20, 00:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 02:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Kind-5 player matrix/primitive decode (2026-11-20, 02:00 CET)
+
+I re-applied the kind-5 fixes (capture/submit filters now accept the strip kinds,
+and context-2 GS registers TEX0_2=0x07/TEX1_2=0x15/CLAMP_2=0x09/TEST_2=0x48 are
+decoded). The player's 30 meshes now submit with a real tex0 and no abort.
+
+I then found why the character was invisible even with correct tex0: the player
+mesh needs the `model*vp` matrix convention (mode 0), while the world/level
+meshes need `vp*model` transposed (mode 3). I proved this by measuring the actual
+render-matrix NDC: with mode 3 the player collapsed to NDC ~7e-5 (sub-pixel);
+with mode 0 it spans ~+-0.011 (~2% of screen). I made a per-mesh convention:
+source 0xa2d9a8 (the player character) uses mode 0, the world uses mode 3, with
+OPENRAC_NO_HYBRID_MVP to opt out.
+
+I also found the player mesh was being drawn as a single giant triangle
+(a white wedge covering the lower screen) because kind-5 VertexRefs are authored
+as a triangle list, not a strip; the player mesh is now drawn with GL_TRIANGLES.
+After both fixes the giant wedge is gone and the frame shows the coherent road
+with a center divider (/tmp/sly-hybrid2/f.png). The character itself is still
+not clearly visible as a recognizable Sly figure — its scale is small (~2% of
+screen) and its texture is a real but small/dark upload. No state was forced;
+stable runs (tcache mitigation) confirmed no crash. Checks pass.
 
 ### Heap stability mitigation: disable glibc tcache (2026-11-20, 00:30 CET)
 

@@ -540,7 +540,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             if (end != setting && parsed > 0.0f && parsed <= 1000.0f) position_scale = parsed;
         }
         float m[16];
-        if (mvp_mode >= 2) {
+        // Player character meshes (kind-5 strip packets) need the model*vp
+        // convention; the world/level meshes need vp*model transposed. Pick
+        // per-mesh when the hybrid is enabled, otherwise use the global mode.
+        int effective_mode = mvp_mode;
+        if (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
+            mesh.source_mesh == 0x00a2d9a8u)
+            effective_mode = 0;
+        if (effective_mode >= 2) {
             for (std::size_t row = 0; row < 4; ++row)
                 for (std::size_t column = 0; column < 4; ++column) {
                     float value = 0.0f;
@@ -551,7 +558,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         } else {
             std::memcpy(m, mesh.mvp.data(), sizeof(m));
         }
-        if (mvp_mode & 1u) {
+        if (effective_mode & 1u) {
             const float t[16] = {
                 m[0], m[4], m[8], m[12], m[1], m[5], m[9], m[13],
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
@@ -624,9 +631,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         }
-        if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr) {
-            // VertexRefs records are authored in triples (triangle list), not strip
-            // order. Draw the raw sequence as independent triangles.
+        if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr ||
+            (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
+             mesh.source_mesh == 0x00a2d9a8u)) {
+            // Player kind-5 VertexRefs are authored in triples (triangle list),
+            // not strip order; a single strip yields a giant bridging triangle.
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh.vertices.size() / 9u));
         } else if (debug_primitive == GL_TRIANGLES) {
             // Expand the source sequence as a triangle strip. GL_TRIANGLES over
