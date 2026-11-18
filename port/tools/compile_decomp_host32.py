@@ -2845,6 +2845,14 @@ def main(argv=None):
             adapted = adapted.replace(" throw(bad_alloc)", "")
         elif rel.as_posix() == "main/pad_input.cpp":
             adapted = adapted.replace("fabsf(", "__builtin_fabsf(")
+            # Opt-in: trace PollPadInput calls and the buttons it decodes, to
+            # check whether the game's pad state machine reaches the poll and
+            # whether injected input lands in PadRecord.buttons.
+            adapted = ('extern "C" void sly1_native_trace_poll_pad(u32,u32,u32);\n') + adapted
+            poll_needle = "        self->flags = cur & ~old;"
+            if adapted.count(poll_needle) == 1:
+                adapted = adapted.replace(poll_needle,
+                    "        sly1_native_trace_poll_pad((u32)self, self->buttons, res);\n" + poll_needle, 1)
         elif rel.as_posix() == "main/curve_segment.cpp":
             # FindEarliestTimeWithinCurveLimits walks the PS2 EE's 8-byte vararg
             # slots by hand (__builtin_next_arg - 56, 8-byte steps). On native
@@ -2888,6 +2896,17 @@ def main(argv=None):
                 "    }")
             if adapted.count(needle) == 1:
                 adapted = adapted.replace(needle, shim, 1)
+            # Opt-in entry trace: is ControlPlayer reached in the gameplay state?
+            adapted = ('extern "C" void sly1_native_trace_control_player(u32,u32,u32);\n') + adapted
+            entry = "        pad = (PadRecord*)dt_bits;\n    }"
+            if adapted.count(entry) == 1:
+                adapted = adapted.replace(entry,
+                    entry + "\n    sly1_native_trace_control_player((u32)self, (u32)pad, *(u32*)&dt);", 1)
+            # Dump the pad's button word (bytes 2/3) seen by ControlPlayer.
+            adapted = ('extern "C" void sly1_native_trace_player_pad_buttons(u32,u32,u32);\n') + adapted
+            if adapted.count(entry) == 1:
+                adapted = adapted.replace(entry,
+                    entry + "\n    if (pad != 0) sly1_native_trace_player_pad_buttons(*(u16*)((u8*)pad + 0xA8u), *(u32*)((u8*)pad + 0x0Cu), pad->buffer != 0 ? *(u32*)pad->buffer : 0u);", 1)
         elif rel.as_posix() == "main/turning_collider.cpp":
             # Opt-in: log the two pointers at ReadTurningColliderStickHeading
             # entry to diagnose the forced-level post-load pad fault.

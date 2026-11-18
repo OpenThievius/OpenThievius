@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 18:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 19:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Input path verified; game stuck at save-file prompt (2026-11-19, 19:15 CET)
+
+I added opt-in diagnostics (all off by default) to settle the input question:
+- `OPENRAC_TRACE_TURN_HEADING` now traces `ControlPlayer` entry, the pad
+  buttons it sees, and `PollPadInput` decoded buttons.
+- `OPENRAC_TRACE_CAMERA` dumps the camera position and view rows every 20 frames.
+
+Decisive findings:
+1. `ControlPlayer` IS called every frame with valid args (self=0x016737e0,
+   pad=0x08728380/0x08728460, dt~0.033).
+2. `PollPadInput` IS reached and decodes input correctly: with Right held it
+   produced `buttons=0x8000`. So the input path (SDL -> pad read -> byte swap ->
+   PollPadInput -> PadRecord.buttons) WORKS. The earlier "input lost" reading
+   was a bad trace (wrong offset); a second bad reading was a 1-frame injection
+   consumed before the next pad read.
+3. The camera does NOT move under sustained test injection because the game is
+   stuck at the save-file prompt (`ui_state=5, pause_open=1, pause_page=7`),
+   never reaching gameplay (`ui_state=3`); gameplay input is gated by the menu.
+4. With windowed Yes/Resume input the game DID progress to `pause_page=0` and
+   the camera moved (pos 2616 -> 2207 over frames 20-100, vp0 -0.1383 ->
+   -0.2200). A captured frame (/tmp/sly-finalplay/frame.png) shows a coherent
+   road/bridge with lane markings converging to a vanishing point — a
+   recognizable environment, but still no character or HUD.
+
+So the input and camera paths work; the port's remaining gap is reliably
+navigating the retail save-file prompt into gameplay, plus character/HUD and
+textures. The heap abort still ends some runs. Checks pass, default path clean.
 
 ### Vector copy proven to be only the detector (2026-11-19, 18:15 CET)
 

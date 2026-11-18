@@ -2515,6 +2515,35 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     return (u32)(uintptr_t)D_00247AF0;
 }
 
+// Opt-in trace of PollPadInput: does the pad state machine poll, and does
+// injected input land in the decoded buttons?
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_poll_pad(u32 self, u32 buttons, u32 res) {
+    if (getenv("OPENRAC_TRACE_TURN_HEADING") == nullptr) return;
+    static volatile u32 last_buttons = 0xFFFFFFFFu;
+    if (buttons != last_buttons) {
+        last_buttons = buttons;
+        write_hex("native host32: poll pad self ", (int)self);
+        write_hex("  poll pad buttons ", (int)buttons);
+        write_hex("  poll pad res ", (int)res);
+    }
+}
+
+// Opt-in trace of the pad buttons seen by ControlPlayer.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_player_pad_buttons(u32 buttons, u32 buffer_ptr, u32 buffer_bytes) {
+    if (getenv("OPENRAC_TRACE_TURN_HEADING") == nullptr) return;
+    static volatile u32 last_buttons = 0xFFFFFFFFu;
+    static volatile u32 last_bytes = 0xFFFFFFFFu;
+    if (buttons != last_buttons || buffer_bytes != last_bytes) {
+        last_buttons = buttons;
+        last_bytes = buffer_bytes;
+        write_hex("native host32: player pad buttons ", (int)buttons);
+        write_hex("  pad buffer ptr ", (int)buffer_ptr);
+        write_hex("  pad buffer bytes ", (int)buffer_bytes);
+    }
+}
+
 // Opt-in trace of ControlPlayer args.
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_control_player(u32 self, u32 pad, u32 dt_bits) {
@@ -2652,6 +2681,18 @@ sly1_native_trace_frame_stage(u32 stage) {
         sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
+        // Opt-in camera trace: does the camera position/view change with pad input?
+        if (getenv("OPENRAC_TRACE_CAMERA") != nullptr && (frame % 20u) == 0u) {
+            extern u32 D_00261990; // g_camera
+            const u32 cam = D_00261990;
+            if (cam >= 0x00010000u && cam < 0x02000000u) {
+                const volatile float* pos = reinterpret_cast<const volatile float*>(cam + 0x40u);
+                const volatile float* vp = reinterpret_cast<const volatile float*>(cam + 0x100u);
+                std::fprintf(stderr, "[cam-trace] f=%u pos=%.1f,%.1f,%.1f vp0=%.4f,%.4f,%.4f,%.4f\n",
+                             frame, (double)pos[0], (double)pos[1], (double)pos[2],
+                             (double)vp[0], (double)vp[1], (double)vp[2], (double)vp[3]);
+            }
+        }
         // Area-mask correction: with no usable value tree, the retail
         // LookupValueTreeLeaf returns the all-areas sentinel 0x0FFFFFFF, so
         // QueueModelPartDraws culls ~1923 of the level's 1962 parts. A mask of
