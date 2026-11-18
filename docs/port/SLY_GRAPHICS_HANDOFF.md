@@ -1,8 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 23:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 00:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### ASM-only trap replaced; level load advances to object setup (2026-11-19, 00:30 CET)
+
+I made hostgen emit a real C body for the ASM-only `func_001919F8`
+(MeasurePointGraphEdges) by replacing its `ASM_FUNC(func_001919F8);` line with a
+port no-op `void func_001919F8(void*)` in the staged decomp C
+(`compile_decomp_host32.py`), leaving the matched source untouched. Verified:
+`missing_functions.S` no longer lists the symbol; the forced-level load no
+longer hits the trap and passes `LoadWorld` stage 6/7 on the first load.
+
+The forced load still faults later, now in object/property setup: fault eip
+`0x080a2bfc` = `func_00130C58` (`FindEarliestTimeWithinCurveLimits`), with a
+stack through `func_001837E0` / `func_00182FC8` / `func_00159F48` /
+`func_0015A198` — i.e. bad curve data while constructing level objects from the
+stream. That is the new frontier: the level resource is loaded and parsed into
+object setup, but a curve-limit lookup dereferences bad data. Default path is
+unaffected (no fault/critical). Captures: `/tmp/sly-wlstage5-20261118/`,
+`/tmp/sly-wlstage6-20261118/`. Checks pass. No fields forced.
 
 ### Level load stalls at func_001919F8 (MeasurePointGraphEdges) trap (2026-11-18, 23:45 CET)
 

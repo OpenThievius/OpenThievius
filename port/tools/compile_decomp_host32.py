@@ -4858,6 +4858,20 @@ void LoadEffectSpawner"""
             if adapted.count(signature) != 1:
                 raise RuntimeError("expected BuildStripMeshPacket definition")
             adapted = adapted.replace(signature, replacement, 1)
+        if rel.as_posix() == "main/point_graph.cpp":
+            # Port-only staged definition for the ASM_FUNC MeasurePointGraphEdges
+            # (func_001919F8). The decomp marks it assembly-only, so hostgen emits
+            # a noreturn trap; the forced level load calls it from ReadPointGraph
+            # and the trap kills the game thread. The archived wave treated it as
+            # a logged no-op; it only measures edge lengths for later pathfinding,
+            # not world loading or rendering. Define it here in the staged C so
+            # the call resolves to a real body instead of the trap. The matched
+            # decompilation source is untouched.
+            asm_stub = "ASM_FUNC(func_001919F8);"
+            stub_body = (
+                "void func_001919F8(void* graph) { (void)graph; } // port no-op: MeasurePointGraphEdges")
+            if adapted.count(asm_stub) == 1:
+                adapted = adapted.replace(asm_stub, stub_body, 1)
         if args.trace_model_draws and rel.as_posix() == "main/point_graph.cpp":
             adapted = (
                 'extern "C" void sly1_native_trace_model_hook(u32, u32, u32, u32, u32, u32);\n'
