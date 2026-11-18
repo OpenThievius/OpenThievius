@@ -3014,7 +3014,7 @@ def main(argv=None):
             # the Splash notifier (class index 0x57) can be diagnosed. The host
             # function gates on an env var and is a no-op otherwise.
             adapted = ('extern "C" void sly1_native_trace_create_typed_record('
-                       'u32, u32, u32);\n') + adapted
+                       'u32, u32, u32, u32);\n') + adapted
             create_needle = (
                 "BaseObject* CreateTypedRecord(s32 index, void* a1, BaseObject* a2, s32 a3, s32 a4)\n{\n"
                 "    s32 off = index << 2;")
@@ -3027,7 +3027,7 @@ def main(argv=None):
             # notifier's lifetime can be followed (class index 0x57).
             create_end = "    r->desc->m00(r);\n    return r;\n}"
             create_end_new = ("    r->desc->m00(r);\n"
-                              "    sly1_native_trace_create_typed_record((u32)index, (u32)r, (u32)a1);\n"
+                              "    sly1_native_trace_create_typed_record((u32)index, (u32)r, (u32)a1, (u32)a4);\n"
                               "    return r;\n}")
             if adapted.count(create_end) == 1:
                 adapted = adapted.replace(create_end, create_end_new, 1)
@@ -3289,6 +3289,20 @@ def main(argv=None):
                     raise RuntimeError("expected one keyed-entry ABI site in " +
                                        rel.as_posix() + ": " + old.splitlines()[0])
         elif rel.as_posix() == "main/base_object.cpp":
+            # Opt-in trace of script events dispatched to the Splash state graph
+            # (class 0x88, id 0x25F), to see which events fire and whether the
+            # graph has a script scope / handler for them.
+            adapted = ('extern "C" void sly1_native_trace_graph_event('
+                       'u32, u32, u32);\n') + adapted
+            handler_needle = "void RunScriptEventHandler(BaseObject* self, s32 key, R11B008Node* list)\n{"
+            handler_trace = handler_needle + """
+    if (self != 0 && self->desc != 0 &&
+        *(s32*)((u8*)self->desc + 4) == 0x88 && self->id == 0x25F)
+        sly1_native_trace_graph_event((u32)key,
+            *(u32*)((u8*)self + 0x2Cu), (u32)list);
+"""
+            if adapted.count(handler_needle) == 1:
+                adapted = adapted.replace(handler_needle, handler_trace, 1)
             # The reworked matching source now owns both helpers. Its second
             # overload calls the first with output pointers last, while the
             # implementation at 0x00183F40 takes them first. Preserve the

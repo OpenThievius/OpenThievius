@@ -2447,12 +2447,14 @@ sly1_native_trace_sorter(u32 stage, u32 world, u32 axis, u32 value) {
 static volatile u32 g_first_notifier = 0;
 extern "C" u32 first_notifier_object() { return g_first_notifier; }
 extern "C" __attribute__((no_instrument_function)) void
-sly1_native_trace_create_typed_record(u32 index, u32 id, u32 world) {
+sly1_native_trace_create_typed_record(u32 index, u32 id, u32 world, u32 script_index) {
     if (getenv("OPENRAC_TRACE_CREATE_RECORD") == nullptr) return;
     static volatile u32 notices = 0;
     const u32 n = __atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED);
     if (n < 4096u)
         write_hex("native host32: create record ", (int)((index << 16) | (id & 0xFFFFu)));
+    if (index == 0x88u && script_index != 0xFFFFFFFFu)
+        write_hex("  graph script index ", (int)script_index);
     if (index == 0x57u) {
         write_hex("  notifier object ", (int)id);
         if (__atomic_load_n(&g_first_notifier, __ATOMIC_RELAXED) == 0u)
@@ -2485,9 +2487,21 @@ sly1_native_drive_splash_notifier() {
     // function directly via its exact symbol and store it as the notifier's
     // host, so the graph has a walker targeting 0x263 instead of idling on
     // its self-edge at 0x261. No graph/field values are fabricated.
+    write_hex("  graph scriptScope ", (int)*(volatile u32*)(graph + 0x2Cu));
+    write_hex("  graph id ", (int)*(volatile u32*)(graph + 8u));
     void* walker = retail_create_state_walker((void*)graph, (void*)obj, 0x263, 0);
     if (walker != nullptr)
         *(volatile u32*)(obj + 0x2E8u) = (u32)(uintptr_t)walker; // host
+}
+
+// Opt-in trace of script events dispatched to the Splash state graph.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_graph_event(u32 key, u32 scope, u32 list) {
+    if (getenv("OPENRAC_TRACE_GRAPH_EVENT") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) < 64u)
+        write_hex("native host32: graph event ", (int)((key << 16) | (list & 0xFFFFu))),
+        write_hex("  graph scope ", (int)scope);
 }
 
 // Opt-in trace of the Splash countdown notifier's per-frame update.

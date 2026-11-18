@@ -1,8 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 12:40 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 13:30 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Why the 0x263 transition has no visible effect (2026-11-18, 13:30 CET)
+
+I traced what reaching graph state `0x263` is supposed to do. In retail, a
+walker state change calls `NotifyStateWalkerChange` -> `TriggerScriptEvent(self,
+0xE, ...)` on the graph (`state_walker.cpp:919`, `base_object.cpp:617`). That
+event fires only if `self->scriptScope != 0` and a handler exists.
+
+I added an opt-in trace on `RunScriptEventHandler` for the Splash graph
+(class 0x88, id 0x25F, `OPENRAC_TRACE_GRAPH_EVENT`) and confirmed **zero** script
+events reach it, even after driving the walker onto state `0x263`. The graph's
+`scriptScope` (offset 0x2C) is **0x00000000**. `CreateTypedRecord` sets it from
+`GetScriptEntryScope(a4, world)`, which returns 0 when the script index is -1.
+Logging the creation of every class-0x88 object shows only two graphs with a
+non-`-1` script index (0x36 and 0x37); the Splash graph `0x25F` at `0x0084cfb0`
+was created with `-1`, so its null script scope is the asset's own data, not a
+loader failure.
+
+Consequence: the Splash graph has states and walkers but no script handlers,
+so reaching `0x263` fires no event action — there is nothing in that graph's
+data telling it to load a level, fade, or activate objects. The level/title
+transition must be driven by a different object or the game-mode logic, not by
+this graph's script events. This is why the scene stays `0x870cf0` / `ui=3` after
+the graph leaves its idle edge.
+
+All hooks are opt-in and off by default. Tree clean at `0904912` plus hooks;
+checks pass (0 problems, 6 unit tests). Captures: `/tmp/sly-graphevent3-20261118/`,
+`/tmp/sly-scope-20261118/`, `/tmp/sly-scriptidx-20261118/`.
 
 ### Game-thread drive moves the graph off its idle self-edge (2026-11-18, 12:40 CET)
 
