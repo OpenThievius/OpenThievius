@@ -1,8 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 16:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 16:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Heap abort backtrace resolved to vector copy (2026-11-19, 16:45 CET)
+
+I reproduced the abort immediately in the Release build with
+MALLOC_CHECK_=3/MALLOC_PERTURB_=165 and captured a SIGABRT stack with --trace.
+With line tables now in the staged units, addr2line resolved the chain:
+- `func_00166690` DrawModelPart (placed_object_model.cpp:2047)
+  -> `sly1_native_submit_model_part`
+  -> `NativeSlyMesh::operator=` -> `std::vector<uchar>::operator=`
+  -> `_M_allocate_and_copy` -> `__new_allocator::allocate`
+  -> `malloc(): unaligned tcache chunk detected`
+- other frames: func_001533A8 (active_set_solver.cpp:139),
+  func_00126270 (placed_object.cpp:2287), func_001EE5C8/func_001EE668
+  (warp_menu.cpp:3599/3615, the VIF/GS writers).
+
+This is the DETECTION point (the next malloc after corruption), not the cause:
+the vector copy allocates a fresh buffer and glibc detects the already-corrupt
+tcache. The earlier suspect that the copy is outside the mutex is FALSE — the
+copy `mesh = found->second` IS inside `std::scoped_lock(g_native_sly_mesh_mutex)`.
+The corrupting write is elsewhere (likely a guest-side double-free/overflow via
+the port heap backfills), still not pinned. A 32-bit ASan build is unavailable
+in this toolchain, so the exact offending free cannot be captured.
+
+No code changed this turn; checks pass.
 
 ### Semaphore "desync" is a misdiagnosis (2026-11-19, 16:15 CET)
 
