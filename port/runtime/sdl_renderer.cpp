@@ -520,7 +520,17 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         // row-major product uploaded as column-major gives the transpose the
         // GLSL column-vector shader needs, so mode 0 is the correct convention.
         // Mode 1's larger image was a scaled-up fan, not correct geometry.
-        int mvp_mode = 0;
+        // The retail game passes row vectors through model*viewProjection; the
+        // host's GLSL column-vector shader needs the transposed vp*model. Mode
+        // 3 (compute vp*model then transpose) reproduces the coherent level
+        // geometry; mode 0 (the precomputed mesh.mvp) collapses it to a fan.
+        int mvp_mode = 3;
+        if (std::getenv("OPENRAC_SLY_WORLD_MVP_MODE") != nullptr) {
+            char* end = nullptr;
+            const long parsed = std::strtol(std::getenv("OPENRAC_SLY_WORLD_MVP_MODE"), &end, 0);
+            if (end != std::getenv("OPENRAC_SLY_WORLD_MVP_MODE") && *end == '\0' &&
+                parsed >= 0 && parsed <= 3) mvp_mode = static_cast<int>(parsed);
+        }
         if (std::getenv("OPENRAC_SLY_WORLD_AUTO_MATRIX") != nullptr)
             mvp_mode = mesh.model_is_identity ? 0 : 1;
         float position_scale = 1.0f;
@@ -528,11 +538,6 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             char* end = nullptr;
             const float parsed = std::strtof(setting, &end);
             if (end != setting && parsed > 0.0f && parsed <= 1000.0f) position_scale = parsed;
-        }
-        if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_MVP_MODE")) {
-            char* end = nullptr;
-            const long parsed = std::strtol(setting, &end, 0);
-            if (end != setting && parsed >= 0 && parsed <= 3) mvp_mode = static_cast<int>(parsed);
         }
         float m[16];
         if (mvp_mode >= 2) {

@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 12:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 13:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Matrix convention fix: coherent level geometry (2026-11-19, 13:15 CET)
+
+Major visual advance. The world-mesh matrix convention was wrong: mode 0
+(using the precomputed mesh.mvp) collapsed the level into a fan/abstract
+terrain. Testing the four conventions (OPENRAC_SLY_WORLD_MVP_MODE 0-3) showed
+**mode 3** — compute vp*model then transpose for the GLSL column-vector
+shader — renders a coherent 3D scene: parallel walls/road surfaces converging
+to a vanishing point, with textured detail along the edges
+(`/tmp/sly-m3base/full.png`). This is a real level structure, not abstract
+terrain. I made mode 3 the default, with OPENRAC_SLY_WORLD_MVP_MODE as an
+override. Verified with no env flags: level loads (cd_reads 6, world 0x88d5b0)
+and the corridor renders (637925 non-black pixels), no crash.
+
+Separately, the kind-5 material decode: the player's kind-5 strip packet uses
+**context-2 GS registers** (TEX0_2=0x07, TEX1_2=0x15, CLAMP_2=0x09,
+TEST_2=0x48), which the capture hook ignored (it only read context-1). I added
+context-2 decoding and enabled kind-5 capture/submit. The player meshes now
+submit with a real tex0 (0x2003f084cd40a9d5, previously 0) and no crash; a
+small character-like blob appears near centre. The scale is still small.
+
+Checks pass. Default path now shows the corridor; the matrix fix is the key
+change this turn.
 
 ### Kind-5 transform/material decode attempted (2026-11-19, 12:30 CET)
 
