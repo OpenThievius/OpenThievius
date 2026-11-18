@@ -5387,6 +5387,16 @@ void LoadEffectSpawner"""
             if adapted.count(tneedle) == 1:
                 adapted = adapted.replace(tneedle, trepl, 1)
         if rel.as_posix() == "main/placed_object.cpp":
+            # Opt-in: trace the unscaleByParent division that could blow up the
+            # attachment rotations if the parent matrix diagonal is near zero.
+            adapted = ('extern "C" void sly1_native_trace_unscale(u32,u32,f32,f32,f32);\n') + adapted
+            unscale_needle = (
+                "                    m.r[0].x = 1.0f / m.r[0].x;\n"
+                "                    m.r[1].y = 1.0f / m.r[1].y;\n"
+                "                    m.r[2].z = 1.0f / m.r[2].z;")
+            if adapted.count(unscale_needle) == 1:
+                adapted = adapted.replace(unscale_needle,
+                    "                    sly1_native_trace_unscale((u32)self, (u32)parent, m.r[0].x, m.r[1].y, m.r[2].z);\n" + unscale_needle, 1)
             # This matched non-void wrapper calls a void function and falls
             # through. GCC -O2 omits its epilogue, so host execution enters the
             # next retail function body with the previous arguments still on

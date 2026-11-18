@@ -48,8 +48,26 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 05:00 CET. The active host32 staging snapshot and
+Last checked: 2026-11-20, 06:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### unscaleByParent ruled out (2026-11-20, 06:00 CET)
+
+I hypothesized the corrupted attachment rotations (rows ~1e6) came from the
+`unscaleByParent` path in ApplyPlacedObjectTransform (placed_object.cpp:2040),
+which divides the parent matrix diagonal by itself (`1.0f / m.r[i].i`) — a near
+zero diagonal would explode. I added an opt-in OPENRAC_TRACE_UNSCALE at that
+division and ran the launcher: the path was NEVER taken (0 traces) for the
+player's attachments. So that hypothesis is ruled out.
+
+I also dumped the attachment object's vtable: vt[0xc0] resolves to
+func_001660A0 (UpdateLinkConstraint), consistent with FramedObjectVt.f. That
+function does not write sub110/sub140, confirming the transform is set earlier
+by the world-frame transform propagation (ApplyPlacedObjectTransform's m25/m24
+chain) from pose/animation data, not by the per-attachment f method. The exact
+writer of the bad rotation rows is still unidentified; finding it needs tracing
+the transform assignment into the FramedObject sub110/sub140 fields during the
+frame update. No state forced; checks pass.
 
 ### Attachment transform corruption localized (2026-11-20, 05:00 CET)
 

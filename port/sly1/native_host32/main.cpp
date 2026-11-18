@@ -2750,6 +2750,19 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     return (u32)(uintptr_t)D_00247AF0;
 }
 
+// Opt-in trace of the unscaleByParent division: a near-zero parent matrix
+// diagonal would blow up the attachment rotation.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_unscale(u32 self, u32 parent, float d0, float d1, float d2) {
+    if (getenv("OPENRAC_TRACE_UNSCALE") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 20u) return;
+    std::fprintf(stderr,
+        "[unscale] self=%#010x parent=%#010x diag=%g,%g,%g inv=%g,%g,%g\n",
+        self, parent, (double)d0, (double)d1, (double)d2,
+        1.0 / (double)d0, 1.0 / (double)d1, 1.0 / (double)d2);
+}
+
 // Opt-in trace of the attachment-frame matrix composition. Dumps the owner's
 // inverse (e) and the local pose (q10) that MultiplyMatrices combines into the
 // final bone matrix, so we can find where extreme values enter.
@@ -2784,8 +2797,16 @@ sly1_native_trace_attachment_compose(u32 self, u32 el, u32 e_addr, u32 q10_addr)
             dump("obj.sub110", obj + 0x110u);
             const u32 vt = *reinterpret_cast<const volatile u32*>(obj);
             if (vt >= 0x08000000u && vt < 0x09000000u) {
-                const u32 f = *reinterpret_cast<const volatile u32*>(vt + 0xC0u);
-                write_hex("[attach-compose] obj vt->f ", (int)f);
+                static volatile u32 vt_notices = 0;
+                if (__atomic_fetch_add(&vt_notices, 1u, __ATOMIC_RELAXED) < 2u) {
+                    write_hex("[attach-compose] obj vt ", (int)vt);
+                    for (u32 slot = 0; slot < 0xD0u; slot += 4u) {
+                        const u32 fn = *reinterpret_cast<const volatile u32*>(vt + slot);
+                        if (fn >= 0x08000000u && fn < 0x09000000u &&
+                            (slot == 0xC0u || slot == 0x0u || slot == 0x4u))
+                            std::fprintf(stderr, "[attach-compose] vt[%#x]=%#010x\n", slot, fn);
+                    }
+                }
             }
         }
     }
