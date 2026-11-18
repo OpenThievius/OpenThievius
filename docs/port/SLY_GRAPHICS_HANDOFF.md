@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 04:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 05:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### World geometry finally visible (2026-11-18, 05:15 CET)
+
+Three compositing bugs were hiding the world. Fixing them made real, textured
+Sly geometry visible by default for the first time:
+- The producer's GIF packet wrote PRIM/XYZ2 but never RGBAQ, so its untextured
+  vertices inherited colour (0,0,0,0) and drew nothing. Added an opaque RGBAQ
+  write (`b226f4d`).
+- The DirectRenderer interpreter was not cleared between the HUD pass and the
+  world pass, so the world draw began at vertex 0 and bridged the HUD's
+  full-screen quads (`b226f4d`).
+- The textured GL world pass ran *before* the DirectRenderer blit, which then
+  covered it. It now runs after the backdrop with the depth buffer cleared;
+  the early pass is kept behind `OPENRAC_SLY_GL_EARLY` for diagnosis.
+
+All 69 captured materials resolve to real uploaded textures (no placeholders),
+so the geometry is genuinely textured. Verified post-Cross captures show the
+game's sky/ground backdrop with textured 3D meshes drawn over it
+(`/tmp/sly-defaulttex-20261117/contact.png`), instead of a solid black frame.
+
+This is still not a playable, recognizable level — the visible geometry is a
+distant grate-like structure near the horizon, and there is no clear character
+or HUD. The long-run `double free or corruption` abort is also undiagnosed.
+Checkpoints: `b2ffdeb` (draw block), `b226f4d` (colour + clear), and this
+compositing change.
 
 ### Draw-buffer block mismatch (2026-11-18, 04:30 CET)
 

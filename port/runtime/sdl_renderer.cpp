@@ -1560,7 +1560,11 @@ extern "C" void openrac_native_window_present(void) {
             begin = end;
         }
     }
-    render_world_meshes(world_meshes);
+    // Draw the textured world after the DirectRenderer's backdrop, not before it
+    // (a pass here would be covered by the backdrop blit). Keep an opt-in early
+    // pass for diagnosing that interaction.
+    if (std::getenv("OPENRAC_SLY_GL_EARLY") != nullptr)
+        render_world_meshes(world_meshes);
     const bool dump_world_frame = !world_meshes.empty() &&
         std::getenv("OPENRAC_DUMP_NATIVE_WORLD_FRAME") != nullptr;
     static unsigned world_frame_dump = 0;
@@ -1629,6 +1633,12 @@ extern "C" void openrac_native_window_present(void) {
         input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] = packets;
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
         g_direct->render(input, state);
+        if (std::getenv("OPENRAC_SLY_GL_AFTER_HUD_OFF") == nullptr && !world_meshes.empty()) {
+            // The backdrop wrote depth for its full-screen quads; clear depth so
+            // the textured world meshes drawn on top are not all rejected.
+            openrac::gl::glClear(openrac::gl::GL_DEPTH_BUFFER_BIT);
+            render_world_meshes(world_meshes);
+        }
         if (!world_packet.empty()) {
             // The HUD pass leaves full-screen quads in the interpreter's vertex list;
             // without clearing, the world draw starts at vertex 0 and bridges them.
