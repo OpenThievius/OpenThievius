@@ -1,8 +1,42 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 10:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 11:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Definitive whole-RAM notifier scan (2026-11-18, 11:00 CET)
+
+I corrected the earlier class histogram (it only saw world-list-linked objects)
+with a bounded full-RAM sweep. Guest RAM is one RW mapping at `0x00010000..=
+0x02000000` (mmap at `0x00010000`, size `0x01ff0000`), so a 16-byte-stride scan
+dereferencing each candidate's descriptor is safe. I validated each match by
+the descriptor's class id (`+4`) AND its size (`+0xC`) to reject false positives.
+
+Results at a post-Cross frame (both with and without `OPENRAC_NATIVE_MEMCARD`):
+- class 0x55 state notifier (size 0x390): 0 genuine objects
+- class 0x57 countdown notifier (size 0x3A0): 0
+- class 0x58 time range (size 0x3A0): 0
+- class 0x5A deadline (size 0x390): 0 (the one raw hit at `0x002475b0` is the
+  class-descriptor table entry at index 90, not an object)
+- class 0x5B armed (size 0x390): 0
+
+Without the size validation, a naive `desc+4==0x57` sweep produced 13 hits, but
+their `state` fields held pointer-like garbage and `idleEvent` was `0x1d/0x1e`
+(not a real event key like `0x261`) — all false positives.
+
+I also confirmed the class table is correct: `g_classDescriptorTable[0x57]`
+(`0x00247448 + 0x57*4`) = `0x0021cad8`, whose `+4` = 0x57 and `+0xC` = 0x3a0,
+so `CreateTypedRecord(0x57, ...)` would build a valid notifier. The Splash
+resource `build/port/extracted/lzss/splash.decoded.bin` (430858 bytes) has only
+two u16 `0x0057` values (at `0x15cc`, `0x2c46`), neither clearly an object
+record. So the asset-driven object-creation path never requests a notifier.
+
+This is the definitive blocker: the retail graph relies on a notifier object
+that this loader never instantiates. Tracing exactly why requires instrumenting
+`CreateTypedRecord` calls in the resource stream, which is decomp C regenerated
+every build (a persistent hook needs a hostgen tooling change). All experimental
+hook code was reverted; tree clean at `0904912`. Captures:
+`/tmp/sly-scan*-20261118/`. No fields were forced.
 
 ### Decisive: no notifier object exists to drive (2026-11-18, 10:15 CET)
 
