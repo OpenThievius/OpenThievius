@@ -5312,6 +5312,17 @@ void LoadEffectSpawner"""
         # i386 and GS writes such as SCISSOR_1 become corrupt.
         adapted = normalize_gif_register_writer_abi(adapted)
         if rel.as_posix() == "main/placed_object.cpp":
+            # The final Vec4 aggregate writes compile to aligned SSE movaps on
+            # host32, but retail callers can pass a less-than-16-byte-aligned
+            # Vec4* (the forced-level player path faulted with #GP on such a
+            # pointer). Use unaligned-safe copies; semantics are identical.
+            tneedle = ("    if (velSum != 0) {\n        *velSum = V;\n    }\n"
+                       "    if (spinSum != 0) {\n        *spinSum = W;\n    }")
+            trepl = ("    if (velSum != 0) { __builtin_memcpy(velSum, &V, sizeof(V)); }\n"
+                     "    if (spinSum != 0) { __builtin_memcpy(spinSum, &W, sizeof(W)); }")
+            if adapted.count(tneedle) == 1:
+                adapted = adapted.replace(tneedle, trepl, 1)
+        if rel.as_posix() == "main/placed_object.cpp":
             # This matched non-void wrapper calls a void function and falls
             # through. GCC -O2 omits its epilogue, so host execution enters the
             # next retail function body with the previous arguments still on

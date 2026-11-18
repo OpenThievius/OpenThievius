@@ -1,8 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 02:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 03:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Alignment fault fixed: game thread survives, level renders (2026-11-19, 03:00 CET)
+
+I diagnosed the `func_001278A8` (`ComputeObjectMotionInFrame`) fault as a
+16-byte-alignment (#GP) fault, not a bad pointer: the crash was `movaps %xmm1,
+(%eax)` on the final `*velSum = V` / `*spinSum = W` writes, where the retail
+caller (an ASM-translated path) passes a `Vec4*` that is 4-byte- but not
+16-byte-aligned (`0xd85a3ca4`; fault address reported 0, esp `0xd85a3b60`).
+Instrumenting the entry showed valid args (velSum `0xd85a3ca4`, chain depth 1,
+not an overflow) — the pointer was simply misaligned. I replaced the two final
+aggregate writes in staged `placed_object.cpp` with `__builtin_memcpy`
+(unaligned-safe), leaving the matched source untouched.
+
+Verified (`/tmp/sly-align-20261119/`, `/tmp/sly-verify2-20261119/`): with
+`--trace`, the forced-level path now runs with **no fault** — the game thread
+survives (`game_frames` climbs past 90), `g_currentWorld = 0x88d5b0` (the loaded
+level), and frames render (424705 non-black pixels). The captured scene is a
+magenta/purple radial/abstract graphic with a small object near center —
+**not a recognizable Sly level**; the game sits at `ui_state=5,
+pause_open=1, pause_page=7` (a menu/load page). The camera view is now in the
+level (translations ~`4005,390,10890`, vs the old Splash `~1688,17,5042`) and
+drifts slightly frame to frame.
+
+Intermittent issue: without `--trace`, and on longer/windowed runs with input,
+the process still aborts with heap corruption (`malloc(): unaligned tcache
+chunk detected` / `free(): double free detected in tcache 2`). The abort stack
+runs through the world-mesh submit / render path
+(`openrac_native_sly_world_mesh_submit`, `sly1_native_submit_model_part`,
+`func_00166690`, `func_00126270`, `func_001EE668`/`CopyWordsToWriter`) — likely
+a fixed packet buffer overflow with the larger level geometry. That is the new
+frontier. Instrumentation was opt-in and reverted; checks pass, no fields forced.
 
 ### Post-load player arg swap: crash advances (2026-11-19, 02:15 CET)
 
