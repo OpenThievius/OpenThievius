@@ -1,8 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 08:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 09:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Property-descriptor level of the graph arming (2026-11-18, 09:00 CET)
+
+I traced the retail property system (`ApplyPropertyRecord` in `pose_source.cpp`,
+`g_objectPropertyDescriptors` in `object_host_functions.cpp`) to pin down how
+the graph fields are set:
+- StateGraph property `0x113` maps to descriptor 513 = `type 0, flags 0x80,
+  offset 68 (0x44)` — a direct U8 write to the `armed` field. Property `0x12A`
+  maps to descriptor 514, `CreateScriptStateWalker`. The runtime graph has a
+  walker but `armed=0`, consistent with the asset relying on the walker from
+  `0x12A` rather than the `0x113` write being non-zero.
+- `ReadPropertyRecords` (`pose_source.cpp:513`) applies each `s16` record id via
+  `g_objectPropertyDescriptors + (r << 5)`; the port stages this decomp C, so the
+  reader itself is present.
+- The notifier gate `f338` (offset 0x338 = 824) has no matching direct-offset
+  property descriptor for the notifier class; the descriptors at 824 belong to
+  unrelated classes (indices 503/855). The gate is an object link (`host`), set
+  outside the straightforward property-record path.
+
+So the retail arming is a combination of a direct `0x113` byte write and object
+links that the asset's own records supply. The runtime values (`armed=0`,
+notifier `f338` null) come from the asset data as loaded; finding which specific
+record/link is absent requires either a retail asset-loading reference or
+instrumenting the retail property/link resolution, neither of which is present.
+I did not fabricate or force either field. No code changed; tree clean at
+`6a1eced`.
 
 ### Splash graph state transition derived from retail code (2026-11-18, 08:30 CET)
 
