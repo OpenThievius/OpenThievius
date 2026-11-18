@@ -1,8 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 07:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 08:00 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Opt-in memory-card emulation (2026-11-18, 08:00 CET)
+
+I found the game was pinned to the retail no-card error state: `card_state=1`,
+`card_result=11`. `PollMemoryCard` (`src/main/memory_card.cpp`) maps a
+`GetCardInfo` result of 9/11 to `targetState=1` (no card), which keeps the
+no-card prompt up. The port's card backfills deliberately reported no card
+(`func_00209B80` operation 1 / result -1).
+
+I traced the mapping: `SyncMemoryCardResult` maps operation 1 / result -1 to
+error 9 via `MapMemoryCardErrorCode(1, -1)`; operation 1 / result 0 maps to
+success, and with a non-zero `formatted` output `PollMemoryCard` reaches
+`targetState=3` (formatted card). I added an opt-in `OPENRAC_NATIVE_MEMCARD` to
+the two port backfills so `SyncCardRequest` returns operation 1 / result 0 and
+`GetCardInfo` reports a formatted card with free blocks. This emulates the PS2
+memory-card hardware the game requires; it writes no save data and is off by
+default.
+
+Verified: default run unchanged (`card_state=1 card_result=11`); opt-in run
+shows `card_state=3 card_target=3 card_result=0` and the game advances through
+Cross to world `0x870cf0` with `frame_stage=7`. The visible scene is still the
+same distant sub-scene, so this alone does not make a playable level. Checks
+pass: 0 problems, 6 unit tests. Captures: `/tmp/sly-memcard-20261118/`.
 
 ### Object/draw-path trace and controllability (2026-11-18, 07:30 CET)
 
