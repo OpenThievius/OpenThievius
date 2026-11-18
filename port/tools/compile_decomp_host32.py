@@ -2863,6 +2863,36 @@ def main(argv=None):
             adapted = adapted.replace(
                 "    **(f32**)((ap += 8) - 8) = best;\n}",
                 "    *__builtin_va_arg(ap, f32*) = best;\n    __builtin_va_end(ap);\n}")
+        if rel.as_posix() == "main/player.cpp":
+            # Port-only entry shim for the forced-level pad fault. On that path
+            # the retail ASM caller reaches ControlPlayer with arg2/arg3 swapped:
+            # pad holds a float (~0.033, a dt) and dt holds the PadRecord pointer.
+            # Detect that (pad is not a mapped pointer, dt bits are) and swap the
+            # two via local aliases so the decomp body sees the intended values.
+            # The normal path passes valid args and is untouched.
+            needle = "void ControlPlayer(Player* self, PadRecord* pad, f32 dt)\n{"
+            shim = (
+                "void ControlPlayer(Player* self, PadRecord* pad_in, f32 dt_in)\n{\n"
+                "    u32 pad_bits = (u32)pad_in;\n"
+                "    u32 dt_bits = *(u32*)&dt_in;\n"
+                "    PadRecord* pad = pad_in;\n"
+                "    f32 dt = dt_in;\n"
+                "    if ((pad_bits < 0x00010000u || pad_bits >= 0x02000000u) &&\n"
+                "        ((dt_bits >= 0x00010000u && dt_bits < 0x02000000u) ||\n"
+                "         (dt_bits >= 0x08000000u && dt_bits < 0x10000000u))) {\n"
+                "        dt = *(f32*)&pad_bits;\n"
+                "        pad = (PadRecord*)dt_bits;\n"
+                "    }")
+            if adapted.count(needle) == 1:
+                adapted = adapted.replace(needle, shim, 1)
+        elif rel.as_posix() == "main/turning_collider.cpp":
+            # Opt-in: log the two pointers at ReadTurningColliderStickHeading
+            # entry to diagnose the forced-level post-load pad fault.
+            adapted = ('extern "C" void sly1_native_trace_turn_heading(u32, u32);\n') + adapted
+            needle = ("void ReadTurningColliderStickHeading(TurningCollider* self, PadRecord* pad)\n{")
+            repl = (needle + "\n    sly1_native_trace_turn_heading((u32)self, (u32)pad);")
+            if adapted.count(needle) == 1:
+                adapted = adapted.replace(needle, repl, 1)
         elif rel.as_posix() in ("main/file_1B7968.cpp", "main/collider.cpp"):
             # This helper manually walks the original EE 8-byte vararg slots.
             # The host32 C++ ABI places each word argument in a 4-byte stack

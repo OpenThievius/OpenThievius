@@ -1,8 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 01:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 02:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Post-load player arg swap: crash advances (2026-11-19, 02:15 CET)
+
+After the world rebuild completes, the placed player's control path faults at
+`func_001C49E8` (`ReadTurningColliderStickHeading`) reading `pad->stickMagnitude`
+from a bad pointer. I instrumented `ControlPlayer` (`func_00173888`) and found
+its args swapped on this path: `pad_in = 0x3d088889` (a float ~0.033 = dt) and
+`dt_in = 0x08727340` bits = `D_00262D38` (the pad global's host-mapped address).
+The retail ASM caller passes `(self, dt, pad)` while the decomp declares
+`(self, pad, dt)`. I added a staging-only entry shim in `ControlPlayer` that
+detects the swap (pad bits not a mapped pointer, dt bits mapped as guest or host
+address) and reinterprets the two via local aliases, so the decomp body sees the
+intended values; the normal path (valid args) is untouched.
+
+Verified: the fault advances from `func_001C49E8` (0x0816a457) to
+`func_001278A8` (`ComputeObjectMotionInFrame`, 0x0810556a) — the swap works and
+player control progresses. Default path still clean, checks pass. Each fix
+advances the crash deeper into post-load play; no playable frame yet. Captures:
+`/tmp/sly-shim2-20261118/`. No fields forced.
 
 ### Native varargs fix: level load passes stages 6/7 (2026-11-19, 01:15 CET)
 

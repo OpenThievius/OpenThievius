@@ -2508,6 +2508,29 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     return (u32)(uintptr_t)D_00247AF0;
 }
 
+// Opt-in trace of ControlPlayer args.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_control_player(u32 self, u32 pad, u32 dt_bits) {
+    if (getenv("OPENRAC_TRACE_TURN_HEADING") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) < 12u) {
+        write_hex("native host32: control player self ", (int)self);
+        write_hex("  control player pad ", (int)pad);
+        write_hex("  control player dt ", (int)dt_bits);
+    }
+}
+
+// Opt-in trace of ReadTurningColliderStickHeading pointers.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_turn_heading(u32 self, u32 pad) {
+    if (getenv("OPENRAC_TRACE_TURN_HEADING") == nullptr) return;
+    static volatile u32 notices = 0;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) < 12u) {
+        write_hex("native host32: turn heading self ", (int)self);
+        write_hex("  turn heading pad ", (int)pad);
+    }
+}
+
 // Opt-in stage marker inside RunPendingWorldLoad.
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_world_load_stage(u32 stage) {
