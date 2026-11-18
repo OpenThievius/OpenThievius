@@ -5316,6 +5316,23 @@ void LoadEffectSpawner"""
                 "    }")
             if adapted.count(needle) == 1:
                 adapted = adapted.replace(needle, replacement, 1)
+            # Opt-in stage markers inside RunPendingWorldLoad to find where the
+            # forced load stalls (game thread stuck at world=0).
+            adapted = ('extern "C" void sly1_native_world_load_stage(u32);\n') + adapted
+            markers = (
+                ("            InitLoadProgress(&o30, &w60, &w70, &w80, &w90);", 1),
+                ("            if (OpenBufferedSectorStreamRange(&sub, &key) == 0) {", 2),
+                ("            ResetWorldSubsystems(g_currentWorld);", 3),
+                ("            ReadBufferedBlockHeader(ne, &sub);", 4),
+                ("            g_currentWorld = CreateTypedRecord(0x6C, 0, 0, 3, -1);", 5),
+                ("            g_currentWorld->desc->m0A(g_currentWorld, &sub);", 6),
+                ("            CloseBufferedStream(&sub);", 7),
+            )
+            for mtext, stage in markers:
+                if adapted.count(mtext) == 1:
+                    adapted = adapted.replace(
+                        mtext,
+                        "            sly1_native_world_load_stage(" + str(stage) + ");\n" + mtext, 1)
         if rel.as_posix() == "main/commentary_best_time.cpp":
             # Port-only guard: the forced-level boot can run this caption init
             # while RunPendingWorldLoad has g_currentWorld == 0. Retail never

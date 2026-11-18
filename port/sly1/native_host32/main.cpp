@@ -2508,6 +2508,13 @@ extern "C" u32 sly1_keyed_entries_for_sdl(void) {
     return (u32)(uintptr_t)D_00247AF0;
 }
 
+// Opt-in stage marker inside RunPendingWorldLoad.
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_world_load_stage(u32 stage) {
+    if (getenv("OPENRAC_TRACE_WORLD_LOAD") == nullptr) return;
+    write_hex("native host32: world load stage ", (int)stage);
+}
+
 // One-shot forced-level boot, called from the game-thread frame-stage hook.
 // Queues the matching catalog key through the retail QueueWorldLoad so the
 // normal RunPendingWorldLoad path loads the level.

@@ -1,8 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-18, 22:45 CET. The active host32 staging snapshot and
+Last checked: 2026-11-18, 23:45 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Level load stalls at func_001919F8 (MeasurePointGraphEdges) trap (2026-11-18, 23:45 CET)
+
+I added opt-in stage markers (`OPENRAC_TRACE_WORLD_LOAD`) to `RunPendingWorldLoad`
+in the staged decomp and traced the forced level load: it reaches stage 6
+(`g_currentWorld->desc->m0A(g_currentWorld, &sub)` = `LoadWorld` /
+`func_001DCEA0`) and does not reach stage 7 (`CloseBufferedStream`). Inside
+`LoadWorld` the log ends with `missing compiled function at 0x001919f8`, called
+from `func_0011ECB8` (object-record reader) — that is
+`func_001919F8` = `MeasurePointGraphEdges` (`point_graph.cpp:1228` marks it
+`ASM_FUNC`), which hostgen emits as a trap. The trap is `noreturn`, so it kills
+the game thread — the reason the load stalls at `game_frames=1/world=0`.
+
+`MeasurePointGraphEdges` measures edge lengths for later point-graph pathfinding
+and is not needed for world loading/rendering; the archived wave build treated
+it as a logged no-op (`stubs.c` returned 0). I attempted a port-only no-op
+backfill, but hostgen still generates the trap for this ASM-only symbol: adding
+it to `host_functions` made hostgen exclude the candidate (no C definition to
+override), and a `backfills.tsv` entry alone did not replace the trap. Making
+hostgen use a C body for this ASM_FUNC needs a small tooling change (a way to
+substitute an ASM-only symbol's definition), which is the concrete next step.
+
+All backfill/override experiments were reverted; only the opt-in stage markers
+remain. Tree clean at `ae5ee9d` plus these markers, checks pass. Captures:
+`/tmp/sly-wlstage*-20261118/`. No fields forced.
 
 ### Opt-in SDL forced-level boot now reads the level (2026-11-18, 22:45 CET)
 
