@@ -1,8 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 19:15 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 20:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Menu navigation: mask bug fixed, prompt still blocks (2026-11-19, 20:15 CET)
+
+I found a real bug in the test-input harness: its documented "Cross" mask was
+0x40, but in the DualShock button enum 0x40 is DOWN; Cross is 0x4000. So all
+the earlier Up+Cross injection sequences were actually Up+Down. Fixed the mask
+docs and the new state-driven menu driver to use 0x4000 for Cross.
+
+I added an opt-in state-driven menu driver (OPENRAC_TEST_DRIVE_MENU) that reads
+the game's pause page via sly1_native_menu_page_and_state() and injects
+Start/Cross/Up when the game reaches the save-file prompt (page 7), with a
+multi-frame button hold so the slow game pad poll observes it. Verified the
+injected buttons DO reach the report (pad trace shows held=4000/0010 alternating,
+matching Cross/Up in the game's masks) — but the menu STILL stays at page 7.
+So the prompt is not dismissed by these injections, while real windowed
+keyboard input (send_yes.py + send_resume.py) does advance it (page 7 -> 0,
+camera moves). The difference is likely a press-edge/timing nuance in the menu
+input handling that the synthetic injection does not reproduce.
+
+The best post-input frame so far (/tmp/sly-finalplay/frame.png) shows a coherent
+road/bridge with lane markings converging to a vanishing point — a recognizable
+environment, with a moving camera, but no character or HUD. Checks pass.
 
 ### Input path verified; game stuck at save-file prompt (2026-11-19, 19:15 CET)
 

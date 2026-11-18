@@ -20,7 +20,7 @@ public:
     void handle_event(const SDL_Event& event);
     void update();
     void test_press_cross_once();
-    void test_press_buttons_once(unsigned int buttons);
+    void test_press_buttons_once(unsigned int buttons, int frames = 1);
     const openrac::platform::Pad& pad(int port) const;
 
 private:

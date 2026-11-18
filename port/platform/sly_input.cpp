@@ -43,9 +43,9 @@ void Input::test_press_cross_once() {
     m_test_cross_pending = true;
 }
 
-void Input::test_press_buttons_once(unsigned int buttons) {
+void Input::test_press_buttons_once(unsigned int buttons, int frames) {
     m_test_buttons_pending |= buttons;
-    m_test_button_frames = 1;
+    m_test_button_frames = frames > 0 ? frames : 1;
 }
 
 void Input::apply_test_buttons(openrac::platform::Pad& pad) {

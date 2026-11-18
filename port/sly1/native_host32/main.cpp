@@ -2529,6 +2529,15 @@ sly1_native_trace_poll_pad(u32 self, u32 buttons, u32 res) {
     }
 }
 
+// Expose menu state to the host poll loop for the opt-in state-driven menu
+// driver (the state globals live in this translation unit's anonymous namespace).
+extern "C" u32 sly1_native_menu_page_and_state(void) {
+    const u32 page = __atomic_load_n(&g_native_pause_page, __ATOMIC_RELAXED);
+    const u32 ui = __atomic_load_n(&g_native_ui_state, __ATOMIC_RELAXED);
+    const u32 open = __atomic_load_n(&g_native_pause_open, __ATOMIC_RELAXED);
+    return (page & 0xFFu) | ((ui & 0xFFu) << 8u) | ((open & 0xFFu) << 16u);
+}
+
 // Opt-in trace of the pad buttons seen by ControlPlayer.
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_player_pad_buttons(u32 buttons, u32 buffer_ptr, u32 buffer_bytes) {

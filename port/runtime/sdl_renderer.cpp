@@ -1283,6 +1283,9 @@ extern "C" int openrac_native_window_poll_quit(void) {
     return 0;
 }
 
+// Menu state accessor from the host32 main translation unit (opt-in menu driver).
+extern "C" unsigned int sly1_native_menu_page_and_state(void);
+
 extern "C" int openrac_native_window_poll_input(void) {
     if (!g_input) return 1;
     SDL_Event event;
@@ -1333,7 +1336,7 @@ extern "C" int openrac_native_window_poll_input(void) {
         }
     }
     ++test_frame;
-    // Opt-in Up+Cross sequence (bitmask: 0x10=Up, 0x40=Cross, 0x08=Start)
+    // Opt-in Up+Cross sequence (bitmask: 0x10=Up, 0x4000=Cross, 0x08=Start)
     // at native frames, for driving menus in hidden/stable mode.
     {
         static std::vector<unsigned> seq_frames;
@@ -1372,6 +1375,44 @@ extern "C" int openrac_native_window_poll_input(void) {
         std::fprintf(stderr, "[test-input] injected Cross press %u at native frame %u\n",
                      test_cross_next + 1, test_frame);
         ++test_cross_next;
+    }
+    // State-driven menu driver: inject button presses when the game reaches a
+    // given pause page, rather than at host-frame numbers (the game thread runs
+    // much slower than the present loop). Cycle a short Up/Cross sequence on the
+    // save-file prompt (page 7) to confirm it, then start on a page that looks
+    // like gameplay. Gated by OPENRAC_TEST_DRIVE_MENU.
+    if (std::getenv("OPENRAC_TEST_DRIVE_MENU") != nullptr) {
+        static unsigned int last_driven_page = 0xFFFFFFFFu;
+        static unsigned int drive_step = 0;
+        const unsigned int packed = sly1_native_menu_page_and_state();
+        const unsigned int page = packed & 0xFFu;
+        const unsigned int uistate = (packed >> 8u) & 0xFFu;
+        if (page != last_driven_page) {
+            last_driven_page = page;
+            drive_step = 0;
+            std::fprintf(stderr, "[menu-driver] page changed to %u ui=%u\n", page, uistate);
+        }
+        // Button bitmask: 0x10=Up, 0x4000=Cross, 0x08=Start. Advance one
+        // step every ~12 host frames.
+        if ((test_frame % 12u) == 0u) {
+            unsigned int buttons = 0;
+            if (page == 7u) {
+                // Cycle Start, Cross, Up: the retail save-file prompt is
+                // confirmed with Start/Cross and navigated with Up.
+                const unsigned phase = drive_step % 3u;
+                buttons = phase == 0u ? 0x08u : (phase == 1u ? 0x4000u : 0x10u);
+            } else if (page != 0xFFFFFFFFu && uistate == 5u) {
+                buttons = 0x4000u;  // Cross on other menu pages
+            }
+            if (buttons != 0) {
+                // Hold across ~8 host frames so the game thread's much slower
+                // pad poll reliably observes the press (a 1-frame press is lost).
+                g_input->test_press_buttons_once(buttons, 8);
+                std::fprintf(stderr, "[menu-driver] inject %#x at page %u step %u\n",
+                             buttons, page, drive_step);
+            }
+            ++drive_step;
+        }
     }
     g_input->update();
     return quit ? 1 : 0;
