@@ -1,8 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-Last checked: 2026-11-19, 15:30 CET. The active host32 staging snapshot and
+Last checked: 2026-11-19, 16:15 CET. The active host32 staging snapshot and
 sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+
+### Semaphore "desync" is a misdiagnosis (2026-11-19, 16:15 CET)
+
+I traced ALL semaphore events (OPENRAC_TRACE_ALL_SEMA +
+OPENRAC_TRACE_SEMAPHORES_FROM_START + OPENRAC_STARTUP_TRACE) in a windowed run.
+The frame-done semaphore (id 5) shows a healthy, steady 1:1 pattern:
+`signal count=1` (caller 081407ed, render thread) then `wait count=0`
+(caller 08140426, game thread), repeating ~100 times with no break. The run
+was STABLE: world=0x88d5b0, 86 frames, no crash, pages 0 and 7 only.
+
+So the earlier "game/render frame-done semaphore desync / RunPendingWorldLoad
+never completes" conclusion was WRONG — the handshake is fine. The intermittent
+stalls are timing variations of the same slow load, not a semaphore deadlock,
+and some runs abort from the heap corruption instead. This removes a false
+blocker; the real remaining issues are the heap double-free (which ends some
+runs) and the slow/variable load transition. No code changed; checks pass.
 
 ### Test-input button-sequence harness (2026-11-19, 15:30 CET)
 
