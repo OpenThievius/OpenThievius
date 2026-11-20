@@ -1,6 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player skinning adapter follow-up (2026-11-20, 22:10 CET)
+
+A hidden, 12-second native run enabled the port-only player skinning adapter
+and its trace. The adapter ran for 12 logged parts of player source
+`0x00a2d9a8`, transforming each part's 104-or-fewer vertices with four weights
+and the captured bone palette. The sampled outputs are finite. The captured
+post-HUD frame still shows the distorted grayscale corridor and no recognizable
+player, so finite host-side skinning does not resolve the rendering blocker.
+
+The initial frame dump is black because it is taken before the world draw;
+the paired post-HUD frame is the meaningful capture. It confirms the client is
+rendering the corridor in this run, so the black pre-draw capture should not be
+read as a startup regression. The run also repeats the VU1 warning that the
+qword-469 kick is rejected, while the accepted qword-35 kick remains a
+state-only A+D packet for the selected mesh. This does not prove the rejected
+kick causes the missing player.
+
+Next, trace the selected strip builder's transformed position and strip-record
+outputs through their consumption by the downstream GIF/GS draw path. Keep the
+skin adapter experimental, keep GIF validation unchanged, and do not alter
+matched source. Evidence: `/tmp/sly-skinning-check-20261120/run.log`,
+`/tmp/sly-skinning-check-20261120/sly1-native-world-07.ppm` (pre-world black),
+and `/tmp/sly1-native-world-after-hud-07.ppm` (post-HUD corridor capture).
+The run used the configured Documents US ISO and cached US ELF, no input, and
+ended at the deliberate timeout (137).
+
 ### Matched strip-packet boundary (2026-11-20, 17:50 CET)
 
 A targeted VIF command/MSCAL trace of environment mesh packet `0x0140d410`

@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-20, 22:10 CET)
+
+A hidden, bounded native run with `OPENRAC_SLY_WORLD_APPLY_SKINNING=1` and
+`OPENRAC_TRACE_SLY_SKINNING=1` exercised the port-only player skinning adapter
+on the 12 logged parts of source `0x00a2d9a8`.
+The matrices are finite and the adapter transforms vertices, but the captured
+post-HUD frame still shows only the distorted grayscale corridor; no
+recognizable Sly model appears. The first world-frame dump is black because it
+is captured before the frame's world draw; the paired post-HUD dump is the
+useful image. This is not a new black-screen regression.
+
+The next blocker remains the native draw pipeline: the selected player and
+environment strip submissions enter matched `g_unlitBatchProgram` and finish
+at `0x5f`, but the accepted qword-35 kick carries A+D state rather than
+XYZ2/XYZF2 vertices. The rejected qword-469 kick is not established as causal.
+Trace where the matched builder's transformed positions and strip records
+become the final GIF vertex packet; do not adjust GIF validation or assume the
+host skinning adapter alone can restore the player.
+
+Evidence: `/tmp/sly-skinning-check-20261120/run.log` and
+`/tmp/sly1-native-world-after-hud-07.ppm`. The hidden run used the configured
+Documents US ISO and cached US ELF, was ended by its 12-second timeout, and
+sent no input. No decompilation source changed.
+
 ## Current checkpoint (2026-11-20, 17:50 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
