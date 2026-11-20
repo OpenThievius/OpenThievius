@@ -1,33 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Player vertex projection discrepancy (2026-11-20, 22:56 CET)
+### Stale VBO in direct mesh draw paths (2026-11-20, 23:00 CET)
 
-I added an opt-in `points` choice to
-`OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE`. It uses the captured player mesh input,
-disables depth only when `OPENRAC_SLY_WORLD_NO_DEPTH` is set, and enables
-shader-controlled point size for the diagnostic. It does not change triangle
-draws or the normal renderer.
+The previous section's CPU/GL projection discrepancy was caused by the
+diagnostic point path calling `glDrawArrays` before uploading the current mesh
+to the VBO. The direct player-triangle path had the same omission. Both now
+upload `mesh.vertices` before drawing. The triangle and point diagnostics
+remain opt-in; matched decompilation source is unchanged.
 
-A hidden six-second run used the configured Documents US ISO, cached NTSC-U
-ELF, and level key `0x0100`. It filtered to source `0x00a2d9a8`, applied the
-existing experimental skin adapter, and rendered solid points with depth
-disabled. The queue contained 30 player mesh submissions. CPU-side projected
-bounds put 1,495 vertices inside the view, across roughly 0.07 NDC units in X.
-The captured post-HUD image contains only a 6-by-6-pixel point cluster near
-screen center. This is a mismatch between the CPU bounds estimate and visible
-GL output, not proof that the player's triangle topology is wrong. The
-unfiltered ordinary renderer remains black.
+After rebuilding, the isolated player triangle capture contains a small white
+shape near screen center (117 nonblack pixels at 640x448). Its 30 submissions
+and 1,495 vertices lie inside the view. The bounds and visible output now
+agree; the previous 6x6-point capture was stale VBO data and should not guide
+matrix or scale work. Evidence: `/tmp/sly-player-vbo2-20261120/run.log` and
+`sly1-native-frame-07.png`.
 
-Next, compare the actual matrix and clip-space values consumed by the GL
-vertex shader with the CPU bounds calculation for one player mesh. Do not tune
-triangle grouping, scale, depth, or VU address interpretation until those
-values agree. Keep `points` opt-in, the player mesh overlay experimental, and
-all functional game-code backfills outside matched decompilation source.
-Evidence: `/tmp/sly-player-points-20261120/run3.log` through `run6.log` and
-`/tmp/sly-player-points-20261120/after-hud-run6.png`. The final bounded run
-ended at its deliberate six-second timeout (137), without gameplay input. The
-host32 SDL target rebuilt successfully; no decompilation source changed.
+A second hidden capture enabled all queued meshes in solid-color mode. It
+shows a broad, flat horizon/terrain image, while projected bounds include
+large outliers (for example X to 624 NDC and Y to 48). This confirms that
+geometry is reaching the opt-in GL renderer but exposes a real scene-wide
+projection/topology problem. Next, isolate which mesh submissions create the
+oversized bounds and determine their matrix mode and primitive grouping before
+changing scale or topology. The normal GS path is still separate and does not
+yet show a confirmed playable scene. Evidence: `/tmp/sly-world-all-solid-20261120/run.log`
+and `sly1-native-frame-07.png`.
+
+The corrected six-second hidden captures used the configured Documents US ISO
+and cached US ELF, with no input. They intentionally ended with timeout status
+137. The host32 SDL target rebuilt successfully; `sly1-decomp` was unchanged.
 
 ### Player batch and downstream GS trace (2026-11-20, 22:31 CET)
 

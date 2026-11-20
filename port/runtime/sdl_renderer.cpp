@@ -636,6 +636,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             // Isolate vertex placement from the still-unverified kind-5
             // triangle grouping. This remains opt-in and is useful for
             // checking whether captured positions form a coherent silhouette.
+            // Unlike the normal draw path below, points do not need expanded
+            // strip data, but they still need this mesh's vertices in the VBO.
+            glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
+                         mesh.vertices.data(), GL_STREAM_DRAW);
             glEnable(GL_PROGRAM_POINT_SIZE);
             glDrawArrays(GL_POINTS, 0,
                          static_cast<GLsizei>(mesh.vertices.size() / 9u));
@@ -646,6 +651,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
              getenv("OPENRAC_PLAYER_SPLIT_STRIPS") == nullptr)) {
             // Player kind-5 VertexRefs are authored in triples (triangle list),
             // not strip order; a single strip yields a giant bridging triangle.
+            // This direct path still needs to replace the VBO contents with
+            // this mesh; the expanded diagnostic path below uploads separately.
+            glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
+                         mesh.vertices.data(), GL_STREAM_DRAW);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh.vertices.size() / 9u));
         } else if (debug_primitive == GL_TRIANGLES) {
             // Expand the source sequence as a triangle strip. GL_TRIANGLES over

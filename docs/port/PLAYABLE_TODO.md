@@ -1,22 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 22:56 CET)
+## Current checkpoint (2026-11-20, 23:00 CET)
 
-The local and upstream `sly1-decomp` master are still at `8f7a85a3` after a
-read-only fetch. A new port-only point diagnostic confirms the player source
-mesh reaches 30 queued submissions and CPU bounds place its 1,495 vertices in
-view. The post-HUD capture shows only a 6-by-6-pixel point cluster. The CPU
-bounds and actual GL output therefore disagree; first compare the exact GL
-matrix/clip-space output against the host calculation for one player mesh.
-Do not tune topology or scale while that discrepancy remains. The ordinary
-renderer still has no visible game graphics, and the player overlay remains
-experimental.
+The latest graphics investigation found a real port-renderer defect: the
+opt-in point and player-triangle draw branches called `glDrawArrays` without
+uploading that mesh's vertices to the VBO. Those captures could reuse stale
+data, so the prior 6-by-6 point result and black player-triangle result were
+invalid. Both branches now upload their source mesh before drawing.
 
-The host32 SDL target rebuilt successfully, and a bounded hidden run used the
-configured Documents US ISO and cached US ELF with no input. Evidence and the
-opt-in diagnostic details are in the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
-No decompilation source changed.
+With that fix, the player-only triangle overlay draws a small white shape near
+screen center (117 nonblack pixels in a 640x448 capture). With all meshes in
+solid-color mode, the opt-in overlay draws a horizon and broad terrain, but
+the scene is still severely flattened/oversized; this is diagnostic output,
+not playable graphics. The regular GS renderer remains a separate path and is
+still unverified for a playable scene. The local/upstream decomp remains at
+`8f7a85a3`; no matched decomp source changed.
+
+The host32 SDL target rebuilt, and three six-second hidden runs used the
+configured Documents US ISO and cached US ELF without input. The updated
+graphics handoff records the correction, images, and next investigation.
+
+## Earlier checkpoint (2026-11-20, 22:56 CET)
+
+This checkpoint incorrectly concluded that CPU projected bounds disagreed
+with the GL output. The diagnostic point branch had not uploaded its VBO data;
+the mismatch was stale vertex data. See the current checkpoint and graphics
+handoff for the corrected result.
 
 ## Earlier checkpoint (2026-11-20, 22:31 CET)
 
