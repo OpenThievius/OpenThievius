@@ -1,6 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Refreshed player attachment trace (2026-11-20, 14:15 CET)
+
+I reran the existing opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` trace in the
+foreground against the current US ELF and ISO. It reached the player draw path
+in world `0x88d5b0`; the owner has 31 attachment records, and the sampled
+weighted targets are present. The local and final matrices shown in the trace
+remain finite and orthonormal (row lengths approximately 1, determinant
+approximately 1, maximum sampled row-dot error `1.62e-6`). The callback ABI
+fix is holding; player attachment transforms are not the current blocker.
+
+This used the `wave55-sdl32-release` binary with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`, so any geometry visible in that window
+belongs to the experimental overlay, not the ordinary game renderer. The run
+also repeated the VU1 instruction-budget stop at submission 6, VIF offset
+`0x6fbb0`, entry `0x2`, PC `0x516`; it did not establish a graphics fix. The
+bounded process ended with status 1 after about 30 seconds. The trace output
+was observed in the foreground session and was not saved as a separate log.
+
+### Renderer strategy reset (2026-11-20)
+
+OpenRAC's current port documentation describes a different endpoint from
+completing a general VU interpreter: it implements a native renderer for each
+game draw kind, studies VU programs to reproduce their output, and keeps the
+shared VU/VIF/GS interpreter out of the final rendering path. We should use
+that architecture here. Keep the current interpreter as a diagnostic tool,
+but do not raise its global instruction budget to make a rendered scene the
+goal. The actionable port task is to select one confirmed Sly draw kind and
+implement a faithful, isolated native renderer from the matched packet builder
+and that kind's VU output semantics. Keep it opt-in until its silhouette,
+transforms, textures, and lighting match a reference capture.
+
+References: [OpenRAC renderer design](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/port/RENDERER.md),
+[OpenRAC VU programs](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/port/VU_PROGRAMS.md),
+[OpenRAC native port overview](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/port/README.md).
+
 ### Player bone matrices after the callback ABI fix (2026-11-20, 13:32 CET)
 
 I extended the opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` player trace with basis
