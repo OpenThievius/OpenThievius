@@ -375,6 +375,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
     const bool debug_solid_colors =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS") != nullptr;
+    const bool debug_normal_colors =
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
     const bool debug_skip_full_cover =
         std::getenv("OPENRAC_DEBUG_SLY_SKIP_FULL_COVER") != nullptr;
     static unsigned present_bounds_sample = 0;
@@ -492,7 +494,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             continue;
         }
         auto texture = openrac::renderer::TextureHandle{};
-        if (!debug_solid_colors && g_textures != nullptr && mesh.tex0 != 0) {
+        if (!debug_solid_colors && !debug_normal_colors &&
+            g_textures != nullptr && mesh.tex0 != 0) {
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
             if (texture == g_textures->placeholder()) {
                 present_missing_textures.insert(mesh.tex0);
@@ -581,7 +584,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         glUniformMatrix4fv(g_world_mvp_location, 1, GL_FALSE, m);
         glUniform1i(g_world_texture_location, 0);
         glUniform1i(g_world_textured_location,
-                    !debug_solid_colors && texture != 0 && mesh.tex0 != 0 ? 1 : 0);
+                    !debug_solid_colors && !debug_normal_colors &&
+                    texture != 0 && mesh.tex0 != 0 ? 1 : 0);
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
         glUniform1i(g_world_debug_geometry_location, debug_solid_colors ? 1 : 0);

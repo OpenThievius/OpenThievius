@@ -1,7 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 23:07 CET)
+## Current checkpoint (2026-11-20, 23:14 CET)
+
+The port-only overlay now has an opt-in `OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS`
+view. Its mesh-capture hook receives the `nrms` array from the matched strip
+builder and encodes kind-0 normal vectors as vertex colors; textures are
+disabled only for this diagnostic. The host32 target rebuilt and two bounded
+hidden captures ran without input. The isolated kind-0 asset forms a broad
+sky-like surface; all meshes add small colored geometry along the horizon but
+still do not show the reference rooftop. This proves normal data reaches the
+overlay, not that retail lighting or geometry is reproduced.
+
+Next, carry the matched lit-strip path's normal and lighting behavior into a
+separate port backfill, then inspect whether it changes the unforced startup
+and title frames. The regular path remains non-playable and the diagnostic
+overlay remains opt-in.
+
+## Earlier checkpoint (2026-11-20, 23:07 CET)
 
 The latest graphics investigation found a real port-renderer defect: the
 opt-in point and player-triangle draw branches called `glDrawArrays` without

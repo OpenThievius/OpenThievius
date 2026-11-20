@@ -1,6 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Lit-strip normal diagnostic (2026-11-20, 23:14 CET)
+
+The matched builder hook now passes `nrms` into the port capture helper. With
+`OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS=1`, kind-0 vertices encode their normal
+components as RGB and bypass texture sampling. This is a port-only diagnostic;
+the default mesh colors and normal GS renderer are unchanged. The callback
+uses each `VertexRefs.nrm` index and the captured normal array, matching the
+lookup used in `BuildLitStripMeshPacket`.
+
+The isolated source `0x00a2a488` shows a broad sky-like plane in normal colors.
+With all meshes enabled, more narrow colored geometry appears at the horizon,
+but the frame remains unlike the PCSX2 rooftop/title reference. The test
+confirms that kind-0 normals reach the host overlay. It does not reproduce the
+lighting calculations in `g_litBatchProgram`, nor does it explain the missing
+rooftops. Next, trace the kind-0 lit VU inputs and reproduce their lighting in
+port-only code; keep the unforced startup/title capture as the visual gate.
+
+Evidence: `/tmp/sly-lit-normal-colors-20261120/run.log`,
+`sly1-native-frame-07.png`, `/tmp/sly-all-normal-colors-20261120/run.log`,
+and `sly1-native-frame-07.png`. Both hidden runs used the configured US ISO
+and cached ELF, ended at their deliberate six-second timeout (137), and sent
+no input. The host32 build succeeded; the decomp checkout was unchanged.
+
 ### PCSX2 startup reference comparison (2026-11-20, 23:07 CET)
 
 The user-provided 62.8-second PCSX2 clip shows the publisher/developer cards,

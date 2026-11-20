@@ -973,7 +973,8 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
 }
 
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
-                                                   u32 tints_address, u32 uvs_address,
+                                                   u32 nrms_address, u32 tints_address,
+                                                   u32 uvs_address,
                                                    u32 vertex_count, u32 refs_address,
                                                    u32 cursor_address, u32 header_address,
                                                    u32 ents_address, u32 verts_address,
@@ -991,6 +992,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
           mk == 7u || mk == 8u || mk == 9u || mk == 10u)) return;
     const volatile u8* refs = reinterpret_cast<const volatile u8*>(refs_address);
     const volatile float* positions = reinterpret_cast<const volatile float*>(vecs_address);
+    const volatile float* normals = nrms_address != 0
+        ? reinterpret_cast<const volatile float*>(nrms_address) : nullptr;
     const volatile u8* tints = reinterpret_cast<const volatile u8*>(tints_address);
     const volatile float* uvs = uvs_address != 0
         ? reinterpret_cast<const volatile float*>(uvs_address) : nullptr;
@@ -1079,6 +1082,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                          static_cast<double>(skinned[2]));
         }
     }
+    const bool encode_normal_colors = mesh[0] == 0u && normals != nullptr &&
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
     for (u32 i = 0; i < vertex_count; ++i) {
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
@@ -1121,12 +1126,26 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                 captured.skin_weights.push_back(static_cast<float>(
                     input_weights[position_index * header_weight_count + j]));
         }
-        for (u32 channel = 0; channel < 4u; ++channel) {
-            const u8 base = mesh[4u + channel];
-            const float color = tint_index == 0x7Fu || tints == nullptr
-                ? static_cast<float>((base + 1u) >> 1u) / 255.0f
-                : static_cast<float>((base * tints[tint_index * 4u + channel] + 0x100u) / 0x1FEu) / 255.0f;
-            captured.vertices.push_back(color);
+        bool wrote_normal_color = false;
+        if (encode_normal_colors) {
+            const u8 normal_index = refs[i * 4u + 1u];
+            if (normal_index != 0xFFu) {
+                for (u32 channel = 0; channel < 3u; ++channel) {
+                    const float normal = normals[static_cast<u32>(normal_index) * 3u + channel];
+                    captured.vertices.push_back(std::clamp(normal * 0.5f + 0.5f, 0.0f, 1.0f));
+                }
+                captured.vertices.push_back(1.0f);
+                wrote_normal_color = true;
+            }
+        }
+        if (!wrote_normal_color) {
+            for (u32 channel = 0; channel < 4u; ++channel) {
+                const u8 base = mesh[4u + channel];
+                const float color = tint_index == 0x7Fu || tints == nullptr
+                    ? static_cast<float>((base + 1u) >> 1u) / 255.0f
+                    : static_cast<float>((base * tints[tint_index * 4u + channel] + 0x100u) / 0x1FEu) / 255.0f;
+                captured.vertices.push_back(color);
+            }
         }
         const u8 uv_index = refs[i * 4u + 2u];
         captured.vertices.push_back(uvs != nullptr && uv_index != 0xFFu
@@ -1936,7 +1955,7 @@ extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, f
 extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32,
-                                               u32, u32, u32, u32, u32) {}
+                                               u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_part_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
