@@ -600,6 +600,33 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
             const char* target_command_setting =
                 std::getenv("OPENRAC_TRACE_VIF_TARGET_COMMANDS");
             const uint32_t command_offset = static_cast<uint32_t>(cursor - sizeof(code));
+            if (const char* offset_setting =
+                    std::getenv("OPENRAC_TRACE_VIF_DIRECT_OFFSET")) {
+                char* end = nullptr;
+                const unsigned long parsed = std::strtoul(offset_setting, &end, 0);
+                static std::atomic_flag direct_dumped = ATOMIC_FLAG_INIT;
+                if (end != offset_setting && *end == '\0' &&
+                    parsed == command_offset &&
+                    !direct_dumped.test_and_set(std::memory_order_relaxed)) {
+                    openrac::log::info(
+                        "native VIF1 direct packet dump submission={} stream_offset={} command={:#04x} qwc={}",
+                        trace->submission_id, command_offset, command, qwc);
+                    const size_t dump_qwords = std::min<size_t>(qwc, 64u);
+                    for (size_t qword = 0; qword < dump_qwords; ++qword) {
+                        uint64_t low = 0;
+                        uint64_t high = 0;
+                        std::memcpy(&low, stream.data() + cursor + qword * 16u, 8u);
+                        std::memcpy(&high, stream.data() + cursor + qword * 16u + 8u, 8u);
+                        openrac::log::info(
+                            "native VIF1 direct packet qword={} low={:#018x} high={:#018x}",
+                            qword, low, high);
+                    }
+                    if (dump_qwords < qwc)
+                        openrac::log::info(
+                            "native VIF1 direct packet dump truncated qwords_shown={} qwords_total={}",
+                            dump_qwords, qwc);
+                }
+            }
             openrac_guest_vu1_set_trace_context(trace->submission_id, command_offset);
             const bool trace_target_command = target_command_setting != nullptr &&
                 target_command_setting[0] != '\0' && target_command_setting[0] != '0' &&
@@ -1025,6 +1052,26 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
     trace.submission_id = submission_sequence.fetch_add(1, std::memory_order_relaxed);
     const bool dma_ok = execute_dma(value, &stream, &segments);
     if (dma_ok) {
+        if (const char* offset_setting =
+                std::getenv("OPENRAC_TRACE_VIF_DIRECT_OFFSET")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(offset_setting, &end, 0);
+            static std::atomic_flag source_notice = ATOMIC_FLAG_INIT;
+            if (end != offset_setting && *end == '\0' && parsed < stream.size() &&
+                !source_notice.test_and_set(std::memory_order_relaxed)) {
+                for (const DmaSegment& segment : segments) {
+                    if (parsed >= segment.stream_offset &&
+                        parsed < segment.stream_offset + segment.stream_size) {
+                        openrac::log::info(
+                            "native VIF1 traced DIRECT source submission={} stream_offset={} segment={} tag={:#010x} data={:#010x} qwc={} segment_offset={} segment_bytes={}",
+                            trace.submission_id, parsed, segment.id,
+                            segment.tag_address, segment.data_address, segment.qwc,
+                            parsed - segment.stream_offset, segment.stream_size);
+                        break;
+                    }
+                }
+            }
+        }
         uint32_t trace_stream_begin = 0xFFFFFFFFu;
         uint32_t trace_stream_end = 0xFFFFFFFFu;
         trace_target_dma_chain(trace.submission_id, value, initial_madr,

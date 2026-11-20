@@ -29,6 +29,30 @@ Source: the sibling `../sly1-decomp` checkout, in
 `src/main/texture_upload.cpp` (`QueueMeshStrip`). The clip and extracted
 frames remain outside the repo.
 
+### Repeated VIF DIRECT packet is not rooftop geometry (2026-11-20)
+
+I added an opt-in `OPENRAC_TRACE_VIF_DIRECT_OFFSET=<stream-offset>` diagnostic
+to dump one matching VIF DIRECT packet (up to 64 qwords) and identify the DMA
+segment containing it. A hidden forced-level run at `OPENRAC_BOOT_LEVEL=0x0100`
+captured the repeated packet at stream offset 87068: submission 5, 36 QWC. Its
+GIF tag selects PRIM `0x316` (sprite primitive 6) and contains twelve XYZF2
+writes, six sprite pairs. The decoded endpoint coordinates lie along y=0
+(mostly x=0 to 1024, with two pairs x=8 to 1032), so this packet is not a
+complete rooftop triangle draw. It is not evidence for changing mesh topology.
+
+The packet begins 12 bytes into DMA segment 4 (`data=0x01bc9270`, `tag=0x004c6170`,
+37 QWC). This identifies its source buffer, but not yet the EE function that
+prepared it or the sprite's role. Keep tracing that producer only if needed to
+explain stray sprite output. This packet alone does not identify why world
+geometry is absent; trace the EE-side mesh submission and VU output
+independently.
+
+Evidence: `/tmp/sly-vif-direct-coordinates-20261120/source-run.log`. The host32
+SDL target rebuilt with 194/194 decomp units and 85/85 port backfills. The
+hidden run used `/home/reaper/.local/share/openthievius/sly1/us/boot.elf` and
+`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`,
+with no input.
+
 ### Player bone trace recheck (2026-11-20, 23:24 CET)
 
 I enabled the existing opt-in trace at the exact `skin->bones[k].m` VIF
