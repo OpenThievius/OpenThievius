@@ -1,6 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Game image path check (2026-11-20)
+
+The SafeHouse client configuration at
+`~/.local/share/openthievius/config.json` selects the US image from
+`~/Documents/PS2Games/Sly1/` and the cached US boot ELF at
+`~/.local/share/openthievius/sly1/us/boot.elf`. That cached ELF matches the
+port build's extracted `SCUS_971.98`. Earlier direct native VU diagnostic
+commands recorded below used the copy under `~/pcsx2/Games/`; both US ISO
+copies were checked and are byte-identical. Future direct diagnostics should
+use the Documents path so their input matches the client configuration.
+
 ### Refreshed player attachment trace (2026-11-20, 14:15 CET)
 
 I reran the existing opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` trace in the
