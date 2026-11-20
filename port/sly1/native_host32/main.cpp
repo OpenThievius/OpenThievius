@@ -705,27 +705,24 @@ extern "C" void sly1_native_trace_pose_rotation(u32 owner_address,
         if (end != target && *end == '\0' && parsed != 0 &&
             owner_address != static_cast<u32>(parsed)) return;
     }
+    static volatile u32 printed = 0;
+    if (__atomic_fetch_add(&printed, 1u, __ATOMIC_RELAXED) >= 128u) return;
     const volatile u32* matrix = reinterpret_cast<const volatile u32*>(matrix_address);
     const volatile u32* vector = reinterpret_cast<const volatile u32*>(vector_address);
     const volatile float* attachment =
         reinterpret_cast<const volatile float*>(attachment_address);
-    const u32 player_address =
+    const u32 attachment_state =
         *reinterpret_cast<const volatile u32*>(attachment_address + 0x1Cu);
-    const volatile float* player =
-        reinterpret_cast<const volatile float*>(player_address);
     const u32 vtable_address =
         *reinterpret_cast<const volatile u32*>(attachment_address);
     std::fprintf(stderr,
-                 "[native pose rotation] stage=%u owner=%#010x attachment=%#010x mode=%d key=%d track=%d attachment_end=%g player=%#010x animation=%#010x time=%g speed=%g getRot=%#010x matrix=",
+                 "[native pose rotation] stage=%u owner=%#010x attachment=%#010x mode=%d key=%d track=%d attachment_end=%g state=%#010x getRot=%#010x matrix=",
                  stage, owner_address, attachment_address,
                  static_cast<int>(*reinterpret_cast<const volatile signed char*>(attachment_address + 0x11u)),
                  *reinterpret_cast<const volatile int*>(attachment_address + 0x14u),
                  *reinterpret_cast<const volatile int*>(attachment_address + 0x28u),
                  attachment[0x18 / 4],
-                 player_address,
-                 player_address != 0 ? *reinterpret_cast<const volatile u32*>(player_address + 8u) : 0,
-                 player_address != 0 ? player[0x14 / 4] : 0.0f,
-                 player_address != 0 ? player[0x18 / 4] : 0.0f,
+                 attachment_state,
                  vtable_address != 0 ? *reinterpret_cast<const volatile u32*>(vtable_address + 0x14u) : 0);
     for (u32 i = 0; i < 12; ++i)
         std::fprintf(stderr, "%s%08x", i == 0 ? "" : ",", matrix[i]);
@@ -2795,20 +2792,70 @@ extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_world_frame(u32 self, u32 rot_addr, u32 m110_addr, u32 parent, u32 pos_addr) {
     if (getenv("OPENRAC_TRACE_WORLD_FRAME") == nullptr) return;
     static volatile u32 notices = 0;
-    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 40u) return;
-    auto maxabs = [](u32 addr) -> float {
-        if (addr < 0x00010000u || addr >= 0x02000000u) return 0.0f;
+    auto valid_matrix = [](u32 addr) -> bool {
+        return addr >= 0x00010000u && addr <= 0x01FFFFC0u;
+    };
+    auto matrix_max = [&](u32 addr) -> float {
+        if (!valid_matrix(addr)) return 0.0f;
         const volatile float* v = reinterpret_cast<const volatile float*>(addr);
         float m = 0.0f;
-        for (u32 i = 0; i < 12u; ++i) m = std::max(m, std::fabs(v[i]));
+        for (u32 row = 0; row < 3u; ++row)
+            for (u32 col = 0; col < 3u; ++col)
+                m = std::max(m, std::fabs(v[row * 4u + col]));
         return m;
     };
-    const float rmax = maxabs(rot_addr);
-    // Only print objects with a suspicious local rot or output, to avoid spam.
-    if (rmax < 2.0f && maxabs(m110_addr) < 2.0f) return;
+    auto degenerate = [&](u32 addr) -> bool {
+        if (!valid_matrix(addr)) return false;
+        const volatile float* m = reinterpret_cast<const volatile float*>(addr);
+        float norm[3] = {};
+        for (u32 row = 0; row < 3u; ++row) {
+            for (u32 col = 0; col < 3u; ++col)
+                norm[row] += m[row * 4u + col] * m[row * 4u + col];
+            norm[row] = std::sqrt(norm[row]);
+            if (!std::isfinite(norm[row]) || norm[row] < 0.25f || norm[row] > 4.0f)
+                return true;
+        }
+        for (u32 a = 0; a < 3u; ++a) {
+            for (u32 b = a + 1u; b < 3u; ++b) {
+                float dot = 0.0f;
+                for (u32 col = 0; col < 3u; ++col)
+                    dot += m[a * 4u + col] * m[b * 4u + col];
+                if (!std::isfinite(dot) || std::fabs(dot) > norm[a] * norm[b] * 0.25f)
+                    return true;
+            }
+        }
+        return false;
+    };
+    const u32 parent_matrix = parent >= 0x00010000u && parent <= 0x01FFFEF0u
+        ? parent + 0x110u : 0u;
+    const float local_max = matrix_max(rot_addr);
+    const float parent_max = matrix_max(parent_matrix);
+    const float output_max = matrix_max(m110_addr);
+    // Ignore zero-filled objects during world construction; they are not poses
+    // and would otherwise consume the bounded diagnostic before the rig loads.
+    if (local_max < 1.0e-6f && output_max < 1.0e-6f)
+        return;
+    if (local_max <= 4.0f && parent_max <= 4.0f && output_max <= 4.0f &&
+        !degenerate(rot_addr) && !degenerate(parent_matrix) && !degenerate(m110_addr))
+        return;
+    if (__atomic_fetch_add(&notices, 1u, __ATOMIC_RELAXED) >= 64u) return;
     std::fprintf(stderr,
-        "[world-frame] self=%#010x parent=%#010x local_rot_max=%g out_m110_max=%g pos_max=%g\n",
-        self, parent, (double)rmax, (double)maxabs(m110_addr), (double)maxabs(pos_addr));
+        "[world-frame] self=%#010x parent=%#010x local_max=%g parent_max=%g output_max=%g local_pos=%#010x world_pos=%#010x\n",
+        self, parent, (double)local_max, (double)parent_max, (double)output_max,
+        pos_addr, self <= 0x01FFFEC0u ? self + 0x140u : 0u);
+    auto dump_rotation = [&](const char* name, u32 addr) {
+        if (!valid_matrix(addr)) return;
+        const volatile float* m = reinterpret_cast<const volatile float*>(addr);
+        std::fprintf(stderr, "[world-frame %s] self=%#010x r=", name, self);
+        for (u32 row = 0; row < 3u; ++row)
+            for (u32 col = 0; col < 3u; ++col)
+                std::fprintf(stderr, "%s%g", (row == 0u && col == 0u) ? "" : ",",
+                             (double)m[row * 4u + col]);
+        std::fputc('\n', stderr);
+    };
+    dump_rotation("local", rot_addr);
+    dump_rotation("parent", parent_matrix);
+    dump_rotation("output", m110_addr);
 }
 
 // Opt-in trace of the unscaleByParent division: a near-zero parent matrix
