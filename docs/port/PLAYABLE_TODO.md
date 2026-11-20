@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 15:11 CET)
+## Current checkpoint (2026-11-20, 16:00 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. The ordinary game graphics path produces a
@@ -35,7 +35,11 @@ observed finite streams need them.
 
 Evidence: [graphics handoff](SLY_GRAPHICS_HANDOFF.md),
 `/tmp/sly-player-bones-20261120.log`; refreshed foreground trace details are
-recorded in the handoff above.
+recorded in the handoff above. The refreshed handoff also confirms the
+launcher config points to
+`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`.
+I fetched `sly1-decomp`'s `origin/master`; it remains at `8f7a85a3` with a clean
+checkout, so no newer matched source is available for this renderer slice.
 
 ## Earlier checkpoint (2026-11-17, 19:55 CET)
 
