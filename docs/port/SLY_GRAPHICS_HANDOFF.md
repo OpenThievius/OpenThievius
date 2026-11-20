@@ -1,6 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Current follow-up (2026-11-20, 15:11 CET)
+
+The latest opt-in level capture uses the Documents US ISO and configured
+cached ELF. With the entry-specific 65,536 instruction allowance, entry `0x2`
+passes the former PC `0x516` budget stop, emits vertex writes, and queues
+hundreds of world meshes after one isolated Cross input. The standard renderer
+still captures black; only the experimental mesh overlay shows a distorted
+grayscale corridor. The attachment trace already established valid player bone
+matrices, so another identical attachment run is not useful. The current work
+should map a specific Sly mesh kind through VU output and implement that kind
+as a native renderer, keeping all port backfills out of matched decomp source.
+
 ### Game image path check (2026-11-20)
 
 The SafeHouse client configuration at

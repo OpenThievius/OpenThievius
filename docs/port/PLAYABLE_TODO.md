@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 14:15 CET)
+## Current checkpoint (2026-11-20, 15:11 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. The ordinary game graphics path produces a
@@ -10,13 +10,13 @@ not the game's renderer. A new player trace confirms all 29 weighted bone
 attachment matrices sampled after the host callback ABI fix are finite and
 orthonormal, so player skeleton corruption is no longer the current blocker.
 
-The active graphics issue is in the normal VU1/GIF path: a translated VU
-program stops at PC `0x516` on the interpreter's `0xffffffff` budget sentinel;
-the traced kind-0 finish packet contains state writes but no XYZ2/XYZF2
-vertices. A separate malformed kind-5 kick at qword 469 is not proven causal.
-The refreshed foreground trace again found the player's weighted attachment
-matrices finite and orthonormal, so the earlier skeleton corruption is not the
-current blocker.
+An entry-specific 65,536-instruction allowance now gets the sampled level
+stream past PC `0x516` and queues hundreds of world meshes; a VU1 capture
+contains XYZ2/XYZF2 writes. The ordinary renderer remains black. The optional
+mesh overlay shows a grayscale, distorted corridor and no recognizable
+player. The separate malformed kind-5 kick at qword 469 is not proven causal.
+The player's weighted attachment matrices remain finite and orthonormal, so
+skeleton corruption is not the current blocker.
 
 OpenRAC's current port docs describe a native renderer per draw kind and
 selective rewrites of VU programs, rather than finishing a general VU
@@ -25,12 +25,13 @@ packet builders to select one confirmed draw kind, then implement its native
 renderer and the required transform/material behavior as port-only code.
 Keep the distorted overlay opt-in until it matches a reference image.
 
-**Next:** map one visible Sly draw kind from `BuildStripMeshPacket` or
+**Next:** map one bounded Sly draw kind from `BuildStripMeshPacket` or
 `BuildLitStripMeshPacket` through its VU program to the final GS primitive,
-then write a small renderer for that kind. Use the player's kind-5 strip as a
-bounded first candidate, since its attachment matrices and weighted bone
-indices are available and the attachment bases are valid. Do not increase the
-interpreter's global cycle limit to try to reach visuals.
+then write a small native renderer for that kind. The player's kind-5 strip is
+a candidate because its attachment matrices and weighted bone indices are
+available, but its VU/GIF path must be understood before choosing it. Do not
+raise the global instruction limit; retain per-entry limits only where
+observed finite streams need them.
 
 Evidence: [graphics handoff](SLY_GRAPHICS_HANDOFF.md),
 `/tmp/sly-player-bones-20261120.log`; refreshed foreground trace details are

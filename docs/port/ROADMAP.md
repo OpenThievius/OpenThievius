@@ -1,23 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-20, 13:32 CET)
+## Current checkpoint (2026-11-20, 15:11 CET)
 
 The native client still reaches the memory-card flow and loaded world, but
 does not show a playable scene. A paired capture separated the two graphics
 paths: the normal game output is black, while the optional world-mesh overlay
 adds stretched geometry and remains disabled by default. The player skeleton's
 previously corrupt attachment matrices are now finite and orthonormal after a
-port-only host callback ABI fix. The remaining blocker is downstream in the
-normal VU1/GIF renderer: a VU program stops at PC `0x516` on an all-ones
-instruction, and the traced kind-0 finish packet contains GS state but no
-XYZ2/XYZF2 vertices. The kind-5 qword-469 rejection is a separate malformed
-packet and is not established as the world-geometry cause.
+port-only host callback ABI fix. The old global 4,096-instruction limit
+stopped entry `0x2` at PC `0x516`. A bounded entry-specific allowance of
+65,536 now completes the sampled level stream without that budget stop and
+queues hundreds of world meshes. A VU1 capture also contains XYZ2/XYZF2
+writes. The ordinary renderer still presents black, while the optional mesh
+overlay shows a grayscale, distorted corridor without a recognizable player.
+The kind-5 qword-469 rejection is separate and is not established as the
+world-geometry cause.
 
-**Next:** trace one normal kind-0/6 draw from its VU program entry through the
-first actual XYZ2/XYZF2 write, then repair only that missing Sly-specific
-operation in the port. Keep the optional OpenGL mesh overlay and all functional
-backfills separate from matched decompilation source. See the
+**Next:** select one bounded Sly draw kind and trace its matched packet-builder
+input through the corresponding VU transform and GS output, then implement a
+faithful native draw path for that kind. Do not treat the overlay as the game
+renderer. Keep the optional OpenGL mesh overlay and all functional backfills
+separate from matched decompilation source. See the
 [graphics handoff](SLY_GRAPHICS_HANDOFF.md) for current evidence.
 ## Reset review (2026-11-16)
 
