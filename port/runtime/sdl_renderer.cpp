@@ -1531,6 +1531,22 @@ static std::vector<std::uint8_t> build_world_gif_packet(
     out.reserve(16u + meshes.size() * 64u * 16u);
     struct Qword { std::uint64_t lo = 0, hi = 0; };
     std::vector<Qword> payload;
+    struct ClipVertex {
+        float x, y, z, w;
+        float r, g, b, a;
+        float u, v;
+    };
+    const auto mix_vertex = [](const ClipVertex& a, const ClipVertex& b, float t) {
+        return ClipVertex{
+            a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
+            a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t,
+            a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+            a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t,
+            a.u + (b.u - a.u) * t, a.v + (b.v - a.v) * t};
+    };
+    const auto append_ad = [&payload](std::uint64_t value, std::uint8_t address) {
+        payload.push_back({value, address});
+    };
     std::uint32_t only_request = 0;
     if (const char* setting = std::getenv("OPENRAC_SLY_GIF_PRODUCER_REQUEST")) {
         char* end = nullptr;
@@ -1543,18 +1559,27 @@ static std::vector<std::uint8_t> build_world_gif_packet(
             continue;
         const std::size_t count = mesh.vertices.size() / 9u;
         if (count < 3u || count > 4096u) continue;
-        // Display state: untextured, no alpha blend, always-pass depth, write all channels.
-        // FRAME_1 (0x4C): fbmsk = 0 in bits 32-63 => all channels written.
-        payload.push_back({0u, 0x4Cu});
-        // TEST_1 (0x47): zte=0 (bit 16 clear) => depth test off, draw always.
-        payload.push_back({0u, 0x47u});
-        // Reset XYOFFSET (0x18) so make_vertex does not subtract stale UI offsets.
-        payload.push_back({0u, 0x18u});
-        // PRIM = 4 (triangle strip), tme=0 (untextured)
-        payload.push_back({4u, 0x00u});
-        // RGBAQ (0x01): opaque mid-gray. Without this the vertices inherit the
-        // stale colour (0,0,0,0) and the untextured geometry is invisible.
-        payload.push_back({0x80808080u, 0x01u});
+        const bool textured = mesh.tex0 != 0u;
+        // Isolated port-side draw state. Keep the game's actual material
+        // registers where available, while disabling depth tests until the
+        // native depth path is validated.
+        append_ad(0u, 0x4Cu);  // FRAME_1: write all colour channels.
+        append_ad(0u, 0x47u);  // TEST_1: depth test off.
+        constexpr std::uint32_t kXyOffsetX = (2048u - 640u / 2u) << 4u;
+        constexpr std::uint32_t kXyOffsetY = (2048u - 224u / 2u) << 4u;
+        append_ad(kXyOffsetX | (static_cast<std::uint64_t>(kXyOffsetY) << 32u), 0x18u);
+        if (textured) {
+            append_ad(mesh.tex0, 0x06u);
+            append_ad(mesh.tex1, 0x14u);
+            append_ad(mesh.clamp, 0x08u);
+        }
+        // The preceding game batch can leave PRMODECONT selecting PRMODE.
+        // Re-enable PRIM attributes so this packet's TME bit is authoritative.
+        append_ad(1u, 0x1Au);
+        // PRIM 3 (triangle list), optionally textured with STQ coordinates.
+        append_ad(3u | (textured ? (1u << 4u) : 0u), 0x00u);
+
+        std::vector<ClipVertex> vertices(count);
         for (std::size_t i = 0; i < count; ++i) {
             const float x = mesh.vertices[i * 9u + 0u];
             const float y = mesh.vertices[i * 9u + 1u];
@@ -1563,38 +1588,115 @@ static std::vector<std::uint8_t> build_world_gif_packet(
             for (std::size_t row = 0; row < 4; ++row)
                 clip[row] = mesh.mvp[row] * x + mesh.mvp[4u + row] * y +
                             mesh.mvp[8u + row] * z + mesh.mvp[12u + row];
-            if (!std::isfinite(clip[3]) || std::abs(clip[3]) < 1.0e-6f) continue;
-            const float nx = clip[0] / clip[3];
-            const float ny = clip[1] / clip[3];
-            if (!std::isfinite(nx) || !std::isfinite(ny)) continue;
-            // GS field 640x224, 4 subpixel bits. Y grows downward.
-            const int sx = static_cast<int>(std::lround((nx + 1.0f) * 0.5f * 640.0f * 16.0f));
-            const int sy = static_cast<int>(std::lround((1.0f - ny) * 0.5f * 224.0f * 16.0f));
-            const std::uint64_t packed =
-                (static_cast<std::uint64_t>(static_cast<std::uint16_t>(sx))) |
-                (static_cast<std::uint64_t>(static_cast<std::uint16_t>(sy)) << 16u);
-            if (std::getenv("OPENRAC_SLY_GIF_PRODUCER_VERBOSE") != nullptr) {
-                static unsigned vnotice = 0;
-                if (vnotice++ < 24u)
-                    std::fprintf(stderr,
-                        "[sly producer] src=%#010x i=%zu ndc=%g,%g sx=%d sy=%d packed=%#llx\n",
-                        mesh.source_mesh, i, nx, ny, sx, sy,
-                        static_cast<unsigned long long>(packed));
+            vertices[i] = {clip[0], clip[1], clip[2], clip[3],
+                mesh.vertices[i * 9u + 3u], mesh.vertices[i * 9u + 4u],
+                mesh.vertices[i * 9u + 5u], mesh.vertices[i * 9u + 6u],
+                mesh.vertices[i * 9u + 7u], mesh.vertices[i * 9u + 8u]};
+        }
+
+        // Clip each triangle in homogeneous space before converting to the
+        // GS's finite integer coordinate range. Otherwise behind-camera
+        // vertices wrap through 16-bit XY and create screen-spanning spikes.
+        for (std::size_t i = 2u; i < count; ++i) {
+            const std::size_t ia = (i & 1u) ? i - 1u : i - 2u;
+            const std::size_t ib = (i & 1u) ? i - 2u : i - 1u;
+            std::array<ClipVertex, 12> polygon{};
+            std::array<ClipVertex, 12> clipped{};
+            std::size_t polygon_size = 3u;
+            polygon[0] = vertices[ia];
+            polygon[1] = vertices[ib];
+            polygon[2] = vertices[i];
+            const auto distance = [](const ClipVertex& v, unsigned plane) {
+                switch (plane) {
+                    case 0: return v.x + v.w;
+                    case 1: return v.w - v.x;
+                    case 2: return v.y + v.w;
+                    case 3: return v.w - v.y;
+                    case 4: return v.z + v.w;
+                    default: return v.w - v.z;
+                }
+            };
+            for (unsigned plane = 0; plane < 6u && polygon_size != 0u; ++plane) {
+                std::size_t clipped_size = 0;
+                ClipVertex previous = polygon[polygon_size - 1u];
+                float previous_distance = distance(previous, plane);
+                bool previous_inside = previous_distance >= 0.0f;
+                for (std::size_t vertex = 0; vertex < polygon_size; ++vertex) {
+                    const ClipVertex current = polygon[vertex];
+                    const float current_distance = distance(current, plane);
+                    const bool current_inside = current_distance >= 0.0f;
+                    if (current_inside != previous_inside) {
+                        const float denominator = previous_distance - current_distance;
+                        if (std::isfinite(denominator) && std::abs(denominator) > 1.0e-12f &&
+                            clipped_size < clipped.size()) {
+                            clipped[clipped_size++] = mix_vertex(
+                                previous, current, previous_distance / denominator);
+                        }
+                    }
+                    if (current_inside && clipped_size < clipped.size())
+                        clipped[clipped_size++] = current;
+                    previous = current;
+                    previous_distance = current_distance;
+                    previous_inside = current_inside;
+                }
+                polygon_size = clipped_size;
+                polygon.swap(clipped);
             }
-            payload.push_back({packed, 0x05u}); // XYZ2
+            if (polygon_size < 3u) continue;
+            for (std::size_t fan = 1u; fan + 1u < polygon_size; ++fan) {
+                const ClipVertex triangle[3]{polygon[0], polygon[fan], polygon[fan + 1u]};
+                for (const ClipVertex& vertex : triangle) {
+                    if (!std::isfinite(vertex.w) || vertex.w <= 1.0e-6f) continue;
+                    const float nx = vertex.x / vertex.w;
+                    const float ny = vertex.y / vertex.w;
+                    const float q = 1.0f / vertex.w;
+                    if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(q)) continue;
+                    const int sx = static_cast<int>(kXyOffsetX + std::lround(
+                        std::clamp((nx + 1.0f) * 0.5f, 0.0f, 1.0f) * 640.0f * 16.0f));
+                    const int sy = static_cast<int>(kXyOffsetY + std::lround(
+                        std::clamp((1.0f - ny) * 0.5f, 0.0f, 1.0f) * 224.0f * 16.0f));
+                    const auto channel = [](float value) {
+                        if (!std::isfinite(value)) return std::uint64_t{0};
+                        return static_cast<std::uint64_t>(std::lround(
+                            std::clamp(value, 0.0f, 1.0f) * 255.0f));
+                    };
+                    const std::uint64_t rgbaq = channel(vertex.r) |
+                        (channel(vertex.g) << 8u) | (channel(vertex.b) << 16u) |
+                        (channel(vertex.a) << 24u) |
+                        (static_cast<std::uint64_t>(std::bit_cast<std::uint32_t>(q)) << 32u);
+                    append_ad(rgbaq, 0x01u);
+                    if (textured) {
+                        const float s = vertex.u * q;
+                        const float t = vertex.v * q;
+                        const std::uint64_t st = std::bit_cast<std::uint32_t>(s) |
+                            (static_cast<std::uint64_t>(std::bit_cast<std::uint32_t>(t)) << 32u);
+                        append_ad(st, 0x02u);
+                    }
+                    const std::uint64_t packed = static_cast<std::uint16_t>(sx) |
+                        (static_cast<std::uint64_t>(static_cast<std::uint16_t>(sy)) << 16u);
+                    append_ad(packed, 0x05u); // XYZ2
+                }
+            }
         }
     }
     if (payload.empty()) return out;
-    const std::uint64_t tag_lo =
-        static_cast<std::uint64_t>(payload.size()) | (1ull << 15u) | // NLOOP + EOP
-        (0ull << 58u) | (1ull << 60u);                                // PACKED, NREG=1
-    const std::uint64_t tag_hi = 0xEu; // A+D descriptor
     auto append_qword = [&](std::uint64_t lo, std::uint64_t hi) {
         for (int b = 0; b < 8; ++b) out.push_back(static_cast<std::uint8_t>(lo >> (b * 8u)));
         for (int b = 0; b < 8; ++b) out.push_back(static_cast<std::uint8_t>(hi >> (b * 8u)));
     };
-    append_qword(tag_lo, tag_hi);
-    for (const auto& q : payload) append_qword(q.lo, q.hi);
+    // A GIFtag has a 15-bit NLOOP field. Split large captures into valid
+    // packets and set EOP only on the last one.
+    constexpr std::size_t kMaxLoops = 0x7FFFu;
+    for (std::size_t begin = 0; begin < payload.size();) {
+        const std::size_t loops = std::min(kMaxLoops, payload.size() - begin);
+        const bool last = begin + loops == payload.size();
+        const std::uint64_t tag_lo = static_cast<std::uint64_t>(loops) |
+            (last ? (1ull << 15u) : 0u) | (1ull << 60u);
+        append_qword(tag_lo, 0xEu);
+        for (std::size_t i = 0; i < loops; ++i)
+            append_qword(payload[begin + i].lo, payload[begin + i].hi);
+        begin += loops;
+    }
     return out;
 }
 
