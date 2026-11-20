@@ -1,6 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player pose callback host ABI (2026-11-20)
+
+The rank-1 player attachment rotation came from a host calling-convention
+mismatch, not from the matrix composition or the retail pose source. The
+decompiled `CombineChildPoseRotations` definition places its arguments as
+`(self, rotation, vector, time)`, but its method table installs it in the
+`AttachGetRot` slot, whose host call order is `(self, time, rotation, vector)`.
+That happened to follow the EE register convention in the original binary;
+the native i386 build uses stack arguments, so the callback received shifted
+arguments and left the rotation output unwritten.
+
+`port/tools/compile_decomp_host32.py` now reorders only the staged host
+definition. The decompilation source and its declarations are unchanged. A
+bounded hidden native run with the player attachment trace showed the callback
+writing a finite rotation with unit-length rows, and the player root no longer
+appeared in the rank-1 world-frame trace. The 15-second run ended at its
+intentional timeout without a fault. This localizes and removes the known
+player pose corruption, but that hidden trace run does not verify the visible
+rendered result or establish gameplay readiness.
+
+Evidence: `/tmp/sly-pose-writer-20261120/run-abi-fix.log`. The first run also
+exposed and fixed an unsafe pointer assumption in the diagnostic helper; its
+fault was in the trace, not the game. The world-frame magnitude check now
+examines only the nine rotation elements and ignores row padding.
+
 ### Attachment pose trace (2026-11-18)
 
 I added the opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` trace at the native model

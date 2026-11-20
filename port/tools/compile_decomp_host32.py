@@ -1988,7 +1988,15 @@ def normalize_optional_child_rotation_outputs(text, label):
             f"    {match.group(2)} fallbackVector;\n"
             f"    {match.group(1)}* rotation = outRot != 0 ? outRot : &fallbackRotation;\n"
             f"    {match.group(2)}* vector = outVec != 0 ? outVec : &fallbackVector;" + body)
-    return text[:start] + body + text[end - 1:]
+    # This callback is installed in AttachGetRot, whose host ABI is
+    # (self, time, rotation, vector). The matching definition follows the
+    # retail EE register convention and puts time last. Reorder only the
+    # staged host definition; leave the decomp source and public declaration
+    # untouched.
+    host_signature = (
+        f"void CombineChildPoseRotations(ChildPoseSource* self, f32 t, "
+        f"{match.group(1)}* outRot, {match.group(2)}* outVec)\n{{")
+    return text[:match.start()] + host_signature + body + text[end - 1:]
 
 
 def emit_text_layout_setters_for_host(text, label):
