@@ -52,6 +52,25 @@ For a filtered layout trace, set both
 vertices. This filter is port-only instrumentation. No matched decomp source
 was changed.
 
+### GIF queue and current framebuffer check (2026-11-20, 15:34 CET)
+
+A separate 15-second hidden capture enabled the existing GIF append and present
+traces, with the same process-local Cross press at host frame 300. The queue was
+drained at each present: normal frames consumed a few KB to about 20 KB, and
+world frames consumed about 220-237 KB while the opt-in overlay submitted 384
+meshes. No queue-full warning occurred. This does not reproduce the 16 MiB
+saturation from the heavier attachment/vertex trace, so queue overflow is not a
+persistent blocker. Instrumentation overhead may have contributed to the earlier
+burst, but that has not been proven.
+
+The dumped post-input frame still contains huge, stretched grayscale planes
+with no recognizable player or textured level. The queue audit narrows the
+current blocker back to the rendering path: reproduce Sly's VU1/GIF geometry,
+material, and transform behavior in the default renderer. The world mesh count
+and successful packet draining do not establish correct rendering. Capture log:
+`/tmp/sly-gif-queue-drain-20261120/run.log`; latest frame:
+`/tmp/sly-native-frame-check-20261120/frame-07.png`.
+
 ### Game image path check (2026-11-20)
 
 The SafeHouse client configuration at
