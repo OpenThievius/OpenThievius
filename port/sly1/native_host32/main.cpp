@@ -48,7 +48,7 @@ struct NativeSlyMesh {
     std::vector<NativeSlyMaterial> materials;
     std::vector<float> vertices;
     std::vector<float> skin_weights;
-    std::vector<u8> strip_starts;
+    std::vector<u8> vertex_flags;
 };
 static std::mutex g_native_sly_mesh_mutex;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
@@ -1083,7 +1083,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
         const u8 flags = refs[i * 4u + 3u];
-        captured.strip_starts.push_back(static_cast<u8>((flags & 0x80u) != 0u));
+        captured.vertex_flags.push_back(flags);
         u32 source = position_index;
         if (use_skinned) {
             const u32 index = morph_indices[i];
@@ -1445,12 +1445,12 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             if (getenv("OPENRAC_CHECK_MESH_SANITY") != nullptr) {
                 const auto& src = found->second;
                 if (src.vertices.size() > 4096u * 9u ||
-                    src.strip_starts.size() > 4096u ||
+                    src.vertex_flags.size() > 4096u ||
                     src.materials.size() > 64u || src.sources.size() > 64u ||
                     (src.vertices.size() % 9u) != 0u) {
                     std::fprintf(stderr,
-                        "[mesh-sanity] BAD entry packet=%#010x verts=%zu strip=%zu mats=%zu srcs=%zu\n",
-                        packet_address, src.vertices.size(), src.strip_starts.size(),
+                        "[mesh-sanity] BAD entry packet=%#010x verts=%zu flags=%zu mats=%zu srcs=%zu\n",
+                        packet_address, src.vertices.size(), src.vertex_flags.size(),
                         src.materials.size(), src.sources.size());
                 }
             }
@@ -1667,8 +1667,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             openrac_native_sly_world_mesh_submit(
                 world, instance, mesh.vertices.data(),
                 static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
-                mesh.strip_starts.size() == mesh.vertices.size() / 9u
-                    ? mesh.strip_starts.data() : nullptr,
+                mesh.vertex_flags.size() == mesh.vertices.size() / 9u
+                    ? mesh.vertex_flags.data() : nullptr,
                 model, view_projection, material.tex0, material.tex1,
                 material.clamp, material.test);
         }

@@ -54,7 +54,7 @@ struct NativeWorldMesh {
     std::uint64_t instance = 0;
     std::uint32_t source_mesh = 0;
     std::vector<float> vertices;
-    std::vector<std::uint8_t> strip_starts;
+    std::vector<std::uint8_t> vertex_flags;
     std::array<float, 16> mvp{};
     std::array<float, 16> model{};
     std::array<float, 16> view_projection{};
@@ -516,15 +516,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 }
             }
         }
-        // The game uses row vectors: p * model * viewProjection. The host's
-        // row-major product uploaded as column-major gives the transpose the
-        // GLSL column-vector shader needs, so mode 0 is the correct convention.
-        // Mode 1's larger image was a scaled-up fan, not correct geometry.
-        // The retail game passes row vectors through model*viewProjection; the
-        // host's GLSL column-vector shader needs the transposed vp*model. Mode
-        // 3 (compute vp*model then transpose) reproduces the coherent level
-        // geometry; mode 0 (the precomputed mesh.mvp) collapses it to a fan.
-        int mvp_mode = 3;
+        // The game's row-vector path uses model*viewProjection. The host's
+        // column-major GLSL uniform interprets that row-major product as its
+        // transpose, matching the source transform. A fresh paired capture
+        // shows mode 0 preserves corridor-like terrain; mode 3 makes radial
+        // fans. Keep the override for continued comparison.
+        int mvp_mode = 0;
         if (std::getenv("OPENRAC_SLY_WORLD_MVP_MODE") != nullptr) {
             char* end = nullptr;
             const long parsed = std::strtol(std::getenv("OPENRAC_SLY_WORLD_MVP_MODE"), &end, 0);
@@ -695,13 +692,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
             const bool restart_split =
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
+                std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr ||
                 (mesh.source_mesh == 0x00a2d9a8u &&
                  getenv("OPENRAC_PLAYER_SPLIT_STRIPS") != nullptr);
-            const bool split = (std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr &&
-                mesh.strip_starts.size() == vertex_count) || restart_split;
-            if (!split) {
+            if (!restart_split) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
-            } else if (restart_split) {
+            } else {
                 // A strip restart repeats the first one or two vertices of the
                 // current run. Splitting there avoids long bridging triangles.
                 std::size_t run_begin = 0;
@@ -718,18 +714,6 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                                      static_cast<GLsizei>(vertex - run_begin));
                         run_begin = vertex;
                     }
-                }
-                if (vertex_count - run_begin >= 3u)
-                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
-                                 static_cast<GLsizei>(vertex_count - run_begin));
-            } else {
-                std::size_t run_begin = 0;
-                for (std::size_t vertex = 1; vertex < vertex_count; ++vertex) {
-                    if (mesh.strip_starts[vertex] == 0u) continue;
-                    if (vertex - run_begin >= 3u)
-                        glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
-                                     static_cast<GLsizei>(vertex - run_begin));
-                    run_begin = vertex;
                 }
                 if (vertex_count - run_begin >= 3u)
                     glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
@@ -1149,7 +1133,7 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
-    std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* strip_starts,
+    std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* vertex_flags,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t test) {
     if (world == 0 || vertices == nullptr || vertex_count < 3 || vertex_count > 4096 ||
@@ -1159,8 +1143,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     draw.instance = instance;
     draw.source_mesh = source_mesh;
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
-    if (strip_starts != nullptr)
-        draw.strip_starts.assign(strip_starts, strip_starts + vertex_count);
+    if (vertex_flags != nullptr)
+        draw.vertex_flags.assign(vertex_flags, vertex_flags + vertex_count);
     draw.tex0 = tex0;
     draw.tex1 = tex1;
     draw.clamp = clamp;
@@ -1597,15 +1581,14 @@ static std::vector<std::uint8_t> build_world_gif_packet(
         // Clip each triangle in homogeneous space before converting to the
         // GS's finite integer coordinate range. Otherwise behind-camera
         // vertices wrap through 16-bit XY and create screen-spanning spikes.
-        for (std::size_t i = 2u; i < count; ++i) {
-            const std::size_t ia = (i & 1u) ? i - 1u : i - 2u;
-            const std::size_t ib = (i & 1u) ? i - 2u : i - 1u;
+        const auto emit_triangle = [&](const ClipVertex& a, const ClipVertex& b,
+                                       const ClipVertex& c) {
             std::array<ClipVertex, 12> polygon{};
             std::array<ClipVertex, 12> clipped{};
             std::size_t polygon_size = 3u;
-            polygon[0] = vertices[ia];
-            polygon[1] = vertices[ib];
-            polygon[2] = vertices[i];
+            polygon[0] = a;
+            polygon[1] = b;
+            polygon[2] = c;
             const auto distance = [](const ClipVertex& v, unsigned plane) {
                 switch (plane) {
                     case 0: return v.x + v.w;
@@ -1642,15 +1625,15 @@ static std::vector<std::uint8_t> build_world_gif_packet(
                 polygon_size = clipped_size;
                 polygon.swap(clipped);
             }
-            if (polygon_size < 3u) continue;
+            if (polygon_size < 3u) return;
             for (std::size_t fan = 1u; fan + 1u < polygon_size; ++fan) {
                 const ClipVertex triangle[3]{polygon[0], polygon[fan], polygon[fan + 1u]};
                 for (const ClipVertex& vertex : triangle) {
-                    if (!std::isfinite(vertex.w) || vertex.w <= 1.0e-6f) continue;
+                    if (!std::isfinite(vertex.w) || vertex.w <= 1.0e-6f) return;
                     const float nx = vertex.x / vertex.w;
                     const float ny = vertex.y / vertex.w;
                     const float q = 1.0f / vertex.w;
-                    if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(q)) continue;
+                    if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(q)) return;
                     const int sx = static_cast<int>(kXyOffsetX + std::lround(
                         std::clamp((nx + 1.0f) * 0.5f, 0.0f, 1.0f) * 640.0f * 16.0f));
                     const int sy = static_cast<int>(kXyOffsetY + std::lround(
@@ -1677,6 +1660,13 @@ static std::vector<std::uint8_t> build_world_gif_packet(
                     append_ad(packed, 0x05u); // XYZ2
                 }
             }
+        };
+        // BuildStripMeshPacket marks fog behaviour in VertexRefs.flags bit 7;
+        // it does not mark strip starts. The captured sequence is one strip.
+        for (std::size_t i = 2u; i < count; ++i) {
+            const std::size_t ia = (i & 1u) ? i - 1u : i - 2u;
+            const std::size_t ib = (i & 1u) ? i - 2u : i - 1u;
+            emit_triangle(vertices[ia], vertices[ib], vertices[i]);
         }
     }
     if (payload.empty()) return out;
