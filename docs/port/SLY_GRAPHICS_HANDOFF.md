@@ -16,11 +16,13 @@ This same-skin, source-level trace supersedes the later-morning reports below
 of a rank-1 bone palette and corruption at the VIF source. Those reports were
 not reproduced on the current build and must not motivate a pose fix. They do
 not explain why the player is absent from the native frame; the retail VU1/GIF
-path remains the graphics blocker. A bounded trace from this build still stops
-at micro-PC `0x516` on `0xffffffff`, after which no playable scene is
-confirmed. Next determine whether that address is executable program data or
-padding and trace the player packet to its final GS draw. Do not alter matched
-decomp source or GIF validation based on this evidence.
+path remains the graphics blocker. The `0x516` stop is the known 4,096-cycle
+safety limit; a separate entry-specific 65,536-cycle trace passes it and emits
+XYZ writes. Do not raise the global limit or treat its `0xffffffff` sentinel
+as a retail instruction. The next step is a faithful port-only native renderer
+for one confirmed draw kind, grounded in its matched packet builder and VU
+output semantics. Do not alter matched decomp source or GIF validation based
+on this bone trace.
 
 Evidence: `/tmp/sly-bone-unpack-20261120.log` (16 bounded matrix writes),
 `/tmp/sly-player-bones-20261120.log` (same skin, owner, and attachment-final

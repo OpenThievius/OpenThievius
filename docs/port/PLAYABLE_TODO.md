@@ -14,12 +14,12 @@ this skin. This contradicts the older rank-1 / 1e8 bone-palette diagnosis; that
 finding is stale and should not drive a pose backfill.
 
 The native launcher still does not produce the PCSX2 reference's rooftop or
-title scene. The current actionable gap remains the retail VU1/GIF path: a
-bounded trace stops at micro-PC `0x516` on an all-ones instruction, and the
-accepted player kick observed so far contains state writes rather than visible
-vertices. Establish whether `0x516` is executable code or padding and continue
-following the packet to its final GS draw. Keep any diagnostic or backfill in
-the port and compare the unforced startup against the supplied reference.
+title scene. The `0x516` stop is the known 4,096-cycle safety limit, not a bad
+instruction; a separate entry-specific 65,536-cycle trace passes it and emits
+XYZ writes. Raising the global limit is not the fix. The current gap is a
+faithful native renderer for a confirmed Sly draw kind, using the matched
+packet builder and observed VU output semantics. Keep that renderer port-only
+and compare unforced startup against the supplied reference.
 Trace: `/tmp/sly-bone-unpack-20261120.log`; comparison:
 `/tmp/sly-player-bones-20261120.log`.
 
