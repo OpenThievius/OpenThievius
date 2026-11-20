@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Current follow-up (2026-11-20, 15:28 CET)
+### Current follow-up (2026-11-20, 15:37 CET)
 
 The latest opt-in level capture uses the Documents US ISO and configured
 cached ELF. With the entry-specific 65,536 instruction allowance, entry `0x2`
@@ -12,9 +12,14 @@ grayscale corridor. A fresh host32 trace reconfirmed that the player has 31
 attachment records with finite, orthonormal sampled matrices. It also filtered
 one kind-0 level mesh (`0x00a2a488`) down to its source vertices and three
 material passes. After input, the GIF queue reached its 16 MiB cap and rejected
-additional packets. This queue pressure is the next concrete lead to trace; do
-not raise the cap or treat queued mesh count as evidence of rendered output.
-Keep all port backfills out of matched decomp source.
+additional packets. A lower-overhead queue audit did not reproduce that
+saturation. With the experimental source-mesh overlay disabled, the default
+renderer still captures black; detailed traces show only occasional small
+Direct draws with off-screen bounds or transparent-looking state. The next
+trace must tie one accepted world XGKICK fragment to the combined Direct decode
+and its final GS state. Do not raise the queue cap or treat queued mesh count
+as evidence of rendered output. Keep all port backfills out of matched decomp
+source.
 
 ### Focused player and strip trace (2026-11-20, 15:28 CET)
 
@@ -70,6 +75,35 @@ material, and transform behavior in the default renderer. The world mesh count
 and successful packet draining do not establish correct rendering. Capture log:
 `/tmp/sly-gif-queue-drain-20261120/run.log`; latest frame:
 `/tmp/sly-native-frame-check-20261120/frame-07.png`.
+
+### Default GIF renderer output audit (2026-11-20, 15:37 CET)
+
+A hidden host32 capture disabled the opt-in source-mesh overlay, injected one
+Cross press at host frame 300, enabled Direct draw-state/bounds traces, and
+dumped post-input frames. The captured frame is black. Across 598 Direct
+submissions, only 21 decoded any vertices (486 total, including startup UI
+traffic); large world-sized packet batches often decoded zero. The rare decoded
+draws include bounds well outside clip space (for example
+`(12.517,-11.079)..(12.520,-11.070)`) and zero-alpha vertex state. Another
+36-vertex draw is confined to the upper-left clip edge. These draws do not
+amount to a visible level.
+
+In a separate run, the read-only GS stream parser summarized 64 VU1 XGKICK
+fragments: 26 produced any native triangles, with 174 vertices total and at
+most 12 from one fragment. That proves some fragments contain enough register
+writes to form triangles in that parser, but it does not tie them to the Direct
+renderer’s handful of draws or prove correct world geometry. The next step is
+to correlate a single accepted XGKICK’s byte range and origin with the matching
+Direct decode, then determine whether the discrepancy is packet concatenation,
+GS state carry, or geometry that is actually off-screen/transparent. Do not
+replace the normal renderer with the diagnostic GS vertex accumulator on this
+evidence.
+
+Logs and black capture are under
+`/tmp/sly-direct-gif-path-20261120/run.log`,
+`/tmp/sly-direct-draw-state-20261120/run.log`, and
+`/tmp/sly-direct-draw-state-20261120/sly1-native-frame-03.ppm`. No matched
+Sly source changed.
 
 ### Game image path check (2026-11-20)
 
