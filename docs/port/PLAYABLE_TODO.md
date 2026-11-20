@@ -1,7 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 23:14 CET)
+## Current checkpoint (2026-11-20, 23:24 CET)
+
+### Bone-palette diagnosis corrected (2026-11-20, 23:24 CET)
+
+I traced the exact `skin->bones[k].m` matrices immediately before the retail
+VIF UNPACK. The trace covered the same skin allocation `0x0187683c` used by
+Sly's 30-mesh player model. The sampled indices 1, 2, 3, 4, 5, 7, 8, 9, and
+29 are finite, have ordinary rotation bases, and have maximum absolute values
+from about 10 to 40. The matrices match the earlier attachment-final dumps for
+this skin. This contradicts the older rank-1 / 1e8 bone-palette diagnosis; that
+finding is stale and should not drive a pose backfill.
+
+The native launcher still does not produce the PCSX2 reference's rooftop or
+title scene. The current actionable gap remains the retail VU1/GIF path: a
+bounded trace stops at micro-PC `0x516` on an all-ones instruction, and the
+accepted player kick observed so far contains state writes rather than visible
+vertices. Establish whether `0x516` is executable code or padding and continue
+following the packet to its final GS draw. Keep any diagnostic or backfill in
+the port and compare the unforced startup against the supplied reference.
+Trace: `/tmp/sly-bone-unpack-20261120.log`; comparison:
+`/tmp/sly-player-bones-20261120.log`.
+
+### Earlier graphics checkpoint (2026-11-20, 23:14 CET)
 
 The port-only overlay now has an opt-in `OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS`
 view. Its mesh-capture hook receives the `nrms` array from the matched strip

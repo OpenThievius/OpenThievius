@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player bone trace recheck (2026-11-20, 23:24 CET)
+
+I enabled the existing opt-in trace at the exact `skin->bones[k].m` VIF
+UNPACK in `DrawModelPart`. It logged 16 writes from skin `0x0187683c`, the
+same allocation used by the player's 30 kind-5 meshes. The unique sampled
+indices were 1, 2, 3, 4, 5, 7, 8, 9, and 29; all matrices were finite and had
+ordinary rotation bases, with maximum absolute values between about 10 and 40.
+For example, index 3's VIF matrix exactly matches the earlier attachment-final
+matrix for index 3, and index 5 is likewise a normal rotation rather than the
+previously reported rank-1 matrix of magnitude 1.4e8.
+
+This same-skin, source-level trace supersedes the later-morning reports below
+of a rank-1 bone palette and corruption at the VIF source. Those reports were
+not reproduced on the current build and must not motivate a pose fix. They do
+not explain why the player is absent from the native frame; the retail VU1/GIF
+path remains the graphics blocker. A bounded trace from this build still stops
+at micro-PC `0x516` on `0xffffffff`, after which no playable scene is
+confirmed. Next determine whether that address is executable program data or
+padding and trace the player packet to its final GS draw. Do not alter matched
+decomp source or GIF validation based on this evidence.
+
+Evidence: `/tmp/sly-bone-unpack-20261120.log` (16 bounded matrix writes),
+`/tmp/sly-player-bones-20261120.log` (same skin, owner, and attachment-final
+matrices), and `/tmp/sly-vu-stop-context-20261120e.log` (VU stop at `0x516`).
+The hidden native run used the configured Documents US ISO and cached ELF,
+sent no input, and ended at its deliberate eight-second timeout (137).
+
 ### Lit-strip normal diagnostic (2026-11-20, 23:14 CET)
 
 The matched builder hook now passes `nrms` into the port capture helper. With
@@ -769,7 +796,11 @@ recognizable level or playable frame is confirmed.
 Last checked: 2026-11-20, 13:32 CET. The refreshed host32 build uses the
 sibling `sly1-decomp` checkout at `8f7a85a3` (`master`, matching `origin/master`).
 
-### Rank-1 hierarchical propagation identified (2026-11-20, 09:00 CET)
+### Superseded: rank-1 hierarchical propagation report (2026-11-20, 09:00 CET)
+
+This diagnosis is superseded by the same-skin VIF-source recheck at the top of
+this handoff. The current trace shows ordinary matrices at the exact source
+used for UNPACK, including the previously cited indices 3, 4, and 5.
 
 I analyzed all dumped bone matrices: bones 8 and 29 have row_cross=1.0 (valid
 orthogonal rotations), while bones 1,2,3,4,5,7,9 are rank-1 (row_cross=0.0).
@@ -786,7 +817,10 @@ pose-source getRot returning a degenerate matrix) for one bone, then hierarchica
 propagation. Decompiling the pose-source evaluation that produces the first rank-1
 matrix is the concrete remaining task. No code changed this turn; checks pass.
 
-### Bone corruption pattern and timing (2026-11-20, 08:00 CET)
+### Superseded: bone corruption pattern and timing (2026-11-20, 08:00 CET)
+
+The same-skin VIF-source recheck at the top of this handoff did not reproduce
+these extreme values or rank-1 matrices.
 
 I dumped the full 16-float bone matrices (OPENRAC_DUMP_BONE_ALL) and added a
 time series (OPENRAC_BONE_TIMESERIES). Findings:
@@ -808,7 +842,10 @@ are not reached for this object. Reproducing/fixing the pose evaluation is a
 large task requiring that ASM to be decompiled or backfilled. No state forced;
 opt-in diagnostics, checks pass.
 
-### Bone corruption confirmed at authoritative VIF source (2026-11-20, 07:00 CET)
+### Superseded: bone corruption at VIF source (2026-11-20, 07:00 CET)
+
+The same-skin VIF-source recheck at the top of this handoff found ordinary
+matrices at UNPACK. Treat the following report as a stale diagnostic result.
 
 I added OPENRAC_TRACE_BONE_UNPACK at the exact VIF unpack of
 `skin->bones[k].m` in DrawModelPart (placed_object_model.cpp:2109) — the matrix
