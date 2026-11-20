@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### VU kick trace after the attachment check (2026-11-20, 16:20 CET)
+
+A bounded foreground run used the configured US ISO and cached ELF, with one
+process-local Cross at native frame 300. It filtered the VU store trace to the
+small packet area for submission 6 and captured VU completion, GIF parser
+state, and GS writes for two representative MSCAL calls. Both VU programs
+returned normally; neither hit the instruction allowance. The GIF parser was
+idle before each kick, so carry-over parser state does not explain the packet
+results.
+
+At the selected call sites, the VU updates a GIFtag and clears marker fields in
+the nearby packet area, but does not write transformed XYZ into that region.
+One XGKICK begins inside an A+D payload and is rejected as an invalid GIFtag.
+The other is accepted as an A+D state packet; its decoded writes do not form a
+triangle draw. Other accepted VU kicks in the same run include isolated point
+or line writes, while the relevant VIF DIRECT stream includes sprite output.
+This narrows the black scene to the geometry production/packet assembly path;
+it does not establish that a single rejected kick causes the black frame.
+
+Next, trace one matched strip builder's inputs through the helper routines
+that assemble its VU/GIF packet, and correlate the output with decoded GS
+primitive writes. Do not shift XGKICK addresses or relax GIF validation based
+on this capture. Keep any missing-producer implementation in a port-only
+backfill that can later be replaced by matched decomp code. The ordinary
+renderer remains black after Continue; this run did not test an image fix.
+
+Capture logs are local at `/tmp/sly-gif-trace-20261120/` (`filtered.log` and
+`source-writes.log`). Both bounded launcher runs ended at their intentional
+timeouts; no game process remains.
+
 ### VU scratch-to-GIF boundary (2026-11-20)
 
 A second bounded host32 capture used the configured Documents US ISO and cached

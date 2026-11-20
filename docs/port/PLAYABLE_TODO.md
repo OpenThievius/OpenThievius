@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 16:00 CET)
+## Current checkpoint (2026-11-20, 16:20 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. The ordinary game graphics path produces a
@@ -40,6 +40,17 @@ launcher config points to
 `/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`.
 I fetched `sly1-decomp`'s `origin/master`; it remains at `8f7a85a3` with a clean
 checkout, so no newer matched source is available for this renderer slice.
+
+The latest focused VU/GIF pass confirms the representative VU programs return
+normally and the GIF parser is idle at their kick boundaries. In the selected
+packet area, VU stores update tag/marker fields but do not place transformed
+XYZ there; one kick starts inside an A+D payload and another submits state
+without a triangle draw. Continue by tracing the strip builder's helper
+routines and matching their output to final GS primitive writes. Do not alter
+GIF address interpretation or validation without new evidence. Keep a
+functional missing-producer implementation in a separate port-only backfill.
+Logs: `/tmp/sly-gif-trace-20261120/filtered.log` and
+`/tmp/sly-gif-trace-20261120/source-writes.log`.
 
 ## Earlier checkpoint (2026-11-17, 19:55 CET)
 
