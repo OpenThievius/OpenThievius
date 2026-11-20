@@ -1,32 +1,28 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Port-only GIF producer screen mapping (2026-11-20, 16:31 CET)
+### Strip flags and matrix choice after paired captures (2026-11-20, 16:48 CET)
 
-A bounded visible host32 run used the SafeHouse-configured Documents ISO and
-cached US ELF, with the experimental GIF producer enabled and the GL mesh
-overlay disabled. The post-world-frame capture initially looked black because
-the producer wrote 640x224-relative XY values with a zero GS `XYOFFSET`. The
-native DirectRenderer expects GS coordinates centred around 2048, with
-`XYOFFSET` set to `(2048 - width/2, 2048 - height/2)` in 12.4 units. The
-port-only producer now uses that mapping and clips triangles in homogeneous
-space before packing the coordinates.
+The source for `BuildStripMeshPacket` confirms `VertexRefs.flags` bit 7 selects
+the fog-bias value written with each vertex; it is not a strip-start marker.
+The port capture now retains these bytes as `vertex_flags` and the experimental
+GIF producer treats the sequence as a strip. This corrects the earlier
+diagnostic that split strips on that bit. The producer also clips in
+homogeneous space, writes centered GS `XYOFFSET` and resets `PRMODECONT`.
 
-With the corrected mapping, the generated GIF packet decodes to roughly
-17,000 in-frame vertices across 225 draws in the sampled world frame, with no
-DirectRenderer packet error. A separate diagnostic run with
-`OPENRAC_DEBUG_DIRECT_FLAT=1` can show a coarse gray ground/horizon. The normal
-material path still produces an effectively black frame; the flat debug mode
-bypasses material and write-state behavior and is not a game-rendering fix.
-This code remains an opt-in port backfill under `OPENRAC_SLY_GIF_PRODUCER`;
-the default renderer and matched decompilation are unchanged. Do not treat the
-coarse geometry as a playable or visually correct scene.
+Paired captures with the same loaded scene compared matrix modes 0 and 3. Mode
+0 (the precomputed row-major `model * viewProjection`, interpreted as a
+column-major GLSL matrix) showed a textured corridor-like terrain. Mode 3
+produced radial fans. The GL mesh path now defaults to mode 0, and the opt-in
+GIF producer uses the same transform. The existing mode override remains for
+comparison. This contradicts the older mode-3 conclusion recorded below.
 
-Build: `cmake --build build/port/wave55-sdl32-release --target
-port_native_sdl_host32 --parallel 4` completed successfully. The bounded
-capture ended at its intentional timeout; no launcher process remains. Logs
-and frame captures are machine-local in `/tmp/sly-producer-offset-20261120/`,
-`/tmp/sly-producer-flat-20261120/`, and `/tmp/sly-producer-direct-trace-20261120/`.
+The mode-0 capture is still distorted and lacks a recognizable player and HUD;
+it is a visual advance, not a playable scene. The producer remains opt-in and
+port-only. A host32 build completed, and bounded captures with the Documents
+ISO and cached ELF ended at their intentional timeouts. Logs and images are
+machine-local in `/tmp/sly-gl-mode0-textured-20261120/`,
+`/tmp/sly-gl-reference-20261120/`, and `/tmp/sly-producer-mode0-20261120/`.
 
 ### VU kick trace after the attachment check (2026-11-20, 16:20 CET)
 

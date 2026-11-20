@@ -1,35 +1,37 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 16:31 CET)
+## Current checkpoint (2026-11-20, 16:48 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
-does not render a playable scene. The ordinary game graphics path produces a
-black frame. The optional world-mesh overlay draws stretched geometry and is
-not the game's renderer. A new player trace confirms all 29 weighted bone
+does not render a playable scene. A paired capture shows the port-only world
+mesh path can draw a textured corridor-like terrain in matrix mode 0; mode 3
+produces radial fans. The mode-0 image is still distorted and has no
+recognizable player or HUD. A new player trace confirms all 29 weighted bone
 attachment matrices sampled after the host callback ABI fix are finite and
 orthonormal, so player skeleton corruption is no longer the current blocker.
 
-An entry-specific 65,536-instruction allowance now gets the sampled level
-stream past PC `0x516` and queues hundreds of world meshes; a VU1 capture
-contains XYZ2/XYZF2 writes. The ordinary renderer remains black. The optional
-mesh overlay shows a grayscale, distorted corridor and no recognizable
-player. The separate malformed kind-5 kick at qword 469 is not proven causal.
-The player's weighted attachment matrices remain finite and orthonormal, so
-skeleton corruption is not the current blocker.
+An entry-specific 65,536-instruction allowance gets the sampled level stream
+past PC `0x516` and queues hundreds of world meshes; a VU1 capture contains
+XYZ2/XYZF2 writes. The retail GIF packet path still does not render those
+meshes correctly. The port-side OpenGL mesh adapter now defaults to matrix
+mode 0 and displays a textured but distorted corridor, with no recognizable
+player or HUD. The separate malformed kind-5 kick at qword 469 is not proven
+causal. The player's weighted attachment matrices remain finite and
+orthonormal, so skeleton corruption is not the current blocker.
 
 OpenRAC's current port docs describe a native renderer per draw kind and
 selective rewrites of VU programs, rather than finishing a general VU
 interpreter. Follow that established architecture here: use the matched Sly
 packet builders to select one confirmed draw kind, then implement its native
 renderer and the required transform/material behavior as port-only code.
-Keep the distorted overlay opt-in until it matches a reference image.
+Keep backfills separate from matched decomp source and replaceable when that
+code is decompiled.
 
-**Next:** map one bounded Sly draw kind from `BuildStripMeshPacket` or
-`BuildLitStripMeshPacket` through its VU program to the final GS primitive,
-then write a small native renderer for that kind. The player's kind-5 strip is
-a candidate because its attachment matrices and weighted bone indices are
-available, but its VU/GIF path must be understood before choosing it. Do not
+**Next:** use matched `BuildStripMeshPacket` and `BuildLitStripMeshPacket`
+behavior to trace one level draw through VU transforms, fog and lighting to
+the final GS primitive. The experimental port producer already decodes and
+draws the captured mesh sequence, but its scene remains distorted. Do not
 raise the global instruction limit; retain per-entry limits only where
 observed finite streams need them.
 
@@ -52,17 +54,16 @@ functional missing-producer implementation in a separate port-only backfill.
 Logs: `/tmp/sly-gif-trace-20261120/filtered.log` and
 `/tmp/sly-gif-trace-20261120/source-writes.log`.
 
-The latest opt-in port-side GIF producer pass corrects its GS screen mapping:
-the coordinates now include the centered 12.4 XYOFFSET expected by the
-DirectRenderer, and homogeneous clipping keeps the packet in the view volume.
-The packet decodes to about 17,000 in-frame vertices and 225 draws. A forced
-flat diagnostic shows only a coarse gray horizon/ground; normal textured
-output remains black. This is diagnostic evidence that coordinates were a
-producer bug, not a playable rendering path. Keep the producer disabled by
-default and continue by identifying why its valid material draws do not
-survive the normal texture/write-state path. See the 16:31 CET section in the
-graphics handoff. Build succeeded with the host32 target; bounded launcher
-captures used the Documents ISO configured by the client.
+The latest port-side GIF producer remains opt-in and uses centered 12.4
+XYOFFSET, homogeneous clipping, and the mode-0 transform. Matched
+`BuildStripMeshPacket` source confirms `VertexRefs.flags` bit 7 is fog bias,
+not a strip restart; the capture keeps it as `vertex_flags`. The GL mesh
+adapter now defaults to the better-supported mode 0; a bounded run without a
+matrix override confirms a textured corridor frame, but it is still distorted
+and has no recognizable player or HUD. Next, compare the packet producer with
+that GL reference while implementing the VU fog, lighting, and material
+behavior. See the 16:48 CET handoff section. The host32 build succeeded;
+bounded launcher captures used the Documents ISO configured by the client.
 
 ## Earlier checkpoint (2026-11-17, 19:55 CET)
 
