@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player vertex projection discrepancy (2026-11-20, 22:56 CET)
+
+I added an opt-in `points` choice to
+`OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE`. It uses the captured player mesh input,
+disables depth only when `OPENRAC_SLY_WORLD_NO_DEPTH` is set, and enables
+shader-controlled point size for the diagnostic. It does not change triangle
+draws or the normal renderer.
+
+A hidden six-second run used the configured Documents US ISO, cached NTSC-U
+ELF, and level key `0x0100`. It filtered to source `0x00a2d9a8`, applied the
+existing experimental skin adapter, and rendered solid points with depth
+disabled. The queue contained 30 player mesh submissions. CPU-side projected
+bounds put 1,495 vertices inside the view, across roughly 0.07 NDC units in X.
+The captured post-HUD image contains only a 6-by-6-pixel point cluster near
+screen center. This is a mismatch between the CPU bounds estimate and visible
+GL output, not proof that the player's triangle topology is wrong. The
+unfiltered ordinary renderer remains black.
+
+Next, compare the actual matrix and clip-space values consumed by the GL
+vertex shader with the CPU bounds calculation for one player mesh. Do not tune
+triangle grouping, scale, depth, or VU address interpretation until those
+values agree. Keep `points` opt-in, the player mesh overlay experimental, and
+all functional game-code backfills outside matched decompilation source.
+Evidence: `/tmp/sly-player-points-20261120/run3.log` through `run6.log` and
+`/tmp/sly-player-points-20261120/after-hud-run6.png`. The final bounded run
+ended at its deliberate six-second timeout (137), without gameplay input. The
+host32 SDL target rebuilt successfully; no decompilation source changed.
+
 ### Player batch and downstream GS trace (2026-11-20, 22:31 CET)
 
 Hidden, bounded traces used the configured Documents US ISO and cached US ELF,

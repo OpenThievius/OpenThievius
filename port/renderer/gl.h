@@ -49,6 +49,7 @@ inline constexpr GLbitfield GL_STENCIL_BUFFER_BIT = 0x00000400;
 inline constexpr GLbitfield GL_COLOR_BUFFER_BIT = 0x00004000;
 
 inline constexpr GLenum GL_POINTS = 0x0000;
+inline constexpr GLenum GL_PROGRAM_POINT_SIZE = 0x8642;
 inline constexpr GLenum GL_LINES = 0x0001;
 inline constexpr GLenum GL_LINE_STRIP = 0x0003;
 inline constexpr GLenum GL_TRIANGLES = 0x0004;

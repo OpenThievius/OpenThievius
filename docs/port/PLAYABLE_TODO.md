@@ -1,7 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 22:31 CET)
+## Current checkpoint (2026-11-20, 22:56 CET)
+
+The local and upstream `sly1-decomp` master are still at `8f7a85a3` after a
+read-only fetch. A new port-only point diagnostic confirms the player source
+mesh reaches 30 queued submissions and CPU bounds place its 1,495 vertices in
+view. The post-HUD capture shows only a 6-by-6-pixel point cluster. The CPU
+bounds and actual GL output therefore disagree; first compare the exact GL
+matrix/clip-space output against the host calculation for one player mesh.
+Do not tune topology or scale while that discrepancy remains. The ordinary
+renderer still has no visible game graphics, and the player overlay remains
+experimental.
+
+The host32 SDL target rebuilt successfully, and a bounded hidden run used the
+configured Documents US ISO and cached US ELF with no input. Evidence and the
+opt-in diagnostic details are in the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+No decompilation source changed.
+
+## Earlier checkpoint (2026-11-20, 22:31 CET)
 
 The decomp checkout is current: local `master` and GitHub `master` are both
 `8f7a85a3` (2026-11-14). There is no newer matched Sly source to pull into the

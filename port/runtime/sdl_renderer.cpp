@@ -253,6 +253,7 @@ out vec4 v_color;
 out vec2 v_uv;
 void main() {
     gl_Position = u_mvp * vec4(a_position, 1.0);
+    gl_PointSize = 6.0;
     v_color = a_color;
     v_uv = a_uv;
 }
@@ -354,6 +355,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     if (const char* setting = std::getenv("OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE")) {
         if (std::strcmp(setting, "triangles") == 0)
             debug_primitive = GL_TRIANGLES;
+        else if (std::strcmp(setting, "points") == 0)
+            debug_primitive = GL_POINTS;
     }
     static unsigned debug_selection_notice = 0;
     if ((debug_source_filter || debug_request_filter || debug_first_material_pass ||
@@ -365,7 +368,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                      debug_request_filter ? "" : "all/",
                      debug_request,
                      debug_first_material_pass ? 1u : 0u,
-                     debug_primitive == GL_TRIANGLES ? "triangles" : "triangle-strip");
+                     debug_primitive == GL_TRIANGLES ? "triangles" :
+                     debug_primitive == GL_POINTS ? "points" : "triangle-strip");
     }
     const bool trace_projected_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
@@ -628,7 +632,15 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         }
-        if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr ||
+        if (debug_primitive == GL_POINTS) {
+            // Isolate vertex placement from the still-unverified kind-5
+            // triangle grouping. This remains opt-in and is useful for
+            // checking whether captured positions form a coherent silhouette.
+            glEnable(GL_PROGRAM_POINT_SIZE);
+            glDrawArrays(GL_POINTS, 0,
+                         static_cast<GLsizei>(mesh.vertices.size() / 9u));
+            glDisable(GL_PROGRAM_POINT_SIZE);
+        } else if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr ||
             (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
              mesh.source_mesh == 0x00a2d9a8u &&
              getenv("OPENRAC_PLAYER_SPLIT_STRIPS") == nullptr)) {
