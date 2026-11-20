@@ -16,11 +16,12 @@ values do not recur.
 This does not make the game render. The paired frame capture from the preceding
 run shows the normal game output black before the optional world-mesh overlay;
 that overlay draws stretched geometry and is not a faithful renderer. In this
-run the native VU1 translator still stops at PC `0x516` on `0xffffffff`, and a
+run the native VU1 interpreter reaches its 4,096-instruction safety limit at
+PC `0x516`; `0xffffffff` is the limit sentinel, not a retail instruction. A
 separate kind-5 kick at qword 469 is rejected for reserved GIFtag bits. The
-first issue is the active graphics-stream blocker; the qword-469 rejection is
-not evidence of a valid world-vertex packet being lost. Keep tracing the normal
-kind-0/6 path until a VU submission produces actual XYZ2/XYZF2 writes.
+budget stop is in the active graphics-stream path; the qword-469 rejection is
+not evidence of a valid world-vertex packet being lost. Keep tracing the
+normal kind-0/6 path until a VU submission produces actual XYZ2/XYZF2 writes.
 
 Evidence: `/tmp/sly-player-bones-20261120.log`. The run reached 95 game frames
 and ended at its intentional 30-second timeout (exit 137), with no launcher
@@ -51,6 +52,30 @@ Evidence: `/tmp/sly-pose-writer-20261120/run-abi-fix.log`. The first run also
 exposed and fixed an unsafe pointer assumption in the diagnostic helper; its
 fault was in the trace, not the game. The world-frame magnitude check now
 examines only the nine rotation elements and ignores row padding.
+
+### VU entry `0x2` budget stop (2026-11-20)
+
+The stop at PC `0x516` is VU instruction-budget exhaustion, not a retail
+`0xffffffff` upper instruction. That value is the translator's sentinel when
+the loop ends at its 4,096-instruction limit. The earlier generic VIF message
+incorrectly made it look like an unsupported opcode.
+
+I moved the context report to the actual budget-exhaustion path and included
+the VIF submission and stream offset. A bounded native run reproduced the
+stop at submission 6, VIF offset `0x6fbb0`, entry `0x2`, after 4,096 cycles at
+PC `0x516`. Its final instruction trace visits PCs `0x515` through `0x543`;
+upper word `0x2ff` is the VU NOP encoding. Other entry-`0x2` submissions hit
+the same safety limit at different PCs, confirming active loop execution.
+The global instruction budget remains unchanged because earlier experiments
+show that raising it only reaches more loops and can conceal additional
+control-flow or initial-state problems. This trace makes no guest-state
+changes and does not fix the missing graphics.
+
+Build: `cmake --build build/port/wave55-sdl32-release --target
+port_native_sdl_host32 -j2` succeeded (194 decomp units, 85 port-only
+backfills). One 15-second native launch timed out as expected (exit 137),
+reproducing the budget stop and collecting its context. No emulator or input
+was used. Capture: `/tmp/sly-vu-budget-context-20261120.log`.
 
 ### Attachment pose trace (2026-11-18)
 

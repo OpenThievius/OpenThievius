@@ -2282,8 +2282,12 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         }
     }
     static std::atomic<uint32_t> budget_trace_count{0};
-    if (std::getenv("OPENRAC_TRACE_VU1_LIMIT") != nullptr &&
-        budget_trace_count.fetch_add(1, std::memory_order_relaxed) < 8u) {
+    const bool target_budget_stop = entry == 0x2u && pc == 0x516u;
+    const bool trace_budget_stop = target_budget_stop
+        ? budget_trace_count.fetch_add(1, std::memory_order_relaxed) == 0u
+        : std::getenv("OPENRAC_TRACE_VU1_LIMIT") != nullptr &&
+          budget_trace_count.fetch_add(1, std::memory_order_relaxed) < 8u;
+    if (trace_budget_stop) {
         std::ostringstream context;
         const uint32_t first_cycle = instruction_limit >= recent.size()
             ? instruction_limit - static_cast<uint32_t>(recent.size()) : 0u;
@@ -2294,7 +2298,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                     << instruction.lower << '/' << instruction.upper << ']';
         }
         openrac::log::warn(
-            "native VU1 instruction budget exhausted: entry={:#x} cycles={} stopped_pc={:#x} VI5={} VI6={} VI8={} VI9={} VI10={} VI14={} VI15={} recent:{}",
+            "native VU1 instruction budget exhausted: submission={} vif_offset={:#x} entry={:#x} cycles={} stopped_pc={:#x} VI5={} VI6={} VI8={} VI9={} VI10={} VI14={} VI15={} recent:{}",
+            g_vu_trace_submission_id, g_vu_trace_vif_command_offset,
             entry, instruction_limit, pc, vi_read(g_state, 5u), vi_read(g_state, 6u),
             vi_read(g_state, 8u), vi_read(g_state, 9u), vi_read(g_state, 10u),
             vi_read(g_state, 14u), vi_read(g_state, 15u), context.str());
