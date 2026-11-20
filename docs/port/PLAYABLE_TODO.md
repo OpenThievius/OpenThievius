@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 23:00 CET)
+## Current checkpoint (2026-11-20, 23:07 CET)
 
 The latest graphics investigation found a real port-renderer defect: the
 opt-in point and player-triangle draw branches called `glDrawArrays` without
@@ -20,6 +20,15 @@ still unverified for a playable scene. The local/upstream decomp remains at
 The host32 SDL target rebuilt, and three six-second hidden runs used the
 configured Documents US ISO and cached US ELF without input. The updated
 graphics handoff records the correction, images, and next investigation.
+
+The user's 62.8-second PCSX2 reference ends at the title screen after the
+intro and Paris rooftop cinematic; it does not show a playable level. The
+unforced native startup was captured through a 55-second hidden run and still
+showed a grayscale radial scene with a yellow foreground instead of the title
+screen. For the next port-only graphics step, trace the matched kind-0
+`BuildLitStripMeshPacket` path and its normals/lighting data: the host overlay
+currently treats captured lit and unlit meshes alike. Keep the normal VU1/GIF
+path as the primary launch target; the overlay remains diagnostic only.
 
 ## Earlier checkpoint (2026-11-20, 22:56 CET)
 

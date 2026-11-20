@@ -1,6 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### PCSX2 startup reference comparison (2026-11-20, 23:07 CET)
+
+The user-provided 62.8-second PCSX2 clip shows the publisher/developer cards,
+the opening Sucker Punch/Paris rooftop cinematic, then the title menu. The
+last part has Sly on the roof with a night sky, moon, lit windows, and layered
+city buildings. It does not include a playable level, so it is a reference for
+startup, the intro, and the title scene rather than gameplay.
+
+An unforced hidden native run lasted 55 seconds and captured the later frames.
+It remained on a grayscale radial scene with a flat yellow foreground; no
+title logo, menu, moon, skyline, or recognizable rooftop scene appeared. The
+native startup therefore has not reached the reference's title screen. The
+separate forced-level overlay captures are not scene-for-scene comparisons.
+Evidence: `/tmp/sly-reference-late-native-20261120/run.log` and
+`contact.png`.
+
+The decomp source identifies an actionable difference in the host mesh
+overlay: kind 0 uses `BuildLitStripMeshPacket`, which sends positions, normals,
+colors, and UVs through the lit VU path. Kinds 5/6/7/8/10 use the unlit
+`BuildStripMeshPacket` path. The current host overlay captures position,
+tint, and UV but does not carry normals or reproduce the lit VU path. Trace
+and implement that behavior in port-only code, then compare the native
+startup/title image against the reference. Do not change matched decomp
+source. The reference video and extracted frames remain outside the repository.
+
 ### Stale VBO in direct mesh draw paths (2026-11-20, 23:00 CET)
 
 The previous section's CPU/GL projection discrepancy was caused by the
