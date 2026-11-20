@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 16:20 CET)
+## Current checkpoint (2026-11-20, 16:31 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. The ordinary game graphics path produces a
@@ -51,6 +51,18 @@ GIF address interpretation or validation without new evidence. Keep a
 functional missing-producer implementation in a separate port-only backfill.
 Logs: `/tmp/sly-gif-trace-20261120/filtered.log` and
 `/tmp/sly-gif-trace-20261120/source-writes.log`.
+
+The latest opt-in port-side GIF producer pass corrects its GS screen mapping:
+the coordinates now include the centered 12.4 XYOFFSET expected by the
+DirectRenderer, and homogeneous clipping keeps the packet in the view volume.
+The packet decodes to about 17,000 in-frame vertices and 225 draws. A forced
+flat diagnostic shows only a coarse gray horizon/ground; normal textured
+output remains black. This is diagnostic evidence that coordinates were a
+producer bug, not a playable rendering path. Keep the producer disabled by
+default and continue by identifying why its valid material draws do not
+survive the normal texture/write-state path. See the 16:31 CET section in the
+graphics handoff. Build succeeded with the host32 target; bounded launcher
+captures used the Documents ISO configured by the client.
 
 ## Earlier checkpoint (2026-11-17, 19:55 CET)
 

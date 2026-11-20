@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Port-only GIF producer screen mapping (2026-11-20, 16:31 CET)
+
+A bounded visible host32 run used the SafeHouse-configured Documents ISO and
+cached US ELF, with the experimental GIF producer enabled and the GL mesh
+overlay disabled. The post-world-frame capture initially looked black because
+the producer wrote 640x224-relative XY values with a zero GS `XYOFFSET`. The
+native DirectRenderer expects GS coordinates centred around 2048, with
+`XYOFFSET` set to `(2048 - width/2, 2048 - height/2)` in 12.4 units. The
+port-only producer now uses that mapping and clips triangles in homogeneous
+space before packing the coordinates.
+
+With the corrected mapping, the generated GIF packet decodes to roughly
+17,000 in-frame vertices across 225 draws in the sampled world frame, with no
+DirectRenderer packet error. A separate diagnostic run with
+`OPENRAC_DEBUG_DIRECT_FLAT=1` can show a coarse gray ground/horizon. The normal
+material path still produces an effectively black frame; the flat debug mode
+bypasses material and write-state behavior and is not a game-rendering fix.
+This code remains an opt-in port backfill under `OPENRAC_SLY_GIF_PRODUCER`;
+the default renderer and matched decompilation are unchanged. Do not treat the
+coarse geometry as a playable or visually correct scene.
+
+Build: `cmake --build build/port/wave55-sdl32-release --target
+port_native_sdl_host32 --parallel 4` completed successfully. The bounded
+capture ended at its intentional timeout; no launcher process remains. Logs
+and frame captures are machine-local in `/tmp/sly-producer-offset-20261120/`,
+`/tmp/sly-producer-flat-20261120/`, and `/tmp/sly-producer-direct-trace-20261120/`.
+
 ### VU kick trace after the attachment check (2026-11-20, 16:20 CET)
 
 A bounded foreground run used the configured US ISO and cached ELF, with one
