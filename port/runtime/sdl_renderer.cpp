@@ -488,7 +488,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             continue;
         }
         auto texture = openrac::renderer::TextureHandle{};
-        if (g_textures != nullptr && mesh.tex0 != 0) {
+        if (!debug_solid_colors && g_textures != nullptr && mesh.tex0 != 0) {
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
             if (texture == g_textures->placeholder()) {
                 present_missing_textures.insert(mesh.tex0);
@@ -1136,6 +1136,15 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* vertex_flags,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t test) {
+    // Diagnostic filter for isolating one guest mesh from scene occlusion and
+    // the experimental overlay's other approximations. Unset by default.
+    if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_ONLY_SOURCE")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+            source_mesh != static_cast<std::uint32_t>(parsed))
+            return;
+    }
     if (world == 0 || vertices == nullptr || vertex_count < 3 || vertex_count > 4096 ||
         model == nullptr || view_projection == nullptr)
         return;

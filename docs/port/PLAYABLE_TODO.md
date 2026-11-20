@@ -1,6 +1,42 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-20, 22:15 CET)
+
+The decomp checkout is current: local `master` and GitHub `master` are both
+`8f7a85a3` (2026-11-14). There is no newer matched Sly source to pull into the
+port today.
+
+I isolated player source mesh `0x00a2d9a8` in the port-only renderer. Its 30
+submissions project into the view, and the skinning adapter runs, but the
+default triangle-list interpretation produces no visible pixels. With the
+solid-color debug path, repeated-vertex strip splitting shows only a tiny
+fragment; scaling the vertices 8x turns it into a large wedge plus the same
+fragment. So the player is not merely hidden behind the corridor or by a
+missing texture. The host adapter still does not reconstruct the retail
+kind-5 draw.
+
+The actual player submissions are intercepted by the host mesh path; they do
+not enter the native VU1 stream in this build. Keep VU1 traces for the
+environment and GS paths, but don't expect more VU1 tracing to repair the
+player adapter. Next, derive kind-5 geometry ordering and transform behavior
+from the matched strip builder and the retail program semantics, then reproduce
+that in separate port code. Do not make scale or the current strip heuristic a
+default fix.
+
+The renderer now has two opt-in diagnostics: `OPENRAC_SLY_WORLD_ONLY_SOURCE`
+filters queued meshes by guest source address, and solid-color mode bypasses
+texture lookup. Both are unset by default. A host32 SDL build succeeded
+(194/194 staged units, 85/85 port backfills); three bounded hidden captures
+used the configured Documents US ISO and cached ELF, with no input.
+
+Evidence: `/tmp/sly-player-only-20261120/run.log`,
+`/tmp/sly-player-solid-fixed-20261120/run.log`, and
+`/tmp/sly-player-scaled-20261120/run.log`. The final post-HUD image is
+`/tmp/sly1-native-world-after-hud-07.ppm`; its 8x scale diagnostic is also
+saved as `/tmp/sly-player-scaled-20261120/after-hud-07.png`. All runs ended at
+their deliberate 12-second timeout. No decomp source changed.
+
 ## Current checkpoint (2026-11-20, 22:10 CET)
 
 A hidden, bounded native run with `OPENRAC_SLY_WORLD_APPLY_SKINNING=1` and

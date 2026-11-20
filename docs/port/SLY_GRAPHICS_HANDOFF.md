@@ -1,6 +1,42 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Isolated player draw check (2026-11-20, 22:15 CET)
+
+The local decomp `master` and GitHub `master` both point at `8f7a85a3`
+(2026-11-14). No later decomp source is available to reuse.
+
+I added `OPENRAC_SLY_WORLD_ONLY_SOURCE=<guest-address>` as an unset-by-default
+filter in the port-only mesh renderer. This isolates one captured source mesh
+from scene depth and neighboring meshes. I also corrected solid-color debug
+mode to skip texture resolution entirely; before the correction, the path
+could still discard a mesh whose texture was missing.
+
+With player source `0x00a2d9a8` isolated, the host submitted 30 draws. Skinning
+was active and all sampled transformed coordinates were finite. Normal
+triangle-list mode yielded a black post-HUD frame. Solid-color mode plus the
+existing repeated-vertex split produced only 107 colored pixels in a 33x8
+rectangle. Expanding strip triangles and scaling the vertices by 8 produced
+an oversized wedge and a small fragment. This rules out scene occlusion and
+missing textures as the only cause. The host path is receiving source
+vertices, but its kind-5 topology/transform still differs from the game.
+
+The player mesh submissions are handled by the custom host path and do not
+enter VU1 in this build. The missing player is therefore not explained by the
+environment's state-only XGKICK trace. Continue with a port-only kind-5
+renderer derived from the matched `BuildStripMeshPacket` inputs and retail
+program behavior. Keep the source filter and solid-color path opt-in; do not
+ship the guessed scale or topology as a fix.
+
+Evidence: `/tmp/sly-player-only-20261120/run.log`,
+`/tmp/sly-player-solid-fixed-20261120/run.log`,
+`/tmp/sly-player-scaled-20261120/run.log`, and the displayed capture
+`/tmp/sly-player-scaled-20261120/after-hud-07.png`. The three hidden runs each
+used the configured Documents US ISO and cached ELF and ended at an intentional
+12-second timeout, without input. Host32 build succeeded with 194/194 staged
+units and 85/85 port backfills. `python3 tools/proprietary.py` reports zero
+problems. No decomp source changed.
+
 ### Player skinning adapter follow-up (2026-11-20, 22:10 CET)
 
 A hidden, 12-second native run enabled the port-only player skinning adapter
