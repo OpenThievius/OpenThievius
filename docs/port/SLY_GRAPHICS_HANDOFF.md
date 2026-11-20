@@ -71,11 +71,33 @@ show that raising it only reaches more loops and can conceal additional
 control-flow or initial-state problems. This trace makes no guest-state
 changes and does not fix the missing graphics.
 
+A second bounded trace of the same VIF submission (`OPENRAC_TRACE_VU1_LIMIT=1`)
+records its branch operands and VI state. At PC `0x523`, `IBEQ VI10,VI11` can
+take the branch to `0x538`; at `0x538`, `IBNE VI0,VI11` reaches `0x53e` when
+VI11 is nonzero. PC `0x53e` then adds 3 to VI12, and `0x540` branches back to
+`0x515` while VI12 is nonzero. The captured VI12 values advance `13, 16, 19, ...`.
+If that path persists to wraparound, it needs 21,841 increments (about 0.96M
+VU instruction pairs at the observed 44-cycle cadence), far beyond the default
+budget. This is a long live loop, not evidence of malformed microcode. Its
+eventual termination and graphics output remain unverified.
+
+I tried the existing `OPENRAC_VU1_CYCLE_LIMIT=200000` setting, bounded first to
+15 seconds and then to 60 seconds. Neither run produced an observable
+completion report or a VU budget warning before timeout, so the experiment is
+inconclusive about eventual termination and does not justify changing the
+default. The VIF failure report now distinguishes budget exhaustion from an
+unsupported instruction; it no longer labels the `0xffffffff` sentinel as a
+bad game opcode.
+
 Build: `cmake --build build/port/wave55-sdl32-release --target
 port_native_sdl_host32 -j2` succeeded (194 decomp units, 85 port-only
-backfills). One 15-second native launch timed out as expected (exit 137),
-reproducing the budget stop and collecting its context. No emulator or input
-was used. Capture: `/tmp/sly-vu-budget-context-20261120.log`.
+backfills). A 10-second default-limit native launch reproduced the budget stop
+and verified the corrected messages; it ended at its intentional timeout
+(exit 137). No emulator or input was used. Captures:
+`/tmp/sly-vu-entry2-loop-20261120.log`,
+`/tmp/sly-vu-program2-20261120.log`,
+`/tmp/sly-vu-entry2-extended-budget-60s-20261120.log`, and
+`/tmp/sly-vu-budget-stop-kind-20261120.log`.
 
 ### Attachment pose trace (2026-11-18)
 

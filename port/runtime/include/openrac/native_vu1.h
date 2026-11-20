@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 /* Translate one uploaded VU1 display-list program into native host work. */
+/* stopped_pipeline: 0 upper/control, 1 lower, 2 device command, 3 cycle limit. */
 int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
                               uint32_t* stopped_pc, uint32_t* stopped_pipeline,
                               uint32_t* paired_word);

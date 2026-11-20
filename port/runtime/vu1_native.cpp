@@ -2194,6 +2194,36 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             branch_delay = true;
             pc = current_pc + 1u;
         }
+        const char* limit_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LIMIT");
+        static std::atomic<uint32_t> entry2_trace_count{0};
+        const bool trace_entry2_loop = entry == 0x2u &&
+            g_vu_trace_vif_command_offset == 0x6FBB0u &&
+            limit_trace_setting != nullptr && limit_trace_setting[0] != '\0' &&
+            limit_trace_setting[0] != '0' && current_pc >= 0x500u &&
+            current_pc <= 0x545u &&
+            (next_pc != current_pc + 1u || current_pc == 0x515u ||
+             current_pc == 0x516u || current_pc == 0x538u ||
+             current_pc == 0x53Eu || current_pc == 0x540u);
+        if (trace_entry2_loop &&
+            entry2_trace_count.fetch_add(1, std::memory_order_relaxed) < 256u) {
+            openrac::log::info(
+                "native VU1 entry-2 loop submission={} vif_offset={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} decoded_next={:#x} next_pc={:#x} branch_target={:#x} branch_delay={} VI1={}->{} VI2={}->{} VI5={}->{} VI6={}->{} VI8={}->{} VI9={}->{} VI10={}->{} VI11={}->{} VI12={}->{} VI13={}->{} VI14={}->{} VI15={}->{}",
+                g_vu_trace_submission_id, g_vu_trace_vif_command_offset, cycle,
+                current_pc, lower, upper, next_pc, pc, branch_target,
+                branch_delay ? 1u : 0u,
+                vi_read(before, 1u), vi_read(g_state, 1u),
+                vi_read(before, 2u), vi_read(g_state, 2u),
+                vi_read(before, 5u), vi_read(g_state, 5u),
+                vi_read(before, 6u), vi_read(g_state, 6u),
+                vi_read(before, 8u), vi_read(g_state, 8u),
+                vi_read(before, 9u), vi_read(g_state, 9u),
+                vi_read(before, 10u), vi_read(g_state, 10u),
+                vi_read(before, 11u), vi_read(g_state, 11u),
+                vi_read(before, 12u), vi_read(g_state, 12u),
+                vi_read(before, 13u), vi_read(g_state, 13u),
+                vi_read(before, 14u), vi_read(g_state, 14u),
+                vi_read(before, 15u), vi_read(g_state, 15u));
+        }
         static std::atomic<uint32_t> range_trace_count{0};
         const char* range_trace = std::getenv("OPENRAC_TRACE_VU1_401_RANGE");
         if (entry == 0x401u && range_trace != nullptr &&
@@ -2307,7 +2337,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     *unsupported_word = 0xFFFFFFFFu;
     *paired_word = 0xFFFFFFFFu;
     *stopped_pc = pc;
-    *stopped_pipeline = 0;
+    *stopped_pipeline = 3u;
     dispatch_pending_kick(&pending_kick);
     return 0;
 }

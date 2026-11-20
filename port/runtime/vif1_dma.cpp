@@ -524,6 +524,7 @@ struct VifTrace {
     size_t program_count = 0;
     bool has_direct_prefix = false;
     bool failed_in_vu = false;
+    uint32_t failed_vu_pipeline = 0;
     uint32_t failed_vu_entry = 0xFFFFFFFFu;
     uint32_t failed_vu_pc = 0;
     uint32_t failed_vu_word = 0;
@@ -803,18 +804,25 @@ bool execute_vif_stream(const std::vector<uint8_t>& stream, size_t* direct_bytes
                 if (!openrac_guest_vu1_execute(entry, &vu_unsupported, &vu_pc,
                                                &vu_pipeline, &vu_paired)) {
                     trace->failed_in_vu = true;
+                    trace->failed_vu_pipeline = vu_pipeline;
                     trace->failed_vu_entry = entry;
                     trace->failed_vu_pc = vu_pc;
                     trace->failed_vu_word = vu_unsupported;
                     trace->failed_vu_paired = vu_paired;
                     if (!g_vu_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
-                        openrac::log::warn(
-                            "native VU1 {} stopped at {} {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
-                            vu_pipeline == 2u ? "execution" : "translation",
-                            vu_pipeline == 0 ? "upper instruction" :
-                            vu_pipeline == 1 ? "lower instruction" : "device command",
-                            vu_unsupported, vu_paired, vu_pc,
-                            entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                        if (vu_pipeline == 3u) {
+                            openrac::log::warn(
+                                "native VU1 instruction budget exhausted at PC {:#x} from entry {}",
+                                vu_pc, entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                        } else {
+                            openrac::log::warn(
+                                "native VU1 {} stopped at {} {:#010x} (paired {:#010x}) at PC {:#x} from entry {}",
+                                vu_pipeline == 2u ? "execution" : "translation",
+                                vu_pipeline == 0u ? "upper instruction" :
+                                vu_pipeline == 1u ? "lower instruction" : "device command",
+                                vu_unsupported, vu_paired, vu_pc,
+                                entry == 0xFFFFFFFFu ? "MSCNT" : "MSCAL");
+                        }
                     }
                     const char* sequence_trace =
                         std::getenv("OPENRAC_TRACE_VIF_AFTER_MSCAL");
@@ -1161,11 +1169,18 @@ extern "C" int openrac_guest_vif1_mmio_store32(uint32_t address, uint32_t value)
 
     if (!vif_ok && !g_unsupported_notice.test_and_set(std::memory_order_relaxed)) {
         if (trace.failed_in_vu) {
-            openrac::log::warn(
-                "native VIF1 stream stopped in VU1: VIF command={:#04x} entry={:#x} pc={:#x} word={:#010x} paired={:#010x} offset={:#x} bytes={}",
-                unsupported, trace.failed_vu_entry, trace.failed_vu_pc,
-                trace.failed_vu_word, trace.failed_vu_paired,
-                trace.failure_offset, stream.size());
+            if (trace.failed_vu_pipeline == 3u) {
+                openrac::log::warn(
+                    "native VIF1 stream stopped at VU1 instruction budget: VIF command={:#04x} entry={:#x} pc={:#x} offset={:#x} bytes={}",
+                    unsupported, trace.failed_vu_entry, trace.failed_vu_pc,
+                    trace.failure_offset, stream.size());
+            } else {
+                openrac::log::warn(
+                    "native VIF1 stream stopped in VU1: VIF command={:#04x} entry={:#x} pc={:#x} word={:#010x} paired={:#010x} offset={:#x} bytes={}",
+                    unsupported, trace.failed_vu_entry, trace.failed_vu_pc,
+                    trace.failed_vu_word, trace.failed_vu_paired,
+                    trace.failure_offset, stream.size());
+            }
         } else {
             openrac::log::warn("native VIF1 command stream is unsupported or malformed: command={:#04x} code={:#010x} offset={:#x} bytes={} cycle={:#010x} mask={:#010x} row={:#010x},{:#010x},{:#010x},{:#010x} col={:#010x},{:#010x},{:#010x},{:#010x}",
                                unsupported, trace.failure_code, trace.failure_offset,
