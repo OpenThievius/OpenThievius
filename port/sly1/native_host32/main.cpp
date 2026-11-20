@@ -2783,17 +2783,17 @@ sly1_native_drive_splash_notifier() {
         *(volatile u32*)(obj + 0x2E8u) = (u32)(uintptr_t)walker; // host
 }
 
-// Default level boot for the SDL build (see compile_decomp_host32.py).
-// The native port has no title/movie flow to reach a level on its own, so it
-// boots the retail level 0x0100 through the proven QueueWorldLoad path. This
-// is the retail catalog's "A Stealthy Approach" entry. OPENRAC_DEFAULT_LEVEL
-// (or legacy OPENRAC_BOOT_LEVEL) overrides the key; OPENRAC_NO_DEFAULT_LEVEL
-// restores the retail Splash-only boot.
+// An explicit level boot for the SDL build (see compile_decomp_host32.py).
+// Normal launches follow the retail Splash, memory-card, and title flow.
+// OPENRAC_DEFAULT_LEVEL (or legacy OPENRAC_BOOT_LEVEL) opts into the proven
+// QueueWorldLoad path; key 0x0100 is the catalog's "A Stealthy Approach".
+// OPENRAC_NO_DEFAULT_LEVEL remains a compatibility switch for older launch
+// commands that requested the retail Splash-only path.
 extern "C" u32 sly1_native_boot_level_key_for_sdl(void) {
     if (getenv("OPENRAC_NO_DEFAULT_LEVEL") != nullptr) return 0;
     const char* value = getenv("OPENRAC_DEFAULT_LEVEL");
     if (value == nullptr) value = getenv("OPENRAC_BOOT_LEVEL");
-    if (value == nullptr || *value == '\0') return 0x0100u;
+    if (value == nullptr || *value == '\0') return 0u;
     char* end = nullptr;
     const unsigned long parsed = strtoul(value, &end, 0);
     return (end != value && *end == '\0' && parsed <= 0xFFFFFFFFul)
@@ -3146,8 +3146,7 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
-    // Level boot is on by default; sly1_native_force_level_boot() itself
-    // returns early when the key is 0 (OPENRAC_NO_DEFAULT_LEVEL).
+    // Only an explicit level key queues a direct world load.
     if (stage == 2)
         sly1_native_force_level_boot();
     if (stage == 8) {
@@ -3164,14 +3163,13 @@ sly1_native_trace_frame_stage(u32 stage) {
                              (double)vp[0], (double)vp[1], (double)vp[2], (double)vp[3]);
             }
         }
-        // Area-mask correction: with no usable value tree, the retail
-        // LookupValueTreeLeaf returns the all-areas sentinel 0x0FFFFFFF, so
-        // QueueModelPartDraws culls ~1923 of the level's 1962 parts. A mask of
-        // 0x1 (the area the playable geometry uses) reveals the level. This is
-        // on by default so the port shows its level; OPENRAC_NO_DEFAULT_LEVEL
-        // restores the retail-only behaviour, and OPENRAC_FIX_AREA_MASK
-        // overrides the value (0 disables the override).
-        if (getenv("OPENRAC_NO_DEFAULT_LEVEL") == nullptr) {
+        // Port-only area-mask correction for explicit direct-level probes:
+        // with no usable value tree, LookupValueTreeLeaf returns the all-areas
+        // sentinel and QueueModelPartDraws culls most level parts. A mask of
+        // 0x1 reveals the measured level area. Normal retail startup does not
+        // apply this; OPENRAC_FIX_AREA_MASK can override the probe value (0
+        // disables the correction).
+        if (sly1_native_boot_level_key_for_sdl() != 0u) {
             u32 wanted_mask = 0x1u;
             if (const char* mask_setting = getenv("OPENRAC_FIX_AREA_MASK"))
                 wanted_mask = (u32)strtoul(mask_setting, nullptr, 0);

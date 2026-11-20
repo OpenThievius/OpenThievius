@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-21)
+
+Normal native launch now follows the retail Splash and memory-card flow; it no
+longer queues a direct level load by default. A 12-second no-input capture on
+the configured US ISO reached the stable save-file prompt. Explicit level
+probes remain available with `OPENRAC_DEFAULT_LEVEL=0x0100` (or the legacy
+`OPENRAC_BOOT_LEVEL`); that path still loads a 384-mesh world, but its regular
+GS output remains black and the optional source-mesh overlay is distorted.
+
+This is closer to the supplied PCSX2 startup reference, which continues from
+the startup cards into the Paris rooftop intro and title screen. The native
+capture has not reached the intro or title yet, and no playable level is
+confirmed. The sibling decomp is current at `8f7a85a3` (2026-11-14); upstream
+master has no newer commit. Next, trace the retail memory-card choice into the
+title/movie transition, then resume the Sly-specific world renderer from
+verified draw data. Do not make the experimental overlay the default.
+
+Evidence: `/tmp/sly-retail-startup-default-20261120/run.log` and
+`/tmp/sly-retail-startup-default-20261120/sly1-native-frame-04.ppm` (stable
+save prompt); `/tmp/sly-explicit-level-boot-20261120/run.log` (384 queued world
+meshes). Both hidden launches used the Documents US ISO and cached US ELF, sent
+no input, and ended at their deliberate 12-second timeout. The host32 build
+compiled 194 decomp units and 85 port backfills.
+
 ## Current checkpoint (2026-11-20, 23:24 CET)
 
 ### Bone-palette diagnosis corrected (2026-11-20, 23:24 CET)
