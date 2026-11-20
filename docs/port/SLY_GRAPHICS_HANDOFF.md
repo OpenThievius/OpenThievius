@@ -1,7 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Current follow-up (2026-11-20, 15:37 CET)
+### VU scratch-to-GIF boundary (2026-11-20)
+
+A second bounded host32 capture used the configured Documents US ISO and cached
+US ELF, with one process-local Cross at native frame 300. It filtered VU data
+stores to qwords 35-40 for VIF submission 6. The retail VU stages write normal
+float vertex fields in scratch: entry `0x401` transforms qword 38, and entry
+`0x34a` carries UV records through qwords 36 and 39 while updating qword 38.
+Entry `0x5f` updates the GIFtag at qword 35. The accepted tag is PACKED, one
+register, A+D; its payload words still contain float vertex fields, so the A+D
+address byte resolves to GS register `PRIM` rather than `XYZ2`/`XYZF2`. The
+matching trace reports no triangle vertices for those packets. This agrees
+with the earlier payload audit: retail VU output currently reaches scratch and
+state-only XGKICKs, not a usable world-vertex packet in the native runtime.
+
+The default path is still black after Continue. The immediate port task is a
+separate, opt-in backfill that turns the captured retail vertex records and
+material pass into valid GS vertex writes; it must stay outside matched decomp
+source and replace cleanly if/when that producer is represented in decompiled
+code. Do not tune the DirectRenderer or raise its GIF queue limit to compensate
+for the missing producer. Capture log:
+`/tmp/sly-xgkick-payload-source-20261120/run.log`.
+
+### Visual and queue capture (2026-11-20, 15:37 CET)
 
 The latest opt-in level capture uses the Documents US ISO and configured
 cached ELF. With the entry-specific 65,536 instruction allowance, entry `0x2`
@@ -15,11 +37,11 @@ material passes. After input, the GIF queue reached its 16 MiB cap and rejected
 additional packets. A lower-overhead queue audit did not reproduce that
 saturation. With the experimental source-mesh overlay disabled, the default
 renderer still captures black; detailed traces show only occasional small
-Direct draws with off-screen bounds or transparent-looking state. The next
-trace must tie one accepted world XGKICK fragment to the combined Direct decode
-and its final GS state. Do not raise the queue cap or treat queued mesh count
-as evidence of rendered output. Keep all port backfills out of matched decomp
-source.
+Direct draws with off-screen bounds or transparent-looking state. The focused
+source-write capture below localizes the missing geometry before Direct decode:
+the accepted XGKICK carries float vertex fields under an A+D/PRIM tag. Do not
+raise the queue cap or treat queued mesh count as evidence of rendered output.
+Keep all port backfills out of matched decomp source.
 
 ### Focused player and strip trace (2026-11-20, 15:28 CET)
 
