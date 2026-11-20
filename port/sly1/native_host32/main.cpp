@@ -1175,7 +1175,7 @@ extern "C" void sly1_native_bind_model_mesh(u32 header_address,
                     layout_filter_match = bound.source_mesh == static_cast<u32>(parsed);
             }
         }
-        if (layout_filter_match && bound.sources.size() > 1u && layout_notices++ < 64u) {
+        if (layout_filter_match && !bound.sources.empty() && layout_notices++ < 64u) {
             if (header_address < 0x10u || header_address >= 0x02000000u)
                 return;
             const volatile u8* header = reinterpret_cast<const volatile u8*>(header_address);

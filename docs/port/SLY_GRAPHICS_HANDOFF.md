@@ -1,6 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player batch and downstream GS trace (2026-11-20, 22:31 CET)
+
+Hidden, bounded traces used the configured Documents US ISO and cached US ELF,
+forced level entry `0x3`, and sent no input. The widest VIF capture follows 64
+DMA segments after the first player source packet. It covers 30 consecutive
+mesh blocks and then a 36-QWC VIF DIRECT packet immediately before the next
+environment-mesh block. The DIRECT packet emits 12 XYZF2 writes with a sprite
+primitive. A filtered GS input trace places its coordinates near the screen
+origin. Its source ownership is still unknown, so this does not prove it is
+Sly's model draw. The selected player's qword-35 XGKICK remains GS state only;
+the qword-469 XGKICK is rejected, and neither kick alone identifies the final
+player geometry.
+
+Next, identify what produces the downstream DIRECT packet and whether it
+belongs to the player, then trace the player geometry through its final GS
+draw. Keep the optional host overlay separate from this retail VIF/VU1/GS
+path. Evidence: `/tmp/sly-player-follow-20261120/run.log`,
+`/tmp/sly-player-batch-20261120/run.log`, and
+`/tmp/sly-player-gs-values-20261120/run.log`. The captures ended at their
+deliberate timeouts (exit 137); the windows were hidden and no input was sent.
+
 ### Isolated player draw check (2026-11-20, 22:15 CET)
 
 The local decomp `master` and GitHub `master` both point at `8f7a85a3`
@@ -21,12 +42,14 @@ an oversized wedge and a small fragment. This rules out scene occlusion and
 missing textures as the only cause. The host path is receiving source
 vertices, but its kind-5 topology/transform still differs from the game.
 
-The player mesh submissions are handled by the custom host path and do not
-enter VU1 in this build. The missing player is therefore not explained by the
-environment's state-only XGKICK trace. Continue with a port-only kind-5
-renderer derived from the matched `BuildStripMeshPacket` inputs and retail
-program behavior. Keep the source filter and solid-color path opt-in; do not
-ship the guessed scale or topology as a fix.
+The host overlay captures the player before its own draw, and the retail VIF
+stream also sends the player through VU1. The 17:32 trace maps the first player
+packet to entries `0x401`, `0x34a`, and `0x5f`; its accepted qword-35 kick carries
+GS state, not XYZ2/XYZF2 vertices, and the qword-469 kick is rejected. The
+22:31 follow-up above found a later DIRECT packet but has not tied it to Sly.
+The player-only solid captures test the overlay only. They do not establish
+what the ordinary VU1/GS path displays. Keep the filter and solid-color path
+opt-in; do not ship the guessed scale or topology as a fix.
 
 Evidence: `/tmp/sly-player-only-20261120/run.log`,
 `/tmp/sly-player-solid-fixed-20261120/run.log`,
@@ -774,45 +797,40 @@ in the port once its decomp C is available — not a host-side matrix tweak. The
 vt->f method resolves to func_001660A0/func_001DDE90 but those are likely
 address-reuse coincidences, not the actual writer. No state forced; checks pass.
 
-### VU1 microprogram path ruled out for the player (2026-11-20, 04:00 CET)
+### VU1 microprogram path check (2026-11-20, 04:00 CET; superseded at 22:15)
 
-I traced the retail VU1 program stream (OPENRAC_TRACE_VU1_LOOP / program traces)
-to find the kind-5 character transform. The VU1 submissions use program entries
-0x401, 0x34a, 0x5f, 0x411, 0x318, 0x242, 0x17e, 0x2 — these are the world/UI
-VU programs from the producer path. There is NO submission for the player's
-kind-5 mesh (no mscal at g_unlitBatchProgram 0x1a50 anywhere in the stream).
-The player's 30 meshes are captured on the game thread and rendered through my
-host GL path; they never enter the VU1 interpreter in this build.
+An earlier trace searched for the VU program's data address as if it were the
+MSCAL entry and concluded that the player skipped VU1. That conclusion was
+wrong. The targeted 17:32 VIF trace later correlated player packet
+`0x01878a90` with submission 5 and entries `0x401`, `0x34a`, and `0x5f` (see
+[current player packet VU trace](#current-player-packet-vu-trace-2026-11-20-1732-cet)).
+The host GL overlay also captures the player independently, which is why an
+overlay-only capture cannot establish what the ordinary VU1/GS path shows.
 
-Therefore decoding g_stripMeshMode1Program / g_unlitBatchProgram cannot fix the
-player character — those VU programs are not applied to it in the native port.
-The character's invisibility is in the host GL path: the captured kind-5
-vertices + model matrix produce only a ~2% blob or a flat wedge under every
-primitive/scale combination tried (GL_TRIANGLES, split strips, scales 4/8/16).
-The missing piece is the correct host-side reconstruction of the kind-5 mesh
-from its VertexRefs — which needs the retail mesh format/matrix convention that
-the port's capture does not yet reproduce. This cannot be derived from the
-port's current data alone without guessing. No code changed; checks pass.
+The old primitive/scale experiments still establish only that the guessed
+overlay is not a recognizable model. The actual VU output has intermediate
+position writes, but its accepted qword-35 kick is state data and qword 469 is
+rejected. Continue correlating the player's VU output to its complete final GS
+packet; do not rule out the VU program or treat the overlay result as the
+ordinary renderer's result.
 
-### Kind-5 scale/topology investigation (2026-11-20, 03:00 CET)
+### Kind-5 scale/topology investigation (2026-11-20, 03:00 CET; corrected 22:15)
 
 I tried opt-in player-only scale (OPENRAC_PLAYER_VERTEX_SCALE) and split-strip
 rendering (OPENRAC_PLAYER_SPLIT_STRIPS) to make the kind-5 character visible.
-The raw kind-5 verts are character-scale (local +-20, z 43-116) with strip-restart
-flags (0xff=start). Scaling 4/8/16x and switching between GL_TRIANGLES and
-split-strip modes all produced only flat gray/yellow wedges — no recognizable
-character. The VU1 NDC capture contains only world geometry (one submission
-group spanning the screen), not the player, so it cannot supply the retail
-player transform either.
+Scaling and primitive-mode experiments produced wedges, not a recognizable
+character. The earlier claim that `0xff` marked a strip restart was wrong:
+matched `BuildStripMeshPacket` uses `VertexRefs.flags` bit 7 to choose fog bias,
+and the lower bits select a tint. The repeated-position split remains a host
+heuristic; the flags do not establish strip boundaries.
 
-Conclusion: the kind-5 player mesh data is captured but does not form a
-recognizable character through any host primitive/scale combination tried. The
-retail VU1 strip program (g_stripMeshMode1Program / g_unlitBatchProgram) applies
-a transform/topology the host path does not reproduce, and its exact behavior
-cannot be derived from the port's data alone. Making the character render needs
-that retail microprogram decoded — a bounded but real task requiring the retail
-VU program listing (part of the disc, extractable in principle but not trivial).
-No state was forced. Checks pass.
+The 04:00 trace was later corrected by the 17:32 VIF capture above: the retail
+player packet does enter VU1. The 22:15 isolated capture is from the separate
+GL overlay and repeats the small fragment/oversized-wedge result; it says
+nothing about the retail VU1/GS output. The remaining task is to trace this
+player packet through its downstream GIF/GS work and compare that result with
+the overlay. Do not ship the scale or split heuristic as a fix. See the current
+[isolated player draw check](#isolated-player-draw-check-2026-11-20-2215-cet).
 
 ### Kind-5 player matrix/primitive decode (2026-11-20, 02:00 CET)
 

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 22:15 CET)
+## Current checkpoint (2026-11-20, 22:31 CET)
 
 The decomp checkout is current: local `master` and GitHub `master` are both
 `8f7a85a3` (2026-11-14). There is no newer matched Sly source to pull into the
@@ -12,17 +12,24 @@ submissions project into the view, and the skinning adapter runs, but the
 default triangle-list interpretation produces no visible pixels. With the
 solid-color debug path, repeated-vertex strip splitting shows only a tiny
 fragment; scaling the vertices 8x turns it into a large wedge plus the same
-fragment. So the player is not merely hidden behind the corridor or by a
-missing texture. The host adapter still does not reconstruct the retail
+fragment. In this overlay, scene occlusion and missing textures are not enough
+to explain the result. The host adapter still does not reconstruct the retail
 kind-5 draw.
 
-The actual player submissions are intercepted by the host mesh path; they do
-not enter the native VU1 stream in this build. Keep VU1 traces for the
-environment and GS paths, but don't expect more VU1 tracing to repair the
-player adapter. Next, derive kind-5 geometry ordering and transform behavior
-from the matched strip builder and the retail program semantics, then reproduce
-that in separate port code. Do not make scale or the current strip heuristic a
-default fix.
+The host overlay captures the player before its own draw, but the retail VIF
+stream also sends the player packet through VU1. The 17:32 player trace maps
+packet `0x01878a90` to entry `0x401`, then `0x34a`, then finish entry `0x5f`.
+The accepted qword-35 kick is GS state only, while the qword-469 kick is
+rejected. A wider trace followed the whole DMA batch: after 30 consecutive mesh
+blocks, it found a 36-QWC VIF DIRECT packet immediately before the next
+environment-mesh block. The direct packet writes 12 XYZF2 values using a
+sprite primitive, but its coordinates are near the screen origin and its
+connection to Sly is unproven. It is not yet the missing player draw. The
+player-only solid captures above test the separate GL overlay, not the ordinary
+VU1/GS path. Next, identify the producer and source object for this direct
+packet, then trace the real player geometry through GS. Do not treat either
+state-only kick as the whole player draw or change GIF validation without
+provenance.
 
 The renderer now has two opt-in diagnostics: `OPENRAC_SLY_WORLD_ONLY_SOURCE`
 filters queued meshes by guest source address, and solid-color mode bypasses
@@ -32,10 +39,16 @@ used the configured Documents US ISO and cached ELF, with no input.
 
 Evidence: `/tmp/sly-player-only-20261120/run.log`,
 `/tmp/sly-player-solid-fixed-20261120/run.log`, and
-`/tmp/sly-player-scaled-20261120/run.log`. The final post-HUD image is
+`/tmp/sly-player-scaled-20261120/run.log`. The wider VIF/GS traces are
+`/tmp/sly-player-follow-20261120/run.log`,
+`/tmp/sly-player-batch-20261120/run.log`, and
+`/tmp/sly-player-gs-values-20261120/run.log`. Hidden runs used the configured
+Documents US ISO and cached ELF, sent no input, and ended at their deliberate
+timeouts. The three overlay captures above each ran for 12 seconds. The final
+post-HUD image is
 `/tmp/sly1-native-world-after-hud-07.ppm`; its 8x scale diagnostic is also
-saved as `/tmp/sly-player-scaled-20261120/after-hud-07.png`. All runs ended at
-their deliberate 12-second timeout. No decomp source changed.
+saved as `/tmp/sly-player-scaled-20261120/after-hud-07.png`. No decomp source
+changed.
 
 ## Current checkpoint (2026-11-20, 22:10 CET)
 
