@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 17:18 CET)
+## Current checkpoint (2026-11-20, 17:40 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. A paired capture shows the port-only world
@@ -18,6 +18,39 @@ pixel-identical, so this run did not reproduce the reported flicker; it also
 did not exercise a world frame with an empty GIF queue. The image remains a
 distorted grayscale corridor, with no recognizable player or HUD. Details and
 limits are in the 17:02 CET graphics handoff section.
+
+### Player and environment kick decode (2026-11-20, 17:40 CET)
+
+Two live level mesh packets have now been inspected. For player packet
+`0x01878a90` and environment packet `0x0140d410`, the accepted qword-35 VU1
+XGKICK is a 1760-byte packed A+D state packet with no XYZ2/XYZF2 writes. The
+environment VIF submission also includes a 208-byte DIRECT packet with two
+XYZ2 writes, but its PRIM values (`0x200`, `0x246`) do not fit the GS PRIM
+primitive-type field, and its relationship to the selected mesh draw is
+unconfirmed. The qword-469 kick remains rejected as a GIFtag with reserved
+bits; there is no evidence yet that it is the scene blocker. Keep validation
+unchanged.
+
+**Next:** map the VIF DIRECT command and accepted XGKICK to the matched
+`BuildStripMeshPacket` stream boundaries and identify where complete
+XYZ/RGBA vertices should be emitted. Do not change the renderer based on the
+two state-only kicks. See the [17:40 graphics handoff](SLY_GRAPHICS_HANDOFF.md#player-and-environment-kick-decode-2026-11-20-1740-cet).
+
+### Player first-mesh VU trace (2026-11-20, 17:32 CET)
+
+A fresh direct host32 diagnostic used the Documents US ISO and cached ELF. It
+forced level entry `0x3`, so it bypassed the memory-card flow and does not
+verify default startup. The old target address `0x016d5890` was absent; the
+current player mesh submit identified packet `0x01878a90` (source
+`0x00a2d9a8`, request `0xdaba2ce0`, mesh 0, 104 vertices). VIF submission 5
+maps it to DMA segment 4, QWC 326, stream window `[368,6336)`.
+
+The VU trace follows 90 position qwords through entry `0x401` and then entry
+`0x34a`; see the [focused trace](SLY_GRAPHICS_HANDOFF.md#current-player-packet-vu-trace-2026-11-20-1732-cet).
+Those are intermediate values, not proof of a final GS vertex. Entry `0x5f`
+still attempts the known qword-469 payload kick, then accepts a packet from
+qword 35. Its decoded GS register summary is recorded in the 17:40 section
+above. The visual blocker remains open; keep parser validation unchanged.
 
 ### Material color check (2026-11-20, 17:18 CET)
 
@@ -56,12 +89,10 @@ renderer and the required transform/material behavior as port-only code.
 Keep backfills separate from matched decomp source and replaceable when that
 code is decompiled.
 
-**Next:** use matched `BuildStripMeshPacket` and `BuildLitStripMeshPacket`
-behavior to trace one level draw through VU transforms, fog and lighting to
-the final GS primitive. The experimental port producer already decodes and
-draws the captured mesh sequence, but its scene remains distorted. Do not
-raise the global instruction limit; retain per-entry limits only where
-observed finite streams need them.
+Keep the experimental source-mesh overlay separate from the default
+renderer, do not raise the global instruction limit, and keep functional
+backfills outside matched decomp source. Confirm a complete triangle and its
+material inputs before changing the port renderer.
 
 Evidence: [graphics handoff](SLY_GRAPHICS_HANDOFF.md),
 `/tmp/sly-player-bones-20261120.log`; refreshed foreground trace details are
@@ -71,14 +102,12 @@ launcher config points to
 I fetched `sly1-decomp`'s `origin/master`; it remains at `8f7a85a3` with a clean
 checkout, so no newer matched source is available for this renderer slice.
 
-The latest focused VU/GIF pass confirms the representative VU programs return
-normally and the GIF parser is idle at their kick boundaries. In the selected
-packet area, VU stores update tag/marker fields but do not place transformed
-XYZ there; one kick starts inside an A+D payload and another submits state
-without a triangle draw. Continue by tracing the strip builder's helper
-routines and matching their output to final GS primitive writes. Do not alter
-GIF address interpretation or validation without new evidence. Keep a
-functional missing-producer implementation in a separate port-only backfill.
+The earlier focused VU/GIF pass followed a different packet address and found
+tag/marker writes rather than transformed XYZ in its selected qwords. The
+fresh `0x01878a90` trace records intermediate position transforms, while its
+accepted kick decodes as GS state without vertex writes. Do not alter GIF
+address interpretation or validation without new evidence. Keep a functional
+missing-producer implementation in a separate port-only backfill.
 Logs: `/tmp/sly-gif-trace-20261120/filtered.log` and
 `/tmp/sly-gif-trace-20261120/source-writes.log`.
 

@@ -1,6 +1,73 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player and environment kick decode (2026-11-20, 17:40 CET)
+
+A follow-up foreground trace used the live environment mesh packet
+`0x0140d410` (`source=0x00a2bdb0`, request `0x005e4b00`, 106 vertices),
+which is VIF submission 5, segment 66, QWC 225, in stream window
+`[87840,91440)`. The same VIF submission contains a 208-byte VIF-direct
+packet with two XYZ2 writes, but its PRIM values are `0x200` and `0x246`,
+which do not fit the GS PRIM primitive-type field. The capture has not yet
+established whether this direct packet belongs to the selected mesh draw or
+is setup/state data; do not count it as a confirmed triangle.
+
+The selected environment mesh's accepted VU1 XGKICK starts at qword 35 and
+contains a 1760-byte packed A+D GIF packet (109 loops). It has 110 PRIM writes
+but no XYZ2 or XYZF2 writes. The attempted qword-469 kick is still rejected:
+it begins at qword 468's GIFtag payload and the strict parser reports
+reserved bits. The selected player mesh's accepted qword-35 kick has the same
+result: 1760 bytes and no XYZ2/XYZF2 writes. This is new, bounded evidence
+that these two inspected mesh kicks carry GS state, not their drawable vertex
+stream; it does not prove all level meshes behave this way or that the
+rejected kick is causal.
+
+Next, map each VIF DIRECT command and XGKICK output to the matched
+`BuildStripMeshPacket` stream boundaries, then identify the specific VU entry
+or direct path that emits complete XYZ/RGBA vertices. Keep GIF validation
+unchanged until a valid address interpretation is demonstrated. The log is
+`/tmp/sly-environment-mesh-xgkick-20261120.log`; it used the configured
+Documents US ISO and cached US ELF, with forced level entry `0x3`. The
+8-second run ended at its deliberate timeout (137); no decompilation source
+changed.
+
+### Current player packet VU trace (2026-11-20, 17:32 CET)
+
+A 12-second direct host32 run used the configured Documents US ISO and cached
+US ELF. It booted straight to forced level entry `0x3` and presented the
+experimental source-mesh overlay; it did not test the default memory-card flow
+or capture a reference image. The first attempt reused the earlier DMA address
+`0x016d5890`, which is absent from this run. The current packet address came
+from the live mesh submit trace instead.
+
+The player owner `0x01876610` still has 31 attachment records with finite,
+orthonormal sampled matrices. Its first captured mesh is source `0x00a2d9a8`,
+request `0xdaba2ce0`, mesh 0, packet `0x01878a90`, with 104 source vertices.
+That packet is VIF submission 5, DMA segment 4, QWC 326; the selected stream
+window is `[368,6336)`. With
+`OPENRAC_TRACE_VU1_STORE_QWORD=36-307`, entry `0x401` rewrites 90 position
+qwords from 38 through 305 at stride 3. For example, qword 38 changes from
+`c10f03ab,c1a14abc,42a0d10d,4b0088a7` to
+`4101f25b,412f4fa1,42708274,4b0088a7`. Entry `0x34a` then rewrites 181
+qwords in the same range; qword 38 becomes
+`c0b62427,c0f51d33,00000000,4b00cff0`. This establishes the live input and
+intermediate transform data, but not the final GS vertex or a rendering fix.
+
+In that packet, entry `0x5f` still XGKICKs from qword 469, whose contents are
+the payload after the GIFtag at qword 468; the strict parser rejects it. A
+later kick from qword 35 is accepted. The accepted-kick decode is now recorded
+in the 17:40 section above: it contains GS state but no XYZ2/XYZF2 writes.
+Keep GIF validation unchanged. Next, map the VIF DIRECT and accepted kick to
+the matched strip builder's stream boundaries, then identify a complete
+triangle from that producer through the native renderer.
+
+Evidence: `/tmp/sly-current-accepted-kick-20261120.log` and
+`/tmp/sly-current-dma-trace-20261120.log`. The launch used
+`/home/reaper/.local/share/openthievius/sly1/us/boot.elf` and
+`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`.
+The bounded process ended at its 12-second timeout (exit 137), not a confirmed
+fault. No decompilation source changed.
+
 ### Material color check (2026-11-20, 17:18 CET)
 
 The latest renderer-only comparison does not recover color. A corrected
