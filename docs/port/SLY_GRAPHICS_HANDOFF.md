@@ -1,6 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player bone matrices after the callback ABI fix (2026-11-20, 13:32 CET)
+
+I extended the opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` player trace with basis
+quality metrics, then ran the rebuilt native launcher once with the world-mesh
+overlay disabled. The run reached world `0x88d5b0` and the player draw path. All
+29 weighted attachment matrices sampled were finite and orthonormal: final
+matrix row lengths were 0.999998–1.0, the largest absolute row dot product was
+`1.62e-6`, determinants were 0.999997–1.0, and the largest basis component was
+1.0. This confirms the earlier rank-1 player skeleton corruption is fixed by
+the host callback ABI adapter described below; the old 142-million matrix
+values do not recur.
+
+This does not make the game render. The paired frame capture from the preceding
+run shows the normal game output black before the optional world-mesh overlay;
+that overlay draws stretched geometry and is not a faithful renderer. In this
+run the native VU1 translator still stops at PC `0x516` on `0xffffffff`, and a
+separate kind-5 kick at qword 469 is rejected for reserved GIFtag bits. The
+first issue is the active graphics-stream blocker; the qword-469 rejection is
+not evidence of a valid world-vertex packet being lost. Keep tracing the normal
+kind-0/6 path until a VU submission produces actual XYZ2/XYZF2 writes.
+
+Evidence: `/tmp/sly-player-bones-20261120.log`. The run reached 95 game frames
+and ended at its intentional 30-second timeout (exit 137), with no launcher
+fault. The refreshed host32 build compiled all 194 staged decompilation units
+and 85 port backfills. The decompilation checkout remains at `8f7a85a3`.
+
 ### Player pose callback host ABI (2026-11-20)
 
 The rank-1 player attachment rotation came from a host calling-convention
@@ -73,8 +99,8 @@ The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
 recognizable level or playable frame is confirmed.
 
-Last checked: 2026-11-20, 09:00 CET. The active host32 staging snapshot and
-sibling `sly1-decomp` checkout are both at public master `8f7a85a3`.
+Last checked: 2026-11-20, 13:32 CET. The refreshed host32 build uses the
+sibling `sly1-decomp` checkout at `8f7a85a3` (`master`, matching `origin/master`).
 
 ### Rank-1 hierarchical propagation identified (2026-11-20, 09:00 CET)
 

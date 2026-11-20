@@ -1,21 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-17, 17:16 CET)
+## Current checkpoint (2026-11-20, 13:32 CET)
 
-The default host32 client still displays the no-card prompt and goes black
-after Continue. The optional Release renderer remains distorted and disabled
-in the ordinary build. A corrected strip-to-list conversion rendered the
-selected 85-vertex source exactly like GL triangle-strip mode in a paired
-frame, so primitive selection alone does not explain its clipped appearance.
-Rendering its full unskinned request is still only a clipped slab; an adjacent
-request is a small fragment. No recognizable scene or playable client is
-confirmed. See the [latest graphics checkpoint](PLAYABLE_TODO.md#current-checkpoint-2026-11-17-1716-cet)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md#correct-strip-to-list-comparison-and-whole-part-probe-2026-11-17-1716-cet).
+The native client still reaches the memory-card flow and loaded world, but
+does not show a playable scene. A paired capture separated the two graphics
+paths: the normal game output is black, while the optional world-mesh overlay
+adds stretched geometry and remains disabled by default. The player skeleton's
+previously corrupt attachment matrices are now finite and orthonormal after a
+port-only host callback ABI fix. The remaining blocker is downstream in the
+normal VU1/GIF renderer: a VU program stops at PC `0x516` on an all-ones
+instruction, and the traced kind-0 finish packet contains GS state but no
+XYZ2/XYZF2 vertices. The kind-5 qword-469 rejection is a separate malformed
+packet and is not established as the world-geometry cause.
 
-**Next:** identify one complete visible world object from its draw owner and
-all of its parts, then validate its transforms, material uploads, and screen
-bounds. Keep the diagnostic adapter disabled by default.
+**Next:** trace one normal kind-0/6 draw from its VU program entry through the
+first actual XYZ2/XYZF2 write, then repair only that missing Sly-specific
+operation in the port. Keep the optional OpenGL mesh overlay and all functional
+backfills separate from matched decompilation source. See the
+[graphics handoff](SLY_GRAPHICS_HANDOFF.md) for current evidence.
 ## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated

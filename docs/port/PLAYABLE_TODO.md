@@ -1,7 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-17, 19:55 CET)
+## Current checkpoint (2026-11-20, 13:32 CET)
+
+The native launcher reaches the memory-card flow and loaded world but still
+does not render a playable scene. The ordinary game graphics path produces a
+black frame. The optional world-mesh overlay draws stretched geometry and is
+not the game's renderer. A new player trace confirms all 29 weighted bone
+attachment matrices sampled after the host callback ABI fix are finite and
+orthonormal, so player skeleton corruption is no longer the current blocker.
+
+The active graphics issue is in the normal VU1/GIF path: a translated VU
+program stops at PC `0x516` on `0xffffffff`; the traced kind-0 finish packet
+contains state writes but no XYZ2/XYZF2 vertices. A separate malformed kind-5
+kick at qword 469 is not proven causal.
+
+**Next:** follow one normal kind-0/6 mesh through VU1 until it emits an actual
+XYZ2/XYZF2 write. Identify the missing operation, then implement only that
+Sly-specific port backfill. Keep the experimental overlay off by default and
+keep port-only code separate from matched decompilation source.
+
+Evidence: [graphics handoff](SLY_GRAPHICS_HANDOFF.md),
+`/tmp/sly-player-bones-20261120.log`.
+
+## Earlier checkpoint (2026-11-17, 19:55 CET)
 
 **Next:** every low-level transport hypothesis is now refuted (graphics
 handoff, 21:10 CET section): no VU PRIM writer, no EE world DIRECT packet,
