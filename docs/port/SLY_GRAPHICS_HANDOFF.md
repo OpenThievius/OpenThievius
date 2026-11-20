@@ -12,6 +12,34 @@ commands recorded below used the copy under `~/pcsx2/Games/`; both US ISO
 copies were checked and are byte-identical. Future direct diagnostics should
 use the Documents path so their input matches the client configuration.
 
+### VU entry-`0x2` geometry capture (2026-11-20)
+
+I extended the opt-in entry-`0x2` trace to show VI3, VI4, and VI7 before and
+after each instruction. This exposed that the short loop at PC `0x540` compares
+VI12 to VI7 and exits normally; the call's larger workload is a series of
+finite batches. A 65,536-cycle diagnostic run with frame and GIF-write capture
+produced VU1 XGKICK packets containing XYZ2/XYZF2 writes. This corrects the
+earlier conclusion that the active VU path had not emitted vertices.
+
+The resulting native frame is still wrong. The pre-HUD world overlay capture
+is black, while the standard packet-renderer capture is gray with very large,
+stretched polygons. That means the VU reaches vertex writes, but this does not
+yet prove their values are correct or that packet assembly, coordinate
+transforms, and GS rasterization agree with the game. Keep the higher limit as
+a diagnostic override; this run does not justify raising the default or
+claiming visible-gameplay progress.
+
+Build: `cmake --build build/port/wave55-sdl32-release --target
+port_native_sdl_host32 --parallel 4` succeeded (194 decomp units, 85 port-only
+backfills). The bounded 15-second native run used the Documents US ISO and
+configured cached ELF, set `OPENRAC_VU1_CYCLE_LIMIT=65536`, and captured frames
+and accepted GIF writes. It was ended by the intentional timeout (exit 137);
+no emulator or input was used. The capture includes eight standard frames,
+eight pre-HUD world frames, and repeated accepted VU1 kicks with XYZ2/XYZF2
+writes. See `/tmp/sly-vu-65536-capture-20261120/run.log` and
+`/tmp/sly-vu-65536-capture-20261120/frame-07.png` (standard renderer) and
+`/tmp/sly-vu-65536-capture-20261120/world-07.png` (pre-HUD world overlay).
+
 ### Refreshed player attachment trace (2026-11-20, 14:15 CET)
 
 I reran the existing opt-in `OPENRAC_TRACE_SLY_ATTACHMENTS=1` trace in the
@@ -117,15 +145,20 @@ show that raising it only reaches more loops and can conceal additional
 control-flow or initial-state problems. This trace makes no guest-state
 changes and does not fix the missing graphics.
 
-A second bounded trace of the same VIF submission (`OPENRAC_TRACE_VU1_LIMIT=1`)
-records its branch operands and VI state. At PC `0x523`, `IBEQ VI10,VI11` can
-take the branch to `0x538`; at `0x538`, `IBNE VI0,VI11` reaches `0x53e` when
-VI11 is nonzero. PC `0x53e` then adds 3 to VI12, and `0x540` branches back to
-`0x515` while VI12 is nonzero. The captured VI12 values advance `13, 16, 19, ...`.
-If that path persists to wraparound, it needs 21,841 increments (about 0.96M
-VU instruction pairs at the observed 44-cycle cadence), far beyond the default
-budget. This is a long live loop, not evidence of malformed microcode. Its
-eventual termination and graphics output remain unverified.
+A fresh bounded trace now includes VI7, which the earlier trace omitted. The
+branch at PC `0x540` is `IBNE VI7,VI12`, not a test for VI12 becoming zero. In
+submission 6, VI7 is 22 and VI12 advances from 13 to 16, 19, then 22; when
+they match, the branch falls through to the helper return at PC `0x543`. The
+inner loop is finite and processes three entries. The previous estimate of
+21,841 increments to wraparound was based on the missing VI7 value and is
+retracted.
+
+The whole entry-`0x2` call still reaches the configured 8,192-cycle limit in
+this trace, while VI5/VI8 and the helper path advance through additional work.
+This shows the call is doing multiple finite batches; it does not establish
+that 8,192 cycles are enough for the full workload or that a larger limit will
+emit a usable vertex packet. Keep the safety limit unchanged until we capture
+the full call's completion and its resulting GIF writes.
 
 I tried the existing `OPENRAC_VU1_CYCLE_LIMIT=200000` setting, bounded first to
 15 seconds and then to 60 seconds. Neither run produced an observable
@@ -136,10 +169,12 @@ unsupported instruction; it no longer labels the `0xffffffff` sentinel as a
 bad game opcode.
 
 Build: `cmake --build build/port/wave55-sdl32-release --target
-port_native_sdl_host32 -j2` succeeded (194 decomp units, 85 port-only
-backfills). A 10-second default-limit native launch reproduced the budget stop
-and verified the corrected messages; it ended at its intentional timeout
-(exit 137). No emulator or input was used. Captures:
+port_native_sdl_host32 --parallel 4` succeeded (194 decomp units, 85 port-only
+backfills). A 12-second native launch used the Documents US ISO and cached ELF,
+with `OPENRAC_VU1_CYCLE_LIMIT=8192`; it reproduced the finite inner-loop
+values, reached the 8,192-cycle limit, and was ended by the intentional timeout
+(exit 137). No emulator or input was used. Capture:
+`/tmp/sly-vu-vi7-documents-20261120.log`. Earlier default-limit captures:
 `/tmp/sly-vu-entry2-loop-20261120.log`,
 `/tmp/sly-vu-program2-20261120.log`,
 `/tmp/sly-vu-entry2-extended-budget-60s-20261120.log`, and

@@ -2207,14 +2207,17 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         if (trace_entry2_loop &&
             entry2_trace_count.fetch_add(1, std::memory_order_relaxed) < 256u) {
             openrac::log::info(
-                "native VU1 entry-2 loop submission={} vif_offset={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} decoded_next={:#x} next_pc={:#x} branch_target={:#x} branch_delay={} VI1={}->{} VI2={}->{} VI5={}->{} VI6={}->{} VI8={}->{} VI9={}->{} VI10={}->{} VI11={}->{} VI12={}->{} VI13={}->{} VI14={}->{} VI15={}->{}",
+                "native VU1 entry-2 loop submission={} vif_offset={:#x} cycle={} pc={:#x} lower={:#010x} upper={:#010x} decoded_next={:#x} next_pc={:#x} branch_target={:#x} branch_delay={} VI1={}->{} VI2={}->{} VI3={}->{} VI4={}->{} VI5={}->{} VI6={}->{} VI7={}->{} VI8={}->{} VI9={}->{} VI10={}->{} VI11={}->{} VI12={}->{} VI13={}->{} VI14={}->{} VI15={}->{}",
                 g_vu_trace_submission_id, g_vu_trace_vif_command_offset, cycle,
                 current_pc, lower, upper, next_pc, pc, branch_target,
                 branch_delay ? 1u : 0u,
                 vi_read(before, 1u), vi_read(g_state, 1u),
                 vi_read(before, 2u), vi_read(g_state, 2u),
+                vi_read(before, 3u), vi_read(g_state, 3u),
+                vi_read(before, 4u), vi_read(g_state, 4u),
                 vi_read(before, 5u), vi_read(g_state, 5u),
                 vi_read(before, 6u), vi_read(g_state, 6u),
+                vi_read(before, 7u), vi_read(g_state, 7u),
                 vi_read(before, 8u), vi_read(g_state, 8u),
                 vi_read(before, 9u), vi_read(g_state, 9u),
                 vi_read(before, 10u), vi_read(g_state, 10u),
