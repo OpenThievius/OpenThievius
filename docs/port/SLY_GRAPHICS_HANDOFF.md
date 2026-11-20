@@ -1,16 +1,57 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Matched strip-packet boundary (2026-11-20, 17:50 CET)
+
+A targeted VIF command/MSCAL trace of environment mesh packet `0x0140d410`
+confirms this stream segment is the preparation packet emitted by matched
+`BuildStripMeshPacket`, not the final vertex-batch draw. In submission 5,
+DMA segment 66 spans `[87840,91440)` (QWC 225). Its commands are:
+
+| Stream offset | VIF operation | VU destination / result |
+| ---: | --- | --- |
+| 87840 | V4-32 UNPACK, 3 vectors | Header at qword 11 |
+| 87872 | V2-32 UNPACK, 106 vectors, cycle stride 3 | UVs at qword 36 |
+| 89148 | V4-32 UNPACK, 106 vectors, cycle stride 3 | Positions at qword 38 |
+| 90852 | MSCAL `0x318` | `g_flushBatchProgram` |
+| 90856 | MSCAL `0x34a` | `g_unlitBatchProgram` |
+| 90864 | V4-8 UNPACK, 106 vectors, cycle stride 3 | Colors at qword 37 |
+| 91296 | V4-32 UNPACK, 8 vectors | Strip records at qword 354 |
+| 91428 | MSCALF `0x5f` | `g_unlitBatchFinishProgram` |
+
+This order and the header offsets match the decomp implementation. There is
+no VIF DIRECT inside the selected segment. A 208-byte VIF DIRECT packet with
+two XYZ2 writes appears elsewhere in the same DMA submission, outside this
+mesh's `[87840,91440)` range. Its PRIM values `0x200` and `0x246` are valid GS
+PRIM bitfields, but those two writes do not establish a complete triangle or
+identify a relation to this mesh.
+
+The matched inline `BuildStripMeshPacket` path writes the vertex arrays and
+strip records, then invokes `g_unlitBatchProgram` (`0x34a`) and its finish
+program (`0x5f`). A trace of the separate `BuildUnlitVertexPacket` function
+produced no entries during this capture; that function serves a different
+vertex-batch route and is not required for this mesh. The existing VU trace
+already records entry `0x34a` writing transformed positions into VU memory.
+Next, map those writes and the finish kick to the GIF packet seen by the
+renderer. Do not change the renderer or GIF address validation based on the
+unrelated DIRECT packet.
+
+Evidence: `/tmp/sly-vif-command-map-mscal-20261120.log`,
+`/tmp/sly-vu-source-trace-20261120.log`, and
+`/tmp/sly-unlit-batch-trace-20261120.log`, using the configured Documents US
+ISO and cached US ELF. The bounded runs ended at their deliberate timeouts
+with no gameplay input. The separate batch trace had no entries, confirming
+it did not run in this capture. No decompilation source changed.
+
 ### Player and environment kick decode (2026-11-20, 17:40 CET)
 
 A follow-up foreground trace used the live environment mesh packet
 `0x0140d410` (`source=0x00a2bdb0`, request `0x005e4b00`, 106 vertices),
 which is VIF submission 5, segment 66, QWC 225, in stream window
-`[87840,91440)`. The same VIF submission contains a 208-byte VIF-direct
-packet with two XYZ2 writes, but its PRIM values are `0x200` and `0x246`,
-which do not fit the GS PRIM primitive-type field. The capture has not yet
-established whether this direct packet belongs to the selected mesh draw or
-is setup/state data; do not count it as a confirmed triangle.
+`[87840,91440)`. The same overall VIF DMA submission also contains a 208-byte
+VIF-direct packet with two XYZ2 writes, but it is outside this mesh segment's
+stream window. Its PRIM values are valid GS PRIM bitfields; the trace does not
+establish that the packet belongs to this mesh or forms a complete triangle.
 
 The selected environment mesh's accepted VU1 XGKICK starts at qword 35 and
 contains a 1760-byte packed A+D GIF packet (109 loops). It has 110 PRIM writes
@@ -22,10 +63,9 @@ that these two inspected mesh kicks carry GS state, not their drawable vertex
 stream; it does not prove all level meshes behave this way or that the
 rejected kick is causal.
 
-Next, map each VIF DIRECT command and XGKICK output to the matched
-`BuildStripMeshPacket` stream boundaries, then identify the specific VU entry
-or direct path that emits complete XYZ/RGBA vertices. Keep GIF validation
-unchanged until a valid address interpretation is demonstrated. The log is
+Next, identify the separate `BuildUnlitVertexPacket` batch emitted for queued
+strips and trace its finish output. Keep GIF validation unchanged until a
+valid address interpretation is demonstrated. The log is
 `/tmp/sly-environment-mesh-xgkick-20261120.log`; it used the configured
 Documents US ISO and cached US ELF, with forced level entry `0x3`. The
 8-second run ended at its deliberate timeout (137); no decompilation source

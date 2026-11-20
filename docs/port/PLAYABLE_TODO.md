@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 17:40 CET)
+## Current checkpoint (2026-11-20, 17:50 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. A paired capture shows the port-only world
@@ -25,16 +25,34 @@ Two live level mesh packets have now been inspected. For player packet
 `0x01878a90` and environment packet `0x0140d410`, the accepted qword-35 VU1
 XGKICK is a 1760-byte packed A+D state packet with no XYZ2/XYZF2 writes. The
 environment VIF submission also includes a 208-byte DIRECT packet with two
-XYZ2 writes, but its PRIM values (`0x200`, `0x246`) do not fit the GS PRIM
-primitive-type field, and its relationship to the selected mesh draw is
-unconfirmed. The qword-469 kick remains rejected as a GIFtag with reserved
-bits; there is no evidence yet that it is the scene blocker. Keep validation
-unchanged.
+XYZ2 writes outside this mesh segment. Its PRIM values are valid GS bitfields;
+the trace does not associate it with this mesh or prove a complete triangle.
+The qword-469 kick remains rejected as a GIFtag with reserved bits; there is
+no evidence yet that it is the scene blocker. Keep validation unchanged.
 
-**Next:** map the VIF DIRECT command and accepted XGKICK to the matched
-`BuildStripMeshPacket` stream boundaries and identify where complete
-XYZ/RGBA vertices should be emitted. Do not change the renderer based on the
-two state-only kicks. See the [17:40 graphics handoff](SLY_GRAPHICS_HANDOFF.md#player-and-environment-kick-decode-2026-11-20-1740-cet).
+**Next:** map the inline `g_unlitBatchProgram` vertex output to the final
+GIF packet and establish why the inspected finish kick carries state rather
+than triangle data. Do not change the renderer based on the two state-only
+kicks. See the
+[17:50 strip-packet handoff](SLY_GRAPHICS_HANDOFF.md#matched-strip-packet-boundary-2026-11-20-1750-cet).
+
+### Matched strip-packet boundary (2026-11-20, 17:50 CET)
+
+VIF command tracing of environment packet `0x0140d410` confirms its DMA
+segment follows `BuildStripMeshPacket`: header, 106 UVs, 106 positions,
+`g_flushBatchProgram` (`0x318`), `g_unlitBatchProgram` (`0x34a`), 106 colors,
+eight strip records at qword 354, and finish entry `0x5f`. No VIF DIRECT is
+inside the selected segment. The separate 208-byte VIF DIRECT with two XYZ2
+writes is outside the segment and should not be attributed to this mesh.
+
+This is the inline strip path: `BuildStripMeshPacket` writes the mesh
+positions, colors, UVs, and strip records, then runs `g_unlitBatchProgram`
+and its finish program. A port-only probe of the separate
+`BuildUnlitVertexPacket` path produced no events during this capture; that
+builder serves another batch route and is not the next target. The existing
+VU trace already shows entry `0x34a` writing transformed position data. Next,
+map those writes and the finish kick to the packet the renderer receives.
+See the detailed [17:50 handoff](SLY_GRAPHICS_HANDOFF.md#matched-strip-packet-boundary-2026-11-20-1750-cet).
 
 ### Player first-mesh VU trace (2026-11-20, 17:32 CET)
 
