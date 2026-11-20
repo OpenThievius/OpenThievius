@@ -1317,7 +1317,7 @@ extern "C" int openrac_native_window_poll_quit(void) {
 }
 
 // Menu state accessor from the host32 main translation unit (opt-in menu driver).
-extern "C" unsigned int sly1_native_menu_page_and_state(void);
+extern "C" unsigned int sly1_native_menu_page_and_state(void) __attribute__((weak));
 
 extern "C" int openrac_native_window_poll_input(void) {
     if (!g_input) return 1;
@@ -1414,7 +1414,8 @@ extern "C" int openrac_native_window_poll_input(void) {
     // much slower than the present loop). Cycle a short Up/Cross sequence on the
     // save-file prompt (page 7) to confirm it, then start on a page that looks
     // like gameplay. Gated by OPENRAC_TEST_DRIVE_MENU.
-    if (std::getenv("OPENRAC_TEST_DRIVE_MENU") != nullptr) {
+    if (std::getenv("OPENRAC_TEST_DRIVE_MENU") != nullptr &&
+        sly1_native_menu_page_and_state != nullptr) {
         static unsigned int last_driven_page = 0xFFFFFFFFu;
         static unsigned int drive_step = 0;
         const unsigned int packed = sly1_native_menu_page_and_state();
@@ -1820,9 +1821,11 @@ extern "C" void openrac_native_window_present(void) {
         static bool gameplay_seen = false;
         bool gameplay_only_ok = true;
         if (std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr) {
-            const unsigned int packed = sly1_native_menu_page_and_state();
-            if (((packed >> 8u) & 0xFFu) == 3u) gameplay_seen = true;
-            gameplay_only_ok = gameplay_seen;
+            if (sly1_native_menu_page_and_state != nullptr) {
+                const unsigned int packed = sly1_native_menu_page_and_state();
+                if (((packed >> 8u) & 0xFFu) == 3u) gameplay_seen = true;
+                gameplay_only_ok = gameplay_seen;
+            }
         }
         const unsigned dump_cap = std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr
             ? 64u : 8u;
