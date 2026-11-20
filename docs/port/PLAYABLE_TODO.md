@@ -3,27 +3,36 @@
 
 ## Current checkpoint (2026-11-21)
 
-Normal native launch now follows the retail Splash and memory-card flow; it no
-longer queues a direct level load by default. A 12-second no-input capture on
-the configured US ISO reached the stable save-file prompt. Explicit level
-probes remain available with `OPENRAC_DEFAULT_LEVEL=0x0100` (or the legacy
-`OPENRAC_BOOT_LEVEL`); that path still loads a 384-mesh world, but its regular
-GS output remains black and the optional source-mesh overlay is distorted.
+The supplied PCSX2 video is the PAL Sly Raccoon release; the native build uses
+the US disc, so compare scene order and composition rather than branding. The
+reference shows the publisher and Sucker Punch cards, Paris rooftops, Sly's
+rooftop run, then the title screen. It is an intro/title reference, not a
+playable-level reference.
 
-This is closer to the supplied PCSX2 startup reference, which continues from
-the startup cards into the Paris rooftop intro and title screen. The native
-capture has not reached the intro or title yet, and no playable level is
-confirmed. The sibling decomp is current at `8f7a85a3` (2026-11-14); upstream
-master has no newer commit. Next, trace the retail memory-card choice into the
-title/movie transition, then resume the Sly-specific world renderer from
-verified draw data. Do not make the experimental overlay the default.
+An unforced hidden native run still reaches the readable US save-file prompt.
+With the opt-in state-driven test menu driver, the game leaves that prompt and
+loads a world (`0x870cf0`). The frame counter continues from 120 to 155, but the
+state stays at `ui_state=8`, `fade=1`, `movie=0`; a later native framebuffer
+capture is black. This corrects the earlier assumption that the game thread is
+stuck at a semaphore: the semaphore waits are part of its normal frame cadence,
+and it continues through `RunMainLoop` stages. The present graphics path still
+does not show the loaded scene. The video checkpoints remain unreached, and no
+playable level is confirmed.
 
-Evidence: `/tmp/sly-retail-startup-default-20261120/run.log` and
-`/tmp/sly-retail-startup-default-20261120/sly1-native-frame-04.ppm` (stable
-save prompt); `/tmp/sly-explicit-level-boot-20261120/run.log` (384 queued world
-meshes). Both hidden launches used the Documents US ISO and cached US ELF, sent
-no input, and ended at their deliberate 12-second timeout. The host32 build
-compiled 194 decomp units and 85 port backfills.
+Next, separate the startup route from the test driver's route: capture and
+trace the no-input path beyond the save prompt, then identify why the native
+framebuffer is black after the test-driven world transition. Keep the optional
+source-mesh overlay opt-in; it is distorted and is not a renderer fix. The
+sibling decomp is current at `8f7a85a3` (2026-11-14); upstream master had no
+newer commit when checked.
+
+Evidence: `/tmp/sly-reference-followup-20261121/overlay-off/run.log` and
+`frame-04.png` (readable save prompt); `/tmp/sly-reference-followup-20261121/semaphore-traced/run.log`
+(state-driven transition and semaphore trace); and
+`/tmp/sly-reference-followup-20261121/post-transition/run.log` plus
+`sly1-native-frame-00.png` (later black framebuffer). Hidden runs used the
+Documents US ISO and cached US ELF. The input run used only the opt-in test
+driver and ended at its deliberate timeout.
 
 ## Current checkpoint (2026-11-20, 23:24 CET)
 
