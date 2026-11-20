@@ -1218,7 +1218,11 @@ extern "C" void openrac_native_sly_world_mesh_submit(
                 min_z = std::min(min_z, nz); max_z = std::max(max_z, nz);
             }
             std::fprintf(stderr,
-                         "[native sly projected bounds] instance=%#llx vertices=%u projected=%u inside=%u local=%g,%g,%g..%g,%g,%g ndc=%g,%g..%g,%g z=%g..%g\n",
+                         "[native sly projected bounds] source=%#010x kind=%u instance=%#llx vertices=%u projected=%u inside=%u local=%g,%g,%g..%g,%g,%g ndc=%g,%g..%g,%g z=%g..%g\n",
+                         draw.source_mesh,
+                         draw.source_mesh >= 0x00010000u && draw.source_mesh < 0x02000000u
+                             ? *reinterpret_cast<const volatile std::uint8_t*>(draw.source_mesh)
+                             : 0xFFu,
                          static_cast<unsigned long long>(instance), vertex_count,
                          projected, inside, min_local[0], min_local[1], min_local[2],
                          max_local[0], max_local[1], max_local[2],
@@ -1654,6 +1658,9 @@ extern "C" void openrac_native_window_present(void) {
         while (begin < count) {
             std::size_t end = begin + 1u;
             while (end < count &&
+                   meta[end * 4u + 0u] == meta[(end - 1u) * 4u + 0u] &&
+                   meta[end * 4u + 1u] == meta[(end - 1u) * 4u + 1u] &&
+                   meta[end * 4u + 2u] == meta[(end - 1u) * 4u + 2u] &&
                    meta[end * 4u + 3u] > meta[(end - 1u) * 4u + 3u] &&
                    meta[end * 4u + 3u] - meta[(end - 1u) * 4u + 3u] <= 6u)
                 ++end;

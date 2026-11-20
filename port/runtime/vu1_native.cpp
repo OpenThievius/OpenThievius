@@ -1949,12 +1949,15 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     static std::atomic<uint32_t> stream_iteration_notice{0};
     bool trace_world_iteration = false;
     bool trace_stream_iteration = false;
-    // The retail world setup routine at 0x26d copies enough geometry to exceed
-    // the generic budget. Keep this exception local to that program entry; a
-    // larger global limit would let unrelated runaway VU programs monopolize
-    // the host. The 16K limit completes the observed copy stream while keeping
-    // the existing stop diagnostics for programs that still fail to finish.
-    uint32_t instruction_limit = entry == 0x26Du ? 16'384u : kMaxInstructions;
+    // The retail vertex batch at 0x2 and world setup at 0x26d exceed the
+    // generic budget on live level streams. Keep these limits local to their
+    // program entries; a larger global limit would let unrelated runaway VU
+    // programs monopolize the host. The observed batch completes within 64K
+    // cycles, and the setup copy completes within 16K; both retain finite
+    // stop diagnostics if a future stream exceeds those bounds.
+    uint32_t instruction_limit = kMaxInstructions;
+    if (entry == 0x2u) instruction_limit = 65'536u;
+    else if (entry == 0x26Du) instruction_limit = 16'384u;
     if (const char* setting = std::getenv("OPENRAC_VU1_CYCLE_LIMIT")) {
         char* end = nullptr;
         const unsigned long parsed = std::strtoul(setting, &end, 10);

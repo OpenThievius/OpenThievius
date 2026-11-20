@@ -21,24 +21,59 @@ finite batches. A 65,536-cycle diagnostic run with frame and GIF-write capture
 produced VU1 XGKICK packets containing XYZ2/XYZF2 writes. This corrects the
 earlier conclusion that the active VU path had not emitted vertices.
 
-The resulting native frame is still wrong. The pre-HUD world overlay capture
-is black, while the standard packet-renderer capture is gray with very large,
-stretched polygons. That means the VU reaches vertex writes, but this does not
-yet prove their values are correct or that packet assembly, coordinate
-transforms, and GS rasterization agree with the game. Keep the higher limit as
-a diagnostic override; this run does not justify raising the default or
-claiming visible-gameplay progress.
+The paired frame from that run needs a correction: this build had the
+experimental native world renderer enabled. Its pre-HUD capture is black
+because the overlay runs after the HUD pass; the gray stretched polygons in
+the presented frame come from the experimental world-mesh overlay, not the
+standard packet renderer. A separate run with that overlay suppressed captured
+eight black frames from the standard renderer. Therefore the retail VU emits
+vertex writes, but the normal renderer still does not produce the level image.
+
+The world-stream comparison shows why entry `0x2` needs its own finite limit:
+with a global 4,096 cap it stops at PC `0x516` during the level stream; with
+the global override unset and an entry-local 65,536 cap it completes without
+that stop. Keep the generic cap at 4,096, with 65,536 only for entry `0x2` and
+16,384 for world setup entry `0x26d`. A one-shot Cross at native frame 250
+reached the world path and queued hundreds of model meshes. The level overlay
+shows a perspective corridor and road planes, but remains grayscale, contains
+large clipped shapes, and has no recognizable player. The one-shot input is
+implemented inside the game process and did not send a desktop key event.
+
+The follow-up bounds trace identifies kind-6 meshes as the main extreme
+projected outliers. A direct decomp read of `BuildStripMeshPacket` and
+`BuildLitStripMeshPacket` confirms `VertexRefs.flags & 0x80` selects fog bias;
+it is not a strip-restart marker. Enabling the old split-at-high-bit option did
+not improve the frame. The adapter still needs retail vertex ordering,
+transforms, texture/material handling, and clip-space behavior. The standard
+renderer remains black when the overlay is disabled.
+
+The opt-in VU-NDC diagnostic renderer now starts a new strip group when the
+captured submission, MSCAL offset, or VU entry changes, as well as when the
+qword sequence breaks. Its identity-MVP capture with screen-coordinate
+conversion draws retail VU silhouettes, but still lacks reliable primitive
+boundaries, material assignment, and lighting. This remains a diagnostic, not
+the game's renderer.
 
 Build: `cmake --build build/port/wave55-sdl32-release --target
 port_native_sdl_host32 --parallel 4` succeeded (194 decomp units, 85 port-only
-backfills). The bounded 15-second native run used the Documents US ISO and
-configured cached ELF, set `OPENRAC_VU1_CYCLE_LIMIT=65536`, and captured frames
-and accepted GIF writes. It was ended by the intentional timeout (exit 137);
-no emulator or input was used. The capture includes eight standard frames,
-eight pre-HUD world frames, and repeated accepted VU1 kicks with XYZ2/XYZF2
-writes. See `/tmp/sly-vu-65536-capture-20261120/run.log` and
-`/tmp/sly-vu-65536-capture-20261120/frame-07.png` (standard renderer) and
-`/tmp/sly-vu-65536-capture-20261120/world-07.png` (pre-HUD world overlay).
+backfills). The bounded 15-second diagnostic used the Documents US ISO and
+configured cached ELF, set `OPENRAC_VU1_CYCLE_LIMIT=65536`, and captured
+accepted GIF writes with XYZ2/XYZF2. It ended at its intentional timeout (exit
+137); no emulator or input was used. See
+`/tmp/sly-vu-65536-capture-20261120/run.log`, the presented overlay frame
+`/tmp/sly-vu-65536-capture-20261120/frame-07.png`, and the pre-HUD capture
+`/tmp/sly-vu-65536-capture-20261120/world-07.png`.
+
+The normal-cap comparison set `OPENRAC_VU1_CYCLE_LIMIT=4096` and used the same
+one-shot Cross input. It stopped entry `0x2` at PC `0x516`; the normal
+entry-local 65,536-cycle allowance avoids that stop on the same level path.
+The global override is diagnostic only and overrides both entry-local limits.
+After rebuilding with the entry-local limit, a 14-second run with the same
+isolated Cross injection queued hundreds of world meshes and had no VU budget
+stop. Its captured corridor is still grayscale and distorted, so this is
+visible geometry progress, not a playable state. Log and contact sheet:
+`/tmp/sly-entry2-65k-final-20261120/run.log` and
+`/tmp/sly-entry2-65k-final-20261120/contact.png`.
 
 ### Refreshed player attachment trace (2026-11-20, 14:15 CET)
 
