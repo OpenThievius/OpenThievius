@@ -1,16 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Reference clip timeline and strip-source boundary (2026-11-20)
+### Reference clip timeline and strip-source boundary (2026-11-21)
 
-I sampled the full 62.8-second PCSX2 reference every five seconds. It shows
-the Sony/Europe publisher card, a Sucker Punch production card, the Paris
-rooftop intro (including Sly moving across the rooftops), and then the title
-screen with logo, menu prompts, moonlit buildings, and lit windows. The
-rooftop movement belongs to the intro cinematic; this clip does not show
-player-controlled gameplay. The visual target order is therefore boot cards,
-intro, and title screen; a later gameplay clip would still be needed for a
-level comparison.
+I rechecked the full 62.8-second PCSX2 reference at three-second intervals.
+Approximate checkpoints are: the Sony Computer Entertainment Europe card at
+9 seconds; the moonlit Sucker Punch production card at 15–18 seconds; Paris
+rooftop establishing shots around 21–24 seconds; Sly moving across the roofs
+from about 27 seconds; and the animated title/menu from about 48 seconds.
+The first sampled frame is the emulator's desktop/game-list view, and several
+early frames are black while the game starts; those are not the native
+rendering target. Rooftop movement belongs to the intro cinematic, not
+player-controlled gameplay. This clip provides visual checkpoints for boot,
+intro, and title only; a gameplay capture is still needed for a level
+comparison.
 
 The decomp source also clarifies a renderer assumption: `StripMesh::strips`
 contains `FrameSource` records. `BuildStripMeshPacket` and
