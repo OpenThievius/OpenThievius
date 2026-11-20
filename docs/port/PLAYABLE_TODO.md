@@ -3,36 +3,39 @@
 
 ## Current checkpoint (2026-11-21)
 
-The supplied PCSX2 video is the PAL Sly Raccoon release; the native build uses
-the US disc, so compare scene order and composition rather than branding. The
-reference shows the publisher and Sucker Punch cards, Paris rooftops, Sly's
-rooftop run, then the title screen. It is an intro/title reference, not a
-playable-level reference.
+The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
+build uses the US disc, so compare scene order and composition rather than
+branding. The video shows the Sony card at about 6 seconds, the Sucker Punch
+card at 12 seconds, Sly moving across Paris rooftops from about 18 to 42
+seconds, then the Sly Raccoon title/menu from about 48 seconds. It is an
+intro/title reference, not a playable-level reference.
 
 An unforced hidden native run still reaches the readable US save-file prompt.
-With the opt-in state-driven test menu driver, the game leaves that prompt and
-loads a world (`0x870cf0`). The frame counter continues from 120 to 155, but the
-state stays at `ui_state=8`, `fade=1`, `movie=0`; a later native framebuffer
-capture is black. This corrects the earlier assumption that the game thread is
-stuck at a semaphore: the semaphore waits are part of its normal frame cadence,
-and it continues through `RunMainLoop` stages. The present graphics path still
-does not show the loaded scene. The video checkpoints remain unreached, and no
-playable level is confirmed.
+In the latest hidden run, the opt-in test driver pressed Cross on that prompt;
+the state changed from page 7 to `ui_state=3`, with a loaded world at
+`0x870cf0`. The game frame count advanced to 266, but the framebuffer captures
+remain black and `movie=0`; none of the video checkpoints is visible. The GIF
+packet queue also reached its 16 MiB limit and rejected new packets. This
+gives two concrete graphics leads: confirm that the normal post-prompt path
+requests the intro movie, and find why the native present path is not draining
+the submitted GIF work. The thread's semaphore waits were ordinary frame
+cadence, not the startup blocker. No playable level is confirmed.
 
-Next, separate the startup route from the test driver's route: capture and
-trace the no-input path beyond the save prompt, then identify why the native
-framebuffer is black after the test-driven world transition. Keep the optional
-source-mesh overlay opt-in; it is distorted and is not a renderer fix. The
-sibling decomp is current at `8f7a85a3` (2026-11-14); upstream master had no
-newer commit when checked.
+The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
+repeated environment lookups and per-instruction NaN checks. Those checks are
+now cached or skipped unless their trace is enabled. This is port runtime code;
+no matched decompilation source changed. Keep the optional source-mesh overlay
+opt-in; it is distorted and is not a renderer fix. The sibling decomp is
+current at `8f7a85a3` (2026-11-14); upstream master had no newer commit when
+checked.
 
-Evidence: `/tmp/sly-reference-followup-20261121/overlay-off/run.log` and
-`frame-04.png` (readable save prompt); `/tmp/sly-reference-followup-20261121/semaphore-traced/run.log`
-(state-driven transition and semaphore trace); and
-`/tmp/sly-reference-followup-20261121/post-transition/run.log` plus
-`sly1-native-frame-00.png` (later black framebuffer). Hidden runs used the
-Documents US ISO and cached US ELF. The input run used only the opt-in test
-driver and ended at its deliberate timeout.
+Evidence: `/tmp/sly-vu1-cache-final-20261121/run.log` and
+`/tmp/sly1-native-frame-00.ppm` through `frame-07.ppm` (test-driven prompt
+transition and black framebuffer); `/tmp/sly-vu1-cache-eval-20261121/run.log`
+(longer run); and `/tmp/sly-reference-20261106-contact.png` (sampled video
+frames). Hidden runs used the configured US ISO from the user's Documents
+PS2Games/Sly1 folder and cached US ELF. The test driver is opt-in and did not
+use the desktop window.
 
 ## Current checkpoint (2026-11-20, 23:24 CET)
 
