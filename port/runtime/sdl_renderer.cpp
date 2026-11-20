@@ -1846,18 +1846,21 @@ extern "C" void openrac_native_window_present(void) {
             }
         }
     }
-    if (!packets.empty() && g_direct && g_textures) {
-        openrac::renderer::FrameInput input;
-        input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] = packets;
+    if (g_textures) {
         openrac::renderer::RenderState state{*g_textures, {0, width, height}};
-        g_direct->render(input, state);
-        if (std::getenv("OPENRAC_SLY_GL_AFTER_HUD_OFF") == nullptr && !world_meshes.empty()) {
+        if (!packets.empty() && g_direct) {
+            openrac::renderer::FrameInput input;
+            input.packets[static_cast<std::size_t>(openrac::renderer::Bucket::Hud)] = packets;
+            g_direct->render(input, state);
+        }
+        if (std::getenv("OPENRAC_SLY_GL_AFTER_HUD_OFF") == nullptr &&
+            !world_meshes.empty()) {
             // The backdrop wrote depth for its full-screen quads; clear depth so
             // the textured world meshes drawn on top are not all rejected.
             openrac::gl::glClear(openrac::gl::GL_DEPTH_BUFFER_BIT);
             render_world_meshes(world_meshes);
         }
-        if (!world_packet.empty()) {
+        if (!world_packet.empty() && g_direct) {
             // The HUD pass leaves full-screen quads in the interpreter's vertex list;
             // without clearing, the world draw starts at vertex 0 and bridges them.
             g_direct->interpreter().clear();

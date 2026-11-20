@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 16:48 CET)
+## Current checkpoint (2026-11-20, 17:02 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. A paired capture shows the port-only world
@@ -10,6 +10,14 @@ produces radial fans. The mode-0 image is still distorted and has no
 recognizable player or HUD. A new player trace confirms all 29 weighted bone
 attachment matrices sampled after the host callback ABI fix are finite and
 orthonormal, so player skeleton corruption is no longer the current blocker.
+
+The native present path now draws captured world meshes independently of the
+retail GIF queue. The host32 build succeeded, and a bounded run with one
+process-local Cross reached a 384-mesh world frame. Eight sampled frames were
+pixel-identical, so this run did not reproduce the reported flicker; it also
+did not exercise a world frame with an empty GIF queue. The image remains a
+distorted grayscale corridor, with no recognizable player or HUD. Details and
+limits are in the 17:02 CET graphics handoff section.
 
 An entry-specific 65,536-instruction allowance gets the sampled level stream
 past PC `0x516` and queues hundreds of world meshes; a VU1 capture contains

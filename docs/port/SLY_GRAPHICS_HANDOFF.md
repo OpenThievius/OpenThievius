@@ -1,6 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Render captured meshes even without GIF bytes (2026-11-20, 17:02 CET)
+
+The present path cleared the framebuffer, then gated both the retail GIF
+renderer and the port-only captured-mesh renderer on a nonempty GIF queue.
+Those are independent inputs, so the captured meshes now render whenever the
+mesh queue has entries, even if that frame has no GIF bytes. The optional
+packet producer is also no longer nested under the retail packet draw.
+
+The host32 SDL target rebuilt successfully. A bounded foreground run used the
+configured Documents US ISO and cached US ELF, injected one process-local Cross
+after 300 frames, and captured eight post-start frames. The trace reached a
+384-mesh world frame; all eight saved frames were pixel-identical. This run did
+not reproduce the reported flicker and does not verify the empty-GIF branch,
+because the world frame also had GIF bytes. The image remains a distorted,
+grayscale corridor without a recognizable player or HUD. This is a renderer
+robustness fix, not a playable milestone. Log and images:
+`/tmp/sly-empty-gif-flicker-fix-20261120/`.
+
 ### Strip flags and matrix choice after paired captures (2026-11-20, 16:48 CET)
 
 The source for `BuildStripMeshPacket` confirms `VertexRefs.flags` bit 7 selects
