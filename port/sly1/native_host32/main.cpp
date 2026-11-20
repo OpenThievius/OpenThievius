@@ -1165,7 +1165,17 @@ extern "C" void sly1_native_bind_model_mesh(u32 header_address,
     }
     if (std::getenv("OPENRAC_TRACE_SLY_STRIP_LAYOUT") != nullptr) {
         static u32 layout_notices = 0;
-        if (bound.sources.size() > 1u && layout_notices++ < 64u) {
+        bool layout_filter_match = true;
+        if (const char* setting =
+                std::getenv("OPENRAC_TRACE_SLY_STRIP_LAYOUT_SOURCE")) {
+            if (setting[0] != '\0' && setting[0] != '1') {
+                char* end = nullptr;
+                const unsigned long parsed = std::strtoul(setting, &end, 0);
+                if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul)
+                    layout_filter_match = bound.source_mesh == static_cast<u32>(parsed);
+            }
+        }
+        if (layout_filter_match && bound.sources.size() > 1u && layout_notices++ < 64u) {
             if (header_address < 0x10u || header_address >= 0x02000000u)
                 return;
             const volatile u8* header = reinterpret_cast<const volatile u8*>(header_address);

@@ -1,17 +1,56 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Current follow-up (2026-11-20, 15:11 CET)
+### Current follow-up (2026-11-20, 15:28 CET)
 
 The latest opt-in level capture uses the Documents US ISO and configured
 cached ELF. With the entry-specific 65,536 instruction allowance, entry `0x2`
 passes the former PC `0x516` budget stop, emits vertex writes, and queues
 hundreds of world meshes after one isolated Cross input. The standard renderer
 still captures black; only the experimental mesh overlay shows a distorted
-grayscale corridor. The attachment trace already established valid player bone
-matrices, so another identical attachment run is not useful. The current work
-should map a specific Sly mesh kind through VU output and implement that kind
-as a native renderer, keeping all port backfills out of matched decomp source.
+grayscale corridor. A fresh host32 trace reconfirmed that the player has 31
+attachment records with finite, orthonormal sampled matrices. It also filtered
+one kind-0 level mesh (`0x00a2a488`) down to its source vertices and three
+material passes. After input, the GIF queue reached its 16 MiB cap and rejected
+additional packets. This queue pressure is the next concrete lead to trace; do
+not raise the cap or treat queued mesh count as evidence of rendered output.
+Keep all port backfills out of matched decomp source.
+
+### Focused player and strip trace (2026-11-20, 15:28 CET)
+
+The attachment trace must run in the direct 32-bit SDL launcher, because its
+hooks live in `port/sly1/native_host32/main.cpp`; the ordinary 64-bit
+`build/port/sly1_native` hostgen launcher does not include them. The direct
+release launcher rebuilt successfully from this branch. A first diagnostic
+accidentally used the hostgen launcher and therefore did not exercise the
+attachment trace; it is not evidence about the player draw. The corrected
+30-second hidden capture used the configured Documents US ISO and cached boot
+ELF, with one process-local Cross press at host frame 300.
+
+That run found player owner `0x01876610`, skin/list `0x0187683c`, and 31
+attachment records. The sampled local and final matrices remained finite,
+orthonormal, and had determinant approximately 1 (maximum sampled row-dot
+error approximately `1.62e-6`), consistent with the earlier attachment
+capture. The filtered environment mesh `0x00a2a488` had 85 vertices in one
+packet, three `FrameSource` material passes at `0x00a3b250`, `0x00a3b2d0`, and
+`0x00a3b350`, each eight QWC wide. Its first pass supplied TEST/TEX0/FOGCOL-like
+state; the next two supplied different TEX0 values and TEST state. This bounds
+the mesh's material layout but does not yet show how those inputs become
+accepted GS vertex writes.
+
+After the isolated input, the shared GIF packet queue reached 16,776,544 of
+16,777,216 bytes and rejected further 896-byte packets. This capture alone
+does not distinguish a producer burst from a renderer that is failing to drain
+the queue. Keep the cap unchanged until a producer/consumer timing trace shows
+which side is responsible. The run log is
+`/tmp/sly-player-attachment-host32-20261120/run.log`.
+
+For a filtered layout trace, set both
+`OPENRAC_TRACE_SLY_STRIP_LAYOUT=1` and
+`OPENRAC_TRACE_SLY_STRIP_LAYOUT_SOURCE=0x00a2a488`; set
+`OPENRAC_DUMP_SLY_MESH_VERTS` to that same address to print only its source
+vertices. This filter is port-only instrumentation. No matched decomp source
+was changed.
 
 ### Game image path check (2026-11-20)
 
