@@ -40,6 +40,46 @@ thread_local uint32_t g_vu_trace_vif_command_offset = 0xFFFFFFFFu;
 
 bool trace_vu1_xgkick_context_matches();
 
+bool trace_vu1_xgkick_data_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+
+bool trace_vu1_setup_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+
+bool trace_vu1_limit_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_LIMIT");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+
+bool trace_vu1_401_range_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_401_RANGE");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+
+bool trace_vu1_kick_address_enabled() {
+    static const bool enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_KICK_ADDRESS");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    return enabled;
+}
+
 uint8_t* guest_address(uint32_t address) {
 #if defined(OPENRAC_SLY1_DIRECT_RETAIL_MEMORY)
     return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(address));
@@ -440,23 +480,30 @@ void vf_write(State* state, uint32_t index, const Vector& value, uint32_t mask) 
     const Vector previous = destination;
     for (uint32_t lane = 0; lane < 4; ++lane)
         if ((mask & (8u >> lane)) != 0) destination[lane] = value[lane];
-    const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+    static const bool setup_trace_enabled = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
+    static const bool xgkick_trace_requested = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+        return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+    }();
     static std::atomic<uint32_t> vf16_write_notice{0};
+    static std::array<std::atomic<uint32_t>, 8> xgkick_vf_nan_notice{};
+    static std::array<std::atomic<uint32_t>, 8> xgkick_vf_entry_notice{};
+    if (!setup_trace_enabled && !xgkick_trace_requested) return;
+
     const bool nan_output = std::any_of(
         destination.begin(), destination.end(), [](float lane) { return std::isnan(lane); });
     const bool nonfinite_output = std::any_of(
         destination.begin(), destination.end(), [](float lane) { return !std::isfinite(lane); });
-    const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
-    static std::array<std::atomic<uint32_t>, 8> xgkick_vf_nan_notice{};
-    static std::array<std::atomic<uint32_t>, 8> xgkick_vf_entry_notice{};
     const uint32_t reg = index & 31u;
     const uint32_t trace_slot = reg == 27u ? 0u : reg == 28u ? 1u : reg == 2u ? 2u :
                                 reg == 24u ? 3u : reg == 30u ? 4u : reg == 29u ? 5u :
                                 reg == 11u ? 6u : reg == 3u ? 7u : 8u;
     const bool previous_nonfinite = std::any_of(
         previous.begin(), previous.end(), [](float lane) { return !std::isfinite(lane); });
-    const bool xgkick_trace_enabled = xgkick_trace != nullptr &&
-        xgkick_trace[0] != '\0' && xgkick_trace[0] != '0' &&
+    const bool xgkick_trace_enabled = xgkick_trace_requested &&
         trace_vu1_xgkick_context_matches();
     const bool trace_xgkick_vf = xgkick_trace_enabled &&
         trace_slot < xgkick_vf_nan_notice.size() &&
@@ -490,8 +537,7 @@ void vf_write(State* state, uint32_t index, const Vector& value, uint32_t mask) 
             std::bit_cast<uint32_t>(destination[0]), std::bit_cast<uint32_t>(destination[1]),
             std::bit_cast<uint32_t>(destination[2]), std::bit_cast<uint32_t>(destination[3]));
     }
-    if (((index & 31u) == 16u || nan_output) && setup_trace != nullptr &&
-        setup_trace[0] != '\0' && setup_trace[0] != '0' &&
+    if (((index & 31u) == 16u || nan_output) && setup_trace_enabled &&
         vf16_write_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
         uint32_t instruction[2]{};
         std::memcpy(instruction,
@@ -939,8 +985,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
     const Vector source = vf_read(*state, fs);
     const Vector target = vf_read(*state, ft);
     Vector result{};
-    const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
-    if (xgkick_trace != nullptr && xgkick_trace[0] != '\0' && xgkick_trace[0] != '0' &&
+    if (trace_vu1_xgkick_data_enabled() &&
         trace_vu1_xgkick_context_matches() &&
         ((g_vu_trace_entry == 0x26Du && state->pc == 0x2CBu) ||
          (g_vu_trace_entry == 0x356u && state->pc == 0x39Cu) ||
@@ -1245,10 +1290,9 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                     address, header_words[0], header_words[1], header_words[2],
                     header_words[3]);
             }
-            const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+            const bool xgkick_trace = trace_vu1_xgkick_data_enabled();
             static std::atomic<uint32_t> xgkick_lq_notice{0};
-            const bool trace_lq = xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
-                xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+            const bool trace_lq = xgkick_trace && trace_vu1_xgkick_context_matches() &&
                 ((g_vu_trace_entry == 0x411u &&
                   (state->pc == 0x447u || target == 3u || target == 11u)) ||
                  (g_vu_trace_entry == 0x356u &&
@@ -1348,13 +1392,12 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 vu_mul(value[2], value[2]));
             const float previous_p = state->p;
             state->p = vu_reciprocal_sqrt(length_squared);
-            const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+            const bool xgkick_trace = trace_vu1_xgkick_data_enabled();
             static std::atomic<uint32_t> p_trace_notice{0};
             const uint32_t p_notice = p_trace_notice.fetch_add(1, std::memory_order_relaxed);
             const bool pathological = !std::isfinite(length_squared) || length_squared == 0.0f ||
                 !std::isfinite(state->p);
-            if (xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
-                xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+            if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
                 g_vu_trace_entry == 0x411u &&
                 (p_notice < 64u || pathological)) {
                 openrac::log::info(
@@ -1372,13 +1415,12 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             const float value = vf_read(*state, source)[field];
             const float previous_p = state->p;
             state->p = vu_reciprocal_sqrt(value);
-            const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+            const bool xgkick_trace = trace_vu1_xgkick_data_enabled();
             static std::atomic<uint32_t> p_trace_notice{0};
             const uint32_t p_notice = p_trace_notice.fetch_add(1, std::memory_order_relaxed);
             const bool pathological = !std::isfinite(value) || value == 0.0f ||
                 !std::isfinite(state->p);
-            if (xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
-                xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+            if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
                 g_vu_trace_entry == 0x411u &&
                 (p_notice < 64u || pathological)) {
                 openrac::log::info(
@@ -1409,10 +1451,9 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                 (state->status_flags & ~0x30u) | divide_flags |
                 (divide_flags << 6u));
             state->q = vu_div(numerator, denominator);
-            const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+            const bool setup_trace = trace_vu1_setup_enabled();
             static std::atomic<uint32_t> divide_notice{0};
-            if (setup_trace != nullptr && setup_trace[0] != '\0' &&
-                setup_trace[0] != '0' &&
+            if (setup_trace &&
                 divide_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
                 openrac::log::info(
                     "native VU1 DIV entry={:#x} pc={:#x} ft=vf{}[{}]={:#010x} fs=vf{}[{}]={:#010x} Q={:#010x}",
@@ -1479,10 +1520,9 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                     const Vector loaded = data_read(address);
                     trace_vu1_data_load(address, state->pc, loaded,
                                         decrement ? "LQD" : "LQI");
-                    const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+                    const bool xgkick_trace = trace_vu1_xgkick_data_enabled();
                     static std::atomic<uint32_t> xgkick_lqi_notice{0};
-                    if (xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
-                        xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+                    if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
                         g_vu_trace_entry == 0x411u &&
                         target == 3u &&
                         xgkick_lqi_notice.fetch_add(1, std::memory_order_relaxed) < 128u) {
@@ -1495,12 +1535,11 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
                             std::bit_cast<uint32_t>(loaded[2]),
                             std::bit_cast<uint32_t>(loaded[3]));
                     }
-                    const char* setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
+                    const bool setup_trace = trace_vu1_setup_enabled();
                     static std::atomic<uint32_t> lqi_notice{0};
                     const bool has_nan = std::any_of(
                         loaded.begin(), loaded.end(), [](float lane) { return std::isnan(lane); });
-                    if (setup_trace != nullptr && setup_trace[0] != '\0' &&
-                        setup_trace[0] != '0' && g_vu_trace_entry == 0x401u &&
+                    if (setup_trace && g_vu_trace_entry == 0x401u &&
                         (has_nan || lqi_notice.fetch_add(1, std::memory_order_relaxed) < 24u)) {
                         openrac::log::info(
                             "native VU1 LQI entry={:#x} pc={:#x} vf={} vi{}={} qword={} mask={:#x} words={:#010x},{:#010x},{:#010x},{:#010x}",
@@ -1558,10 +1597,8 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
             }
             if (special == 0x6Cu) { // XGKICK
                 const uint32_t address = vi_read(*state, source);
-                const char* kick_address_trace = std::getenv("OPENRAC_TRACE_VU1_KICK_ADDRESS");
                 static std::atomic<uint32_t> kick_address_notice{0};
-                if (kick_address_trace != nullptr && kick_address_trace[0] != '\0' &&
-                    kick_address_trace[0] != '0' &&
+                if (trace_vu1_kick_address_enabled() &&
                     trace_vu1_xgkick_context_matches() &&
                     kick_address_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
                     const uint32_t previous_qword = (address + kVu1Quadwords - 1u) & 0x3FFu;
@@ -1901,10 +1938,12 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         g_vu_trace_submission_id, g_vu_trace_vif_command_offset, entry,
         timing_enabled ? std::chrono::steady_clock::now()
                        : std::chrono::steady_clock::time_point{}};
-    const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
+    const bool xgkick_trace = trace_vu1_xgkick_data_enabled();
+    const bool setup_trace = trace_vu1_setup_enabled();
+    const bool limit_trace = trace_vu1_limit_enabled();
+    const bool range_trace = trace_vu1_401_range_enabled();
     static std::atomic<uint32_t> xgkick_entry_state_notice{0};
-    if (entry == 0x26Du && xgkick_trace != nullptr && xgkick_trace[0] != '\0' &&
-        xgkick_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+    if (entry == 0x26Du && xgkick_trace && trace_vu1_xgkick_context_matches() &&
         xgkick_entry_state_notice.fetch_add(1, std::memory_order_relaxed) < 16u) {
         openrac::log::info(
             "native VU1 XGKICK entry state entry={:#x} ACC={:#010x},{:#010x},{:#010x},{:#010x} VF27={:#010x},{:#010x},{:#010x},{:#010x} VF28={:#010x},{:#010x},{:#010x},{:#010x}",
@@ -1930,8 +1969,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     const char* loop_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LOOP");
     const bool loop_trace_enabled = loop_trace_setting != nullptr &&
         loop_trace_setting[0] != '\0' && loop_trace_setting[0] != '0';
-    const bool stop_trace_enabled = xgkick_trace != nullptr &&
-        xgkick_trace[0] != '\0' && xgkick_trace[0] != '0';
+    const bool stop_trace_enabled = xgkick_trace;
     static std::atomic<uint32_t> stop_trace_count{0};
     const auto trace_stop = [&](uint32_t stop_pc, uint32_t cycle, bool completed) {
         if (!stop_trace_enabled || !trace_vu1_xgkick_context_matches() ||
@@ -2024,17 +2062,19 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             *stopped_pipeline = 0;
             return 0;
         }
-        const char* xgkick_data_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
         static std::atomic<uint32_t> acc_nan_transition_notice{0};
-        const bool before_acc_nan = std::any_of(
-            before.acc.begin(), before.acc.end(), [](float lane) { return std::isnan(lane); });
-        const bool after_acc_nan = std::any_of(
-            upper_result.acc.begin(), upper_result.acc.end(),
-            [](float lane) { return std::isnan(lane); });
-        if (xgkick_data_trace != nullptr && xgkick_data_trace[0] != '\0' &&
-            xgkick_data_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
-            !before_acc_nan && after_acc_nan &&
-            acc_nan_transition_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
+        if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
+            ([&] {
+                const bool before_acc_nan = std::any_of(
+                    before.acc.begin(), before.acc.end(),
+                    [](float lane) { return std::isnan(lane); });
+                const bool after_acc_nan = std::any_of(
+                    upper_result.acc.begin(), upper_result.acc.end(),
+                    [](float lane) { return std::isnan(lane); });
+                if (before_acc_nan || !after_acc_nan) return false;
+                return acc_nan_transition_notice.fetch_add(
+                    1, std::memory_order_relaxed) < 64u;
+            })()) {
             openrac::log::info(
                 "native VU1 XGKICK ACC became NaN entry={:#x} pc={:#x} upper={:#010x} before={:#010x},{:#010x},{:#010x},{:#010x} after={:#010x},{:#010x},{:#010x},{:#010x}",
                 entry, current_pc, upper,
@@ -2053,8 +2093,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             });
         };
         static std::atomic<uint32_t> acc_abnormal_transition_notice{0};
-        if (xgkick_data_trace != nullptr && xgkick_data_trace[0] != '\0' &&
-            xgkick_data_trace[0] != '0' && trace_vu1_xgkick_context_matches() &&
+        if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
             entry == 0x411u &&
             !acc_has_abnormal(before.acc) && acc_has_abnormal(upper_result.acc) &&
             acc_abnormal_transition_notice.fetch_add(1, std::memory_order_relaxed) < 32u) {
@@ -2106,10 +2145,8 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             }
             return 0;
         }
-        const char* p_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
         static std::atomic<uint32_t> p_nan_transition_notice{0};
-        if (p_trace != nullptr && p_trace[0] != '\0' && p_trace[0] != '0' &&
-            trace_vu1_xgkick_context_matches() &&
+        if (xgkick_trace && trace_vu1_xgkick_context_matches() &&
             !std::isnan(before.p) && std::isnan(lower_result.p) &&
             p_nan_transition_notice.fetch_add(1, std::memory_order_relaxed) < 64u) {
             openrac::log::info(
@@ -2141,9 +2178,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         g_state.pc = next_pc;
 
         static std::atomic<uint32_t> kick_setup_notice_count{0};
-        const char* kick_setup_trace = std::getenv("OPENRAC_TRACE_VU1_SETUP");
-        if (kick_setup_trace != nullptr && kick_setup_trace[0] != '\0' &&
-            kick_setup_trace[0] != '0' && current_pc >= 0x63u && current_pc <= 0x6Du &&
+        if (setup_trace && current_pc >= 0x63u && current_pc <= 0x6Du &&
             kick_setup_notice_count.fetch_add(1, std::memory_order_relaxed) < 24u) {
             const uint32_t before_address = vi6_before & 0x3FFu;
             const uint32_t after_address = vi_read(g_state, 6u) & 0x3FFu;
@@ -2197,12 +2232,10 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             branch_delay = true;
             pc = current_pc + 1u;
         }
-        const char* limit_trace_setting = std::getenv("OPENRAC_TRACE_VU1_LIMIT");
         static std::atomic<uint32_t> entry2_trace_count{0};
         const bool trace_entry2_loop = entry == 0x2u &&
             g_vu_trace_vif_command_offset == 0x6FBB0u &&
-            limit_trace_setting != nullptr && limit_trace_setting[0] != '\0' &&
-            limit_trace_setting[0] != '0' && current_pc >= 0x500u &&
+            limit_trace && current_pc >= 0x500u &&
             current_pc <= 0x545u &&
             (next_pc != current_pc + 1u || current_pc == 0x515u ||
              current_pc == 0x516u || current_pc == 0x538u ||
@@ -2231,9 +2264,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
                 vi_read(before, 15u), vi_read(g_state, 15u));
         }
         static std::atomic<uint32_t> range_trace_count{0};
-        const char* range_trace = std::getenv("OPENRAC_TRACE_VU1_401_RANGE");
-        if (entry == 0x401u && range_trace != nullptr &&
-            range_trace[0] != '\0' && range_trace[0] != '0' &&
+        if (entry == 0x401u && range_trace &&
             current_pc >= 0x3D4u && current_pc <= 0x410u &&
             range_trace_count.fetch_add(1, std::memory_order_relaxed) < 8192u) {
             openrac::log::info(
@@ -2321,7 +2352,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
     const bool target_budget_stop = entry == 0x2u && pc == 0x516u;
     const bool trace_budget_stop = target_budget_stop
         ? budget_trace_count.fetch_add(1, std::memory_order_relaxed) == 0u
-        : std::getenv("OPENRAC_TRACE_VU1_LIMIT") != nullptr &&
+        : limit_trace &&
           budget_trace_count.fetch_add(1, std::memory_order_relaxed) < 8u;
     if (trace_budget_stop) {
         std::ostringstream context;
