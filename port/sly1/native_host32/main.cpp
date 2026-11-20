@@ -1515,12 +1515,40 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                     const u32 matrix_address = entry + (matrix_kind == 0u ? 0x10u : 0x50u);
                     const volatile float* values =
                         reinterpret_cast<const volatile float*>(matrix_address);
+                    float row_length[3]{};
+                    float row_dot[3]{};
+                    float matrix_max = 0.0f;
+                    bool matrix_finite = true;
+                    for (u32 row = 0; row < 3u; ++row) {
+                        for (u32 column = 0; column < 3u; ++column) {
+                            const float value = values[row * 4u + column];
+                            matrix_finite = matrix_finite && std::isfinite(value);
+                            matrix_max = std::max(matrix_max, std::fabs(value));
+                            row_length[row] += value * value;
+                        }
+                        row_length[row] = std::sqrt(row_length[row]);
+                    }
+                    for (u32 row = 0; row < 3u; ++row) {
+                        const u32 other = (row + 1u) % 3u;
+                        for (u32 column = 0; column < 3u; ++column)
+                            row_dot[row] += values[row * 4u + column] *
+                                            values[other * 4u + column];
+                    }
+                    const float determinant =
+                        values[0] * (values[5] * values[10] - values[6] * values[9]) -
+                        values[1] * (values[4] * values[10] - values[6] * values[8]) +
+                        values[2] * (values[4] * values[9] - values[5] * values[8]);
                     std::fprintf(stderr, "[native sly attachment %s] index=%u m=",
                                  matrix_name, bone_index);
                     for (u32 element = 0; element < 16u; ++element)
                         std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
                                      static_cast<double>(values[element]));
-                    std::fputc('\n', stderr);
+                    std::fprintf(stderr,
+                                 " basis_finite=%u row_len=%g,%g,%g row_dot=%g,%g,%g det=%g max=%g\n",
+                                 matrix_finite ? 1u : 0u,
+                                 row_length[0], row_length[1], row_length[2],
+                                 row_dot[0], row_dot[1], row_dot[2],
+                                 determinant, matrix_max);
                 }
             }
         }
