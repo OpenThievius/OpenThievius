@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
-## Current checkpoint (2026-11-20, 17:02 CET)
+## Current checkpoint (2026-11-20, 17:18 CET)
 
 The native launcher reaches the memory-card flow and loaded world but still
 does not render a playable scene. A paired capture shows the port-only world
@@ -18,6 +18,26 @@ pixel-identical, so this run did not reproduce the reported flicker; it also
 did not exercise a world frame with an empty GIF queue. The image remains a
 distorted grayscale corridor, with no recognizable player or HUD. Details and
 limits are in the 17:02 CET graphics handoff section.
+
+### Material color check (2026-11-20, 17:18 CET)
+
+The default launcher is unchanged. The optional source-mesh overlay still
+produces a distorted grayscale corridor. Request `0x005e4980` has three
+material passes for shared vertices, with distinct CLUTs `0x1e9b`, `0x1e9c`,
+and `0x1e9d`. All captured `FRAME.FBMSK` values are zero. The first two
+palettes decode to color and the third to grayscale; a first-pass-only capture
+remains grayscale, ruling out later passes as the sole cause. No renderer fix
+is established.
+
+The cursor interpretation for `FrameSource` remains unresolved. The native
+capture reads the frame at cursor offset `+0x08`, as matched `QueueMeshStrip`
+does; `FrameLink.src` points to a `FrameSource`, not an `AnimCursor`. Color
+loss is still unknown among VU vertex RGBA, alpha/blend state, and texture
+function interpretation. Next, compare one target triangle's final VU/GIF
+color and alpha against its source tint, UV and palette sample. Keep this
+investigation port-only and leave matched source untouched. See the
+[17:18 CET handoff section](SLY_GRAPHICS_HANDOFF.md#material-color-check-2026-11-20-1718-cet)
+for evidence and capture limits.
 
 An entry-specific 65,536-instruction allowance gets the sampled level stream
 past PC `0x516` and queues hundreds of world meshes; a VU1 capture contains

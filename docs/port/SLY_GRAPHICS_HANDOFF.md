@@ -1,6 +1,44 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Material color check (2026-11-20, 17:18 CET)
+
+The latest renderer-only comparison does not recover color. A corrected
+first-material diagnostic selected request `0x005e4980`, draw index 9, pass 0
+(`instance=0x5e49800000`) and ignored the other requests and passes. The first
+texture packet uses TBP `0x2878`, CLUT `0x1e9b`, TFX modulate, TCC enabled,
+`TEST=0x717eb`, and `FBMSK=0`. The final first-pass image is still grayscale.
+The paired all-mesh captures show the known distorted gray scene; no
+recognizable level or player appears. No graphics fix is claimed.
+
+Earlier texture dumps for TBP `0x2878` showed color in the first two palette
+conversions (CLUTs `0x1e9b` and `0x1e9c`) and grayscale in the third (`0x1e9d`).
+All three packets share the same 58-vertex input. Since pass 0 alone remains
+grayscale and its palette texture is colored, later passes overwriting color
+is not sufficient to explain the image. The captured `FRAME.FBMSK=0` also
+refutes the attempted color-mask theory; that renderer edit was removed.
+
+Source comparison with `sly1-decomp` confirms `BuildStripMeshPacket` calls
+`QueueMeshStrip` for each `FrameSource`. `QueueMeshStrip` reads
+`AnimCursor.frame` at offset `+0x08`; `FrameLink.src` is a `FrameSource*`, not
+an `AnimCursor*`. The native capture reads `cursor[2]` from the cursor passed
+to the builder, as the matched function does. The runtime capture does not
+prove whether that cursor is always the one used by the queued mesh strip, so
+cursor selection remains unresolved. A separate first attempt used the wrong
+pass filter and an early framebuffer snapshot; those images and conclusions
+were discarded. The valid first-pass rerun was a
+12-second foreground run on the configured Documents ISO and cached US ELF,
+with one process-local Cross at native frame 300. It ended at the deliberate
+timeout (137); no launcher remains. Its screenshots and logs are local under
+`/tmp/sly-corridor-first-pass-fixed-20261120.log` and
+`/tmp/sly1-native-world-after-hud-*.ppm`.
+
+The next useful boundary is one triangle's final VU/GIF RGBA and alpha,
+correlated with its `VertexRefs` tint, UV, decoded texture index, and palette
+sample. That will separate an incorrect native GS texture function from
+missing VU color/alpha inputs. Keep this in the optional port renderer and
+leave matched source untouched until a real decomp discrepancy is proven.
+
 ### Render captured meshes even without GIF bytes (2026-11-20, 17:02 CET)
 
 The present path cleared the framebuffer, then gated both the retail GIF
