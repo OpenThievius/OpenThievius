@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Reference clip timeline and strip-source boundary (2026-11-20)
+
+I sampled the full 62.8-second PCSX2 reference every five seconds. It shows
+the Sony/Europe publisher card, a Sucker Punch production card, the Paris
+rooftop intro (including Sly moving across the rooftops), and then the title
+screen with logo, menu prompts, moonlit buildings, and lit windows. The
+rooftop movement belongs to the intro cinematic; this clip does not show
+player-controlled gameplay. The visual target order is therefore boot cards,
+intro, and title screen; a later gameplay clip would still be needed for a
+level comparison.
+
+The decomp source also clarifies a renderer assumption: `StripMesh::strips`
+contains `FrameSource` records. `BuildStripMeshPacket` and
+`BuildLitStripMeshPacket` loop over those records and pass each to
+`QueueMeshStrip`, which copies the frame-selected source block to its VU
+destination. These records describe VU input/data transfers; they are not
+triangle boundaries. Do not derive GL primitive breaks from
+`mesh->nstrips`/`FrameSource` count. `VertexRefs` remains the ordered vertex
+input, and its flag bit 7 is fog behavior, so the rendered topology must be
+established from the VU program's output or other direct draw evidence before
+changing the port-only renderer.
+
+Source: the sibling `../sly1-decomp` checkout, in
+`include/strip_mesh.h`, `src/main/placed_object_model.cpp`
+(`BuildStripMeshPacket`, `BuildLitStripMeshPacket`), and
+`src/main/texture_upload.cpp` (`QueueMeshStrip`). The clip and extracted
+frames remain outside the repo.
+
 ### Player bone trace recheck (2026-11-20, 23:24 CET)
 
 I enabled the existing opt-in trace at the exact `skin->bones[k].m` VIF
