@@ -1365,7 +1365,10 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                     vert_filter_match = mesh_address == static_cast<u32>(parsed);
             }
         }
-        if (std::getenv("OPENRAC_DUMP_SLY_MESH_VERTS") != nullptr && i < 32u &&
+        const bool dump_all_mesh_vertices =
+            std::getenv("OPENRAC_DUMP_SLY_MESH_VERTS_FULL") != nullptr;
+        if (std::getenv("OPENRAC_DUMP_SLY_MESH_VERTS") != nullptr &&
+            (i < 32u || dump_all_mesh_vertices) &&
             vert_filter_match) {
             static u32 vert_notices = 0;
             if (vert_notices++ < 2048u)

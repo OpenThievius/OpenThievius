@@ -28,6 +28,20 @@ use the stable retail draw-request address for isolation. Evidence:
 `/tmp/sly-native-large-request-20261121/`, and
 `/tmp/sly-native-request-5e4980-trace-20261121/`.
 
+Follow-up: request `0x005e4980` does rasterize in the native OpenGL path when
+the guest matrix is uploaded without the optional screen-to-clip adjustment.
+Its selected solid-color capture contains a visible mesh on the right side of
+the frame. With `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP=1`, the actual uploaded
+matrix instead puts all 83 positive-W vertices outside clip space
+(`ndc=1.17,-18.90,-0.84..11.58,1.81,0.31`). The earlier “inside” count used
+the pre-adjustment matrix, so it was misleading. This establishes that the
+native draw reaches rasterization and that a single global screen conversion
+is not valid for every mesh category. Keep that switch diagnostic; investigate
+per-kind native transforms using captured object/camera data before changing
+the default. The capture still shows malformed, partial geometry, not a
+playable scene. Evidence: `/tmp/sly-native-request-5e4980-rawmatrix-20261121/`
+and `/tmp/sly-native-request-5e4980-uploaded-matrix-20261121/run.log`.
+
 Do not implement or emulate the PlayStation VU renderer for this work. Keep
 the 2D DirectRenderer for menu packets and keep any compatibility behavior in
 the port layer, separate from matched decomp functions.
