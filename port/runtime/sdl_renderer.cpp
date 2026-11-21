@@ -745,6 +745,42 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
         }
+        if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
+            static unsigned uploaded_bounds_notices = 0;
+            if (uploaded_bounds_notices++ < 256u) {
+                float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
+                float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
+                unsigned projected = 0, inside = 0;
+                const std::size_t vertex_count = mesh.vertices.size() / 9u;
+                for (std::size_t i = 0; i < vertex_count; ++i) {
+                    const float x = mesh.vertices[i * 9u + 0u];
+                    const float y = mesh.vertices[i * 9u + 1u];
+                    const float z = mesh.vertices[i * 9u + 2u];
+                    float clip[4]{};
+                    for (std::size_t row = 0; row < 4; ++row) {
+                        clip[row] = m[row] * x + m[4u + row] * y +
+                                    m[8u + row] * z + m[12u + row];
+                    }
+                    if (!std::isfinite(clip[3]) || clip[3] <= 1.0e-6f) continue;
+                    const float nx = clip[0] / clip[3];
+                    const float ny = clip[1] / clip[3];
+                    const float nz = clip[2] / clip[3];
+                    if (!std::isfinite(nx) || !std::isfinite(ny) || !std::isfinite(nz)) continue;
+                    ++projected;
+                    min_x = std::min(min_x, nx); max_x = std::max(max_x, nx);
+                    min_y = std::min(min_y, ny); max_y = std::max(max_y, ny);
+                    min_z = std::min(min_z, nz); max_z = std::max(max_z, nz);
+                    if (nx >= -1.0f && nx <= 1.0f && ny >= -1.0f && ny <= 1.0f &&
+                        nz >= -1.0f && nz <= 1.0f)
+                        ++inside;
+                }
+                std::fprintf(stderr,
+                             "[native sly uploaded bounds] instance=%#llx source=%#010x vertices=%zu positive_w=%u inside=%u ndc=%g,%g,%g..%g,%g,%g\n",
+                             static_cast<unsigned long long>(mesh.instance), mesh.source_mesh,
+                             vertex_count, projected, inside,
+                             min_x, min_y, min_z, max_x, max_y, max_z);
+            }
+        }
         if (std::getenv("OPENRAC_DUMP_WORLD_MATRIX") != nullptr) {
             static unsigned notices = 0;
             if ((mesh.instance >> 16u) == 0x005e5400u && notices++ < 4u) {

@@ -71,6 +71,24 @@ static unskinned draw before adjusting material behavior. Run logs are
 `/tmp/sly-native-static-request-20261121/run.log` and
 `/tmp/sly-native-mesh-solid-20261121/run.log`; captures are alongside them.
 
+**Native pass attribution and uploaded matrix (2026-11-21):** for terrain
+source `0x00a29c40`, request `0x005e4800`, I compared a normal selected draw
+against a no-match request filter. The control still enters the native GL
+pass and clears depth, but skips every selected draw; the paired output differs
+on 6,547 pixels, confirming that the broad slab comes from this GL request.
+The selected pass has 75 request/material draws, with 42 positive-W draws and
+771 vertices inside clip bounds. The existing restart-split experiment is
+pixel-identical within one pixel for this capture, so restart topology is not
+the cause here. The small `0x00a2a488` mesh's input positions match the source
+builder's `vecs[VertexRefs.pos]` copy; no input scaling fix is supported by
+that evidence. I added the unset-by-default
+`OPENRAC_TRACE_SLY_GL_MESH_BOUNDS` trace, which measures each selected mesh
+after the exact matrix mode chosen for shader upload. Use this trace to narrow
+the remaining oversized surfaces to their responsible draw instances. Build
+and capture logs: `/tmp/sly-native-uploaded-bounds-20261121/run.log`,
+`/tmp/sly-native-full-uploaded-bounds-20261121/run.log`, and
+`/tmp/sly-native-terrain-split-20261121/run.log`.
+
 **2026-11-21 host topology check:** the port now retains each source
 `VertexRefs.pos` index and can use those indices for its opt-in strip-restart
 split. A 106-vertex mesh (`0x00a0fd90`) repeats references at candidate run

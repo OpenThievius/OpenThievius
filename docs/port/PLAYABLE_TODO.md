@@ -57,6 +57,25 @@ Captures: `/tmp/sly-native-static-request-20261121/` and
 `/tmp/sly1-native-world-after-hud-00.ppm` (the paired capture helper writes
 that fixed `/tmp` path).
 
+**Native pass attribution and uploaded-matrix trace (2026-11-21):** the
+`0x00a29c40` terrain-source/request `0x005e4800` capture contributes a broad
+slab to the host image. A no-match request-filter control still runs the GL
+pass and its depth clear, but draws no selected mesh; the paired images differ
+on 6,547 pixels. This confirms the slab comes from those native GL draws, not
+the regular packet renderer. The pass contains 75 request/material draws; its
+uploaded-matrix trace records 42 with positive clip W and 771 vertices inside
+clip bounds. Applying the existing restart split changes that image by at
+most a pixel, so restart handling is not the cause for this source/request.
+The earlier small `0x00a2a488` source has raw positions copied directly from
+`vecs[VertexRefs.pos]`, matching the decompiled lit-strip builder; there is no
+evidence of a host unit-conversion error. New opt-in trace
+`OPENRAC_TRACE_SLY_GL_MESH_BOUNDS` reports per-draw clip bounds using the exact
+matrix sent to the shader, after the selected matrix mode. Use it next to find
+the actual draws responsible for the remaining oversized geometry. Build and
+capture evidence: `/tmp/sly-native-uploaded-bounds-20261121/`,
+`/tmp/sly-native-full-uploaded-bounds-20261121/`, and
+`/tmp/sly-native-terrain-split-20261121/`.
+
 **Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
 `TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
 texture alpha scaling, alpha tests, and the framebuffer/depth behavior for
