@@ -1,6 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native OpenGL draw-input audit (2026-11-22)
+
+Kept the graphics target on the host OpenGL renderer. A hidden forced-level
+trace followed kind-0 mesh `0x00a2a488` from its retail `BuildStripMeshPacket`
+inputs into the native GL submissions. Its three `FrameSource` entries each
+contain an 8-qword GIF A+D packet with six GS register writes (TEST, ALPHA,
+TEXFLUSH, TEX0, TEX1, and CLAMP); none contains PRIM. The three entries are
+material/state passes over the same 85-reference position stream, not three
+independent vertex lists. This confirms the native adapter's material-pass
+association and rules out recovering primitive topology from these packets.
+
+The main scene still has stretched ordinary level meshes after isolating the
+camera-following backdrop. The native bridge currently submits each captured
+reference sequence as one `GL_TRIANGLE_STRIP`, and the captured FrameSource
+packets do not prove that topology. Next use the corresponding retail output
+packet's PRIM and vertex stream only as diagnostic evidence, then implement
+the proven topology in the host OpenGL path. Do not add or expand the PS2 VU
+renderer. The hidden trace used the configured US ELF and ISO and ended at its
+12-second timeout (137); no repository or decompilation source was changed.
+Evidence: `/tmp/sly-native-frame-source-audit-20261122/run.log`.
+
 ### Native OpenGL visibility check (2026-11-21)
 
 The host32 frame boundary now publishes immutable packet and world-mesh
