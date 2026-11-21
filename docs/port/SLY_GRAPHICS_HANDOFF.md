@@ -199,6 +199,19 @@ native output without assuming every rooftop shot is movie footage or live
 rendering. The title/menu is a useful visual checkpoint, and a separate
 gameplay clip is needed for an in-level comparison.
 
+A fresh forced-level trace rechecked the qword-469 warning at VU entry `0x5f`.
+UNPACK at stream offset 5916 writes the valid GIFtag to qword 468 and the first
+A+D value/register pair to qword 469. VI6 is incremented from 468 to 469 before
+the XGKICK at PC `0x68`, which therefore starts inside the packet body and is
+correctly rejected. The later kick at PC `0x6e`, qword 35, passes validation.
+The earlier retry from qword 468 produced no visible frame. This is not the
+missing world geometry; leave GIF validation and the VU pointers unchanged and
+follow the actual vertex-producing stage. Logs:
+`/tmp/sly-vu-rejected-kick-pcs-20261121.log` and
+`/tmp/sly-vu-kick-state-20261121.log`. The bounded offscreen launch used the
+Documents US ISO and cached `SCUS_971.98` ELF, sent no input, and ended at its
+deliberate timeout.
+
 I rebuilt the default host32 target and ran it hidden with the configured
 Documents US ISO. The low-overhead run reached the unformatted-card page
 (`page=7`, `ui_state=5`); its opt-in menu driver then left that page and the

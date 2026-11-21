@@ -76,6 +76,17 @@ XYZ count. Evidence: `/tmp/sly-poststartup-kick-context-20261121.log`,
 `/tmp/sly1-vu1-kick-00.bin` / `02.bin` (temporary raw packets, not repository
 assets).
 
+A follow-up trace narrowed the repeated qword-469 rejection on VU entry `0x5f`.
+VIF UNPACK at stream offset 5916 puts a valid A+D GIFtag at qword 468 and its
+first value/register pair (`0x39001`, register `0x48`) at qword 469. The VU
+increments VI6 from 468 to 469 before XGKICK at PC `0x68`, so that kick starts
+inside the packet body and is correctly rejected. The later kick at PC `0x6e`
+from qword 35 is accepted. A previous diagnostic retry from qword 468 still
+left the frame black. This explains the warning but not the missing geometry;
+keep GIF validation unchanged and trace the vertex-producing stage instead.
+Logs: `/tmp/sly-vu-rejected-kick-pcs-20261121.log` and
+`/tmp/sly-vu-kick-state-20261121.log`.
+
 A lightweight accepted-packet census after the same VU fix saw 627 packets:
 144 VU XGKICK packets and 483 VIF DIRECT packets. Every VU XGKICK selected
 point mode (`PRIM=0`); the direct traffic was mostly sprites, plus
