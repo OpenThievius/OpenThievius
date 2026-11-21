@@ -42,6 +42,14 @@ the default. The capture still shows malformed, partial geometry, not a
 playable scene. Evidence: `/tmp/sly-native-request-5e4980-rawmatrix-20261121/`
 and `/tmp/sly-native-request-5e4980-uploaded-matrix-20261121/run.log`.
 
+A fresh unfiltered, unscaled native OpenGL run confirms the current default
+still reaches Paris but renders large stretched gray and textured surfaces;
+disabling screen-to-clip alone does not fix the scene. Frame 11 and the bounded
+run log are at `/tmp/sly-native-unscaled-default-20261121/`. Keep the selected
+draw's clip-scale diagnosis separate from the remaining scene-wide mesh,
+camera, and material errors. Continue comparing native GL captures against the
+retail reference; do not route this investigation through the VU renderer.
+
 Do not implement or emulate the PlayStation VU renderer for this work. Keep
 the 2D DirectRenderer for menu packets and keep any compatibility behavior in
 the port layer, separate from matched decomp functions.
