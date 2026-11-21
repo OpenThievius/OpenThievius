@@ -19,14 +19,31 @@ This fits the current evidence better than searching for missing EE functions:
 the matched lit path reaches XGKICK, but the observed packets produce point
 and line primitives and no triangles. A new opt-in runtime dump captured the
 loaded instruction ranges at those four PCs (13, 40, 125, and 27 instructions).
-The next step is to audit native instruction effects and VU memory writes
-against those words, then follow the resulting GIF packet. Keep interpreter
-fixes in the port runtime and any graphics conversion in the port-only
-backfill; do not alter matched game functions or the GS parser without
-evidence. Logs: `/tmp/sly-lit-vu-program-pc51-20261121.log`,
+The native interpreter audit has found and fixed a real omission: accumulator
+operations updated ACC but did not update MAC/status flags, and the Q/I forms
+ADDA, MADDA, SUBA, and MSUBA were not implemented. Sly's loaded lit programs
+use accumulator forms followed by flag-sensitive lower instructions. The fix
+is isolated to `port/runtime/vu1_native.cpp`, matching the semantics in
+OpenRAC's standalone VU interpreter. A clean, low-overhead offscreen capture
+after the fix still produced 64 all-black gameplay frames, so this correction
+is necessary runtime coverage but not the complete graphics fix. Continue
+auditing instruction effects and VU memory writes against the dumped programs,
+then follow the first complete triangle packet. Keep interpreter fixes in the
+port runtime and any graphics conversion in the port-only backfill; do not
+alter matched game functions or the GS parser without evidence. Logs:
+`/tmp/sly-lit-vu-program-pc51-20261121.log`,
 `/tmp/sly-lit-vu-program-pc242-20261121.log`,
 `/tmp/sly-lit-vu-program-pc356-20261121.log`, and
 `/tmp/sly-lit-vu-program-pc2-20261121.log`.
+
+The follow-up host32 build compiled all 194 Sly units and 85 port backfills.
+One trace-heavy run saturated the 16 MiB GIF queue and is not valid render
+evidence. A separate low-overhead run used the configured US ISO and a
+process-local Cross at frame 120, captured 64 frames after the page-3
+transition, and verified every captured RGB byte was zero. The launcher exited
+at its bounded timeout and no process remained. Log and frames:
+`/tmp/sly-acc-flags-fix-capture-20261121.log` and
+`/tmp/sly-acc-flags-fix-frames-20261121/`.
 
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than

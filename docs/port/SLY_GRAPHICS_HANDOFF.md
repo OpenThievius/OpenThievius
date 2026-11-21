@@ -1,6 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### VU accumulator flag semantics (2026-11-21)
+
+Comparing the native translator with OpenRAC's standalone VU interpreter found
+that native accumulator operations changed ACC without updating MAC/status
+flags. The loaded Sly lit-batch programs use accumulator instructions such as
+MADDAbc, MULAx, and MULA, followed by lower instructions that can branch on
+those flags. Native translation also omitted the accumulator Q/I forms ADDA,
+MADDA, SUBA, and MSUBA. The port runtime now updates flags for the implemented
+ACC operations and handles those Q/I variants. This leaves matched Sly game
+functions untouched and makes the native VU subset closer to the reference
+interpreter.
+
+The host32 target rebuilt successfully (194 Sly units, 85 port backfills). A
+trace-heavy run saturated the 16 MiB GIF queue, so it is excluded from visual
+comparison. A separate low-overhead offscreen run used the Documents US ISO
+and a process-local Cross at native frame 120; all 64 captured post-transition
+frames were pure black. This is a confirmed VU semantic fix, not a complete
+graphics fix. Next continue the lit program audit and determine where the
+first complete triangle packet should be emitted. Evidence:
+`/tmp/sly-acc-flags-fix-capture-20261121.log`,
+`/tmp/sly-acc-flags-fix-frames-20261121/`, and OpenRAC's
+`tools/interpreter/src/ps2/vu.cpp` `upper_special_body` implementation.
+
 ### Reusing OpenRAC's PSS movie path (2026-11-21)
 
 I checked current OpenRAC source (`911f007`). Its separate `port/media` module

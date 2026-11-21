@@ -1113,6 +1113,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_add(source[lane], target[broadcast]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x04: case 0x05: case 0x06: case 0x07: { // SUBAbc
@@ -1120,6 +1121,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_sub(source[lane], target[broadcast]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x1F: // CLIPw.xyz vf[fs], vf[ft].w
@@ -1152,6 +1154,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 const uint32_t b = (lane + 2u) % 3u;
                 state->acc[lane] = vu_mul(source[a], target[b]);
             }
+            update_float_flags(state, state->acc, 0x0Eu);
             return true;
         case 0x08: case 0x09: case 0x0A: case 0x0B: { // MADDAbc
             const uint32_t broadcast = special & 3u;
@@ -1159,6 +1162,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_madd(state->acc[lane], source[lane],
                                                target[broadcast]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x0C: case 0x0D: case 0x0E: case 0x0F: { // MSUBAbc
@@ -1167,6 +1171,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_msub(state->acc[lane], source[lane],
                                                target[broadcast]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x18: case 0x19: case 0x1A: case 0x1B: { // MULAx/y/z/w
@@ -1174,6 +1179,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_mul(source[lane], target[broadcast]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x1C: // MULAq
@@ -1182,6 +1188,43 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_mul(source[lane], scalar);
+            update_float_flags(state, state->acc, mask);
+            return true;
+        }
+        case 0x20: // ADDAq
+        case 0x22: { // ADDAi
+            const float scalar = special == 0x20 ? state->q : state->i;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = vu_add(source[lane], scalar);
+            update_float_flags(state, state->acc, mask);
+            return true;
+        }
+        case 0x21: // MADDAq
+        case 0x23: { // MADDAi
+            const float scalar = special == 0x21 ? state->q : state->i;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = vu_madd(state->acc[lane], source[lane], scalar);
+            update_float_flags(state, state->acc, mask);
+            return true;
+        }
+        case 0x24: // SUBAq
+        case 0x26: { // SUBAi
+            const float scalar = special == 0x24 ? state->q : state->i;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = vu_sub(source[lane], scalar);
+            update_float_flags(state, state->acc, mask);
+            return true;
+        }
+        case 0x25: // MSUBAq
+        case 0x27: { // MSUBAi
+            const float scalar = special == 0x25 ? state->q : state->i;
+            for (uint32_t lane = 0; lane < 4; ++lane)
+                if ((mask & (8u >> lane)) != 0)
+                    state->acc[lane] = vu_msub(state->acc[lane], source[lane], scalar);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x10: case 0x11: case 0x12: case 0x13:
@@ -1211,6 +1254,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_add(source[lane], target[lane]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x29: { // MADDA
@@ -1218,18 +1262,21 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_madd(state->acc[lane], source[lane],
                                                target[lane]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x2A: { // MULA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_mul(source[lane], target[lane]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x2C: { // SUBA
             for (uint32_t lane = 0; lane < 4; ++lane)
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_sub(source[lane], target[lane]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x2D: { // MSUBA
@@ -1237,6 +1284,7 @@ bool translate_upper(State* state, uint32_t word, uint32_t* unsupported) {
                 if ((mask & (8u >> lane)) != 0)
                     state->acc[lane] = vu_msub(state->acc[lane], source[lane],
                                                target[lane]);
+            update_float_flags(state, state->acc, mask);
             return true;
         }
         case 0x30: // MOVE
