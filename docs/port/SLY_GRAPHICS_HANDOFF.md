@@ -9,6 +9,19 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Host strip comparison (2026-11-21):** a bounded offscreen capture forced
+catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.
+With solid colors and depth disabled, point mode shows the request's captured
+vertices across the lower image; normal native GL strip mode connects those
+vertices into a broad surface. This narrows the observed coverage to the
+request's projected geometry, but it does not establish that this one surface
+is incorrect. Keep the topology unchanged until the other contributors and
+the matched reference view are compared. Images:
+`/tmp/sly-native-points-stealthy-approach-20261121/after.png` and
+`/tmp/sly-native-strip-solid-stealthy-approach-20261121/after.png`. Source
+mesh addresses are heap-backed and may change between launches; match the
+forced level and capture phase before comparing addresses.
+
 **Native skeletal draw experiment (2026-11-21):** the matched part builder
 provides per-vertex weights, mesh bone indices, and a PartSkin palette of final
 matrices. An opt-in `OPENRAC_SLY_WORLD_SKIN` path now applies those inputs on

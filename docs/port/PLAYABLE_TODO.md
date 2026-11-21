@@ -41,6 +41,19 @@ vertices and verify animation before relying on it. Captures are in
 `/tmp/sly-native-host-skin-final-20261121/` and
 `/tmp/sly-native-player-clipscale-fixed-20261121/`.
 
+**Native GL strip comparison (2026-11-21):** with `OPENRAC_DEFAULT_LEVEL=0x0100`
+(the keyed entry logged as entry 3), request `0x005e4700` was captured once as
+points and once as its normal host `GL_TRIANGLE_STRIP`, using solid colors and
+no depth. The point frame shows vertices spread over the lower part of the
+image; the triangle frame connects them into a broad surface. This confirms
+the host projection and triangle draw cover that area, but does not prove the
+surface is malformed or explain the whole scene. Do not change strip topology
+from this result alone. Paired after-pass frames are
+`/tmp/sly-native-points-stealthy-approach-20261121/after.png` and
+`/tmp/sly-native-strip-solid-stealthy-approach-20261121/after.png`.
+Heap-backed source mesh addresses vary between launches, so keep the forced
+level and capture phase fixed when comparing source-filtered frames.
+
 The cyan contributor `0x00a2a488` has now been traced back to draw requests
 owned by classes 4 and 31. They inherit the collider class, but `DrawCollider`
 delegates to `DrawPlacedObject`; the class ancestry alone does not prove that
