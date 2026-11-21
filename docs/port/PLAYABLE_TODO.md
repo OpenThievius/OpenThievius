@@ -3,6 +3,31 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL visibility pass (2026-11-21)
+
+Kept the graphics work in the port-owned native OpenGL renderer. The guest
+frame handoff now publishes an immutable mesh/packet snapshot after
+`SubmitRenderFrame`; a bounded capture confirmed the same 393-mesh snapshot
+was presented repeatedly without the earlier apparent 30/393 alternation
+(those counts came from the separate render-target and main-scene passes).
+
+The black frame had a concrete native-renderer cause: 36 of 39 scene material
+lookups returned the texture placeholder, and the renderer skipped those
+meshes. The port now draws unresolved-texture geometry in a stable per-instance
+flat color so missing game art no longer hides the whole scene. A hidden
+host32 run of the configured US ELF/ISO visibly draws sky, ground, and distant
+surfaces; a small central object is too tiny to identify. The view is still
+crude and distorted, not playable. Three material uploads resolve in this
+forced-level capture; texture residency is still the next issue to fix.
+Capture: `/tmp/sly-native-gl-final-20261121/`.
+
+The fallback is port-only and does not change matched game functions or any
+functional backfills. `OPENRAC_SKIP_MISSING_TEXTURE_MESH=1` restores the old
+skip behavior; `OPENRAC_SHOW_PLACEHOLDER_MESH=1` draws the checker texture.
+The host32 target rebuilt successfully, and the bounded hidden run ended at
+its planned timeout (exit 137). No launcher remained running. Keep this work
+on native OpenGL; do not implement the PlayStation VU renderer.
+
 ### Native OpenGL gameplay capture recheck (2026-11-21)
 
 Rebuilt the current host32 target from `wip/native-sly-port`. It compiled all

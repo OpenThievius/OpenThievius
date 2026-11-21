@@ -15,6 +15,7 @@ int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
 int openrac_native_window_poll_input(void);
 int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
 void openrac_native_window_present(void);
+void openrac_native_window_frame_complete(void);
 void openrac_native_sly_world_mesh_submit(uint32_t world, uint64_t instance,
                                           const float* vertices, uint32_t vertex_count,
                                           uint32_t request, uint32_t source_mesh,

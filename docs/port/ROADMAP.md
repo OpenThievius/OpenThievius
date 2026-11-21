@@ -32,6 +32,15 @@ with movie playback disabled. Thus neither the OpenGL scene nor normal startup
 is verified as playable; the exact captures and limits are recorded in the
 [current graphics checkpoint](PLAYABLE_TODO.md#native-opengl-gameplay-capture-recheck-2026-11-21).
 
+A newer forced-level capture narrows the black-frame cause: the port was
+skipping native meshes whose texture lookup missed. That run had 39 material
+keys, 3 resolved uploads, and 36 misses. The host OpenGL renderer now keeps
+those meshes visible with an explicit flat-color fallback, and the hidden
+capture shows the horizon, ground, and distant surfaces; the small central
+object is too tiny to identify. The scene is still distorted and untextured,
+so this is not a playable graphics milestone.
+See the [latest visibility pass](PLAYABLE_TODO.md#native-opengl-visibility-pass-2026-11-21).
+
 **Next:** fix the Sly-specific native host-renderer path at the confirmed
 model-draw boundary: establish correct geometry, deformation, transforms and
 materials from game-side inputs, then validate a recognizable object in

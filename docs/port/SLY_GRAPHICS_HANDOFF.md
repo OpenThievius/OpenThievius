@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native OpenGL visibility check (2026-11-21)
+
+The host32 frame boundary now publishes immutable packet and world-mesh
+snapshots after the guest calls `SubmitRenderFrame`. In a forced-level hidden
+capture, guest frame 4 repeatedly presented one 393-mesh snapshot; the earlier
+30/393 trace was the render-target pass followed by the main-scene pass, not
+the presenter dropping half of a frame.
+
+The native OpenGL renderer was skipping each mesh whose texture lookup returned
+the placeholder. This capture had 39 scene materials, only 3 uploaded, and 36
+missing, so most of the world never reached rasterization and the output was
+black. The port now renders unresolved-texture meshes as stable per-instance
+flat-color geometry and keeps their missing-texture accounting. The hidden
+capture shows a sky/ground horizon and distant surfaces; a small central
+object is too tiny to identify. The scene is still distorted and untextured.
+This visibility fallback does not mean game textures or the level renderer
+are correct.
+
+The fallback is in `port/runtime/sdl_renderer.cpp`; it does not change matched
+decompilation functions or functional backfills. Set
+`OPENRAC_SKIP_MISSING_TEXTURE_MESH=1` to restore the previous skip behavior, or
+`OPENRAC_SHOW_PLACEHOLDER_MESH=1` to display the checker texture. Build log:
+`/tmp/sly-native-gl-final-build-20261121.log`; capture:
+`/tmp/sly-native-gl-final-20261121/`. The target built successfully and the
+bounded hidden launch ended at its planned timeout (exit 137); no process was
+left running. Next trace why most native mesh TEX0/CLUT lookups do not resolve
+against the frame's GS uploads, then replace the color fallback with actual
+game textures. Keep graphics work on host OpenGL; do not implement the PS2 VU
+renderer.
+
 ### Current direction after comparing the supplied reference (2026-11-21)
 
 **Renderer decision:** focus on the native host OpenGL renderer. The PlayStation

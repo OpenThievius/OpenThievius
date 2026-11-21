@@ -93,6 +93,13 @@ openrac::gl::GLuint g_movie_texture = 0;
 openrac::gl::GLint g_movie_sampler_location = -1;
 std::mutex g_world_mesh_mutex;
 std::vector<NativeWorldMesh> g_world_meshes;
+std::mutex g_render_frame_mutex;
+std::shared_ptr<const std::vector<std::uint8_t>> g_ready_packets =
+    std::make_shared<const std::vector<std::uint8_t>>();
+std::shared_ptr<const std::vector<NativeWorldMesh>> g_ready_world_meshes =
+    std::make_shared<const std::vector<NativeWorldMesh>>();
+std::size_t g_ready_world_mesh_replacements = 0;
+std::uint64_t g_ready_frame_serial = 0;
 struct NativeTextureTarget {
     std::unique_ptr<openrac::renderer::FrameBuffer> framebuffer;
     openrac::renderer::TextureHandle texture = 0;
@@ -722,6 +729,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const auto tex1 = openrac::renderer::gs::Tex1::decode(mesh.tex1);
         const auto clamp = openrac::renderer::gs::Clamp::decode(mesh.clamp);
         const auto test = openrac::renderer::gs::Test::decode(mesh.test);
+        bool missing_texture_fallback = false;
         if (debug_skip_full_cover && projected_cover && test.zte &&
             test.ztst == openrac::renderer::gs::DepthTest::Always) {
             static unsigned skipped_cover_notices = 0;
@@ -738,24 +746,32 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
             if (texture == g_textures->placeholder()) {
                 present_missing_textures.insert(mesh.tex0);
-                // A placeholder texture is the host's magenta/black
-                // checkerboard, not real game art. Drawing it modulates that
-                // magenta into the frame and hides the real level geometry.
-                // Skip such meshes by default; OPENRAC_SHOW_PLACEHOLDER_MESH
-                // restores the original behaviour.
-                if (getenv("OPENRAC_SHOW_PLACEHOLDER_MESH") == nullptr)
-                    continue;
+                // Keep native geometry visible while texture residency is
+                // incomplete. The fallback is a stable per-instance flat
+                // color; it is clearly diagnostic and never pretends to be
+                // recovered game art. Set OPENRAC_SKIP_MISSING_TEXTURE_MESH
+                // to restore the previous black-background behavior, or
+                // OPENRAC_SHOW_PLACEHOLDER_MESH to draw the checker texture.
+                if (getenv("OPENRAC_SHOW_PLACEHOLDER_MESH") == nullptr) {
+                    if (getenv("OPENRAC_SKIP_MISSING_TEXTURE_MESH") != nullptr)
+                        continue;
+                    missing_texture_fallback = true;
+                    texture = 0;
+                }
             } else
                 present_uploaded_textures.insert(mesh.tex0);
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
                 static std::unordered_map<std::uint64_t, bool> texture_notices;
                 if (texture_notices.emplace(mesh.tex0, true).second) {
-                    const auto& image = g_textures->image(texture);
+                    const auto diagnostic_texture = texture != 0
+                        ? texture : g_textures->placeholder();
+                    const auto& image = g_textures->image(diagnostic_texture);
                     std::fprintf(stderr,
                                  "[native sly material] tbp=%#x cbp=%#x psm=%#x size=%dx%d handle=%u name=%s placeholder=%u test=%#llx alpha=%s%#llx tex1=%#llx clamp=%#llx\n",
                                  tex0.tbp0, tex0.cbp, tex0.psm, image.width, image.height,
-                                 texture, g_textures->name(texture).c_str(),
-                                 texture == g_textures->placeholder() ? 1u : 0u,
+                                 diagnostic_texture,
+                                 g_textures->name(diagnostic_texture).c_str(),
+                                 diagnostic_texture == g_textures->placeholder() ? 1u : 0u,
                                  static_cast<unsigned long long>(mesh.test),
                                  mesh.alpha_valid ? "" : "missing/",
                                  static_cast<unsigned long long>(mesh.alpha),
@@ -945,13 +961,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 g_textures->alpha_scale(texture) == openrac::renderer::AlphaScale::Full
             ? 0.5f : 1.0f;
         glUniform1f(g_world_tex_alpha_scale_location, texture_alpha_scale);
-        glUniform1i(g_world_debug_geometry_location, debug_solid_colors ? 1 : 0);
-        if (debug_solid_colors) {
+        const bool debug_geometry = debug_solid_colors || missing_texture_fallback;
+        glUniform1i(g_world_debug_geometry_location, debug_geometry ? 1 : 0);
+        if (debug_geometry) {
             const std::uint32_t color_hash = static_cast<std::uint32_t>(
                 mesh.instance ^ (mesh.instance >> 32u));
-            const float red = 0.25f + static_cast<float>(color_hash & 0xFFu) * (0.75f / 255.0f);
-            const float green = 0.25f + static_cast<float>((color_hash >> 8u) & 0xFFu) * (0.75f / 255.0f);
-            const float blue = 0.25f + static_cast<float>((color_hash >> 16u) & 0xFFu) * (0.75f / 255.0f);
+            const float color_floor = missing_texture_fallback ? 0.35f : 0.25f;
+            const float color_range = 1.0f - color_floor;
+            const float red = color_floor +
+                static_cast<float>(color_hash & 0xFFu) * (color_range / 255.0f);
+            const float green = color_floor +
+                static_cast<float>((color_hash >> 8u) & 0xFFu) * (color_range / 255.0f);
+            const float blue = color_floor +
+                static_cast<float>((color_hash >> 16u) & 0xFFu) * (color_range / 255.0f);
             glUniform4f(g_world_debug_color_location, red, green, blue, 1.0f);
         }
         if (texture != 0 && mesh.tex0 != 0) {
@@ -967,7 +989,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
-        if (mesh.alpha_valid && !debug_solid_colors && !debug_normal_colors) {
+        if (mesh.alpha_valid && !debug_geometry && !debug_normal_colors) {
             const auto alpha = openrac::renderer::gs::Alpha::decode(mesh.alpha);
             const openrac::renderer::GlBlend blend =
                 openrac::renderer::translate_blend(alpha);
@@ -991,7 +1013,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             glUniform1i(g_world_source_scale_location, 0);
             glUniform1f(g_world_source_fix_location, 0.0f);
         }
-        const bool alpha_test_enabled = test.ate &&
+        const bool alpha_test_enabled = !debug_geometry && test.ate &&
             test.atst != openrac::renderer::gs::AlphaTest::Always &&
             test.atst != openrac::renderer::gs::AlphaTest::Never;
         glUniform1i(g_world_alpha_test_location,
@@ -1162,7 +1184,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         };
         const auto alpha_fail = test.afail;
-        if (!test.ate || test.atst == openrac::renderer::gs::AlphaTest::Always) {
+        if (!alpha_test_enabled ||
+            test.atst == openrac::renderer::gs::AlphaTest::Always) {
             glUniform1i(g_world_alpha_test_location, 0);
             glUniform1i(g_world_alpha_keep_failing_location, 0);
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -2266,23 +2289,40 @@ extern "C" void openrac_native_window_present(void) {
         g_clear_color(0, 0, 0, 1);
         g_clear(0x00004100u);
     }
-    std::vector<NativeWorldMesh> world_meshes;
+    std::shared_ptr<const std::vector<std::uint8_t>> ready_packets;
+    std::shared_ptr<const std::vector<NativeWorldMesh>> ready_world_meshes;
     std::size_t world_mesh_replacements = 0;
+    std::uint64_t ready_frame_serial = 0;
     {
-        std::scoped_lock lock(g_world_mesh_mutex);
-        world_meshes.swap(g_world_meshes);
-        world_mesh_replacements = g_world_mesh_replacements;
-        g_world_mesh_replacements = 0;
+        std::scoped_lock lock(g_render_frame_mutex);
+        ready_packets = g_ready_packets;
+        ready_world_meshes = g_ready_world_meshes;
+        world_mesh_replacements = g_ready_world_mesh_replacements;
+        ready_frame_serial = g_ready_frame_serial;
+    }
+    static const std::vector<std::uint8_t> kEmptyPackets;
+    static const std::vector<NativeWorldMesh> kEmptyWorldMeshes;
+    const auto& packets = ready_packets ? *ready_packets : kEmptyPackets;
+    const auto& published_world_meshes = ready_world_meshes
+        ? *ready_world_meshes : kEmptyWorldMeshes;
+    if (std::getenv("OPENRAC_TRACE_NATIVE_FRAME_SNAPSHOT") != nullptr) {
+        static unsigned notices = 0;
+        if (notices++ < 96u)
+            std::fprintf(stderr,
+                         "[native frame present] host=%llu guest=%llu packets=%zu meshes=%zu\n",
+                         static_cast<unsigned long long>(this_present),
+                         static_cast<unsigned long long>(ready_frame_serial),
+                         packets.size(), published_world_meshes.size());
     }
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static unsigned notices = 0;
-        if ((!world_meshes.empty() || world_mesh_replacements != 0u) &&
+        if ((!published_world_meshes.empty() || world_mesh_replacements != 0u) &&
             notices < 24u) {
             ++notices;
             std::fprintf(stderr,
                          "[native sly mesh queue] present=%llu meshes=%zu replaced=%zu\n",
                          static_cast<unsigned long long>(this_present),
-                         world_meshes.size(), world_mesh_replacements);
+                         published_world_meshes.size(), world_mesh_replacements);
         }
     }
 #ifdef OPENRAC_VU_NDC_BY_DEFAULT
@@ -2290,7 +2330,9 @@ extern "C" void openrac_native_window_present(void) {
 #else
     bool vu_ndc_render = std::getenv("OPENRAC_SLY_VU_NDC_RENDER") != nullptr;
 #endif
+    std::vector<NativeWorldMesh> vu_ndc_world_meshes;
     if (vu_ndc_render) {
+        vu_ndc_world_meshes = published_world_meshes;
         std::vector<float> ndc(65536u * 3u);
         std::vector<unsigned> meta(65536u * 4u);
         const std::size_t floats = openrac_native_vu_ndc_take(
@@ -2329,12 +2371,14 @@ extern "C" void openrac_native_window_present(void) {
                 for (int i = 0; i < 16; ++i)
                     ndc_mesh.mvp[static_cast<std::size_t>(i)] = (i % 5 == 0) ? 1.0f : 0.0f;
                 ndc_mesh.model_is_identity = true;
-                world_meshes.push_back(std::move(ndc_mesh));
+                vu_ndc_world_meshes.push_back(std::move(ndc_mesh));
             }
             ++group_index;
             begin = end;
         }
     }
+    const auto& world_meshes = vu_ndc_render
+        ? vu_ndc_world_meshes : published_world_meshes;
     // TextureRenderObject meshes are rendered to their own GS texture before
     // the packet stream draws the textured edge quad that consumes them.
     if (g_textures) {
@@ -2456,8 +2500,6 @@ extern "C" void openrac_native_window_present(void) {
             }
         }
     }
-    std::vector<std::uint8_t> packets;
-    { std::scoped_lock lock(g_packets_mutex); packets.swap(g_packets); }
     std::vector<std::uint8_t> world_packet;
     if (std::getenv("OPENRAC_SLY_GIF_PRODUCER") != nullptr && !world_meshes.empty())
         world_packet = build_world_gif_packet(world_meshes);
@@ -2634,6 +2676,41 @@ extern "C" void openrac_native_window_present(void) {
     g_window->swap();
 }
 
+// Publish both host-render inputs only after the guest has finished
+// SubmitRenderFrame. The SDL presenter runs on another thread and may present
+// several times per game frame; it must keep drawing the previous complete
+// snapshot instead of draining a half-built frame.
+extern "C" void openrac_native_window_frame_complete(void) {
+    static std::uint64_t completed_frame_serial = 0;
+    auto completed_packets = std::make_shared<std::vector<std::uint8_t>>();
+    auto completed_meshes = std::make_shared<std::vector<NativeWorldMesh>>();
+    std::size_t completed_replacements = 0;
+    {
+        std::scoped_lock lock(g_packets_mutex);
+        completed_packets->swap(g_packets);
+    }
+    {
+        std::scoped_lock lock(g_world_mesh_mutex);
+        completed_meshes->swap(g_world_meshes);
+        completed_replacements = g_world_mesh_replacements;
+        g_world_mesh_replacements = 0;
+    }
+    {
+        std::scoped_lock lock(g_render_frame_mutex);
+        g_ready_packets = std::move(completed_packets);
+        g_ready_world_meshes = std::move(completed_meshes);
+        g_ready_world_mesh_replacements = completed_replacements;
+        g_ready_frame_serial = ++completed_frame_serial;
+        if (std::getenv("OPENRAC_TRACE_NATIVE_FRAME_SNAPSHOT") != nullptr &&
+            completed_frame_serial <= 96u)
+            std::fprintf(stderr,
+                         "[native frame publish] guest=%llu packets=%zu meshes=%zu replacements=%zu\n",
+                         static_cast<unsigned long long>(completed_frame_serial),
+                         g_ready_packets->size(), g_ready_world_meshes->size(),
+                         g_ready_world_mesh_replacements);
+    }
+}
+
 extern "C" void openrac_native_window_destroy(void) {
     if (g_direct) g_direct->release();
     for (auto& [tbp, target] : g_native_texture_targets) {
@@ -2662,6 +2739,13 @@ extern "C" void openrac_native_window_destroy(void) {
         std::scoped_lock lock(g_world_mesh_mutex);
         g_world_meshes.clear();
         g_world_mesh_world = 0;
+    }
+    {
+        std::scoped_lock lock(g_render_frame_mutex);
+        g_ready_packets.reset();
+        g_ready_world_meshes.reset();
+        g_ready_world_mesh_replacements = 0;
+        g_ready_frame_serial = 0;
     }
     if (g_textures) g_textures->release_gl();
     if (g_present_texture != 0) openrac::gl::glDeleteTextures(1, &g_present_texture);
