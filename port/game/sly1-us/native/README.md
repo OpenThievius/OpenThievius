@@ -9,30 +9,35 @@ never edited by the host staging adapter.
 
 ## Current state (2026-11-21)
 
-An approved hidden native run now displays the opening PSS after one
-process-local Cross leaves the no-card prompt. The retail call is resource
-`0x344`, LSN `0xc8f03`, `0xab4004` bytes. An opt-in Linux-only diagnostic
-(`OPENRAC_NATIVE_FFMPEG_MOVIES=1`) decodes this clip with installed
-`ffprobe`/`ffmpeg` and sends frames to the SDL window. It has no audio and is
-not the final native media backend. No matched decomp source was changed.
-Live 3D rendering and controllable gameplay are still unverified. See the
-[playable TODO](../../../../docs/port/PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
+An approved hidden run identifies the opening PSS after one process-local
+Cross leaves the no-card prompt. The retail call requests resource `0x344`,
+LSN `0xc8f03`, `0xab4004` bytes. The opt-in Linux diagnostic
+(`OPENRAC_NATIVE_FFMPEG_MOVIES=1`) decodes it with installed `ffprobe`/`ffmpeg`
+and sends authentic game footage to the SDL window. The host tools produce
+those frames; this is not graphics produced by the decompiled game. It has no
+audio and is not the final native media backend. No matched decomp source was
+changed. Live title graphics and controllable gameplay are still unverified.
+See the
+[playable TODO](../../../../docs/port/PLAYABLE_TODO.md#opening-pss-frame-diagnostic-not-native-game-rendering)
 for evidence and next steps.
 
-The opt-in `OPENRAC_NATIVE_DECOMP_MOVIES=1` diagnostic now reaches the matched
-`PlayMovie` body after the C++ weak-symbol linkage fix. It accepts the opening
-PSS sector read, then faults in `GetOscillatorEntryPeriod` during the movie
-audio/IOP startup path. This is not the default path and does not establish
-decoder or live movie playback support. Trace/fix the host service in `port/`;
-do not modify the matched decomp source. See the dated checkpoint in the
-playable TODO for the exact log and current diagnosis.
+The opt-in `OPENRAC_NATIVE_DECOMP_MOVIES=1` path reaches matched `PlayMovie`
+and accepts the opening PSS sector read. A host staging adapter now supplies
+the ignored return from `StartMovieStream`, whose matched C body otherwise
+falls off a non-void function. Staging adapters now define the ignored host
+returns for both it and `CreateMpegDecoder`; the latter fix removes the `0x858`
+fault. The movie stream then reads PSS data and stalls in `PeekIpuBits` because
+the native host maps IPU registers but does not implement their command
+behavior. The formatter's EE varargs slots are adapted to the host i386 layout.
+Keep these host ABI changes in `port/` and do not modify matched decomp source.
+See the dated checkpoint in the playable TODO for the latest trace.
 
 The sibling decomp checkout is at `8f7a85a3`; US and PAL code remain 100%
 matched. The native host32 target is still an experimental compatibility
 build, not a playable port. The default build shows the no-card warning and
-remains black after Continue; the movie diagnostic is separately opt-in. No
-live title or controllable level graphics are confirmed. See the dated visual
-and packet evidence in
+remains black after Continue; the PSS decoder diagnostic is separately
+opt-in. No live title or controllable level graphics are confirmed. See the
+dated visual and packet evidence in
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
 
 ## Historical build snapshot (2026-11-14)

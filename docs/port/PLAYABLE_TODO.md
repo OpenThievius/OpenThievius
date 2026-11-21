@@ -3,7 +3,7 @@
 
 ## Current checkpoint (2026-11-21)
 
-### Verified first native graphics: retail opening PSS
+### Opening PSS frame diagnostic (not native game rendering)
 
 The exact movie call is now identified. An approved, process-local Cross at
 frame 120 leaves the no-card prompt and reaches world `0x870cf0`; the retail
@@ -18,9 +18,12 @@ PAL PCSX2 reference (regional branding differs).
 An opt-in Linux development bridge is implemented in the port-only native
 backfill and SDL renderer. With `OPENRAC_NATIVE_FFMPEG_MOVIES=1`, it reads the
 requested sectors from the user's configured disc, invokes installed
-`ffprobe`/`ffmpeg`, and presents decoded frames in the native window. It is
-limited to resource `0x344`, has no audio, and depends on external host tools;
-it is a visual diagnostic, not the final cross-platform media implementation.
+`ffprobe`/`ffmpeg`, and presents decoded PSS frames in the native window. These
+are authentic frames from the game disc, but the host video tools decode and
+present them; this does not show the decompiled game producing its opening
+graphics. The bridge is limited to resource `0x344`, has no audio, and depends
+on external host tools. It is a visual diagnostic, not the final
+cross-platform media implementation.
 The normal run remains at the no-card prompt until input, and the test's
 single Cross bypasses the startup title/menu path. Live 3D scene rendering and
 controllable gameplay are still unverified.
@@ -31,30 +34,39 @@ configured Documents US ISO and cached US ELF, ended at its 30-second bound,
 decoded 409 frames, and captured six rendered frames. The PSS and captures
 remain outside the repository.
 
-**Next:** use the identified retail call and matching reference timing to
-trace why normal startup waits at the save prompt and how the title sequence
-follows this clip. Separately replace the FFmpeg diagnostic with a
-self-contained host media path, then return to the live world renderer. Keep
-both tasks in `port/`; do not alter matched decompilation source.
+**Next:** make the normal decompiled video path present the opening PSS, then
+trace why startup waits at the save prompt and how the title sequence follows
+this clip. Keep any host ABI fixes and replacement behavior in `port/`; do not
+alter matched decompilation source.
 
 ### Decompiled movie path check (2026-11-21)
 
-After the wrong C/C++ weak-symbol linkage was corrected in the port-only
-`PlayMovie` wrapper, `OPENRAC_NATIVE_DECOMP_MOVIES=1` did enter the matched
-decompilation body. `OpenSectorStreamRange` requested LSN `0xc8f03`, eight
-sectors in mode `0x17f`, and the host CD adapter accepted the read. The process
-then faulted at guest address `0x64` in `GetOscillatorEntryPeriod`, called
-while `StartMovieStream` is starting the movie audio/IOP path. This proves
-that the decompiled movie function is now reached; it does not yet prove the
-MPEG decoder or live presentation path works. The exact IOP/audio caller that
-supplies the invalid oscillator is not yet isolated. Do not patch the matched
-decompilation: trace and repair the responsible host service in `port/`, or
-keep any required behavior replacement as a clearly named port backfill.
+After fixing the port-only `PlayMovie` linkage, `OPENRAC_NATIVE_DECOMP_MOVIES=1`
+entered the matched movie and stream startup code and requested the correct
+opening PSS sectors. The earlier `0x64` report was misdiagnosed: `StartMovieStream`
+has a non-void return type but no return statement, and the caller ignores it.
+A host staging adapter now supplies that ignored result; this moves execution
+past the old bad compiler path. A later trace reached `CreateMpegDecoder`
+with `out=0x08723ff0`, `mem=0x002d7b40`, and `size=0x00152f68`, then faulted
+at address `0x858`. A second staging adapter now defines that function's
+ignored return, and the next run verified that the fault is gone. The matched
+decoder reads successive eight-sector blocks from the opening PSS, then the
+game thread stays in `PeekIpuBits` (retail address `0x20f3c0`) waiting for the
+PS2 IPU's bit window. The native host maps the IPU register range but does not
+implement IPU command behavior, so the register state never advances and no
+movie frame reaches the game's graphics path. The save prompt remains at
+page 7; no title or level scene appears. The `text_format.cpp` adapter also
+uses i386 vararg sizes, but an MPEG error message has not exercised it yet.
 
-Evidence: `/tmp/sly-decomp-movie-correct-link-20261121/run.log`. The bounded
-hidden run used the configured Documents US ISO and cached US ELF, enabled
-only the opt-in decomp movie path, and exited on the first fatal signal. The
-normal default launch is unchanged.
+Evidence: `/tmp/sly-mpeg-return-run-20261121/run.log`; the earlier
+`/tmp/sly-mpeg-state-run-20261121/run.log` records the pre-fix `0x858` fault.
+The latest run used the configured Documents US ISO and cached US ELF, hidden
+window, and the approved menu test driver. It ended at its 18-second bound
+without a fatal signal. The default launch is unchanged. Next, add a port-only
+native movie decode path that feeds the movie presentation code, or connect
+the PSS diagnostic decoder to the movie player's presentation callback. Keep
+this separate from matched decomp source so it can be removed as the IPU path
+is recovered.
 
 ### Renderer direction: start with the scene in the reference
 
