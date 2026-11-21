@@ -864,7 +864,7 @@ bool kick_gif(uint32_t address, uint32_t* failure, uint64_t* first_tag,
             const char* xyz_trace_setting =
                 std::getenv("OPENRAC_TRACE_GS_XYZ");
             if (xyz_trace_setting != nullptr && xyz_trace_setting[0] != '\0' &&
-                xyz_trace_setting[0] != '0' && trace_vu1_xgkick_context_matches()) {
+                xyz_trace_setting[0] != '0') {
                 std::snprintf(trace_origin, sizeof(trace_origin),
                               "vu1-xgkick submission=%u mscal=%#x entry=%#x",
                               g_vu_trace_submission_id,
