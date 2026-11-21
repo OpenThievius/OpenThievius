@@ -24,6 +24,17 @@ step is to identify the legal/logo/rooftop/title transition and the data path
 for its first missing scene, then build a Sly-owned host render path in `port/`
 for anything not represented by the existing 2D packets.
 
+A fresh default-renderer trace with process-local Up at frame 120 and Cross at
+frame 180 invoked the opening PSS resource (`0x344`) and decoded all 409 frames
+through the opt-in FFmpeg bridge. After the clip returned, VU1 again tried to
+XGKICK from qword 469, although the GIFtag is at qword 468; strict packet
+validation rejected it. This route differs from the Cross-only shortcut that
+loads Paris. It confirms movie decode and guest continuation, not native PSS
+presentation through the game's IPU/GS path, rooftop/title graphics, or
+playable 3D. The FFmpeg bridge presents movie frames outside that path. The
+hidden framebuffer capture from this run was partial and is not a reliable
+visible-window check.
+
 ### Fresh-start state trace (2026-11-21)
 
 The Splash CountdownNotifier reaches mode 2 through its authored start script,

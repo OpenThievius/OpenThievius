@@ -61,6 +61,19 @@ configured Documents US ISO and cached US ELF, ended at its 30-second bound,
 decoded 409 frames, and captured six rendered frames. The PSS and captures
 remain outside the repository.
 
+A fresh hidden run on the default renderer scheduled Up at native frame 120
+and Cross at frame 180. It called the same opening resource (`0x344`, LSN
+`0xc8f03`, 409 frames), then returned to guest execution. This is distinct
+from the Cross-only shortcut that jumps to Paris. After the movie, the VU1
+stream again reached PC `0x68` and attempted XGKICK from qword 469; that qword
+is the packet payload, while the valid GIFtag is at qword 468, so strict
+validation rejected it. The hidden-window framebuffer samples from this run
+were black or partial and are not evidence of what a visible window presents.
+This confirms the opening clip route and subsequent guest execution, but not
+the rooftop/title scene or a working 3D renderer. The FFmpeg bridge supplies
+the visible movie frames outside the game's IPU/GS path. Log:
+`/tmp/sly-current-wayland-late-20261121/run.log`.
+
 The latest no-input trace confirms the default port is on the create-save
 choice (card state and target 3, Splash world `0x6abdd0`, UI state 5/page 7),
 not the no-card warning. Evidence:
