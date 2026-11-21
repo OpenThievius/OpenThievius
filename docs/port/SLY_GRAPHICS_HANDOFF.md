@@ -27,12 +27,14 @@ for anything not represented by the existing 2D packets.
 A fresh default hidden run confirms Splash world `0x6abdd0` remains at UI state
 5, page 7 (create-save prompt), with `movie=0`. One process-local Cross at host
 frame 120 dismisses the prompt and loads world `0x870cf0`; the guest reports
-2,426 sectors read and UI state 3. Sparse captures then show the same
-distorted gray geometry seen in the player/world experiments, not the
-reference title. This run had no boot-level override and did not reach a title
-frame. It narrows the immediate behavior but does not establish why the
-retail startup sequence is skipped. Logs and image sheet are recorded in the
-current TODO above.
+2,426 sectors read and UI state 3. The **default renderer OFF** captures after
+this transition are black. The distorted gray geometry was from a separate
+run with the opt-in `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`; it is not default
+client output. Neither run reaches the reference title. This narrows the
+immediate behavior but does not establish why the retail startup sequence is
+skipped. Default evidence is in `/tmp/sly-default-after-card-20261121.log` and
+`/tmp/sly-default-after-card-20261121/contact.png`; opt-in evidence is in
+`/tmp/sly-startup-after-card-20261121.log` and its `contact.png`.
 
 ### Gameplay player experiment (not the current visual milestone)
 

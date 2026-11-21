@@ -22,19 +22,25 @@ The latest ordinary hidden startup stays on Splash world `0x6abdd0`, UI state
 5, page 7 (the no-save-file/create-save prompt), with no queued movie. A single
 offscreen Cross at native frame 120 dismisses that flow and reaches world
 `0x870cf0`, UI state 3, after 2,426 sectors have been read. It bypasses the
-reference title in this run and displays distorted gray world geometry. This
-is a separate startup-flow/rendering gap, not evidence that the title scene is
-working. The next concrete work is to trace the retail startup transition
-through legal/logo/rooftop/title and identify the first missing scene's data
-and render path. Keep the existing GIF DirectRenderer for 2D startup/menu
-packets where it already works, and add Sly-owned host rendering in `port/`
-for anything not represented by those packets.
+reference title in this run. In the current default build, the captured frames
+after that transition are black. An earlier run with the opt-in
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` showed distorted gray world geometry;
+that is experimental output, not the default client. This is a separate
+startup-flow/rendering gap, not evidence that the title scene is working. The
+next concrete work is to trace the retail startup transition through
+legal/logo/rooftop/title and identify the first missing scene's data and render
+path. Keep the existing GIF DirectRenderer for 2D startup/menu packets where it
+already works, and add Sly-owned host rendering in `port/` for anything not
+represented by those packets.
 
 Evidence: `/tmp/sly-reference-startup-trace-20261121.log`,
 `/tmp/sly-startup-after-card-20261121.log`, and
-`/tmp/sly-startup-after-card-20261121/contact.png`. The launcher used the
-configured Documents US ISO and cached US ELF in a hidden window; no
-boot-level override was set. The bounded 12-second runs ended by timeout.
+`/tmp/sly-startup-after-card-20261121/contact.png` (opt-in renderer ON) and
+`/tmp/sly-default-after-card-20261121.log`,
+`/tmp/sly-default-after-card-20261121/contact.png` (default renderer OFF). The
+launcher used the configured Documents US ISO and cached US ELF in a hidden
+window; no boot-level override was set. The bounded 12-second runs ended by
+timeout.
 
 ### Player draw investigation (supporting evidence, not the current visual gate)
 
