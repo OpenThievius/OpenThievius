@@ -553,6 +553,16 @@ topology from repeated positions. The next bounded task is to derive how the
 matching VU programs consume this ordered vertex input, then implement that
 specific Sly draw conversion in the port renderer.
 
+The decomp's separate `StripUnpack` record does not supply those boundaries.
+`BuildStripMeshPacket` and `BuildLitStripMeshPacket` reserve it as VIF format-D
+UNPACK data at VU address `0x0B`; their `off[]` and `strip[]` fields are then
+used as VU destination addresses for positions, UVs, skin weights, and morph
+deltas. The records describe the VU input layout, not primitive counts or
+restart positions. The remaining source-side boundary is the ordered
+`VertexRefs` list; topology must come from the active VU microprogram's output
+or another direct draw record. This keeps the next step focused on the VU
+microcode rather than another host-side split heuristic.
+
 The run was stopped at its 40-second bound (exit 137); no launcher remains.
 Its trace is `/tmp/sly-strip-vertices-20261121.log`. It used the Documents US
 ISO, cached US ELF, offscreen SDL and did not affect the desktop window.
