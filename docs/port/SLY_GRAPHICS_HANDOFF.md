@@ -6939,3 +6939,24 @@ Supporting logs:
 `/tmp/sly-prompt-correlated-20261121/run.log`,
 `/tmp/sly-prompt-state-trace-20261121/run.log`, and
 `/tmp/sly-prompt-draw-state-20261121/run.log`.
+
+## Native host32 NTSC pacing (2026-11-21)
+
+The direct host32 SDL loop used to toggle GS `CSR.FIELD` and call the retail
+VBlank handler once per presentation-loop pass, while `WindowConfig::vsync`
+was false. This could issue VBlank faster than the game's display rate. The
+loop now uses the existing `FramePacer` at 60000/1001 Hz and dispatches one
+VBlank for every elapsed field. The ordinary 64-bit native launcher already
+uses this pacer. Rebuilt `port_native_sdl_host32` successfully; the patch is
+port-only.
+
+Untraced process-state sampling found that before pacing, UI state dropped from
+5 to 0 between 2 and 4 seconds while the world pointer remained Splash
+`0x6abdd0`. After pacing, the no-input run stayed in UI state 5 through 8
+seconds (host frame 160). The visible prompt remains incomplete: its first
+2-second capture showed text and only the right/bottom frame edges; the
+4-second image was split gray/black. Later screenshot utility captures changed
+foreground windows and are not Sly evidence. Pacing improves guest startup
+stability but does not yet provide correct, stable graphics. Captures and
+sampled state are in `/tmp/sly-untraced-state-capture-20261121/` and
+`/tmp/sly-paced-visible-20261121/`.

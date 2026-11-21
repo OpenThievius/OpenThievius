@@ -3,6 +3,28 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native host32 field pacing recheck (2026-11-21)
+
+The direct i386 SDL bootstrap was generating one retail VBlank for every
+presentation-loop pass, with SDL swap sync disabled. The 64-bit native launcher
+already uses the shared exact-rate `FramePacer`; the i386 path did not. The
+port now paces its simulated GS field bit and VBlank callbacks at the US game's
+NTSC rate (`60000/1001`), including any elapsed fields when a frame runs late.
+The change is in the port; no matched decomp source changed.
+
+The rebuilt `port_native_sdl_host32` target succeeded. In untraced, no-input
+runs, live reads of the direct launcher's state changed from world
+`0x6abdd0` / UI state 5 at 2 seconds to UI state 0 by 4 seconds before pacing.
+After pacing, the same world and UI state 5 persisted through 8 seconds (host
+frame 160). This is evidence that the old display cadence was disturbing guest
+startup. It is not a graphics fix: an external screenshot at 2 seconds showed
+the prompt text with only the right/bottom frame edges, and a 4-second capture
+showed a gray/black split. Later captures lost foreground focus and belong to
+other desktop windows, so they are excluded. The prompt still needs correct,
+stable native presentation. Run state and screenshots are in
+`/tmp/sly-untraced-state-capture-20261121/` and
+`/tmp/sly-paced-visible-20261121/`.
+
 ### Visible no-card prompt recheck (2026-11-21)
 
 A foreground run of the normal host32 SDL launcher, with
