@@ -44,6 +44,30 @@ geometry transform causing the oversized surfaces. Evidence:
 `/tmp/sly-native-opengl-clipscreen-matrix-20261121/run.log`, and
 `/tmp/sly-native-opengl-clipscreen-20261121/frame02.png`.
 
+### Native OpenGL world draw audit (2026-11-21)
+
+Keep this investigation on the port-owned OpenGL renderer. The successful
+Paris capture shows textured buildings and Sly are reaching the host renderer;
+the PlayStation VU/GIF path is not the target for this work. A request-selectable
+matrix dump now records queued request IDs before optional debug filters and
+prints local vertex bounds, model, view/projection, and the exact matrix passed
+to OpenGL. This also exposed that the previously used source address
+`0x00a29c40` is stale for the current build; the live request `0x005e5380`
+uses source `0x00a0fd90`.
+
+That live mesh spans local coordinates `-50000..50000` and projects far outside
+the clip volume (`x=-945..14`, `y=-116..1648` in the first captured frame).
+The camera matrix is finite and changes smoothly while the player moves. This
+large mesh is consistent with the previously identified background geometry,
+so it is not evidence that the host camera should be patched. Keep it out of
+the foreground of the investigation. Next trace ordinary building requests
+and their material/target routing; compare their source bounds and exact host
+uploads, then make one port-only correction at a time and review the full
+unfiltered frame. Evidence is in
+`/tmp/sly-native-terrain-audit-20261121/run.log`,
+`/tmp/sly-native-matrix-compare-20261121/run.log`, and the captured frame in
+`/tmp/sly-native-terrain-audit-20261121/`.
+
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 
 The decomp's `docs/DISC.md` describes bit 7 of the fourth vertex-record

@@ -583,6 +583,15 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     glBindVertexArray(g_world_vao);
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
     for (const auto& mesh : meshes) {
+        if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
+            static unsigned queued_mesh_notices = 0;
+            if (queued_mesh_notices++ < 96u)
+                std::fprintf(stderr,
+                             "[native sly queued mesh] instance=%#llx request=%#010x source=%#010x vertices=%zu\n",
+                             static_cast<unsigned long long>(mesh.instance),
+                             static_cast<std::uint32_t>(mesh.instance >> 16u),
+                             mesh.source_mesh, mesh.vertices.size() / 9u);
+        }
         if (debug_source_filter && mesh.source_mesh != debug_source_mesh) continue;
         if (debug_request_filter &&
             static_cast<std::uint32_t>(mesh.instance >> 16u) != debug_request)
@@ -805,9 +814,41 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
         }
         if (std::getenv("OPENRAC_DUMP_WORLD_MATRIX") != nullptr) {
             static unsigned notices = 0;
-            if ((mesh.instance >> 16u) == 0x005e5400u && notices++ < 4u) {
-                std::fprintf(stderr, "[native sly uploaded matrix] instance=%#llx mode=%d m=",
-                             static_cast<unsigned long long>(mesh.instance), mvp_mode);
+            std::uint32_t dump_request = 0x005e5400u;
+            if (const char* setting = std::getenv("OPENRAC_DUMP_WORLD_MATRIX")) {
+                if (setting[0] != '\0' && std::strcmp(setting, "1") != 0) {
+                    char* end = nullptr;
+                    const unsigned long parsed = std::strtoul(setting, &end, 0);
+                    if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul)
+                        dump_request = static_cast<std::uint32_t>(parsed);
+                }
+            }
+            if (static_cast<std::uint32_t>(mesh.instance >> 16u) == dump_request &&
+                notices++ < 32u) {
+                float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
+                float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
+                const std::size_t vertex_count = mesh.vertices.size() / 9u;
+                for (std::size_t i = 0; i < vertex_count; ++i) {
+                    const float x = mesh.vertices[i * 9u + 0u];
+                    const float y = mesh.vertices[i * 9u + 1u];
+                    const float z = mesh.vertices[i * 9u + 2u];
+                    min_x = std::min(min_x, x); max_x = std::max(max_x, x);
+                    min_y = std::min(min_y, y); max_y = std::max(max_y, y);
+                    min_z = std::min(min_z, z); max_z = std::max(max_z, z);
+                }
+                std::fprintf(stderr,
+                             "[native sly uploaded matrix] request=%#010x instance=%#llx source=%#010x vertices=%zu mode=%d local_bounds=%g,%g,%g..%g,%g,%g model=",
+                             dump_request,
+                             static_cast<unsigned long long>(mesh.instance),
+                             mesh.source_mesh, vertex_count, mvp_mode,
+                             min_x, min_y, min_z, max_x, max_y, max_z);
+                for (std::size_t i = 0; i < 16; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", mesh.model[i]);
+                std::fprintf(stderr, " view_projection=");
+                for (std::size_t i = 0; i < 16; ++i)
+                    std::fprintf(stderr, "%s%g", i == 0 ? "" : ",",
+                                 mesh.view_projection[i]);
+                std::fprintf(stderr, " uploaded=");
                 for (std::size_t i = 0; i < 16; ++i)
                     std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", m[i]);
                 std::fprintf(stderr, " v0=");
