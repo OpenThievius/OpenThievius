@@ -62,6 +62,8 @@ struct NativeWorldMesh {
     std::uint64_t tex0 = 0;
     std::uint64_t tex1 = 0;
     std::uint64_t clamp = 0;
+    std::uint64_t alpha = 0;
+    bool alpha_valid = false;
     std::uint64_t test = 0;
 };
 
@@ -100,6 +102,12 @@ openrac::gl::GLint g_world_texture_location = -1;
 openrac::gl::GLint g_world_textured_location = -1;
 openrac::gl::GLint g_world_tcc_location = -1;
 openrac::gl::GLint g_world_tfx_location = -1;
+openrac::gl::GLint g_world_tex_alpha_scale_location = -1;
+openrac::gl::GLint g_world_source_scale_location = -1;
+openrac::gl::GLint g_world_source_fix_location = -1;
+openrac::gl::GLint g_world_alpha_test_location = -1;
+openrac::gl::GLint g_world_alpha_ref_location = -1;
+openrac::gl::GLint g_world_alpha_keep_failing_location = -1;
 openrac::gl::GLint g_world_debug_geometry_location = -1;
 openrac::gl::GLint g_world_debug_color_location = -1;
 ClearColor g_clear_color = nullptr;
@@ -278,9 +286,27 @@ uniform sampler2D u_texture;
 uniform int u_textured;
 uniform int u_tcc;
 uniform int u_tfx;
+uniform float u_tex_alpha_scale;
+uniform int u_source_scale;
+uniform float u_source_fix;
+uniform int u_alpha_test;
+uniform float u_alpha_ref;
+uniform int u_alpha_keep_failing;
 uniform int u_debug_geometry;
 uniform vec4 u_debug_color;
 out vec4 frag_color;
+bool alpha_passes(float a) {
+    float value = floor(a + 0.5);
+    switch (u_alpha_test) {
+        case 2: return value < u_alpha_ref;
+        case 3: return value <= u_alpha_ref;
+        case 4: return value == u_alpha_ref;
+        case 5: return value >= u_alpha_ref;
+        case 6: return value > u_alpha_ref;
+        case 7: return value != u_alpha_ref;
+        default: return true;
+    }
+}
 void main() {
     if (u_debug_geometry != 0) {
         frag_color = u_debug_color;
@@ -289,6 +315,7 @@ void main() {
     vec4 color = v_color * 255.0;
     if (u_textured != 0) {
         vec4 texel = texture(u_texture, v_uv) * 255.0;
+        texel.a *= u_tex_alpha_scale;
         if (u_tfx == 0) {
             color.rgb = color.rgb * texel.rgb / 128.0;
             if (u_tcc != 0) color.a = color.a * texel.a / 128.0;
@@ -303,7 +330,15 @@ void main() {
             if (u_tcc != 0) color.a = texel.a;
         }
     }
-    frag_color = clamp(color, 0.0, 255.0) / 255.0;
+    bool alpha_failed = u_alpha_test != 0 &&
+        alpha_passes(color.a) == (u_alpha_keep_failing != 0);
+    if (alpha_failed) discard;
+    if (u_source_scale == 1)
+        color.rgb = min(color.rgb * color.a / 128.0, 255.0);
+    else if (u_source_scale == 2)
+        color.rgb = min(color.rgb * u_source_fix, 255.0);
+    frag_color = vec4(clamp(color.rgb, 0.0, 255.0) / 255.0,
+                      clamp(color.a / 128.0, 0.0, 1.0));
 }
 )";
     g_world_shader = std::make_unique<openrac::renderer::Shader>();
@@ -316,6 +351,12 @@ void main() {
     g_world_textured_location = g_world_shader->uniform("u_textured");
     g_world_tcc_location = g_world_shader->uniform("u_tcc");
     g_world_tfx_location = g_world_shader->uniform("u_tfx");
+    g_world_tex_alpha_scale_location = g_world_shader->uniform("u_tex_alpha_scale");
+    g_world_source_scale_location = g_world_shader->uniform("u_source_scale");
+    g_world_source_fix_location = g_world_shader->uniform("u_source_fix");
+    g_world_alpha_test_location = g_world_shader->uniform("u_alpha_test");
+    g_world_alpha_ref_location = g_world_shader->uniform("u_alpha_ref");
+    g_world_alpha_keep_failing_location = g_world_shader->uniform("u_alpha_keep_failing");
     g_world_debug_geometry_location = g_world_shader->uniform("u_debug_geometry");
     g_world_debug_color_location = g_world_shader->uniform("u_debug_color");
     glGenVertexArrays(1, &g_world_vao);
@@ -553,6 +594,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             present_signature *= 1099511628211ull;
             present_signature ^= mesh.tex0;
             present_signature *= 1099511628211ull;
+            present_signature ^= mesh.alpha;
+            present_signature *= 1099511628211ull;
             present_signature ^= static_cast<std::uint64_t>(mesh.vertices.size() / 9u);
             present_signature *= 1099511628211ull;
         }
@@ -648,11 +691,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 if (texture_notices.emplace(mesh.tex0, true).second) {
                     const auto& image = g_textures->image(texture);
                     std::fprintf(stderr,
-                                 "[native sly material] tbp=%#x cbp=%#x psm=%#x size=%dx%d handle=%u name=%s placeholder=%u test=%#llx tex1=%#llx clamp=%#llx\n",
+                                 "[native sly material] tbp=%#x cbp=%#x psm=%#x size=%dx%d handle=%u name=%s placeholder=%u test=%#llx alpha=%s%#llx tex1=%#llx clamp=%#llx\n",
                                  tex0.tbp0, tex0.cbp, tex0.psm, image.width, image.height,
                                  texture, g_textures->name(texture).c_str(),
                                  texture == g_textures->placeholder() ? 1u : 0u,
                                  static_cast<unsigned long long>(mesh.test),
+                                 mesh.alpha_valid ? "" : "missing/",
+                                 static_cast<unsigned long long>(mesh.alpha),
                                  static_cast<unsigned long long>(mesh.tex1),
                                  static_cast<unsigned long long>(mesh.clamp));
                 }
@@ -719,6 +764,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                     texture != 0 && mesh.tex0 != 0 ? 1 : 0);
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
+        const float texture_alpha_scale = texture != 0 && g_textures != nullptr &&
+                g_textures->alpha_scale(texture) == openrac::renderer::AlphaScale::Full
+            ? 0.5f : 1.0f;
+        glUniform1f(g_world_tex_alpha_scale_location, texture_alpha_scale);
         glUniform1i(g_world_debug_geometry_location, debug_solid_colors ? 1 : 0);
         if (debug_solid_colors) {
             const std::uint32_t color_hash = static_cast<std::uint32_t>(
@@ -741,6 +790,37 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
+        if (mesh.alpha_valid && !debug_solid_colors && !debug_normal_colors) {
+            const auto alpha = openrac::renderer::gs::Alpha::decode(mesh.alpha);
+            const openrac::renderer::GlBlend blend =
+                openrac::renderer::translate_blend(alpha);
+            glEnable(GL_BLEND);
+            glBlendEquation(blend.equation);
+            glBlendFuncSeparate(blend.src, blend.dst, GL_ONE, GL_ZERO);
+            glBlendColor(0.0f, 0.0f, 0.0f, blend.constant);
+            glUniform1i(g_world_source_scale_location,
+                        static_cast<GLint>(blend.source_scale));
+            glUniform1f(g_world_source_fix_location, blend.fix);
+            if (!blend.exact && std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+                static std::unordered_set<std::uint64_t> blend_notices;
+                if (blend_notices.insert(mesh.alpha).second)
+                    std::fprintf(stderr,
+                                 "[native sly blend approximated] alpha=%#llx function=%u,%u,%u,%u fix=%u\n",
+                                 static_cast<unsigned long long>(mesh.alpha), alpha.a,
+                                 alpha.b, alpha.c, alpha.d, alpha.fix);
+            }
+        } else {
+            glDisable(GL_BLEND);
+            glUniform1i(g_world_source_scale_location, 0);
+            glUniform1f(g_world_source_fix_location, 0.0f);
+        }
+        const bool alpha_test_enabled = test.ate &&
+            test.atst != openrac::renderer::gs::AlphaTest::Always &&
+            test.atst != openrac::renderer::gs::AlphaTest::Never;
+        glUniform1i(g_world_alpha_test_location,
+                    alpha_test_enabled ? static_cast<GLint>(test.atst) : 0);
+        glUniform1f(g_world_alpha_ref_location, static_cast<float>(test.aref));
+        glUniform1i(g_world_alpha_keep_failing_location, 0);
         if (std::getenv("OPENRAC_SLY_WORLD_NO_DEPTH") != nullptr) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
@@ -767,6 +847,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         }
+        auto draw_geometry = [&]() {
         if (debug_primitive == GL_POINTS) {
             // Isolate vertex placement from the still-unverified kind-5
             // triangle grouping. This remains opt-in and is useful for
@@ -870,6 +951,40 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                                  static_cast<GLsizei>(vertex_count - run_begin));
             }
         }
+        };
+        const auto alpha_fail = test.afail;
+        if (!test.ate || test.atst == openrac::renderer::gs::AlphaTest::Always) {
+            glUniform1i(g_world_alpha_test_location, 0);
+            glUniform1i(g_world_alpha_keep_failing_location, 0);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            draw_geometry();
+        } else if (test.atst == openrac::renderer::gs::AlphaTest::Never) {
+            if (alpha_fail != openrac::renderer::gs::AlphaFail::Keep) {
+                glColorMask(alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail == openrac::renderer::gs::AlphaFail::FbOnly);
+                glDepthMask(alpha_fail == openrac::renderer::gs::AlphaFail::ZbOnly);
+                glUniform1i(g_world_alpha_test_location, 0);
+                draw_geometry();
+            }
+        } else {
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(test.zte ? GL_TRUE : GL_FALSE);
+            glUniform1i(g_world_alpha_test_location, static_cast<GLint>(test.atst));
+            glUniform1i(g_world_alpha_keep_failing_location, 0);
+            draw_geometry();
+            if (alpha_fail != openrac::renderer::gs::AlphaFail::Keep) {
+                glColorMask(alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail != openrac::renderer::gs::AlphaFail::ZbOnly,
+                            alpha_fail == openrac::renderer::gs::AlphaFail::FbOnly);
+                glDepthMask(alpha_fail == openrac::renderer::gs::AlphaFail::ZbOnly);
+                glUniform1i(g_world_alpha_keep_failing_location, 1);
+                draw_geometry();
+            }
+        }
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     }
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
@@ -1290,7 +1405,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
     std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* vertex_flags,
     const float* model, const float* view_projection,
-    std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t test) {
+    std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
+    std::uint64_t alpha, int alpha_valid, std::uint64_t test) {
     // Diagnostic filter for isolating one guest mesh from scene occlusion and
     // the experimental overlay's other approximations. Unset by default.
     if (const char* setting = std::getenv("OPENRAC_SLY_WORLD_ONLY_SOURCE")) {
@@ -1312,6 +1428,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     draw.tex0 = tex0;
     draw.tex1 = tex1;
     draw.clamp = clamp;
+    draw.alpha = alpha;
+    draw.alpha_valid = alpha_valid != 0;
     draw.test = test;
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t column = 0; column < 4; ++column) {

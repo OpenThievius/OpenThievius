@@ -44,7 +44,9 @@ struct NativeSlyMaterial {
     u64 tex0 = 0;
     u64 tex1 = 0;
     u64 clamp = 0;
+    u64 alpha = 0;
     u64 test = 0;
+    bool alpha_valid = false;
 };
 struct NativeSlyMesh {
     u32 source_mesh = 0;
@@ -1145,7 +1147,8 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             case 0x06: case 0x07: material.tex0 = value; break;  // TEX0_1 / TEX0_2
             case 0x14: case 0x15: material.tex1 = value; break;  // TEX1_1 / TEX1_2
             case 0x08: case 0x09: material.clamp = value; break; // CLAMP_1 / CLAMP_2
-            default: break;                                      // ALPHA, FOGCOL, and others
+            case 0x42: case 0x43: material.alpha = value; material.alpha_valid = true; break; // ALPHA_1 / ALPHA_2
+            default: break;                                      // other GS state
             }
         }
         captured.materials.push_back(material);
@@ -1809,10 +1812,12 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                                  (static_cast<u64>(i) << 8u) | pass;
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
                 std::fprintf(stderr,
-                             "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx\n",
+                             "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx alpha=%s%#llx\n",
                              source_mesh, mesh.kind, packet_address, request_address, i, pass,
                              mesh.materials.size(), mesh.vertices.size() / 9u,
-                             static_cast<unsigned long long>(material.tex0));
+                             static_cast<unsigned long long>(material.tex0),
+                             material.alpha_valid ? "" : "missing/",
+                             static_cast<unsigned long long>(material.alpha));
             if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;
             openrac_native_sly_world_mesh_submit(
                 world, instance, mesh.vertices.data(),
@@ -1820,7 +1825,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 mesh.vertex_flags.size() == mesh.vertices.size() / 9u
                     ? mesh.vertex_flags.data() : nullptr,
                 model, view_projection, material.tex0, material.tex1,
-                material.clamp, material.test);
+                material.clamp, material.alpha, material.alpha_valid ? 1 : 0,
+                material.test);
         }
     }
 }

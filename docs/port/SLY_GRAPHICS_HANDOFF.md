@@ -15,9 +15,9 @@ The tested save prompt is page 7 in Splash world `0x6abdd0`; selecting Yes
 continues into gameplay world `0x870cf0`, just like selecting No. It does not
 lead to the title. A new opt-in `OPENRAC_TEST_SELECT_SAVE_YES=1` waits until
 page 7 is active and holds Up+Cross, avoiding host-frame timing guesses. That
-capture confirms prompt dismissal only. The native OpenGL result remains a
-gray Paris scene with distorted surfaces. Do not describe it as correct game
-graphics.
+capture confirms prompt dismissal only. The latest native OpenGL capture has
+purple/white texture color after material-state support, but Paris surfaces
+remain severely distorted. Do not describe it as correct game graphics.
 
 An approved hidden run with the configured US ELF and ISO verified this route.
 The capture is `/tmp/sly-native-title-yes-20261121/contact.png`; its log is
@@ -29,16 +29,32 @@ retail hidden flag set; its matched `ApplyPlacedObjectTransform` returns before
 model draw dispatch. That explains why this object produces no Splash mesh
 submission and does not indicate that OpenGL dropped an active model. After
 the process-local Yes input reaches Paris, the bridge receives 282 steady
-meshes and 71 textures, but its image remains distorted gray terrain. A host
+meshes and 71 textures. The initial image was distorted gray terrain. A host
 frame trace projects 11,504 vertices, with 11,419 inside clip bounds. Splitting
 triangle strips at repeated restart vertices exposes more surfaces but does
-not produce a recognizable scene. Keep the title route and Paris host-renderer
-work distinct; do not tune or implement the VU renderer to solve the host GL
-geometry problem.
+not produce a recognizable scene. A follow-up host material pass carries GS
+ALPHA and TEST state; it adds visible texture color, while a depth-disabled
+comparison remains nearly unchanged. Keep the title route and Paris
+host-renderer work distinct; do not tune or implement the VU renderer to solve
+the host GL geometry problem.
 
 Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log` and
 `/tmp/sly-native-gl-current-20261121/contact.png` with
 `/tmp/sly-native-gl-current-20261121/run.log`.
+
+**2026-11-21 native material pass:** the host OpenGL submission now preserves
+GS `ALPHA_1/2` alongside the already captured `TEST_1/2`. It uses the shared
+blend translator, texture alpha scale, alpha-test comparisons, and alpha-fail
+framebuffer/depth masks. This stays entirely in the port's host renderer; no
+PlayStation VU renderer work was added. The hidden capture changed from mostly
+gray to visibly textured purple/white, while the geometry remained badly
+distorted. A depth-disabled comparison looked nearly identical, ruling out
+depth as the main issue. This is a material-state improvement only, not a
+playable graphics result. Capture and trace:
+`/tmp/sly-native-gl-alpha-20261121/contact.png` and
+`/tmp/sly-native-gl-alpha-20261121/run.log`. Next investigate draw topology,
+per-draw camera/vertex transforms, and offscreen texture targets on the native
+OpenGL path.
 
 The user's 62.8-second PCSX2 video is the PAL startup sequence: legal cards,
 Sucker Punch logo, Paris rooftop intro, then the animated title screen with

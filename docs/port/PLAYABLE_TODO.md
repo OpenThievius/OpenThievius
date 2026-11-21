@@ -18,9 +18,10 @@ explains why this particular Splash root feeds no world mesh; it does not show
 that the native renderer dropped an active model. After the existing
 process-local save-prompt selection reaches Paris, the native OpenGL bridge
 queues 282 distinct meshes, binds 71 real textures, and projects 11,504
-vertices, of which 11,419 are within clip bounds. The picture is still a
-distorted, mostly gray scene. A host-only strip-restart comparison exposes
-more surfaces but remains incorrect. Captures and logs are in
+vertices, of which 11,419 are within clip bounds. The first host capture was
+mostly gray; the latest material-state capture is visibly purple/white but
+still severely distorted. A host-only strip-restart comparison exposes more
+surfaces but remains incorrect. Captures and logs are in
 `/tmp/sly-native-gl-gameplay-20261121/` and
 `/tmp/sly-native-gl-splitstrips-20261121/`.
 
@@ -29,6 +30,16 @@ restart markers, material passes, and offscreen texture targets map to host
 draws. Confirm each change from captured host frames. Keep the existing 2D
 DirectRenderer for menu packets. Do not change VU instruction limits or
 implement a VU renderer as a shortcut.
+
+**Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
+`TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
+texture alpha scaling, alpha tests, and the framebuffer/depth behavior for
+alpha-fail modes. This is port-owned host rendering; the PlayStation VU
+renderer remains out of scope. A fresh Paris capture changed from flat gray
+to textured purple/white surfaces, but the geometry is still severely
+distorted and incomplete. Disabling depth made little visible difference, so
+depth alone is not the cause. See
+`/tmp/sly-native-gl-alpha-20261121/contact.png` and `run.log`.
 
 ### Native host32 field pacing recheck (2026-11-21)
 
