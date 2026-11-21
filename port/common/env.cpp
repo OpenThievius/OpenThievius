@@ -412,7 +412,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "one line of the run's state per tick, written to that file"},
     {Var::TraceAcceptedKickXyz, "OPENRAC_TRACE_ACCEPTED_KICK_XYZ",
      Kind::Flag, Truth::NotEmptyOrZero, "off",
-     "each accepted GIF append's first tag, XYZ2/XYZF2 qword counts and PRIM values, on stderr"},
+     "each accepted GIF append's tag, XYZ counts and PRIM values; set OPENRAC_TRACE_ACCEPTED_KICK_XYZ_SKIP=N to skip early appends, on stderr"},
     {Var::TraceCd, "OPENRAC_TRACE_CD",
      Kind::Flag, Truth::Set, "off",
      "each disc read, on stderr"},

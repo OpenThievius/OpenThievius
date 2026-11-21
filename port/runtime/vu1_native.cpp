@@ -1864,8 +1864,17 @@ extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
                                                  const char* origin) {
     if (!openrac::env::flag(openrac::env::Var::TraceAcceptedKickXyz)) return;
     if (data == nullptr || size < 16u) return;
+    static const uint32_t trace_skip = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_ACCEPTED_KICK_XYZ_SKIP");
+        if (setting == nullptr || *setting == '\0') return 0u;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end == setting || *end != '\0' || parsed > 1'000'000ul) return 0u;
+        return static_cast<uint32_t>(parsed);
+    }();
     static std::atomic<uint32_t> trace_count{0};
-    if (trace_count.fetch_add(1, std::memory_order_relaxed) >= 4096u) return;
+    const uint32_t packet_index = trace_count.fetch_add(1, std::memory_order_relaxed);
+    if (packet_index < trace_skip || packet_index - trace_skip >= 4096u) return;
 
     const auto* bytes = static_cast<const uint8_t*>(data);
     uint64_t first_low = 0;
@@ -1969,8 +1978,8 @@ extern "C" void openrac_trace_accepted_kick_xyz(const void* data, size_t size,
         used += static_cast<size_t>(written);
     }
     std::fprintf(stderr,
-                 "[accepted kick XYZ] origin=%s bytes=%zu tag=%#018llx nloop=%u nreg=%u flg=%u regs=%#018llx prim=%#x xyz2=%u xyzf2=%u prim_writes=%u prim_seen=%s\n",
-                 origin != nullptr ? origin : "unspecified", size,
+                 "[accepted kick XYZ] index=%u origin=%s bytes=%zu tag=%#018llx nloop=%u nreg=%u flg=%u regs=%#018llx prim=%#x xyz2=%u xyzf2=%u prim_writes=%u prim_seen=%s\n",
+                 packet_index, origin != nullptr ? origin : "unspecified", size,
                  static_cast<unsigned long long>(first_low), first_nloop,
                  first_nreg == 0 ? 16u : first_nreg, first_flg,
                  static_cast<unsigned long long>(first_high), first_prim,

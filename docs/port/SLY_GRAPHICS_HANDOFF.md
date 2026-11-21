@@ -427,6 +427,41 @@ Evidence: `/tmp/sly-vu-helper-pcs-20261121.log`. The captured PCSX2 video is
 62.76 seconds and ends at the title/menu; it remains a startup reference and
 does not supply an in-level frame for geometry comparison.
 
+### Post-startup accepted-packet capture (2026-11-21)
+
+I added the optional `OPENRAC_TRACE_ACCEPTED_KICK_XYZ_SKIP=N` setting to move
+the 4,096-packet summary window beyond startup. In one hidden run, the window
+covered accepted packet indices 4096-8191 after the test driver reached
+`ui_state=3`. Most VU1 XGKICK appends in that window had no XYZ writes; the
+small number with XYZ came from one- or two-coordinate packets at VIF offset
+`0x71220`, entry `0x6da`. VIF DIRECT and GIF DMA output in the retained window
+was mostly sprite-sized.
+
+A raw packet dump of active submission 140 at offset `0x71220` showed one
+XYZ2 and one XYZF2 A+D register write in a 17-loop GIF tag with PRE point mode.
+The lit packet at offset `0x59cb0` was cross-checked in the same run by the
+summary and raw bytes: its 79 A+D loops contain GS state writes and no XYZ2 or
+XYZF2. One earlier independent trace counted one XYZ2 for that offset, but it
+did not reproduce in two later active submissions; do not treat that single
+count as a world draw.
+
+The existing `OPENRAC_TRACE_SLY_VU_POSITIONS` output is a broad scratch-store
+trace, not a final clip-space trace. At VU PC `0x6d7`, qwords 38-83 carried
+world-scale values and `w=0x4b008ff0`. The separate
+`OPENRAC_CAPTURE_VU_NDC` path filters for `w==1`; keep that distinction when
+using the source-mesh diagnostic.
+
+The scene still reaches world state without a recognizable world mesh. The
+next task is to follow the VIF submission expected to carry the live world
+vertices through its VU output and compare the exact output bytes; there is
+not yet evidence for a GS primitive or topology backfill. Evidence:
+`/tmp/sly-poststartup-kick-context-20261121.log`,
+`/tmp/sly-world-scratch-position-check-20261121.log`,
+`/tmp/sly-lit-strip-kick-dump-20261121.log`,
+`/tmp/sly-active-packet-census-crosscheck-20261121.log`, and
+`/tmp/sly-active-world-71220-crosscheck-20261121.log`. Raw kicks are in
+`/tmp/sly1-vu1-kick-*.bin` and must stay out of the repository.
+
 ### Lit-strip normal diagnostic (2026-11-20, 23:14 CET)
 
 The matched builder hook now passes `nrms` into the port capture helper. With

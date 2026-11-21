@@ -45,6 +45,37 @@ at its bounded timeout and no process remained. Log and frames:
 `/tmp/sly-acc-flags-fix-capture-20261121.log` and
 `/tmp/sly-acc-flags-fix-frames-20261121/`.
 
+The next accepted-packet run added
+`OPENRAC_TRACE_ACCEPTED_KICK_XYZ_SKIP=N` so the 4,096-line cap could be moved
+past startup. It retained packet indices 4096 through 8191 after the test
+driver reached `ui_state=3`. Most VU kicks in that sample contained no XYZ
+register writes. The exceptions were one- or two-coordinate packets from
+entry `0x6da` at VIF offset `0x71220`; VIF DIRECT and GIF DMA traffic was
+mostly sprite-sized. A targeted raw dump of the active `0x71220` submission
+confirmed one XYZ2 and one XYZF2 write in its 17-loop tag, which sets point
+mode with PRE. That is not a world mesh batch.
+
+The same-run cross-check of the lit packet at offset `0x59cb0` is stronger:
+both the summary and raw dump show 79 A+D loops, state writes, and no XYZ2 or
+XYZF2 writes. An earlier isolated run reported one coordinate for this offset;
+that result did not reproduce and is not evidence of a mesh draw. The broad
+`OPENRAC_TRACE_SLY_VU_POSITIONS` hook also logs ordinary scratch values (for
+example qwords 38-83 with `w=0x4b008ff0`); those are not final screen-space
+positions. Keep the `OPENRAC_CAPTURE_VU_NDC` `w==1` filter when discussing
+clip-space vertices.
+
+These captures confirm that the earlier packet census was capped too early,
+but they still do not show the world mesh reaching GS as a triangle batch.
+Next trace the VIF submission and VU output that should provide the vertices
+for the active world draw, then compare its expected packet against the exact
+submitted bytes. Do not infer a renderer fix from the intermittent single
+XYZ count. Evidence: `/tmp/sly-poststartup-kick-context-20261121.log`,
+`/tmp/sly-active-world-lit-packet-20261121.log`,
+`/tmp/sly-active-packet-census-crosscheck-20261121.log`,
+`/tmp/sly-active-world-71220-crosscheck-20261121.log`, and
+`/tmp/sly1-vu1-kick-00.bin` / `02.bin` (temporary raw packets, not repository
+assets).
+
 A lightweight accepted-packet census after the same VU fix saw 627 packets:
 144 VU XGKICK packets and 483 VIF DIRECT packets. Every VU XGKICK selected
 point mode (`PRIM=0`); the direct traffic was mostly sprites, plus
