@@ -1,6 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Provenance-complete VU XYZ census (2026-11-21)
+
+The earlier conclusion that the matched lit-batch XGKICK at `0x59cb0` was
+state-only was too strong: its traced VU stores changed only the GIF tag, but
+the packet body already contained XYZ records. I changed the opt-in
+`OPENRAC_TRACE_GS_XYZ=1` path to attach submission, VIF command offset, and VU
+entry to every VU XGKICK, rather than only to kicks selected by an existing
+filter. This is port-only diagnostics; it does not change packet handling.
+
+A fresh bounded offscreen run used the Documents US ISO and one process-local
+Cross at native frame 250. Its 139 VU XYZ summaries identify five active
+producers. The GS parser saw no triangle-list or triangle-strip PRIM (3 or 4):
+
+| VIF offset / VU entry | Calls | XYZ2 / XYZF2 writes | Drawing-enabled point / line writes |
+| --- | ---: | ---: | ---: |
+| `0x4fcf0` / `0x2` | 2 | 90 / 0 | 2 / 2 |
+| `0x59cb0` / `0x2` | 7 | 290 / 7 | 5 / 12 |
+| `0x59d80` / `0x2` | 1 | 41 / 2 | 0 / 2 |
+| `0x71220` / `0x6da` | 124 | 1,595 / 3 | 123 / 126 |
+| `0x712f0` / `0x6da` | 5 | 49 / 0 | 5 / 5 |
+
+The raw XYZ totals include writes to disabled-draw register variants (`0x84`
+and `0x85`); the last column counts only writes that the native parser treats
+as point or line vertices. Across those packets it counted 135 point writes
+and 147 line writes, with no triangle vertices. In particular, the matched
+`BuildLitStripMeshPacket` finish entry at `0x59cb0` does reach the GS parser,
+but its emitted drawing primitives are points and lines. This shifts the
+current blocker upstream of SDL drawing: determine why the VU/GIF stream
+selects point/line PRIM values or lacks complete triangle batches. Do not
+change the GS parser or enable the distorted source-mesh overlay as a fix.
+
+Evidence: `/tmp/sly-gs-point-origin-20261121.log` and
+`/tmp/sly-gs-point-summary-20261121.log`. The launches ended at their bounded
+timeout (137); no launcher remains. The captured PCSX2 reference video shows
+the intro and title/menu, not gameplay geometry, so it cannot provide the
+triangle-level comparison needed for the next step.
+
 ### Native stack DMA addresses and post-Continue census (2026-11-21)
 
 The port-only GIF DMA bridge received a chain root on the host32 Linux thread
@@ -113,20 +150,16 @@ and selected the matched lit batch entries `0x51`, `0x242`, `0x356`, and `0x2`.
 This is the `BuildLitStripMeshPacket` path, distinct from the unlit `0x34a` /
 `0x5f` sequence above. At VIF submission 272, entry `0x2` at stream offset
 `0x59cb0` changes only GIF qword 35: the A+D tag loop count grows from 63 to
-79 at PC `0x0e`. No writes to the packet-body qwords 36–480 were observed for
-that call. This is consistent with a finish/state packet and does not identify
-a world triangle batch.
-
-The same run also reports XYZ writes in other VU XGKICK traffic. One observed
-write has PRIM 0 (point mode) and value `0x0000000100000003`, but the GS-side
-summary does not carry its VIF submission or MSCAL provenance, so it cannot
-yet be attributed to the selected lit mesh. Do not associate free-running
-point writes with the lit finish just because they appear nearby in the log.
-The live scene remains black, and no parser change is supported. The opt-in
-XYZ trace already labels packets with submission and MSCAL when its context
-filter matches; these point writes did not match the selected finish offset.
-Next identify the call that emits them, then follow the first complete
-triangle batch through its VU and GIF boundary.
+79 at PC `0x0e`. That store trace did not inspect packet contents consumed by
+the resulting XGKICK. The later provenance-complete census above shows this
+offset does carry XYZ records, in point/line modes. This earlier store trace
+alone cannot classify the packet as state-only or establish its full output.
+The live scene remains black, and no parser change is supported. This
+paragraph's original claim that the point writes did not match the finish
+offset was based on a provenance filter that hid nonmatching packets. The
+provenance-complete census at the top of this handoff supersedes that claim:
+it identifies point/line writes at the matched offsets, but still finds no
+triangle primitives.
 
 Evidence: `/tmp/sly-lit-matched-miscal-sequence-20261121.log`,
 `/tmp/sly-lit-finish-offset-precise-20261121.log`, and
@@ -136,10 +169,10 @@ at its deliberate 12–14 second timeout. The exact finish trace used stable
 MSCAL offset `0x59cb0`; VIF submission numbers varied between launches.
 
 Keep the submission-142 trace above separate from the matched lit-batch path
-and its `0x59cb0` finish call. If that other stream is revisited, trace it on
-its own provenance. For the active lit path, identify the producer of the
-unattributed point writes and the first complete triangle batch. Preserve
-strict GIF checks. Submission-142 logs:
+and its `0x59cb0` finish call. For the active lit path, inspect why the
+matched packets select point/line primitives and determine where the first
+complete triangle batch should be produced. Preserve strict GIF checks.
+Submission-142 logs:
 `/tmp/sly-vu-entry2-world-batch-20261121.log`,
 `/tmp/sly-vu-current-offset-20261121.log`,
 `/tmp/sly-vu-entry2-store-focus-20261121.log`, and

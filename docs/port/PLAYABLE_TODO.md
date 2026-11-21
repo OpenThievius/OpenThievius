@@ -35,14 +35,17 @@ graphics task is to recover a recognizable live world draw in the default
 renderer, while movie playback remains a separate port feature. No playable
 level is confirmed.
 
-A focused `BuildLitStripMeshPacket` run reached its matched finish entry `0x2`
-at VIF stream offset `0x59cb0`. It only increased the GIF A+D tag at qword 35
-from 63 to 79 loops; the traced body qwords were not written by that call. The
-separate point-mode XYZ writes in the same run have no MSCAL provenance and
-cannot be attributed to this mesh. Next, preserve that provenance and identify
-the first complete triangle batch. Keep the distinct submission-142 / `0x6da`
-capture separate; it does not establish the lit mesh output. Evidence is in
-the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+An opt-in XYZ trace now attaches each VU XGKICK's submission, VIF offset, and
+entry to its GS writes. This corrects the earlier attribution: matched
+`BuildLitStripMeshPacket` calls at offsets `0x59cb0` and `0x59d80` do carry
+XYZ writes, but the writes are in point/line modes (PRIM 0/1), not triangles.
+The separate `0x6da` calls at `0x71220` and `0x712f0` also emit point/line
+writes. Across 139 VU summaries from the bounded post-Continue capture, none
+used triangle PRIM 3 or 4. The renderer still has no world triangles to draw;
+the next task is to find why these matched mesh packets select point/line
+primitives or fail to produce triangle batches. Do not change the GS parser
+based on this evidence. See the [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
+for per-offset counts and capture paths.
 
 The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
 repeated environment lookups and per-instruction NaN checks. Those checks are
