@@ -22,6 +22,28 @@ renderer. The hidden trace used the configured US ELF and ISO and ended at its
 12-second timeout (137); no repository or decompilation source was changed.
 Evidence: `/tmp/sly-native-frame-source-audit-20261122/run.log`.
 
+### Isolated native mesh bounds (2026-11-22)
+
+Kept the investigation on the host OpenGL renderer. The filtered post-render
+capture of source mesh `0x00a29c18` shows a narrow band near the lower edge;
+source `0x00a29c40` contributes a distant structure at the right edge, while
+`0x00a2a488` is the sky batch. For request `0x005e4700`, the first
+`0x00a29c18` material pass has 85 vertices, all projected and inside the clip
+volume (`x=-0.048..0.172`, `y=-0.054..-0.008`, `z=-0.980..-0.970`). That
+rules out this mesh being clipped away, but does not validate its topology or
+explain the broad missing/stretched scene. Captures are under
+`/tmp/sly-native-source-9c18-20261122/`; bounds are in
+`/tmp/sly-native-source-bounds-9c18-20261122/run-fixed.log`.
+
+Fixed `OPENRAC_TRACE_SLY_PER_MESH_BOUNDS`: it previously marked itself done
+after the empty render-target pass, before world meshes were drawn. The
+corrected bounded hidden run ended at its planned timeout (137). A temporary
+expanded mesh-list trace crashed and was reverted; only its source addresses
+were used to select the isolated batches. No VU renderer or decompilation code
+was changed. Next capture a draw whose isolated output actually contains the
+central terrain/landmark, then compare its host-transformed bounds and mesh
+references before changing renderer math.
+
 ### Native OpenGL visibility check (2026-11-21)
 
 The host32 frame boundary now publishes immutable packet and world-mesh

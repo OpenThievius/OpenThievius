@@ -1220,7 +1220,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     }
-    if (trace_native_per_mesh_bounds && !target_pass)
+    if (trace_native_per_mesh_bounds && !target_pass && projected_meshes != 0u)
         native_per_mesh_bounds_logged = true;
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
