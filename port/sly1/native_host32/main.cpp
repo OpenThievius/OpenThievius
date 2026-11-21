@@ -74,9 +74,6 @@ struct alignas(16) NativeMathQuad16 { u32 v[4]; };
 // Reuse the decomp's CPU matrix routines to construct the render-target
 // projection when the PS2 packet builder has not populated RangeRecord+0x70.
 // This is only game math; native rendering still goes through OpenGL.
-extern "C" void sly_native_build_basis(const NativeMathVec4*, const NativeMathVec4*,
-                                       NativeMathMat3*)
-    asm("_Z13func_00189C28PK4Vec4S1_P4Mat3");
 extern "C" void sly_native_build_projection(NativeMathMat4*, float, float, float,
                                              float, float, float)
     asm("_Z13func_00189F58P4Mat4ffffff");
@@ -136,9 +133,81 @@ static bool native_build_range_record_matrix(u32 range_address, float* out) {
         const float scale = 0.5f / (near_range / lo);
         sly_native_build_projection(&projection, scale, scale, 0.5f, 0.5f, lo, hi);
     }
-    sly_native_build_basis(&axis, &hint, &basis);
+    float axis_length = std::sqrt(axis.v[0] * axis.v[0] + axis.v[1] * axis.v[1] +
+                                  axis.v[2] * axis.v[2]);
+    if (!std::isfinite(axis_length)) return false;
+    if (axis_length < 0.0001f) {
+        basis.rows[0].v[0] = 1.0f;
+    } else {
+        for (u32 i = 0; i < 3u; ++i)
+            basis.rows[0].v[i] = axis.v[i] / axis_length;
+        basis.rows[0].v[3] = axis.v[3] / axis_length;
+    }
+    float cross[3] = {
+        hint.v[1] * basis.rows[0].v[2] - hint.v[2] * basis.rows[0].v[1],
+        hint.v[2] * basis.rows[0].v[0] - hint.v[0] * basis.rows[0].v[2],
+        hint.v[0] * basis.rows[0].v[1] - hint.v[1] * basis.rows[0].v[0]};
+    float cross_length = std::sqrt(cross[0] * cross[0] + cross[1] * cross[1] +
+                                   cross[2] * cross[2]);
+    if (!std::isfinite(cross_length)) return false;
+    if (cross_length < 0.0001f) {
+        float fallback[3] = {0.0f, 0.0f, 1.0f};
+        if (std::fabs(basis.rows[0].v[2]) >= 0.9f) {
+            fallback[1] = 1.0f;
+            fallback[2] = 0.0f;
+        }
+        cross[0] = fallback[1] * basis.rows[0].v[2] - fallback[2] * basis.rows[0].v[1];
+        cross[1] = fallback[2] * basis.rows[0].v[0] - fallback[0] * basis.rows[0].v[2];
+        cross[2] = fallback[0] * basis.rows[0].v[1] - fallback[1] * basis.rows[0].v[0];
+        cross_length = std::sqrt(cross[0] * cross[0] + cross[1] * cross[1] +
+                                 cross[2] * cross[2]);
+        if (cross_length < 0.0001f) return false;
+    }
+    for (u32 i = 0; i < 3u; ++i) basis.rows[1].v[i] = cross[i] / cross_length;
+    basis.rows[1].v[3] = 0.0f;
+    basis.rows[2].v[0] = basis.rows[0].v[1] * basis.rows[1].v[2] -
+                         basis.rows[0].v[2] * basis.rows[1].v[1];
+    basis.rows[2].v[1] = basis.rows[0].v[2] * basis.rows[1].v[0] -
+                         basis.rows[0].v[0] * basis.rows[1].v[2];
+    basis.rows[2].v[2] = basis.rows[0].v[0] * basis.rows[1].v[1] -
+                         basis.rows[0].v[1] * basis.rows[1].v[0];
+    basis.rows[2].v[3] = 0.0f;
+    NativeMathQuad16 range_projection{};
     sly_native_build_view_projection(position.v, basis.rows[0].v, &projection,
-                                     reinterpret_cast<NativeMathQuad16*>(out));
+                                     &range_projection);
+    if (std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr) {
+        static u32 range_math_traces = 0;
+        if (range_math_traces++ < 2u) {
+            std::fprintf(stderr, "[native sly range basis] rows=");
+            for (u32 i = 0; i < 12u; ++i)
+                std::fprintf(stderr, "%s%g", i == 0u ? "" : ",",
+                             basis.rows[0].v[i]);
+            std::fprintf(stderr, " projection=");
+            for (u32 i = 0; i < 16u; ++i)
+                std::fprintf(stderr, "%s%g", i == 0u ? "" : ",", projection.v[i]);
+            std::fprintf(stderr, " range_matrix=");
+            for (u32 i = 0; i < 16u; ++i)
+                std::fprintf(stderr, "%s%g", i == 0u ? "" : ",",
+                             reinterpret_cast<const float*>(&range_projection)[i]);
+            std::fputc('\n', stderr);
+        }
+    }
+    const float* range_matrix = reinterpret_cast<const float*>(&range_projection);
+    // DrawPlacedObjectParts multiplies this range projection by the retail
+    // unit-square-to-clip matrix before passing it to DrawModelPart. That
+    // matrix scales x/y into [-1,1] and removes depth for the target pass.
+    for (u32 row = 0; row < 4u; ++row) {
+        const u32 base = row * 4u;
+        out[base + 0u] = range_matrix[base + 0u] * 2.0f - range_matrix[base + 3u];
+        out[base + 1u] = range_matrix[base + 1u] * 2.0f - range_matrix[base + 3u];
+        out[base + 2u] = 0.0f;
+        out[base + 3u] = range_matrix[base + 3u];
+    }
+    // Range projections can face the opposite homogeneous-W convention from
+    // OpenGL. Negating the complete matrix preserves x/w and y/w while moving
+    // the same geometry into OpenGL's positive-W clip half-space.
+    if (out[15] < 0.0f)
+        for (u32 i = 0; i < 16u; ++i) out[i] = -out[i];
     for (u32 i = 0; i < 16u; ++i)
         if (!std::isfinite(out[i])) return false;
     return true;

@@ -9,24 +9,24 @@ The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
 separate target group. The port bridge reads the target's dimensions and GS
 base pointer. `DrawPlacedObjectParts` normally receives its range matrix from
 the PS2 packet builder, which is bypassed by this native OpenGL draw path. When
-that matrix is still zero, the port bridge builds the same projection from the
-live range-record fields with the decomp's CPU matrix routines and supplies it
-to the native mesh draw; it does not modify the matched range-record function
-or run VU drawing. The OpenGL renderer draws the group into a same-size
-framebuffer, reads back RGBA pixels, and places the dynamic image in the native
-texture pool for later packet draws. Target meshes are filtered out of the
-normal presentation pass; they must not be composited directly over the game
-window. The dynamic-image replacement keeps one texture handle per target and
-discards the old GL image before the next upload.
+that matrix is still zero, the port bridge builds it from the live range
+record, applies the same unit-square-to-clip transform, and flips its overall
+sign when needed for OpenGL's positive-W clip volume. Its basis calculation is
+native CPU math; it does not modify matched game functions or run VU drawing.
+The OpenGL renderer draws the group into a same-size framebuffer, reads back
+RGBA pixels, and places the dynamic image in the native texture pool for later
+packet draws. Target meshes are filtered out of the normal presentation pass;
+they must not be composited directly over the game window.
 
-The bounded trace confirms that this pass is active, but it still produces a
-black 64x64 image. The generated projection is finite (`near=150`, `far=10`,
-inner `0`, outer `500`); the target meshes' projected bounds lie outside the
-target viewport, with zero vertices inside clip space. This is now a target
-transform/mesh-coordinate investigation, not a missing framebuffer hookup.
-Trace and all-black target capture:
-`/tmp/sly-native-range-matrix-20261121/run7.log` and
-`/tmp/sly-native-range-matrix-20261121/sly1-native-target-24c0-00.ppm`.
+The corrected projection puts all 1,495 sampled target vertices inside clip
+space. The target still clears to black in the default material pass, and that
+matches its live GS state: `TEST=0x31001` is alpha test `Never` with
+`AFAIL=Keep`, so retail writes no pixels for the mesh. A solid-color diagnostic
+shows the expected mesh silhouette in the 64x64 framebuffer. The auxiliary
+target is therefore not the cause of the malformed main scene. Trace and
+captures: `/tmp/sly-native-range-matrix-20261121/run-default-material.log`,
+`/tmp/sly-native-range-matrix-20261121/run-solid-colors.log`, and
+`/tmp/sly-native-range-matrix-20261121/sly1-native-target-24c0-00.png`.
 
 The launcher now imports each native 64x64 target render into the matching
 GS off-screen target before its packet consumer runs. A bounded hidden SDL
@@ -144,12 +144,13 @@ full frame are in `/tmp/sly-native-building-request-isolate-20261121/` and
 The native bridge encounters an active class `0x61`
 (`TextureRenderObject`) in Paris, with a 64x64 target at GS block `0x24c0`.
 Its host framebuffer, native mesh pass, readback, and texture-pool hookup are
-implemented. The remaining target issue is that the meshes fall outside the
-range projection's clip bounds, so this auxiliary image stays black and cannot
-add visual detail. Keep investigating from the OpenGL side: compare the target
-draw's model matrix and submitted mesh coordinates against the range record,
-then verify the target capture and full Paris frame. Do not implement the PS2
-VU renderer or change matched decomp functions as part of this renderer work.
+implemented. The native bridge now matches the range projection and OpenGL W
+conventions; its one observed material intentionally writes no pixels under
+the GS alpha-fail state. Leave this auxiliary target path alone unless another
+target/material appears. Return to the malformed main OpenGL scene and compare
+ordinary mesh topology, transforms, and depth/material state against captured
+Paris frames. Do not implement the PS2 VU renderer or change matched decomp
+functions as part of this renderer work.
 
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 
