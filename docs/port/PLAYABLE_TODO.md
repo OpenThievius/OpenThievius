@@ -3,6 +3,35 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL draw isolation (2026-11-21)
+
+Keep graphics work in the port-owned OpenGL scene renderer. A fresh hidden
+host32 run reached Paris with 312 main-scene mesh submissions and 71 uploaded
+textures; its post-render frame is still severely distorted. The large
+full-screen shapes are not a reason to change the global camera: stable request
+`0x005e5380` is a class `0x54` `CameraPositionedObject`, and its 106-vertex,
+12-strip mesh has local coordinates near +/-50,000. Solid-color isolation makes
+that camera-following backdrop fill much of the frame, while the normal textured
+pass for that request is black. Keep it separate from the ordinary level
+geometry investigation.
+
+The next native-renderer blocker is correlating the ordinary draw request to
+the framebuffer output. Request `0x005e4980` produced 12 selected material
+instances and 273 of 333 sampled vertices inside clip space, but the matching
+solid-color, depth-disabled capture remained black. The bounds trace alone
+therefore does not prove those vertices rasterize. Correlate the selected
+OpenGL draws with the exact present/frame capture before changing matrices,
+materials, or topology. Heap-backed source-mesh addresses vary between runs;
+use the stable retail draw-request address for isolation. Evidence:
+`/tmp/sly-native-focused-gameplay-20261121/`,
+`/tmp/sly-native-world-bounds-20261121/run.log`,
+`/tmp/sly-native-large-request-20261121/`, and
+`/tmp/sly-native-request-5e4980-trace-20261121/`.
+
+Do not implement or emulate the PlayStation VU renderer for this work. Keep
+the 2D DirectRenderer for menu packets and keep any compatibility behavior in
+the port layer, separate from matched decomp functions.
+
 ### Native OpenGL texture target pass (2026-11-21)
 
 The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
