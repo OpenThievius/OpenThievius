@@ -791,8 +791,22 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
         }
-        if (!mesh.render_target &&
-            std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr) {
+        bool screen_to_clip =
+            std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr;
+        std::uint32_t screen_to_clip_request = 0;
+        bool screen_to_clip_request_valid = false;
+        if (const char* setting =
+                std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_REQUEST")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+                screen_to_clip_request = static_cast<std::uint32_t>(parsed);
+                screen_to_clip_request_valid = true;
+                screen_to_clip = screen_to_clip ||
+                    mesh.request == screen_to_clip_request;
+            }
+        }
+        if (!mesh.render_target && screen_to_clip) {
             // The retail camera matrix maps into the PS2's centered GS field
             // coordinates (640x224, with 12-bit fixed-point screen scale).
             // OpenGL instead clips x/y to [-w,+w]. The guest matrix is row-
@@ -810,7 +824,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             if (!screen_to_clip_notice) {
                 screen_to_clip_notice = true;
                 std::fprintf(stderr,
-                             "[native sly screen-to-clip] enabled scale_x=%g scale_y=%g logical_field=640x224\n",
+                             "[native sly screen-to-clip] enabled scope=%s%#010x scale_x=%g scale_y=%g logical_field=640x224\n",
+                             screen_to_clip_request_valid ? "request=" : "all/",
+                             screen_to_clip_request,
                              kPs2ScreenToClipX, kPs2ScreenToClipY);
             }
         }

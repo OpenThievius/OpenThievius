@@ -25,6 +25,18 @@ default renderer. Captures and traces:
 `/tmp/sly-native-skip-class54-20261121/`,
 `/tmp/sly-native-individual-bounds-20261121/run.log`.
 
+**Per-request clip-scale experiment (2026-11-21):** the renderer accepts
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_REQUEST=<address>` to apply the existing
+screen conversion to one native draw request while leaving other meshes
+unscaled. With host skinning and morphing enabled, applying it to player
+request `0x005e5400` makes the character visible in the full Paris capture,
+while the level retains its unscaled placement. The character lands too high
+and right, and the surrounding scene remains distorted. This confirms the
+player and static level need separate transform handling; the pixel scaling
+alone is insufficient. Keep this option diagnostic, then compare camera target
+and focus inputs to retail before implementing a player-specific native
+transform. Capture: `/tmp/sly-native-player-only-clip-skin-20261121/`.
+
 **Live deformation inputs (2026-11-21):** a host-side trace at the Paris model
 submission boundary found kind-0 meshes with two morph targets and other
 kind-0 meshes with two to four vertex skin weights. The native bridge currently
