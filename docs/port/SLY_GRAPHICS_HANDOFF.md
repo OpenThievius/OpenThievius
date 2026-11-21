@@ -14,13 +14,22 @@ micro-memory addresses, not decompiled C routines.
 
 This clarifies the graphics blocker: the matched EE builder supplies the VIF
 stream and invokes the VU programs, but correctness of their native execution
-is not established by the code-match percentage. The latest filtered XGKICK
-trace reaches the lit finish path and reports point/line output without any
-triangle PRIM. The next investigation is to disassemble those four matched VU
-programs and compare their instruction effects, output memory, GIF tags, and
-GS register writes. Fixes belong in the native VU/runtime layer or a separately
-identified port backfill; the matched game functions and strict GS parser stay
-unchanged until a concrete discrepancy is found.
+is not established by the code-match percentage. VIF MSCAL uses instruction
+PCs, so byte addresses `0x288`, `0x1210`, `0x1ab0`, and `0x10` run at PCs
+`0x51`, `0x242`, `0x356`, and `0x2`. New hidden native runs dumped the loaded
+instruction ranges at those entries: 13, 40, 125, and 27 instructions. The
+filtered XGKICK trace still reports point/line output without any triangle
+PRIM. Next compare the native interpreter's instruction effects and VU memory
+writes with these loaded words, then follow the resulting GIF tags and GS
+register writes. The runs used the Documents US ISO and one process-local
+Cross at frame 120; each ended at its deliberate timeout, and no launcher
+remains. Logs: `/tmp/sly-lit-vu-program-pc51-20261121.log`,
+`/tmp/sly-lit-vu-program-pc242-20261121.log`,
+`/tmp/sly-lit-vu-program-pc356-20261121.log`, and
+`/tmp/sly-lit-vu-program-pc2-20261121.log`. Fixes belong in the native
+VU/runtime layer or a separately identified port backfill; the matched game
+functions and strict GS parser stay unchanged until a concrete discrepancy is
+found.
 
 ### Provenance-complete VU XYZ census (2026-11-21)
 

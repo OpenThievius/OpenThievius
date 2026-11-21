@@ -9,18 +9,24 @@ The decomp's 100% code figure means all 4,807 EE functions match, including
 4,498 C translations and 311 original assembly functions. It does not mean the
 VU1 programs have been semantically decompiled: progress reports them as a
 separate data unit (`data/vutext`), with 21,840 of 21,840 bytes matched and
-zero functions. For example, `g_litBatchProgram` at VU address `0x288` and
-the lit finish program at `0x10` are identified by their matched C call sites,
-but the VU instructions are still supplied as matched bytes. The native VU
-interpreter must execute those bytes correctly for the GS to receive geometry.
+zero functions. For example, `g_litBatchProgram` at VU byte address `0x288`
+and the lit finish program at byte address `0x10` are identified by their
+matched C call sites, but the VU instructions are still supplied as matched
+bytes. VIF MSCAL addresses are instruction PCs (byte address divided by 8),
+so the lit path runs entries `0x51`, `0x242`, `0x356`, and `0x2`.
 
 This fits the current evidence better than searching for missing EE functions:
 the matched lit path reaches XGKICK, but the observed packets produce point
-and line primitives and no triangles. Next, disassemble the matched VU1 lit
-batch programs (`0x288`, `0x1210`, `0x1ab0`, and `0x10`) and audit their native
-execution and GIF output. Keep any interpreter fixes in the port runtime and
-any graphics conversion in the port-only backfill; do not alter matched game
-functions or the GS parser without evidence.
+and line primitives and no triangles. A new opt-in runtime dump captured the
+loaded instruction ranges at those four PCs (13, 40, 125, and 27 instructions).
+The next step is to audit native instruction effects and VU memory writes
+against those words, then follow the resulting GIF packet. Keep interpreter
+fixes in the port runtime and any graphics conversion in the port-only
+backfill; do not alter matched game functions or the GS parser without
+evidence. Logs: `/tmp/sly-lit-vu-program-pc51-20261121.log`,
+`/tmp/sly-lit-vu-program-pc242-20261121.log`,
+`/tmp/sly-lit-vu-program-pc356-20261121.log`, and
+`/tmp/sly-lit-vu-program-pc2-20261121.log`.
 
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than
