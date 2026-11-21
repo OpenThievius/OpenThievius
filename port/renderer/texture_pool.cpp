@@ -202,6 +202,17 @@ void TexturePool::upload(ImageUpload upload) {
     stored.hash = hash_bytes(upload.data.data(), upload.data.size())
                   ^ (hash_bytes(reinterpret_cast<const std::uint8_t*>(shape), sizeof(shape)) << 1);
     stored.sequence = ++m_sequence;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_TEXTURE_UPLOAD_TBP")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0x3FFFul &&
+            upload.dbp == static_cast<std::uint32_t>(parsed)) {
+            log::info(
+                "texture upload trace seq={} dbp={:#x} psm={:#x} dbw={} xy={},{} size={}x{} bytes={} hash={:#x}",
+                stored.sequence, upload.dbp, upload.dpsm, upload.dbw, upload.x,
+                upload.y, upload.width, upload.height, upload.data.size(), stored.hash);
+        }
+    }
     // The pages the rectangle's last row reaches, in its format's page size (a page is 32 blocks
     // whatever the format: 64 x 32 pixels of 32 bits, 64 x 64 of 16, 128 x 64 of 8, 128 x 128 of 4).
     const int bits = std::max(gs::bits_per_pixel(upload.dpsm), 4);
@@ -225,14 +236,13 @@ bool TexturePool::upload_cached(const ImageUpload& upload) {
 
 const TexturePool::Stored* TexturePool::upload_at(std::uint32_t block, std::uint32_t& offset) const {
     offset = 0;
-    if (auto it = m_uploads.find(block); it != m_uploads.end()) {
-        return &it->second;
-    }
     const Stored* best = nullptr;
     for (const auto& [base, stored] : m_uploads) {
-        if (base < block && block < stored.end && base < 0x10000u && (best == nullptr || stored.sequence > best->sequence)) {
-            best = &stored;
-        }
+        const bool exact_base = base == block;
+        if (base > block || base >= 0x10000u || (!exact_base && block >= stored.end)) continue;
+        // GS uploads share local memory. A later transfer can cover the base of an
+        // earlier texture, so an exact-base match must not hide a newer overlapping write.
+        if (best == nullptr || stored.sequence > best->sequence) best = &stored;
     }
     if (best != nullptr) {
         offset = block - best->upload.dbp;
@@ -514,6 +524,27 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
             }
         }
         return 0;
+    }
+    if (const char* setting = std::getenv("OPENRAC_TRACE_TEXTURE_RESOLVE_TBP")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0x3FFFul &&
+            tex0.tbp0 == static_cast<std::uint32_t>(parsed)) {
+            static std::uint32_t last_base = UINT32_MAX;
+            static std::uint32_t last_offset = UINT32_MAX;
+            static std::uint64_t last_hash = UINT64_MAX;
+            if (last_base != stored->upload.dbp || last_offset != offset ||
+                last_hash != stored->hash) {
+                last_base = stored->upload.dbp;
+                last_offset = offset;
+                last_hash = stored->hash;
+                log::info(
+                    "texture resolve trace tbp={:#x} upload_dbp={:#x} upload_seq={} offset={:#x} upload_psm={:#x} upload_size={}x{} upload_hash={:#x}",
+                    tex0.tbp0, stored->upload.dbp, stored->sequence, offset,
+                    stored->upload.dpsm, stored->upload.width, stored->upload.height,
+                    stored->hash);
+            }
+        }
     }
     // The palette's identity is part of the key; its colours are worked out only for a conversion.
     const int entries = palette_entries(tex0.psm);

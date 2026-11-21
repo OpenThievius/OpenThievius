@@ -7407,3 +7407,24 @@ is not a valid fix. Local captures are under
 `/tmp/sly-mvp-modes-20261121/`, `/tmp/sly-auto-matrix-20261121/`, and
 `/tmp/sly-native-target-corrected-20261121/`. The runs used the configured
 NTSC-U disc and native host32 launcher; no emulator or game input was used.
+
+## Prefer the latest GS upload when native textures overlap (2026-11-22)
+
+Keep this investigation on the host OpenGL renderer; do not expand the PS2 VU
+renderer. A native texture trace found that texture lookup always preferred an
+exact base-pointer upload, even when a newer GS transfer covered that address.
+The live US level first resolves image-record texture `0x1480` (1024x256,
+PSMT8, sequence 348), then writes a 512x512 PSMT4 transfer at `0x1400` whose
+GS-memory range includes `0x1480`. `TexturePool::upload_at` now chooses the
+newest upload covering the requested block, including exact-base candidates;
+it no longer lets the old `0x1480` record hide that later transfer.
+
+Built `port_native_sdl_host32` and confirmed in a 12-second hidden native run
+that `0x1480` resolves from upload `0x1400` at offset `0x80` after the later
+transfer. This repairs memory ordering in the OpenGL texture source path; the
+level is still distorted, so it does not establish a visible gameplay fix.
+Next investigate the host mesh draw topology, material/CLUT snapshots, and
+per-object transforms independently. Trace controls are
+`OPENRAC_TRACE_TEXTURE_UPLOAD_TBP` and
+`OPENRAC_TRACE_TEXTURE_RESOLVE_TBP`. Evidence:
+`/tmp/sly-native-trace-final-20261122/run.log`.
