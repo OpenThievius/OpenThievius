@@ -52,6 +52,18 @@ but its image still contains only a tiny fleck. Raising diagnostic scale to
 strip boundaries/topology and the exact transform from matched builders and
 VU data before changing host rendering.
 
+A follow-up point-cloud capture of the full player draw request is still only
+about 28 by 15 pixels at 960x720. Triangle-list conversion is similarly tiny;
+the triangle-list diagnostic expands the submitted sequence as a strip and
+does not improve the result. The player camera is active and near the part:
+camera position `(-3912.87, 9097.14, 104.249)`, model origin
+`(-4352.28, 9322.71, 205.061)`, distance about 502, zoom `1.1`, request fades
+`1,1`, and part radius scale `1`. This rules out a zero fade or a camera left
+at an unrelated startup position. It does not yet distinguish an omitted VU
+transform factor from incomplete host topology or a renderer projection
+mismatch. `OPENRAC_TRACE_SLY_CAMERA=1` now reports those values for player-tree
+draws; keep it opt-in.
+
 Next derive strip topology, frame selection, material/texture references,
 bone transforms, coordinate scale, and camera convention from the matched US
 sources and retail structures. Feed those into a Sly-owned render record and

@@ -41,6 +41,13 @@ needs to confirm the weight order and matrix convention. Use
 The 2026-11-21 isolated capture confirms the skin path executes, but still
 shows only a tiny fleck. Scale 20 yields a large triangle fan. Do not tune
 scale further: first derive strip grouping/topology and the retail transform.
+The full player draw part in point mode is about 28 by 15 pixels at 960x720.
+The camera is at roughly `(-3913, 9097, 104)`, about 502 units from the part
+origin; zoom is `1.1`, fades are `1`, and part radius scale is `1`. The camera
+is active and the part is not faded out. Use the port-only
+`OPENRAC_TRACE_SLY_CAMERA=1` trace while deriving the missing VU transform,
+topology, or native projection mismatch; do not treat these measurements as a
+graphics fix.
 
 Next, make a Sly-owned render input from those game structures and feed it to
 OpenGL directly. Establish strip boundaries and winding, the model and bone

@@ -1444,6 +1444,50 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     const float* view_projection = reinterpret_cast<const float*>(camera_address + 0x100u);
     const u32 owner_address = request[0x70 / 4];
     const u32 skin_address = request[0x74 / 4];
+    if (std::getenv("OPENRAC_TRACE_SLY_CAMERA") != nullptr &&
+        native_trace_player_tree_owner(owner_address)) {
+        static u32 camera_trace_notices = 0;
+        if (camera_trace_notices++ < 24u) {
+            const volatile float* camera_position =
+                reinterpret_cast<const volatile float*>(camera_address + 0x40u);
+            const volatile float* view_projection =
+                reinterpret_cast<const volatile float*>(camera_address + 0x100u);
+            const volatile float* model =
+                reinterpret_cast<const volatile float*>(request_address + 0x10u);
+            const volatile float* part = reinterpret_cast<const volatile float*>(part_address);
+            std::fprintf(stderr,
+                         "[native sly camera] request=%#010x owner=%#010x world=%#010x camera=%#010x pos=%g,%g,%g zoom=%g->%g distance_scale=%g proj_scale=%g,%g near_far=%g,%g request_fade=%g,%g part_radius_scale=%g part_radius=%g model_pos=%g,%g,%g vp_row0=%g,%g,%g,%g vp_row1=%g,%g,%g,%g vp_row3=%g,%g,%g,%g\n",
+                         request_address, owner_address, world, camera_address,
+                         static_cast<double>(camera_position[0]),
+                         static_cast<double>(camera_position[1]),
+                         static_cast<double>(camera_position[2]),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1C4u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1C8u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1C0u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1F0u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1F4u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1E4u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(camera_address + 0x1E8u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(request_address + 0x50u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(request_address + 0x54u)),
+                         static_cast<double>(part[0x50u / 4u]),
+                         static_cast<double>(part[0x10u / 4u]),
+                         static_cast<double>(model[12]), static_cast<double>(model[13]),
+                         static_cast<double>(model[14]),
+                         static_cast<double>(view_projection[0]),
+                         static_cast<double>(view_projection[1]),
+                         static_cast<double>(view_projection[2]),
+                         static_cast<double>(view_projection[3]),
+                         static_cast<double>(view_projection[4]),
+                         static_cast<double>(view_projection[5]),
+                         static_cast<double>(view_projection[6]),
+                         static_cast<double>(view_projection[7]),
+                         static_cast<double>(view_projection[12]),
+                         static_cast<double>(view_projection[13]),
+                         static_cast<double>(view_projection[14]),
+                         static_cast<double>(view_projection[15]));
+        }
+    }
     const u32 attachment_address = owner_address >= 0x00010000u &&
             owner_address <= 0x01FFFFD0u
         ? owner_address + 0x22Cu : 0u;
