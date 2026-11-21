@@ -1632,68 +1632,55 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                          "[native sly world owner] request=%#010x owner=%#010x descriptor=%#010x class=%u\n",
                          request_address, owner_address, class_address, owner_class);
     }
-    // The host world overlay draws only to the presentation framebuffer. Sly's
-    // TextureRenderObject parts are submitted between render-target setup and
-    // the edge-quad pass; drawing them here would composite the offscreen model
-    // directly over the desktop image. A native target pass must handle these.
+    u32 target_tbp = 0;
+    u32 target_width = 0;
+    u32 target_height = 0;
+    const bool is_render_target = owner_class == 0x61u;
     if (owner_class == 0x61u) {
+        const auto readable = [](u32 address, u32 size) {
+            const u64 end = static_cast<u64>(address) + size;
+            return (address >= 0x00010000u && end <= 0x02000000ull) ||
+                   (address >= 0x08000000u && end <= 0x10000000ull);
+        };
+        u32 range_address = 0;
+        u32 anim_record = 0;
+        u32 texture_table = 0;
+        u32 entries = 0;
+        u32 texture_header = 0;
+        u32 entry_count = 0;
+        u64 target_tex0 = 0;
+        if (readable(owner_address + 0x2D0u, sizeof(u32)))
+            range_address = *reinterpret_cast<const volatile u32*>(owner_address + 0x2D0u);
+        if (readable(range_address, sizeof(u32)))
+            anim_record = *reinterpret_cast<const volatile u32*>(range_address);
+        if (readable(anim_record + 0x14u, sizeof(u32)))
+            texture_table = *reinterpret_cast<const volatile u32*>(anim_record + 0x14u);
+        if (readable(texture_table, 0x10u)) {
+            const volatile u8* table = reinterpret_cast<const volatile u8*>(texture_table);
+            entry_count = table[0x04u];
+            entries = *reinterpret_cast<const volatile u32*>(table + 0x0Cu);
+        }
+        if (entry_count != 0 && readable(entries, sizeof(u32)))
+            texture_header = *reinterpret_cast<const volatile u32*>(entries);
+        if (readable(texture_header, 0x20u)) {
+            const volatile u8* header = reinterpret_cast<const volatile u8*>(texture_header);
+            target_width = *reinterpret_cast<const volatile u16*>(header);
+            target_height = *reinterpret_cast<const volatile u16*>(header + 2u);
+            target_tex0 = *reinterpret_cast<const volatile u64*>(header + 0x18u);
+            target_tbp = static_cast<u32>(target_tex0 & 0x3FFFu);
+        }
         if (std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr) {
             static u32 traced_target_owner = 0;
             if (traced_target_owner != owner_address) {
                 traced_target_owner = owner_address;
-                const auto readable = [](u32 address, u32 size) {
-                    const u64 end = static_cast<u64>(address) + size;
-                    return (address >= 0x00010000u && end <= 0x02000000ull) ||
-                           (address >= 0x08000000u && end <= 0x10000000ull);
-                };
-                u32 range_address = 0;
-                u32 anim_record = 0;
-                u32 texture_table = 0;
-                u32 entries = 0;
-                u32 texture_header = 0;
-                u32 entry_count = 0;
-                u32 texture_width = 0;
-                u32 texture_height = 0;
-                u64 target_tex0 = 0;
-                if (readable(owner_address + 0x2D0u, sizeof(u32)))
-                    range_address = *reinterpret_cast<const volatile u32*>(
-                        owner_address + 0x2D0u);
-                if (readable(range_address, sizeof(u32)))
-                    anim_record = *reinterpret_cast<const volatile u32*>(range_address);
-                if (readable(anim_record + 0x14u, sizeof(u32)))
-                    texture_table = *reinterpret_cast<const volatile u32*>(
-                        anim_record + 0x14u);
-                if (readable(texture_table, 0x10u)) {
-                    const volatile u8* table = reinterpret_cast<const volatile u8*>(
-                        texture_table);
-                    entry_count = table[0x04u];
-                    entries = *reinterpret_cast<const volatile u32*>(table + 0x0Cu);
-                }
-                if (entry_count != 0 && readable(entries, sizeof(u32)))
-                    texture_header = *reinterpret_cast<const volatile u32*>(entries);
-                if (readable(texture_header, 0x20u)) {
-                    const volatile u8* header = reinterpret_cast<const volatile u8*>(
-                        texture_header);
-                    texture_width = *reinterpret_cast<const volatile u16*>(header);
-                    texture_height = *reinterpret_cast<const volatile u16*>(header + 2u);
-                    target_tex0 = *reinterpret_cast<const volatile u64*>(header + 0x18u);
-                }
                 std::fprintf(stderr,
                              "[native sly render target] request=%#010x owner=%#010x range=%#010x anim=%#010x table=%#010x entries=%#010x count=%u texture=%#010x size=%ux%u tex0=%#llx\n",
                              request_address, owner_address, range_address, anim_record,
                              texture_table, entries, entry_count, texture_header,
-                             texture_width, texture_height,
+                             target_width, target_height,
                              static_cast<unsigned long long>(target_tex0));
             }
         }
-        if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
-            static u32 skipped_texture_targets = 0;
-            if (skipped_texture_targets++ < 8u)
-                std::fprintf(stderr,
-                             "[native sly target skip] request=%#010x owner=%#010x class=%u reason=presentation-framebuffer\n",
-                             request_address, owner_address, owner_class);
-        }
-        return;
     }
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
     u32 mesh_count = part[0x58 / 4];
@@ -1701,7 +1688,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     const u32 mesh_address = part[0x5C / 4];
     if (mesh_count == 0 || mesh_address == 0) return;
     const float* model = reinterpret_cast<const float*>(request_address + 0x10u);
-    const float* view_projection = reinterpret_cast<const float*>(camera_address + 0x100u);
+    const float* view_projection = reinterpret_cast<const float*>(
+        is_render_target ? request_address + 0x80u : camera_address + 0x100u);
     const u32 skin_address = request[0x74 / 4];
     if (std::getenv("OPENRAC_TRACE_SLY_CAMERA") != nullptr &&
         native_trace_player_tree_owner(owner_address)) {
@@ -2153,8 +2141,12 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         }
         for (std::size_t pass = 0; pass < mesh.materials.size(); ++pass) {
             const NativeSlyMaterial& material = mesh.materials[pass];
-            const u64 instance = (static_cast<u64>(request_address) << 16u) |
-                                 (static_cast<u64>(i) << 8u) | pass;
+            const u64 instance = is_render_target
+                ? ((((static_cast<u64>(owner_address) << 32u) ^
+                     (static_cast<u64>(part_address) * 0x9E3779B185EBCA87ull) ^
+                     (static_cast<u64>(i) << 8u)) & ~0xFFull) | pass)
+                : ((static_cast<u64>(request_address) << 16u) |
+                   (static_cast<u64>(i) << 8u) | pass);
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
                 std::fprintf(stderr,
                              "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx alpha=%s%#llx\n",
@@ -2166,7 +2158,9 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;
             openrac_native_sly_world_mesh_submit(
                 world, instance, submitted_vertices,
-                static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
+                static_cast<u32>(mesh.vertices.size() / 9u), request_address, source_mesh,
+                target_tbp, static_cast<int>(target_width), static_cast<int>(target_height),
+                is_render_target ? 1 : 0,
                 mesh.vertex_flags.size() == mesh.vertices.size() / 9u
                     ? mesh.vertex_flags.data() : nullptr,
                 mesh.vertex_indices.size() == mesh.vertices.size() / 9u

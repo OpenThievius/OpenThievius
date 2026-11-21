@@ -17,7 +17,10 @@ int openrac_native_pad_read(int port, unsigned char* report, unsigned int size);
 void openrac_native_window_present(void);
 void openrac_native_sly_world_mesh_submit(uint32_t world, uint64_t instance,
                                           const float* vertices, uint32_t vertex_count,
-                                          uint32_t source_mesh, const uint8_t* vertex_flags,
+                                          uint32_t request, uint32_t source_mesh,
+                                          uint32_t target_tbp, int target_width,
+                                          int target_height, int render_target,
+                                          const uint8_t* vertex_flags,
                                           const uint8_t* vertex_indices,
                                           const float* model, const float* view_projection,
                                           uint64_t tex0, uint64_t tex1,

@@ -52,7 +52,12 @@ using Viewport = void (*)(int, int, int, int);
 
 struct NativeWorldMesh {
     std::uint64_t instance = 0;
+    std::uint32_t request = 0;
     std::uint32_t source_mesh = 0;
+    std::uint32_t target_tbp = 0;
+    int target_width = 0;
+    int target_height = 0;
+    bool render_target = false;
     std::vector<float> vertices;
     std::vector<std::uint8_t> vertex_flags;
     std::vector<std::uint8_t> vertex_indices;
@@ -89,6 +94,13 @@ openrac::gl::GLuint g_movie_texture = 0;
 openrac::gl::GLint g_movie_sampler_location = -1;
 std::mutex g_world_mesh_mutex;
 std::vector<NativeWorldMesh> g_world_meshes;
+struct NativeTextureTarget {
+    std::unique_ptr<openrac::renderer::FrameBuffer> framebuffer;
+    openrac::renderer::TextureHandle texture = 0;
+    int width = 0;
+    int height = 0;
+};
+std::unordered_map<std::uint32_t, NativeTextureTarget> g_native_texture_targets;
 std::size_t g_world_mesh_replacements = 0;
 std::uint32_t g_world_mesh_world = 0;
 openrac::gl::GLuint g_world_vao = 0;
@@ -503,7 +515,8 @@ bool draw_movie_frame(int width, int height) {
     return true;
 }
 
-void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
+void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
+                         bool target_pass = false) {
     using namespace openrac::gl;
     if (!g_world_shader || meshes.empty()) return;
     bool debug_source_filter = false;
@@ -583,18 +596,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
     glBindVertexArray(g_world_vao);
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
     for (const auto& mesh : meshes) {
+        if (mesh.render_target != target_pass) continue;
         if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
             static unsigned queued_mesh_notices = 0;
             if (queued_mesh_notices++ < 96u)
                 std::fprintf(stderr,
                              "[native sly queued mesh] instance=%#llx request=%#010x source=%#010x vertices=%zu\n",
                              static_cast<unsigned long long>(mesh.instance),
-                             static_cast<std::uint32_t>(mesh.instance >> 16u),
+                             mesh.request,
                              mesh.source_mesh, mesh.vertices.size() / 9u);
         }
         if (debug_source_filter && mesh.source_mesh != debug_source_mesh) continue;
         if (debug_request_filter &&
-            static_cast<std::uint32_t>(mesh.instance >> 16u) != debug_request)
+            mesh.request != debug_request)
             continue;
         if (debug_first_material_pass && (mesh.instance & 0xFFu) != 0u) continue;
         if (trace_projected_bounds) {
@@ -754,7 +768,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
         }
-        if (std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr) {
+        if (!mesh.render_target &&
+            std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr) {
             // The retail camera matrix maps into the PS2's centered GS field
             // coordinates (640x224, with 12-bit fixed-point screen scale).
             // OpenGL instead clips x/y to [-w,+w]. The guest matrix is row-
@@ -823,7 +838,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                         dump_request = static_cast<std::uint32_t>(parsed);
                 }
             }
-            if (static_cast<std::uint32_t>(mesh.instance >> 16u) == dump_request &&
+            if (mesh.request == dump_request &&
                 notices++ < 32u) {
                 float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
                 float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
@@ -1563,7 +1578,9 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
-    std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* vertex_flags,
+    std::uint32_t vertex_count, std::uint32_t request, std::uint32_t source_mesh,
+    std::uint32_t target_tbp, int target_width, int target_height, int render_target,
+    const std::uint8_t* vertex_flags,
     const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
@@ -1582,7 +1599,12 @@ extern "C" void openrac_native_sly_world_mesh_submit(
         return;
     NativeWorldMesh draw;
     draw.instance = instance;
+    draw.request = request;
     draw.source_mesh = source_mesh;
+    draw.target_tbp = target_tbp;
+    draw.target_width = target_width;
+    draw.target_height = target_height;
+    draw.render_target = render_target != 0;
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
     if (vertex_flags != nullptr)
         draw.vertex_flags.assign(vertex_flags, vertex_flags + vertex_count);
@@ -2037,7 +2059,7 @@ static std::vector<std::uint8_t> build_world_gif_packet(
     }
     for (const auto& mesh : meshes) {
         if (only_request != 0u &&
-            static_cast<std::uint32_t>(mesh.instance >> 16u) != only_request)
+            mesh.request != only_request)
             continue;
         const std::size_t count = mesh.vertices.size() / 9u;
         if (count < 3u || count > 4096u) continue;
@@ -2280,6 +2302,68 @@ extern "C" void openrac_native_window_present(void) {
             begin = end;
         }
     }
+    // TextureRenderObject meshes are rendered to their own GS texture before
+    // the packet stream draws the textured edge quad that consumes them.
+    if (g_textures) {
+        std::unordered_map<std::uint32_t, std::vector<NativeWorldMesh>> target_meshes;
+        for (const auto& mesh : world_meshes)
+            if (mesh.render_target && mesh.target_tbp != 0 &&
+                mesh.target_width > 0 && mesh.target_height > 0 &&
+                mesh.target_width <= 1024 && mesh.target_height <= 1024)
+                target_meshes[mesh.target_tbp].push_back(mesh);
+        for (const auto& [tbp, meshes] : target_meshes) {
+            const int target_width = meshes.front().target_width;
+            const int target_height = meshes.front().target_height;
+            auto& target = g_native_texture_targets[tbp];
+            if (!target.framebuffer || target.width != target_width ||
+                target.height != target_height) {
+                if (target.framebuffer) target.framebuffer->release();
+                target.framebuffer = std::make_unique<openrac::renderer::FrameBuffer>();
+                std::string error;
+                if (!target.framebuffer->create(target_width, target_height, error)) {
+                    std::fprintf(stderr,
+                                 "[native sly target] framebuffer creation failed for TBP %#x (%dx%d): %s\n",
+                                 tbp, target_width, target_height, error.c_str());
+                    target.framebuffer.reset();
+                    continue;
+                }
+                target.width = target_width;
+                target.height = target_height;
+            }
+            if (target.texture == 0) {
+                target.texture = g_textures->add(
+                    openrac::renderer::Rgba8Image(target_width, target_height),
+                    openrac::renderer::AlphaScale::Gs,
+                    "native Sly render target", false, false);
+            }
+            openrac::gl::glBindFramebuffer(openrac::gl::GL_FRAMEBUFFER,
+                                            target.framebuffer->id());
+            g_viewport(0, 0, target_width, target_height);
+            openrac::gl::glDisable(openrac::gl::GL_SCISSOR_TEST);
+            openrac::gl::glColorMask(openrac::gl::GL_TRUE, openrac::gl::GL_TRUE,
+                                     openrac::gl::GL_TRUE, openrac::gl::GL_TRUE);
+            openrac::gl::glDepthMask(openrac::gl::GL_TRUE);
+            g_clear_color(0, 0, 0, 0);
+            g_clear(0x00004100u);
+            render_world_meshes(meshes, true);
+            auto target_pixels = target.framebuffer->read_rgba();
+            const std::size_t target_pixel_bytes = target_pixels.size();
+            openrac::renderer::Rgba8Image target_image(target_width, target_height);
+            target_image.pixels = std::move(target_pixels);
+            g_textures->replace_image(target.texture, std::move(target_image));
+            g_textures->place(tbp, target.texture);
+            if (std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr) {
+                static std::unordered_set<std::uint32_t> traced_targets;
+                if (traced_targets.insert(tbp).second)
+                    std::fprintf(stderr,
+                                 "[native sly target pass] tbp=%#x size=%dx%d meshes=%zu framebuffer=%u pixels=%zu\n",
+                                 tbp, target_width, target_height, meshes.size(),
+                                 target.framebuffer->id(), target_pixel_bytes);
+            }
+        }
+        openrac::gl::glBindFramebuffer(openrac::gl::GL_FRAMEBUFFER, 0);
+        g_viewport(0, 0, width, height);
+    }
     // Draw the textured world after the DirectRenderer's backdrop, not before it
     // (a pass here would be covered by the backdrop blit). Keep an opt-in early
     // pass for diagnosing that interaction.
@@ -2493,6 +2577,11 @@ extern "C" void openrac_native_window_present(void) {
 
 extern "C" void openrac_native_window_destroy(void) {
     if (g_direct) g_direct->release();
+    for (auto& [tbp, target] : g_native_texture_targets) {
+        (void)tbp;
+        if (target.framebuffer) target.framebuffer->release();
+    }
+    g_native_texture_targets.clear();
     if (g_world_vao != 0) openrac::gl::glDeleteVertexArrays(1, &g_world_vao);
     if (g_world_vbo != 0) openrac::gl::glDeleteBuffers(1, &g_world_vbo);
     if (g_movie_vao != 0) openrac::gl::glDeleteVertexArrays(1, &g_movie_vao);

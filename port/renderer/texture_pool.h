@@ -87,6 +87,10 @@ public:
     TextureHandle add(Rgba8Image image, AlphaScale scale, std::string name, bool mipmaps = false,
                       bool linear = false);
 
+    // Replace a port-owned dynamic image without changing its handle or TBP placement.
+    // The GL object is discarded and recreated lazily on next use (context must be current).
+    void replace_image(TextureHandle texture, Rgba8Image image);
+
     // The anisotropic filter of every texture with a mipmap chain (the world's): 1 is none, up to
     // what the driver offers (max_anisotropy(); 1 when it has no such filter). The textures on the
     // GPU now are set again; later ones get it as they are uploaded. The context must be current.

@@ -3,6 +3,33 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL texture target pass (2026-11-21)
+
+The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
+separate target group. The port bridge reads the target's dimensions and GS
+base pointer, and supplies the range matrix built by retail's
+`g_unitSquareToClipMatrix * drawRange->m70`. The OpenGL renderer draws the
+group into a same-size framebuffer, reads back RGBA pixels, and places the
+dynamic image in the native texture pool for later packet draws. Target meshes
+are filtered out of the normal presentation pass; they must not be composited
+directly over the game window. The dynamic-image replacement keeps one texture
+handle per target and discards the old GL image before the next upload.
+
+A hidden SDL offscreen run with the US ELF and ISO reached the save/menu
+render-target path: 30 meshes were drawn to a 64x64 OpenGL framebuffer and
+16,384 RGBA bytes were read back. The run confirms the target pass executes,
+but it remained at startup/menu and does not yet validate the Paris gameplay
+capture or prove the target image is correct. The captured startup frames still
+show incomplete UI/scene output. Evidence: `/tmp/sly-native-target-pass-final.log`,
+`/tmp/sly-native-target-gameplay.log`, and
+`/tmp/sly-native-target-gameplay-20261121/`.
+
+**Next:** use the established input sequence to reach Paris with the pass
+enabled, then compare a stable full gameplay capture against the pre-pass
+OpenGL capture. Check the target image and confirm that its consumers sample
+it in the same frame. Keep this entirely in the port-side OpenGL renderer;
+do not implement VU rendering or edit matched decomp functions.
+
 ### Player camera and deformation comparison (2026-11-21)
 
 The live native camera moves from the Splash coordinates into Paris by host

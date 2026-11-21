@@ -134,6 +134,22 @@ TextureHandle TexturePool::add(Rgba8Image image, AlphaScale scale, std::string n
     return h;
 }
 
+void TexturePool::replace_image(TextureHandle texture, Rgba8Image image) {
+    if (texture == 0 || texture > m_entries.size() || !m_entries[texture - 1].live)
+        return;
+    Entry& entry = m_entries[texture - 1];
+    if (entry.gl != 0) {
+        const GLuint gl = entry.gl;
+        if (m_upscaled_texture_colours) m_upscaled_texture_colours->forget(gl);
+        glDeleteTextures(1, &gl);
+        entry.gl = 0;
+    }
+    entry.image = std::move(image);
+    entry.from_upload = false;
+    entry.field = false;
+    entry.field_hash = 0;
+}
+
 void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
     m_placed[tbp] = texture;
 }
