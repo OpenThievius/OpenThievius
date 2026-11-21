@@ -99,11 +99,15 @@ VU fidelity but do not remove the visible blocker. Logs:
 
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than
-branding. It shows the Sony and Sucker Punch cards, the Paris rooftop intro,
-then the title/menu. Those cards and rooftop shots are pre-rendered movie
-playback. The native build deliberately replaces the matched `PlayMovie`
-function with a port-only no-op until a host movie decoder exists, so that
-sequence is a known unsupported feature, not a live-renderer target.
+branding. It shows the Sony Computer Entertainment Europe card, the Sucker
+Punch card, a moonlit Paris rooftop intro, then the animated title/menu with
+Sly and the Start/Select prompts. It does not show player-controlled gameplay.
+The native build replaces the matched `PlayMovie` function with a port-only
+no-op, but the current startup trace has not tied that call to each scene in
+the clip. Treat the opening sequence as missing from native output; do not
+classify every rooftop shot as movie footage or use it as a live-renderer
+target until its source is confirmed. The title/menu remains a useful visual
+checkpoint, while a gameplay clip is needed to compare in-level graphics.
 
 OpenRAC's current source offers a possible reuse path for Sly PSS playback:
 its `port/media` contains a PSS demuxer, SPU ADPCM audio decoder, MPEG-2 video

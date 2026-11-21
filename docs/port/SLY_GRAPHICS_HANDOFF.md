@@ -190,11 +190,14 @@ triangles from the recovered PATH3 traffic.
 ### PCSX2 reference supplied by the user (2026-11-21)
 
 The 62.8-second clip is useful for startup and title-screen comparison. It
-shows the Sony and Sucker Punch cards, the Paris rooftop cinematic, and the
-animated title/menu. It does not show a playable level. The native port's
-port-only `PlayMovie` no-op skips the cards and rooftop footage, so a faithful
-comparison begins at the first live-rendered title/menu scene. A separate
-gameplay clip will be needed to compare in-level graphics.
+shows the Sony Computer Entertainment Europe card, the Sucker Punch card, a
+moonlit Paris rooftop intro, then the animated title/menu with Sly and the
+Start/Select prompts. It does not show a playable level. The native port has a
+port-only `PlayMovie` no-op, but the current startup trace has not tied that
+call to each scene in the clip. Treat the opening sequence as missing from
+native output without assuming every rooftop shot is movie footage or live
+rendering. The title/menu is a useful visual checkpoint, and a separate
+gameplay clip is needed for an in-level comparison.
 
 I rebuilt the default host32 target and ran it hidden with the configured
 Documents US ISO. The low-overhead run reached the unformatted-card page
@@ -318,10 +321,11 @@ comparison.
 The matched decomp contains the full `PlayMovie` implementation, but the
 native build overrides it with
 `port/game/sly1-us/native/func_0018F198.cpp`, which returns immediately until a
-host movie decoder exists. That explains why the reference's splash cards and
-rooftop cinematic are absent from native output. The decomp checkout was
-fetched on 2026-11-21 and remains at `8f7a85a3`; there is no newer startup or
-movie source to import.
+host movie decoder exists. This may explain missing reference footage, but
+the trace has not identified the intro's movie key or established that each
+observed scene is played through this function. Keep that attribution open.
+The decomp checkout was fetched on 2026-11-21 and remains at `8f7a85a3`; there
+is no newer startup or movie source to import.
 
 A rebuilt host32 capture on 2026-11-21 rendered the save-file prompt, then the
 test driver's Cross/Up/Cross sequence moved from page 7 to `ui_state=3` with
