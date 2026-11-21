@@ -54,6 +54,31 @@ Do not implement or emulate the PlayStation VU renderer for this work. Keep
 the 2D DirectRenderer for menu packets and keep any compatibility behavior in
 the port layer, separate from matched decomp functions.
 
+### Native OpenGL backdrop and material isolation (2026-11-21, 21:38 CET)
+
+I inspected fresh gameplay captures from the native OpenGL renderer. Skipping
+the large camera-following request `0x005e5380` removes the broad gray upper
+area, but leaves the stretched foreground surfaces. Skipping that request and
+its neighboring requests `0x005e5300` and `0x005e5280` removes more of the
+background and floor; the large foreground streaks remain. These request
+filters are diagnostic only and do not change the renderer defaults.
+
+A separate capture rendered only the first material pass while skipping
+`0x005e5380`. It changed the color and brightness of the streaks but not their
+shape. The repeated source/material passes therefore are not the main cause
+of this geometry distortion. The next step is to isolate and compare the
+ordinary level draws' host OpenGL vertex inputs and transforms, beginning with
+the requests that produce the remaining large surfaces. Keep all graphics
+work in native OpenGL; do not implement the PlayStation VU renderer.
+
+The three bounded hidden launches used the configured US ISO and cached US
+ELF, reached gameplay, and captured 64 frames each. They ended at the expected
+15-second timeout (exit 137); no launcher remained afterward. Captures:
+`/tmp/sly-native-opengl-skipbackdrop-20261121/frame63.png`,
+`/tmp/sly-native-opengl-firstpass-nobackdrop-20261121/frame63.png`, and
+`/tmp/sly-native-opengl-skipbackdrop-group-20261121/frame63.png`. The first
+pass is a useful material diagnostic, not a valid final render mode.
+
 ### Native OpenGL texture target pass (2026-11-21)
 
 The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
