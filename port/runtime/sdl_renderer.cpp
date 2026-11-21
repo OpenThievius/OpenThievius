@@ -539,6 +539,23 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             debug_request_filter = true;
         }
     }
+    std::vector<std::uint32_t> debug_skip_requests;
+    if (const char* setting = std::getenv("OPENRAC_DEBUG_SLY_WORLD_SKIP_REQUEST")) {
+        const char* next = setting;
+        while (*next != '\0') {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(next, &end, 0);
+            if (end == next || parsed > 0xFFFFFFFFul ||
+                (*end != '\0' && *end != ',')) {
+                debug_skip_requests.clear();
+                break;
+            }
+            debug_skip_requests.push_back(static_cast<std::uint32_t>(parsed));
+            if (*end == '\0') break;
+            next = end + 1;
+        }
+    }
+    const bool debug_skip_request_filter = !debug_skip_requests.empty();
     const bool debug_first_material_pass =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_FIRST_PASS") != nullptr;
     GLenum debug_primitive = GL_TRIANGLE_STRIP;
@@ -549,14 +566,16 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             debug_primitive = GL_POINTS;
     }
     static unsigned debug_selection_notice = 0;
-    if ((debug_source_filter || debug_request_filter || debug_first_material_pass ||
-         debug_primitive != GL_TRIANGLE_STRIP) && debug_selection_notice++ < 1u) {
+    if ((debug_source_filter || debug_request_filter || debug_skip_request_filter ||
+         debug_first_material_pass || debug_primitive != GL_TRIANGLE_STRIP) &&
+        debug_selection_notice++ < 1u) {
         std::fprintf(stderr,
-                     "[native sly debug selection] source=%s%#010x request=%s%#010x first_pass=%u primitive=%s\n",
+                     "[native sly debug selection] source=%s%#010x request=%s%#010x skipped_requests=%zu first_pass=%u primitive=%s\n",
                      debug_source_filter ? "" : "all/",
                      debug_source_mesh,
                      debug_request_filter ? "" : "all/",
                      debug_request,
+                     debug_skip_requests.size(),
                      debug_first_material_pass ? 1u : 0u,
                      debug_primitive == GL_TRIANGLES ? "triangles" :
                      debug_primitive == GL_POINTS ? "points" : "triangle-strip");
@@ -609,6 +628,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         if (debug_source_filter && mesh.source_mesh != debug_source_mesh) continue;
         if (debug_request_filter &&
             mesh.request != debug_request)
+            continue;
+        if (debug_skip_request_filter &&
+            std::find(debug_skip_requests.begin(), debug_skip_requests.end(),
+                      mesh.request) != debug_skip_requests.end())
             continue;
         if (debug_first_material_pass && (mesh.instance & 0xFFu) != 0u) continue;
         if (trace_projected_bounds) {

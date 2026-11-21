@@ -9,6 +9,22 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Camera-following backdrop isolation (2026-11-21):** an unscaled native GL
+bounds trace attributes the large gray/blue surfaces in the Paris image to
+three draw requests (`0x005e5380`, `0x005e5300`, `0x005e5280`) owned by the same
+class `0x54` camera-positioned object. A port-only opt-in filter,
+`OPENRAC_DEBUG_SLY_WORLD_SKIP_REQUEST`, accepts comma-separated request
+addresses. Skipping `0x005e5380` removes the largest gray area; skipping all
+three removes the broad backdrop, but still leaves disconnected white/purple
+geometry on black. Therefore these draws contribute to the malformed image,
+but are not the sole cause. Next isolate ordinary class-4 level requests and
+compare their captured vertices, GL strip runs, and material state. This filter
+is diagnostic only and does not alter game data, decomp functions, or the
+default renderer. Captures and traces:
+`/tmp/sly-native-skip-camera-request-20261121/`,
+`/tmp/sly-native-skip-class54-20261121/`,
+`/tmp/sly-native-individual-bounds-20261121/run.log`.
+
 **Live deformation inputs (2026-11-21):** a host-side trace at the Paris model
 submission boundary found kind-0 meshes with two morph targets and other
 kind-0 meshes with two to four vertex skin weights. The native bridge currently
