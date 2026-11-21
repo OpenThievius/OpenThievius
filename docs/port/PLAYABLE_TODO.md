@@ -47,6 +47,14 @@ Before/after evidence is in `/tmp/sly-menu-perdraw-20261121/run.log`,
 `/tmp/sly-menu-centered-fix-capture-20261121/run.log`, and
 `/tmp/sly-menu-centered-fix-capture-20261121/frame07.png`.
 
+A local dump of the prompt's `0x1685` PSMT8 upload (`512x128`, CLUT
+`0x1785`) is an atlas of small icons and glyphs, not a full-panel image. The
+remaining absent top/left edges therefore need to be traced to the specific
+draws and UVs that produce the visible lower/right edges; do not stretch this
+atlas or synthesize replacement borders. The dump is local at
+`/tmp/sly-menu-border-texture-20261121/texture_1685_0.ppm` and must stay out of
+git.
+
 Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
 `/tmp/sly-pss-native-visual-20261121/contact.png`. The hidden run used the
 configured Documents US ISO and cached US ELF, ended at its 30-second bound,
