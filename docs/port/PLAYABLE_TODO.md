@@ -24,8 +24,12 @@ present them; this does not show the decompiled game producing its opening
 graphics. The bridge is limited to resource `0x344`, has no audio, and depends
 on external host tools. It is a visual diagnostic, not the final
 cross-platform media implementation.
-The normal run remains at the no-card prompt until input, and the test's
-single Cross bypasses the startup title/menu path. Live 3D scene rendering and
+The current port backfills report an empty formatted card unless
+`OPENRAC_NO_MEMCARD` is set. Without input, the game waits on the
+“Create a Sly Cooper Save File?” choice in Splash. A process-local Cross at
+frame 120 selects “No” and loads Paris directly, bypassing the title. The
+default native movie path reports no queued movie there; only the separate
+FFmpeg diagnostic has displayed the opening PSS. Live 3D scene rendering and
 controllable gameplay are still unverified.
 
 Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
@@ -33,6 +37,13 @@ Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
 configured Documents US ISO and cached US ELF, ended at its 30-second bound,
 decoded 409 frames, and captured six rendered frames. The PSS and captures
 remain outside the repository.
+
+The latest no-input trace confirms the default port is on the create-save
+choice (card state and target 3, Splash world `0x6abdd0`, UI state 5/page 7),
+not the no-card warning. Evidence:
+`/tmp/sly-save-choice-trace-20261121/run.log` and
+`/tmp/sly-default-card-state-20261121/frame05.png`. The approved Cross test
+declines the save and jumps to Paris; it cannot verify the intervening title.
 
 Follow-up: a 45-second hidden run with the approved process-local Cross at
 frame 120 decoded all 409 opening frames, then continued through 496 game

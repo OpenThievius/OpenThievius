@@ -61,12 +61,20 @@ entries are bonus/level clips and credits, not the opening rooftop sequence.
 That sequence is therefore likely supplied by the Splash startup/world path,
 not the generic MPEG movie player (inference from the decomp and recording).
 Confirm the world/state that owns it before changing movie playback. The
-ordinary startup remains in Splash world `0x6abdd0`, UI state 5, page 7, with
-no queued movie. The approved menu test reaches Paris world `0x870cf0`; it
-intentionally skips the title and default output there is black. Logs and
-captures are `/tmp/sly-menu-drive-default-20261121.log`,
+current default card backfills report an empty formatted card unless
+`OPENRAC_NO_MEMCARD` is set. A no-input trace remains in Splash world
+`0x6abdd0`, UI state 5, page 7: the “Create a Sly Cooper Save File?” choice
+(card state/target 3, memory gate 2). This is distinct from the older page-3
+no-card warning. One process-local Cross at frame 120 selects the visible
+“No” choice and loads Paris world `0x870cf0` (UI state 3, 2,426 sectors,
+`movie=0`); it bypasses the title. The optional FFmpeg movie bridge has
+separate evidence for decoding the opening resource, but the default native
+movie path does not show it. Logs and captures are `/tmp/sly-menu-drive-default-20261121.log`,
 `/tmp/sly-menu-gameplay-default-20261121.log`, and
 `/tmp/sly-menu-gameplay-default-20261121/contact.png` (57 consecutive frames).
+The fresh no-input card-state trace and image are in
+`/tmp/sly-save-choice-trace-20261121/run.log` and
+`/tmp/sly-default-card-state-20261121/frame05.png`.
 
 The normal DirectRenderer diagnostic decodes host draw batches with 6, 12, 36
 or 48 vertices. Those vertices are triangles after host conversion, but this
