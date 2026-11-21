@@ -2352,6 +2352,28 @@ extern "C" void openrac_native_window_present(void) {
             }
             auto target_pixels = target.framebuffer->read_rgba();
             const std::size_t target_pixel_bytes = target_pixels.size();
+            if (std::getenv("OPENRAC_DUMP_NATIVE_TARGETS") != nullptr) {
+                static unsigned target_dump = 0;
+                if (target_dump < 8u) {
+                    const char* directory = std::getenv("OPENRAC_DUMP_NATIVE_TARGET_DIR");
+                    if (directory == nullptr || directory[0] == '\0') directory = "/tmp";
+                    char path[512];
+                    const int length = std::snprintf(
+                        path, sizeof(path), "%s/sly1-native-target-%04x-%02u.ppm",
+                        directory, tbp, target_dump);
+                    if (length > 0 && static_cast<std::size_t>(length) < sizeof(path)) {
+                        if (FILE* file = std::fopen(path, "wb")) {
+                            std::fprintf(file, "P6 %d %d 255\n", target_width, target_height);
+                            for (std::size_t i = 0; i + 3 < target_pixels.size(); i += 4)
+                                std::fwrite(target_pixels.data() + i, 1, 3, file);
+                            std::fclose(file);
+                            std::fprintf(stderr, "[native target dump] tbp=%#x path=%s\n",
+                                         tbp, path);
+                            ++target_dump;
+                        }
+                    }
+                }
+            }
             openrac::renderer::Rgba8Image target_image(target_width, target_height);
             target_image.pixels = std::move(target_pixels);
             g_textures->replace_image(target.texture, std::move(target_image));

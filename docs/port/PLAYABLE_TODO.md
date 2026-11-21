@@ -7,13 +7,26 @@
 
 The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
 separate target group. The port bridge reads the target's dimensions and GS
-base pointer, and supplies the range matrix built by retail's
-`g_unitSquareToClipMatrix * drawRange->m70`. The OpenGL renderer draws the
-group into a same-size framebuffer, reads back RGBA pixels, and places the
-dynamic image in the native texture pool for later packet draws. Target meshes
-are filtered out of the normal presentation pass; they must not be composited
-directly over the game window. The dynamic-image replacement keeps one texture
-handle per target and discards the old GL image before the next upload.
+base pointer. `DrawPlacedObjectParts` normally receives its range matrix from
+the PS2 packet builder, which is bypassed by this native OpenGL draw path. When
+that matrix is still zero, the port bridge builds the same projection from the
+live range-record fields with the decomp's CPU matrix routines and supplies it
+to the native mesh draw; it does not modify the matched range-record function
+or run VU drawing. The OpenGL renderer draws the group into a same-size
+framebuffer, reads back RGBA pixels, and places the dynamic image in the native
+texture pool for later packet draws. Target meshes are filtered out of the
+normal presentation pass; they must not be composited directly over the game
+window. The dynamic-image replacement keeps one texture handle per target and
+discards the old GL image before the next upload.
+
+The bounded trace confirms that this pass is active, but it still produces a
+black 64x64 image. The generated projection is finite (`near=150`, `far=10`,
+inner `0`, outer `500`); the target meshes' projected bounds lie outside the
+target viewport, with zero vertices inside clip space. This is now a target
+transform/mesh-coordinate investigation, not a missing framebuffer hookup.
+Trace and all-black target capture:
+`/tmp/sly-native-range-matrix-20261121/run7.log` and
+`/tmp/sly-native-range-matrix-20261121/sly1-native-target-24c0-00.ppm`.
 
 The launcher now imports each native 64x64 target render into the matching
 GS off-screen target before its packet consumer runs. A bounded hidden SDL
@@ -128,24 +141,15 @@ basic model/view-projection upload as the cause. The solid-color isolation and
 full frame are in `/tmp/sly-native-building-request-isolate-20261121/` and
 `/tmp/sly-native-building-matrix-20261121/`.
 
-The native bridge also encounters an active class `0x61`
-(`TextureRenderObject`) in Paris. Its range record points to a 64x64 target;
-the host currently skips these draws because it has no corresponding
-offscreen pass. The current bridge supplies the global camera matrix to all
-draws, but `DrawPlacedObjectParts` in the decomp builds this object's draw
-matrix as `g_unitSquareToClipMatrix * drawRange->m70`. A correct native OpenGL
-implementation must render these meshes into their own target using that
-range matrix, then make the result available to later texture draws. I added
-the opt-in `OPENRAC_TRACE_SLY_RENDER_TARGETS` port trace to confirm the live
-target metadata without modifying matched decomp code. The single-owner trace
-is in `/tmp/sly-native-render-target-details-20261121/run-unique.log`.
-
-**Next:** implement the class `0x61` target as a host OpenGL framebuffer and
-connect its color texture to the existing native texture pool. Keep the target
-draws separate from the presentation pass, preserve the target's 64x64 size
-and range transform, and compare the resulting unfiltered Paris frame. This is
-a port-owned renderer change; do not add VU emulation or alter matched game
-functions.
+The native bridge encounters an active class `0x61`
+(`TextureRenderObject`) in Paris, with a 64x64 target at GS block `0x24c0`.
+Its host framebuffer, native mesh pass, readback, and texture-pool hookup are
+implemented. The remaining target issue is that the meshes fall outside the
+range projection's clip bounds, so this auxiliary image stays black and cannot
+add visual detail. Keep investigating from the OpenGL side: compare the target
+draw's model matrix and submitted mesh coordinates against the range record,
+then verify the target capture and full Paris frame. Do not implement the PS2
+VU renderer or change matched decomp functions as part of this renderer work.
 
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 

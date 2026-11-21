@@ -66,6 +66,83 @@ struct NativeSlyMesh {
     std::vector<u8> vertex_flags;
     std::vector<u8> vertex_indices;
 };
+struct alignas(16) NativeMathVec4 { float v[4]; };
+struct alignas(16) NativeMathMat3 { NativeMathVec4 rows[3]; };
+struct alignas(16) NativeMathMat4 { float v[16]; };
+struct alignas(16) NativeMathQuad16 { u32 v[4]; };
+
+// Reuse the decomp's CPU matrix routines to construct the render-target
+// projection when the PS2 packet builder has not populated RangeRecord+0x70.
+// This is only game math; native rendering still goes through OpenGL.
+extern "C" void sly_native_build_basis(const NativeMathVec4*, const NativeMathVec4*,
+                                       NativeMathMat3*)
+    asm("_Z13func_00189C28PK4Vec4S1_P4Mat3");
+extern "C" void sly_native_build_projection(NativeMathMat4*, float, float, float,
+                                             float, float, float)
+    asm("_Z13func_00189F58P4Mat4ffffff");
+extern "C" void sly_native_build_view_projection(float*, float*, void*,
+                                                  NativeMathQuad16*)
+    asm("_Z13func_001442C8PfS_PvP6Quad16");
+
+static bool native_guest_range_readable(u32 address, u32 size) {
+    const u64 end = static_cast<u64>(address) + size;
+    return (address >= 0x00010000u && end <= 0x02000000ull) ||
+           (address >= 0x08000000u && end <= 0x10000000ull);
+}
+
+static bool native_build_range_record_matrix(u32 range_address, float* out) {
+    if (out == nullptr || !native_guest_range_readable(range_address, 0x50u))
+        return false;
+    const volatile float* range = reinterpret_cast<const volatile float*>(range_address);
+    const float near_range = range[0x04u / 4u];
+    const float far_range = range[0x08u / 4u];
+    const float inner_distance = range[0x40u / 4u];
+    const float outer_distance = range[0x44u / 4u];
+    if (!std::isfinite(near_range) || !std::isfinite(far_range) ||
+        !std::isfinite(inner_distance) || !std::isfinite(outer_distance) ||
+        near_range <= 0.0f || far_range <= 0.0f)
+        return false;
+
+    NativeMathVec4 position{};
+    NativeMathVec4 axis{};
+    NativeMathVec4 hint{};
+    for (u32 i = 0; i < 4u; ++i) {
+        position.v[i] = range[0x10u / 4u + i];
+        axis.v[i] = range[0x20u / 4u + i];
+        hint.v[i] = range[0x30u / 4u + i];
+    }
+    NativeMathMat3 basis{};
+    NativeMathMat4 projection{};
+    if (std::fabs(near_range - far_range) <= 0.0001f) {
+        const float scale = 0.5f / near_range;
+        if (!std::isfinite(scale)) return false;
+        projection.v[0] = scale;
+        projection.v[5] = scale;
+        projection.v[10] = 1.0f;
+        projection.v[15] = 1.0f;
+        projection.v[12] = 0.5f;
+        projection.v[13] = 0.5f;
+    } else {
+        const float denominator = far_range - near_range;
+        if (std::fabs(denominator) < 1.0e-8f) return false;
+        const float k = (far_range * inner_distance - near_range * outer_distance) /
+                        denominator;
+        const float lo = inner_distance - k;
+        const float hi = outer_distance - k;
+        if (!std::isfinite(k) || !std::isfinite(lo) || !std::isfinite(hi) ||
+            std::fabs(lo) < 1.0e-8f)
+            return false;
+        for (u32 i = 0; i < 4u; ++i) position.v[i] += axis.v[i] * k;
+        const float scale = 0.5f / (near_range / lo);
+        sly_native_build_projection(&projection, scale, scale, 0.5f, 0.5f, lo, hi);
+    }
+    sly_native_build_basis(&axis, &hint, &basis);
+    sly_native_build_view_projection(position.v, basis.rows[0].v, &projection,
+                                     reinterpret_cast<NativeMathQuad16*>(out));
+    for (u32 i = 0; i < 16u; ++i)
+        if (!std::isfinite(out[i])) return false;
+    return true;
+}
 static std::mutex g_native_sly_mesh_mutex;
 static thread_local u32 g_native_sly_morph_vertex_count = 0;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
@@ -1635,6 +1712,7 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     u32 target_tbp = 0;
     u32 target_width = 0;
     u32 target_height = 0;
+    u32 target_range_address = 0;
     const bool is_render_target = owner_class == 0x61u;
     if (owner_class == 0x61u) {
         const auto readable = [](u32 address, u32 size) {
@@ -1642,7 +1720,6 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             return (address >= 0x00010000u && end <= 0x02000000ull) ||
                    (address >= 0x08000000u && end <= 0x10000000ull);
         };
-        u32 range_address = 0;
         u32 anim_record = 0;
         u32 texture_table = 0;
         u32 entries = 0;
@@ -1650,9 +1727,9 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         u32 entry_count = 0;
         u64 target_tex0 = 0;
         if (readable(owner_address + 0x2D0u, sizeof(u32)))
-            range_address = *reinterpret_cast<const volatile u32*>(owner_address + 0x2D0u);
-        if (readable(range_address, sizeof(u32)))
-            anim_record = *reinterpret_cast<const volatile u32*>(range_address);
+            target_range_address = *reinterpret_cast<const volatile u32*>(owner_address + 0x2D0u);
+        if (readable(target_range_address, sizeof(u32)))
+            anim_record = *reinterpret_cast<const volatile u32*>(target_range_address);
         if (readable(anim_record + 0x14u, sizeof(u32)))
             texture_table = *reinterpret_cast<const volatile u32*>(anim_record + 0x14u);
         if (readable(texture_table, 0x10u)) {
@@ -1675,10 +1752,25 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 traced_target_owner = owner_address;
                 std::fprintf(stderr,
                              "[native sly render target] request=%#010x owner=%#010x range=%#010x anim=%#010x table=%#010x entries=%#010x count=%u texture=%#010x size=%ux%u tex0=%#llx\n",
-                             request_address, owner_address, range_address, anim_record,
+                             request_address, owner_address, target_range_address, anim_record,
                              texture_table, entries, entry_count, texture_header,
                              target_width, target_height,
                              static_cast<unsigned long long>(target_tex0));
+                if (target_range_address != 0) {
+                    const volatile float* source_matrix =
+                        reinterpret_cast<const volatile float*>(target_range_address + 0x70u);
+                    const volatile float* draw_matrix =
+                        reinterpret_cast<const volatile float*>(request_address + 0x80u);
+                    std::fprintf(stderr, "[native sly target matrices] range=");
+                    for (u32 element = 0; element < 16u; ++element)
+                        std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
+                                     static_cast<double>(source_matrix[element]));
+                    std::fprintf(stderr, " request=");
+                    for (u32 element = 0; element < 16u; ++element)
+                        std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
+                                     static_cast<double>(draw_matrix[element]));
+                    std::fputc('\n', stderr);
+                }
             }
         }
     }
@@ -1688,8 +1780,35 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     const u32 mesh_address = part[0x5C / 4];
     if (mesh_count == 0 || mesh_address == 0) return;
     const float* model = reinterpret_cast<const float*>(request_address + 0x10u);
-    const float* view_projection = reinterpret_cast<const float*>(
+    float* view_projection = reinterpret_cast<float*>(
         is_render_target ? request_address + 0x80u : camera_address + 0x100u);
+    if (is_render_target) {
+        bool missing_target_matrix = true;
+        for (u32 element = 0; element < 16u; ++element)
+            missing_target_matrix = missing_target_matrix && view_projection[element] == 0.0f;
+        if (missing_target_matrix) {
+            static u32 generated_target_matrices = 0;
+            const bool generated = native_build_range_record_matrix(
+                target_range_address, view_projection);
+            if (generated && std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr &&
+                generated_target_matrices < 8u) {
+                const volatile float* range = reinterpret_cast<const volatile float*>(
+                    target_range_address);
+                std::fprintf(stderr,
+                             "[native sly target matrix] generated=%u range=%#010x request=%#010x near=%g far=%g inner=%g outer=%g pos=%g,%g,%g axis=%g,%g,%g hint=%g,%g,%g vp=%g,%g,%g,%g\n",
+                             generated ? 1u : 0u, target_range_address,
+                             request_address,
+                             range[0x04u / 4u], range[0x08u / 4u],
+                             range[0x40u / 4u], range[0x44u / 4u],
+                             range[0x10u / 4u], range[0x14u / 4u], range[0x18u / 4u],
+                             range[0x20u / 4u], range[0x24u / 4u], range[0x28u / 4u],
+                             range[0x30u / 4u], range[0x34u / 4u], range[0x38u / 4u],
+                             view_projection[0], view_projection[5],
+                             view_projection[10], view_projection[15]);
+            }
+            if (generated) ++generated_target_matrices;
+        }
+    }
     const u32 skin_address = request[0x74 / 4];
     if (std::getenv("OPENRAC_TRACE_SLY_CAMERA") != nullptr &&
         native_trace_player_tree_owner(owner_address)) {
