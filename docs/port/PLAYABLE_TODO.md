@@ -133,6 +133,15 @@ capture remains black. The launcher ran offscreen and stopped at its
 `/tmp/sly-reference-native-20261121/run.log` and
 `/tmp/sly-reference-native-20261121/frame-63.png`.
 
+A follow-up checked the experimental renderer's remaining matrix modes against
+the same world. Mode 3 turns the level into a radial fan; mode 2 leaves only a
+few stretched surfaces. Earlier traces already showed mode 1's fan and mode
+0's stretched terrain. None is suitable for the default path. Keep this
+renderer disabled and focus on the missing geometry/topology handoff rather
+than selecting a matrix mode by appearance. The bounded offscreen captures
+are `/tmp/sly-hybrid-check-20261121/frame-50.png` and
+`/tmp/sly-mvp2-check-20261121/frame-07.png`.
+
 The latest player trace corrects the earlier class-4-only blind spot. With the
 approved offscreen menu driver and the configured Documents US ISO, it reaches
 world `0x870cf0`. `g_player` is class 7 with zero own draw parts, but its
