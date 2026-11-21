@@ -82,6 +82,17 @@ bool trace_vu1_kick_address_enabled() {
 }
 
 void trace_vu1_selected_pc_words(uint32_t pc, uint32_t entry) {
+    static const uint32_t selected_entry = [] {
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_PC_WORDS_ENTRY");
+        if (setting == nullptr || setting[0] == '\0') return 0xFFFFFFFFu;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end == setting || *end != '\0' || parsed >= kVu1Doublewords)
+            return 0xFFFFFFFFu;
+        return static_cast<uint32_t>(parsed);
+    }();
+    if (selected_entry != 0xFFFFFFFFu && entry != selected_entry) return;
+
     static const std::array<uint32_t, 8> selected_pcs = [] {
         std::array<uint32_t, 8> result{};
         result.fill(0xFFFFFFFFu);

@@ -6852,3 +6852,25 @@ Run log: `/tmp/sly-qword35-packet-audit-20261117.log`; local dump:
 `/tmp/sly1-vu1-kick-00.bin`. The 10-second native run ended via timeout with
 exit 137 after the launcher did not exit on SIGINT. No repository source or
 retail data changed.
+
+## Finish-helper VU trace (2026-11-21)
+
+Added the optional `OPENRAC_TRACE_VU1_PC_WORDS_ENTRY=<hex>` filter to the VU
+instruction-word trace. It allows a selected PC to be captured only for a
+specific MSCAL entry, avoiding confusion when PC addresses are shared by
+several microprograms. A hidden native run after the process-local Cross
+captured finish entry `0x2` and its helper programs at `0x4a9` and `0x5ef`.
+
+The captured helpers are short vector-buffer copy loops. Entry `0x2` invokes
+them through `JALR` after transforming the vertices. They use VU LQ/SQ,
+integer branches and vector arithmetic already handled by the port translator;
+the trace did not identify an unsupported opcode. This does not yet prove the
+helper semantics or explain the absent world image. In particular, capture
+and decode of the actual helper execution state is still needed before
+changing VU arithmetic or GIF packet handling. The renderer's opt-in VU NDC
+capture remains a diagnostic route, not a replacement for the missing retail
+GIF output.
+
+The bounded capture is `/tmp/sly-vu-entry2-helper-filter-20261121.log`. The
+runtime trace filter is uncommitted until this note and the code change are
+reviewed together; no retail data or trace dump is tracked.
