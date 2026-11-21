@@ -57,6 +57,20 @@ capture reproduced the two owner classes and their unskinned state:
 investigation with geometry and camera-space inputs for this static mesh, and
 keep skinning work focused on draws that actually report skinning.
 
+**Native OpenGL paired-frame correction (2026-11-21):** the first image in a
+world-frame pair is taken before the host `render_world_meshes` pass; it was
+black and cannot establish whether that pass drew. The after-pass capture
+shows source `0x00a2a488` as a narrow cyan sliver displaced to the right.
+With `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS=1`, the same sliver becomes purple
+and retains its bounds. This isolates the observed shape from texture/material
+color and confirms that the selected native GL draws reach rasterization. The
+request-filtered clip trace has six unique request/material instances, three
+with projectable geometry, and extreme NDC maxima (x=95.6, y=5.5). Investigate
+the captured vertex layout and the model/view-projection composition on this
+static unskinned draw before adjusting material behavior. Run logs are
+`/tmp/sly-native-static-request-20261121/run.log` and
+`/tmp/sly-native-mesh-solid-20261121/run.log`; captures are alongside them.
+
 **2026-11-21 host topology check:** the port now retains each source
 `VertexRefs.pos` index and can use those indices for its opt-in strip-restart
 split. A 106-vertex mesh (`0x00a0fd90`) repeats references at candidate run

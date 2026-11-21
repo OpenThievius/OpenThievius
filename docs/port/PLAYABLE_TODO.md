@@ -41,6 +41,22 @@ matched decompilation remains unchanged. See the graphics handoff for its
 bounded capture. Focus next on the static geometry and camera-space path in
 native OpenGL, then handle skinning only for submissions that actually need it.
 
+**Native OpenGL capture correction (2026-11-21):** a request-isolated,
+source-filtered host32 capture confirmed that the native GL pass does draw
+`0x00a2a488`; its after-pass image is a narrow cyan sliver pushed to the right
+of the frame. The before-pass PPM was black because it is captured before
+`render_world_meshes`, so do not use that file alone to claim the GL pass drew
+nothing. Enabling `OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS` changes the sliver to
+solid purple without changing its bounds, confirming textures/materials are
+not the cause of this particular shape. The filtered request reports six
+unique request/material instances but only three geometrically projected
+passes; clip-space maxima reach NDC x=95.6 and y=5.5. The transforms/vertex
+layout for this unskinned source are the next native-renderer investigation.
+Captures: `/tmp/sly-native-static-request-20261121/` and
+`/tmp/sly-native-mesh-solid-20261121/`; paired after-pass image is
+`/tmp/sly1-native-world-after-hud-00.ppm` (the paired capture helper writes
+that fixed `/tmp` path).
+
 **Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
 `TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
 texture alpha scaling, alpha tests, and the framebuffer/depth behavior for
