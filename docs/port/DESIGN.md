@@ -50,13 +50,17 @@ sly1-decomp C++ ----------------> host preparation -> native game program
 
 - **Source boundary.** Build from a user-selected `sly1-decomp` checkout. Keep
   generated C, object files, executables and extracted game data out of git.
-- **Host build.** Reuse OpenRAC hostgen's preparation and host ABI where it
-  fits the Sly decompilation, but build the decompiled C++ itself for the host.
-  The first direct build uses 32-bit host pointers plus a port-only ABI header,
-  preserving pointer fields and object offsets. A staging pass widens the PS2
-  toolchain's 64-bit `UL` literals for i386. Keep the decomp checkout read-only
-  and emit adapted sources and objects under `build/port/`. Generated host C
-  and the previous guest executor are research tools, not the gameplay path.
+- **Host build.** The current direct Linux launcher is a 32-bit i386 bootstrap.
+  It lets staged game code use 32-bit retail addresses as host pointers and
+  keeps pointer-sized fields at the retail width. It compiles decompilation
+  source for i386; it does not execute the retail MIPS ELF. Staged sources and
+  objects stay under `build/port/`, and the decomp checkout stays read-only.
+  This is not the shipping architecture: the port targets 64-bit Windows,
+  macOS, and Linux. A 64-bit port must keep guest addresses and fixed-layout
+  game records 32-bit, then translate guest addresses at explicit host access
+  boundaries. Widening pointers or changing `sptr`/`uptr` mechanically would
+  break layouts and pointer arithmetic. The existing 64-bit hostgen output is
+  an experiment and is not playable.
 - **Runtime services.** Replace calls to console libraries with host services
   for files, timing, controllers, sound, threads and saves. Derive the APIs
   from Sly's decompiled call sites and retail behavior. Reuse suitable generic
@@ -81,8 +85,9 @@ sly1-decomp C++ ----------------> host preparation -> native game program
 1. Whether to adapt OpenRAC hostgen or write a Sly-specific generator. First
    inspect hostgen's license and input assumptions, then prototype against a
    small set of Sly C files in an ignored build directory.
-2. The guest memory and pointer model, based on Sly's actual address usage and
-   portability constraints.
+2. The 64-bit guest-address and fixed-layout record model, based on Sly's
+   actual address usage and portability constraints. Keep i386 as bootstrap
+   infrastructure only.
 3. For each Sly drawing subsystem, whether host code should expose native
    draw data directly or provide a lightweight game-produced command stream.
 4. Graphics API, audio library, window/input layer, build system and asset

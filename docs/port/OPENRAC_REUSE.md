@@ -186,15 +186,22 @@ of that architecture, while the ELF/disc instruction-translation launcher
 remains a bounded research tool. The existing kernel, SIF, DMA, VIF/VU and GS
 implementations cannot be treated as the native service layer.
 
-The default hostgen command now disables assembly translation. It compiles
-matched Sly C plus port-only backfills and links against the shared guest
-memory runtime. The native boot override reaches the C frame loop and its
-worker callback, but the bounded run warns on missing functions and renders
-nothing. Passing `--asm on` writes a separate research output tree; it is
-never a dependency of the playable target. Directly compiling Sly C++ as i386 preserves retail data
-layout, but the imported guest runtime is not an i386 native-service layer:
-its EE/VU support uses `__int128`, unavailable in that ABI. The 64-bit
-host-generated C route is currently the viable native compilation experiment.
+Two host builds exist, and neither is the finished cross-platform port. The
+direct Linux launcher compiles staged decompilation C++ for i386. That is a
+bootstrap shortcut: 32-bit retail addresses can be used as host pointers, and
+pointer-sized fields retain the retail width. It has advanced farther, but it
+ties the build to 32-bit Linux support. It does not execute the retail MIPS
+ELF. The separate 64-bit hostgen route translates source into host C and links
+against guest-memory services; it remains experimental and is not playable.
+
+The target is a 64-bit native program. The decomp's `sptr`/`uptr` aliases are
+an intended seam for integer-carried addresses, but they do not solve every
+case: retail records still contain 32-bit pointer fields, method tables and
+address arithmetic, and `sizeof(void*)` can affect offsets. The port needs an
+explicit 32-bit guest-address representation and checked conversion at host
+service boundaries, with layout-sensitive adaptations kept in the staging
+layer. Do not make i386 a permanent requirement or treat a global `-m64` and
+alias change as a migration.
 
 Near-term sequence:
 
