@@ -267,18 +267,22 @@ functions as part of this renderer work.
 
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 
-The decomp's `docs/DISC.md` describes bit 7 of the fourth vertex-record
-byte as the start of a triangle strip. The native bridge already preserves
-that byte as `vertex_flags`; the host renderer had been drawing an entire mesh
-as one continuous strip. I changed only the port-owned OpenGL submission to
-start a new `GL_TRIANGLE_STRIP` at each authored marker. A matched offscreen
-comparison on Paris confirms meshes with 6–18 strips now draw as separate
-runs; the frame shows more distinct building faces and fewer connecting
-polygons than the continuous-strip baseline. This is a topology correction,
-not a playable graphics result: the scene and player are still misplaced and
-the host camera/material path needs more work. Captures and logs:
-`/tmp/sly-native-flagged-strips-20261121/` and
-`/tmp/sly-native-unsplit-strips-20261121/`.
+**Correction:** the earlier interpretation that `VertexRefs.flags` bit 7
+marks strip starts was wrong. `BuildStripMeshPacket` and
+`BuildLitStripMeshPacket` use that bit to select the fog-bias value stored in
+the vertex W component. `FrameSource` records are data-transfer/material
+sources, not primitive boundaries. The native bridge no longer passes these
+flags to OpenGL or splits the ordered mesh stream on bit 7. The repeated-index
+split remains an explicit diagnostic hypothesis only.
+
+A fresh hidden capture with the false bit-7 splits removed shows more
+continuous building faces and fewer large black gaps than the prior split
+capture. It remains severely distorted, so this does not establish the final
+primitive grouping or a playable scene. Host32 target `port_native_sdl_host32`
+built successfully; a bounded hidden run with the configured Documents US ISO
+and cached US ELF captured the Paris scene and ended at the expected 15-second
+timeout (exit 137). Comparison: `/tmp/sly-native-opengl-strip-compare-20261121.png`;
+run log: `/tmp/sly-native-opengl-no-fog-splits-20261121.log`.
 
 **Next:** continue with native OpenGL. Trace the remaining camera/viewport and
 player placement errors against the captured host-frame geometry. Do not
@@ -300,16 +304,16 @@ that the native renderer dropped an active model. After the existing
 process-local save-prompt selection reaches Paris, the native OpenGL bridge
 queues 282 distinct meshes, binds 71 real textures, and projects 11,504
 vertices, of which 11,419 are within clip bounds. The host-only renderer now
-splits at authored strip-start markers and shows recognizable building faces,
-but the city and player remain misplaced. Captures and logs are in
+preserves the ordered vertex stream without treating the fog flag as a strip
+boundary. Building faces are visible, but the city and player remain misplaced.
+Captures and logs are in
 `/tmp/sly-native-gl-gameplay-20261121/` and
 `/tmp/sly-native-gl-splitstrips-20261121/`.
 
-**Next:** use the existing OpenGL mesh queue to isolate how retail strip
-restart markers, material passes, and offscreen texture targets map to host
-draws. Confirm each change from captured host frames. Keep the existing 2D
-DirectRenderer for menu packets. Do not change VU instruction limits or
-implement a VU renderer as a shortcut.
+**Next:** derive the actual primitive grouping from the native Sly draw inputs
+and host frame output, then correct the remaining per-mesh transforms and
+materials. Keep the existing 2D DirectRenderer for menu packets. Do not change
+VU instruction limits or implement a VU renderer as a shortcut.
 
 **Native skinning experiment (2026-11-21):** the host bridge now has an
 unset-by-default `OPENRAC_SLY_WORLD_SKIN` option. It applies each captured

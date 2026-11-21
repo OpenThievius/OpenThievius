@@ -59,7 +59,6 @@ struct NativeWorldMesh {
     int target_height = 0;
     bool render_target = false;
     std::vector<float> vertices;
-    std::vector<std::uint8_t> vertex_flags;
     std::vector<std::uint8_t> vertex_indices;
     std::array<float, 16> mvp{};
     std::array<float, 16> model{};
@@ -1101,48 +1100,20 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                          static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
                          vertex_data, GL_STREAM_DRAW);
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
-            const bool has_authored_strip_flags =
-                mesh.vertex_flags.size() == vertex_count;
             const bool restart_split =
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr;
-            if (has_authored_strip_flags) {
-                // VertexRefs' fourth byte carries the authored strip-start bit
-                // in bit 7. Draw each authored run separately so OpenGL never
-                // connects the tail of one strip to the head of the next.
-                std::size_t run_begin = 0;
-                std::size_t strip_count = 0;
-                for (std::size_t vertex = 1; vertex < vertex_count; ++vertex) {
-                    if ((mesh.vertex_flags[vertex] & 0x80u) == 0u) continue;
-                    if (vertex - run_begin >= 3u) {
-                        glDrawArrays(GL_TRIANGLE_STRIP,
-                                     static_cast<GLint>(run_begin),
-                                     static_cast<GLsizei>(vertex - run_begin));
-                        ++strip_count;
-                    }
-                    run_begin = vertex;
-                }
-                if (vertex_count - run_begin >= 3u) {
-                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
-                                 static_cast<GLsizei>(vertex_count - run_begin));
-                    ++strip_count;
-                }
-                if (strip_count > 1u &&
-                    std::getenv("OPENRAC_TRACE_SLY_STRIP_SPLITS") != nullptr) {
-                    static unsigned notices = 0;
-                    if (notices++ < 32u)
-                        std::fprintf(stderr,
-                                     "[native sly authored strips] source=%#010x vertices=%zu strips=%zu\n",
-                                     mesh.source_mesh, vertex_count, strip_count);
-                }
-            } else if (!restart_split) {
+            if (!restart_split) {
+                // VertexRefs.flags bit 7 selects fog bias in the matched mesh
+                // builder; FrameSource records select VU data transfers, not
+                // primitive boundaries. Preserve the ordered vertex stream
+                // as one strip unless an explicit topology diagnostic is set.
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
             } else {
-                // A strip restart repeats the first one or two vertices of the
-                // current run. Compare the source position references instead
-                // of coordinates: distinct vertices may share the same point.
-                // This remains an opt-in topology diagnostic, since the exact
-                // batch convention has not been confirmed for every mesh kind.
+                // Diagnostic hypothesis only: a strip restart may repeat one
+                // of the current run's first two vertices. Compare source
+                // references instead of coordinates because distinct vertices
+                // may share a point. The retail boundary convention is unknown.
                 std::size_t run_begin = 0;
                 std::size_t split_notices = 0;
                 for (std::size_t vertex = 2; vertex + 1 < vertex_count; ++vertex) {
@@ -1645,7 +1616,6 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
     std::uint32_t vertex_count, std::uint32_t request, std::uint32_t source_mesh,
     std::uint32_t target_tbp, int target_width, int target_height, int render_target,
-    const std::uint8_t* vertex_flags,
     const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
@@ -1671,8 +1641,6 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     draw.target_height = target_height;
     draw.render_target = render_target != 0;
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
-    if (vertex_flags != nullptr)
-        draw.vertex_flags.assign(vertex_flags, vertex_flags + vertex_count);
     if (vertex_indices != nullptr)
         draw.vertex_indices.assign(vertex_indices, vertex_indices + vertex_count);
     draw.tex0 = tex0;

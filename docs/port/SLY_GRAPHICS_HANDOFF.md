@@ -81,19 +81,23 @@ or VU renderer changed. Trace and frames:
 `/tmp/sly-native-morph-checked-20261121/` and
 `/tmp/sly-native-morph-baseline-20261121/`.
 
-**Authored strip boundaries (2026-11-21):** the completed decomp's
-`docs/DISC.md` identifies bit 7 of the fourth vertex-record byte as a
-triangle-strip start. The host bridge already retained this byte, but its GL
-path connected the whole mesh as one strip. The native renderer now starts a
-separate `GL_TRIANGLE_STRIP` at each marker. An offscreen Paris comparison
-shows source meshes with 6–18 authored runs and more distinct building faces,
-with fewer false connections, than the continuous-strip baseline. The image
-is still wrong: the city and player are misplaced, so this is a topology fix,
-not a playable milestone. Both captures used the same host renderer,
-screen-to-clip conversion, skin/morph options, save-prompt route, ELF and ISO:
-`/tmp/sly-native-flagged-strips-20261121/` and
-`/tmp/sly-native-unsplit-strips-20261121/`. Continue on host camera/viewport,
-player placement and material work; do not implement the PlayStation VU
+**Correction to the strip-boundary experiment (2026-11-21):** the prior
+interpretation of `VertexRefs.flags` bit 7 as a triangle-strip start was
+incorrect. The matched `BuildStripMeshPacket` and `BuildLitStripMeshPacket`
+write one of two fog-bias values to the vertex W component based on that bit.
+`FrameSource` records provide frame-strided VU data transfers; they do not
+define GL primitive ranges. The host renderer no longer splits on bit 7 and
+no longer carries those flags into its GL mesh queue. Its repeated-index split
+remains an opt-in hypothesis, not a confirmed retail boundary rule.
+
+A fresh hidden Paris capture after removing the false splits shows more
+continuous building faces and fewer large black gaps than the earlier flagged
+capture. It remains severely distorted and does not establish final primitive
+grouping or playability. The host32 build succeeded; the 15-second hidden run
+used the Documents US ISO and cached US ELF and ended at its expected timeout.
+See `/tmp/sly-native-opengl-strip-compare-20261121.png` and
+`/tmp/sly-native-opengl-no-fog-splits-20261121.log`. Continue on native OpenGL
+draw grouping, transforms and materials; do not implement the PlayStation VU
 renderer.
 
 **Player/camera comparison (2026-11-21):** a fresh native camera trace shows
@@ -3691,15 +3695,13 @@ favours the transpose for the character meshes, so the adapter now defaults
 to mode 1. The other modes remain available for comparison.
 
 Related experiments in this round: capturing the `verts`/`ents` morph arrays
-through the builder hook (`OPENRAC_SLY_WORLD_USE_SKINNED`) and splitting the
-strip on `VertexRefs.flags & 0x80` (`OPENRAC_SLY_WORLD_SPLIT_STRIPS`) were
-stable but did **not** change the visible result in that earlier capture. The
-decomp's `docs/DISC.md` identifies this bit as the strip-start marker; the same
-bit also affects fog bias in the packet builder. A fresh native OpenGL
-comparison now uses it as authored topology. Partial vertex dumps show sane
-model-space positions
-(symmetric x/y pairs, z roughly -42..-7), so the remaining distortion is in
-the transform/topology rather than corrupt source data.
+through the builder hook (`OPENRAC_SLY_WORLD_USE_SKINNED`) and splitting at
+repeated vertex references (`OPENRAC_SLY_WORLD_SPLIT_STRIPS`) did not change
+the visible result in that earlier capture. The old claim that bit 7 marked
+strip starts came from a mistaken reading and is superseded by the matched
+builder source and the correction above. Partial vertex dumps show sane
+model-space positions (symmetric x/y pairs, z roughly -42..-7); this alone does
+not establish the primitive boundaries or explain the remaining distortion.
 
 The full scene with mode 1 still shows fan-like distorted geometry, not a
 recognizable level. The adapter remains opt-in and off by default; the

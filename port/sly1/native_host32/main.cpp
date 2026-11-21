@@ -63,7 +63,6 @@ struct NativeSlyMesh {
     std::vector<float> vertex_weights;
     std::vector<float> morph_deltas;
     std::vector<u8> morph_keys;
-    std::vector<u8> vertex_flags;
     std::vector<u8> vertex_indices;
 };
 struct alignas(16) NativeMathVec4 { float v[4]; };
@@ -1352,7 +1351,6 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         const u8 position_index = refs[i * 4u];
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
         const u8 flags = refs[i * 4u + 3u];
-        captured.vertex_flags.push_back(flags);
         captured.vertex_indices.push_back(position_index);
         const u32 source = position_index;
         const volatile float* chosen = positions;
@@ -2029,12 +2027,11 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             if (getenv("OPENRAC_CHECK_MESH_SANITY") != nullptr) {
                 const auto& src = found->second;
                 if (src.vertices.size() > 4096u * 9u ||
-                    src.vertex_flags.size() > 4096u ||
                     src.materials.size() > 64u || src.sources.size() > 64u ||
                     (src.vertices.size() % 9u) != 0u) {
                     std::fprintf(stderr,
-                        "[mesh-sanity] BAD entry packet=%#010x verts=%zu flags=%zu mats=%zu srcs=%zu\n",
-                        packet_address, src.vertices.size(), src.vertex_flags.size(),
+                        "[mesh-sanity] BAD entry packet=%#010x verts=%zu mats=%zu srcs=%zu\n",
+                        packet_address, src.vertices.size(),
                         src.materials.size(), src.sources.size());
                 }
             }
@@ -2352,8 +2349,6 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 static_cast<u32>(mesh.vertices.size() / 9u), request_address, source_mesh,
                 target_tbp, static_cast<int>(target_width), static_cast<int>(target_height),
                 is_render_target ? 1 : 0,
-                mesh.vertex_flags.size() == mesh.vertices.size() / 9u
-                    ? mesh.vertex_flags.data() : nullptr,
                 mesh.vertex_indices.size() == mesh.vertices.size() / 9u
                     ? mesh.vertex_indices.data() : nullptr,
                 model, view_projection, material.tex0, material.tex1,
