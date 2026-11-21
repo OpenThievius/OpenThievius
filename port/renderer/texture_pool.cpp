@@ -23,6 +23,7 @@
 #include "renderer/gl.h"
 #include "renderer/shader.h"
 #include "renderer/texture_pack.h"
+#include "sly1/native_texture_bridge.h"
 
 namespace openrac::renderer {
 
@@ -32,6 +33,10 @@ extern "C" void sly1_native_trace_texture_lookup(std::uint32_t tbp, std::uint32_
                                                    std::uint32_t psm,
                                                    std::uint32_t width,
                                                    std::uint32_t height)
+    __attribute__((weak));
+extern "C" int sly1_native_get_texture_records(std::uint32_t tbp, std::uint32_t cbp,
+                                                  std::uint32_t psm,
+                                                  NativeSlyTextureRecords* records)
     __attribute__((weak));
 
 using namespace openrac::gl;
@@ -417,6 +422,39 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     }
     std::uint32_t offset = 0;
     const Stored* stored = upload_at(tex0.tbp0, offset);
+    if (stored == nullptr && sly1_native_get_texture_records != nullptr) {
+        NativeSlyTextureRecords records;
+        if (sly1_native_get_texture_records(tex0.tbp0, tex0.cbp, tex0.psm, &records) != 0 &&
+            records.image_data != nullptr && records.image_bytes != 0 &&
+            records.image_width != 0 && records.image_height != 0) {
+            if (records.palette_data != nullptr && records.palette_bytes != 0 &&
+                (records.palette_entries == 16 || records.palette_entries == 256)) {
+                ImageUpload palette;
+                palette.dbp = tex0.cbp;
+                palette.dbw = 1;
+                palette.dpsm = gs::kPsmct32;
+                palette.width = records.palette_entries == 16 ? 8u : 16u;
+                palette.height = records.palette_entries == 16 ? 2u : 16u;
+                palette.data.assign(records.palette_data,
+                                    records.palette_data + records.palette_bytes);
+                upload(std::move(palette));
+            }
+            ImageUpload image;
+            image.dbp = tex0.tbp0;
+            image.dbw = std::max<std::uint32_t>(records.image_tbw, 1u);
+            image.dpsm = static_cast<std::uint8_t>(records.image_psm);
+            image.width = records.image_width;
+            image.height = records.image_height;
+            image.data.assign(records.image_data, records.image_data + records.image_bytes);
+            upload(std::move(image));
+            stored = upload_at(tex0.tbp0, offset);
+            if (std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") != nullptr) {
+                log::info("native Sly image record loaded at {:#x} ({}x{}, psm {:#x}, {} bytes)",
+                          tex0.tbp0, records.image_width, records.image_height,
+                          records.image_psm, records.image_bytes);
+            }
+        }
+    }
     if (stored == nullptr) {
         static const bool trace_live_assets =
             std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") != nullptr;

@@ -39,7 +39,38 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
-**Native texture source audit (2026-11-21):** the 2D/native upload pool contains
+**Live image-record bridge (2026-11-21):** a hidden host32 run using the
+`wave55-sdl32-world32-20261121` build (native Sly OpenGL renderer ON, VU NDC
+renderer OFF) reached opening world `0x870cf0` and presented 312-315 native
+meshes per frame. Texture-pool misses now query the exact live image record by
+TBP and PSM and the palette record by CBP, copy those guest-owned bytes into
+the existing GS texture upload/conversion path, and cache the resulting
+OpenGL texture. This is port-only; no decomp function or PS2 VU renderer was
+changed. The capture loaded 18 exact image records; all 71 distinct logged
+scene materials resolved without the placeholder. The output is a stable gray
+sky/ground with purple stretched surfaces, still not recognizable or playable.
+A dumped 64x128 PSMT4 source texture decodes as a purple-toned atlas, so its
+palette/color interpretation still needs comparison against retail. Do not
+match textures by dimensions alone. Capture and trace:
+`/tmp/sly-native-asset-bridge-final-20261121/` and
+`/tmp/sly-native-texture-audit-20261121/`.
+
+**Capture correction:** `OPENRAC_DUMP_NATIVE_WORLD_FRAME` saves before the
+normal main-scene OpenGL pass, so its black images are not a renderer result.
+Use `OPENRAC_DUMP_NATIVE_FRAMES` with
+`OPENRAC_DUMP_NATIVE_FRAME_DIR=<directory>` to inspect the post-render
+framebuffer. The corrected capture above used that path and showed actual,
+though badly distorted, native OpenGL output.
+
+**Next native-renderer work:** verify PSMT4/PSMT8 palette layout and color
+conversion against the captured retail reference, then isolate the broad
+stretched geometry by draw request and compare its submitted vertices and
+per-request transforms. Do not guess global camera matrices without a matching
+isolated-draw capture. Keep the default client and test captures visible to
+the user when doing foreground checks; hidden runs are for controlled
+diagnostics only.
+
+**Initial native texture source audit (2026-11-21; superseded by the bridge above):** the 2D/native upload pool contains
 115 upload ranges in the current world trace, ending at GS block `0x2087`, while
 some native scene materials request higher blocks such as `0x26a0`. The live
 decomp tables are a possible native asset source: `ImageRecord` holds the source
@@ -53,11 +84,10 @@ from 61 records to 390 and the palette table from 63 to 905. At that point, the
 table had many 128x128 PSMT4 records, but none had assigned TBP `0x26a0`; the
 current capture also did not reach the native world mesh-submit hook, so it did
 not prove a source-record match for that material. Do not assign a candidate
-texture by size alone. Next, restore a capture that reaches the same world mesh
-submissions as the earlier 393-mesh trace, then correlate each missing material
-key with its live image/palette records before adding a native OpenGL upload
-adapter. Keep that adapter in the port; do not change the decomp or add VU
-rendering. Trace logs: `/tmp/sly-native-image-records-20261121/`.
+texture by size alone. At that point the follow-up was to correlate missing
+material keys with live records before adding a native OpenGL upload adapter;
+the port-only adapter is now in place and verified by the capture above. Trace
+logs: `/tmp/sly-native-image-records-20261121/`.
 
 **Fresh native capture (2026-11-21):** rebuilt `port_native_sdl_host32`
 successfully (194 matched units, 85 port-only backfills; 98 indirect/fallback

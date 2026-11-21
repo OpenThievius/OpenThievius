@@ -14,6 +14,7 @@ extern u32 D_0027450C; // g_imageRecordsB
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
 #include "platform/clock.h"
+#include "../native_texture_bridge.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <cerrno>
@@ -115,6 +116,63 @@ extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_texture_lookup(u32 tbp, u32 cbp, u32 psm,
                                  u32 width, u32 height) {
     native_trace_sly_image_records(tbp, cbp, psm, width, height);
+}
+
+extern "C" int sly1_native_get_texture_records(
+    u32 tbp, u32 cbp, u32 psm, NativeSlyTextureRecords* out) {
+    if (out == nullptr) return 0;
+    *out = {};
+    const u32 image_count = D_00274500;
+    const u32 image_table = D_00274504;
+    const u32 palette_count = D_00274508;
+    const u32 palette_table = D_0027450C;
+    if (image_count > 8192u || palette_count > 8192u ||
+        (image_count != 0u && !native_guest_range_readable(image_table, image_count * 0x20u)) ||
+        (palette_count != 0u && !native_guest_range_readable(palette_table, palette_count * 0x18u)))
+        return 0;
+
+    const volatile u8* images = reinterpret_cast<const volatile u8*>(image_table);
+    for (u32 i = 0; i < image_count; ++i) {
+        const volatile u8* record = images + i * 0x20u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x18u);
+        const u32 image_psm = *reinterpret_cast<const volatile u8*>(record + 0x08u);
+        if ((word & 0x3FFFu) != tbp || image_psm != psm) continue;
+        const u32 width = *reinterpret_cast<const volatile u16*>(record);
+        const u32 height = *reinterpret_cast<const volatile u16*>(record + 0x02u);
+        const u32 bytes = *reinterpret_cast<const volatile u32*>(record + 0x0Cu);
+        const u32 data = *reinterpret_cast<const volatile u32*>(record + 0x10u);
+        if (width == 0u || height == 0u || width > 1024u || height > 1024u ||
+            bytes == 0u || bytes > (16u << 20u) ||
+            !native_guest_range_readable(data, bytes))
+            return 0;
+        out->image_width = width;
+        out->image_height = height;
+        out->image_tbw = *reinterpret_cast<const volatile u8*>(record + 0x09u);
+        out->image_psm = image_psm;
+        out->image_bytes = bytes;
+        out->image_data = reinterpret_cast<const std::uint8_t*>(data);
+        break;
+    }
+    if (out->image_data == nullptr) return 0;
+
+    const volatile u8* palettes = reinterpret_cast<const volatile u8*>(palette_table);
+    for (u32 i = 0; i < palette_count; ++i) {
+        const volatile u8* record = palettes + i * 0x18u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x10u);
+        if (((word >> 37u) & 0x3FFFu) != cbp) continue;
+        const u32 entries = *reinterpret_cast<const volatile u16*>(record + 0x04u);
+        const u32 blocks = *reinterpret_cast<const volatile u32*>(record + 0x0Cu);
+        const u32 data = *reinterpret_cast<const volatile u32*>(record + 0x08u);
+        const u32 bytes = blocks * 16u;
+        if ((entries != 16u && entries != 256u) || bytes == 0u ||
+            bytes > 4096u || !native_guest_range_readable(data, bytes))
+            continue;
+        out->palette_entries = entries;
+        out->palette_bytes = bytes;
+        out->palette_data = reinterpret_cast<const std::uint8_t*>(data);
+        break;
+    }
+    return 1;
 }
 
 static void native_trace_sly_asset_tables(u32 stage, u32 frame) {
