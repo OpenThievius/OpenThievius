@@ -32,6 +32,15 @@ default native movie path reports no queued movie there; only the separate
 FFmpeg diagnostic has displayed the opening PSS. Live 3D scene rendering and
 controllable gameplay are still unverified.
 
+A fresh default-renderer capture confirms that the guest's GIF stream does
+produce actual 2D save-choice graphics through the native DirectRenderer. The
+dialog is badly clipped into the upper-left of the 960x720 output, however;
+the first UI draws include NDC bounds outside the view (for example
+`x=-1.028..0`, `y` up to `2.0`). This is genuine game UI output, not a 3D
+scene. The known Paris gameplay frames remain black. Trace and captures:
+`/tmp/sly-ui-viewport-draw-20261121/run.log` and
+`/tmp/sly-ui-viewport-draw-20261121/sly1-native-frame-07.ppm`.
+
 Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
 `/tmp/sly-pss-native-visual-20261121/contact.png`. The hidden run used the
 configured Documents US ISO and cached US ELF, ended at its 30-second bound,
