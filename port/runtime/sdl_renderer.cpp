@@ -1549,13 +1549,14 @@ extern "C" int openrac_native_window_poll_input(void) {
     {
         static std::vector<unsigned> seq_frames;
         static std::vector<unsigned> seq_buttons;
+        static std::vector<unsigned> seq_hold_frames;
         static bool seq_parsed = false;
         static std::size_t seq_next = 0;
         if (!seq_parsed) {
             seq_parsed = true;
             const char* s = std::getenv("OPENRAC_TEST_BUTTONS_AT_FRAMES");
             if (s != nullptr) {
-                // format: frame:mask,frame:mask,...
+                // format: frame:mask[:hold],frame:mask[:hold],...
                 const char* p = s;
                 while (*p != '\0' && seq_frames.size() < 32u) {
                     char* end = nullptr;
@@ -1564,18 +1565,43 @@ extern "C" int openrac_native_window_poll_input(void) {
                     p = end + 1;
                     const unsigned long m = std::strtoul(p, &end, 0);
                     if (end == p) break;
+                    unsigned long hold = 1;
+                    p = end;
+                    if (*p == ':') {
+                        ++p;
+                        hold = std::strtoul(p, &end, 10);
+                        if (end == p || hold == 0 || hold > 1000000ul) break;
+                    }
                     seq_frames.push_back(static_cast<unsigned>(f));
                     seq_buttons.push_back(static_cast<unsigned>(m));
+                    seq_hold_frames.push_back(static_cast<unsigned>(hold));
                     p = end;
                     if (*p == ',') ++p; else break;
                 }
             }
         }
         while (seq_next < seq_frames.size() && test_frame >= seq_frames[seq_next]) {
-            g_input->test_press_buttons_once(seq_buttons[seq_next]);
-            std::fprintf(stderr, "[test-input] injected buttons %#x at native frame %u\n",
-                         seq_buttons[seq_next], test_frame);
+            g_input->test_press_buttons_once(seq_buttons[seq_next],
+                                             static_cast<int>(seq_hold_frames[seq_next]));
+            std::fprintf(stderr,
+                         "[test-input] injected buttons %#x for %u frames at native frame %u\n",
+                         seq_buttons[seq_next], seq_hold_frames[seq_next], test_frame);
             ++seq_next;
+        }
+    }
+    // Wait for the save-file prompt before selecting Yes. Frame scheduled
+    // presses can pass before the slower game-thread input poll samples them.
+    if (std::getenv("OPENRAC_TEST_SELECT_SAVE_YES") != nullptr &&
+        sly1_native_menu_page_and_state != nullptr) {
+        static bool save_yes_sent = false;
+        const unsigned int packed = sly1_native_menu_page_and_state();
+        const unsigned int page = packed & 0xFFu;
+        const unsigned int uistate = (packed >> 8u) & 0xFFu;
+        const unsigned int open = (packed >> 16u) & 0xFFu;
+        if (!save_yes_sent && open != 0u && page == 7u && uistate == 5u) {
+            g_input->test_press_buttons_once(0x4010u, 30);
+            save_yes_sent = true;
+            std::fprintf(stderr, "[test-input] selected save Yes on page 7\n");
         }
     }
     while (test_cross_next < test_cross_count && test_frame >= test_cross_frames[test_cross_next]) {

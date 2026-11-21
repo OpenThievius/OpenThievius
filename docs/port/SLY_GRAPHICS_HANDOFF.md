@@ -3,6 +3,29 @@
 
 ### Current direction after comparing the supplied reference (2026-11-21)
 
+**Renderer decision:** focus on the native host OpenGL renderer. The PlayStation
+VU/GIF path is useful only as a source of retail draw data and optional tracing;
+do not spend the next graphics task trying to implement or emulate the VU
+renderer. Keep fixes in the port-owned host renderer/runtime, separate from
+decompiled game C and functional backfills.
+
+The native overlay is still a diagnostic prototype, not a graphics milestone.
+Its forced-Paris captures used the wrong path for the supplied startup video.
+The tested save prompt is page 7 in Splash world `0x6abdd0`; selecting Yes
+continues into gameplay world `0x870cf0`, just like selecting No. It does not
+lead to the title. A new opt-in `OPENRAC_TEST_SELECT_SAVE_YES=1` waits until
+page 7 is active and holds Up+Cross, avoiding host-frame timing guesses. That
+capture confirms prompt dismissal only. The native OpenGL result remains a
+gray Paris scene with distorted surfaces. Do not describe it as correct game
+graphics.
+
+An approved hidden run with the configured US ELF and ISO verified this route.
+The capture is `/tmp/sly-native-title-yes-20261121/contact.png`; its log is
+`/tmp/sly-native-title-yes-20261121/run.log`. Next trace which Splash-owned
+scene/object is supposed to produce the opening title sequence, then add its
+Sly-specific host rendering. Do not use the Paris overlay screenshot as
+evidence of startup progress.
+
 The user's 62.8-second PCSX2 video is the PAL startup sequence: legal cards,
 Sucker Punch logo, Paris rooftop intro, then the animated title screen with
 Start/Select prompts. It does not show player-controlled gameplay. The native
@@ -1852,7 +1875,7 @@ runs) and the slow/variable load transition. No code changed; checks pass.
 ### Test-input button-sequence harness (2026-11-19, 15:30 CET)
 
 I extended the hidden-mode test harness with a generic button-sequence injection:
-OPENRAC_TEST_BUTTONS_AT_FRAMES='frame:mask,...' (mask 0x10=Up, 0x4000=Cross,
+OPENRAC_TEST_BUTTONS_AT_FRAMES='frame:mask[:hold],...' (mask 0x10=Up, 0x4000=Cross,
 0x08=Start) injects multi-button presses at given native frames, via a new
 Input::test_press_buttons_once() bitmask path. This lets menu navigation
 (Up+Cross) be driven in hidden mode without the windowed semaphore desync.
