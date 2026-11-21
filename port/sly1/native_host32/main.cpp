@@ -1637,6 +1637,55 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     // the edge-quad pass; drawing them here would composite the offscreen model
     // directly over the desktop image. A native target pass must handle these.
     if (owner_class == 0x61u) {
+        if (std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr) {
+            static u32 traced_target_owner = 0;
+            if (traced_target_owner != owner_address) {
+                traced_target_owner = owner_address;
+                const auto readable = [](u32 address, u32 size) {
+                    const u64 end = static_cast<u64>(address) + size;
+                    return (address >= 0x00010000u && end <= 0x02000000ull) ||
+                           (address >= 0x08000000u && end <= 0x10000000ull);
+                };
+                u32 range_address = 0;
+                u32 anim_record = 0;
+                u32 texture_table = 0;
+                u32 entries = 0;
+                u32 texture_header = 0;
+                u32 entry_count = 0;
+                u32 texture_width = 0;
+                u32 texture_height = 0;
+                u64 target_tex0 = 0;
+                if (readable(owner_address + 0x2D0u, sizeof(u32)))
+                    range_address = *reinterpret_cast<const volatile u32*>(
+                        owner_address + 0x2D0u);
+                if (readable(range_address, sizeof(u32)))
+                    anim_record = *reinterpret_cast<const volatile u32*>(range_address);
+                if (readable(anim_record + 0x14u, sizeof(u32)))
+                    texture_table = *reinterpret_cast<const volatile u32*>(
+                        anim_record + 0x14u);
+                if (readable(texture_table, 0x10u)) {
+                    const volatile u8* table = reinterpret_cast<const volatile u8*>(
+                        texture_table);
+                    entry_count = table[0x04u];
+                    entries = *reinterpret_cast<const volatile u32*>(table + 0x0Cu);
+                }
+                if (entry_count != 0 && readable(entries, sizeof(u32)))
+                    texture_header = *reinterpret_cast<const volatile u32*>(entries);
+                if (readable(texture_header, 0x20u)) {
+                    const volatile u8* header = reinterpret_cast<const volatile u8*>(
+                        texture_header);
+                    texture_width = *reinterpret_cast<const volatile u16*>(header);
+                    texture_height = *reinterpret_cast<const volatile u16*>(header + 2u);
+                    target_tex0 = *reinterpret_cast<const volatile u64*>(header + 0x18u);
+                }
+                std::fprintf(stderr,
+                             "[native sly render target] request=%#010x owner=%#010x range=%#010x anim=%#010x table=%#010x entries=%#010x count=%u texture=%#010x size=%ux%u tex0=%#llx\n",
+                             request_address, owner_address, range_address, anim_record,
+                             texture_table, entries, entry_count, texture_header,
+                             texture_width, texture_height,
+                             static_cast<unsigned long long>(target_tex0));
+            }
+        }
         if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
             static u32 skipped_texture_targets = 0;
             if (skipped_texture_targets++ < 8u)

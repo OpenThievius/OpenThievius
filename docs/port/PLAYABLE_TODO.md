@@ -68,6 +68,37 @@ unfiltered frame. Evidence is in
 `/tmp/sly-native-matrix-compare-20261121/run.log`, and the captured frame in
 `/tmp/sly-native-terrain-audit-20261121/`.
 
+### Native OpenGL transform and render-target findings (2026-11-21)
+
+The US decomp's `UpdateCameraProjection` builds its camera projection using
+`640/4096` and `224/4096` screen factors. The host's inverse factors in
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` therefore match the retail camera math;
+changing those factors is not supported by this capture. An isolated ordinary
+building draw lands inside the same clipped bounds reported by the OpenGL
+upload trace. Its shape is still incomplete, but this rules out that draw's
+basic model/view-projection upload as the cause. The solid-color isolation and
+full frame are in `/tmp/sly-native-building-request-isolate-20261121/` and
+`/tmp/sly-native-building-matrix-20261121/`.
+
+The native bridge also encounters an active class `0x61`
+(`TextureRenderObject`) in Paris. Its range record points to a 64x64 target;
+the host currently skips these draws because it has no corresponding
+offscreen pass. The current bridge supplies the global camera matrix to all
+draws, but `DrawPlacedObjectParts` in the decomp builds this object's draw
+matrix as `g_unitSquareToClipMatrix * drawRange->m70`. A correct native OpenGL
+implementation must render these meshes into their own target using that
+range matrix, then make the result available to later texture draws. I added
+the opt-in `OPENRAC_TRACE_SLY_RENDER_TARGETS` port trace to confirm the live
+target metadata without modifying matched decomp code. The single-owner trace
+is in `/tmp/sly-native-render-target-details-20261121/run-unique.log`.
+
+**Next:** implement the class `0x61` target as a host OpenGL framebuffer and
+connect its color texture to the existing native texture pool. Keep the target
+draws separate from the presentation pass, preserve the target's 64x64 size
+and range transform, and compare the resulting unfiltered Paris frame. This is
+a port-owned renderer change; do not add VU emulation or alter matched game
+functions.
+
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 
 The decomp's `docs/DISC.md` describes bit 7 of the fourth vertex-record
