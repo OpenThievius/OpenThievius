@@ -9,6 +9,27 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Fresh native capture (2026-11-21):** rebuilt `port_native_sdl_host32`
+successfully (194 matched units, 85 port-only backfills; 98 indirect/fallback
+entries, direct-call frontier 790/791). A hidden US level probe reached world
+`0x88d5b0`; the steady OpenGL scene queued 282 unique meshes, used 71 uploaded
+textures, and projected 11,504 vertices, 11,419 inside clip bounds. Its saved
+image remains gray sky/ground with disconnected purple surfaces. A second
+hidden run drove the no-card menu and reached opening world `0x870cf0`,
+`ui_state=3`; movie playback was disabled, so it did not reach the title or
+normal gameplay. Captures:
+`/tmp/sly-native-current-20261121/` and
+`/tmp/sly-native-gameplay-current-20261121/`.
+
+**Material packet boundary:** a live capture of kind-5 mesh
+`0x00a2d9a8` shows one frame source with TEST, ALPHA, TEX0, TEX1, and CLAMP
+register writes; there is no PRIM write in that packet. Keep native primitive
+selection tied to the model-strip draw input rather than inventing it from
+material state. Continue isolating real OpenGL draws and their input vertices,
+matrices, and textures. The existing full-scene clip bounds show that most
+vertices are in view; they do not establish that the resulting shapes are
+correct. Packet trace: `/tmp/sly-native-prim-audit-20261121/run.log`.
+
 **Camera-following backdrop isolation (2026-11-21):** an unscaled native GL
 bounds trace attributes the large gray/blue surfaces in the Paris image to
 three draw requests (`0x005e5380`, `0x005e5300`, `0x005e5280`) owned by the same

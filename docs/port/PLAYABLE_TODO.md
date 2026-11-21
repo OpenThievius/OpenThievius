@@ -3,6 +3,36 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL gameplay capture recheck (2026-11-21)
+
+Rebuilt the current host32 target from `wip/native-sly-port`. It compiled all
+194 matched C++ units and 85 port-only backfills, then linked the SDL3 native
+launcher. The linker reports 98 indirect/fallback entries; its direct-call
+frontier is 790/791. These counts do not explain the current graphics output.
+
+A hidden run with the configured US ISO, cached US ELF, and
+`OPENRAC_DEFAULT_LEVEL=0x0100` reached world `0x88d5b0`. The OpenGL pass queued
+up to 384 draws; the steady scene had 282 unique meshes, 71 uploaded textures,
+and 11,504 vertices, with 11,419 vertex positions inside clip bounds. The
+saved frame is still gray sky/ground with disconnected purple surfaces, not a
+recognizable level. Capture: `/tmp/sly-native-current-20261121/`.
+
+A separate hidden run used the approved process-local menu driver, cleared the
+no-card prompt, and reached opening world `0x870cf0` (`ui_state=3`). Its movie
+backend was off (`movie=0`), so this is not a title or normal gameplay capture.
+It likewise shows only gray background and fragmented surfaces. Capture and
+log: `/tmp/sly-native-gameplay-current-20261121/`.
+
+The current native OpenGL bridge assumes each captured `ModelStrip` reference
+sequence is one triangle strip and draws it with the captured camera and model
+matrices. The matched `BuildStripMeshPacket` source confirms the per-vertex
+positions, UVs, and fog flag meaning. A targeted live `FrameSource` packet
+capture contains TEST, ALPHA, TEX0, TEX1, and CLAMP registers, but no GS PRIM
+register; do not try to recover primitive mode from this material packet.
+Keep the work on the host renderer and derive each next draw change from the
+native draw inputs and a corresponding isolated frame. Do not implement or
+emulate the PlayStation VU renderer.
+
 ### Native OpenGL draw isolation (2026-11-21)
 
 Keep graphics work in the port-owned OpenGL scene renderer. A fresh hidden

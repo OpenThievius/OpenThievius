@@ -23,6 +23,15 @@ shortcut can reach Paris, where the current OpenGL bridge intercepts
 [playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
 and [graphics handoff](SLY_GRAPHICS_HANDOFF.md) for the captured evidence.
 
+A fresh hidden host32 capture confirms the native OpenGL pass receives 282
+unique meshes and 71 uploaded textures at the steady test-level scene. It
+projects 11,504 vertices, with 11,419 within clip bounds, yet the saved image
+still contains only broad gray areas and disconnected purple surfaces. The
+menu-driven path also reaches the opening world, but remains at `ui_state=3`
+with movie playback disabled. Thus neither the OpenGL scene nor normal startup
+is verified as playable; the exact captures and limits are recorded in the
+[current graphics checkpoint](PLAYABLE_TODO.md#native-opengl-gameplay-capture-recheck-2026-11-21).
+
 **Next:** fix the Sly-specific native host-renderer path at the confirmed
 model-draw boundary: establish correct geometry, deformation, transforms and
 materials from game-side inputs, then validate a recognizable object in
