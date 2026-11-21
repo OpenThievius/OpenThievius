@@ -53,6 +53,10 @@ struct NativeSlyMesh {
     u32 kind = 0xFFFFFFFFu;
     int source_frame = 0;
     u32 vertex_weight_count = 0;
+    u32 morph_target_count = 0;
+    u32 morph_ents_address = 0;
+    u32 morph_vertices_address = 0;
+    u32 morph_weights_address = 0;
     std::vector<NativeSlyFrameSource> sources;
     std::vector<NativeSlyMaterial> materials;
     std::vector<float> vertices;
@@ -1129,6 +1133,10 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     NativeSlyMesh captured;
     captured.source_mesh = mesh_address;
     captured.kind = mk;
+    captured.morph_target_count = nweights;
+    captured.morph_ents_address = ents_address;
+    captured.morph_vertices_address = verts_address;
+    captured.morph_weights_address = weights_address;
     // StripHeader::count is the number of weights supplied for each vertex;
     // the separate PartMesh bone list maps those weights into the skin palette.
     captured.vertex_weight_count = header_weight_count;
@@ -1189,9 +1197,6 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         captured.materials.push_back(material);
     }
     if (captured.materials.empty()) return;
-    (void)nweights;
-    (void)ents_address;
-    (void)verts_address;
     const bool encode_normal_colors = mesh[0] == 0u && normals != nullptr &&
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
     for (u32 i = 0; i < vertex_count; ++i) {
@@ -1698,6 +1703,18 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 }
             }
             mesh = found->second;
+        }
+        if (std::getenv("OPENRAC_TRACE_SLY_MESH_DEFORM") != nullptr &&
+            (mesh.kind == 0u || mesh.kind == 6u)) {
+            static u32 deformation_notices = 0;
+            if (deformation_notices++ < 512u)
+                std::fprintf(stderr,
+                             "[native sly deformation inputs] world=%#010x request=%#010x owner=%#010x source=%#010x kind=%u vertices=%zu morph_targets=%u skin_weights=%u ents=%#010x verts=%#010x weights=%#010x\n",
+                             world, request_address, owner_address, mesh.source_mesh,
+                             mesh.kind, mesh.vertices.size() / 9u,
+                             mesh.morph_target_count, mesh.vertex_weight_count,
+                             mesh.morph_ents_address, mesh.morph_vertices_address,
+                             mesh.morph_weights_address);
         }
         if (trace_owner_candidate) {
             traced_attachment_owner = owner_address;

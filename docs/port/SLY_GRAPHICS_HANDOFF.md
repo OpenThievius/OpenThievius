@@ -9,6 +9,17 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Live deformation inputs (2026-11-21):** a host-side trace at the Paris model
+submission boundary found kind-0 meshes with two morph targets and other
+kind-0 meshes with two to four vertex skin weights. The native bridge currently
+copies base positions and skin weights, and its experimental OpenGL skinning
+path applies the PartSkin matrices; it does not yet apply the captured morph
+position deltas. This establishes a concrete missing input on the native
+renderer path, but does not prove morph loss causes the broad terrain distortion.
+Keep morph reconstruction in the host renderer and validate one isolated mesh
+against a captured native frame before changing the full-scene path. Trace:
+`/tmp/sly-native-deform-live-20261121/run.log`.
+
 **Host strip comparison (2026-11-21):** a bounded offscreen capture forced
 catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.
 With solid colors and depth disabled, point mode shows the request's captured
