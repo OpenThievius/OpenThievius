@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Player hierarchy and draw-route trace (2026-11-21)
+
+The opt-in `OPENRAC_TRACE_PLAYER` now records the player on the first active
+gameplay frame rather than waiting until frame 340. On the configured Documents
+US ISO and cached US ELF, the approved offscreen menu driver reached world
+`0x870cf0`; `g_player` is class 7 and its own `drawPartCount`, `drawParts`, and
+`partStates` are zero. A bounded walk of its children found 12 model-bearing
+descendants with one or two parts each, through depth six. The rig and the two
+foot/link objects have no model parts, while the data is present elsewhere in
+the player tree. This rules out the earlier broad assumption that the player
+tree has no model data.
+
+The existing class-4 `QueueModelPartDraws` trace, filtered to player-tree
+owners, produced no entries. A separate `OPENRAC_TRACE_FONT` run also showed no
+stage-202 callback entries. These traces therefore have not located which draw
+callback submits the descendants; they do not prove the descendants are
+skipped. Next trace one identified model-bearing child (for example id `0x5b`,
+address `0x016d2fa0`) through its actual draw method and VIF/GIF output. Do not
+change model loading or invent a player backfill before that route is known.
+The hierarchy capture is `/tmp/sly-player-tree-20261121b/run.log`; the filtered
+queue capture is `/tmp/sly-player-queue-20261121/run.log`. Both launches were
+offscreen, ended at the deliberate 30-second timeout, and left no launcher
+process. No matched decomp source changed.
+
 ### VU accumulator flag semantics (2026-11-21)
 
 Comparing the native translator with OpenRAC's standalone VU interpreter found

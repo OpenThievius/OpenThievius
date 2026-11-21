@@ -5,6 +5,7 @@ using u16 = unsigned short;
 using u32 = unsigned int;
 using u64 = unsigned long long;
 extern "C" char* getenv(const char*);
+extern u32 D_00262E10; // g_player
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
@@ -1253,10 +1254,23 @@ extern "C" void sly1_native_bind_model_mesh(u32 header_address,
     }
 }
 
+static bool native_trace_player_tree_owner(u32 candidate) {
+    const u32 player = D_00262E10;
+    if (player < 0x00010000u || player >= 0x02000000u) return false;
+    for (u32 depth = 0; depth < 16u && candidate >= 0x00010000u &&
+         candidate < 0x02000000u; ++depth) {
+        if (candidate == player) return true;
+        candidate = *(volatile u32*)(candidate + 0x18u);
+    }
+    return false;
+}
+
 extern "C" void sly1_native_trace_model_hook(u32 owner_address, u32 part_index,
                                                u32 source_part, u32 scratch_part,
                                                u32 hook_address, u32 kind) {
-    if (!g_startup_trace_enabled) return;
+    const bool player_trace = std::getenv("OPENRAC_TRACE_PLAYER") != nullptr &&
+                              native_trace_player_tree_owner(owner_address);
+    if (!g_startup_trace_enabled && !player_trace) return;
     static std::atomic<u32> trace_count{0};
     if (trace_count.fetch_add(1u, std::memory_order_relaxed) >= 128u) return;
     const u32 source_hook = source_part != 0
@@ -1274,7 +1288,9 @@ extern "C" void sly1_native_trace_queue_model_parts(u32 owner_address,
                                                        u32 part_count,
                                                        u32 parts_address,
                                                        u32 states_address) {
-    if (!g_startup_trace_enabled) return;
+    const bool player_trace = std::getenv("OPENRAC_TRACE_PLAYER") != nullptr &&
+                              native_trace_player_tree_owner(owner_address);
+    if (!g_startup_trace_enabled && !player_trace) return;
     static std::atomic<u32> trace_count{0};
     const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
     if (sample >= 64u) return;
@@ -1296,7 +1312,9 @@ extern "C" void sly1_native_trace_queue_model_result(
     u32 owner_address, u32 views, u32 seen, u32 mask_culled,
     u32 plane_culled, u32 fade_rejected, u32 fade_zero, u32 queued,
     u32 part_count) {
-    if (!g_startup_trace_enabled) return;
+    const bool player_trace = std::getenv("OPENRAC_TRACE_PLAYER") != nullptr &&
+                              native_trace_player_tree_owner(owner_address);
+    if (!g_startup_trace_enabled && !player_trace) return;
     static std::atomic<u32> trace_count{0};
     const u32 sample = trace_count.fetch_add(1u, std::memory_order_relaxed);
     if (sample >= 64u) return;
@@ -3178,9 +3196,18 @@ sly1_native_trace_frame_stage(u32 stage) {
             if (cam >= 0x00010000u && cam < 0x02000000u)
                 *(volatile u32*)(cam + 0x21Cu) = wanted_mask;
         }
-        if (getenv("OPENRAC_TRACE_PLAYER") != nullptr && frame == 340u) {
-            extern u32 D_00262E10; // g_player
-            const u32 player = D_00262E10;
+        static u32 player_trace_done = 0;
+        const u32 trace_player = getenv("OPENRAC_TRACE_PLAYER") != nullptr;
+        const u32 active_world = __atomic_load_n(&g_native_world, __ATOMIC_RELAXED);
+        const u32 active_ui = __atomic_load_n(&g_native_ui_state, __ATOMIC_RELAXED);
+        const u32 player = D_00262E10;
+        if (trace_player && player_trace_done == 0 && frame >= 20u &&
+            active_ui == 3u && active_world != 0u &&
+            (player >= 0x00010000u || frame >= 120u)) {
+            player_trace_done = 1;
+            write_hex("native host32: player trace frame ", (int)frame);
+            write_hex("  active world ", (int)active_world);
+            write_hex("  active ui ", (int)active_ui);
             write_hex("native host32: g_player ", (int)player);
             if (player >= 0x00010000u && player < 0x02000000u) {
                 const u32 desc = *(volatile u32*)player;
@@ -3196,6 +3223,89 @@ sly1_native_trace_frame_stage(u32 stage) {
                     write_hex("  player drawPartCount ", (int)*(volatile u32*)(player + 0x238u));
                     write_hex("  player drawParts ", (int)*(volatile u32*)(player + 0x23Cu));
                     write_hex("  player partStates ", (int)*(volatile u32*)(player + 0x240u));
+            const u32 linked_visuals[] = {
+                *(volatile u32*)(player + 0x610u),
+                *(volatile u32*)(player + 0x614u),
+                *(volatile u32*)(player + 0x618u),
+                *(volatile u32*)(player + 0x243Cu),
+                *(volatile u32*)(player + 0x24F8u),
+                *(volatile u32*)(player + 0x23D0u),
+                *(volatile u32*)(player + 0x23D4u),
+            };
+            const char* linked_names[] = {
+                "  player linkPartA", "  player linkPartB", "  player f618",
+                "  player textureObject", "  player rigObject",
+                "  player f23D0", "  player f23D4",
+            };
+            for (u32 i = 0; i < sizeof(linked_visuals) / sizeof(linked_visuals[0]); ++i) {
+                const u32 linked = linked_visuals[i];
+                write_hex(linked_names[i], (int)linked);
+                if (linked >= 0x00010000u && linked < 0x02000000u) {
+                    const u32 linked_desc = *(volatile u32*)linked;
+                    if (linked_desc >= 0x00010000u && linked_desc < 0x10000000u) {
+                        write_hex("    linked class", (int)*(volatile u32*)(linked_desc + 4u));
+                        write_hex("    linked id", (int)*(volatile u32*)(linked + 8u));
+                        write_hex("    linked drawPartCount", (int)*(volatile u32*)(linked + 0x238u));
+                        write_hex("    linked drawParts", (int)*(volatile u32*)(linked + 0x23Cu));
+                        write_hex("    linked partStates", (int)*(volatile u32*)(linked + 0x240u));
+                    }
+                }
+            }
+            const auto trace_children = [](const char* label, u32 root) {
+                if (root < 0x00010000u || root >= 0x02000000u) return;
+                write_text(label);
+                u32 child = *(volatile u32*)(root + 0x34u);
+                for (u32 i = 0; i < 64u && child >= 0x00010000u &&
+                     child < 0x02000000u; ++i) {
+                    write_hex("    child", (int)child);
+                    const u32 child_desc = *(volatile u32*)child;
+                    if (child_desc < 0x00010000u || child_desc >= 0x10000000u) break;
+                    write_hex("      child class", (int)*(volatile u32*)(child_desc + 4u));
+                    write_hex("      child id", (int)*(volatile u32*)(child + 8u));
+                    if (*(volatile u32*)(child_desc + 0xCu) >= 0x244u) {
+                        write_hex("      child drawPartCount", (int)*(volatile u32*)(child + 0x238u));
+                        write_hex("      child drawParts", (int)*(volatile u32*)(child + 0x23Cu));
+                    }
+                    child = *(volatile u32*)(child + 0x1Cu);
+                }
+            };
+            const auto trace_model_tree = [](u32 root) {
+                u32 queue[256] = {};
+                u32 depths[256] = {};
+                u32 count = 1;
+                queue[0] = root;
+                for (u32 cursor = 0; cursor < count; ++cursor) {
+                    const u32 object = queue[cursor];
+                    if (object < 0x00010000u || object >= 0x02000000u) continue;
+                    const u32 desc = *(volatile u32*)object;
+                    if (desc < 0x00010000u || desc >= 0x10000000u) continue;
+                    const u32 class_id = *(volatile u32*)(desc + 4u);
+                    const u32 object_size = *(volatile u32*)(desc + 0xCu);
+                    if (object_size < 0x2D0u) continue;
+                    const u32 part_count = *(volatile u32*)(object + 0x238u);
+                    if (part_count != 0u) {
+                        write_hex("native host32: player tree model object", (int)object);
+                        write_hex("  tree depth", (int)depths[cursor]);
+                        write_hex("  tree class", (int)class_id);
+                        write_hex("  tree id", (int)*(volatile u32*)(object + 8u));
+                        write_hex("  tree part count", (int)part_count);
+                        write_hex("  tree parts", (int)*(volatile u32*)(object + 0x23Cu));
+                        write_hex("  tree states", (int)*(volatile u32*)(object + 0x240u));
+                    }
+                    u32 child = *(volatile u32*)(object + 0x34u);
+                    for (u32 sibling = 0; sibling < 64u &&
+                         child >= 0x00010000u && child < 0x02000000u &&
+                         count < 256u; ++sibling) {
+                        queue[count] = child;
+                        depths[count] = depths[cursor] + 1u;
+                        ++count;
+                        child = *(volatile u32*)(child + 0x1Cu);
+                    }
+                }
+                write_hex("native host32: player tree objects", (int)count);
+            };
+            trace_children("native host32: player direct children", player);
+            trace_model_tree(player);
                 }
             }
         }

@@ -120,6 +120,19 @@ classify every rooftop shot as movie footage or use it as a live-renderer
 target until its source is confirmed. The title/menu remains a useful visual
 checkpoint, while a gameplay clip is needed to compare in-level graphics.
 
+The latest player trace now runs on the first active gameplay frame instead of
+waiting until frame 340. With the approved offscreen menu driver and the
+configured Documents US ISO, it reached world `0x870cf0`. `g_player` is class 7
+with zero own draw parts, but a bounded walk found 12 model-bearing descendants
+with one or two parts each, down to depth six. The rig and foot/link objects
+have no parts; this does not mean the character model data is absent. The
+class-4 `QueueModelPartDraws` trace did not match these descendants, so their
+draw callback and VIF/GIF path remain unlocated. Next trace one descendant
+through its actual draw callback before changing loader or model-tree code.
+Evidence: `/tmp/sly-player-tree-20261121b/run.log` and
+`/tmp/sly-player-queue-20261121/run.log`. Both runs ended at their deliberate
+30-second timeout, with no launcher left running.
+
 OpenRAC's current source offers a possible reuse path for Sly PSS playback:
 its `port/media` contains a PSS demuxer, SPU ADPCM audio decoder, MPEG-2 video
 decoder, and frame conversion; `port/game/common/program/movie.cpp` reads a
