@@ -6,50 +6,31 @@
 The port now has its first verified game graphics: the opening pre-rendered
 intro plays through the native window after a process-local Cross dismisses
 the no-card prompt. The retail call identifies the clip as resource `0x344`
-at LSN `0xc8f03`, length `0xab4004`. An opt-in Linux diagnostic uses the
-installed FFmpeg tools to decode and present it; this is not a shipping media
-backend. It confirms the movie route only. Normal startup still needs the
-correct save/title flow, and the native live 3D scene and gameplay renderer
-remain blocked. See the [playable TODO](PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
-for the capture, limits, and next steps.
+at LSN `0xc8f03`, length `0xab4004`. An opt-in Linux diagnostic uses installed
+FFmpeg tools to decode and present it; this is not a shipping media backend
+and does not count as live 3D rendering. Normal startup still needs the
+correct save/title flow. See the [playable TODO](PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
+for the capture and limits.
 
-**Next:** keep rendering work on the native host renderer. Identify the
-Splash-owned startup/title scene and feed its Sly scene data into host OpenGL.
-The PlayStation VU/GIF path may be inspected for source data, but implementing
-or emulating that renderer is not the graphics target. Replace the diagnostic
-movie decoder with a self-contained host media path separately; do not count
-pre-rendered video as playable 3D.
+The live-scene blocker is the native host renderer. In the normal startup
+path, the ordinary game output is black. The optional host OpenGL mesh path
+can receive hundreds of Paris meshes and real textures, but its image is
+stretched and incomplete. A separate hidden check found the Splash root node
+(`0x00864380`, class 81, id 513) has no children or model parts and is marked
+hidden, so that node is not a source of startup geometry. The test-level
+shortcut can reach Paris, where the current OpenGL bridge intercepts
+`DrawModelPart` inputs. See the
+[playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
+and [graphics handoff](SLY_GRAPHICS_HANDOFF.md) for the captured evidence.
 
-The native client still reaches the memory-card flow and loaded world, but
-does not show a playable scene. A paired capture separated the two graphics
-paths: the normal game output is black, while the optional world-mesh overlay
-adds stretched geometry and remains disabled by default. The player skeleton's
-previously corrupt attachment matrices are now finite and orthonormal after a
-port-only host callback ABI fix. The old global 4,096-instruction limit
-stopped entry `0x2` at PC `0x516`. A bounded entry-specific allowance of
-65,536 now completes the sampled level stream without that budget stop and
-queues hundreds of world meshes. A VU1 capture also contains XYZ2/XYZF2
-writes. The ordinary renderer still presents black, while the optional mesh
-overlay shows a grayscale, distorted corridor without a recognizable player.
-The kind-5 qword-469 rejection is separate and is not established as the
-world-geometry cause.
-
-A separate host32 build with the optional source-mesh bridge enabled now
-reaches gameplay state and displays washed-out, stretched level surfaces. It
-queues 312 unique meshes (12,999 vertices) and resolves 71 material textures,
-but a player-only view is black and the full scene has no recognizable Sly
-model or usable HUD. The bridge remains diagnostic and disabled by default.
-See the [playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
-for the frame and run details.
-
-**Next:** implement the Sly-specific native host-renderer path for the first
-confirmed startup/title object. The current OpenGL mesh overlay is attached to
-gameplay `DrawModelPart` calls, yields distorted Paris geometry, and is not the
-startup renderer. Trace the Splash-owned object/resource inputs and connect
-them to host OpenGL; use retail VU/GIF observations only to clarify source
-data where needed. Keep all host-renderer work and functional backfills
-separate from matched decompilation source. See the
-[graphics handoff](SLY_GRAPHICS_HANDOFF.md) for current evidence.
+**Next:** fix the Sly-specific native host-renderer path at the confirmed
+model-draw boundary: establish correct geometry, deformation, transforms and
+materials from game-side inputs, then validate a recognizable object in
+OpenGL. Keep this work and any functional backfills under `port/`, separate
+from matched decompilation source. Retail VU/GIF output may be consulted only
+as evidence about the data the host renderer needs; implementing or emulating
+the PlayStation VU renderer is out of scope. Keep the diagnostic movie path
+and later shipping media backend separate from live 3D rendering.
 ## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated
