@@ -106,6 +106,16 @@ skipped) and `/tmp/sly-native-opengl-transformed-scale-full-20261121/` (full
 scene). This remains a native OpenGL port behavior; no PlayStation VU renderer
 was implemented.
 
+A paired, request-isolated solid-color capture of player request
+`0x005e5400` shows host skinning moves several disconnected-looking pieces
+closer together, but the silhouette is still fragmented with skinning enabled.
+This does not verify the skeleton pose or animation, and separate attachment
+traces found corrupt final matrices for another skinned owner. Keep
+`OPENRAC_SLY_WORLD_SKIN` opt-in until the player palette inputs and animation
+are validated. Paired images:
+`/tmp/sly-native-opengl-player-solid-skin-20261121/frame63.png` and
+`/tmp/sly-native-opengl-player-solid-noskin-20261121/frame63.png`.
+
 ### Native OpenGL texture target pass (2026-11-21)
 
 The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
