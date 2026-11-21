@@ -59,6 +59,7 @@ struct NativeSlyMesh {
     std::vector<float> morph_vertex_weights;
     std::vector<u8> morph_keys;
     std::vector<u8> vertex_flags;
+    std::vector<u8> vertex_indices;
 };
 static std::mutex g_native_sly_mesh_mutex;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
@@ -1104,6 +1105,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         captured.morph_keys.assign(keys, keys + header_weight_count);
     }
     captured.vertices.reserve(static_cast<std::size_t>(vertex_count) * 9u);
+    captured.vertex_indices.reserve(vertex_count);
     if (weights_address != 0 && header_weight_count > 0u &&
         header_weight_count <= 4u)
         captured.morph_vertex_weights.reserve(static_cast<std::size_t>(vertex_count) *
@@ -1164,6 +1166,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
         const u8 tint_index = refs[i * 4u + 3u] & 0x7Fu;
         const u8 flags = refs[i * 4u + 3u];
         captured.vertex_flags.push_back(flags);
+        captured.vertex_indices.push_back(position_index);
         const u32 source = position_index;
         const volatile float* chosen = positions;
         bool vert_filter_match = true;
@@ -1824,6 +1827,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 static_cast<u32>(mesh.vertices.size() / 9u), source_mesh,
                 mesh.vertex_flags.size() == mesh.vertices.size() / 9u
                     ? mesh.vertex_flags.data() : nullptr,
+                mesh.vertex_indices.size() == mesh.vertices.size() / 9u
+                    ? mesh.vertex_indices.data() : nullptr,
                 model, view_projection, material.tex0, material.tex1,
                 material.clamp, material.alpha, material.alpha_valid ? 1 : 0,
                 material.test);

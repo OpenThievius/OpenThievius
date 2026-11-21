@@ -38,6 +38,18 @@ comparison remains nearly unchanged. Keep the title route and Paris
 host-renderer work distinct; do not tune or implement the VU renderer to solve
 the host GL geometry problem.
 
+**2026-11-21 host topology check:** the port now retains each source
+`VertexRefs.pos` index and can use those indices for its opt-in strip-restart
+split. A 106-vertex mesh (`0x00a0fd90`) repeats references at candidate run
+starts; its source packet carries TEST, ALPHA, DIMX, TEX0, TEX1, and CLAMP,
+not a GS PRIM selector. The indexed split produced the same distorted scene
+as the earlier coordinate-based split, so coordinate equality is not the main
+source of the bad geometry. The split remains diagnostic and opt-in. Continue
+on the host OpenGL path by checking per-draw transforms and lighting. Evidence:
+`/tmp/sly-native-prim-trace-20261121.log`,
+`/tmp/sly-native-vertex-order-20261121.log`, and
+`/tmp/sly-native-gl-refsplit-20261121/`.
+
 Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log` and
 `/tmp/sly-native-gl-current-20261121/contact.png` with
 `/tmp/sly-native-gl-current-20261121/run.log`.

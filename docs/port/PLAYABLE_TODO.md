@@ -41,6 +41,20 @@ distorted and incomplete. Disabling depth made little visible difference, so
 depth alone is not the cause. See
 `/tmp/sly-native-gl-alpha-20261121/contact.png` and `run.log`.
 
+The strip-restart diagnostic now carries each `VertexRefs.pos` index into the
+host renderer, so its optional split uses source indices instead of comparing
+floating-point positions. A traced mesh (`0x00a0fd90`, 106 vertices) has
+repeated source references at the suspected boundaries. An indexed-split
+capture has the same distorted layout as the earlier coordinate-split
+capture; false matches between equal-position vertices do not explain the
+scene. The source `FrameSource` packet contains TEST, ALPHA, DIMX, TEX0, TEX1,
+and CLAMP writes, but no PRIM selector. Keep this split diagnostic opt-in.
+Next investigate the native renderer's per-draw transforms and lighting.
+Trace and image evidence are in
+`/tmp/sly-native-prim-trace-20261121.log`,
+`/tmp/sly-native-vertex-order-20261121.log`, and
+`/tmp/sly-native-gl-refsplit-20261121/`.
+
 ### Native host32 field pacing recheck (2026-11-21)
 
 The direct i386 SDL bootstrap was generating one retail VBlank for every

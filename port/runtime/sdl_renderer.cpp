@@ -55,6 +55,7 @@ struct NativeWorldMesh {
     std::uint32_t source_mesh = 0;
     std::vector<float> vertices;
     std::vector<std::uint8_t> vertex_flags;
+    std::vector<std::uint8_t> vertex_indices;
     std::array<float, 16> mvp{};
     std::array<float, 16> model{};
     std::array<float, 16> view_projection{};
@@ -930,19 +931,48 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
             } else {
                 // A strip restart repeats the first one or two vertices of the
-                // current run. Splitting there avoids long bridging triangles.
+                // current run. Compare the source position references instead
+                // of coordinates: distinct vertices may share the same point.
+                // This remains an opt-in topology diagnostic, since the exact
+                // batch convention has not been confirmed for every mesh kind.
                 std::size_t run_begin = 0;
+                std::size_t split_notices = 0;
                 for (std::size_t vertex = 2; vertex + 1 < vertex_count; ++vertex) {
-                    const float* a = &mesh.vertices[vertex * 9u];
-                    const float* b = &mesh.vertices[run_begin * 9u];
-                    bool same_a = true, same_b = true;
-                    for (int c = 0; c < 3; ++c) {
-                        if (a[c] != b[c]) same_a = false;
-                        if (a[c] != mesh.vertices[(run_begin + 1u) * 9u + static_cast<std::size_t>(c)]) same_b = false;
+                    bool same_a = false, same_b = false;
+                    if (mesh.vertex_indices.size() == vertex_count) {
+                        same_a = mesh.vertex_indices[vertex] == mesh.vertex_indices[run_begin];
+                        same_b = mesh.vertex_indices[vertex] ==
+                            mesh.vertex_indices[run_begin + 1u];
+                    } else {
+                        const float* a = &mesh.vertices[vertex * 9u];
+                        const float* b = &mesh.vertices[run_begin * 9u];
+                        same_a = true;
+                        same_b = true;
+                        for (int c = 0; c < 3; ++c) {
+                            if (a[c] != b[c]) same_a = false;
+                            if (a[c] != mesh.vertices[(run_begin + 1u) * 9u +
+                                                      static_cast<std::size_t>(c)])
+                                same_b = false;
+                        }
                     }
                     if ((same_a || same_b) && vertex - run_begin >= 3u) {
                         glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
                                      static_cast<GLsizei>(vertex - run_begin));
+                        if (std::getenv("OPENRAC_TRACE_SLY_STRIP_SPLITS") != nullptr &&
+                            split_notices++ < 16u) {
+                            const auto ref_at = mesh.vertex_indices.size() == vertex_count
+                                ? mesh.vertex_indices[vertex] : 0xFFu;
+                            const auto ref_start = mesh.vertex_indices.size() == vertex_count
+                                ? mesh.vertex_indices[run_begin] : 0xFFu;
+                            const auto ref_second = mesh.vertex_indices.size() == vertex_count
+                                ? mesh.vertex_indices[run_begin + 1u] : 0xFFu;
+                            std::fprintf(stderr,
+                                         "[native sly strip split] source=%#010x at=%zu run=%zu refs=%u,%u,%u match=%u\n",
+                                         mesh.source_mesh, vertex, run_begin,
+                                         static_cast<unsigned>(ref_at),
+                                         static_cast<unsigned>(ref_start),
+                                         static_cast<unsigned>(ref_second), same_a ? 0u : 1u);
+                        }
                         run_begin = vertex;
                     }
                 }
@@ -1404,6 +1434,7 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
     std::uint32_t vertex_count, std::uint32_t source_mesh, const std::uint8_t* vertex_flags,
+    const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
     std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
     std::uint64_t alpha, int alpha_valid, std::uint64_t test) {
@@ -1425,6 +1456,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     draw.vertices.assign(vertices, vertices + static_cast<std::size_t>(vertex_count) * 9u);
     if (vertex_flags != nullptr)
         draw.vertex_flags.assign(vertex_flags, vertex_flags + vertex_count);
+    if (vertex_indices != nullptr)
+        draw.vertex_indices.assign(vertex_indices, vertex_indices + vertex_count);
     draw.tex0 = tex0;
     draw.tex1 = tex1;
     draw.clamp = clamp;
