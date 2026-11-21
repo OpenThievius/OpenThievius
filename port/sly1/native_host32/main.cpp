@@ -2812,7 +2812,31 @@ sly1_native_drive_splash_notifier() {
     if (__atomic_load_n(&driven, __ATOMIC_RELAXED) != 0u) return;
     const u32 obj = first_notifier_object();
     if (obj < 0x00010000u || obj >= 0x02000000u) return;
-    const u32 graph = *(volatile u32*)(obj + 0x2E4u); // stateGraph link (0x25F)
+    const u32 graph = *reinterpret_cast<volatile u32*>(obj + 0x2E4u);
+    const int flag_index = *reinterpret_cast<volatile int*>(obj + 0x37Cu);
+    u32 graph_state_count = 0xFFFFFFFFu;
+    u32 graph_edge_count = 0xFFFFFFFFu;
+    u32 graph_armed = 0xFFFFFFFFu;
+    if (graph >= 0x00010000u && graph < 0x02000000u) {
+        graph_state_count = *reinterpret_cast<volatile u32*>(graph + 0x34u);
+        graph_edge_count = *reinterpret_cast<volatile u32*>(graph + 0x3Cu);
+        graph_armed = *reinterpret_cast<volatile u32*>(graph + 0x44u);
+    }
+    std::fprintf(stderr,
+                 "[native splash notifier] object=%#010x state=%d initial=%d idle_event=%d flag_index=%d graph=%#010x graph_states=%u graph_edges=%u graph_armed=%u host=%#010x timer_disabled=%d timer_enabled=%#010x armed=%d time_min=%g time_max=%g time_left=%g\n",
+                 obj,
+                 *reinterpret_cast<volatile int*>(obj + 0x2D0u),
+                 *reinterpret_cast<volatile int*>(obj + 0x2D8u),
+                 *reinterpret_cast<volatile int*>(obj + 0x2DCu),
+                 flag_index, graph, graph_state_count, graph_edge_count,
+                 graph_armed,
+                 *reinterpret_cast<volatile u32*>(obj + 0x2E8u),
+                 *reinterpret_cast<volatile int*>(obj + 0x334u),
+                 *reinterpret_cast<volatile u32*>(obj + 0x338u),
+                 *reinterpret_cast<volatile int*>(obj + 0x340u),
+                 static_cast<double>(*reinterpret_cast<volatile float*>(obj + 0x390u)),
+                 static_cast<double>(*reinterpret_cast<volatile float*>(obj + 0x394u)),
+                 static_cast<double>(*reinterpret_cast<volatile float*>(obj + 0x398u)));
     if (graph < 0x00010000u || graph >= 0x02000000u) return;
     __atomic_store_n(&driven, 1u, __ATOMIC_RELAXED);
     // Retail SetStateNotifierState(state 6 -> event 0x263) with host==0 creates

@@ -64,6 +64,38 @@ launcher used the configured Documents US ISO and cached US ELF in a hidden
 window; no boot-level override was set. The bounded 12-second runs ended by
 timeout.
 
+### New startup blocker: Splash script completes the notifier immediately
+
+A targeted trace on the configured Documents US ISO and cached US ELF now
+shows why the Splash CountdownNotifier is in mode 2. The first notifier is
+object `0x00847ef0` (object id `0x054c`, flag index 1). At startup the save
+indices are level 0 / entry 2 and `TestFlagTableBit(flagIndex 1)` returns 0;
+the saved completion flag is not causing the transition. Retail startup sets
+the notifier from state -1 to mode 0, then shortly afterwards calls
+`SetCountdownNotifierState(..., 2)` from a script/property-dispatch call in
+`func_001C1F20`. `CompleteCountdownNotifier` is not called. The graph linked at
+`+0x2e4` is id `0x25f`, with four states and seven edges; it is unarmed. The
+notifier's first `0x14` callback arrives before its host link is established,
+then its host is linked and further state notifications follow. The normal
+retail script path therefore marks Splash complete before any timer can run.
+
+This shifts the next investigation from the save flag to the serialized
+state-graph/script property that dispatches the mode-2 setter, and to how the
+native script/event timing reaches it immediately. Trace the `0x25f` graph's
+state-change event and its property target before changing any state or
+arming the graph. Do not use `OPENRAC_DRIVE_SPLASH_NOTIFIER` as a visual fix;
+that remains an opt-in diagnostic which creates a walker and does not
+reproduce the expected startup sequence. The opt-in `OPENRAC_NATIVE_NOTIFIER_TRACE`
+build option adds the focused state and callback trace without changing
+matched decomp source.
+
+Evidence: `/tmp/sly-splash-notifier-transition-traced-20261121.log`,
+`/tmp/sly-splash-flag-origin-20261121.log`, and
+`/tmp/sly-splash-completion-callback-20261121.log`. The last run had no input;
+the two earlier runs used the approved hidden Cross/Up/Cross/Start route and
+reached Paris world `0x870cf0`. All were bounded hidden launcher runs using
+the configured US ISO and ELF.
+
 ### Player draw investigation (supporting evidence, not the current visual gate)
 
 A prior trace reached world `0x870cf0`; child `0x5b` queues 38 meshes and 47

@@ -14,6 +14,8 @@ set(OPENTHIEVIUS_SOURCE_SLY1 "${CMAKE_CURRENT_SOURCE_DIR}/../../sly1-decomp" CAC
     "Path to the sibling sly1-decomp checkout")
 option(OPENRAC_NATIVE_FUNCTION_TRACE
     "Enable targeted startup state traces in the direct host32 build" OFF)
+option(OPENRAC_NATIVE_NOTIFIER_TRACE
+    "Trace only Sly state-notifier transitions in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_FRAME_TRACE
     "Trace only the main-loop startup and frame stages in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_MODEL_TRACE
@@ -33,6 +35,9 @@ if(OPENRAC_NATIVE_SLY_WORLD_RENDERER)
 endif()
 if(OPENRAC_NATIVE_FUNCTION_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-functions)
+endif()
+if(OPENRAC_NATIVE_NOTIFIER_TRACE)
+    list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-notifier)
 endif()
 if(OPENRAC_NATIVE_FRAME_TRACE)
     list(APPEND SLY1_NATIVE_TRACE_ARGUMENTS --trace-main-loop)

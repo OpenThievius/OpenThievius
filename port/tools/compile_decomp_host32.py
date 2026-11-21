@@ -2518,6 +2518,8 @@ def main(argv=None):
     parser.add_argument("--cxx", default="c++")
     parser.add_argument("--trace-functions", action="store_true",
                         help="add targeted startup state traces without instrumenting game calls")
+    parser.add_argument("--trace-notifier", action="store_true",
+                        help="trace state-notifier starts and state transitions")
     parser.add_argument("--trace-main-loop", action="store_true",
                         help="trace only startup and frame stages in RunMainLoop")
     parser.add_argument("--trace-model-draws", action="store_true",
@@ -3523,6 +3525,29 @@ def main(argv=None):
                 "    UpdateStateNotifier(self, dt);")
             if adapted.count(timer_needle) == 1:
                 adapted = adapted.replace(timer_needle, timer_repl, 1)
+        if rel.as_posix() == "main/state_notifier.cpp" and args.trace_notifier:
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            start_signature = "void StartStateNotifier(StateNotifier* self)\n{"
+            if adapted.count(start_signature) == 1:
+                start_trace = start_signature + "\n    if (self != 0) {\n        sly1_port_trace_value(0x148ff110u, (u32)self);\n        sly1_port_trace_value(0x148ff111u, (u32)self->id);\n        sly1_port_trace_value(0x148ff112u, (u32)self->initialMode);\n        sly1_port_trace_value(0x148ff113u, (u32)self->flagIndex);\n        sly1_port_trace_value(0x148ff114u, (u32)TestFlagTableBit((FlagTable*)g_flagTable, self->flagIndex));\n        sly1_port_trace_value(0x148ff115u, (u32)g_saveData->levelIndex);\n        sly1_port_trace_value(0x148ff116u, (u32)g_saveData->entryIndex);\n    }"
+                adapted = adapted.replace(start_signature, start_trace, 1)
+            state_signature = "void SetStateNotifierState(StateNotifier* self, s32 state)\n{"
+            if adapted.count(state_signature) == 1:
+                state_trace = state_signature + "\n    sly1_port_trace_value(0x148ff101u, (u32)self);\n    sly1_port_trace_value(0x148ff102u, self != 0 ? (u32)self->state : 0xFFFFFFFFu);\n    sly1_port_trace_value(0x148ff103u, (u32)state);"
+                adapted = adapted.replace(state_signature, state_trace, 1)
+            countdown_signature = "void SetCountdownNotifierState(CountdownNotifier* self, s32 mode)\n{"
+            if adapted.count(countdown_signature) == 1:
+                countdown_trace = countdown_signature + "\n    sly1_port_trace_value(0x148ff104u, (u32)self);\n    sly1_port_trace_value(0x148ff105u, self != 0 ? (u32)self->state : 0xFFFFFFFFu);\n    sly1_port_trace_value(0x148ff106u, (u32)mode);\n    sly1_port_trace_value(0x148ff107u, (u32)__builtin_return_address(0));"
+                adapted = adapted.replace(countdown_signature, countdown_trace, 1)
+            complete_signature = "void CompleteCountdownNotifier(CountdownNotifier* self)\n{"
+            if adapted.count(complete_signature) == 1:
+                adapted = adapted.replace(complete_signature,
+                    complete_signature + "\n    sly1_port_trace_value(0x148ff120u, (u32)self);", 1)
+            handle_signature = (
+                "void HandleCountdownNotifierNotification(CountdownNotifier* self, s32 kind, void* msg)\n{")
+            if adapted.count(handle_signature) == 1:
+                handle_trace = handle_signature + "\n    sly1_port_trace_value(0x148ff121u, (u32)self);\n    sly1_port_trace_value(0x148ff122u, (u32)kind);\n    sly1_port_trace_value(0x148ff123u, (u32)msg);\n    sly1_port_trace_value(0x148ff124u, self != 0 ? (u32)self->host : 0);"
+                adapted = adapted.replace(handle_signature, handle_trace, 1)
         if rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
             # Log the retail notifier objects that select camera/state-graph
             # keys. This is diagnostic staging only; notifier decisions stay
