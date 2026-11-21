@@ -5336,6 +5336,7 @@ void LoadEffectSpawner"""
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
                 'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_set_morph_vertex_count(u32);\n'
                 'extern "C" void sly1_native_bind_model_mesh(u32, u32);\n'
                 'extern "C" void sly1_native_trace_mesh_sources(u32, u32);\n'
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
@@ -5363,6 +5364,35 @@ void LoadEffectSpawner"""
             )
             if adapted.count(source_hook) != 2:
                 raise RuntimeError("expected both strip builders to resolve their animation cursor")
+            morph_vertex_count_decl = (
+                "                Vec3* verts;\n"
+                "                Vec3* vnrms;\n"
+                "                StripMesh* mesh;\n"
+                "                f32* weights;\n"
+            )
+            if adapted.count(morph_vertex_count_decl) != 1:
+                raise RuntimeError("expected strip morph vertex-count declaration")
+            adapted = adapted.replace(
+                morph_vertex_count_decl,
+                morph_vertex_count_decl + "                s32 morph_vertex_count = 0;\n",
+                1,
+            )
+            morph_vertex_count_read = (
+                "                    s32 nverts = ReadBufferedU16((BufferedStream*)stream);\n"
+                "                    verts = (Vec3*)AllocateBackMemory(nverts * 12);\n"
+                "                    ReadBufferedStreamBytes((BufferedStream*)stream, nverts * 12, verts);\n"
+                "                    s32 nvnrms = ReadBufferedU16((BufferedStream*)stream);\n"
+            )
+            if adapted.count(morph_vertex_count_read) != 1:
+                raise RuntimeError("expected strip morph vertex-count read")
+            adapted = adapted.replace(
+                morph_vertex_count_read,
+                "                    morph_vertex_count = ReadBufferedU16((BufferedStream*)stream);\n"
+                "                    verts = (Vec3*)AllocateBackMemory(morph_vertex_count * 12);\n"
+                "                    ReadBufferedStreamBytes((BufferedStream*)stream, morph_vertex_count * 12, verts);\n"
+                "                    s32 nvnrms = ReadBufferedU16((BufferedStream*)stream);\n",
+                1,
+            )
             adapted = adapted.replace(
                 source_hook,
                 source_hook +
@@ -5371,6 +5401,20 @@ void LoadEffectSpawner"""
                 "(u32)uvs, (u32)n, (u32)recs, (u32)node, (u32)hdr, "
                 "(u32)ents, (u32)verts, (u32)self->nweights, (u32)weights, "
                 "(u32)hdr->count);\n",
+            )
+            mesh_builder_switch = (
+                "                switch (mesh->kind) {\n"
+                "                case 1:\n"
+                "                case 4:\n"
+                "                case 5:\n"
+            )
+            if adapted.count(mesh_builder_switch) != 1:
+                raise RuntimeError("expected model strip mesh-builder switch")
+            adapted = adapted.replace(
+                mesh_builder_switch,
+                "                sly1_native_set_morph_vertex_count((u32)morph_vertex_count);\n" +
+                mesh_builder_switch,
+                1,
             )
             bind_needle = (
                 "                // address arithmetic over a variable index\n"

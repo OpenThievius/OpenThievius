@@ -12,13 +12,17 @@ decompiled game C and functional backfills.
 **Live deformation inputs (2026-11-21):** a host-side trace at the Paris model
 submission boundary found kind-0 meshes with two morph targets and other
 kind-0 meshes with two to four vertex skin weights. The native bridge currently
-copies base positions and skin weights, and its experimental OpenGL skinning
-path applies the PartSkin matrices; it does not yet apply the captured morph
-position deltas. This establishes a concrete missing input on the native
-renderer path, but does not prove morph loss causes the broad terrain distortion.
-Keep morph reconstruction in the host renderer and validate one isolated mesh
-against a captured native frame before changing the full-scene path. Trace:
-`/tmp/sly-native-deform-live-20261121/run.log`.
+copies base positions and skin weights. Its optional OpenGL deformation path
+now applies captured morph position deltas using the placed object's current
+channel values, before optional skeletal transforms. The capture checks target
+indices against the target vertex count. A Paris capture confirms two channels
+at `0.951409` each, and the bridge submits the morphed mesh. The full-scene
+image is visually unchanged and remains stretched, so morph loss is not the
+cause of the broad terrain distortion. Keep this host-only path opt-in; continue
+with the larger static geometry and camera-space errors. No matched game source
+or VU renderer changed. Trace and frames:
+`/tmp/sly-native-morph-checked-20261121/` and
+`/tmp/sly-native-morph-baseline-20261121/`.
 
 **Host strip comparison (2026-11-21):** a bounded offscreen capture forced
 catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.

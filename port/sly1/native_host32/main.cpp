@@ -61,11 +61,13 @@ struct NativeSlyMesh {
     std::vector<NativeSlyMaterial> materials;
     std::vector<float> vertices;
     std::vector<float> vertex_weights;
+    std::vector<float> morph_deltas;
     std::vector<u8> morph_keys;
     std::vector<u8> vertex_flags;
     std::vector<u8> vertex_indices;
 };
 static std::mutex g_native_sly_mesh_mutex;
+static thread_local u32 g_native_sly_morph_vertex_count = 0;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_header;
 static std::unordered_map<u32, NativeSlyMesh> g_native_sly_meshes_by_packet;
 extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
@@ -1100,6 +1102,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                                                    u32 ents_address, u32 verts_address,
                                                    u32 nweights, u32 weights_address,
                                                    u32 header_weight_count) {
+    const u32 morph_vertex_count = g_native_sly_morph_vertex_count;
     if (mesh_address == 0 || vecs_address == 0 ||
         refs_address == 0 || header_address == 0 || vertex_count < 3 ||
         vertex_count > 4096)
@@ -1266,6 +1269,55 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             ? uvs[uv_index * 2u + 1u] : 0.0f);
         // The VU consumes XYZ and supplies its homogeneous coordinate separately.
     }
+    if (nweights > 0u && nweights <= 32u && ents_address >= 0x00010000u &&
+        static_cast<u64>(ents_address) + static_cast<u64>(nweights) * 8u <= 0x02000000ull &&
+        verts_address >= 0x00010000u && verts_address < 0x02000000u &&
+        morph_vertex_count > 0u && morph_vertex_count <= 65535u &&
+        static_cast<u64>(vertex_count) * nweights <= 262144ull) {
+        const volatile u32* target_entries = reinterpret_cast<const volatile u32*>(ents_address);
+        const volatile float* target_positions =
+            reinterpret_cast<const volatile float*>(verts_address);
+        std::vector<float> deltas(static_cast<std::size_t>(nweights) * vertex_count * 3u);
+        bool valid_deltas = true;
+        for (u32 target = 0; target < nweights && valid_deltas; ++target) {
+            const u32 indices_address = target_entries[target * 2u];
+            if (indices_address < 0x00010000u ||
+                static_cast<u64>(indices_address) +
+                    static_cast<u64>(vertex_count) * sizeof(u16) > 0x02000000ull) {
+                valid_deltas = false;
+                break;
+            }
+            const volatile u16* target_indices =
+                reinterpret_cast<const volatile u16*>(indices_address);
+            for (u32 vertex = 0; vertex < vertex_count; ++vertex) {
+                const u32 base_index = refs[vertex * 4u];
+                const u32 target_index = target_indices[vertex];
+                if (target_index >= morph_vertex_count) {
+                    valid_deltas = false;
+                    break;
+                }
+                if (static_cast<u64>(verts_address) +
+                        (static_cast<u64>(target_index) + 1u) * 3u * sizeof(float) >
+                    0x02000000ull) {
+                    valid_deltas = false;
+                    break;
+                }
+                for (u32 axis = 0; axis < 3u; ++axis) {
+                    const float base = positions[base_index * 3u + axis];
+                    const float target_position = target_positions[target_index * 3u + axis];
+                    const float delta = target_position - base;
+                    if (!std::isfinite(base) || !std::isfinite(target_position) ||
+                        !std::isfinite(delta)) {
+                        valid_deltas = false;
+                        break;
+                    }
+                    deltas[(static_cast<std::size_t>(target) * vertex_count + vertex) * 3u + axis] = delta;
+                }
+                if (!valid_deltas) break;
+            }
+        }
+        if (valid_deltas) captured.morph_deltas = std::move(deltas);
+    }
     std::scoped_lock lock(g_native_sly_mesh_mutex);
     g_native_sly_meshes_by_header[header_address] = std::move(captured);
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
@@ -1275,6 +1327,10 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
                          mesh_address, header_address, vertex_count,
                          g_native_sly_meshes_by_header.size());
     }
+}
+
+extern "C" void sly1_native_set_morph_vertex_count(u32 count) {
+    g_native_sly_morph_vertex_count = count;
 }
 
 extern "C" void sly1_native_bind_model_mesh(u32 header_address,
@@ -1859,8 +1915,66 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 }
             }
         }
-        std::vector<float> host_skinned_vertices;
         const float* submitted_vertices = mesh.vertices.data();
+        std::vector<float> host_morphed_vertices;
+        if (std::getenv("OPENRAC_SLY_WORLD_MORPH") != nullptr &&
+            mesh.morph_target_count > 0u && mesh.morph_deltas.size() ==
+                static_cast<std::size_t>(mesh.morph_target_count) *
+                    (mesh.vertices.size() / 9u) * 3u &&
+            owner_address >= 0x00010000u &&
+            static_cast<u64>(owner_address) + 0x274u <= 0x02000000ull) {
+            const volatile std::int32_t* value_count_ptr =
+                reinterpret_cast<const volatile std::int32_t*>(owner_address + 0x26Cu);
+            const volatile u32* values_ptr =
+                reinterpret_cast<const volatile u32*>(owner_address + 0x270u);
+            const std::int32_t value_count = *value_count_ptr;
+            const u32 values_address = *values_ptr;
+            if (value_count >= static_cast<std::int32_t>(mesh.morph_target_count) &&
+                value_count <= 256 && values_address >= 0x00010000u &&
+                static_cast<u64>(values_address) +
+                    static_cast<u64>(mesh.morph_target_count) * sizeof(float) <=
+                    0x02000000ull) {
+                const volatile float* channel_weights =
+                    reinterpret_cast<const volatile float*>(values_address);
+                host_morphed_vertices = mesh.vertices;
+                bool valid_morph = true;
+                const std::size_t vertex_count = mesh.vertices.size() / 9u;
+                for (u32 channel = 0; channel < mesh.morph_target_count; ++channel) {
+                    const float weight = channel_weights[channel];
+                    if (!std::isfinite(weight)) {
+                        valid_morph = false;
+                        break;
+                    }
+                    for (std::size_t vertex = 0; vertex < vertex_count; ++vertex) {
+                        const std::size_t delta_base =
+                            (static_cast<std::size_t>(channel) * vertex_count + vertex) * 3u;
+                        for (u32 axis = 0; axis < 3u; ++axis) {
+                            float& position = host_morphed_vertices[vertex * 9u + axis];
+                            position += mesh.morph_deltas[delta_base + axis] * weight;
+                            if (!std::isfinite(position)) valid_morph = false;
+                        }
+                        if (!valid_morph) break;
+                    }
+                    if (!valid_morph) break;
+                }
+                if (valid_morph) {
+                    submitted_vertices = host_morphed_vertices.data();
+                    static u32 morph_notices = 0;
+                    if (morph_notices++ < 12u)
+                        std::fprintf(stderr,
+                                     "[native sly host morph] request=%#010x owner=%#010x source=%#010x mesh=%u vertices=%zu channels=%u weights=",
+                                     request_address, owner_address, source_mesh, i,
+                                     vertex_count, mesh.morph_target_count);
+                    if (morph_notices <= 12u) {
+                        for (u32 channel = 0; channel < mesh.morph_target_count; ++channel)
+                            std::fprintf(stderr, "%s%g", channel == 0u ? "" : ",",
+                                         static_cast<double>(channel_weights[channel]));
+                        std::fputc('\n', stderr);
+                    }
+                }
+            }
+        }
+        std::vector<float> host_skinned_vertices;
         if (std::getenv("OPENRAC_SLY_WORLD_SKIN") != nullptr &&
             bone_indices != nullptr && bone_count > 0u && bone_count <= 4u &&
             mesh.vertex_weight_count > 0u && mesh.vertex_weight_count <= 4u &&
@@ -1869,10 +1983,11 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             attachment_count != 0u && bone_array_address >= 0x00010000u &&
             bone_array_address < 0x02000000u) {
             const u32 influence_count = std::min(bone_count, mesh.vertex_weight_count);
-            host_skinned_vertices = mesh.vertices;
+            host_skinned_vertices.assign(submitted_vertices,
+                                         submitted_vertices + mesh.vertices.size());
             bool all_vertices_skinned = true;
             for (std::size_t vertex = 0; vertex < mesh.vertices.size() / 9u; ++vertex) {
-                const float* position = mesh.vertices.data() + vertex * 9u;
+                const float* position = submitted_vertices + vertex * 9u;
                 float result[3]{};
                 float total_weight = 0.0f;
                 for (u32 influence = 0; influence < influence_count; ++influence) {
@@ -2272,7 +2387,8 @@ extern "C" void sly1_native_trace_model_cull(u32, u32, u32, u32, float, float, f
 extern "C" void sly1_native_trace_spr_block(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32,
-                                               u32, u32, u32, u32, u32, u32) {}
+                                                u32, u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_set_morph_vertex_count(u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32) {}
