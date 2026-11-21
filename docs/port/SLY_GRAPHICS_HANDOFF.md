@@ -12,12 +12,11 @@ decompiled game C and functional backfills.
 **Native skeletal draw experiment (2026-11-21):** the matched part builder
 provides per-vertex weights, mesh bone indices, and a PartSkin palette of final
 matrices. An opt-in `OPENRAC_SLY_WORLD_SKIN` path now applies those inputs on
-the host before OpenGL submission. A hidden capture of player source
-`0x00a2db88` runs that path but still projects the actor to a tiny speck; this
-does not resolve the native camera/clip mapping. Keep the option disabled by
-default. Post-render image and log:
-`/tmp/sly-native-host-skin-after-20261121/`. The earlier capture directory
-contains a pre-draw black frame and should not be used to evaluate the result.
+the host before OpenGL submission. The corrected clip mapping now shows an
+identifiable character shape in a source-isolated frame, but the host skinning
+path still needs comparison against raw vertices and animation checks. Keep
+the option disabled by default. Capture:
+`/tmp/sly-native-player-clipscale-fixed-20261121/`.
 
 The native overlay is still a diagnostic prototype, not a graphics milestone.
 Its forced-Paris captures used the wrong path for the supplied startup video.
@@ -99,15 +98,23 @@ and capture logs: `/tmp/sly-native-uploaded-bounds-20261121/run.log`,
 `/tmp/sly-native-full-uploaded-bounds-20261121/run.log`, and
 `/tmp/sly-native-terrain-split-20261121/run.log`.
 
-**Camera-to-OpenGL clip experiment (2026-11-21):** `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP`
-is an unset-by-default port diagnostic. It scales the uploaded matrix X and Y
-rows by `4096/640` and `4096/224` from the matched camera projection's PS2
-field dimensions, without changing depth or W. The bounded host32 run produced
-a horizon band and black lower half rather than a recognizable scene. This
-does not validate the conversion; keep it disabled by default until the exact
-matrix-to-GS coordinate mapping, viewport center and interlace handling are
-established. Capture and per-mesh bounds are in
-`/tmp/sly-native-screen-to-clip-corrected-20261121/`.
+**Camera-to-OpenGL clip experiment (2026-11-21):** the first
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` implementation scaled contiguous row-major
+matrix entries. Since the host shader interprets that matrix as its transpose,
+those were not the clip-X and clip-Y outputs. Its horizon-band capture was
+therefore a bad matrix experiment, not evidence against the conversion. The
+option now scales entries 0/4/8/12 for clip X by `4096/640` and 1/5/9/13 for
+clip Y by `4096/224`, leaving depth and W untouched. Keep it disabled by
+default until corrected isolated-player and full-scene captures validate the
+PS2 viewport center and interlace behavior. The isolated player now projects
+to `x=-0.24..0.15`, `y=-0.19..0.45` and is visibly recognizable; the full
+scene fills the viewport but still has badly distorted, strongly cyan
+surfaces. The restart-split diagnostic changes 174,176 pixels (25.2%) and
+exposes more lower-scene surfaces, but the image remains wrong and the
+restart convention is unconfirmed. Captures:
+`/tmp/sly-native-player-clipscale-fixed-20261121/` and
+`/tmp/sly-native-full-clipscale-fixed-20261121/`; split comparison:
+`/tmp/sly-native-full-clipscale-split-20261121/`.
 
 **2026-11-21 host topology check:** the port now retains each source
 `VertexRefs.pos` index and can use those indices for its opt-in strip-restart

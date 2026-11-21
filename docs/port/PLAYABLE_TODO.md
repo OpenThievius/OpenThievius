@@ -34,14 +34,12 @@ implement a VU renderer as a shortcut.
 **Native skinning experiment (2026-11-21):** the host bridge now has an
 unset-by-default `OPENRAC_SLY_WORLD_SKIN` option. It applies each captured
 vertex's weights to the corresponding final matrices in the PartSkin palette
-before the OpenGL submission. A hidden source-isolated frame for player mesh
-`0x00a2db88` confirms the path runs, but the actor remains a tiny speck; the
-host projection/camera mapping is still the larger blocker. The feature is
-experimental, not enabled by default or yet a graphics improvement. The
-post-render capture and trace are in
-`/tmp/sly-native-host-skin-after-20261121/`; the earlier black PPM in
-`/tmp/sly-native-host-skin-20261121/` was captured before the GL draw and is
-not a valid visual result.
+before the OpenGL submission. The corrected clip-X/clip-Y conversion now
+shows an identifiable character shape in the isolated frame. The skinning
+option remains experimental and disabled by default; compare it against raw
+vertices and verify animation before relying on it. Captures are in
+`/tmp/sly-native-host-skin-final-20261121/` and
+`/tmp/sly-native-player-clipscale-fixed-20261121/`.
 
 The cyan contributor `0x00a2a488` has now been traced back to draw requests
 owned by classes 4 and 31. They inherit the collider class, but `DrawCollider`
@@ -89,15 +87,26 @@ capture evidence: `/tmp/sly-native-uploaded-bounds-20261121/`,
 `/tmp/sly-native-terrain-split-20261121/`.
 
 **Camera-to-OpenGL clip experiment (2026-11-21):** the camera's matched C
-projection uses the PS2 640x224 field scale. I added an unset-by-default
-`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` option that scales the uploaded matrix's X
-and Y rows by `4096/640` and `4096/224`, respectively, while leaving depth and
-W unchanged. A 15-second hidden host32 capture confirms that the option runs,
-but its frame is still an unrecognizable horizon band with most of the lower
-screen black. Do not enable it by default or call it a graphics fix. The
-matrix-to-GS coordinate conversion, viewport center and interlace behavior
-still need stronger evidence before choosing a host mapping. Capture and
-uploaded-bounds trace: `/tmp/sly-native-screen-to-clip-corrected-20261121/`.
+projection uses the PS2 640x224 field scale. The first version of
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` scaled contiguous matrix rows, which changed
+the wrong components after the row-major guest matrix was interpreted by
+GLSL. That old full-scene horizon-band result is not evidence against the
+conversion. The option now scales interleaved clip-X elements (0,4,8,12) by
+`4096/640` and clip-Y elements (1,5,9,13) by `4096/224`, leaving depth and W
+unchanged. Recheck the corrected version with isolated and full-scene captures
+before enabling it by default. The PS2 viewport center and interlace behavior
+still need validation. Corrected isolated-player bounds fit ordinary NDC
+(`x=-0.24..0.15`, `y=-0.19..0.45`); its post-render frame shows the character
+instead of a speck. The corrected full-scene image fills the viewport and
+includes the character, but surfaces remain distorted and strongly cyan.
+Enabling the existing restart-split diagnostic changes 174,176 pixels
+(25.2%) and exposes more lower-scene surfaces, but the image is still wrong;
+restart semantics need confirmation before making that option normal. Keep
+the clip conversion opt-in until scene geometry, materials and display
+mapping are checked together. Evidence:
+`/tmp/sly-native-player-clipscale-fixed-20261121/` and
+`/tmp/sly-native-full-clipscale-fixed-20261121/`;
+split comparison: `/tmp/sly-native-full-clipscale-split-20261121/`.
 
 **Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
 `TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
