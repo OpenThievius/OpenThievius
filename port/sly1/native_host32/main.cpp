@@ -198,6 +198,8 @@ extern "C" __attribute__((weak)) void openrac_native_renderer_submit_dma_chain(u
 
 namespace {
 
+static bool native_trace_player_tree_owner(u32 candidate);
+
 constexpr int kProtRead = 1;
 constexpr int kProtWrite = 2;
 constexpr int kMapPrivate = 2;
@@ -733,16 +735,20 @@ extern "C" void sly1_native_trace_pose_rotation(u32 owner_address,
 
 extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
                                                u32 camera_address) {
-    if (!g_startup_trace_enabled || request_address == 0 || world == 0 ||
-        world != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED)) return;
+    if (request_address == 0) return;
+    const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
+    const u32 owner_address = request_address != 0 ? request[0x70 / 4] : 0;
+    const bool player_trace = std::getenv("OPENRAC_TRACE_PLAYER") != nullptr &&
+                              native_trace_player_tree_owner(owner_address);
+    if ((!g_startup_trace_enabled || world == 0 ||
+         world != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED)) &&
+        !player_trace) return;
     static u32 part_count = 0;
     const u32 trace_index = __atomic_fetch_add(&part_count, 1u, __ATOMIC_RELAXED);
-    if (trace_index >= 32u) return;
+    if (trace_index >= (player_trace ? 128u : 32u)) return;
 
-    const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
     const u32 part_address = request[0x78 / 4];
     const u32 skin_address = request[0x74 / 4];
-    const u32 owner_address = request[0x70 / 4];
     if (part_address == 0) return;
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
     const u32 mesh_count = part[0x58 / 4];
@@ -971,6 +977,24 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
             }
         }
     }
+}
+
+extern "C" void sly1_native_trace_placed_object_parts(u32 owner_address,
+                                                          u32 camera_address,
+                                                          u32 part_count,
+                                                          u32 parts_address,
+                                                          u32 states_address) {
+    if (std::getenv("OPENRAC_TRACE_PLAYER") == nullptr ||
+        !native_trace_player_tree_owner(owner_address)) return;
+    static volatile u32 samples = 0;
+    if (__atomic_fetch_add(&samples, 1u, __ATOMIC_RELAXED) >= 256u) return;
+    const volatile u32* descriptor = reinterpret_cast<const volatile u32*>(
+        *reinterpret_cast<const volatile u32*>(owner_address));
+    std::fprintf(stderr,
+                 "[native player QueuePlacedObjectModelParts] owner=%#010x class=%u id=%u camera=%#010x parts=%u array=%#010x states=%#010x\n",
+                 owner_address, descriptor[1],
+                 *reinterpret_cast<const volatile u32*>(owner_address + 8u),
+                 camera_address, part_count, parts_address, states_address);
 }
 
 extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_address,
@@ -1962,6 +1986,7 @@ extern "C" void sly1_native_trace_strip_reserve(u32 mesh, u32 stride,
 
 #else
 extern "C" void sly1_native_trace_model_part(u32, u32, u32) {}
+extern "C" void sly1_native_trace_placed_object_parts(u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_detached_mesh_packet(u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_strip_reserve(u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_placed_object_load(u32, u32, u32) {}

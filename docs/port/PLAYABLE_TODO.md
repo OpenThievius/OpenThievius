@@ -120,18 +120,32 @@ classify every rooftop shot as movie footage or use it as a live-renderer
 target until its source is confirmed. The title/menu remains a useful visual
 checkpoint, while a gameplay clip is needed to compare in-level graphics.
 
-The latest player trace now runs on the first active gameplay frame instead of
-waiting until frame 340. With the approved offscreen menu driver and the
-configured Documents US ISO, it reached world `0x870cf0`. `g_player` is class 7
-with zero own draw parts, but a bounded walk found 12 model-bearing descendants
-with one or two parts each, down to depth six. The rig and foot/link objects
-have no parts; this does not mean the character model data is absent. The
-class-4 `QueueModelPartDraws` trace did not match these descendants, so their
-draw callback and VIF/GIF path remain unlocated. Next trace one descendant
-through its actual draw callback before changing loader or model-tree code.
-Evidence: `/tmp/sly-player-tree-20261121b/run.log` and
-`/tmp/sly-player-queue-20261121/run.log`. Both runs ended at their deliberate
-30-second timeout, with no launcher left running.
+The latest player trace corrects the earlier class-4-only blind spot. With the
+approved offscreen menu driver and the configured Documents US ISO, it reaches
+world `0x870cf0`. `g_player` is class 7 with zero own draw parts, but its
+descendants enter `QueuePlacedObjectModelParts`. In particular, class-2 child
+id `0x5b` has two parts and reaches `DrawModelPart`: one part describes 38
+meshes and the other 47 strips. Other player descendants also enter the draw
+callback. This is real retail model data and draw submission; do not change
+player loading or attachment code to address the black screen.
+
+The failure is farther downstream. VIF1 submission 102 follows the player's
+`DrawModelPart` requests in this capture. At VU1 entry `0x5f`, PC `0x68`
+executes `XGKICK VI6` with value 469; qword 468 holds the GIFtag and qword 469
+starts its payload, so the strict GIF parser rejects the kick. A focused trace
+shows the parser is idle at that point (`active=0`, `remaining=0`), which rules
+out this host parser waiting for a continuation tag. The later kick at PC
+`0x6e` uses VI7=35 and is accepted, but prior captures show it contributes no
+triangle geometry. The [PS2 VU User's Manual](https://docs.alexrp.com/mips/ee_vu.pdf)
+says XGKICK gives GIF the supplied VI as the leading GIFtag address. The exact
+loaded VU words match retail, so do not shift the address or relax GIF
+validation. Next identify the transfer context
+for the leading tag at qword 468 and determine why the retail program first
+kicks from its payload. Evidence: `/tmp/sly-player-render-route-20261121/run.log`,
+`/tmp/sly-player-xgkick-state-20261121/run.log`, and the earlier hierarchy
+captures `/tmp/sly-player-tree-20261121b/run.log` and
+`/tmp/sly-player-queue-20261121/run.log`. The latest offscreen run ended at
+its 25-second timeout; no launcher remains running.
 
 OpenRAC's current source offers a possible reuse path for Sly PSS playback:
 its `port/media` contains a PSS demuxer, SPU ADPCM audio decoder, MPEG-2 video

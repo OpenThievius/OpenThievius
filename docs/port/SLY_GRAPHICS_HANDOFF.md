@@ -14,16 +14,32 @@ the player tree. This rules out the earlier broad assumption that the player
 tree has no model data.
 
 The existing class-4 `QueueModelPartDraws` trace, filtered to player-tree
-owners, produced no entries. A separate `OPENRAC_TRACE_FONT` run also showed no
-stage-202 callback entries. These traces therefore have not located which draw
-callback submits the descendants; they do not prove the descendants are
-skipped. Next trace one identified model-bearing child (for example id `0x5b`,
-address `0x016d2fa0`) through its actual draw method and VIF/GIF output. Do not
-change model loading or invent a player backfill before that route is known.
-The hierarchy capture is `/tmp/sly-player-tree-20261121b/run.log`; the filtered
-queue capture is `/tmp/sly-player-queue-20261121/run.log`. Both launches were
-offscreen, ended at the deliberate 30-second timeout, and left no launcher
-process. No matched decomp source changed.
+owners, produced no entries. That was a blind spot: the descendants use the
+separate `QueuePlacedObjectModelParts` callback in `placed_object.cpp`, not the
+class-4 `QueueModelPartDraws` path. The follow-up trace instrumented the former
+in the staged host source and showed the player tree entering it repeatedly.
+Class-2 child id `0x5b` at `0x016d2fa0` has two parts and reaches
+`DrawModelPart`; one part describes 38 meshes and the other 47 strips. Multiple
+other player descendants also reach `DrawModelPart`. The first object itself
+still has zero parts, but model data and draw requests are present beneath it.
+
+The same capture shows VIF1 submission 102 immediately after those player
+draw requests. A narrowly filtered follow-up at submission 102, VIF offset
+`0x1790`, confirms PC `0x68` executes `XGKICK VI6` with VI6=469. The GIF parser
+is idle (`active=0`, `remaining=0`) at that point, so the invalid tag is not a
+continuation in the host parser. Qword 468 holds the GIFtag and qword 469
+starts its payload. PC `0x6e` later executes `XGKICK VI7` with VI7=35; that
+packet is accepted but contributes no triangle geometry. The
+[PS2 VU User's Manual](https://docs.alexrp.com/mips/ee_vu.pdf) specifies that
+GIF treats the supplied VI value as the leading GIFtag address. Since the
+loaded VU words match retail, do not decrement the address or relax validation.
+Next identify why the retail program first kicks from its payload and where
+the leading tag at qword 468 is meant to be consumed. Evidence:
+`/tmp/sly-player-render-route-20261121/run.log` and
+`/tmp/sly-player-xgkick-state-20261121/run.log`. Both runs were offscreen
+against the configured Documents US ISO, ended at deliberate timeouts (137),
+and left no launcher running. No matched decomp source changed. The earlier
+hierarchy and class-4-only captures are retained for historical context.
 
 ### VU accumulator flag semantics (2026-11-21)
 

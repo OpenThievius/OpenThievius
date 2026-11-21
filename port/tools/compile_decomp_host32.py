@@ -4909,6 +4909,25 @@ void LoadEffectSpawner"""
                 adapted = adapted.replace(compose_needle,
                     "                sly1_native_trace_attachment_compose((u32)self, (u32)el, (u32)&e, (u32)&el->q10);\n"
                     "                *(Mat4A*)&el->m50 = MultiplyMatrices(*(Mat4A*)&e, *(Mat4A*)&el->q10);", 1)
+        if args.trace_model_draws and rel.as_posix() == "main/placed_object.cpp":
+            adapted = (
+                'extern "C" void sly1_native_trace_placed_object_parts(u32, u32, u32, u32, u32);\n'
+                + adapted
+            )
+            queue_signature = (
+                "void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{"
+            )
+            if adapted.count(queue_signature) != 1:
+                raise RuntimeError("expected one QueuePlacedObjectModelParts definition")
+            adapted = adapted.replace(
+                queue_signature,
+                queue_signature + (
+                    "\n    sly1_native_trace_placed_object_parts((u32)self, (u32)cam, "
+                    "(u32)self->drawPartCount, (u32)self->drawParts, "
+                    "(u32)self->partStates);"
+                ),
+                1,
+            )
         if args.trace_model_draws and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = 'extern "C" void sly1_native_trace_model_part(u32, u32, u32);\n' + adapted
             adapted = ('extern "C" void sly1_native_trace_detached_mesh_packet(u32, u32, u32, u32, u32, u32);\n' + adapted)
