@@ -35,6 +35,15 @@ graphics task is to recover a recognizable live world draw in the default
 renderer, while movie playback remains a separate port feature. No playable
 level is confirmed.
 
+A focused `BuildLitStripMeshPacket` run reached its matched finish entry `0x2`
+at VIF stream offset `0x59cb0`. It only increased the GIF A+D tag at qword 35
+from 63 to 79 loops; the traced body qwords were not written by that call. The
+separate point-mode XYZ writes in the same run have no MSCAL provenance and
+cannot be attributed to this mesh. Next, preserve that provenance and identify
+the first complete triangle batch. Keep the distinct submission-142 / `0x6da`
+capture separate; it does not establish the lit mesh output. Evidence is in
+the [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+
 The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
 repeated environment lookups and per-instruction NaN checks. Those checks are
 now cached or skipped unless their trace is enabled. This is port runtime code;

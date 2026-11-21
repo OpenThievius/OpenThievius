@@ -106,10 +106,40 @@ an isolated point draw, not terrain. The captured gameplay frames remain
 black. These two targeted calls therefore do not justify a GIF parser change
 or a claim that the complete VU path has been audited.
 
-Continue by tracing the matched mesh input through its adjacent VU programs
-(`0x401`, `0x34a`, and `0x5f`) and identify which call should emit the actual
-XYZ2/XYZF2 strip. Keep the investigation in the port runtime and preserve the
-strict GIF checks. Logs:
+### Matched lit-batch finish boundary (2026-11-21)
+
+A separate offscreen run injected one process-local Cross at native frame 250
+and selected the matched lit batch entries `0x51`, `0x242`, `0x356`, and `0x2`.
+This is the `BuildLitStripMeshPacket` path, distinct from the unlit `0x34a` /
+`0x5f` sequence above. At VIF submission 272, entry `0x2` at stream offset
+`0x59cb0` changes only GIF qword 35: the A+D tag loop count grows from 63 to
+79 at PC `0x0e`. No writes to the packet-body qwords 36–480 were observed for
+that call. This is consistent with a finish/state packet and does not identify
+a world triangle batch.
+
+The same run also reports XYZ writes in other VU XGKICK traffic. One observed
+write has PRIM 0 (point mode) and value `0x0000000100000003`, but the GS-side
+summary does not carry its VIF submission or MSCAL provenance, so it cannot
+yet be attributed to the selected lit mesh. Do not associate free-running
+point writes with the lit finish just because they appear nearby in the log.
+The live scene remains black, and no parser change is supported. The opt-in
+XYZ trace already labels packets with submission and MSCAL when its context
+filter matches; these point writes did not match the selected finish offset.
+Next identify the call that emits them, then follow the first complete
+triangle batch through its VU and GIF boundary.
+
+Evidence: `/tmp/sly-lit-matched-miscal-sequence-20261121.log`,
+`/tmp/sly-lit-finish-offset-precise-20261121.log`, and
+`/tmp/sly-lit-one-finish-kick-20261121.log`. Each run used the Documents US
+ISO, offscreen SDL, and a process-local Cross at native frame 250; each ended
+at its deliberate 12–14 second timeout. The exact finish trace used stable
+MSCAL offset `0x59cb0`; VIF submission numbers varied between launches.
+
+Keep the submission-142 trace above separate from the matched lit-batch path
+and its `0x59cb0` finish call. If that other stream is revisited, trace it on
+its own provenance. For the active lit path, identify the producer of the
+unattributed point writes and the first complete triangle batch. Preserve
+strict GIF checks. Submission-142 logs:
 `/tmp/sly-vu-entry2-world-batch-20261121.log`,
 `/tmp/sly-vu-current-offset-20261121.log`,
 `/tmp/sly-vu-entry2-store-focus-20261121.log`, and
