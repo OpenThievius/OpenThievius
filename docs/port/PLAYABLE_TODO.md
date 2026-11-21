@@ -12,20 +12,28 @@ early frames, then appearing as offset copies. The captures are in
 `/tmp/sly-visible-splash-late-20261121/`; this is a native-window capture from
 the configured US ELF and ISO, not an emulator image.
 
-The correlated renderer trace is inconclusive about the cause. Frames alternate
-between substantial GIF streams with no decoded display draws (which restore
-the saved framebuffer) and short UI draws. One trace shows the first 120-frame
-region drawing a 120-vertex masked full-screen quad; later, a large 943,760-byte
-stream decoded to no display draws, followed by no-op presents. A separate
-state trace shows the prompt's text and border geometry changing position over
-consecutive frames. Another run of the same no-input route captured black
-frames, so the prompt is not yet a reliable startup result. These separate
-runs do not establish whether the offset copies are a transition effect, a
-packet-decoding issue, or a timing-sensitive present bug. Do not change
-framebuffer clearing/restoration or raise the packet limit on this evidence
-alone. Next correlate menu state, per-frame accepted VU/GIF packets, and the
-presented image in one low-overhead run. Logs and the correlated captures are
-under `/tmp/sly-prompt-correlated-20261121/` and
+A low-overhead `OPENRAC_STARTUP_TRACE=1` run now ties the screen to game state:
+the game stayed in Splash world `0x6abdd0`, UI state 5/page 7, card state and
+target 3, and `movie=0` from host frame 64 through frame 174. Eight images from
+that same run show a stable no-card/save prompt. DMA submissions were accepted
+without rejection at host frames 64 and 129 (201/201 and 396/396). This rules
+out an automatic transition to Paris in that run. It does not explain the
+offset copies in the earlier foreground capture or a separate all-black run;
+the startup trace also changes thread timing.
+
+The renderer traces remain inconclusive about the intermittent output. Frames
+alternate between substantial GIF streams with no decoded display draws
+(which restore the saved framebuffer) and short UI draws. One trace shows a
+120-vertex masked full-screen quad; a later 943,760-byte stream decoded to no
+display draws. A separate state trace shows prompt text and border geometry
+changing position over consecutive frames. These separate runs do not
+establish whether the offset copies are a transition effect, a packet-decoding
+issue, or a timing-sensitive present bug. Do not change framebuffer
+clearing/restoration or raise the packet limit on this evidence alone. Next
+capture the normal prompt with minimal instrumentation while recording menu
+state, accepted VU/GIF packet boundaries, and pixels. The trace and images are
+under `/tmp/sly-prompt-startup-state-20261121/`,
+`/tmp/sly-prompt-correlated-20261121/`, and
 `/tmp/sly-prompt-draw-state-20261121/`.
 
 ### Opening PSS frame diagnostic (not native game rendering)

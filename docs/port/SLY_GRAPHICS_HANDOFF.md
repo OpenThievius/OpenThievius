@@ -6916,17 +6916,26 @@ then offset duplicate copies. The PPMs are in
 `/tmp/sly-visible-splash-late-20261121/`; the screen was captured from the
 native client using the configured US ELF and ISO.
 
-This is not yet a proven renderer regression. A separately correlated trace
-showed no-op presents restoring the prior framebuffer between short UI draw
-packets. Some frames included a 120-vertex masked full-screen quad; one
-943,760-byte stream decoded to no display draws. Another trace showed the
-prompt draw geometry changing position, and a separate run captured black
-instead of the prompt. Because these are distinct runs and the trace flags alter
-timing, they do not yet explain the offset copies or establish whether they are
-a UI transition. Do not change clear/restore behavior or loosen GIF queue
-validation from this evidence. Capture menu state, accepted VU/GIF packet
-boundaries, and pixels in one low-overhead run before changing the present
-path. Supporting logs:
+This is not yet a proven renderer regression. A low-overhead
+`OPENRAC_STARTUP_TRACE=1` run held at Splash world `0x6abdd0`, UI state 5/page
+7, card state/target 3, and `movie=0` from host frame 64 through 174. Its eight
+captured images show a stable prompt, with 201/201 DMA submissions accepted at
+frame 64 and 396/396 accepted at frame 129. This rules out an automatic
+transition to Paris in that run, but the trace changes thread timing and does
+not explain the offset copies seen in an earlier untraced capture. A separate
+untraced run captured black instead of the prompt.
+
+Other renderer traces showed no-op presents restoring the prior framebuffer
+between short UI draw packets. Some frames included a 120-vertex masked
+full-screen quad; one 943,760-byte stream decoded to no display draws. Another
+trace showed the prompt draw geometry changing position. These observations
+come from distinct runs and do not yet establish whether the copies are a UI
+transition, a packet-decoding issue, or a timing-sensitive present bug. Do not
+change clear/restore behavior or loosen GIF queue validation from this
+evidence. Capture the normal prompt with minimal instrumentation while logging
+menu state, accepted VU/GIF packet boundaries, and pixels in the same run.
+Supporting logs:
+`/tmp/sly-prompt-startup-state-20261121/run.log`,
 `/tmp/sly-prompt-correlated-20261121/run.log`,
 `/tmp/sly-prompt-state-trace-20261121/run.log`, and
 `/tmp/sly-prompt-draw-state-20261121/run.log`.
