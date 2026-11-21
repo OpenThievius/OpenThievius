@@ -46,13 +46,35 @@ mode projects mesh draws across NDC x `0.28..0.95`, y `-0.49..0.57` with host
 skinning on. Disabling host skinning gives nearly the same bounds
 (`0.20..0.94`, `-0.49..0.56`); skinning is not the source of the player offset.
 The transposed matrix mode instead sends vertices as far as 42 NDC units
-offscreen, so keep the current matrix convention. The screenshot's player
-position therefore needs to be checked against the active world's camera
-target and player transform before changing clip conversion. Logs and captures:
+offscreen, so keep the current matrix convention. The follow-up below checks
+the camera target, player origin, and exact GL upload before changing clip
+conversion. Logs and captures:
 `/tmp/sly-native-camera-current-20261121.log`,
 `/tmp/sly-native-player-mvp0-20261121/`,
 `/tmp/sly-native-player-mvp1-20261121/`, and
 `/tmp/sly-native-player-raw-skin-20261121/`.
+
+**Host OpenGL camera and player projection (2026-11-21):** the follow-up used
+`wave55-sdl32-world32-20261121` with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
+`OPENRAC_NATIVE_VU_NDC_RENDERER=OFF`. Do not use the default
+`wave55-sdl32` cache for host-renderer conclusions: it has the Sly overlay off
+and the VU NDC diagnostic on. The opt-in
+`OPENRAC_TRACE_SLY_CAMERA_TARGET=1` trace confirms `g_player` (class 7, id 5)
+is the current camera target; draw owner id 91 shares its world position.
+Near host frame 80, the camera is at `(-3914, 9097, 104)` and the player is
+near `(-4351, 9426, 168)`. With `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP=1` and host
+skinning enabled, the exact uploaded first mesh of request `0x005e5400` lands
+at NDC x `0.496..0.592`, y `-0.443..-0.374`. Without clip scaling it is only
+x `0.070..0.093`, y `-0.025..-0.020`. Clip scaling makes the character
+recognizable near the right edge, but the surrounding buildings remain
+severely stretched. The camera tracks the player; do not alter camera
+placement from that frame alone. Compare the target/focus projection and
+static world model origins against a matching gameplay reference, then isolate
+the host geometry transform responsible for the oversized surfaces. Evidence:
+`/tmp/sly-native-opengl-matrix-audit-20261121/run.log`,
+`/tmp/sly-native-opengl-clipscreen-matrix-20261121/run.log`, and
+`/tmp/sly-native-opengl-clipscreen-20261121/frame02.png`.
 
 **Host strip comparison (2026-11-21):** a bounded offscreen capture forced
 catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.

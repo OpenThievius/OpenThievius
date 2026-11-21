@@ -7,17 +7,42 @@
 
 The live native camera moves from the Splash coordinates into Paris by host
 frame 80, then stays near `(-3913, 9097, 104)` through frame 160. For player
-request `0x005e5400`, the host's current model-times-view-projection mode keeps
-the captured meshes in NDC x `0.28..0.95`, y `-0.49..0.57`. Turning on the
-host skin path changes those bounds only slightly (`0.20..0.94`,
+request `0x005e5400`, the earlier player-tree mesh union in model-times-view-
+projection mode covered NDC x `0.28..0.95`, y `-0.49..0.57`. Turning on the
+host skin path changed that union only slightly (`0.20..0.94`,
 `-0.49..0.56`), so skinning is not the source of the right-side placement.
 Transposing this request's matrix sends vertices as far as 42 NDC units
-offscreen and is rejected. Next check the native camera's target and model
-placement in the active world before changing the host clip conversion.
+offscreen and is rejected. The follow-up below checks the live target and the
+exact host OpenGL upload before changing camera placement or clip conversion.
 Evidence: `/tmp/sly-native-camera-current-20261121.log`,
 `/tmp/sly-native-player-mvp0-20261121/`,
 `/tmp/sly-native-player-mvp1-20261121/`, and
 `/tmp/sly-native-player-raw-skin-20261121/`.
+
+### Host OpenGL camera and player projection (2026-11-21)
+
+I rebuilt and ran the `wave55-sdl32-world32-20261121` configuration with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
+`OPENRAC_NATIVE_VU_NDC_RENDERER=OFF`. This is the native OpenGL mesh path; the
+default `wave55-sdl32` cache is the opposite diagnostic configuration and
+must not be used to judge this renderer. The opt-in
+`OPENRAC_TRACE_SLY_CAMERA_TARGET=1` reads the live target record, tracking
+offset, focus, and world positions. The target pointer is `g_player`
+(`class 7`, id 5); draw owner id 91 shares its world position. At frame 80,
+the camera is near `(-3914, 9097, 104)` and the player is near
+`(-4351, 9426, 168)`. With `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP=1` and host
+skinning enabled, the exact OpenGL-uploaded first mesh of request `0x005e5400`
+lands at NDC x `0.496..0.592`, y `-0.443..-0.374`. With clip scaling off, that
+mesh is only x `0.070..0.093`, y `-0.025..-0.020`. The conversion makes the
+character visible, but the full scene remains badly stretched; the capture
+shows a recognizable Sly shape near the right edge and corrupted buildings.
+The camera is tracking the player, so do not patch camera placement based on
+that frame alone. Next compare the target/focus projection and static world
+model origins against a matching gameplay reference, then isolate the host
+geometry transform causing the oversized surfaces. Evidence:
+`/tmp/sly-native-opengl-matrix-audit-20261121/run.log`,
+`/tmp/sly-native-opengl-clipscreen-matrix-20261121/run.log`, and
+`/tmp/sly-native-opengl-clipscreen-20261121/frame02.png`.
 
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 

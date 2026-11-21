@@ -1698,6 +1698,58 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                          static_cast<double>(view_projection[15]));
         }
     }
+    if (std::getenv("OPENRAC_TRACE_SLY_CAMERA_TARGET") != nullptr &&
+        owner_class == 2u) {
+        static u32 target_trace_notices = 0;
+        if (target_trace_notices++ < 24u) {
+            const volatile u32* camera =
+                reinterpret_cast<const volatile u32*>(camera_address);
+            const u32 target_address = camera[0x2E0u / 4u];
+            const volatile float* target_record_position =
+                reinterpret_cast<const volatile float*>(camera_address + 0x300u);
+            const volatile float* target_record_focus =
+                reinterpret_cast<const volatile float*>(camera_address + 0x330u);
+            const volatile float* look_focus =
+                reinterpret_cast<const volatile float*>(camera_address + 0x2D0u);
+            const volatile float* tracking_offset =
+                reinterpret_cast<const volatile float*>(camera_address + 0x250u);
+            const volatile float* owner_position = owner_address >= 0x00010000u &&
+                    owner_address <= 0x01FFFEBCu
+                ? reinterpret_cast<const volatile float*>(owner_address + 0x140u)
+                : nullptr;
+            const volatile float* target_position = target_address >= 0x00010000u &&
+                    target_address <= 0x01FFFEBCu
+                ? reinterpret_cast<const volatile float*>(target_address + 0x140u)
+                : nullptr;
+            std::fprintf(stderr,
+                         "[native sly camera target] owner=%#010x owner_id=%u target=%#010x camera=%#010x target_record=%g,%g,%g,%g target_focus=%g,%g,%g,%g look_focus=%g,%g,%g,%g tracking_offset=%g,%g,%g,%g owner_world=%g,%g,%g target_world=%g,%g,%g\n",
+                         owner_address,
+                         *reinterpret_cast<const volatile u32*>(owner_address + 8u),
+                         target_address, camera_address,
+                         static_cast<double>(target_record_position[0]),
+                         static_cast<double>(target_record_position[1]),
+                         static_cast<double>(target_record_position[2]),
+                         static_cast<double>(target_record_position[3]),
+                         static_cast<double>(target_record_focus[0]),
+                         static_cast<double>(target_record_focus[1]),
+                         static_cast<double>(target_record_focus[2]),
+                         static_cast<double>(target_record_focus[3]),
+                         static_cast<double>(look_focus[0]),
+                         static_cast<double>(look_focus[1]),
+                         static_cast<double>(look_focus[2]),
+                         static_cast<double>(look_focus[3]),
+                         static_cast<double>(tracking_offset[0]),
+                         static_cast<double>(tracking_offset[1]),
+                         static_cast<double>(tracking_offset[2]),
+                         static_cast<double>(tracking_offset[3]),
+                         owner_position != nullptr ? static_cast<double>(owner_position[0]) : 0.0,
+                         owner_position != nullptr ? static_cast<double>(owner_position[1]) : 0.0,
+                         owner_position != nullptr ? static_cast<double>(owner_position[2]) : 0.0,
+                         target_position != nullptr ? static_cast<double>(target_position[0]) : 0.0,
+                         target_position != nullptr ? static_cast<double>(target_position[1]) : 0.0,
+                         target_position != nullptr ? static_cast<double>(target_position[2]) : 0.0);
+        }
+    }
     const u32 attachment_address = owner_address >= 0x00010000u &&
             owner_address <= 0x01FFFFD0u
         ? owner_address + 0x22Cu : 0u;
