@@ -34,10 +34,21 @@ configured Documents US ISO and cached US ELF, ended at its 30-second bound,
 decoded 409 frames, and captured six rendered frames. The PSS and captures
 remain outside the repository.
 
-**Next:** make the normal decompiled video path present the opening PSS, then
-trace why startup waits at the save prompt and how the title sequence follows
-this clip. Keep any host ABI fixes and replacement behavior in `port/`; do not
-alter matched decompilation source.
+Follow-up: a 45-second hidden run with the approved process-local Cross at
+frame 120 decoded all 409 opening frames, then continued through 496 game
+frames in Paris world `0x870cf0` without a native crash. This verifies movie
+playback and world-state progression only. It does not verify the game's own
+3D renderer: the separate experimental world-mesh path still produces
+distorted, mostly gray geometry, and the normal client remains black after the
+movie. The frame counter advancing is not proof that a visible scene was
+submitted. Log: `/tmp/sly-ffmpeg-long-20261121/run.log`.
+
+**Next:** trace the normal Splash path from the no-card prompt through the
+opening cards and title without the test shortcut. In parallel, validate the
+world-mesh vertex topology, transforms, and material/resource mapping against
+the distorted experimental capture before enabling that path by default. Keep
+the FFmpeg movie bridge, host ABI fixes, and other replacements in `port/` so
+they can be retired independently when the matched IPU path is hostable.
 
 ### Decompiled movie path check (2026-11-21)
 
