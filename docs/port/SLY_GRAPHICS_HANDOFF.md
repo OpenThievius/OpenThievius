@@ -44,6 +44,22 @@ was changed. Next capture a draw whose isolated output actually contains the
 central terrain/landmark, then compare its host-transformed bounds and mesh
 references before changing renderer math.
 
+The selected OpenGL bounds trace now also prints the exact draw's MVP, model,
+and view-projection arrays. In the US forced-level capture, kind-0 source
+`0x00a29c18` on request `0x005e4700` uses an identity model matrix and all 85
+vertices are inside clip bounds; this is a narrow lower-screen batch, not the
+large right-side slab. Source `0x00a2a168` on request `0x005e4800` reaches NDC
+x `9.29` with only 18/85 vertices inside. Applying the existing
+screen-to-clip scale to request `0x005e4800` produces a fully black isolated
+capture, so that player-oriented conversion is not a fix for this static
+world draw. Matrix trace:
+`/tmp/sly-native-source-bounds-9c18-20261122/matrix.log`; source vertex trace:
+`/tmp/sly-native-source-bounds-9c18-20261122/a168-verts.log`; rejected
+request-scale capture:
+`/tmp/sly-native-request-5e4800-clip-20261122/frame07.png`. Continue by
+comparing the offending `0x005e4800` mesh's ordered positions against a
+matching retail view, without changing global camera or VU behavior.
+
 ### Native OpenGL visibility check (2026-11-21)
 
 The host32 frame boundary now publishes immutable packet and world-mesh

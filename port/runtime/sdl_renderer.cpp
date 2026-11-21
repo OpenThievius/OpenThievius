@@ -722,6 +722,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                                  mesh_projected, mesh_inside,
                                  static_cast<unsigned long long>(mesh.tex0),
                                  min_x, min_y, min_z, max_x, max_y, max_z);
+                    std::fprintf(stderr,
+                                 "[native sly per-mesh matrices] instance=%#llx mvp=",
+                                 static_cast<unsigned long long>(mesh.instance));
+                    for (std::size_t i = 0; i < mesh.mvp.size(); ++i)
+                        std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", mesh.mvp[i]);
+                    std::fprintf(stderr, " model=");
+                    for (std::size_t i = 0; i < mesh.model.size(); ++i)
+                        std::fprintf(stderr, "%s%g", i == 0 ? "" : ",", mesh.model[i]);
+                    std::fprintf(stderr, " view_projection=");
+                    for (std::size_t i = 0; i < mesh.view_projection.size(); ++i)
+                        std::fprintf(stderr, "%s%g", i == 0 ? "" : ",",
+                                     mesh.view_projection[i]);
+                    std::fputc('\n', stderr);
                 }
             }
         }
