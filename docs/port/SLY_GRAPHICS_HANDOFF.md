@@ -24,6 +24,21 @@ or VU renderer changed. Trace and frames:
 `/tmp/sly-native-morph-checked-20261121/` and
 `/tmp/sly-native-morph-baseline-20261121/`.
 
+**Authored strip boundaries (2026-11-21):** the completed decomp's
+`docs/DISC.md` identifies bit 7 of the fourth vertex-record byte as a
+triangle-strip start. The host bridge already retained this byte, but its GL
+path connected the whole mesh as one strip. The native renderer now starts a
+separate `GL_TRIANGLE_STRIP` at each marker. An offscreen Paris comparison
+shows source meshes with 6–18 authored runs and more distinct building faces,
+with fewer false connections, than the continuous-strip baseline. The image
+is still wrong: the city and player are misplaced, so this is a topology fix,
+not a playable milestone. Both captures used the same host renderer,
+screen-to-clip conversion, skin/morph options, save-prompt route, ELF and ISO:
+`/tmp/sly-native-flagged-strips-20261121/` and
+`/tmp/sly-native-unsplit-strips-20261121/`. Continue on host camera/viewport,
+player placement and material work; do not implement the PlayStation VU
+renderer.
+
 **Host strip comparison (2026-11-21):** a bounded offscreen capture forced
 catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.
 With solid colors and depth disabled, point mode shows the request's captured
@@ -3583,8 +3598,11 @@ to mode 1. The other modes remain available for comparison.
 Related experiments in this round: capturing the `verts`/`ents` morph arrays
 through the builder hook (`OPENRAC_SLY_WORLD_USE_SKINNED`) and splitting the
 strip on `VertexRefs.flags & 0x80` (`OPENRAC_SLY_WORLD_SPLIT_STRIPS`) were
-stable but did **not** change the visible result; the flag is the fog bias,
-not a strip boundary. Partial vertex dumps show sane model-space positions
+stable but did **not** change the visible result in that earlier capture. The
+decomp's `docs/DISC.md` identifies this bit as the strip-start marker; the same
+bit also affects fog bias in the packet builder. A fresh native OpenGL
+comparison now uses it as authored topology. Partial vertex dumps show sane
+model-space positions
 (symmetric x/y pairs, z roughly -42..-7), so the remaining distortion is in
 the transform/topology rather than corrupt source data.
 

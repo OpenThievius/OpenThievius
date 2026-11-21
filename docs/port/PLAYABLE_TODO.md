@@ -3,6 +3,25 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
+
+The decomp's `docs/DISC.md` describes bit 7 of the fourth vertex-record
+byte as the start of a triangle strip. The native bridge already preserves
+that byte as `vertex_flags`; the host renderer had been drawing an entire mesh
+as one continuous strip. I changed only the port-owned OpenGL submission to
+start a new `GL_TRIANGLE_STRIP` at each authored marker. A matched offscreen
+comparison on Paris confirms meshes with 6–18 strips now draw as separate
+runs; the frame shows more distinct building faces and fewer connecting
+polygons than the continuous-strip baseline. This is a topology correction,
+not a playable graphics result: the scene and player are still misplaced and
+the host camera/material path needs more work. Captures and logs:
+`/tmp/sly-native-flagged-strips-20261121/` and
+`/tmp/sly-native-unsplit-strips-20261121/`.
+
+**Next:** continue with native OpenGL. Trace the remaining camera/viewport and
+player placement errors against the captured host-frame geometry. Do not
+implement or emulate the PlayStation VU renderer.
+
 ### Native OpenGL renderer direction and live-scene check (2026-11-21)
 
 Keep graphics work on the native host OpenGL renderer. Do not implement or
@@ -18,10 +37,9 @@ explains why this particular Splash root feeds no world mesh; it does not show
 that the native renderer dropped an active model. After the existing
 process-local save-prompt selection reaches Paris, the native OpenGL bridge
 queues 282 distinct meshes, binds 71 real textures, and projects 11,504
-vertices, of which 11,419 are within clip bounds. The first host capture was
-mostly gray; the latest material-state capture is visibly purple/white but
-still severely distorted. A host-only strip-restart comparison exposes more
-surfaces but remains incorrect. Captures and logs are in
+vertices, of which 11,419 are within clip bounds. The host-only renderer now
+splits at authored strip-start markers and shows recognizable building faces,
+but the city and player remain misplaced. Captures and logs are in
 `/tmp/sly-native-gl-gameplay-20261121/` and
 `/tmp/sly-native-gl-splitstrips-20261121/`.
 

@@ -982,10 +982,41 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                          static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
                          vertex_data, GL_STREAM_DRAW);
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            const bool has_authored_strip_flags =
+                mesh.vertex_flags.size() == vertex_count;
             const bool restart_split =
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr;
-            if (!restart_split) {
+            if (has_authored_strip_flags) {
+                // VertexRefs' fourth byte carries the authored strip-start bit
+                // in bit 7. Draw each authored run separately so OpenGL never
+                // connects the tail of one strip to the head of the next.
+                std::size_t run_begin = 0;
+                std::size_t strip_count = 0;
+                for (std::size_t vertex = 1; vertex < vertex_count; ++vertex) {
+                    if ((mesh.vertex_flags[vertex] & 0x80u) == 0u) continue;
+                    if (vertex - run_begin >= 3u) {
+                        glDrawArrays(GL_TRIANGLE_STRIP,
+                                     static_cast<GLint>(run_begin),
+                                     static_cast<GLsizei>(vertex - run_begin));
+                        ++strip_count;
+                    }
+                    run_begin = vertex;
+                }
+                if (vertex_count - run_begin >= 3u) {
+                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                                 static_cast<GLsizei>(vertex_count - run_begin));
+                    ++strip_count;
+                }
+                if (strip_count > 1u &&
+                    std::getenv("OPENRAC_TRACE_SLY_STRIP_SPLITS") != nullptr) {
+                    static unsigned notices = 0;
+                    if (notices++ < 32u)
+                        std::fprintf(stderr,
+                                     "[native sly authored strips] source=%#010x vertices=%zu strips=%zu\n",
+                                     mesh.source_mesh, vertex_count, strip_count);
+                }
+            } else if (!restart_split) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
             } else {
                 // A strip restart repeats the first one or two vertices of the
