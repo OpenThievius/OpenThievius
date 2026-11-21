@@ -32,14 +32,20 @@ default native movie path reports no queued movie there; only the separate
 FFmpeg diagnostic has displayed the opening PSS. Live 3D scene rendering and
 controllable gameplay are still unverified.
 
-A fresh default-renderer capture confirms that the guest's GIF stream does
-produce actual 2D save-choice graphics through the native DirectRenderer. The
-dialog is badly clipped into the upper-left of the 960x720 output, however;
-the first UI draws include NDC bounds outside the view (for example
-`x=-1.028..0`, `y` up to `2.0`). This is genuine game UI output, not a 3D
-scene. The known Paris gameplay frames remain black. Trace and captures:
-`/tmp/sly-ui-viewport-draw-20261121/run.log` and
-`/tmp/sly-ui-viewport-draw-20261121/sly1-native-frame-07.ppm`.
+A fresh default-renderer capture confirms that the guest's GIF stream produces
+actual 2D save-choice graphics through the native DirectRenderer. The first
+capture was shifted into the upper-left. Per-draw bounds showed a consistent
+one-screen NDC offset, and the retail pause-menu state placed the element at
+the logical screen centre. The GS conversion treated centre-relative XYOFFSET
+coordinates as top-left-relative, subtracting an extra half-screen from each
+axis. `port/renderer/direct.cpp` now preserves the coordinate origin when the
+XYOFFSET register is the chip-space centre. A hidden no-input capture after
+the change places the save text and visible frame in the centre of the
+960x720 output. The top and left frame edges are still missing, and there is
+still no recognizable 3D world. The Paris gameplay renderer remains black.
+Before/after evidence is in `/tmp/sly-menu-perdraw-20261121/run.log`,
+`/tmp/sly-menu-centered-fix-capture-20261121/run.log`, and
+`/tmp/sly-menu-centered-fix-capture-20261121/frame07.png`.
 
 Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
 `/tmp/sly-pss-native-visual-20261121/contact.png`. The hidden run used the

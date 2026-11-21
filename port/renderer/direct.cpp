@@ -1128,8 +1128,14 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     const bool offscreen = offscreen_target() != 0;
     const float target_w = offscreen ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_width);
     const float target_h = offscreen ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_height);
-    out.x = px / target_w * 2.0f - 1.0f;
-    out.y = 1.0f - py / target_h * 2.0f;
+    // Some Sly screen packets leave XYOFFSET at the chip-space centre (2048, 2048). In that
+    // case screen_position() returns centre-relative pixels, while the usual 2048-minus-half-size
+    // offset returns top-left-relative pixels. Map each origin according to the register so a
+    // centred packet does not acquire an extra half-screen translation on the host.
+    const bool centred_x = !offscreen && c.xyoffset.ofx == (2048u << 4u);
+    const bool centred_y = !offscreen && c.xyoffset.ofy == (2048u << 4u);
+    out.x = px / target_w * 2.0f - (centred_x ? 0.0f : 1.0f);
+    out.y = (centred_y ? 0.0f : 1.0f) - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
     const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
