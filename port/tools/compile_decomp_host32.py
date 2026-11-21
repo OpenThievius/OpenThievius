@@ -2203,9 +2203,88 @@ def normalize_camera_mesh_contact_abi(text, label):
 
 
 def trace_oscillator_outputs(text, label, enabled):
-    """Trap invalid oscillator vertex counts before they can overwrite the host stack."""
-    if label != "main/oscillator.cpp" or not enabled:
+    """Trace null period getters and trap invalid vertex counts in staged source."""
+    if not enabled:
         return text
+    if label == "lib/mpeg_decoder.cpp":
+        text = 'extern "C" void sly1_native_oscillator_probe(u32, u32);\n' + text
+        signature = "s32 CreateMpegDecoder(MpegHandle* out, u8* mem, u32 size)\n{"
+        if text.count(signature) != 1:
+            raise RuntimeError("expected MPEG decoder creation function")
+        text = text.replace(signature, signature + "\n"
+            "    sly1_native_oscillator_probe(0x20AE0001u, (u32)out);\n"
+            "    sly1_native_oscillator_probe(0x20AE0002u, (u32)mem);\n"
+            "    sly1_native_oscillator_probe(0x20AE0003u, size);", 1)
+        aligned_base = "    u32 base = ((u32)(mem + 3) >> 2) << 2;"
+        if text.count(aligned_base) != 1:
+            raise RuntimeError("expected MPEG decoder work area alignment")
+        text = text.replace(aligned_base, aligned_base + "\n"
+            "    sly1_native_oscillator_probe(0x20AE0004u, base);", 1)
+        for statement, tag, value in (
+            ("    out->decoder = in;", 0x20AE0005, "(u32)out->decoder"),
+            ("    SetUpMpegScratchpadBuffers(in);", 0x20AE0006, "(u32)out"),
+            ("    ResetMpegDecoder(out);", 0x20AE0007, "(u32)out->decoder"),
+        ):
+            if text.count(statement) != 1:
+                raise RuntimeError(f"expected MPEG decoder initialization statement: {statement}")
+            text = text.replace(statement, statement + "\n"
+                f"    sly1_native_oscillator_probe({tag}u, {value});", 1)
+        return text
+    if label == "main/movie_player.cpp":
+        text = 'extern "C" void sly1_native_oscillator_probe(u32, u32);\n' + text
+        signature = "s32 StartMovieStream(MovieStream* self)\n{"
+        if text.count(signature) != 1:
+            raise RuntimeError("expected movie stream start")
+        start = text.index(signature)
+        end = text.index("\n}\n", start) + 2
+        body = text[start:end]
+        probes = (
+            ("    SuspendIopVoices(0xFFFFFFFF);", 0x1F38A010),
+            ("    PushIopChannel2Setting(g_currentWorld, 0, 0);", 0x1F38A011),
+            ("    StopAllIopSounds();", 0x1F38A012),
+            ("    while (PollIopCommands() != 0) {", 0x1F38A013),
+            ("    WaitForIopSoundStop(1);", 0x1F38A014),
+            ("    SyncDiscRead(0);", 0x1F38A015),
+            ("    self->savedVolume2 = GetIopVolumeChannel(2);", 0x1F38A016),
+            ("    self->savedVolume8 = GetIopVolumeChannel(8);", 0x1F38A017),
+            ("    SetIopVolumeChannel(2, 0x400);", 0x1F38A018),
+            ("    SetIopVolumeChannel(8, 0x200);", 0x1F38A019),
+            ("    r = OpenIopRing(0x6000, 0x400, 0, 2, 2);", 0x1F38A01A),
+        )
+        for statement, tag in probes:
+            if body.count(statement) != 1:
+                raise RuntimeError(f"expected movie stream startup statement: {statement}")
+            body = body.replace(
+                statement,
+                f"    sly1_native_oscillator_probe({tag}u, 0);\n" + statement,
+                1)
+        return text[:start] + body + text[end:]
+    if label != "main/oscillator.cpp":
+        return text
+    text = 'extern "C" void sly1_native_oscillator_probe(u32, u32);\n' + text
+    getter_signature = "void GetOscillatorEntryPeriod(void* self, f32* out)\n{"
+    if text.count(getter_signature) != 1:
+        raise RuntimeError("expected oscillator period getter")
+    getter_start = text.index(getter_signature)
+    getter_end = text.index("\n}\n", getter_start) + 2
+    getter = text[getter_start:getter_end]
+    current_entry = (
+        "    OscillatorEntryScale* s = (OscillatorEntryScale*)"
+        "GetOscillatorEntryForPeriod((Oscillator*)self, 1);"
+    )
+    entry_probe = current_entry + """
+    if (s == 0) {
+        Oscillator* oscillator = (Oscillator*)self;
+        sly1_native_oscillator_probe(0x1F38A001u, (u32)oscillator);
+        sly1_native_oscillator_probe(0x1F38A002u, (u32)out);
+        sly1_native_oscillator_probe(0x1F38A003u,
+                                     (u32)__builtin_return_address(0));
+    }
+"""
+    if getter.count(current_entry) != 1:
+        raise RuntimeError("expected oscillator period entry lookup")
+    getter = getter.replace(current_entry, entry_probe, 1)
+    text = text[:getter_start] + getter + text[getter_end:]
     range_target = "            s32 n = (r->end - r->start) / r->stride;"
     range_replacement = range_target + """
             if (n < 0 || n > 0x100) {
@@ -2221,6 +2300,111 @@ def trace_oscillator_outputs(text, label, enabled):
     if text.count(range_target) != 1:
         raise RuntimeError("expected oscillator vertex range count")
     return text.replace(range_target, range_replacement, 1)
+
+
+def adapt_movie_stream_return(text, label):
+    """Give the host build a defined return for an ignored retail result."""
+    if label != "main/movie_player.cpp":
+        return text
+    signature = "s32 StartMovieStream(MovieStream* self)\n{"
+    if text.count(signature) != 1:
+        raise RuntimeError("expected movie stream start")
+    start = text.index(signature)
+    closing = text.index("\n}\n\n// Resets a running movie stream", start)
+    body = text[start:closing]
+    if "return " in body:
+        raise RuntimeError("movie stream start unexpectedly has a return")
+    return text[:closing] + "\n    return r;" + text[closing:]
+
+
+def adapt_ignored_mpeg_decoder_return(text, label):
+    """Define the ignored host return for the retail decoder initializer."""
+    if label != "lib/mpeg_decoder.cpp":
+        return text
+    signature = "s32 CreateMpegDecoder(MpegHandle* out, u8* mem, u32 size)\n{"
+    if text.count(signature) != 1:
+        raise RuntimeError("expected MPEG decoder initializer")
+    start = text.index(signature)
+    closing = text.index("\n}\n\n// Releases a decoder", start)
+    body = text[start:closing]
+    if re.search(r"\n\s*return\s+[^;]+;\s*$", body):
+        raise RuntimeError("MPEG decoder initializer unexpectedly has a trailing return")
+    # InitMoviePlayback ignores this result. The retail function's matched C
+    # body has no explicit return, which is undefined behavior for this host
+    # compiler and can corrupt the native path around its final stores.
+    return text[:closing] + "\n    return 1;" + text[closing:]
+
+
+def adapt_text_format_varargs(text, label):
+    """Use the i386 varargs layout in the staged native text formatter."""
+    if label != "main/text_format.cpp":
+        return text
+
+    # The matched formatter consumes the EE's saved 8-byte argument slots.
+    # On i386, integer and pointer varargs occupy four bytes; doubles remain
+    # eight. Keep the source snapshot untouched and lower only its host copy.
+    replacements = {
+        "*va = ap + 2;": "*va = ap + 1;",
+        "*va = a + 8;": "*va = a + 4;",
+        "case 0: { u8* p = *va; *va = p + 8; **(s32**)p = c->count; break; }":
+            "case 0: { u8* p = *va; *va = p + 4; **(s32**)p = c->count; break; }",
+        "case 1: { u8* p = *va; *va = p + 8; s16* q = *(s16**)p; s32 n = c->count; *q = n; break; }":
+            "case 1: { u8* p = *va; *va = p + 4; s16* q = *(s16**)p; s32 n = c->count; *q = n; break; }",
+        "case 2: { u8* p = *va; *va = p + 8; **(s64**)p = c->count; break; }":
+            "case 2: { u8* p = *va; *va = p + 4; **(s64**)p = c->count; break; }",
+    }
+    for old, new in replacements.items():
+        if old in text:
+            text = text.replace(old, new)
+
+    # %c and %s each consume one 32-bit argument. The other p+8 sites are
+    # 64-bit integers or doubles and must retain their eight-byte stride.
+    for marker in ("case 'c': {", "case 's': {"):
+        start = text.index(marker, text.index("void FormatConversionArg"))
+        end = text.index("\n    }", start) + 6
+        body = text[start:end]
+        old = "*va = p + 8;"
+        if body.count(old) != 1:
+            raise RuntimeError(f"expected one i386 pointer argument in {marker}")
+        body = body.replace(old, "*va = p + 4;", 1)
+        text = text[:start] + body + text[end:]
+
+    # Integer and pointer conversions in the shared switch use 4-byte slots;
+    # long long and scalar double conversions keep their 8-byte slots.
+    old = "case 0: case 1: { u8* p = *va; *va = p + 8; v = *(u32*)p; break; }"
+    new = "case 0: case 1: { u8* p = *va; *va = p + 4; v = *(u32*)p; break; }"
+    if old in text:
+        text = text.replace(old, new, 1)
+
+    # The public wrappers must pass the host compiler's actual varargs cursor,
+    # rather than the EE register-save-area offsets in the matched source.
+    wrappers = (
+        ("extern \"C\" s32 PrintFormatted(const char* fmt, ...)",
+         "PrintFormattedVa(fmt, ap)", "PrintFormattedVa(fmt, (void*)ap)"),
+        ("s32 FormatToString(char* dst, const char* fmt, ...)",
+         "FormatToStringVa(dst, fmt, ap)", "FormatToStringVa(dst, fmt, (void*)ap)"),
+        ("s32 FormatToStringBounded(char* dst, s32 cap, const char* fmt, ...)",
+         "FormatToStringBoundedVa(dst, cap, fmt, ap)",
+         "FormatToStringBoundedVa(dst, cap, fmt, (void*)ap)"),
+    )
+    for signature, old_call, new_call in wrappers:
+        if text.count(signature) != 1:
+            raise RuntimeError(f"expected host text formatter wrapper: {signature}")
+        start = text.index(signature)
+        end = text.index("\n}", start) + 2
+        body = text[start:end]
+        body = re.sub(
+            r"void\* ap = \(char\*\)__builtin_next_arg\(fmt\) - \d+;",
+            "__builtin_va_list ap;\n    __builtin_va_start(ap, fmt);", body)
+        if f"return {old_call};" not in body:
+            raise RuntimeError(f"expected host text formatter call: {old_call}")
+        body = body.replace(
+            f"return {old_call};",
+            f"s32 result = {new_call};\n"
+            "    __builtin_va_end(ap);\n"
+            "    return result;", 1)
+        text = text[:start] + body + text[end:]
+    return text
 
 
 def index_host_oscillator_vertex_loops(text, label):
@@ -2722,6 +2906,9 @@ def main(argv=None):
         adapted = escape_literal_newlines(adapted)
         adapted = lower_gcc_minmax(lower_named_returns(adapted, rel.as_posix()))
         adapted = return_appended_call_record(adapted, rel.as_posix())
+        adapted = adapt_movie_stream_return(adapted, rel.as_posix())
+        adapted = adapt_ignored_mpeg_decoder_return(adapted, rel.as_posix())
+        adapted = adapt_text_format_varargs(adapted, rel.as_posix())
         if rel.as_posix() == "main/text_panel.cpp":
             # These generated Layout methods are inline in the matching C++
             # but their retail entry points are called from other files.

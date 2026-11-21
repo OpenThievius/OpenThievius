@@ -2827,8 +2827,8 @@ extern "C" void sly1_port_trace_value(u32 tag, u32 value) {
 
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_oscillator_probe(u32 tag, u32 value) {
-    std::fprintf(stderr, "[native oscillator] tag=%#010x value=%#010x\n",
-                 tag, value);
+    write_hex("native host probe tag ", (int)tag);
+    write_hex("native host probe value ", (int)value);
 }
 
 extern "C" __attribute__((no_instrument_function)) void
