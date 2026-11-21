@@ -536,6 +536,27 @@ present loop draining packets), and `/tmp/sly-reference-20261106-contact.png`
 and the cached US ELF `build/port/extracted/boot/SCUS_971.98`. The test driver
 is opt-in and did not use the desktop window.
 
+### Strip input follow-up (2026-11-21)
+
+A 40-second hidden run with the opt-in world-mesh capture enabled and one
+process-local Cross at native frame 120 reached Paris and captured the
+matched builder inputs for source mesh `0x00a0d478`. The calls supplied ordered
+`VertexRefs` lists of 18, 36, 30 and 28 vertices. Its three `FrameSource`
+records each point to an eight-QWC packed A+D GIF state packet; those records
+select render state and material passes, not vertex-strip lengths. The
+position-reference sequence also contains nonadjacent repeats, but the
+matched `VertexRefs.flags` byte uses bit 7 for fog bias and the low seven bits
+for tint selection. It does not mark strip restarts. The old GL restart
+heuristic therefore remains unsupported, and this capture does not establish
+the primitive boundaries or winding. Do not enable the mesh overlay or infer
+topology from repeated positions. The next bounded task is to derive how the
+matching VU programs consume this ordered vertex input, then implement that
+specific Sly draw conversion in the port renderer.
+
+The run was stopped at its 40-second bound (exit 137); no launcher remains.
+Its trace is `/tmp/sly-strip-vertices-20261121.log`. It used the Documents US
+ISO, cached US ELF, offscreen SDL and did not affect the desktop window.
+
 ## Current checkpoint (2026-11-20, 23:24 CET)
 
 ### Bone-palette diagnosis corrected (2026-11-20, 23:24 CET)
