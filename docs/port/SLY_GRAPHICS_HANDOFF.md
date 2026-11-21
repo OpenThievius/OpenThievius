@@ -1,6 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Interpreting the decomp's 100% code figure (2026-11-21)
+
+The current US progress report has 4,807 of 4,807 functions and 1,112,400 of
+1,112,400 code bytes matched. That is EE game code. The VU1 microprograms are
+tracked separately as `data/vutext`: all 21,840 bytes match, but the unit has
+zero functions because those bytes have not been semantically disassembled.
+The matched C names `g_litBatchProgram` (`0x288`),
+`g_litBatchSecondProgram` (`0x1210`), `g_litBatchThirdProgram` (`0x1ab0`),
+and `g_litBatchFinishProgram` (`0x10`) from their call sites. They are VU
+micro-memory addresses, not decompiled C routines.
+
+This clarifies the graphics blocker: the matched EE builder supplies the VIF
+stream and invokes the VU programs, but correctness of their native execution
+is not established by the code-match percentage. The latest filtered XGKICK
+trace reaches the lit finish path and reports point/line output without any
+triangle PRIM. The next investigation is to disassemble those four matched VU
+programs and compare their instruction effects, output memory, GIF tags, and
+GS register writes. Fixes belong in the native VU/runtime layer or a separately
+identified port backfill; the matched game functions and strict GS parser stay
+unchanged until a concrete discrepancy is found.
+
 ### Provenance-complete VU XYZ census (2026-11-21)
 
 The earlier conclusion that the matched lit-batch XGKICK at `0x59cb0` was
