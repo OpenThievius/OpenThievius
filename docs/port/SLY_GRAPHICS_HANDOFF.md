@@ -39,6 +39,21 @@ screen-to-clip conversion, skin/morph options, save-prompt route, ELF and ISO:
 player placement and material work; do not implement the PlayStation VU
 renderer.
 
+**Player/camera comparison (2026-11-21):** a fresh native camera trace shows
+the camera transition into Paris and then settle near `(-3913, 9097, 104)` by
+host frame 80. For request `0x005e5400`, the current model-times-view-projection
+mode projects mesh draws across NDC x `0.28..0.95`, y `-0.49..0.57` with host
+skinning on. Disabling host skinning gives nearly the same bounds
+(`0.20..0.94`, `-0.49..0.56`); skinning is not the source of the player offset.
+The transposed matrix mode instead sends vertices as far as 42 NDC units
+offscreen, so keep the current matrix convention. The screenshot's player
+position therefore needs to be checked against the active world's camera
+target and player transform before changing clip conversion. Logs and captures:
+`/tmp/sly-native-camera-current-20261121.log`,
+`/tmp/sly-native-player-mvp0-20261121/`,
+`/tmp/sly-native-player-mvp1-20261121/`, and
+`/tmp/sly-native-player-raw-skin-20261121/`.
+
 **Host strip comparison (2026-11-21):** a bounded offscreen capture forced
 catalog key `0x0100` (logged as entry 3) and isolated request `0x005e4700`.
 With solid colors and depth disabled, point mode shows the request's captured

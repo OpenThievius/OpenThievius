@@ -3,6 +3,22 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Player camera and deformation comparison (2026-11-21)
+
+The live native camera moves from the Splash coordinates into Paris by host
+frame 80, then stays near `(-3913, 9097, 104)` through frame 160. For player
+request `0x005e5400`, the host's current model-times-view-projection mode keeps
+the captured meshes in NDC x `0.28..0.95`, y `-0.49..0.57`. Turning on the
+host skin path changes those bounds only slightly (`0.20..0.94`,
+`-0.49..0.56`), so skinning is not the source of the right-side placement.
+Transposing this request's matrix sends vertices as far as 42 NDC units
+offscreen and is rejected. Next check the native camera's target and model
+placement in the active world before changing the host clip conversion.
+Evidence: `/tmp/sly-native-camera-current-20261121.log`,
+`/tmp/sly-native-player-mvp0-20261121/`,
+`/tmp/sly-native-player-mvp1-20261121/`, and
+`/tmp/sly-native-player-raw-skin-20261121/`.
+
 ### Native OpenGL uses authored triangle-strip boundaries (2026-11-21)
 
 The decomp's `docs/DISC.md` describes bit 7 of the fourth vertex-record
