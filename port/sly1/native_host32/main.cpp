@@ -755,17 +755,25 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
     if ((!g_startup_trace_enabled || world == 0 ||
          world != __atomic_load_n(&g_native_trace_target_world, __ATOMIC_RELAXED)) &&
         !player_trace) return;
+    bool source_trace_enabled = false;
+    u32 source_trace_target = 0;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_MODEL_MESH_SOURCE")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            source_trace_enabled = true;
+            source_trace_target = static_cast<u32>(parsed);
+        }
+    }
     static u32 part_count = 0;
     const u32 trace_index = __atomic_fetch_add(&part_count, 1u, __ATOMIC_RELAXED);
-    if (trace_index >= (player_trace ? 128u : 32u)) return;
+    if ((!source_trace_enabled && trace_index >= (player_trace ? 128u : 32u)) ||
+        (source_trace_enabled && trace_index >= 512u)) return;
 
     const u32 part_address = request[0x78 / 4];
     const u32 skin_address = request[0x74 / 4];
     if (part_address == 0) return;
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
-    const u32 mesh_count = part[0x58 / 4];
-    const u32 mesh_address = part[0x5C / 4];
-    const u32 strip_count = part[0x60 / 4];
     u32 owner_class = 0xFFFFFFFFu;
     u32 owner_flags = 0;
     if (owner_address != 0) {
@@ -777,6 +785,30 @@ extern "C" void sly1_native_trace_model_part(u32 request_address, u32 world,
             owner_flags = class_descriptor[2];
         }
     }
+    const u32 mesh_count = part[0x58 / 4];
+    const u32 mesh_address = part[0x5C / 4];
+    if (source_trace_enabled && mesh_address != 0 && mesh_count <= 4096u) {
+        for (u32 i = 0; i < mesh_count; ++i) {
+            const volatile u32* mesh = reinterpret_cast<const volatile u32*>(
+                mesh_address + i * 0x50u);
+            const u32 source = mesh[0x18 / 4];
+            if (source != source_trace_target) continue;
+            const volatile u32* skin = skin_address != 0
+                ? reinterpret_cast<const volatile u32*>(skin_address) : nullptr;
+            std::fprintf(stderr,
+                         "[native model source match] source=%#010x draw=%u request=%#010x owner=%#010x class=%u part=%#010x skin=%#010x mesh=%u kind=%u bones=%u lit=%u skinned=%u\n",
+                         source_trace_target, trace_index, request_address, owner_address,
+                         owner_class, part_address, skin_address, i,
+                         static_cast<unsigned>(*reinterpret_cast<const volatile u8*>(source)),
+                         mesh[0x24 / 4], part[0x18 / 4], part[0x28 / 4]);
+            if (skin != nullptr)
+                std::fprintf(stderr,
+                             "[native model source skin] source=%#010x flags=%#x count=%u words=%#010x bones=%#010x\n",
+                             source_trace_target, skin[0x38 / 4], skin[0x40 / 4],
+                             skin[0x44 / 4], skin[0x3C / 4]);
+        }
+    }
+    const u32 strip_count = part[0x60 / 4];
     static u32 traced_lit_world_part = 0;
     bool finite_model = true;
     const volatile float* model = reinterpret_cast<const volatile float*>(request_address + 0x10u);

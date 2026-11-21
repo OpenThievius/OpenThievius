@@ -38,6 +38,25 @@ comparison remains nearly unchanged. Keep the title route and Paris
 host-renderer work distinct; do not tune or implement the VU renderer to solve
 the host GL geometry problem.
 
+**Static source ownership trace (2026-11-21):** the cyan source mesh
+`0x00a2a488` is submitted by draw requests owned by classes 4 and 31. Both
+class descriptors inherit the collider class, but `DrawCollider` calls
+`DrawPlacedObject`, so that ancestry alone is not enough to discard their
+meshes as invisible collision data. The source mesh is kind 0 and its matching
+draw records report lit, unskinned, zero bones; its skin record also has zero
+weights. Skin deformation is therefore not the source of this mesh's
+distortion. Its class-4 request matrix is identity in the captured draw, while
+the host applies the camera view-projection matrix.
+
+The opt-in `OPENRAC_TRACE_MODEL_MESH_SOURCE=0x00a2a488` connects a captured
+source mesh to its owner, draw request, mesh kind, bone count, and lit/skinned
+flags. It is implemented only in `port/sly1/native_host32/main.cpp`; no
+matched decompilation source or VU renderer was changed. A fresh bounded host32
+capture reproduced the two owner classes and their unskinned state:
+`/tmp/sly-native-a2a488-owner-clean-20261121.log`. Continue the native OpenGL
+investigation with geometry and camera-space inputs for this static mesh, and
+keep skinning work focused on draws that actually report skinning.
+
 **2026-11-21 host topology check:** the port now retains each source
 `VertexRefs.pos` index and can use those indices for its opt-in strip-restart
 split. A 106-vertex mesh (`0x00a0fd90`) repeats references at candidate run

@@ -31,6 +31,16 @@ draws. Confirm each change from captured host frames. Keep the existing 2D
 DirectRenderer for menu packets. Do not change VU instruction limits or
 implement a VU renderer as a shortcut.
 
+The cyan contributor `0x00a2a488` has now been traced back to draw requests
+owned by classes 4 and 31. They inherit the collider class, but `DrawCollider`
+delegates to `DrawPlacedObject`; the class ancestry alone does not prove that
+their meshes are invisible. This mesh is lit but unskinned, with zero bones
+and zero skin weights, so skin deformation is not the cause of its distortion.
+The host-side `OPENRAC_TRACE_MODEL_MESH_SOURCE` trace is port-only, and the
+matched decompilation remains unchanged. See the graphics handoff for its
+bounded capture. Focus next on the static geometry and camera-space path in
+native OpenGL, then handle skinning only for submissions that actually need it.
+
 **Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
 `TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
 texture alpha scaling, alpha tests, and the framebuffer/depth behavior for
