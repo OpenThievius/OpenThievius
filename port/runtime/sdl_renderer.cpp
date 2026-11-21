@@ -1942,7 +1942,11 @@ extern "C" void openrac_native_window_present(void) {
             if (end != setting && *end == '\0' && parsed > 0 && parsed <= 100000u)
                 stride = static_cast<unsigned>(parsed);
         }
-        const bool eligible = packets.size() >= minimum_bytes;
+        // Native Sly world meshes are drawn on this present path without
+        // passing through the DirectRenderer packet vector. Include them in
+        // opt-in frame capture so the experimental world renderer can be
+        // inspected even on frames with no HUD packets.
+        const bool eligible = packets.size() >= minimum_bytes || !world_meshes.empty();
         const unsigned eligible_frame = eligible ? frame_seen++ : 0u;
         unsigned start_present = 0;
         if (const char* setting = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_START")) {

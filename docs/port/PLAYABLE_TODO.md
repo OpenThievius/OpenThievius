@@ -162,6 +162,21 @@ only point, line, and sprite writes, not world triangles, and the image remains
 black. Keep the graphics investigation on the VU1/XGKICK-to-GS boundary.
 Details and evidence are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
+### Native world-mesh renderer checkpoint (2026-11-21)
+
+A separate host32 build with `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and the
+same model/object tracing settings as the working build now reaches
+`ui_state=3` in world `0x870cf0` under the opt-in menu driver. The port-only
+overlay queues 312 unique meshes (12,999 vertices) across 71 materials; all
+71 texture lookups resolve to uploaded textures. A captured frame shows
+nonblack level surfaces, but they are washed out and stretched, with no
+recognizable Sly model or usable HUD. Filtering to the suspected player mesh
+produced a black frame. This confirms the bridge can display level geometry,
+but it does not pass the first visible-world gate or make the build playable.
+Keep this renderer disabled in the default build and out of matched decomp
+source. Log and frame: `/tmp/sly-world-bounds-20261121.log` and
+`/tmp/sly-world-renderer-20261121/frame-63.png`.
+
 The present loop consumes queued packets during ordinary traces. A separate
 per-draw trace was too expensive: it let the queue hit its 16 MiB cap, after
 which the renderer decoded garbage GS state. Treat those bad target/scissor

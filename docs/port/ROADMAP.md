@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-20, 15:11 CET)
+## Current checkpoint (2026-11-21)
 
 The native client still reaches the memory-card flow and loaded world, but
 does not show a playable scene. A paired capture separated the two graphics
@@ -16,6 +16,14 @@ writes. The ordinary renderer still presents black, while the optional mesh
 overlay shows a grayscale, distorted corridor without a recognizable player.
 The kind-5 qword-469 rejection is separate and is not established as the
 world-geometry cause.
+
+A separate host32 build with the optional source-mesh bridge enabled now
+reaches gameplay state and displays washed-out, stretched level surfaces. It
+queues 312 unique meshes (12,999 vertices) and resolves 71 material textures,
+but a player-only view is black and the full scene has no recognizable Sly
+model or usable HUD. The bridge remains diagnostic and disabled by default.
+See the [playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
+for the frame and run details.
 
 **Next:** select one bounded Sly draw kind and trace its matched packet-builder
 input through the corresponding VU transform and GS output, then implement a
