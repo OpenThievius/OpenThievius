@@ -11,6 +11,8 @@ extern u32 D_00262E10; // g_player
 #include "openrac/native_window.h"
 #include <SDL3/SDL.h>
 #include <atomic>
+#include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -24,7 +26,9 @@ extern u32 D_00262E10; // g_player
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <ucontext.h>
@@ -59,6 +63,8 @@ extern "C" unsigned long long openrac_native_renderer_dma_submit_count();
 extern "C" unsigned long long openrac_native_renderer_dma_accept_count();
 extern "C" unsigned long long openrac_native_renderer_dma_reject_count();
 extern "C" unsigned long long openrac_native_renderer_dma_bytes();
+extern "C" void openrac_native_movie_frame(const u8* rgba, int width, int height);
+extern "C" void openrac_native_movie_end();
 extern "C" int sly1_native_critical_owner();
 extern "C" unsigned int sly1_native_critical_depth();
 extern "C" unsigned int sly1_native_critical_spins();
@@ -2497,6 +2503,173 @@ extern "C" int sly1_host_cd_read(u32 sector, u32 count, u32 destination) {
     return 1;
 }
 
+#if defined(OPENRAC_SLY1_WITH_SDL)
+namespace {
+bool read_exact_fd(int fd, u8* output, std::size_t size) {
+    std::size_t done = 0;
+    while (done < size) {
+        const ssize_t count = ::read(fd, output + done, size - done);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) return false;
+        done += static_cast<std::size_t>(count);
+    }
+    return true;
+}
+
+bool write_all_fd(int fd, const u8* input, std::size_t size) {
+    std::size_t done = 0;
+    while (done < size) {
+        const ssize_t count = ::write(fd, input + done, size - done);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) return false;
+        done += static_cast<std::size_t>(count);
+    }
+    return true;
+}
+
+bool wait_child_success(pid_t child) {
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        return false;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+bool probe_movie(const char* path, int& width, int& height,
+                 int& fps_num, int& fps_den) {
+    int pipe_fds[2];
+    if (::pipe(pipe_fds) != 0) return false;
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::dup2(pipe_fds[1], STDOUT_FILENO);
+        ::close(pipe_fds[0]);
+        ::close(pipe_fds[1]);
+        char* argv[] = {
+            const_cast<char*>("ffprobe"), const_cast<char*>("-v"),
+            const_cast<char*>("error"), const_cast<char*>("-select_streams"),
+            const_cast<char*>("v:0"), const_cast<char*>("-show_entries"),
+            const_cast<char*>("stream=width,height,r_frame_rate"),
+            const_cast<char*>("-of"), const_cast<char*>("csv=p=0"),
+            const_cast<char*>(path), nullptr};
+        ::execvp(argv[0], argv);
+        ::_exit(127);
+    }
+    ::close(pipe_fds[1]);
+    if (child < 0) {
+        ::close(pipe_fds[0]);
+        return false;
+    }
+    char output[128]{};
+    std::size_t used = 0;
+    while (used + 1u < sizeof(output)) {
+        const ssize_t count = ::read(pipe_fds[0], output + used,
+                                     sizeof(output) - used - 1u);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) break;
+        used += static_cast<std::size_t>(count);
+    }
+    ::close(pipe_fds[0]);
+    if (!wait_child_success(child)) return false;
+    return std::sscanf(output, "%d,%d,%d/%d", &width, &height,
+                       &fps_num, &fps_den) == 4 && width > 0 && height > 0 &&
+           fps_num > 0 && fps_den > 0;
+}
+} // namespace
+
+extern "C" int sly1_native_play_movie(u32 lsn, u32 bytes, u32 resource_id) {
+    if (std::getenv("OPENRAC_NATIVE_FFMPEG_MOVIES") == nullptr ||
+        resource_id != 0x344u || bytes == 0u || bytes > 128u * 1024u * 1024u)
+        return 0;
+    const u32 sectors = (bytes + 2047u) / 2048u;
+    std::vector<u8> disc_data(static_cast<std::size_t>(sectors) * 2048u);
+    if (g_disc_stride == 0 ||
+        !sly1_host_cd_read(lsn, sectors, static_cast<u32>(
+            reinterpret_cast<std::uintptr_t>(disc_data.data())))) {
+        std::fprintf(stderr, "[native movie ffmpeg] disc read failed lsn=%#x bytes=%#x\n",
+                     lsn, bytes);
+        return 0;
+    }
+
+    char path[] = "/tmp/open-thievius-movie-XXXXXX";
+    const int movie_fd = ::mkstemp(path);
+    if (movie_fd < 0) return 0;
+    const bool stored = write_all_fd(movie_fd, disc_data.data(), bytes);
+    ::close(movie_fd);
+    if (!stored) {
+        ::unlink(path);
+        return 0;
+    }
+
+    int width = 0, height = 0, fps_num = 0, fps_den = 0;
+    if (!probe_movie(path, width, height, fps_num, fps_den) ||
+        width > 4096 || height > 4096 ||
+        static_cast<std::uint64_t>(width) * height * 4u > 64u * 1024u * 1024u) {
+        std::fprintf(stderr, "[native movie ffmpeg] unsupported PSS lsn=%#x\n", lsn);
+        ::unlink(path);
+        return 0;
+    }
+
+    int pipe_fds[2];
+    if (::pipe(pipe_fds) != 0) {
+        ::unlink(path);
+        return 0;
+    }
+    const pid_t decoder = ::fork();
+    if (decoder == 0) {
+        ::dup2(pipe_fds[1], STDOUT_FILENO);
+        ::close(pipe_fds[0]);
+        ::close(pipe_fds[1]);
+        char* argv[] = {
+            const_cast<char*>("ffmpeg"), const_cast<char*>("-nostdin"),
+            const_cast<char*>("-v"), const_cast<char*>("error"),
+            const_cast<char*>("-i"), path, const_cast<char*>("-map"),
+            const_cast<char*>("0:v:0"), const_cast<char*>("-an"),
+            const_cast<char*>("-sn"), const_cast<char*>("-dn"),
+            const_cast<char*>("-fps_mode"), const_cast<char*>("passthrough"),
+            const_cast<char*>("-f"), const_cast<char*>("rawvideo"),
+            const_cast<char*>("-pix_fmt"), const_cast<char*>("rgba"),
+            const_cast<char*>("pipe:1"), nullptr};
+        ::execvp(argv[0], argv);
+        ::_exit(127);
+    }
+    ::close(pipe_fds[1]);
+    if (decoder < 0) {
+        ::close(pipe_fds[0]);
+        ::unlink(path);
+        return 0;
+    }
+
+    if (std::getenv("OPENRAC_TRACE_MOVIE_BACKFILL") != nullptr) {
+        std::fprintf(stderr,
+                     "[native movie ffmpeg] play id=%#x lsn=%#x bytes=%#x "
+                     "size=%dx%d fps=%d/%d\n",
+                     resource_id, lsn, bytes, width, height, fps_num, fps_den);
+    }
+    const std::size_t frame_bytes = static_cast<std::size_t>(width) * height * 4u;
+    std::vector<u8> frame(frame_bytes);
+    const auto frame_step = std::chrono::microseconds(
+        static_cast<std::int64_t>(1000000ll * fps_den / fps_num));
+    auto next_frame = std::chrono::steady_clock::now();
+    u32 frames = 0;
+    while (read_exact_fd(pipe_fds[0], frame.data(), frame.size())) {
+        openrac_native_movie_frame(frame.data(), width, height);
+        ++frames;
+        next_frame += frame_step;
+        std::this_thread::sleep_until(next_frame);
+    }
+    ::close(pipe_fds[0]);
+    openrac_native_movie_end();
+    const bool decoded = wait_child_success(decoder);
+    ::unlink(path);
+    if (std::getenv("OPENRAC_TRACE_MOVIE_BACKFILL") != nullptr) {
+        std::fprintf(stderr, "[native movie ffmpeg] finished frames=%u decoder_ok=%u\n",
+                     frames, decoded ? 1u : 0u);
+    }
+    return decoded && frames != 0u ? 1 : 0;
+}
+#endif
+
 extern "C" __attribute__((noreturn)) void sly1_missing_function(
     u32 address, u32 caller, u32 argument0, u32 argument1, u32 argument2) {
     write_hex("native host32: missing compiled function at ", (int)address);
@@ -2597,6 +2770,20 @@ extern "C" void sly1_native_trace_loader_stage(u32 stage, u32 value,
         write_hex("native host32: loader next halfword ",
                   (int)((u32)bytes[0] | ((u32)bytes[1] << 8)));
     }
+}
+
+extern "C" void sly1_native_trace_movie_call(
+    u32 self, u32 key, u32 key_lsn, u32 key_bytes,
+    u32 key_word_2, u32 key_word_6,
+    u32 queued, u32 queued_next) {
+    static u32 events = 0;
+    if (getenv("OPENRAC_TRACE_MOVIE_BACKFILL") == nullptr || events >= 32u)
+        return;
+    std::fprintf(stderr,
+                 "[native movie backfill] call=%u self=%08x key=%08x "
+                 "lsn=%08x bytes=%08x id=%08x/%08x queued=%08x next=%08x\n",
+                 events++, self, key, key_lsn, key_bytes, key_word_2,
+                 key_word_6, queued, queued_next);
 }
 
 extern "C" void sly1_port_trace_nested_counts(

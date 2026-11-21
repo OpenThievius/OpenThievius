@@ -3,6 +3,40 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Verified first native graphics: retail opening PSS
+
+The exact movie call is now identified. An approved, process-local Cross at
+frame 120 leaves the no-card prompt and reaches world `0x870cf0`; the retail
+`PlayMovie` call then supplies resource id `0x344`, LSN `0xc8f03`, and
+`0xab4004` bytes. These sectors in the configured US disc decode as a
+640x480, 30000/1001 MPEG-2 stream. This is the opening intro, not the
+previously inspected bonus clip at movie index 0. Six native-window readbacks
+show the US Sony presentation card, legal card, owl over the moon, and Sucker
+Punch rooftop sign, matching the corresponding opening images in the supplied
+PAL PCSX2 reference (regional branding differs).
+
+An opt-in Linux development bridge is implemented in the port-only native
+backfill and SDL renderer. With `OPENRAC_NATIVE_FFMPEG_MOVIES=1`, it reads the
+requested sectors from the user's configured disc, invokes installed
+`ffprobe`/`ffmpeg`, and presents decoded frames in the native window. It is
+limited to resource `0x344`, has no audio, and depends on external host tools;
+it is a visual diagnostic, not the final cross-platform media implementation.
+The normal run remains at the no-card prompt until input, and the test's
+single Cross bypasses the startup title/menu path. Live 3D scene rendering and
+controllable gameplay are still unverified.
+
+Evidence: `/tmp/sly-pss-native-visual-20261121/run.log` and
+`/tmp/sly-pss-native-visual-20261121/contact.png`. The hidden run used the
+configured Documents US ISO and cached US ELF, ended at its 30-second bound,
+decoded 409 frames, and captured six rendered frames. The PSS and captures
+remain outside the repository.
+
+**Next:** use the identified retail call and matching reference timing to
+trace why normal startup waits at the save prompt and how the title sequence
+follows this clip. Separately replace the FFmpeg diagnostic with a
+self-contained host media path, then return to the live world renderer. Keep
+both tasks in `port/`; do not alter matched decompilation source.
+
 ### Renderer direction: start with the scene in the reference
 
 Do not make VU1 instruction coverage the route to a playable port. OpenRAC's
@@ -31,7 +65,7 @@ workaround. The approved offscreen Cross/Up/Cross/Start test reaches Paris
 France, but deliberately skips the reference title and must not be used to
 judge startup visuals.
 
-The latest ordinary hidden startup stays on Splash world `0x6abdd0`, UI state
+The ordinary hidden startup stays on Splash world `0x6abdd0`, UI state
 5, page 7 (the no-save-file/create-save prompt), with no queued movie. A single
 offscreen Cross at native frame 120 dismisses that flow and reaches world
 `0x870cf0`, UI state 3, after 2,426 sectors have been read. It bypasses the

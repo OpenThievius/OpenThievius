@@ -7,17 +7,24 @@ remain unavailable to the native build. They are separate from
 when hostable matching source becomes available. The source decomp checkout is
 never edited by the host staging adapter.
 
-## Current state (2026-11-17)
+## Current state (2026-11-21)
+
+An approved hidden native run now displays the opening PSS after one
+process-local Cross leaves the no-card prompt. The retail call is resource
+`0x344`, LSN `0xc8f03`, `0xab4004` bytes. An opt-in Linux-only diagnostic
+(`OPENRAC_NATIVE_FFMPEG_MOVIES=1`) decodes this clip with installed
+`ffprobe`/`ffmpeg` and sends frames to the SDL window. It has no audio and is
+not the final native media backend. No matched decomp source was changed.
+Live 3D rendering and controllable gameplay are still unverified. See the
+[playable TODO](../../../../docs/port/PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
+for evidence and next steps.
 
 The sibling decomp checkout is at `8f7a85a3`; US and PAL code remain 100%
 matched. The native host32 target is still an experimental compatibility
-build, not a playable port. A rebuilt default configuration checked at 10:02
-CET shows the full no-card warning across eight settled frames. Continue
-animates and the small white dash remains at the left edge. A process-local
-Cross at frame 300 produces eight all-black frames. The unfiltered run also
-logs a qword-469 XGKICK rejection, but does not prove that record belongs to
-Sly's target kind-0 mesh path. No title or controllable level graphics are
-confirmed. See the dated visual and packet evidence in
+build, not a playable port. The default build shows the no-card warning and
+remains black after Continue; the movie diagnostic is separately opt-in. No
+live title or controllable level graphics are confirmed. See the dated visual
+and packet evidence in
 [`RESTART_CHECKPOINT.md`](../../../../docs/port/RESTART_CHECKPOINT.md).
 
 ## Historical build snapshot (2026-11-14)

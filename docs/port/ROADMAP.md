@@ -3,6 +3,21 @@
 
 ## Current checkpoint (2026-11-21)
 
+The port now has its first verified game graphics: the opening pre-rendered
+intro plays through the native window after a process-local Cross dismisses
+the no-card prompt. The retail call identifies the clip as resource `0x344`
+at LSN `0xc8f03`, length `0xab4004`. An opt-in Linux diagnostic uses the
+installed FFmpeg tools to decode and present it; this is not a shipping media
+backend. It confirms the movie route only. Normal startup still needs the
+correct save/title flow, and the native live 3D scene and gameplay renderer
+remain blocked. See the [playable TODO](PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
+for the capture, limits, and next steps.
+
+**Next:** trace normal startup through the identified intro and title, then
+replace the diagnostic decoder with a self-contained host media path. Resume
+the live world renderer separately; do not count pre-rendered video as
+playable 3D.
+
 The native client still reaches the memory-card flow and loaded world, but
 does not show a playable scene. A paired capture separated the two graphics
 paths: the normal game output is black, while the optional world-mesh overlay

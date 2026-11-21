@@ -71,6 +71,19 @@ std::unique_ptr<openrac::platform::Window> g_window;
 std::unique_ptr<openrac::renderer::TexturePool> g_textures;
 std::unique_ptr<openrac::renderer::DirectRenderer> g_direct;
 std::unique_ptr<openrac::renderer::Shader> g_world_shader;
+std::unique_ptr<openrac::renderer::Shader> g_movie_shader;
+std::mutex g_movie_frame_mutex;
+std::shared_ptr<const std::vector<std::uint8_t>> g_movie_frame;
+std::uint64_t g_movie_frame_serial = 0;
+std::uint64_t g_movie_uploaded_serial = 0;
+int g_movie_frame_width = 0;
+int g_movie_frame_height = 0;
+int g_movie_texture_width = 0;
+int g_movie_texture_height = 0;
+bool g_movie_frame_active = false;
+openrac::gl::GLuint g_movie_vao = 0;
+openrac::gl::GLuint g_movie_texture = 0;
+openrac::gl::GLint g_movie_sampler_location = -1;
 std::mutex g_world_mesh_mutex;
 std::vector<NativeWorldMesh> g_world_meshes;
 std::size_t g_world_mesh_replacements = 0;
@@ -323,6 +336,128 @@ void main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride,
                           reinterpret_cast<const void*>(7 * sizeof(float)));
     glBindVertexArray(0);
+    return true;
+}
+
+bool init_movie_renderer(std::string& error) {
+    using namespace openrac::gl;
+    constexpr std::string_view vertex = R"(#version 410 core
+out vec2 v_uv;
+void main() {
+    const vec2 positions[4] = vec2[4](
+        vec2(-1.0, -1.0), vec2( 1.0, -1.0),
+        vec2(-1.0,  1.0), vec2( 1.0,  1.0));
+    const vec2 texcoords[4] = vec2[4](
+        vec2(0.0, 1.0), vec2(1.0, 1.0),
+        vec2(0.0, 0.0), vec2(1.0, 0.0));
+    gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+    v_uv = texcoords[gl_VertexID];
+}
+)";
+    constexpr std::string_view fragment = R"(#version 410 core
+in vec2 v_uv;
+uniform sampler2D u_movie;
+out vec4 frag_color;
+void main() { frag_color = texture(u_movie, v_uv); }
+)";
+    g_movie_shader = std::make_unique<openrac::renderer::Shader>();
+    if (!g_movie_shader->build("sly-movie-frame", vertex, fragment, error)) {
+        g_movie_shader.reset();
+        return false;
+    }
+    g_movie_sampler_location = g_movie_shader->uniform("u_movie");
+    glGenVertexArrays(1, &g_movie_vao);
+    glGenTextures(1, &g_movie_texture);
+    if (g_movie_vao == 0 || g_movie_texture == 0) {
+        error = "could not allocate movie frame texture";
+        return false;
+    }
+    glBindTexture(GL_TEXTURE_2D, g_movie_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return true;
+}
+
+bool draw_movie_frame(int width, int height) {
+    using namespace openrac::gl;
+    std::shared_ptr<const std::vector<std::uint8_t>> pixels;
+    std::uint64_t serial = 0;
+    int frame_width = 0;
+    int frame_height = 0;
+    {
+        std::scoped_lock lock(g_movie_frame_mutex);
+        if (!g_movie_frame_active || !g_movie_frame) return false;
+        pixels = g_movie_frame;
+        serial = g_movie_frame_serial;
+        frame_width = g_movie_frame_width;
+        frame_height = g_movie_frame_height;
+    }
+    if (!g_movie_shader || g_movie_texture == 0 || frame_width <= 0 ||
+        frame_height <= 0 || pixels->size() !=
+            static_cast<std::size_t>(frame_width) * frame_height * 4u)
+        return false;
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    g_viewport(0, 0, width, height);
+    g_clear_color(0.0f, 0.0f, 0.0f, 1.0f);
+    g_clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_movie_texture);
+    if (g_movie_texture_width != frame_width || g_movie_texture_height != frame_height) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, frame_width, frame_height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels->data());
+        g_movie_texture_width = frame_width;
+        g_movie_texture_height = frame_height;
+        g_movie_uploaded_serial = serial;
+    } else if (g_movie_uploaded_serial != serial) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frame_width, frame_height,
+                        GL_RGBA, GL_UNSIGNED_BYTE, pixels->data());
+        g_movie_uploaded_serial = serial;
+    }
+    g_movie_shader->use();
+    glUniform1i(g_movie_sampler_location, 0);
+    glBindVertexArray(g_movie_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    if (std::getenv("OPENRAC_DUMP_MOVIE_FRAMES") != nullptr) {
+        static unsigned dumped = 0;
+        static std::uint64_t last_dumped_serial = 0;
+        unsigned stride = 30;
+        if (const char* setting = std::getenv("OPENRAC_DUMP_MOVIE_FRAME_STRIDE")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed > 0 && parsed <= 100000u)
+                stride = static_cast<unsigned>(parsed);
+        }
+        if (dumped < 8u && serial != last_dumped_serial && (serial - 1u) % stride == 0u) {
+            last_dumped_serial = serial;
+            const auto frame = openrac::renderer::read_rgba(0, width, height);
+            char path[512];
+            const char* directory = std::getenv("OPENRAC_DUMP_NATIVE_FRAME_DIR");
+            if (directory == nullptr || directory[0] == '\0') directory = "/tmp";
+            const int length = std::snprintf(path, sizeof(path),
+                "%s/sly1-movie-frame-%02u.ppm", directory, dumped++);
+            if (length > 0 && static_cast<std::size_t>(length) < sizeof(path)) {
+                if (FILE* file = std::fopen(path, "wb")) {
+                    std::fprintf(file, "P6 %d %d 255\n", width, height);
+                    for (std::size_t i = 0; i + 3 < frame.size(); i += 4)
+                        std::fwrite(frame.data() + i, 1, 3, file);
+                    std::fclose(file);
+                    std::fprintf(stderr, "[native movie frame dump] path=%s serial=%llu\n",
+                        path, static_cast<unsigned long long>(serial));
+                }
+            }
+        }
+    }
     return true;
 }
 
@@ -1317,7 +1452,32 @@ extern "C" int openrac_native_window_create(void) {
         openrac::log::error("Sly world renderer startup failed: {}", error);
         g_world_shader.reset();
     }
+    if (!init_movie_renderer(error)) {
+        openrac::log::error("Sly movie frame renderer startup failed: {}", error);
+        g_movie_shader.reset();
+    }
     return 1;
+}
+
+extern "C" void openrac_native_movie_frame(const std::uint8_t* rgba,
+                                             int width, int height) {
+    if (rgba == nullptr || width <= 0 || height <= 0 || width > 4096 || height > 4096)
+        return;
+    const std::size_t size = static_cast<std::size_t>(width) *
+                             static_cast<std::size_t>(height) * 4u;
+    auto frame = std::make_shared<std::vector<std::uint8_t>>(rgba, rgba + size);
+    std::scoped_lock lock(g_movie_frame_mutex);
+    g_movie_frame = std::move(frame);
+    g_movie_frame_width = width;
+    g_movie_frame_height = height;
+    ++g_movie_frame_serial;
+    g_movie_frame_active = true;
+}
+
+extern "C" void openrac_native_movie_end(void) {
+    std::scoped_lock lock(g_movie_frame_mutex);
+    g_movie_frame_active = false;
+    g_movie_frame.reset();
 }
 
 extern "C" int openrac_native_window_poll_quit(void) {
@@ -1730,6 +1890,10 @@ extern "C" void openrac_native_window_present(void) {
     g_window->drawable_size(width, height);
     openrac::gl::glBindFramebuffer(openrac::gl::GL_FRAMEBUFFER, 0);
     g_viewport(0, 0, width, height);
+    if (draw_movie_frame(width, height)) {
+        g_window->swap();
+        return;
+    }
     if (std::getenv("OPENRAC_DEBUG_PRESERVE_FRAME") == nullptr) {
         openrac::gl::glColorMask(openrac::gl::GL_TRUE, openrac::gl::GL_TRUE,
                                  openrac::gl::GL_TRUE, openrac::gl::GL_TRUE);
@@ -2022,9 +2186,21 @@ extern "C" void openrac_native_window_destroy(void) {
     if (g_direct) g_direct->release();
     if (g_world_vao != 0) openrac::gl::glDeleteVertexArrays(1, &g_world_vao);
     if (g_world_vbo != 0) openrac::gl::glDeleteBuffers(1, &g_world_vbo);
+    if (g_movie_vao != 0) openrac::gl::glDeleteVertexArrays(1, &g_movie_vao);
+    if (g_movie_texture != 0) openrac::gl::glDeleteTextures(1, &g_movie_texture);
     g_world_vao = 0;
     g_world_vbo = 0;
     g_world_shader.reset();
+    g_movie_vao = 0;
+    g_movie_texture = 0;
+    g_movie_shader.reset();
+    {
+        std::scoped_lock lock(g_movie_frame_mutex);
+        g_movie_frame.reset();
+        g_movie_frame_active = false;
+        g_movie_frame_width = 0;
+        g_movie_frame_height = 0;
+    }
     {
         std::scoped_lock lock(g_world_mesh_mutex);
         g_world_meshes.clear();
