@@ -89,6 +89,16 @@ and capture logs: `/tmp/sly-native-uploaded-bounds-20261121/run.log`,
 `/tmp/sly-native-full-uploaded-bounds-20261121/run.log`, and
 `/tmp/sly-native-terrain-split-20261121/run.log`.
 
+**Camera-to-OpenGL clip experiment (2026-11-21):** `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP`
+is an unset-by-default port diagnostic. It scales the uploaded matrix X and Y
+rows by `4096/640` and `4096/224` from the matched camera projection's PS2
+field dimensions, without changing depth or W. The bounded host32 run produced
+a horizon band and black lower half rather than a recognizable scene. This
+does not validate the conversion; keep it disabled by default until the exact
+matrix-to-GS coordinate mapping, viewport center and interlace handling are
+established. Capture and per-mesh bounds are in
+`/tmp/sly-native-screen-to-clip-corrected-20261121/`.
+
 **2026-11-21 host topology check:** the port now retains each source
 `VertexRefs.pos` index and can use those indices for its opt-in strip-restart
 split. A 106-vertex mesh (`0x00a0fd90`) repeats references at candidate run

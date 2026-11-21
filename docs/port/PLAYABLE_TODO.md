@@ -76,6 +76,17 @@ capture evidence: `/tmp/sly-native-uploaded-bounds-20261121/`,
 `/tmp/sly-native-full-uploaded-bounds-20261121/`, and
 `/tmp/sly-native-terrain-split-20261121/`.
 
+**Camera-to-OpenGL clip experiment (2026-11-21):** the camera's matched C
+projection uses the PS2 640x224 field scale. I added an unset-by-default
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` option that scales the uploaded matrix's X
+and Y rows by `4096/640` and `4096/224`, respectively, while leaving depth and
+W unchanged. A 15-second hidden host32 capture confirms that the option runs,
+but its frame is still an unrecognizable horizon band with most of the lower
+screen black. Do not enable it by default or call it a graphics fix. The
+matrix-to-GS coordinate conversion, viewport center and interlace behavior
+still need stronger evidence before choosing a host mapping. Capture and
+uploaded-bounds trace: `/tmp/sly-native-screen-to-clip-corrected-20261121/`.
+
 **Renderer checkpoint:** the native bridge now carries GS `ALPHA_1/2` and
 `TEST_1/2` state into host OpenGL. It applies the shared GS blend translation,
 texture alpha scaling, alpha tests, and the framebuffer/depth behavior for

@@ -745,6 +745,25 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
         }
+        if (std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr) {
+            // The retail camera matrix maps into the PS2's centered GS field
+            // coordinates (640x224, with 12-bit fixed-point screen scale).
+            // OpenGL instead clips x/y to [-w,+w]. Convert those two output
+            // rows to NDC while leaving depth and homogeneous W untouched.
+            constexpr float kPs2ScreenToClipX = 4096.0f / 640.0f;
+            constexpr float kPs2ScreenToClipY = 4096.0f / 224.0f;
+            for (std::size_t column = 0; column < 4; ++column) {
+                m[column] *= kPs2ScreenToClipX;
+                m[4u + column] *= kPs2ScreenToClipY;
+            }
+            static bool screen_to_clip_notice = false;
+            if (!screen_to_clip_notice) {
+                screen_to_clip_notice = true;
+                std::fprintf(stderr,
+                             "[native sly screen-to-clip] enabled scale_x=%g scale_y=%g logical_field=640x224\n",
+                             kPs2ScreenToClipX, kPs2ScreenToClipY);
+            }
+        }
         if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
             static unsigned uploaded_bounds_notices = 0;
             if (uploaded_bounds_notices++ < 256u) {
