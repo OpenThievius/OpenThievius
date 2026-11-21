@@ -47,6 +47,7 @@ struct NativeSlyMaterial {
 };
 struct NativeSlyMesh {
     u32 source_mesh = 0;
+    u32 kind = 0xFFFFFFFFu;
     int source_frame = 0;
     u32 morph_key_count = 0;
     std::vector<NativeSlyFrameSource> sources;
@@ -1044,6 +1045,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
     }
     NativeSlyMesh captured;
     captured.source_mesh = mesh_address;
+    captured.kind = mk;
     // StripHeader::count selects morph keys, not the separate bone palette.
     captured.morph_key_count = header_weight_count;
     if (header_weight_count > 0u && header_weight_count <= 4u &&
@@ -1727,8 +1729,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                                  (static_cast<u64>(i) << 8u) | pass;
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
                 std::fprintf(stderr,
-                             "[native sly mesh submit] source=%#010x packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx\n",
-                             source_mesh, packet_address, request_address, i, pass,
+                             "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx\n",
+                             source_mesh, mesh.kind, packet_address, request_address, i, pass,
                              mesh.materials.size(), mesh.vertices.size() / 9u,
                              static_cast<unsigned long long>(material.tex0));
             if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;

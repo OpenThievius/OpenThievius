@@ -43,6 +43,16 @@ distorted, mostly gray geometry, and the normal client remains black after the
 movie. The frame counter advancing is not proof that a visible scene was
 submitted. Log: `/tmp/sly-ffmpeg-long-20261121/run.log`.
 
+A fresh hidden comparison tried the native VU NDC capture/render switch with
+the reconstructed host world-mesh queue disabled. The VU capture reported
+1,360 position writes, but its isolated point image is sparse, and the
+post-continue frame is a large gray/black block rather than a recognizable
+scene. The run also filled the 16 MiB GIF packet queue. This does not validate
+the capture grouping or provide usable game graphics; do not enable the NDC
+path or infer triangle topology from mesh kind. The opt-in host mesh adapter
+still lacks proven strip boundaries and renderer inputs. Evidence:
+`/tmp/sly-vu-ndc-fresh-20261121/run.log`, `vu.png`, and `frame63.png`.
+
 **Next:** trace the normal Splash path from the no-card prompt through the
 opening cards and title without the test shortcut. In parallel, validate the
 world-mesh vertex topology, transforms, and material/resource mapping against

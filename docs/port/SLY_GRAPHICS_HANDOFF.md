@@ -96,6 +96,15 @@ skipped. Default evidence is in `/tmp/sly-default-after-card-20261121.log` and
 `/tmp/sly-default-after-card-20261121/contact.png`; opt-in evidence is in
 `/tmp/sly-startup-after-card-20261121.log` and its `contact.png`.
 
+A newer opt-in VU NDC run disabled the reconstructed model queue and captured
+1,360 VU position writes, but the isolated points are sparse and the
+post-continue output is a gray/black block. The run also reaches the 16 MiB GIF
+queue limit. This does not establish valid mesh grouping or usable graphics;
+the renderer remains incomplete. A speculative kind-5 `GL_TRIANGLES` branch
+was removed because the active model's vertex counts and image do not support
+that topology. Kind is retained only in the port-side capture trace. Evidence:
+`/tmp/sly-vu-ndc-fresh-20261121/run.log`, `vu.png`, and `frame63.png`.
+
 ### Opt-in scene-mesh state trace (not the current visual milestone)
 
 A follow-up source dump filtered to mesh `0x00a0fd90` found one 8-qword
