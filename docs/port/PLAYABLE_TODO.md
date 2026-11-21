@@ -142,6 +142,18 @@ black. The title and a recognizable world are not confirmed. `movie=0` is
 expected with the `PlayMovie` backfill and does not explain the missing live
 world.
 
+A follow-up hidden/offscreen run used the opt-in menu driver to dismiss the
+save prompt, then latched frame capture only after `ui_state=3`. All 64 captured
+960x720 RGBA readbacks were pure black (2,073,600 RGB bytes per frame, all
+zero). A paired startup-trace run reported world `0x870cf0` and `ui_state=3`.
+This confirms that the black screen is not just the save prompt waiting for
+input. Reading back 64 frames made the asynchronous GIF queue hit its 16 MiB
+cap afterward, so later queue warnings are capture overhead and are not
+evidence about retail output. The first 64 images were still all black. Logs:
+`/tmp/sly-gameplay-frame-20261121.log` and
+`/tmp/sly-active-world-frame-20261121b.log`; representative image:
+`/tmp/sly-gameplay-frame-20261121/frame-63.png`.
+
 The port-only GIF DMA bridge also now preserves mapped Linux stack addresses
 instead of folding them into EE RAM. The previous bounded run rejected 14
 chains from the resulting bad reads; the rebuilt run reached the same world
