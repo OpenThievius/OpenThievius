@@ -23,16 +23,18 @@ An approved hidden run with the configured US ELF and ISO verified this route.
 The capture is `/tmp/sly-native-title-yes-20261121/contact.png`; its log is
 `/tmp/sly-native-title-yes-20261121/run.log`. Next trace which Splash-owned
 scene/object is supposed to produce the opening title sequence, then add its
-Sly-specific host rendering. A separate hidden capture with the native mesh
-bridge enabled confirms it is not a Splash renderer: Splash built and bound
-strip resources during load, but emitted no `DrawModelPart` mesh submissions
-or native world-mesh queue. `OPENRAC_TRACE_MODEL_PARTS=1` also recorded no
-placed-object model queue calls while the game stayed on page 7. After the
-state-driven Yes input, the same bridge did receive 282 steady Paris meshes
-and 71 textures; its image remained distorted gray terrain. Keep that as a
-separate gameplay renderer lead. Do not use the Paris overlay screenshot as
-evidence of startup progress, and do not tune the VU renderer to solve this
-missing Splash draw path.
+Sly-specific host rendering. A follow-up trace found the sampled Splash list
+entry is a class-81, id-513 root with no children or model parts and the
+retail hidden flag set; its matched `ApplyPlacedObjectTransform` returns before
+model draw dispatch. That explains why this object produces no Splash mesh
+submission and does not indicate that OpenGL dropped an active model. After
+the process-local Yes input reaches Paris, the bridge receives 282 steady
+meshes and 71 textures, but its image remains distorted gray terrain. A host
+frame trace projects 11,504 vertices, with 11,419 inside clip bounds. Splitting
+triangle strips at repeated restart vertices exposes more surfaces but does
+not produce a recognizable scene. Keep the title route and Paris host-renderer
+work distinct; do not tune or implement the VU renderer to solve the host GL
+geometry problem.
 
 Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log` and
 `/tmp/sly-native-gl-current-20261121/contact.png` with

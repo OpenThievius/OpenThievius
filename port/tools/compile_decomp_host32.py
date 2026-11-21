@@ -5138,7 +5138,26 @@ void LoadEffectSpawner"""
         if args.trace_model_draws and rel.as_posix() == "main/placed_object.cpp":
             adapted = (
                 'extern "C" void sly1_native_trace_placed_object_parts(u32, u32, u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_placed_object_draw(u32, u32, u32);\n'
                 + adapted
+            )
+            apply_signature = (
+                "void ApplyPlacedObjectTransform(PlacedObject* self, Camera* cam, ScaledTransform* xf)\n{"
+            )
+            if adapted.count(apply_signature) != 1:
+                raise RuntimeError("expected one ApplyPlacedObjectTransform definition")
+            adapted = adapted.replace(
+                apply_signature,
+                apply_signature + "\n    sly1_native_trace_placed_object_draw((u32)self, (u32)cam, 0);",
+                1,
+            )
+            draw_dispatch = "    self->desc02()->m25(self, cam, xf);"
+            if adapted.count(draw_dispatch) != 1:
+                raise RuntimeError("expected ApplyPlacedObjectTransform draw dispatch")
+            adapted = adapted.replace(
+                draw_dispatch,
+                "    sly1_native_trace_placed_object_draw((u32)self, (u32)cam, 1);\n" + draw_dispatch,
+                1,
             )
             queue_signature = (
                 "void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{"
@@ -5616,13 +5635,15 @@ void LoadEffectSpawner"""
             # parts entering the main model draw path (and how many are culled).
             adapted = ('extern "C" void sly1_native_trace_model_parts_enter(u32, u32, u32);\n'
                        'extern "C" void sly1_native_trace_model_draw_result(u32, u32);\n') + adapted
-            qneedle = ("void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{\n"
-                       "    ModelPartRequest rec;\n    ModelPartState* state = 0;\n    s32 drawn = 0;")
-            qrepl = ("void QueuePlacedObjectModelParts(PlacedObject* self, Camera* cam, Quad16* src)\n{\n"
-                     "    ModelPartRequest rec;\n    ModelPartState* state = 0;\n    s32 drawn = 0;\n"
-                     "    sly1_native_trace_model_parts_enter((u32)self, (u32)self->drawPartCount, (u32)g_currentWorld);")
-            if adapted.count(qneedle) == 1:
-                adapted = adapted.replace(qneedle, qrepl, 1)
+            drawn_needle = "    s32 drawn = 0;"
+            if adapted.count(drawn_needle) != 1:
+                raise RuntimeError("expected QueuePlacedObjectModelParts draw counter")
+            adapted = adapted.replace(
+                drawn_needle,
+                drawn_needle + "\n    sly1_native_trace_model_parts_enter("
+                "(u32)self, (u32)self->drawPartCount, (u32)g_currentWorld);",
+                1,
+            )
             # Log parts drawn just before the function returns (find the tail).
             tail = "    if (drawn != 0) {\n        self->desc02()->m27(self, src);"
             if adapted.count(tail) == 1:

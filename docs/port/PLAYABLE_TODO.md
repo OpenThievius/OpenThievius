@@ -3,6 +3,33 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Native OpenGL renderer direction and live-scene check (2026-11-21)
+
+Keep graphics work on the native host OpenGL renderer. Do not implement or
+emulate the PlayStation VU renderer. Retail packet output is useful as source
+data for diagnosing Sly draw requests, while geometry submission, texture
+binding, render targets, depth, and presentation belong in the port-owned host
+renderer.
+
+A hidden host32 run confirmed the Splash list node at `0x00864380` is class 81,
+id 513, with no children or model parts and the retail hidden flag set. Its
+`ApplyPlacedObjectTransform` callback returns before dispatching a draw. That
+explains why this particular Splash root feeds no world mesh; it does not show
+that the native renderer dropped an active model. After the existing
+process-local save-prompt selection reaches Paris, the native OpenGL bridge
+queues 282 distinct meshes, binds 71 real textures, and projects 11,504
+vertices, of which 11,419 are within clip bounds. The picture is still a
+distorted, mostly gray scene. A host-only strip-restart comparison exposes
+more surfaces but remains incorrect. Captures and logs are in
+`/tmp/sly-native-gl-gameplay-20261121/` and
+`/tmp/sly-native-gl-splitstrips-20261121/`.
+
+**Next:** use the existing OpenGL mesh queue to isolate how retail strip
+restart markers, material passes, and offscreen texture targets map to host
+draws. Confirm each change from captured host frames. Keep the existing 2D
+DirectRenderer for menu packets. Do not change VU instruction limits or
+implement a VU renderer as a shortcut.
+
 ### Native host32 field pacing recheck (2026-11-21)
 
 The direct i386 SDL bootstrap was generating one retail VBlank for every
