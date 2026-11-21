@@ -10,6 +10,8 @@ extern "C" void sly1_native_trace_movie_call(
     u32 queued, u32 queued_next) __attribute__((weak));
 extern "C" int sly1_native_play_movie(u32 lsn, u32 bytes, u32 resource_id)
     __attribute__((weak));
+void decomp_PlayMovie(MoviePlayer* self, IdentityKey* key) __attribute__((weak));
+extern "C" int sly1_native_decomp_movies_enabled() __attribute__((weak));
 
 void PlayMovie(MoviePlayer* self, IdentityKey* key)
 {
@@ -25,9 +27,13 @@ void PlayMovie(MoviePlayer* self, IdentityKey* key)
             self != nullptr ? static_cast<u32>(reinterpret_cast<uptr>(self->queued)) : 0u,
             self != nullptr ? static_cast<u32>(reinterpret_cast<uptr>(self->queuedNext)) : 0u);
     }
-    // This Linux-only development path uses the installed ffmpeg tool to show
-    // the retail PSS from the user's disc. The native movie decoder remains a
-    // separate port task; unmatched movies keep the no-op behavior.
-    if (sly1_native_play_movie != nullptr)
-        (void)sly1_native_play_movie(lsn, bytes, resource_id);
+    // The FFmpeg bridge only verifies the retail stream and native presentation.
+    // For a real hostability check, optionally run the now-matched decomp body.
+    if (sly1_native_play_movie != nullptr &&
+        sly1_native_play_movie(lsn, bytes, resource_id) != 0)
+        return;
+    if (sly1_native_decomp_movies_enabled != nullptr &&
+        sly1_native_decomp_movies_enabled() != 0 &&
+        decomp_PlayMovie != nullptr)
+        decomp_PlayMovie(self, key);
 }

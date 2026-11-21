@@ -2670,6 +2670,11 @@ extern "C" int sly1_native_play_movie(u32 lsn, u32 bytes, u32 resource_id) {
 }
 #endif
 
+extern "C" int sly1_native_decomp_movies_enabled() {
+    const char* setting = std::getenv("OPENRAC_NATIVE_DECOMP_MOVIES");
+    return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
+}
+
 extern "C" __attribute__((noreturn)) void sly1_missing_function(
     u32 address, u32 caller, u32 argument0, u32 argument1, u32 argument2) {
     write_hex("native host32: missing compiled function at ", (int)address);
@@ -2781,9 +2786,26 @@ extern "C" void sly1_native_trace_movie_call(
         return;
     std::fprintf(stderr,
                  "[native movie backfill] call=%u self=%08x key=%08x "
-                 "lsn=%08x bytes=%08x id=%08x/%08x queued=%08x next=%08x\n",
+                 "lsn=%08x bytes=%08x id=%08x/%08x queued=%08x next=%08x "
+                 "iop_disc=%u iop_read_pending=%u iop_packet_busy=%u "
+                 "host_cd_reads=%u host_cd_sectors=%u\n",
                  events++, self, key, key_lsn, key_bytes, key_word_2,
-                 key_word_6, queued, queued_next);
+                 key_word_6, queued, queued_next,
+                 *reinterpret_cast<volatile u32*>(0x0025C34Cu),
+                 *reinterpret_cast<volatile u32*>(0x0025C354u),
+                 *reinterpret_cast<volatile u32*>(0x00260DC0u),
+                 g_disc_read_count, g_disc_sectors_read);
+}
+
+extern "C" void sly1_native_trace_cd_read(u32 sector, u32 count,
+                                            u32 mode, u32 result) {
+    static u32 events = 0;
+    if (getenv("OPENRAC_TRACE_MOVIE_BACKFILL") == nullptr || events >= 64u)
+        return;
+    std::fprintf(stderr,
+                 "[native cd read] event=%u lsn=%08x sectors=%u mode=%06x "
+                 "accepted=%u\n",
+                 events++, sector, count, mode, result);
 }
 
 extern "C" void sly1_port_trace_nested_counts(

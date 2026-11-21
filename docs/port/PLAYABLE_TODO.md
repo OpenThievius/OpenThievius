@@ -37,6 +37,25 @@ follows this clip. Separately replace the FFmpeg diagnostic with a
 self-contained host media path, then return to the live world renderer. Keep
 both tasks in `port/`; do not alter matched decompilation source.
 
+### Decompiled movie path check (2026-11-21)
+
+After the wrong C/C++ weak-symbol linkage was corrected in the port-only
+`PlayMovie` wrapper, `OPENRAC_NATIVE_DECOMP_MOVIES=1` did enter the matched
+decompilation body. `OpenSectorStreamRange` requested LSN `0xc8f03`, eight
+sectors in mode `0x17f`, and the host CD adapter accepted the read. The process
+then faulted at guest address `0x64` in `GetOscillatorEntryPeriod`, called
+while `StartMovieStream` is starting the movie audio/IOP path. This proves
+that the decompiled movie function is now reached; it does not yet prove the
+MPEG decoder or live presentation path works. The exact IOP/audio caller that
+supplies the invalid oscillator is not yet isolated. Do not patch the matched
+decompilation: trace and repair the responsible host service in `port/`, or
+keep any required behavior replacement as a clearly named port backfill.
+
+Evidence: `/tmp/sly-decomp-movie-correct-link-20261121/run.log`. The bounded
+hidden run used the configured Documents US ISO and cached US ELF, enabled
+only the opt-in decomp movie path, and exited on the first fatal signal. The
+normal default launch is unchanged.
+
 ### Renderer direction: start with the scene in the reference
 
 Do not make VU1 instruction coverage the route to a playable port. OpenRAC's

@@ -19,6 +19,14 @@ Live 3D rendering and controllable gameplay are still unverified. See the
 [playable TODO](../../../../docs/port/PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
 for evidence and next steps.
 
+The opt-in `OPENRAC_NATIVE_DECOMP_MOVIES=1` diagnostic now reaches the matched
+`PlayMovie` body after the C++ weak-symbol linkage fix. It accepts the opening
+PSS sector read, then faults in `GetOscillatorEntryPeriod` during the movie
+audio/IOP startup path. This is not the default path and does not establish
+decoder or live movie playback support. Trace/fix the host service in `port/`;
+do not modify the matched decomp source. See the dated checkpoint in the
+playable TODO for the exact log and current diagnosis.
+
 The sibling decomp checkout is at `8f7a85a3`; US and PAL code remain 100%
 matched. The native host32 target is still an experimental compatibility
 build, not a playable port. The default build shows the no-card warning and
