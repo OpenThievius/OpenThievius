@@ -772,6 +772,10 @@ std::uint32_t guest_address(std::uint32_t address) {
     if (address >= 0x30000000u && address < 0x32000000u) return address - 0x30000000u;
     // The native C++ build keeps addressed locals on the Linux stack and in
     // its own static storage, rather than in a translated guest RAM arena.
+    // The 32-bit Linux stack used by the launcher is commonly mapped in the
+    // 0xB0000000-0xEFFFFFFF range; preserve these native pointers so DMA chains
+    // built in local storage are read from their actual host address.
+    if (address >= 0xB0000000u && address < 0xF0000000u) return address;
     if ((address >= 0x08000000u && address < 0x10000000u) ||
         address >= 0xf0000000u) return address;
     return address & 0x01ffffffu;
@@ -795,6 +799,7 @@ bool guest_span(std::uint32_t address, std::size_t size, const std::uint8_t*& ou
         size <= static_cast<std::size_t>(GUEST_PORT + GUEST_PORT_SIZE - physical);
     const bool native_address =
         (physical >= 0x08000000u && physical < 0x10000000u) ||
+        (physical >= 0xB0000000u && physical < 0xF0000000u) ||
         physical >= 0xf0000000u;
     const bool in_native_storage = in_port ||
         (native_address &&

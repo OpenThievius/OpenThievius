@@ -11,11 +11,21 @@ playback. The native build deliberately replaces the matched `PlayMovie`
 function with a port-only no-op until a host movie decoder exists, so that
 sequence is a known unsupported feature, not a live-renderer target.
 
-A fresh low-overhead native capture rendered the US save-file prompt. The
-opt-in test driver sent Cross, Up, then Cross; the game left page 7 for
-`ui_state=3` with world `0x870cf0`, but the later frame dumps are black. The
-title and a recognizable world are still not confirmed. `movie=0` is expected
-with the `PlayMovie` backfill and does not explain the missing live world.
+A fresh low-overhead native capture rendered the US save-file prompt. A single
+process-local Cross press at native frame 120 moved from page 7 to
+`ui_state=3` with world `0x870cf0`; ten later gameplay-frame dumps are still
+black. The title and a recognizable world are not confirmed. `movie=0` is
+expected with the `PlayMovie` backfill and does not explain the missing live
+world.
+
+The port-only GIF DMA bridge also now preserves mapped Linux stack addresses
+instead of folding them into EE RAM. The previous bounded run rejected 14
+chains from the resulting bad reads; the rebuilt run reached the same world
+state with zero rejected GIF DMA chains. The recovered PATH3 stream contains
+only point, line, and sprite writes, not world triangles, and the image remains
+black. Keep the graphics investigation on the VU1/XGKICK-to-GS boundary.
+Details and evidence are in [the graphics handoff](SLY_GRAPHICS_HANDOFF.md).
+
 The present loop consumes queued packets during ordinary traces. A separate
 per-draw trace was too expensive: it let the queue hit its 16 MiB cap, after
 which the renderer decoded garbage GS state. Treat those bad target/scissor
@@ -35,6 +45,9 @@ upstream commit to use.
 
 Evidence: `/tmp/sly-reference-compare-20261121/run.log` and its eight PPM
 frame dumps (prompt, test-driven transition, then black),
+`/tmp/sly-stack-dma-check-20261121.log`,
+`/tmp/sly-accepted-gif-after-stack-fix-20261121.log`, and ten verified pure
+black PPM frames under `/tmp/sly-stack-dma-frames-20261121/`,
 `/tmp/sly-target-trace-20261121/run.log` (detailed draw-state trace; queue
 saturation under tracing), `/tmp/sly-present-queue-20261121.log` (active
 present loop draining packets), and `/tmp/sly-reference-20261106-contact.png`

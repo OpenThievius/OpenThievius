@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native stack DMA addresses and post-Continue census (2026-11-21)
+
+The port-only GIF DMA bridge received a chain root on the host32 Linux thread
+stack (for example `0xdb6a3a2c`), but `guest_address()` folded it into an EE
+RAM alias. That made the parser read unrelated bytes and reject 14 chains in a
+bounded pre-fix run. The direct host32 address path now preserves mapped
+addresses in `0xB0000000..0xEFFFFFFF`; `guest_span()` still checks those host
+pages with `mincore()`. Guest RAM aliases, scratchpad, and port-heap addresses
+keep their existing handling. This is a port runtime correction, not a
+replacement for retail DMA behavior.
+
+The rebuilt default host32 target ran with the Documents US ISO and one
+process-local Cross at native frame 120. The game left the unformatted-card
+page and reached active frames in world `0x870cf0`; the renderer reported zero
+rejected GIF DMA chains. A post-input census captured 91 accepted PATH3 chains
+with XYZ writes. Their PRIM values were points, lines, or sprites; none wrote
+triangle-list or triangle-strip vertices. Ten post-input gameplay-frame dumps
+remain pure black (one color). The stack fix removes false DMA rejections but
+does not fix live-world graphics.
+
+Evidence: `/tmp/sly-stack-dma-check-20261121.log`,
+`/tmp/sly-accepted-gif-after-stack-fix-20261121.log`, and
+`/tmp/sly-stack-dma-frames-20261121/sly1-native-frame-09.ppm`. Each launcher
+run used SDL's offscreen driver and ended at its deliberate timeout (137).
+The accepted-packet trace is capped at 4,096 summaries. Continue from the
+VU1/XGKICK-to-GS boundary; do not change GIF validation or infer world
+triangles from the recovered PATH3 traffic.
+
 ### PCSX2 reference supplied by the user (2026-11-21)
 
 The 62.8-second clip is useful for startup and title-screen comparison. It
