@@ -33,29 +33,36 @@ startup scene itself the next comparison target; the gameplay-world test
 route intentionally steps past the title and cannot validate this milestone.
 
 The current decomp gives a useful boundary for the investigation. Its startup
-initializer list runs `RunResetGameSession`; `RunMainLoop` processes
+initializer list runs `RunResetGameSession`; the key passed by that reset
+matches keyed entry ID 2, `Splash`. Entry ID 3 is `Paris France`, matching the
+world reached after the test menu sequence. `RunMainLoop` processes
 `g_moviePlayer.queued` only when a movie has been queued. The 16 named movie
 entries are bonus/level clips and credits, not the opening rooftop sequence.
-That sequence is therefore likely supplied by the startup/world scene path,
+That sequence is therefore likely supplied by the Splash startup/world path,
 not the generic MPEG movie player (inference from the decomp and recording).
-Confirm the world/state that owns it before changing movie playback. In the
-ordinary startup trace, the no-save prompt is world `0x6abdd0`, UI state 5,
-page 7, and no movie is queued. The approved menu test reaches world
-`0x870cf0`, UI state 3, after 2,426 sectors; default output there is black.
-Logs and captures are `/tmp/sly-menu-drive-default-20261121.log`,
+Confirm the world/state that owns it before changing movie playback. The
+ordinary startup remains in Splash world `0x6abdd0`, UI state 5, page 7, with
+no queued movie. The approved menu test reaches Paris world `0x870cf0`; it
+intentionally skips the title and default output there is black. Logs and
+captures are `/tmp/sly-menu-drive-default-20261121.log`,
 `/tmp/sly-menu-gameplay-default-20261121.log`, and
 `/tmp/sly-menu-gameplay-default-20261121/contact.png` (57 consecutive frames).
 
-The normal DirectRenderer diagnostic further narrows the black gameplay
-frame: it decodes many large GIF packets without error, but most contain no
-vertices; periodic batches contain 6, 12, 36 or 48 vertices. The 36/48-vertex
-batches are triangles, with the captured bounds clustered at/off the clip
-edges rather than covering the screen. Do not repeat the earlier
-`gs_stream.cpp` census conclusion that all VU packets are points/lines: it did
-not apply PRMODECONT/PRMODE and is not authoritative for effective primitive
-state. Evidence is in `/tmp/sly-direct-render-decode-20261121.log`; this
-diagnostic does not yet identify whether the data transform or its GS state is
-wrong.
+The normal DirectRenderer diagnostic decodes host draw batches with 6, 12, 36
+or 48 vertices. Those vertices are triangles after host conversion, but this
+does not prove the source GS primitive was a 3D triangle: GS sprites are also
+expanded to host triangles. I corrected `gs_stream.cpp` to apply
+PRMODECONT.AC when choosing PRIM or PRMODE, matching the live DirectRenderer.
+A hidden run through the approved menu route then found 743 summarized GIF
+calls: 568 VIF DIRECT and 175 VU XGKICK. VIF DIRECT produced 12,424 sprite XYZ
+writes; VU output produced 182 point writes and 5 sprite writes. Neither path
+produced any triangle-list or triangle-strip writes in this trace. This run
+did not save a frame, so the black output is established by the separate
+default-renderer captures above, not by this census run. The trace narrows the
+next investigation to scene/mesh packet generation before host rendering, but
+does not prove that every path to a scene triangle is absent. The old claim
+that all VU kicks used point mode was wrong, and host-triangle counts alone
+were misleading. Trace: `/tmp/sly-effective-prim-menu-capture-20261121.log`.
 
 A fresh default hidden run confirms Splash world `0x6abdd0` remains at UI state
 5, page 7 (create-save prompt), with `movie=0`. One process-local Cross at host

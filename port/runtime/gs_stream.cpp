@@ -33,6 +33,10 @@ struct GifParser {
     std::array<uint64_t, 0x80> register_write_counts{};
     uint64_t current_uv = 0;
     uint32_t current_rgba = 0xFFFFFFFFu;
+    // PRMODECONT.AC selects PRIM (1) or PRMODE (0). The normal DirectRenderer
+    // uses the same default; keep this diagnostic parser's primitive assembly
+    // in step with it.
+    bool use_prim_attributes = true;
     std::array<openrac_gs_vertex, 3> primitive_vertices{};
     uint32_t primitive_vertex_count = 0;
     uint32_t strip_vertex_count = 0;
@@ -65,6 +69,23 @@ void append_triangle(const openrac_gs_vertex& a, const openrac_gs_vertex& b,
     append_vertex(c);
 }
 
+uint32_t effective_primitive() {
+    const uint32_t address = g_parser.use_prim_attributes ? 0x00u : 0x1Bu;
+    return static_cast<uint32_t>(g_parser.gs_registers[address] & 7u);
+}
+
+void append_line_segment(const openrac_gs_vertex& a, const openrac_gs_vertex& b) {
+    const float dx = b.x - a.x, dy = b.y - a.y;
+    const float length = std::max(1.0f, std::sqrt(dx * dx + dy * dy));
+    const float ox = -dy / length * 0.5f, oy = dx / length * 0.5f;
+    append_triangle({a.x + ox, a.y + oy, a.rgba},
+                    {b.x + ox, b.y + oy, b.rgba},
+                    {b.x - ox, b.y - oy, b.rgba});
+    append_triangle({a.x + ox, a.y + oy, a.rgba},
+                    {b.x - ox, b.y - oy, b.rgba},
+                    {a.x - ox, a.y - oy, a.rgba});
+}
+
 openrac_gs_vertex make_vertex(uint64_t value) {
     const uint64_t offset = g_parser.gs_registers[0x18u];
     const int32_t x = static_cast<int32_t>(value & 0xFFFFu) -
@@ -77,7 +98,7 @@ openrac_gs_vertex make_vertex(uint64_t value) {
 
 void submit_vertex(uint64_t value) {
     const openrac_gs_vertex vertex = make_vertex(value);
-    const uint32_t primitive = static_cast<uint32_t>(g_parser.gs_registers[0] & 7u);
+    const uint32_t primitive = effective_primitive();
     switch (primitive) {
     case 0: // point: represent it as a 1-pixel native quad
         append_triangle(vertex, {vertex.x + 1.0f, vertex.y, vertex.rgba},
@@ -92,17 +113,8 @@ void submit_vertex(uint64_t value) {
             g_parser.primitive_vertex_count = 1;
         } else {
             const auto a = g_parser.primitive_vertices[0];
-            const auto b = vertex;
-            const float dx = b.x - a.x, dy = b.y - a.y;
-            const float length = std::max(1.0f, std::sqrt(dx * dx + dy * dy));
-            const float ox = -dy / length * 0.5f, oy = dx / length * 0.5f;
-            append_triangle({a.x + ox, a.y + oy, a.rgba},
-                            {b.x + ox, b.y + oy, b.rgba},
-                            {b.x - ox, b.y - oy, b.rgba});
-            append_triangle({a.x + ox, a.y + oy, a.rgba},
-                            {b.x - ox, b.y - oy, b.rgba},
-                            {a.x - ox, a.y - oy, a.rgba});
-            g_parser.primitive_vertices[0] = b;
+            append_line_segment(a, vertex);
+            g_parser.primitive_vertices[0] = vertex;
         }
         break;
     case 2: // line strip
@@ -111,13 +123,9 @@ void submit_vertex(uint64_t value) {
             g_parser.primitive_vertex_count = 1;
         } else {
             const auto previous = g_parser.primitive_vertices[0];
-            g_parser.primitive_vertex_count = 0;
-            const uint64_t saved_prim = g_parser.gs_registers[0];
-            g_parser.gs_registers[0] = 1;
-            g_parser.primitive_vertices[0] = previous;
+            append_line_segment(previous, vertex);
+            g_parser.primitive_vertices[0] = vertex;
             g_parser.primitive_vertex_count = 1;
-            submit_vertex(value);
-            g_parser.gs_registers[0] = saved_prim;
         }
         break;
     case 3: // triangle list
@@ -174,8 +182,7 @@ void write_gs_register(uint32_t address, uint64_t value) {
     ++g_parser.register_write_counts[address];
     if ((address == 0x04u || address == 0x05u) &&
         g_trace_xyz_primitive_counts != nullptr) {
-        const uint32_t primitive = static_cast<uint32_t>(g_parser.gs_registers[0] & 7u);
-        ++(*g_trace_xyz_primitive_counts)[primitive];
+        ++(*g_trace_xyz_primitive_counts)[effective_primitive()];
     }
     const char* xyz_trace_origin = std::getenv("OPENRAC_TRACE_GS_XYZ_ORIGIN");
     const bool xyz_origin_matches = xyz_trace_origin == nullptr ||
@@ -186,12 +193,15 @@ void write_gs_register(uint32_t address, uint64_t value) {
         static std::atomic<uint32_t> xyz_trace_count{0};
         if (xyz_trace_count.fetch_add(1, std::memory_order_relaxed) < 64u) {
             std::fprintf(stderr,
-                         "[gif XYZ input] origin=%s tag=%#018llx regs=%#018llx format=%u address=%#04x prim=%#018llx xyoffset=%#018llx rgba=%#010x index=%u value=%#018llx\n",
+                         "[gif XYZ input] origin=%s tag=%#018llx regs=%#018llx format=%u address=%#04x prim=%#018llx prmode=%#018llx prmodecont=%#018llx effective_prim=%u xyoffset=%#018llx rgba=%#010x index=%u value=%#018llx\n",
                          g_gif_input_origin,
                          static_cast<unsigned long long>(g_parser.tag_low),
                          static_cast<unsigned long long>(g_parser.tag_registers),
                          g_parser.format, address,
                          static_cast<unsigned long long>(g_parser.gs_registers[0]),
+                         static_cast<unsigned long long>(g_parser.gs_registers[0x1Bu]),
+                         static_cast<unsigned long long>(g_parser.gs_registers[0x1Au]),
+                         effective_primitive(),
                          static_cast<unsigned long long>(g_parser.gs_registers[0x18u]),
                          g_parser.current_rgba,
                          g_parser.register_index,
@@ -206,6 +216,12 @@ void write_gs_register(uint32_t address, uint64_t value) {
         g_parser.current_rgba = static_cast<uint32_t>(value);
     } else if (address == 0x03u) {
         g_parser.current_uv = value;
+    } else if (address == 0x1Au) {
+        g_parser.use_prim_attributes = (value & 1u) != 0;
+    } else if (address == 0x1Bu) {
+        // PRMODE is selected by the effective-attribute flag above. Match the
+        // live DirectRenderer: only a PRIM register write resets its assembly
+        // queue.
     } else if (address == 0x04u || address == 0x05u) {
         submit_vertex(value);
     }
@@ -371,9 +387,12 @@ void gif_stream_write(const void* source, size_t size, const char* origin) {
         const uint64_t xyzf2_writes = g_parser.register_write_counts[0x05u] - xyzf2_before;
         if (xyz2_writes != 0 || xyzf2_writes != 0) {
             std::fprintf(stderr,
-                         "[gif XYZ summary] origin=%s bytes=%zu PRIM=%#llx PRIM_writes=%llu XYZ2=%llu XYZF2=%llu prim_xyz=0:%llu,1:%llu,2:%llu,3:%llu,4:%llu,5:%llu,6:%llu,7:%llu native_vertices=%zu\n",
+                         "[gif XYZ summary] origin=%s bytes=%zu PRIM=%#llx PRMODE=%#llx PRMODECONT=%#llx effective_prim=%u PRIM_writes=%llu XYZ2=%llu XYZF2=%llu prim_xyz=0:%llu,1:%llu,2:%llu,3:%llu,4:%llu,5:%llu,6:%llu,7:%llu native_vertices=%zu\n",
                          g_gif_input_origin, size,
                          static_cast<unsigned long long>(g_parser.gs_registers[0]),
+                         static_cast<unsigned long long>(g_parser.gs_registers[0x1Bu]),
+                         static_cast<unsigned long long>(g_parser.gs_registers[0x1Au]),
+                         effective_primitive(),
                          static_cast<unsigned long long>(
                              g_parser.register_write_counts[0x00u] - prim_before),
                          static_cast<unsigned long long>(xyz2_writes),
