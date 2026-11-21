@@ -26,23 +26,26 @@ on external host tools. It is a visual diagnostic, not the final
 cross-platform media implementation.
 The latest finish-entry trace adds the opt-in
 `OPENRAC_TRACE_VU1_PC_WORDS_ENTRY=<hex>` filter, which narrows selected VU
-instruction dumps to one MSCAL entry. A hidden native run after the menu flow
-captured entry `0x2` and its live helpers at `0x4a9` and `0x5ef`. They are
-vertex-buffer copy loops using instruction families the port already handles;
-this capture has not identified an unsupported VU opcode or a graphics fix.
-The source-mesh overlay is separately confirmed to draw terrain, but its image
-is distorted and it remains opt-in. Thus the current position is: boot and
-menu graphics work, the native game reaches Paris, but the default native 3D
-path is black and the only visible terrain comes from an inaccurate backfill.
-Do not present this as playable or relax GIF validation. Next compare actual
-finish-helper state and output against the matching retail path, then repair
-the normal VU-to-GIF path or improve the port-only mesh renderer from verified
-inputs. Trace and capture details are in the [graphics handoff](SLY_GRAPHICS_HANDOFF.md#finish-helper-vu-trace-2026-11-21).
+instruction dumps to one MSCAL entry. A hidden native run captured entry `0x2`
+and its live helpers at `0x4a9` and `0x5ef`. They are vertex-buffer copy loops
+using instruction families the port already handles; no unsupported VU opcode
+or direct cause was found. A correctly configured host32 overlay capture then
+showed 312 meshes and 12,999 vertices. The projected vertices are finite and
+mostly inside the clip volume (`x=-2.28..1.81`, `y=-1.45..1.85`, `z=-0.999..0.306`),
+but point mode displays only sparse fragments, and solid triangles remain a
+distorted rooftop/corridor. This means the host overlay's captured positions
+are live, while its grouping, frame selection, or transform interpretation is
+still wrong. The default VU/GIF route remains black and must be investigated
+separately. Do not present this as playable or relax GIF validation. Next
+correlate one mesh's ordered `VertexRefs`, selected `FrameSource` and matrix
+with the VU scratch qwords and final GIF packet, using the now-confirmed entry
+filter; keep any corrective code in port backfills. Trace details are in the
+[graphics handoff](SLY_GRAPHICS_HANDOFF.md#finish-helper-vu-trace-2026-11-21).
 Evidence: `/tmp/sly-vu-entry2-helper-filter-20261121.log`,
-`/tmp/sly-vu-finish-helper-state-20261121.log`, and the pure-black frame
-`/tmp/sly1-native-world-07.ppm`. The latter came from a bounded hidden run with
-the opt-in mesh bridge active; 312 meshes were queued. No matched decomp source
-changed.
+`/tmp/sly-vu-finish-helper-state-20261121.log`,
+`/tmp/sly-world-points-solid-overlay-20261121.log`, and
+`/tmp/sly-world-normal-bounds-20261121.log`. The corrected overlay build was
+hidden and bounded; no matched decomp source changed.
 
 The current port backfills report an empty formatted card unless
 `OPENRAC_NO_MEMCARD` is set. Without input, the game waits on the

@@ -6874,3 +6874,36 @@ GIF output.
 The bounded capture is `/tmp/sly-vu-entry2-helper-filter-20261121.log`. The
 runtime trace filter is uncommitted until this note and the code change are
 reviewed together; no retail data or trace dump is tracked.
+
+## Overlay vertex-view recheck (2026-11-21)
+
+Rebuilt the direct host32 target in the existing
+`wave55-sdl32-world32-20261121` tree, which has
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`. A first points capture was invalid for
+comparison because an intervening launcher rebuild had been done from the same
+source tree with the overlay compile switch off. After rebuilding the correct
+target, the hidden menu driver reached world `0x870cf0`, and the overlay
+reported 312 meshes / 12,999 source vertices. The post-HUD screenshot with
+`OPENRAC_DEBUG_SLY_WORLD_PRIMITIVE=points` contains only sparse fragments. The
+same run confirms the normal captured mesh records are reaching the actual
+present thread (`submissions=312`); the black pre-HUD screenshot is expected,
+since the mesh draw occurs after the HUD pass.
+
+A separate overlay run with `OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS=1` and
+`OPENRAC_TRACE_SLY_PRESENT_BOUNDS=1` found all 12,999 vertices finite and
+12,914 inside the current host clip volume. Representative steady-frame bounds
+were x `-2.278..1.808`, y `-1.455..1.855`, z `-0.9995..0.3062`. The post-HUD
+image still shows distorted surfaces, and the isolated point route remains
+sparse. This rules out a wholesale missing VBO upload or an all-offscreen
+transform, but does not validate the renderer's grouping, source-frame choice,
+normal/color interpretation, or matrix convention. The overlay still does not
+repair the default native VU/GIF output.
+
+Next correlate one live source mesh's ordered `VertexRefs`, the selected
+`FrameSource`, and submitted matrix with its VU scratch writes and final GIF
+packet. Keep the comparison exact and port-only; do not change matched
+functions or relax GIF validation. Captures: `/tmp/sly-world-points-solid-overlay-20261121.log`,
+`/tmp/sly-world-normal-bounds-20261121.log`, and post-HUD
+`/tmp/sly1-native-world-after-hud-07.png`. Both runs were hidden, bounded, and
+used the configured US ISO and cached ELF. The menu driver sent only
+process-local test inputs. No game data or screenshots are tracked.
