@@ -25,6 +25,19 @@ default renderer. Captures and traces:
 `/tmp/sly-native-skip-class54-20261121/`,
 `/tmp/sly-native-individual-bounds-20261121/run.log`.
 
+**Backdrop outlier matrix audit (2026-11-21):** the largest NDC outlier is
+request `0x005e5380`, source mesh `0x00a0fd90`: 106 vertices, local bounds
+`(-48063,-49970,-50000)..(48063,49970,50000)`, and projected bounds reaching
+about `(-148,-6)..(2.25,90)`. Its owning class is the same camera-positioned
+class `0x54` object; the model origin follows camera X/Y and remains at Z
+`-3350`. This is consistent with an intentional distant background mesh, not
+an ordinary level mesh accidentally receiving a huge model scale. Keep it
+isolated when auditing scene bounds; do not “fix” it by applying the ordinary
+world clip or scale to every request. Skipping it removes the broad gray area,
+but the remaining native scene still has disconnected geometry. Evidence:
+`/tmp/sly-native-gl-outlier-audit-20261121/run.log` and
+`/tmp/sly-native-backdrop-matrix-20261121/run.log`.
+
 **Per-request clip-scale experiment (2026-11-21):** the renderer accepts
 `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_REQUEST=<address>` to apply the existing
 screen conversion to one native draw request while leaving other meshes
