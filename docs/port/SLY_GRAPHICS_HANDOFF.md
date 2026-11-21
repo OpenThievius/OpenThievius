@@ -35,6 +35,19 @@ one process-local Cross press at frame 250, ended at its timeout, and left no
 launcher process. Log:
 `/tmp/sly-acc-flags-packet-census-20261121.log`.
 
+The VU disassembly of lit entry `0x356` also shows flag-dependent code at PC
+913: `FSAND vi11, 0x002` reads the status bits after accumulator math. The native
+`update_float_flags` path was replacing bits 4-11 rather than preserving them
+while merging current and sticky arithmetic flags. It now follows OpenRAC's
+`status_latest & 0xFF0` update. The host32 build passed again (194 Sly units,
+85 port backfills). A subsequent low-overhead census saw 618 packets (137 VU
+kicks and 481 direct); VU kicks remained point-mode only, with no triangle
+draw. A separate frame capture again verified all 64 post-transition images
+were pure black. This narrows the native output issue but does not fix it.
+Evidence: `/tmp/sly-acc-status-census-20261121.log`,
+`/tmp/sly-acc-status-frame-capture-20261121.log`, and
+`/tmp/sly-acc-status-frames-20261121/`.
+
 ### Reusing OpenRAC's PSS movie path (2026-11-21)
 
 I checked current OpenRAC source (`911f007`). Its separate `port/media` module

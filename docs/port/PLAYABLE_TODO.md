@@ -52,6 +52,20 @@ point mode (`PRIM=0`); the direct traffic was mostly sprites, plus
 correcting accumulator flags did not restore the missing mesh draw. Log:
 `/tmp/sly-acc-flags-packet-census-20261121.log`.
 
+The disassembly then exposed `FSAND vi11, 0x002` in the lit path (for example
+PC 913 in the loaded entry-`0x356` program). Comparing `update_float_flags`
+with OpenRAC showed that it also replaced status bits the arithmetic
+instruction should preserve. The port VU now preserves bits 4-11 and merges
+the current and sticky arithmetic flags as OpenRAC does. The rebuilt host32
+target again compiled 194 Sly units and 85 port backfills. A follow-up census
+observed 618 packets (137 VU kicks, 481 direct); all VU kicks still selected
+point mode, with no triangles. A separate clean offscreen capture again
+verified 64 post-transition frames were pure black. These flag fixes improve
+VU fidelity but do not remove the visible blocker. Logs:
+`/tmp/sly-acc-status-census-20261121.log`,
+`/tmp/sly-acc-status-frame-capture-20261121.log`, and
+`/tmp/sly-acc-status-frames-20261121/`.
+
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than
 branding. It shows the Sony and Sucker Punch cards, the Paris rooftop intro,

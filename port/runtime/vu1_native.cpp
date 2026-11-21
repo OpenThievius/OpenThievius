@@ -569,8 +569,8 @@ void update_float_flags(State* state, const Vector& value, uint32_t mask) {
     const uint16_t current = static_cast<uint16_t>(
         (zero != 0 ? 1u : 0u) | (sign != 0 ? 2u : 0u) |
         (underflow != 0 ? 4u : 0u) | (overflow != 0 ? 8u : 0u));
-    const uint16_t sticky = static_cast<uint16_t>((state->status_flags >> 6u) | current);
-    state->status_flags = static_cast<uint16_t>(current | ((sticky & 0x3Fu) << 6u));
+    state->status_flags = static_cast<uint16_t>(
+        (state->status_flags & 0x0FF0u) | current | (current << 6u));
 }
 
 Vector data_read(uint32_t address) {
