@@ -409,6 +409,9 @@ public:
     // Retains a skipped frame's texture uploads and register state, without drawing its geometry.
     // Requires exclusive graphics ownership, just like submit().
     bool retain_uploads(std::span<const std::uint8_t> packets);
+    // Seed the logical upper-left of a GS off-screen target with a native GL
+    // render before the game's packet draws layer their 2D work over it.
+    void import_offscreen_layer(std::uint32_t block, unsigned framebuffer, int width, int height);
     // `background`: the part of the frame before the world (DirectBackground), drawn without
     // depth writes, since the world it is under is drawn after it.
     void flush(RenderState& state, bool background = false);
@@ -442,6 +445,10 @@ private:
     unsigned m_frame_copy = 0;
     int m_frame_copy_width = 0;
     int m_frame_copy_height = 0;
+    // Sampling an off-screen target while drawing into that same target needs a
+    // snapshot to avoid a GL texture/framebuffer feedback loop.
+    unsigned m_offscreen_copy = 0;
+    bool m_offscreen_copy_allocated = false;
     // The off-screen targets' GL side, by GS block: a square of kOffscreenPixels chip pixels.
     struct Offscreen {
         unsigned framebuffer = 0;

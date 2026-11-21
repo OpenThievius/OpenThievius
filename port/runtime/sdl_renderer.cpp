@@ -2346,6 +2346,10 @@ extern "C" void openrac_native_window_present(void) {
             g_clear_color(0, 0, 0, 0);
             g_clear(0x00004100u);
             render_world_meshes(meshes, true);
+            if (g_direct) {
+                g_direct->import_offscreen_layer(tbp, target.framebuffer->id(),
+                                                 target_width, target_height);
+            }
             auto target_pixels = target.framebuffer->read_rgba();
             const std::size_t target_pixel_bytes = target_pixels.size();
             openrac::renderer::Rgba8Image target_image(target_width, target_height);

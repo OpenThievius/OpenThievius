@@ -15,20 +15,41 @@ are filtered out of the normal presentation pass; they must not be composited
 directly over the game window. The dynamic-image replacement keeps one texture
 handle per target and discards the old GL image before the next upload.
 
-A hidden SDL offscreen run with the US ELF and ISO reached the save/menu
-render-target path: 30 meshes were drawn to a 64x64 OpenGL framebuffer and
-16,384 RGBA bytes were read back. The run confirms the target pass executes,
-but it remained at startup/menu and does not yet validate the Paris gameplay
-capture or prove the target image is correct. The captured startup frames still
-show incomplete UI/scene output. Evidence: `/tmp/sly-native-target-pass-final.log`,
-`/tmp/sly-native-target-gameplay.log`, and
-`/tmp/sly-native-target-gameplay-20261121/`.
+The launcher now imports each native 64x64 target render into the matching
+GS off-screen target before its packet consumer runs. A bounded hidden SDL
+run with the US ELF and ISO reached Paris and drew 30 meshes into the target.
+The full frame capture remains visibly malformed, so reaching the consumer
+path is not a playable graphics result. Latest frames and log:
+`/tmp/sly-native-selfcopy-frames-20261121/` and
+`/tmp/sly-native-selfcopy-frames-20261121.log`.
 
-**Next:** use the established input sequence to reach Paris with the pass
-enabled, then compare a stable full gameplay capture against the pre-pass
-OpenGL capture. Check the target image and confirm that its consumers sample
-it in the same frame. Keep this entirely in the port-side OpenGL renderer;
-do not implement VU rendering or edit matched decomp functions.
+### Native OpenGL target consumption and feedback (2026-11-21)
+
+The first Paris consumer trace exposed a second issue: the class `0x61`
+framebuffer was separate from OpenRAC's 512x512 GS off-screen target at block
+`0x24c0`. The packet stream writes a no-op clear primitive there, then samples
+the same target to draw its textured quad. Native target color was therefore
+not guaranteed to be present in the image the packet renderer consumes, and
+that self-sampling was an undefined OpenGL texture/framebuffer feedback loop.
+
+The native 64x64 render is now blitted into the upper-left logical 64x64 area
+of the GS off-screen target before its packet draws. A self-source packet draw
+copies that target to a scratch texture first, avoiding sampling from the
+texture attached to the active draw framebuffer. Scratch storage is reused
+and released with the renderer. These changes are in the host GL renderer and
+native bridge; they do not emulate the PS2 VU or modify matched decomp
+functions.
+
+The host32 launcher rebuilt successfully. A bounded SDL offscreen run with
+the US ELF and ISO reached Paris and logged the 30-mesh, 64x64 target pass. It
+captured full gameplay frames at `/tmp/sly-native-selfcopy-frames-20261121/`.
+Frame 15 is close to the earlier target-enabled capture
+(`/tmp/sly-native-gl-target-paris-20261121/frame15.png`; normalized RMSE
+0.016, 426 differing pixels). This confirms stable presentation but does not
+yet prove the target contributes useful visible detail. The Paris geometry,
+lighting, and player placement remain badly wrong. Next inspect the consumed
+64x64 image directly and correct the independent native GL mesh/camera path;
+stay off the PlayStation VU renderer.
 
 ### Player camera and deformation comparison (2026-11-21)
 

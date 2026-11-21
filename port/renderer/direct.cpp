@@ -1713,6 +1713,11 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &m_frame_copy);
         m_frame_copy = 0;
     }
+    if (m_offscreen_copy != 0) {
+        glDeleteTextures(1, &m_offscreen_copy);
+        m_offscreen_copy = 0;
+        m_offscreen_copy_allocated = false;
+    }
     for (auto& [block, o] : m_offscreen_targets) {
         (void)block;
         glDeleteFramebuffers(1, &o.framebuffer);
@@ -1744,6 +1749,28 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
     const bool ok = submit(packets);
     m_interpreter->clear();
     return ok;
+}
+
+void DirectRenderer::import_offscreen_layer(std::uint32_t block, unsigned framebuffer,
+                                             int width, int height) {
+    if (block == 0 || framebuffer == 0 || width <= 0 || height <= 0 ||
+        width > kOffscreenPixels || height > kOffscreenPixels) {
+        return;
+    }
+    const Offscreen& target = offscreen(block);
+    const int scale = kOffscreenScale;
+    const int target_size = kOffscreenPixels * scale;
+    // GS off-screen coordinates address the upper-left of the 512x512 logical
+    // target. OpenGL's framebuffer origin is lower-left, hence the destination
+    // rectangle at the top of the host target.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.framebuffer);
+    glBlitFramebuffer(0, 0, width, height, 0, target_size - height * scale,
+                      width * scale, target_size, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
@@ -1929,7 +1956,30 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             glBindTexture(GL_TEXTURE_2D, g_frame_snapshot.texture);
         } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
-            glBindTexture(GL_TEXTURE_2D, offscreen(s.source).texture);
+            const Offscreen& source = offscreen(s.source);
+            if (s.source == s.target) {
+                // The GS permits reading the target's existing pixels while a
+                // later primitive writes to it. Sampling the attached GL
+                // texture directly is undefined, so snapshot it first.
+                constexpr int size = kOffscreenPixels * kOffscreenScale;
+                if (m_offscreen_copy == 0) glGenTextures(1, &m_offscreen_copy);
+                glBindTexture(GL_TEXTURE_2D, m_offscreen_copy);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                if (!m_offscreen_copy_allocated) {
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size, size, 0,
+                                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                    m_offscreen_copy_allocated = true;
+                }
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, source.framebuffer);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, size, size);
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                glBindTexture(GL_TEXTURE_2D, m_offscreen_copy);
+            } else {
+                glBindTexture(GL_TEXTURE_2D, source.texture);
+            }
         } else if (s.frame_source) {
             // What the frame holds now, as the chip would read it from its memory.
             const int w = render_state.target.width;
