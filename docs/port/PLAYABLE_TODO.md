@@ -11,15 +11,18 @@ seconds, then the Sly Raccoon title/menu from about 48 seconds. It is an
 intro/title reference, not a playable-level reference.
 
 An unforced hidden native run still reaches the readable US save-file prompt.
-In the latest hidden run, the opt-in test driver pressed Cross on that prompt;
+In the latest traced run, the opt-in test driver pressed Cross on that prompt;
 the state changed from page 7 to `ui_state=3`, with a loaded world at
-`0x870cf0`. The game frame count advanced to 266, but the framebuffer captures
-remain black and `movie=0`; none of the video checkpoints is visible. The GIF
-packet queue also reached its 16 MiB limit and rejected new packets. This
-gives two concrete graphics leads: confirm that the normal post-prompt path
-requests the intro movie, and find why the native present path is not draining
-the submitted GIF work. The thread's semaphore waits were ordinary frame
-cadence, not the startup blocker. No playable level is confirmed.
+`0x870cf0`. The game frame count advanced to 228, but the framebuffer captures
+remain black and `movie=0`; none of the video checkpoints is visible. The
+present loop is active and consumes queued packets each frame. A 15-second
+trace made 914 presents without a queue-full warning; the earlier 16 MiB
+overflow happened under heavier tracing and is not a persistent blocker. The
+current lead is the renderer: post-prompt packets decode as UI draws, then
+frames report `world_draws=0` and restore the previous framebuffer after a
+no-op draw. Confirm why the intro movie is not requested and why world packets
+do not produce display writes. The thread's semaphore waits were ordinary
+frame cadence, not the startup blocker. No playable level is confirmed.
 
 The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
 repeated environment lookups and per-instruction NaN checks. Those checks are
@@ -29,13 +32,15 @@ opt-in; it is distorted and is not a renderer fix. The sibling decomp is
 current at `8f7a85a3` (2026-11-14); upstream master had no newer commit when
 checked.
 
-Evidence: `/tmp/sly-vu1-cache-final-20261121/run.log` and
-`/tmp/sly1-native-frame-00.ppm` through `frame-07.ppm` (test-driven prompt
-transition and black framebuffer); `/tmp/sly-vu1-cache-eval-20261121/run.log`
-(longer run); and `/tmp/sly-reference-20261106-contact.png` (sampled video
-frames). Hidden runs used the configured US ISO from the user's Documents
-PS2Games/Sly1 folder and cached US ELF. The test driver is opt-in and did not
-use the desktop window.
+Evidence: `/tmp/sly-vu1-cache-final-20261121/run.log`,
+`/tmp/sly-direct-postcontinue-20261121.log` (post-prompt renderer trace and
+black framebuffer), `/tmp/sly-present-queue-20261121.log` (active present
+loop draining packets), `/tmp/sly1-native-frame-00.ppm` through `frame-07.ppm`
+(test-driven prompt transition), and `/tmp/sly-reference-20261106-contact.png`
+(sampled video frames). The latest run used
+`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`
+and the cached US ELF `build/port/extracted/boot/SCUS_971.98`. The test driver
+is opt-in and did not use the desktop window.
 
 ## Current checkpoint (2026-11-20, 23:24 CET)
 
