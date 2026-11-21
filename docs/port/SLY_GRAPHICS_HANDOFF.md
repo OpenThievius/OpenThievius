@@ -82,6 +82,41 @@ at its deliberate timeout) and the existing post-stack-fix captures in
 `/tmp/sly-stack-dma-frames-20261121/`. No repository game data or frame dumps
 were added.
 
+### Focused post-Continue VU packet boundary (2026-11-21)
+
+I rebuilt the host32 launcher after adding the opt-in VIF trace selector
+`OPENRAC_TRACE_VU1_XGKICK_DATA_SUBMISSION=<id>`. It narrows the existing
+`OPENRAC_TRACE_VU1_XGKICK_DATA` qword trace to one VIF submission. The selector
+was verified on submission 142; it reports source UNPACK values without
+changing guest memory or packet handling.
+
+A separate trace of submission 142 at VIF offset `0x4fcf0` (VU entry `0x2`)
+captured its accepted 1,408-byte XGKICK. The tag is PACKED A+D, `NLOOP=87`,
+with one A+D register. Across its 87 qwords, the observed A+D address bytes
+include PRIM (`0x00`) but no XYZ2 (`0x05`) or XYZF2 (`0x04`); there are 44 PRIM
+writes. The VU store trace for this call shows only qword 35's tag changing
+from 15 to 87 loops at PC `0x0e`; it does not write the payload range. This
+particular packet is not the missing world triangle batch, even though some
+PRIM values select triangle-strip mode.
+
+The adjacent entry `0x6da` call at VIF offset `0x71220` emits a separate
+`NLOOP=17`, five-register A+D packet and one XYZ2 write with value
+`0x0000000100000003` (x=3, y=1); that tag's PRE PRIM selects point mode. It is
+an isolated point draw, not terrain. The captured gameplay frames remain
+black. These two targeted calls therefore do not justify a GIF parser change
+or a claim that the complete VU path has been audited.
+
+Continue by tracing the matched mesh input through its adjacent VU programs
+(`0x401`, `0x34a`, and `0x5f`) and identify which call should emit the actual
+XYZ2/XYZF2 strip. Keep the investigation in the port runtime and preserve the
+strict GIF checks. Logs:
+`/tmp/sly-vu-entry2-world-batch-20261121.log`,
+`/tmp/sly-vu-current-offset-20261121.log`,
+`/tmp/sly-vu-entry2-store-focus-20261121.log`, and
+`/tmp/sly-vif-input-filter-check-20261121.log`. Runs used the Documents US
+ISO, offscreen SDL, and the authorized process-local Cross input; each ended
+at its deliberate timeout. The trace hook is disabled unless explicitly set.
+
 ### Reference clip timeline and strip-source boundary (2026-11-21)
 
 I rechecked the full 62.8-second PCSX2 reference at three-second intervals.

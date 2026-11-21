@@ -370,6 +370,13 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
     const char* xgkick_trace = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA");
     const bool xgkick_trace_enabled = xgkick_trace != nullptr &&
         xgkick_trace[0] != '\0' && xgkick_trace[0] != '0';
+    bool xgkick_submission_matches = true;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_VU1_XGKICK_DATA_SUBMISSION")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul)
+            xgkick_submission_matches = parsed == submission_id;
+    }
 
     uint32_t destination = immediate & 0x3FFu;
     if ((immediate & 0x8000u) != 0)
@@ -388,6 +395,7 @@ bool unpack_vu1(uint32_t command, uint32_t count, uint32_t immediate,
         const bool trace_source_target = vu_setup_trace_enabled &&
             destination_index >= 348u && destination_index <= 363u;
         const bool trace_xgkick_target = xgkick_trace_enabled &&
+            xgkick_submission_matches &&
             destination_index >= trace_xgkick_range[0] &&
             destination_index <= trace_xgkick_range[1];
         if (input_trace != nullptr &&
