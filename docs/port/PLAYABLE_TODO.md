@@ -38,14 +38,16 @@ level is confirmed.
 An opt-in XYZ trace now attaches each VU XGKICK's submission, VIF offset, and
 entry to its GS writes. This corrects the earlier attribution: matched
 `BuildLitStripMeshPacket` calls at offsets `0x59cb0` and `0x59d80` do carry
-XYZ writes, but the writes are in point/line modes (PRIM 0/1), not triangles.
+XYZ writes, but none use triangle PRIM modes. The raw `0x59cb0` tag is PACKED
+A+D (`NLOOP=79`, `NREG=1`, descriptor `0xE`); the body contains float-shaped
+VU position records and is therefore not a correctly formed triangle stream.
 The separate `0x6da` calls at `0x71220` and `0x712f0` also emit point/line
-writes. Across 139 VU summaries from the bounded post-Continue capture, none
-used triangle PRIM 3 or 4. The renderer still has no world triangles to draw;
-the next task is to find why these matched mesh packets select point/line
-primitives or fail to produce triangle batches. Do not change the GS parser
-based on this evidence. See the [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
-for per-offset counts and capture paths.
+writes. Across 139 VU summaries, no triangle PRIM 3 or 4 was used. Next
+determine whether the retail packet producer is missing a stage in the native
+path or whether the port needs a separate VU-output-to-triangle backfill.
+Keep that conversion port-only, and do not change matched vanilla functions
+or the GS parser based on the current evidence. See the
+[graphics handoff](SLY_GRAPHICS_HANDOFF.md) for per-offset counts and logs.
 
 The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
 repeated environment lookups and per-instruction NaN checks. Those checks are

@@ -38,6 +38,26 @@ timeout (137); no launcher remains. The captured PCSX2 reference video shows
 the intro and title/menu, not gameplay geometry, so it cannot provide the
 triangle-level comparison needed for the next step.
 
+The raw kick at `0x59cb0` sharpens that boundary. Its GIFtag is
+`0x100040000000804f` with `NLOOP=79`, `EOP=1`, `PRE=1`, `PRIM=0`, `FLG=0`
+(PACKED), and `NREG=1`; the register descriptor is `A+D` (`0xE`). The body
+contains float-shaped VU position records, while the tag tells the GS to
+interpret each qword as a value plus a GS register address. A separate
+submission trace shows entry `0x356` writing qword 36 as a four-float vector
+after the input UNPACK, and entry `0x2` only updates the GIFtag loop count
+before the kick. The address bytes and tag do not describe a triangle vertex
+stream. This points to a packet construction/hand-off gap, not a rasterizer
+drop. Do not infer that the retail renderer intentionally draws this mesh as
+points or lines; establish whether another packet stage is absent from the
+native path or the VU output needs a distinct port-only conversion.
+
+Evidence for the packet body: `/tmp/sly-lit-raw-kicks-20261121.log`,
+`/tmp/sly-lit-submission-stores-20261121.log`, and
+`/tmp/sly-lit-vif-vu-writes-20261121.log`. The store and raw-kick captures
+were separate launches, so use them to establish the format and stage, not to
+claim byte-for-byte identity of one body's vertex values. The combined store
+trace is bounded and capped at 40,000 VU writes.
+
 ### Native stack DMA addresses and post-Continue census (2026-11-21)
 
 The port-only GIF DMA bridge received a chain root on the host32 Linux thread
