@@ -582,6 +582,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     }
     const bool trace_projected_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
+    const bool trace_native_per_mesh_bounds =
+        std::getenv("OPENRAC_TRACE_SLY_PER_MESH_BOUNDS") != nullptr;
+    static bool native_per_mesh_bounds_logged = false;
     const bool debug_solid_colors =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS") != nullptr;
     const bool debug_normal_colors =
@@ -649,7 +652,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         if (mesh.vertices.size() < 3u * 9u || mesh.vertices.size() > 4096u * 9u)
             continue;
         bool projected_cover = false;
-        if (trace_projected_bounds || debug_skip_full_cover) {
+        if (trace_projected_bounds || debug_skip_full_cover ||
+            (trace_native_per_mesh_bounds && !target_pass &&
+             !native_per_mesh_bounds_logged)) {
             float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
             float max_x = -1.0e30f, max_y = -1.0e30f, max_z = -1.0e30f;
             unsigned mesh_projected = 0;
@@ -702,6 +707,16 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 }
                 projected_cover = min_x <= -1.0f && max_x >= 1.0f &&
                                   min_y <= -1.0f && max_y >= 1.0f;
+                if (trace_native_per_mesh_bounds && !target_pass &&
+                    !native_per_mesh_bounds_logged) {
+                    std::fprintf(stderr,
+                                 "[native sly per-mesh bounds] instance=%#llx request=%#010x source=%#010x vertices=%zu projected=%u inside=%u tex0=%#llx ndc=%g,%g,%g..%g,%g,%g\n",
+                                 static_cast<unsigned long long>(mesh.instance),
+                                 mesh.request, mesh.source_mesh, vertex_count,
+                                 mesh_projected, mesh_inside,
+                                 static_cast<unsigned long long>(mesh.tex0),
+                                 min_x, min_y, min_z, max_x, max_y, max_z);
+                }
             }
         }
         const auto tex0 = openrac::renderer::gs::Tex0::decode(mesh.tex0);
@@ -791,10 +806,15 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
             std::memcpy(m, t, sizeof(m));
         }
-        bool screen_to_clip =
+        const bool screen_to_clip_all =
             std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP") != nullptr;
+        const bool screen_to_clip_transformed =
+            std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_TRANSFORMED") != nullptr &&
+            !mesh.model_is_identity;
+        bool screen_to_clip = screen_to_clip_all || screen_to_clip_transformed;
         std::uint32_t screen_to_clip_request = 0;
         bool screen_to_clip_request_valid = false;
+        bool screen_to_clip_request_match = false;
         if (const char* setting =
                 std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_REQUEST")) {
             char* end = nullptr;
@@ -802,8 +822,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
                 screen_to_clip_request = static_cast<std::uint32_t>(parsed);
                 screen_to_clip_request_valid = true;
-                screen_to_clip = screen_to_clip ||
-                    mesh.request == screen_to_clip_request;
+                screen_to_clip_request_match = mesh.request == screen_to_clip_request;
+                screen_to_clip = screen_to_clip || screen_to_clip_request_match;
             }
         }
         if (!mesh.render_target && screen_to_clip) {
@@ -823,9 +843,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             static bool screen_to_clip_notice = false;
             if (!screen_to_clip_notice) {
                 screen_to_clip_notice = true;
+                const char* scope = screen_to_clip_all ? "all" :
+                    screen_to_clip_request_match ? "request" :
+                    screen_to_clip_transformed ? "transformed" :
+                    screen_to_clip_request_valid ? "request" : "all";
                 std::fprintf(stderr,
-                             "[native sly screen-to-clip] enabled scope=%s%#010x scale_x=%g scale_y=%g logical_field=640x224\n",
-                             screen_to_clip_request_valid ? "request=" : "all/",
+                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224\n",
+                             scope,
                              screen_to_clip_request,
                              kPs2ScreenToClipX, kPs2ScreenToClipY);
             }
@@ -1200,6 +1224,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     }
+    if (trace_native_per_mesh_bounds && !target_pass)
+        native_per_mesh_bounds_logged = true;
     if (trace_projected_bounds && present_bounds_sample < 64u) {
         std::fprintf(stderr,
                      "[native sly present bounds] frame=%u meshes=%zu unique=%zu duplicate=%u materials=%zu uploaded_textures=%zu missing_textures=%zu signature=%016llx projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",

@@ -79,6 +79,33 @@ ELF, reached gameplay, and captured 64 frames each. They ended at the expected
 `/tmp/sly-native-opengl-skipbackdrop-group-20261121/frame63.png`. The first
 pass is a useful material diagnostic, not a valid final render mode.
 
+### Native OpenGL transform-category capture (2026-11-21, 21:53 CET)
+
+Added the opt-in `OPENRAC_TRACE_SLY_PER_MESH_BOUNDS=1` trace. It records each
+main-scene draw's request, source mesh, clip bounds, and in-clip vertex count
+once on the first gameplay frame. In a capture with the three background
+requests skipped, it found that request `0x005e4980` is the largest remaining
+static draw (`x=0.18..1.81`, `y=-1.03..0.10`), while the player request
+`0x005e5400` was tiny without screen conversion (`x=0.07..0.09`,
+`y=-0.025..-0.02`).
+
+Added an opt-in `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_TRANSFORMED=1` rule that
+applies the PS2-to-OpenGL clip scale only when a draw has a non-identity model
+matrix. With host skinning enabled, the player draw then lands at
+`x=0.50..0.59`, `y=-0.44..-0.37`; the identity-matrix static draw keeps its
+prior bounds. A hidden host32 capture now shows textured building faces and a
+recognizable Sly silhouette. The full scene still has large gray background
+areas and stretched surfaces, so keep both the trace and transform rule
+opt-in while other transformed object types are checked.
+
+The host32 renderer target built successfully. Two bounded hidden captures
+used the configured US ISO and cached US ELF, reached gameplay, and wrote 64
+frames; both ended at the expected 15-second timeout (exit 137). Images and
+logs: `/tmp/sly-native-opengl-transformed-scale-20261121/` (background requests
+skipped) and `/tmp/sly-native-opengl-transformed-scale-full-20261121/` (full
+scene). This remains a native OpenGL port behavior; no PlayStation VU renderer
+was implemented.
+
 ### Native OpenGL texture target pass (2026-11-21)
 
 The host renderer now carries class `0x61` (`TextureRenderObject`) draws as a
