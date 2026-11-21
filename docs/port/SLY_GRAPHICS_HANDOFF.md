@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### PCSX2 reference supplied by the user (2026-11-21)
+
+The 62.8-second clip is useful for startup and title-screen comparison. It
+shows the Sony and Sucker Punch cards, the Paris rooftop cinematic, and the
+animated title/menu. It does not show a playable level. The native port's
+port-only `PlayMovie` no-op skips the cards and rooftop footage, so a faithful
+comparison begins at the first live-rendered title/menu scene. A separate
+gameplay clip will be needed to compare in-level graphics.
+
+I rebuilt the default host32 target and ran it hidden with the configured
+Documents US ISO. The low-overhead run reached the unformatted-card page
+(`page=7`, `ui_state=5`); its opt-in menu driver then left that page and the
+game continued to report frames in world `0x870cf0`. This confirms the
+previous default-path startup checkpoint. A separate fresh build with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` stopped before even reaching the card
+page (`game_frames=0`, `ui_state=0`), so it is not a usable comparison build
+and its captures are discarded. Keep the experimental source-mesh renderer
+off while diagnosing retail VIF/VU1/GIF output. A frame-dump run also caused
+invalid oversized GIF-chain warnings after menu input; do not treat that
+instrumented run as evidence of an ordinary-run regression.
+
+The current blocker remains recognizable live-rendered title/world geometry.
+The reference video clarifies that the missing opening cards alone are the
+known movie backfill, while the title/menu and any later live scene still need
+the native graphics path to work. The source-mesh overlay cannot stand in for
+that path because its topology and transforms remain approximate.
+
 ### Reference clip timeline and strip-source boundary (2026-11-21)
 
 I rechecked the full 62.8-second PCSX2 reference at three-second intervals.
