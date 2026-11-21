@@ -24,20 +24,38 @@ end to end. Its gray stretched output is not a successful visual result.
 
 The player route is the first bounded native-renderer target because model
 parts are confirmed: child `0x5b` queues parts containing 38 meshes and 47
-strips, and the player hierarchy has 12 model-bearing descendants. Next derive
-strip topology, frame selection, material/texture references, bone transforms,
-and camera convention from the matched US sources and retail structures. Feed
-those into a Sly-owned render record and an OpenGL draw path without executing
-VU1 programs or depending on GS memory. Keep the adapter in `port/`, separate
-from matched C so it can be replaced as the source coverage evolves. Then add
-the level terrain and other scene categories; preserve GIF `DirectRenderer`
-for 2D startup/menu draws while those categories are ported.
+strips, and the player hierarchy has 12 model-bearing descendants. A fresh
+offscreen isolation run identified the child as owner `0x016d2fa0`, request
+`0x005e5400`; its first part has 38 lit kind-0 meshes sourced from
+`0x00a115a0`, and its second has 47 strips. Rendering only `0x00a115a0` with
+solid colors and skinning enabled produces a tiny colored fleck on black. The
+projected bounds in the existing trace are about 0.02 NDC wide, so vertices
+reach the host draw but do not produce a character-sized image. The source
+address hardcoded by the old experimental path, `0x00a2d9a8`, is absent from
+this run. Its special matrix, triangle-topology, and restart rules therefore
+do not target the currently observed player draw. Do not simply retarget those
+rules to `0x00a115a0`: the retail code identifies kind 0 as the lit builder,
+and the host draw still needs verified topology, scale, skinning, materials,
+and camera conventions.
 
-The reference clip is PAL Sly Raccoon: publisher cards, Paris rooftop intro,
-then an animated title/menu with Start and Select prompts. It does not show
-player-controlled gameplay. The current native build uses the US disc, so
-compare scene order and composition, not localized branding. No fresh game
-run was made for this architecture review.
+Next derive strip topology, frame selection, material/texture references,
+bone transforms, coordinate scale, and camera convention from the matched US
+sources and retail structures. Feed those into a Sly-owned render record and
+an OpenGL draw path without executing VU1 programs or depending on GS memory.
+Keep the adapter in `port/`, separate from matched C so it can be replaced as
+the source coverage evolves. Then add the level terrain and other scene
+categories; preserve GIF `DirectRenderer` for 2D startup/menu draws while
+those categories are ported.
+
+The supplied PAL Sly Raccoon reference video shows Sony Computer Entertainment
+Europe legal cards, the Sucker Punch Productions logo, a Paris rooftop intro,
+and then the animated Sly Raccoon title/menu with Start and Select prompts.
+The native client currently captures black after its startup/menu sequence;
+its isolated player fleck is not progress toward matching these reference
+scenes. The clip does not show player-controlled gameplay. The current native
+build uses the US disc, so compare scene order and composition, not localized
+branding. Reference frames were inspected at 2026-11-21; captures are in
+`/tmp/sly-reference-frames/`.
 
 The dated trace notes below preserve evidence from the former VU/GS approach;
 their packet-debugging next steps are superseded by this native-renderer plan.

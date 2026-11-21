@@ -544,13 +544,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             if (end != setting && parsed > 0.0f && parsed <= 1000.0f) position_scale = parsed;
         }
         float m[16];
-        // Player character meshes (kind-5 strip packets) need the model*vp
-        // convention; the world/level meshes need vp*model transposed. Pick
-        // per-mesh when the hybrid is enabled, otherwise use the global mode.
+        // Matrix conventions remain an explicit diagnostic choice until the
+        // Sly model and camera inputs are validated for each draw category.
         int effective_mode = mvp_mode;
-        if (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
-            mesh.source_mesh == 0x00a2d9a8u)
-            effective_mode = 0;
         if (effective_mode >= 2) {
             for (std::size_t row = 0; row < 4; ++row)
                 for (std::size_t column = 0; column < 4; ++column) {
@@ -649,14 +645,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             glDrawArrays(GL_POINTS, 0,
                          static_cast<GLsizei>(mesh.vertices.size() / 9u));
             glDisable(GL_PROGRAM_POINT_SIZE);
-        } else if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr ||
-            (getenv("OPENRAC_NO_HYBRID_MVP") == nullptr &&
-             mesh.source_mesh == 0x00a2d9a8u &&
-             getenv("OPENRAC_PLAYER_SPLIT_STRIPS") == nullptr)) {
-            // Player kind-5 VertexRefs are authored in triples (triangle list),
-            // not strip order; a single strip yields a giant bridging triangle.
-            // This direct path still needs to replace the VBO contents with
-            // this mesh; the expanded diagnostic path below uploads separately.
+        } else if (std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") != nullptr) {
+            // Diagnostic comparison only: the source topology is not yet
+            // represented in NativeWorldMesh, so callers must opt in.
             glBufferData(GL_ARRAY_BUFFER,
                          static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
                          mesh.vertices.data(), GL_STREAM_DRAW);
@@ -718,9 +709,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes) {
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
             const bool restart_split =
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
-                std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr ||
-                (mesh.source_mesh == 0x00a2d9a8u &&
-                 getenv("OPENRAC_PLAYER_SPLIT_STRIPS") != nullptr);
+                std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr;
             if (!restart_split) {
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
             } else {

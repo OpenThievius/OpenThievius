@@ -24,6 +24,14 @@ the target renderer: it uses approximated strip presentation and gets its
 texture from the GIF-fed GS texture pool. It is disabled by default and does
 not establish correct Sly geometry or materials.
 
+The current player child is owner `0x016d2fa0` / request `0x005e5400`. Its
+first part uses 38 lit kind-0 meshes; source `0x00a115a0` is the first one.
+An isolated host draw of that source is only a tiny colored fleck on black.
+The former experimental source special case `0x00a2d9a8` is stale for this
+run and is not present in the current player submissions. Re-derive matrix,
+scale, topology, and materials from the live kind-0 path before adding any
+player-specific renderer rule.
+
 Next, make a Sly-owned render input from those game structures and feed it to
 OpenGL directly. Establish strip boundaries and winding, the model and bone
 matrix convention, UV/material lookup from Sly's resource data, and the
@@ -34,11 +42,13 @@ path. The first visual gate is a correctly oriented, textured player model in
 the active world; after that, implement terrain/placed-object categories,
 lighting and effects, then verify the title/menu and a controllable level.
 
-The supplied 62.8-second PCSX2 reference is the PAL release. It shows the
-European publisher cards, Paris rooftop intro, and an animated title screen
-with Start/Select prompts; it does not show player-controlled gameplay. The
-native build uses the US ELF and ISO, so compare scene composition and
-animation while allowing regional branding and text to differ.
+The supplied 62.8-second PCSX2 reference is the PAL release. It shows Sony
+legal cards, the Sucker Punch logo, the Paris rooftop intro, and an animated
+title screen with Start/Select prompts; it does not show player-controlled
+gameplay. The first visible gate is this startup sequence, with a recognizable
+animated title screen as the minimum scene milestone. The native build uses
+the US ELF and ISO, so compare scene composition and animation while allowing
+regional branding and text to differ.
 
 ### Historical VU/GS packet investigation (not the renderer plan)
 
