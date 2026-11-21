@@ -38,6 +38,22 @@ but the remaining native scene still has disconnected geometry. Evidence:
 `/tmp/sly-native-gl-outlier-audit-20261121/run.log` and
 `/tmp/sly-native-backdrop-matrix-20261121/run.log`.
 
+**Class-4 native mesh isolation (2026-11-21):** request `0x005e4980` is a
+class-4 `PlacedObject`, not collision-only geometry; the decomp documents its
+draw override as queuing visible model parts. Its main mesh (`0x00a0eb48`, 85
+vertices) has an identity request matrix and positions already in world space
+(`-4618..-3721`, `9645..10540`, `-215..1441`). It projects to NDC
+`x=0.18..1.81`, `y=-1.03..0.10`; isolating the request produces the right-side
+slab/streak. Solid-color first-pass rendering retains the same silhouette, and
+an earlier strip-versus-expanded-triangle capture was pixel-identical for this
+source. This rules out texture color and GL strip assembly as the cause of this
+draw's shape. Do not change strip handling or suppress class 4 on this basis;
+the remaining question is whether this large nearby level surface is expected
+at the current camera pose or whether its submitted geometry is incomplete.
+Capture and trace: `/tmp/sly-native-request-5e4980-isolated-20261121/`,
+`/tmp/sly-native-request-5e4980-solid-20261121/run.log`, and
+`/tmp/sly-valid-strip-list-20261117/`.
+
 **Per-request clip-scale experiment (2026-11-21):** the renderer accepts
 `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_REQUEST=<address>` to apply the existing
 screen conversion to one native draw request while leaving other meshes
@@ -170,9 +186,10 @@ the host GL geometry problem.
 
 **Static source ownership trace (2026-11-21):** the cyan source mesh
 `0x00a2a488` is submitted by draw requests owned by classes 4 and 31. Both
-class descriptors inherit the collider class, but `DrawCollider` calls
-`DrawPlacedObject`, so that ancestry alone is not enough to discard their
-meshes as invisible collision data. The source mesh is kind 0 and its matching
+class descriptors inherit `Collider`, but `DrawCollider` dispatches to
+`DrawPlacedObject`; class ancestry alone is not enough to discard their meshes
+as invisible collision data. Class 4 is `PlacedObject`, whose draw override
+queues static level geometry. The source mesh is kind 0 and its matching
 draw records report lit, unskinned, zero bones; its skin record also has zero
 weights. Skin deformation is therefore not the source of this mesh's
 distortion. Its class-4 request matrix is identity in the captured draw, while
@@ -3751,12 +3768,12 @@ plane tests pass 23 and the alpha/fade gates are not firing (`fade=0`,
 `zero=0`, `fade=3f800000`), so concrete mesh submissions do reach VU1. Of the
 post-Cross draw requests, the best candidate for a visible object is
 **request `0x005e5400`, index 21, owner `0x016d2fa0`**: class 2 (ordinary
-PlacedObject, not the class-4 collider path), lit and skinned with four bones,
-38 meshes, paired with a 47-strip companion from the same owner. Earlier
-large-surface candidates (`0x005e4700`, `0x005e4980`, `0x005e4a00`) are all
-class-4 collider geometry; `0x005e4700` is a flat sliver and `0x005e4a00` a
-flat wedge. Its VU1 trace reaches XGKICK (rejected qword 469, accepted qword
-35) but no XYZ-bearing kick is recorded for it.
+`PlacedObject`), lit and skinned with four bones, 38 meshes, paired with a
+47-strip companion from the same owner. Earlier
+large-surface candidates (`0x005e4700`, `0x005e4980`, `0x005e4a00`) are
+class-4 PlacedObject level meshes; `0x005e4700` is a flat sliver and
+`0x005e4a00` a flat wedge. Its VU1 trace reaches XGKICK (rejected qword 469,
+accepted qword 35) but no XYZ-bearing kick is recorded for it.
 
 A design study for an opt-in backfill concluded that the single faithful
 seam is `data_write()` in `port/runtime/vu1_native.cpp`, where VU-transformed
