@@ -120,6 +120,19 @@ classify every rooftop shot as movie footage or use it as a live-renderer
 target until its source is confirmed. The title/menu remains a useful visual
 checkpoint, while a gameplay clip is needed to compare in-level graphics.
 
+I rewatched the supplied video and compared it with a fresh offscreen client
+capture. The reference's title screen is a necessary graphics checkpoint,
+even though the video stops before gameplay. The approved menu driver reaches
+the native gameplay state (`ui=3`) on the configured US ISO, but the captured
+world is only stretched gray terrain with no recognizable Sly or HUD. This
+capture used the experimental world renderer (`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON`);
+it matches the previously recorded opt-in renderer limitation and is not the
+default client output. The default renderer's last confirmed post-Continue
+capture remains black. The launcher ran offscreen and stopped at its
+50-second bound. Log and frame:
+`/tmp/sly-reference-native-20261121/run.log` and
+`/tmp/sly-reference-native-20261121/frame-63.png`.
+
 The latest player trace corrects the earlier class-4-only blind spot. With the
 approved offscreen menu driver and the configured Documents US ISO, it reaches
 world `0x870cf0`. `g_player` is class 7 with zero own draw parts, but its
