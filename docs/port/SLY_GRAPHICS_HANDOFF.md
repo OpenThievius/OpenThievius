@@ -1,6 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Reusing OpenRAC's PSS movie path (2026-11-21)
+
+I checked current OpenRAC source (`911f007`). Its separate `port/media` module
+contains a PSS demuxer, SPU ADPCM decoder, MPEG-2 video decoder, and RGBA frame
+conversion. Its native movie host reads a sector range from the configured
+disc image, paces decoded frames by audio, and presents them through the host
+frontend; it does not require GS or VU emulation. This is a closer match for
+the intro in the supplied video than extending the guest VU interpreter.
+
+The matched Sly `KeyIdOfMovie` calculation gives movie 0 as sector `0x4fff`
+and `0x05530004` bytes. A read-only 64-byte peek at that exact range in the
+configured US ISO starts with MPEG-2 PSS pack/system headers and includes the
+video (`0xE0`) and private audio (`0xBD`) stream codes. That confirms the
+candidate input format. Compatibility is still unproven: OpenRAC documents
+its PSS decoder as verified for RAC1, not Sly. Next run the OpenRAC media
+decoder against this one Sly stream; only after it succeeds, connect Sly's
+port-only `PlayMovie` backfill to a host movie API using the matched key's
+sector/length pair. Verify language-channel selection separately. This movie
+work can restore the recorded intro, but cannot replace the missing live
+title/world renderer.
+
 ### Interpreting the decomp's 100% code figure (2026-11-21)
 
 The current US progress report has 4,807 of 4,807 functions and 1,112,400 of

@@ -36,6 +36,19 @@ playback. The native build deliberately replaces the matched `PlayMovie`
 function with a port-only no-op until a host movie decoder exists, so that
 sequence is a known unsupported feature, not a live-renderer target.
 
+OpenRAC's current source offers a concrete reuse path for that movie sequence:
+its `port/media` contains a PSS demuxer, SPU ADPCM audio decoder, MPEG-2 video
+decoder, and frame conversion; `port/game/common/program/movie.cpp` reads a
+sector range from the disc and presents frames paced by audio. The first US
+Sly movie key resolves through the matched `KeyIdOfMovie` calculation to LSN
+`0x4fff`, length `0x05530004` bytes. Reading only the first 64 bytes from the
+configured ISO shows PSS pack/system headers followed by video and private
+audio stream codes. This confirms a real candidate input, not decoder
+compatibility: OpenRAC's PSS notes say its decoder was verified on RAC1 movies,
+not Sly. Next decode one Sly movie with that media code before wiring a
+port-only `PlayMovie` bridge. Keep this separate from matched decomp source,
+and keep movie playback distinct from the missing live title/world rendering.
+
 A fresh low-overhead native capture rendered the US save-file prompt. A single
 process-local Cross press at native frame 120 moved from page 7 to
 `ui_state=3` with world `0x870cf0`; ten later gameplay-frame dumps are still
