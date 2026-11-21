@@ -1388,6 +1388,15 @@ extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_addr
     if (mesh_address == 0 || std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCES") == nullptr)
         return;
     const volatile u32* mesh = reinterpret_cast<const volatile u32*>(mesh_address);
+    if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCE_MESH")) {
+        if (setting[0] != '\0' && setting[0] != '1') {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+                mesh_address != static_cast<u32>(parsed))
+                return;
+        }
+    }
     const u32 count = mesh[0x18 / 4];
     const u32 sources_address = mesh[0x1C / 4];
     const std::int32_t frame_count = static_cast<std::int32_t>(mesh[0x20 / 4]);
@@ -1423,6 +1432,19 @@ extern "C" void sly1_native_trace_mesh_sources(u32 mesh_address, u32 cursor_addr
                      mesh_address, i, stride, base,
                      static_cast<unsigned long long>(selected),
                      static_cast<long long>(stride) * 16);
+        if (std::getenv("OPENRAC_TRACE_SLY_FRAME_SOURCE_DATA") != nullptr &&
+            stride > 0 && stride <= 16 && selected >= 0x10ll &&
+            selected + static_cast<std::int64_t>(stride) * 16 <= 0x02000000ll) {
+            const volatile u64* words = reinterpret_cast<const volatile u64*>(
+                static_cast<u32>(selected));
+            for (std::int32_t qword = 0; qword < stride; ++qword) {
+                std::fprintf(stderr,
+                             "[native sly frame source data] mesh=%#010x index=%u qword=%d lo=%016llx hi=%016llx\n",
+                             mesh_address, i, qword,
+                             static_cast<unsigned long long>(words[qword * 2]),
+                             static_cast<unsigned long long>(words[qword * 2 + 1]));
+            }
+        }
     }
 }
 

@@ -76,6 +76,19 @@ skipped. Default evidence is in `/tmp/sly-default-after-card-20261121.log` and
 `/tmp/sly-default-after-card-20261121/contact.png`; opt-in evidence is in
 `/tmp/sly-startup-after-card-20261121.log` and its `contact.png`.
 
+### Opt-in scene-mesh state trace (not the current visual milestone)
+
+A follow-up source dump filtered to mesh `0x00a0fd90` found one 8-qword
+packed A+D packet: it writes GS state (`TEST1`, `DIMX`, `ALPHA1`, `FOGCOL`,
+`TEX0_1`, `TEX1_1`, and `CLAMP1`). This is material state, not vertex or index
+data, so it does not explain the missing player/world topology. The renderer
+resolves its texture as a non-placeholder 1024x128 upload, but an isolated
+normal-material capture of this source produced three uniform-gray 960x720
+frames. That result is limited to the opt-in gameplay renderer and does not
+change the startup/title target above. Trace and captures:
+`/tmp/sly-frame-source-data-20261121.log` and
+`/tmp/sly-single-mesh-material-20261121/`.
+
 ### Gameplay player experiment (not the current visual milestone)
 
 A prior trace reached world `0x870cf0`; child `0x5b` queues 38 meshes and 47
