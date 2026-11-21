@@ -3,6 +3,31 @@
 
 ## Current checkpoint (2026-11-21)
 
+### Visible no-card prompt recheck (2026-11-21)
+
+A foreground run of the normal host32 SDL launcher, with
+`OPENRAC_NO_DEFAULT_LEVEL=1` to suppress the direct-level test shortcut, reached
+the expected no-card/save prompt. A later-frame capture showed it steady in
+early frames, then appearing as offset copies. The captures are in
+`/tmp/sly-visible-splash-late-20261121/`; this is a native-window capture from
+the configured US ELF and ISO, not an emulator image.
+
+The correlated renderer trace is inconclusive about the cause. Frames alternate
+between substantial GIF streams with no decoded display draws (which restore
+the saved framebuffer) and short UI draws. One trace shows the first 120-frame
+region drawing a 120-vertex masked full-screen quad; later, a large 943,760-byte
+stream decoded to no display draws, followed by no-op presents. A separate
+state trace shows the prompt's text and border geometry changing position over
+consecutive frames. Another run of the same no-input route captured black
+frames, so the prompt is not yet a reliable startup result. These separate
+runs do not establish whether the offset copies are a transition effect, a
+packet-decoding issue, or a timing-sensitive present bug. Do not change
+framebuffer clearing/restoration or raise the packet limit on this evidence
+alone. Next correlate menu state, per-frame accepted VU/GIF packets, and the
+presented image in one low-overhead run. Logs and the correlated captures are
+under `/tmp/sly-prompt-correlated-20261121/` and
+`/tmp/sly-prompt-draw-state-20261121/`.
+
 ### Opening PSS frame diagnostic (not native game rendering)
 
 The exact movie call is now identified. An approved, process-local Cross at

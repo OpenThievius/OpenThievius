@@ -6872,8 +6872,8 @@ capture remains a diagnostic route, not a replacement for the missing retail
 GIF output.
 
 The bounded capture is `/tmp/sly-vu-entry2-helper-filter-20261121.log`. The
-runtime trace filter is uncommitted until this note and the code change are
-reviewed together; no retail data or trace dump is tracked.
+runtime trace filter and its documentation are tracked; no retail data or
+trace dump is included in the repository.
 
 ## Overlay vertex-view recheck (2026-11-21)
 
@@ -6907,3 +6907,26 @@ functions or relax GIF validation. Captures: `/tmp/sly-world-points-solid-overla
 `/tmp/sly1-native-world-after-hud-07.png`. Both runs were hidden, bounded, and
 used the configured US ISO and cached ELF. The menu driver sent only
 process-local test inputs. No game data or screenshots are tracked.
+
+## No-card prompt foreground recheck (2026-11-21)
+
+A visible, no-input host32 SDL run with `OPENRAC_NO_DEFAULT_LEVEL=1` reached
+the expected no-card/save prompt. A later capture first showed a stable prompt,
+then offset duplicate copies. The PPMs are in
+`/tmp/sly-visible-splash-late-20261121/`; the screen was captured from the
+native client using the configured US ELF and ISO.
+
+This is not yet a proven renderer regression. A separately correlated trace
+showed no-op presents restoring the prior framebuffer between short UI draw
+packets. Some frames included a 120-vertex masked full-screen quad; one
+943,760-byte stream decoded to no display draws. Another trace showed the
+prompt draw geometry changing position, and a separate run captured black
+instead of the prompt. Because these are distinct runs and the trace flags alter
+timing, they do not yet explain the offset copies or establish whether they are
+a UI transition. Do not change clear/restore behavior or loosen GIF queue
+validation from this evidence. Capture menu state, accepted VU/GIF packet
+boundaries, and pixels in one low-overhead run before changing the present
+path. Supporting logs:
+`/tmp/sly-prompt-correlated-20261121/run.log`,
+`/tmp/sly-prompt-state-trace-20261121/run.log`, and
+`/tmp/sly-prompt-draw-state-20261121/run.log`.
