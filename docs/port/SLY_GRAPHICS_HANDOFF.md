@@ -38,6 +38,20 @@ rules to `0x00a115a0`: the retail code identifies kind 0 as the lit builder,
 and the host draw still needs verified topology, scale, skinning, materials,
 and camera conventions.
 
+A source audit also clarified that the builder's `StripHeader::count` feeds
+per-vertex weights to `g_skinWeightProgram`; the separate `self->nweights`
+path builds morph deltas. The old adapter applied those per-vertex weights
+only to kind-5 meshes, but the current player is kind 0 and also has matching
+four-weight/four-bone records. The opt-in skin diagnostic now accepts the live
+player's kind-0 palette. Whether the strip's weight keys map directly to
+`PartMesh::bones` still needs visual confirmation. The player-filtered
+`OPENRAC_TRACE_SLY_SKIN_PACKET=1` trace records both arrays and the slot data.
+The 2026-11-21 isolated rerun applied the transform to the live kind-0 mesh,
+but its image still contains only a tiny fleck. Raising diagnostic scale to
+20 instead produces a large triangle fan. Neither is a fix: recover retail
+strip boundaries/topology and the exact transform from matched builders and
+VU data before changing host rendering.
+
 Next derive strip topology, frame selection, material/texture references,
 bone transforms, coordinate scale, and camera convention from the matched US
 sources and retail structures. Feed those into a Sly-owned render record and
@@ -1321,7 +1335,7 @@ renderer-enabled `wave55-sdl32-release` build, a hidden SDL window, and only
 process-local test inputs; it was bounded to 30 seconds. It also logged the
 independent VU1 stop at PC `0x526`, so that graphics-stream issue remains.
 
-### Player skinning trace (2026-11-18)
+### Player skinning trace (2026-11-18; kind-0 route added 2026-11-21)
 
 The player reaches the native model draw path in world `0x88d5b0` as a class-97
 owner with 30 kind-5 `PartMesh` entries. Each has four bone indices; the part
@@ -1329,15 +1343,13 @@ has no `PartStrip` entries. `BuildStripMeshPacket` supplies four per-vertex
 weights, which are normalized in the captured samples. The capture hook had
 discarded those weights, so the host renderer drew only base positions.
 
-The port now retains those weights and has an experimental CPU skinning path
-behind `OPENRAC_SLY_WORLD_APPLY_SKINNING`. It reads the four bone indices from
-the corresponding `PartMesh` and matrices from the part skin's bone array. A
-hidden native run showed that the current matrix interpretation is not safe:
-some matrices contain very large basis values, and applying them sends vertices
-far outside the mesh's original bounds. The attachment trace above now shows
-that some final matrices already have extreme values before the host adapter
-uses them. The feature stays opt-in until the guest pose inputs and matrix
-convention are understood.
+The old CPU path used the per-vertex weight values and `PartMesh` bone palette
+for kind 5 only. The current player trace shows the same builder shape for
+kind 0: four per-vertex weights, four palette indices, and a valid palette.
+The path now applies the opt-in transform to that kind too. The earlier
+large-matrix observations came from a different class-97 actor and do not
+establish that the player's matrices are invalid. A filtered player capture is
+needed to judge whether weight order and matrix convention are correct.
 
 The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No

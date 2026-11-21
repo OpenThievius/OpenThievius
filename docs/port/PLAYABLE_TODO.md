@@ -32,6 +32,16 @@ run and is not present in the current player submissions. Re-derive matrix,
 scale, topology, and materials from the live kind-0 path before adding any
 player-specific renderer rule.
 
+The old host skinning experiment only ran for kind 5. The current player is
+kind 0, with matching four-entry vertex-weight and `PartMesh` bone arrays.
+The opt-in host path now handles kind 0 as well; a player-filtered image still
+needs to confirm the weight order and matrix convention. Use
+`OPENRAC_TRACE_SLY_SKIN_PACKET=1` and
+`OPENRAC_TRACE_SLY_SKIN_PACKET_PLAYER=1` to compare both arrays and slot IDs.
+The 2026-11-21 isolated capture confirms the skin path executes, but still
+shows only a tiny fleck. Scale 20 yields a large triangle fan. Do not tune
+scale further: first derive strip grouping/topology and the retail transform.
+
 Next, make a Sly-owned render input from those game structures and feed it to
 OpenGL directly. Establish strip boundaries and winding, the model and bone
 matrix convention, UV/material lookup from Sly's resource data, and the
@@ -446,14 +456,14 @@ changed.
 
 ## Current checkpoint (2026-11-20, 22:10 CET)
 
-A hidden, bounded native run with `OPENRAC_SLY_WORLD_APPLY_SKINNING=1` and
-`OPENRAC_TRACE_SLY_SKINNING=1` exercised the port-only player skinning adapter
-on the 12 logged parts of source `0x00a2d9a8`.
-The matrices are finite and the adapter transforms vertices, but the captured
-post-HUD frame still shows only the distorted grayscale corridor; no
-recognizable Sly model appears. The first world-frame dump is black because it
-is captured before the frame's world draw; the paired post-HUD dump is the
-useful image. This is not a new black-screen regression.
+An earlier hidden, bounded native run with `OPENRAC_SLY_WORLD_APPLY_SKINNING=1`
+and `OPENRAC_TRACE_SLY_SKINNING=1` exercised the port-only overlay on kind-5
+source `0x00a2d9a8`, not the current kind-0 player mesh. It still showed a
+distorted grayscale corridor without a recognizable Sly model. The current
+checkpoint applies the same diagnostic path to kind 0 and isolates the live
+player mesh. It executes successfully but still renders only a tiny fleck; a
+scale-20 experiment becomes a large triangle fan. This points to unverified
+topology/transform, not a missing skinning call.
 
 The next blocker remains the native draw pipeline: the selected player and
 environment strip submissions enter matched `g_unlitBatchProgram` and finish
