@@ -6,6 +6,10 @@ using u32 = unsigned int;
 using u64 = unsigned long long;
 extern "C" char* getenv(const char*);
 extern u32 D_00262E10; // g_player
+extern u32 D_00274500; // g_imageRecordCountA
+extern u32 D_00274504; // g_imageRecordsA
+extern u32 D_00274508; // g_imageRecordCountB
+extern u32 D_0027450C; // g_imageRecordsB
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
@@ -48,6 +52,161 @@ struct NativeSlyMaterial {
     u64 test = 0;
     bool alpha_valid = false;
 };
+
+static bool native_guest_range_readable(u32 address, u32 size);
+
+static void native_trace_sly_image_records(u32 tbp, u32 cbp, u32 psm,
+                                            u32 width, u32 height) {
+    static bool enabled = std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") != nullptr;
+    if (!enabled) return;
+    const char* filter = std::getenv("OPENRAC_TRACE_TEXTURE_MISS_TBP");
+    if (filter == nullptr) filter = std::getenv("OPENRAC_TRACE_SLY_IMAGE_TBP");
+    if (filter != nullptr) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(filter, &end, 0);
+        if (end == filter || *end != '\0' || parsed > 0x3FFFul ||
+            tbp != static_cast<u32>(parsed))
+            return;
+    } else if (tbp == 0u) {
+        return;
+    }
+    static u32 notices = 0;
+    if (notices++ >= 48u) return;
+    const u32 image_count = D_00274500;
+    const u32 image_table = D_00274504;
+    const u32 palette_count = D_00274508;
+    const u32 palette_table = D_0027450C;
+    std::fprintf(stderr,
+                 "[native sly image records] tbp=%#x cbp=%#x psm=%#x size=%ux%u images=%u@%#010x palettes=%u@%#010x\n",
+                 tbp, cbp, psm, width, height, image_count, image_table,
+                 palette_count, palette_table);
+    if (image_count > 8192u || palette_count > 8192u ||
+        (image_count != 0u && !native_guest_range_readable(image_table, image_count * 0x20u)) ||
+        (palette_count != 0u && !native_guest_range_readable(palette_table, palette_count * 0x18u)))
+        return;
+    const volatile u8* images = reinterpret_cast<const volatile u8*>(image_table);
+    for (u32 i = 0; i < image_count; ++i) {
+        const volatile u8* record = images + i * 0x20u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x18u);
+        if ((word & 0x3FFFu) != tbp) continue;
+        const u32 bytes = *reinterpret_cast<const volatile u32*>(record + 0x0Cu);
+        const u32 data = *reinterpret_cast<const volatile u32*>(record + 0x10u);
+        std::fprintf(stderr,
+                     "[native sly image match] i=%u word=%#llx bytes=%u data=%#010x blocks=%d bump=%u\n",
+                     i, static_cast<unsigned long long>(word), bytes, data,
+                     *reinterpret_cast<const volatile u32*>(record + 0x14u),
+                     *reinterpret_cast<const volatile u16*>(record + 0x0Au));
+    }
+    const volatile u8* palettes = reinterpret_cast<const volatile u8*>(palette_table);
+    for (u32 i = 0; i < palette_count; ++i) {
+        const volatile u8* record = palettes + i * 0x18u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x10u);
+        if (((word >> 37u) & 0x3FFFu) != cbp) continue;
+        const u32 data = *reinterpret_cast<const volatile u32*>(record + 0x08u);
+        std::fprintf(stderr,
+                     "[native sly palette match] i=%u bits=%#llx data=%#010x blocks=%d bump=%u\n",
+                     i, static_cast<unsigned long long>(word), data,
+                     *reinterpret_cast<const volatile u32*>(record + 0x0Cu),
+                     *reinterpret_cast<const volatile u16*>(record + 0x06u));
+    }
+}
+
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_texture_lookup(u32 tbp, u32 cbp, u32 psm,
+                                 u32 width, u32 height) {
+    native_trace_sly_image_records(tbp, cbp, psm, width, height);
+}
+
+static void native_trace_sly_asset_tables(u32 stage, u32 frame) {
+    if (std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") == nullptr || stage != 8u ||
+        (frame % 60u) != 0u)
+        return;
+    static u32 last_image_count = 0xFFFFFFFFu;
+    static u32 last_image_table = 0xFFFFFFFFu;
+    static u32 last_palette_count = 0xFFFFFFFFu;
+    static u32 last_palette_table = 0xFFFFFFFFu;
+    const u32 image_count = D_00274500;
+    const u32 image_table = D_00274504;
+    const u32 palette_count = D_00274508;
+    const u32 palette_table = D_0027450C;
+    if (image_count == last_image_count && image_table == last_image_table &&
+        palette_count == last_palette_count && palette_table == last_palette_table)
+        return;
+    last_image_count = image_count;
+    last_image_table = image_table;
+    last_palette_count = palette_count;
+    last_palette_table = palette_table;
+    const char* tbp_setting = std::getenv("OPENRAC_TRACE_SLY_IMAGE_TBP");
+    const char* cbp_setting = std::getenv("OPENRAC_TRACE_SLY_PALETTE_CBP");
+    const char* psm_setting = std::getenv("OPENRAC_TRACE_SLY_IMAGE_PSM");
+    const char* width_setting = std::getenv("OPENRAC_TRACE_SLY_IMAGE_WIDTH");
+    const char* height_setting = std::getenv("OPENRAC_TRACE_SLY_IMAGE_HEIGHT");
+    char* end = nullptr;
+    unsigned long parsed_tbp = tbp_setting != nullptr
+        ? std::strtoul(tbp_setting, &end, 0) : 0x26A0ul;
+    const u32 wanted_tbp = end != tbp_setting && *end == '\0' && parsed_tbp <= 0x3FFFul
+        ? static_cast<u32>(parsed_tbp) : 0x26A0u;
+    end = nullptr;
+    unsigned long parsed_cbp = cbp_setting != nullptr
+        ? std::strtoul(cbp_setting, &end, 0) : 0x1EDEul;
+    const u32 wanted_cbp = end != cbp_setting && *end == '\0' && parsed_cbp <= 0x3FFFul
+        ? static_cast<u32>(parsed_cbp) : 0x1EDEu;
+    end = nullptr;
+    unsigned long parsed_psm = psm_setting != nullptr
+        ? std::strtoul(psm_setting, &end, 0) : 0x14ul;
+    const u32 wanted_psm = end != psm_setting && *end == '\0' && parsed_psm <= 0x3Ful
+        ? static_cast<u32>(parsed_psm) : 0x14u;
+    end = nullptr;
+    unsigned long parsed_width = width_setting != nullptr
+        ? std::strtoul(width_setting, &end, 0) : 128ul;
+    const u32 wanted_width = end != width_setting && *end == '\0' && parsed_width <= 1024ul
+        ? static_cast<u32>(parsed_width) : 128u;
+    end = nullptr;
+    unsigned long parsed_height = height_setting != nullptr
+        ? std::strtoul(height_setting, &end, 0) : 128ul;
+    const u32 wanted_height = end != height_setting && *end == '\0' && parsed_height <= 1024ul
+        ? static_cast<u32>(parsed_height) : 128u;
+    std::fprintf(stderr,
+                 "[native sly asset tables] stage=%u frame=%u image_records=%u@%#010x palette_records=%u@%#010x target_tbp=%#x target_cbp=%#x target=%ux%u psm=%#x\n",
+                 stage, frame, image_count, image_table, palette_count, palette_table,
+                 wanted_tbp, wanted_cbp, wanted_width, wanted_height, wanted_psm);
+    if (image_count > 8192u || palette_count > 8192u ||
+        (image_count != 0u && !native_guest_range_readable(image_table, image_count * 0x20u)) ||
+        (palette_count != 0u && !native_guest_range_readable(palette_table, palette_count * 0x18u)))
+        return;
+    const volatile u8* images = reinterpret_cast<const volatile u8*>(image_table);
+    for (u32 i = 0; i < image_count; ++i) {
+        const volatile u8* record = images + i * 0x20u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x18u);
+        const u16 width = *reinterpret_cast<const volatile u16*>(record);
+        const u16 height = *reinterpret_cast<const volatile u16*>(record + 0x02u);
+        const u8 psm = *reinterpret_cast<const volatile u8*>(record + 0x08u);
+        const u8 tbw = *reinterpret_cast<const volatile u8*>(record + 0x09u);
+        if ((word & 0x3FFFu) != wanted_tbp &&
+            !(width == wanted_width && height == wanted_height && psm == wanted_psm))
+            continue;
+        std::fprintf(stderr,
+                     "[native sly asset image] i=%u word=%#llx dimensions=%ux%u psm=%#x tbw=%u flags=%#x bytes=%u data=%#010x blocks=%d bump=%u\n",
+                     i, static_cast<unsigned long long>(word), width, height, psm, tbw,
+                     *reinterpret_cast<const volatile u32*>(record + 0x04u),
+                     *reinterpret_cast<const volatile u32*>(record + 0x0Cu),
+                     *reinterpret_cast<const volatile u32*>(record + 0x10u),
+                     *reinterpret_cast<const volatile u32*>(record + 0x14u),
+                     *reinterpret_cast<const volatile u16*>(record + 0x0Au));
+    }
+    const volatile u8* palettes = reinterpret_cast<const volatile u8*>(palette_table);
+    for (u32 i = 0; i < palette_count; ++i) {
+        const volatile u8* record = palettes + i * 0x18u;
+        const u64 word = *reinterpret_cast<const volatile u64*>(record + 0x10u);
+        if (((word >> 37u) & 0x3FFFu) != wanted_cbp) continue;
+        std::fprintf(stderr,
+                     "[native sly asset palette] i=%u bits=%#llx data=%#010x blocks=%d bump=%u\n",
+                     i, static_cast<unsigned long long>(word),
+                     *reinterpret_cast<const volatile u32*>(record + 0x08u),
+                     *reinterpret_cast<const volatile u32*>(record + 0x0Cu),
+                     *reinterpret_cast<const volatile u16*>(record + 0x06u));
+    }
+}
 struct NativeSlyMesh {
     u32 source_mesh = 0;
     u32 kind = 0xFFFFFFFFu;
@@ -4102,6 +4261,7 @@ sly1_native_trace_frame_stage(u32 stage) {
         sly1_native_force_level_boot();
     if (stage == 8) {
         const u32 frame = __atomic_add_fetch(&g_native_frame_count, 1u, __ATOMIC_RELAXED);
+        native_trace_sly_asset_tables(stage, frame);
         // Opt-in camera trace: does the camera position/view change with pad input?
         if (getenv("OPENRAC_TRACE_CAMERA") != nullptr && (frame % 20u) == 0u) {
             extern u32 D_00261990; // g_camera

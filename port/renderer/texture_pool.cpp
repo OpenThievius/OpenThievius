@@ -26,6 +26,14 @@
 
 namespace openrac::renderer {
 
+// Optional host32 bridge for correlating a native OpenGL texture miss with
+// Sly's live image and palette records. Other OpenRAC builds have no such bridge.
+extern "C" void sly1_native_trace_texture_lookup(std::uint32_t tbp, std::uint32_t cbp,
+                                                   std::uint32_t psm,
+                                                   std::uint32_t width,
+                                                   std::uint32_t height)
+    __attribute__((weak));
+
 using namespace openrac::gl;
 
 namespace {
@@ -410,6 +418,12 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     std::uint32_t offset = 0;
     const Stored* stored = upload_at(tex0.tbp0, offset);
     if (stored == nullptr) {
+        static const bool trace_live_assets =
+            std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") != nullptr;
+        if (trace_live_assets && sly1_native_trace_texture_lookup != nullptr)
+            sly1_native_trace_texture_lookup(tex0.tbp0, tex0.cbp, tex0.psm,
+                                             static_cast<std::uint32_t>(tex0.width()),
+                                             static_cast<std::uint32_t>(tex0.height()));
         static const std::uint32_t trace_miss_tbp = [] {
             const char* setting = std::getenv("OPENRAC_TRACE_TEXTURE_MISS_TBP");
             if (setting == nullptr) return 0xFFFFFFFFu;
@@ -420,6 +434,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
                        : 0xFFFFFFFFu;
         }();
         static unsigned miss_trace_count = 0;
+        static bool miss_ranges_logged = false;
         if (tex0.tbp0 == trace_miss_tbp && miss_trace_count++ < 16u) {
             std::uint32_t nearest_base = 0;
             std::uint32_t nearest_end = 0;
@@ -438,6 +453,27 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
                 "texture miss tbp={:#x} psm={:#x} tbw={} size={}x{} uploads={} nearest={:#x}..{:#x} distance={}",
                 tex0.tbp0, tex0.psm, tex0.tbw, tex0.width(), tex0.height(),
                 m_uploads.size(), nearest_base, nearest_end, nearest_distance);
+            if (!miss_ranges_logged) {
+                miss_ranges_logged = true;
+                std::vector<const Stored*> ordered_uploads;
+                ordered_uploads.reserve(m_uploads.size());
+                for (const auto& [base, upload] : m_uploads) {
+                    (void)base;
+                    ordered_uploads.push_back(&upload);
+                }
+                std::sort(ordered_uploads.begin(), ordered_uploads.end(),
+                          [](const Stored* left, const Stored* right) {
+                              return left->upload.dbp < right->upload.dbp;
+                          });
+                for (const Stored* upload : ordered_uploads) {
+                    const ImageUpload& image = upload->upload;
+                    log::info(
+                        "texture miss upload-range dbp={:#x} end={:#x} psm={:#x} dbw={} xy={},{} size={}x{} bytes={} seq={}",
+                        image.dbp, upload->end, image.dpsm, image.dbw, image.x,
+                        image.y, image.width, image.height, image.data.size(),
+                        upload->sequence);
+                }
+            }
         }
         return 0;
     }

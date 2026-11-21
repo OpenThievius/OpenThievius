@@ -39,6 +39,26 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Native texture source audit (2026-11-21):** the 2D/native upload pool contains
+115 upload ranges in the current world trace, ending at GS block `0x2087`, while
+some native scene materials request higher blocks such as `0x26a0`. The live
+decomp tables are a possible native asset source: `ImageRecord` holds the source
+image bytes and its computed GS TEX0 word, and `PaletteRecord` holds the palette
+bytes and TEX0 bits. An opt-in host32 trace now checks those tables at native GL
+texture misses (`OPENRAC_TRACE_SLY_IMAGE_RECORDS=1`, optionally filter with
+`OPENRAC_TRACE_TEXTURE_MISS_TBP=0x26a0`). It also reports records matching the
+missing texture's dimensions and pixel format. Hidden startup reached no-card
+page 7 and the next world-load state (page 255, UI state 8); the image table grew
+from 61 records to 390 and the palette table from 63 to 905. At that point, the
+table had many 128x128 PSMT4 records, but none had assigned TBP `0x26a0`; the
+current capture also did not reach the native world mesh-submit hook, so it did
+not prove a source-record match for that material. Do not assign a candidate
+texture by size alone. Next, restore a capture that reaches the same world mesh
+submissions as the earlier 393-mesh trace, then correlate each missing material
+key with its live image/palette records before adding a native OpenGL upload
+adapter. Keep that adapter in the port; do not change the decomp or add VU
+rendering. Trace logs: `/tmp/sly-native-image-records-20261121/`.
+
 **Fresh native capture (2026-11-21):** rebuilt `port_native_sdl_host32`
 successfully (194 matched units, 85 port-only backfills; 98 indirect/fallback
 entries, direct-call frontier 790/791). A hidden US level probe reached world
