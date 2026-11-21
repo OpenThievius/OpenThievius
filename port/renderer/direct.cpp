@@ -1801,11 +1801,13 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
                     const DirectVertex& vertex = vertices[decoded.first];
                     const DirectState& state = decoded.state;
                     log::info(
-                        "{}: direct_frame={} draw={} first={} count={} texture={} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} fbmsk={:#010x} test={} scissor={},{},{},{} xy={:.3f},{:.3f} rgba={},{},{},{}",
+                        "{}: direct_frame={} draw={} first={} count={} texture={} textured={} tcc={} tfx={} blend={} alpha={},{},{},{},{} target={:#x} source={:#x} frame_source={} snapshot={} depth_write={} fbmsk={:#010x} writes_display={} test={} scissor={},{},{},{} xy={:.3f},{:.3f} rgba={},{},{},{}",
                         name(), this_frame, i, decoded.first, decoded.count, state.texture,
                         state.textured, state.tcc, static_cast<int>(state.tfx), state.blend,
                         state.alpha.a, state.alpha.b, state.alpha.c, state.alpha.d, state.alpha.fix,
-                        state.fbmsk, test_text(state.test), state.scissor.x0, state.scissor.x1,
+                        state.target, state.source, state.frame_source, state.snapshot,
+                        state.depth_write, state.fbmsk, m_last_frame_writes_display,
+                        test_text(state.test), state.scissor.x0, state.scissor.x1,
                         state.scissor.y0, state.scissor.y1, vertex.x, vertex.y, vertex.rgba[0],
                         vertex.rgba[1], vertex.rgba[2], vertex.rgba[3]);
                 }
