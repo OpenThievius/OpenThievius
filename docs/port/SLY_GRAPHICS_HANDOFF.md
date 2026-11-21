@@ -50,6 +50,20 @@ on the host OpenGL path by checking per-draw transforms and lighting. Evidence:
 `/tmp/sly-native-vertex-order-20261121.log`, and
 `/tmp/sly-native-gl-refsplit-20261121/`.
 
+**2026-11-21 transform/light audit:** the decomp places the part model at
+request `+0x10` and the camera's combined view/projection at `Camera+0x100`.
+`BuildViewProjectionMatrix` constructs projection times view; the host uses
+the row-vector model times view/projection product and passes it to GLSL so
+the column-major interpretation supplies the corresponding transpose. The
+sampled player matrices are finite, so a basic matrix-order error is not
+supported. A port-only hook after the game's light selection reports mode 3,
+zero selected lights for sampled lit environment parts, and mode 4/count zero
+for the player. The default host mesh path still does not reproduce the game's
+lit-vertex results or skin deformation. Continue implementing those on the
+host OpenGL side; do not implement the VU renderer. Traces:
+`/tmp/sly-native-transform-audit-20261121.log` and
+`/tmp/sly-native-light-trace-20261121.log`.
+
 Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log` and
 `/tmp/sly-native-gl-current-20261121/contact.png` with
 `/tmp/sly-native-gl-current-20261121/run.log`.

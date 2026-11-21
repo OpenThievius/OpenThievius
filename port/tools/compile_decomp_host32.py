@@ -5340,6 +5340,12 @@ void LoadEffectSpawner"""
                 'extern "C" void sly1_native_trace_mesh_sources(u32, u32);\n'
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n' + adapted
             )
+            adapted = adapted.replace(
+                'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n',
+                'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n'
+                'extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32);\n',
+                1,
+            )
             signature = (
                 "void BuildStripMeshPacket(MeshBuildState* self, StripMeshOwner* obj, s32 mode, StripHeader* hdr, StripMesh* mesh,\n"
                 "                   Vec3* vecs, Vec3* nrms, u8 (*tints)[4], MeshUv* uvs, s32 n, VertexRefs* recs,\n"
@@ -5385,6 +5391,17 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart matrix setup for native renderer")
             adapted = adapted.replace(needle, replacement, 1)
+            lighting_point = (
+                "    useCache = cache != 0 && (owner->cls->flags & 2) && owner->f410 != 0;\n"
+            )
+            if adapted.count(lighting_point) != 1:
+                raise RuntimeError("expected DrawModelPart light-selection completion")
+            adapted = adapted.replace(
+                lighting_point,
+                "    sly1_native_trace_model_lighting((u32)self, (u32)b.mode, "
+                "(u32)b.lightCount, (u32)lights, (u32)part);\n" + lighting_point,
+                1,
+            )
             signature = (
                 "void DrawModelPart(PartDrawRequest* self)\n{"
             )

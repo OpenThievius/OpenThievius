@@ -55,6 +55,21 @@ Trace and image evidence are in
 `/tmp/sly-native-vertex-order-20261121.log`, and
 `/tmp/sly-native-gl-refsplit-20261121/`.
 
+The live camera/model trace confirms that the draw request supplies its model
+matrix at `+0x10` and the camera's combined view/projection at `Camera+0x100`.
+The decomp builds that camera matrix as projection times view; the host combines
+row-vector model times view/projection, then uploads it with the matching
+OpenGL column-major interpretation. The captured player matrices are finite,
+so a basic transpose/order mistake is not supported by this trace. The draw
+hook now also records Sly's selected lighting mode/count. In this Paris sample,
+lit environment parts report mode 3 with zero selected lights, and the player
+reports mode 4 with zero. This does not explain the stretched geometry; the
+host path still omits the decomp's lit-vertex output and skin deformation.
+Evidence is in `/tmp/sly-native-transform-audit-20261121.log` and
+`/tmp/sly-native-light-trace-20261121.log`. Next derive the native host
+lighting/deformation inputs from the draw and mesh data without implementing
+the PlayStation VU renderer.
+
 ### Native host32 field pacing recheck (2026-11-21)
 
 The direct i386 SDL bootstrap was generating one retail VBlank for every
