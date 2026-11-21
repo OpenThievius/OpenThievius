@@ -9,6 +9,16 @@ do not spend the next graphics task trying to implement or emulate the VU
 renderer. Keep fixes in the port-owned host renderer/runtime, separate from
 decompiled game C and functional backfills.
 
+**Native skeletal draw experiment (2026-11-21):** the matched part builder
+provides per-vertex weights, mesh bone indices, and a PartSkin palette of final
+matrices. An opt-in `OPENRAC_SLY_WORLD_SKIN` path now applies those inputs on
+the host before OpenGL submission. A hidden capture of player source
+`0x00a2db88` runs that path but still projects the actor to a tiny speck; this
+does not resolve the native camera/clip mapping. Keep the option disabled by
+default. Post-render image and log:
+`/tmp/sly-native-host-skin-after-20261121/`. The earlier capture directory
+contains a pre-draw black frame and should not be used to evaluate the result.
+
 The native overlay is still a diagnostic prototype, not a graphics milestone.
 Its forced-Paris captures used the wrong path for the supplied startup video.
 The tested save prompt is page 7 in Splash world `0x6abdd0`; selecting Yes

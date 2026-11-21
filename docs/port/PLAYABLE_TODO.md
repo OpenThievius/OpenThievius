@@ -31,6 +31,18 @@ draws. Confirm each change from captured host frames. Keep the existing 2D
 DirectRenderer for menu packets. Do not change VU instruction limits or
 implement a VU renderer as a shortcut.
 
+**Native skinning experiment (2026-11-21):** the host bridge now has an
+unset-by-default `OPENRAC_SLY_WORLD_SKIN` option. It applies each captured
+vertex's weights to the corresponding final matrices in the PartSkin palette
+before the OpenGL submission. A hidden source-isolated frame for player mesh
+`0x00a2db88` confirms the path runs, but the actor remains a tiny speck; the
+host projection/camera mapping is still the larger blocker. The feature is
+experimental, not enabled by default or yet a graphics improvement. The
+post-render capture and trace are in
+`/tmp/sly-native-host-skin-after-20261121/`; the earlier black PPM in
+`/tmp/sly-native-host-skin-20261121/` was captured before the GL draw and is
+not a valid visual result.
+
 The cyan contributor `0x00a2a488` has now been traced back to draw requests
 owned by classes 4 and 31. They inherit the collider class, but `DrawCollider`
 delegates to `DrawPlacedObject`; the class ancestry alone does not prove that
