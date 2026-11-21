@@ -24,6 +24,17 @@ first complete triangle packet should be emitted. Evidence:
 `/tmp/sly-acc-flags-fix-frames-20261121/`, and OpenRAC's
 `tools/interpreter/src/ps2/vu.cpp` `upper_special_body` implementation.
 
+A second low-overhead run enabled only the accepted-packet census. It observed
+627 packets: 144 from VU XGKICK and 483 from VIF DIRECT. All 144 VU kicks
+selected `PRIM=0` (point mode). The direct traffic was mostly sprites, plus
+`PRIM=0x200` state writes. No triangle-list or triangle-strip mode appeared.
+This shows the corrected flag handling did not yet produce the missing mesh
+packet. Keep the next step at the VU microprogram/packet handoff and identify
+why the lit batch lacks a triangle draw. The run used the Documents US ISO and
+one process-local Cross press at frame 250, ended at its timeout, and left no
+launcher process. Log:
+`/tmp/sly-acc-flags-packet-census-20261121.log`.
+
 ### Reusing OpenRAC's PSS movie path (2026-11-21)
 
 I checked current OpenRAC source (`911f007`). Its separate `port/media` module

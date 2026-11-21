@@ -45,6 +45,13 @@ at its bounded timeout and no process remained. Log and frames:
 `/tmp/sly-acc-flags-fix-capture-20261121.log` and
 `/tmp/sly-acc-flags-fix-frames-20261121/`.
 
+A lightweight accepted-packet census after the same VU fix saw 627 packets:
+144 VU XGKICK packets and 483 VIF DIRECT packets. Every VU XGKICK selected
+point mode (`PRIM=0`); the direct traffic was mostly sprites, plus
+`PRIM=0x200` state writes. No VU kick selected a triangle primitive, so
+correcting accumulator flags did not restore the missing mesh draw. Log:
+`/tmp/sly-acc-flags-packet-census-20261121.log`.
+
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than
 branding. It shows the Sony and Sucker Punch cards, the Paris rooftop intro,
