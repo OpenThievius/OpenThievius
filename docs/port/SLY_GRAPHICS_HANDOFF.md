@@ -23,8 +23,20 @@ An approved hidden run with the configured US ELF and ISO verified this route.
 The capture is `/tmp/sly-native-title-yes-20261121/contact.png`; its log is
 `/tmp/sly-native-title-yes-20261121/run.log`. Next trace which Splash-owned
 scene/object is supposed to produce the opening title sequence, then add its
-Sly-specific host rendering. Do not use the Paris overlay screenshot as
-evidence of startup progress.
+Sly-specific host rendering. A separate hidden capture with the native mesh
+bridge enabled confirms it is not a Splash renderer: Splash built and bound
+strip resources during load, but emitted no `DrawModelPart` mesh submissions
+or native world-mesh queue. `OPENRAC_TRACE_MODEL_PARTS=1` also recorded no
+placed-object model queue calls while the game stayed on page 7. After the
+state-driven Yes input, the same bridge did receive 282 steady Paris meshes
+and 71 textures; its image remained distorted gray terrain. Keep that as a
+separate gameplay renderer lead. Do not use the Paris overlay screenshot as
+evidence of startup progress, and do not tune the VU renderer to solve this
+missing Splash draw path.
+
+Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log` and
+`/tmp/sly-native-gl-current-20261121/contact.png` with
+`/tmp/sly-native-gl-current-20261121/run.log`.
 
 The user's 62.8-second PCSX2 video is the PAL startup sequence: legal cards,
 Sucker Punch logo, Paris rooftop intro, then the animated title screen with

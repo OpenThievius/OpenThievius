@@ -13,10 +13,12 @@ correct save/title flow, and the native live 3D scene and gameplay renderer
 remain blocked. See the [playable TODO](PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
 for the capture, limits, and next steps.
 
-**Next:** trace normal startup through the identified intro and title, then
-replace the diagnostic decoder with a self-contained host media path. Resume
-the live world renderer separately; do not count pre-rendered video as
-playable 3D.
+**Next:** keep rendering work on the native host renderer. Identify the
+Splash-owned startup/title scene and feed its Sly scene data into host OpenGL.
+The PlayStation VU/GIF path may be inspected for source data, but implementing
+or emulating that renderer is not the graphics target. Replace the diagnostic
+movie decoder with a self-contained host media path separately; do not count
+pre-rendered video as playable 3D.
 
 The native client still reaches the memory-card flow and loaded world, but
 does not show a playable scene. A paired capture separated the two graphics
@@ -40,10 +42,12 @@ model or usable HUD. The bridge remains diagnostic and disabled by default.
 See the [playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
 for the frame and run details.
 
-**Next:** select one bounded Sly draw kind and trace its matched packet-builder
-input through the corresponding VU transform and GS output, then implement a
-faithful native draw path for that kind. Do not treat the overlay as the game
-renderer. Keep the optional OpenGL mesh overlay and all functional backfills
+**Next:** implement the Sly-specific native host-renderer path for the first
+confirmed startup/title object. The current OpenGL mesh overlay is attached to
+gameplay `DrawModelPart` calls, yields distorted Paris geometry, and is not the
+startup renderer. Trace the Splash-owned object/resource inputs and connect
+them to host OpenGL; use retail VU/GIF observations only to clarify source
+data where needed. Keep all host-renderer work and functional backfills
 separate from matched decompilation source. See the
 [graphics handoff](SLY_GRAPHICS_HANDOFF.md) for current evidence.
 ## Reset review (2026-11-16)

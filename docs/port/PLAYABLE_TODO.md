@@ -179,11 +179,21 @@ still lacks proven strip boundaries and renderer inputs. Evidence:
 `/tmp/sly-vu-ndc-fresh-20261121/run.log`, `vu.png`, and `frame63.png`.
 
 **Next:** trace the normal Splash path from the no-card prompt through the
-opening cards and title without the test shortcut. In parallel, validate the
-world-mesh vertex topology, transforms, and material/resource mapping against
-the distorted experimental capture before enabling that path by default. Keep
-the FFmpeg movie bridge, host ABI fixes, and other replacements in `port/` so
-they can be retired independently when the matched IPU path is hostable.
+opening cards and title without the test shortcut, then implement the missing
+Splash/title draw path in the native host OpenGL renderer. A hidden run with
+the OpenGL mesh bridge enabled built and bound strip resources in Splash but
+produced no placed-object model queue calls or per-frame mesh submissions.
+Once the save prompt is dismissed, the bridge receives 282 Paris meshes and
+71 textures, but renders distorted gray terrain. This separates two tasks:
+Splash currently has no active model draw path to feed the bridge, while the
+gameplay overlay still has incorrect geometry. Keep the FFmpeg movie bridge,
+host ABI fixes, and functional backfills under `port/`, separate from matched
+decompilation. Do not spend the next renderer task implementing or emulating
+PlayStation VU rendering; use host OpenGL for the port's graphics output.
+
+Evidence: `/tmp/sly-splash-native-mesh-check-20261121/run.log`,
+`/tmp/sly-native-title-yes-20261121/run.log`, and
+`/tmp/sly-native-gl-current-20261121/contact.png`.
 
 ### Decompiled movie path check (2026-11-21)
 
