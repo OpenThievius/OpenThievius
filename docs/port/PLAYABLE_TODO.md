@@ -3,69 +3,56 @@
 
 ## Current checkpoint (2026-11-21)
 
-### Renderer direction: draw Sly data on the host GPU
+### Renderer direction: start with the scene in the reference
 
-Do not make VU1 instruction coverage the route to a playable port. The
-previous experiments improved the VU interpreter but produced no triangle
-batches or visible gameplay. That path models PS2 hardware and has not moved
-the user-visible result. OpenRAC's useful precedent is its game-specific
-native renderers: use the decompiled game's own scene, model, camera and
-material data to issue host GPU draws, without executing the game's VU
-programs. Derive Sly's data and behavior from `sly1-decomp` and the retail disc;
-do not transplant Ratchet renderers or game research.
+Do not make VU1 instruction coverage the route to a playable port. OpenRAC's
+useful precedent is its game-specific native renderer: derive each game's own
+scene, model, camera, and material data, then issue host GPU draws. Do not
+transplant Ratchet scene logic or research into Sly.
 
-The best first slice is the player/model draw path. A prior trace reached
-world `0x870cf0`; the player has model-bearing descendants, and child `0x5b`
-queues parts with 38 meshes and 47 strips. `DrawModelPart` and
-`BuildLitStripMeshPacket` expose positions, vertex references, tints, UVs,
-skin weights, frame sources and camera/model transforms. Port-only host hooks
-already capture much of this input, but the optional gray mesh overlay is not
-the target renderer: it uses approximated strip presentation and gets its
-texture from the GIF-fed GS texture pool. It is disabled by default and does
-not establish correct Sly geometry or materials.
+The supplied 62.8-second PCSX2 reference is the PAL release. It shows legal
+cards, the Sucker Punch logo, the Paris rooftop intro, and an animated title
+screen with Start/Select prompts. It does not show player-controlled gameplay.
+The native build uses the US ELF and ISO, so compare scene composition and
+animation while allowing regional text and branding to differ. The first
+visual gate should be the recognizable startup/title sequence, not a gameplay
+player mesh that does not appear in the reference.
 
-The current player child is owner `0x016d2fa0` / request `0x005e5400`. Its
-first part uses 38 lit kind-0 meshes; source `0x00a115a0` is the first one.
-An isolated host draw of that source is only a tiny colored fleck on black.
-The former experimental source special case `0x00a2d9a8` is stale for this
-run and is not present in the current player submissions. Re-derive matrix,
-scale, topology, and materials from the live kind-0 path before adding any
-player-specific renderer rule.
+The current native path reaches the memory-card flow and can advance into a
+loaded gameplay world with an offscreen menu driver. That proves the guest
+starts and processes the menu sequence; it does not yet match the reference
+sequence. The next concrete work is to trace the retail startup transition
+through legal/logo/rooftop/title and identify the data and render path for the
+first missing reference scene. Keep the existing GIF DirectRenderer for 2D
+startup/menu packets where it already works, and add Sly-owned host rendering
+in `port/` for scene categories the GIF path cannot present.
 
-The old host skinning experiment only ran for kind 5. The current player is
-kind 0, with matching four-entry vertex-weight and `PartMesh` bone arrays.
-The opt-in host path now handles kind 0 as well; a player-filtered image still
-needs to confirm the weight order and matrix convention. Use
-`OPENRAC_TRACE_SLY_SKIN_PACKET=1` and
-`OPENRAC_TRACE_SLY_SKIN_PACKET_PLAYER=1` to compare both arrays and slot IDs.
-The 2026-11-21 isolated capture confirms the skin path executes, but still
-shows only a tiny fleck. Scale 20 yields a large triangle fan. Do not tune
-scale further: first derive strip grouping/topology and the retail transform.
-The full player draw part in point mode is about 28 by 15 pixels at 960x720.
-The camera is at roughly `(-3913, 9097, 104)`, about 502 units from the part
-origin; zoom is `1.1`, fades are `1`, and part radius scale is `1`. The camera
-is active and the part is not faded out. Use the port-only
-`OPENRAC_TRACE_SLY_CAMERA=1` trace while deriving the missing VU transform,
-topology, or native projection mismatch; do not treat these measurements as a
-graphics fix.
+### Player draw investigation (supporting evidence, not the current visual gate)
 
-Next, make a Sly-owned render input from those game structures and feed it to
-OpenGL directly. Establish strip boundaries and winding, the model and bone
-matrix convention, UV/material lookup from Sly's resource data, and the
-camera/depth rules. Keep all adapters in `port/`; do not alter matched
-functions in `sly1-decomp`. The GIF DirectRenderer can continue to cover
-2D/menu packets while the Sly world renderer replaces the VU-dependent 3D
-path. The first visual gate is a correctly oriented, textured player model in
-the active world; after that, implement terrain/placed-object categories,
-lighting and effects, then verify the title/menu and a controllable level.
+A prior trace reached world `0x870cf0`; child `0x5b` queues 38 meshes and 47
+strips. The gameplay player child is owner `0x016d2fa0` / request `0x005e5400`;
+source `0x00a115a0` is its first lit kind-0 mesh. An isolated host draw of the
+player remains a tiny fleck. Matrix mode 0 draws about 22x9 pixels; mode 1
+covers most of the screen with clipped polygons. The camera is active, about
+502 units from the part origin, zoom `1.1`, and request/part fades are `1`.
+These measurements do not identify the missing topology or transform and do
+not make this gameplay request a match for the supplied video.
 
-The supplied 62.8-second PCSX2 reference is the PAL release. It shows Sony
-legal cards, the Sucker Punch logo, the Paris rooftop intro, and an animated
-title screen with Start/Select prompts; it does not show player-controlled
-gameplay. The first visible gate is this startup sequence, with a recognizable
-animated title screen as the minimum scene milestone. The native build uses
-the US ELF and ISO, so compare scene composition and animation while allowing
-regional branding and text to differ.
+A prior opt-in host experiment incorrectly treated `StripHeader::count`
+morph-key values as per-bone skinning weights. The matched builder's
+`g_skinWeightProgram` blends morph-key data; the separate part bone palette
+is not that list. The port-only transform was removed after a paired native
+capture showed a 22x9-pixel shape with the experiment and a 37x12-pixel shape
+without it. The host still captures morph weights and key indices for tracing,
+but does not pretend to produce skinned vertices. All adapters remain in
+`port/`; matched functions in `sly1-decomp` are untouched.
+
+Once the reference startup/title scene is recognizable, return to the player
+and world renderer. Establish strip boundaries and winding, morph and bone
+matrix conventions, UV/material lookup from Sly resource data, and camera/depth
+rules. Then add terrain, placed objects, lighting and effects, and verify a
+controllable level. Do not tune player scale or infer gameplay success from
+the isolated fleck.
 
 ### Historical VU/GS packet investigation (not the renderer plan)
 
@@ -461,16 +448,15 @@ post-HUD image is
 saved as `/tmp/sly-player-scaled-20261120/after-hud-07.png`. No decomp source
 changed.
 
-## Current checkpoint (2026-11-20, 22:10 CET)
+## Superseded checkpoint (2026-11-20, 22:10 CET)
 
-An earlier hidden, bounded native run with `OPENRAC_SLY_WORLD_APPLY_SKINNING=1`
-and `OPENRAC_TRACE_SLY_SKINNING=1` exercised the port-only overlay on kind-5
-source `0x00a2d9a8`, not the current kind-0 player mesh. It still showed a
-distorted grayscale corridor without a recognizable Sly model. The current
-checkpoint applies the same diagnostic path to kind 0 and isolates the live
-player mesh. It executes successfully but still renders only a tiny fleck; a
-scale-20 experiment becomes a large triangle fan. This points to unverified
-topology/transform, not a missing skinning call.
+An earlier hidden, bounded native run enabled the experimental host transform
+on kind-5 source `0x00a2d9a8`, not the current kind-0 player mesh. It showed a
+distorted grayscale corridor. The later kind-0 experiment still showed only a
+tiny fleck and scale 20 became a large triangle fan. A source audit then found
+that the host transform had treated morph-key weights as bone weights; it has
+been removed. Do not use this checkpoint as evidence that native skinning was
+implemented or that a skinning call is missing.
 
 The next blocker remains the native draw pipeline: the selected player and
 environment strip submissions enter matched `g_unlitBatchProgram` and finish

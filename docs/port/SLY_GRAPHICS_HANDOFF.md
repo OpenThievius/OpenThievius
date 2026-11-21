@@ -1,90 +1,51 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
-### Current renderer direction (2026-11-21)
+### Current direction after comparing the supplied reference (2026-11-21)
 
-Stop treating VU packet correctness as the route to graphics. The interpreter
-and GS parser have several real fixes, but the gameplay captures remained
-black or showed stretched gray surfaces, and the observed VU kicks still did
-not form triangle batches. Those findings identify a poor port architecture,
-not an instruction left to emulate. OpenRAC's transferable idea is a
-game-specific renderer that reads the decompilation's render data and issues
-host GPU draws. Ratchet-specific world formats, renderer code derived from
-third-party projects, and Ratchet game research are not Sly evidence.
+The user's 62.8-second PCSX2 video is the PAL startup sequence: legal cards,
+Sucker Punch logo, Paris rooftop intro, then the animated title screen with
+Start/Select prompts. It does not show player-controlled gameplay. The native
+build uses the US ELF and ISO, so compare scene order and composition while
+allowing localized text and branding to differ. The immediate visual target is
+therefore the missing startup/title scene, not the gameplay player mesh.
+Reference stills are saved in `/tmp/sly-reference-frames/`.
 
-The existing Sly overlay is a useful probe, not a renderer to ship. The
-hostgen adapter captures `VertexRefs`, positions, tints, UVs and optional skin
-weights around `BuildLitStripMeshPacket`; `sly1_native_submit_model_part`
-associates that data with a model draw and the SDL/OpenGL layer submits it.
-However, it flattens the inputs into an approximate strip draw, gets material
-state from frame-source GIF packets, and resolves textures through the
-GIF-populated `TexturePool`. It therefore still depends on the command-stream
-path for materials and does not yet represent Sly's source asset/render data
-end to end. Its gray stretched output is not a successful visual result.
+OpenRAC's transferable precedent is its game-specific host renderer: derive
+scene, model, camera, and material inputs from that game's code and assets, then
+draw them with the host GPU. Do not transplant Ratchet scene logic or research
+into Sly. Keep the already working GIF DirectRenderer for 2D/menu packets and
+trace the retail startup path that should produce the reference sequence.
 
-The player route is the first bounded native-renderer target because model
-parts are confirmed: child `0x5b` queues parts containing 38 meshes and 47
-strips, and the player hierarchy has 12 model-bearing descendants. A fresh
-offscreen isolation run identified the child as owner `0x016d2fa0`, request
-`0x005e5400`; its first part has 38 lit kind-0 meshes sourced from
-`0x00a115a0`, and its second has 47 strips. Rendering only `0x00a115a0` with
-solid colors and skinning enabled produces a tiny colored fleck on black. The
-projected bounds in the existing trace are about 0.02 NDC wide, so vertices
-reach the host draw but do not produce a character-sized image. The source
-address hardcoded by the old experimental path, `0x00a2d9a8`, is absent from
-this run. Its special matrix, triangle-topology, and restart rules therefore
-do not target the currently observed player draw. Do not simply retarget those
-rules to `0x00a115a0`: the retail code identifies kind 0 as the lit builder,
-and the host draw still needs verified topology, scale, skinning, materials,
-and camera conventions.
+The native launcher currently reaches the memory-card flow and, with the
+approved offscreen menu driver, advances into a loaded gameplay world. This
+proves the guest runs; it does not reproduce the reference. The next concrete
+step is to identify the legal/logo/rooftop/title transition and the data path
+for its first missing scene, then build a Sly-owned host render path in `port/`
+for anything not represented by the existing 2D packets.
 
-A source audit also clarified that the builder's `StripHeader::count` feeds
-per-vertex weights to `g_skinWeightProgram`; the separate `self->nweights`
-path builds morph deltas. The old adapter applied those per-vertex weights
-only to kind-5 meshes, but the current player is kind 0 and also has matching
-four-weight/four-bone records. The opt-in skin diagnostic now accepts the live
-player's kind-0 palette. Whether the strip's weight keys map directly to
-`PartMesh::bones` still needs visual confirmation. The player-filtered
-`OPENRAC_TRACE_SLY_SKIN_PACKET=1` trace records both arrays and the slot data.
-The 2026-11-21 isolated rerun applied the transform to the live kind-0 mesh,
-but its image still contains only a tiny fleck. Raising diagnostic scale to
-20 instead produces a large triangle fan. Neither is a fix: recover retail
-strip boundaries/topology and the exact transform from matched builders and
-VU data before changing host rendering.
+### Gameplay player experiment (not the current visual milestone)
 
-A follow-up point-cloud capture of the full player draw request is still only
-about 28 by 15 pixels at 960x720. Triangle-list conversion is similarly tiny;
-the triangle-list diagnostic expands the submitted sequence as a strip and
-does not improve the result. The player camera is active and near the part:
-camera position `(-3912.87, 9097.14, 104.249)`, model origin
-`(-4352.28, 9322.71, 205.061)`, distance about 502, zoom `1.1`, request fades
-`1,1`, and part radius scale `1`. This rules out a zero fade or a camera left
-at an unrelated startup position. It does not yet distinguish an omitted VU
-transform factor from incomplete host topology or a renderer projection
-mismatch. `OPENRAC_TRACE_SLY_CAMERA=1` now reports those values for player-tree
-draws; keep it opt-in.
+A prior trace reached world `0x870cf0`; child `0x5b` queues 38 meshes and 47
+strips. The gameplay player child is owner `0x016d2fa0` / request `0x005e5400`;
+its first lit kind-0 mesh uses source `0x00a115a0`. A solid-color player-only
+capture remains a fleck. On 960x720 captures, matrix mode 0 gives about 22x9
+pixels when the experimental host bone transform is enabled, and about 37x12
+pixels with it disabled. Matrix mode 1 produces screen-filling clipped
+polygons. The camera is active, about 502 units from the part origin, zoom
+`1.1`, with request/part fades `1`. These results do not establish correct
+strip topology or transform; no renderer default was changed.
 
-Next derive strip topology, frame selection, material/texture references,
-bone transforms, coordinate scale, and camera convention from the matched US
-sources and retail structures. Feed those into a Sly-owned render record and
-an OpenGL draw path without executing VU1 programs or depending on GS memory.
-Keep the adapter in `port/`, separate from matched C so it can be replaced as
-the source coverage evolves. Then add the level terrain and other scene
-categories; preserve GIF `DirectRenderer` for 2D startup/menu draws while
-those categories are ported.
+A source audit found that the experiment misused the data: `StripHeader::count`
+selects per-vertex morph-key weights for `g_skinWeightProgram`, while the
+`PartMesh` bone palette is a separate structure. The port-only host transform
+that applied morph values to bone matrices was removed. The capture still
+retains morph weights and key indices for diagnostics; no matched function in
+`sly1-decomp` changed. Do not revive that transform without deriving the
+actual morph and bone paths separately.
 
-The supplied PAL Sly Raccoon reference video shows Sony Computer Entertainment
-Europe legal cards, the Sucker Punch Productions logo, a Paris rooftop intro,
-and then the animated Sly Raccoon title/menu with Start and Select prompts.
-The native client currently captures black after its startup/menu sequence;
-its isolated player fleck is not progress toward matching these reference
-scenes. The clip does not show player-controlled gameplay. The current native
-build uses the US disc, so compare scene order and composition, not localized
-branding. Reference frames were inspected at 2026-11-21; captures are in
-`/tmp/sly-reference-frames/`.
-
-The dated trace notes below preserve evidence from the former VU/GS approach;
-their packet-debugging next steps are superseded by this native-renderer plan.
+Build and capture evidence from 2026-11-21 used the configured Documents US
+ISO (`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`), cached `SCUS_971.98`, and a hidden native window. The 8-second runs ended by their deliberate timeout (exit 137); no process was left running. Images: `/tmp/sly-player-mvp0-20261121/sly1-native-frame-20.png`, `/tmp/sly-player-mvp1-20261121/sly1-native-frame-20.png`, and `/tmp/sly-player-raw-mvp0-20261121/sly1-native-frame-20.png`. Logs are in the matching `/tmp/sly-player-*-20261121.log` files.
 
 ### Player hierarchy and draw-route trace (2026-11-21)
 
@@ -1349,19 +1310,22 @@ independent VU1 stop at PC `0x526`, so that graphics-stream issue remains.
 
 ### Player skinning trace (2026-11-18; kind-0 route added 2026-11-21)
 
+**Superseded:** the host transform described below was based on a mistaken
+equivalence between strip morph-key weights and the part's bone palette. The
+top-of-file 2026-11-21 audit supersedes any claim here that host skinning was
+implemented or visually validated. The experiment has been removed.
+
 The player reaches the native model draw path in world `0x88d5b0` as a class-97
 owner with 30 kind-5 `PartMesh` entries. Each has four bone indices; the part
 has no `PartStrip` entries. `BuildStripMeshPacket` supplies four per-vertex
 weights, which are normalized in the captured samples. The capture hook had
 discarded those weights, so the host renderer drew only base positions.
 
-The old CPU path used the per-vertex weight values and `PartMesh` bone palette
-for kind 5 only. The current player trace shows the same builder shape for
-kind 0: four per-vertex weights, four palette indices, and a valid palette.
-The path now applies the opt-in transform to that kind too. The earlier
-large-matrix observations came from a different class-97 actor and do not
-establish that the player's matrices are invalid. A filtered player capture is
-needed to judge whether weight order and matrix convention are correct.
+The old CPU path treated the per-vertex morph-key values and `PartMesh` bone
+palette as a skinning pair, for kind 5 and later kind 0. That interpretation
+was not supported by the matched builder and is now withdrawn. The matrix
+captures remain useful as palette data, but their correspondence to vertices
+must be derived from the actual morph and bone paths separately.
 
 The same run still stops a separate VU1 stream at PC `0x526` on an all-ones
 instruction. That is independent of this host-side skinning experiment. No
