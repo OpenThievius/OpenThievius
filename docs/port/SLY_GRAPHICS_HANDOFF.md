@@ -56,6 +56,32 @@ known movie backfill, while the title/menu and any later live scene still need
 the native graphics path to work. The source-mesh overlay cannot stand in for
 that path because its topology and transforms remain approximate.
 
+### Post-reference graphics check (2026-11-21)
+
+I ran the native host32 launcher hidden against
+`/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus
+(USA).iso`, with one process-local Cross at native frame 120. It moved from
+the unformatted-card page (`world=0x6abdd0`, `ui_state=5`) into active gameplay
+(`world=0x870cf0`, `ui_state=3`) and read the selected level data. This
+confirms that the configured Documents image is the one used for the recent
+visual check.
+
+The 4,096-line accepted-kick trace filled its cap during startup/resource
+processing and is not a complete gameplay census. Within that cap, VU1 XGKICK
+packets include no `XYZ2` or `XYZF2` writes. Do not present this capped sample
+as proof about every later world draw. The separate frame captures after the
+same Cross press are still solid black. The next useful step is to make the
+accepted-kick tracer filterable by source and VU submission (or move its
+counter so gameplay packets are retained), then compare packet summaries and
+published vertex counts at the active-world frame against a captured
+PCSX2 gameplay frame. The supplied clip only reaches the title/menu and does
+not provide that in-level comparison.
+
+Evidence: `/tmp/sly-ref-video-check-20261121.log` (hidden launcher run; ended
+at its deliberate timeout) and the existing post-stack-fix captures in
+`/tmp/sly-stack-dma-frames-20261121/`. No repository game data or frame dumps
+were added.
+
 ### Reference clip timeline and strip-source boundary (2026-11-21)
 
 I rechecked the full 62.8-second PCSX2 reference at three-second intervals.
