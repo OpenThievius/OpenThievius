@@ -11,19 +11,34 @@ scene, model, camera, and material data, then issue host GPU draws. Do not
 transplant Ratchet scene logic or research into Sly.
 
 The supplied 62.8-second PCSX2 reference is the PAL release. It shows legal
-cards, the Sucker Punch logo, the Paris rooftop intro, and an animated title
-screen with Start/Select prompts. It does not show player-controlled gameplay.
-The native build uses the US ELF and ISO, so compare scene composition and
-animation while allowing regional text and branding to differ. The first
-visual gate should be the recognizable startup/title sequence, not a gameplay
-player mesh that does not appear in the reference.
+cards, the owl against the moon, the Sucker Punch Productions sign, a Paris
+rooftop intro with Sly moving across the rooftops, and then the animated
+“Sly Raccoon” title with Start/Select prompts. It does not show
+player-controlled gameplay. The native build uses the US ELF and ISO, so
+compare scene composition and animation while allowing regional text and
+branding to differ. The first visual gate is this opening sequence, not a
+gameplay player mesh that does not appear in the reference. A 1-fps reference
+sheet is at `/tmp/sly-reference-inspect-20261121/reference-1fps.png`.
+
+The decomp's `RunMainLoop` processes movies only when one is queued; its 16
+named movie entries are bonus/level clips and credits, not this opening
+sequence. The rooftop intro is therefore likely driven by the startup/world
+render path, rather than the generic MPEG movie player. Confirm that from the
+retail state trace before adding an MPEG-specific workaround. The approved
+offscreen Cross/Up/Cross/Start test reaches a gameplay world, but deliberately
+skips the reference title and must not be used to judge startup visuals.
 
 The latest ordinary hidden startup stays on Splash world `0x6abdd0`, UI state
 5, page 7 (the no-save-file/create-save prompt), with no queued movie. A single
 offscreen Cross at native frame 120 dismisses that flow and reaches world
 `0x870cf0`, UI state 3, after 2,426 sectors have been read. It bypasses the
 reference title in this run. In the current default build, the captured frames
-after that transition are black. An earlier run with the opt-in
+after that transition are black. A separate 57-frame capture after the same
+transition also stays black on the default build. Normal DirectRenderer
+traces decode occasional small triangle batches, but many packets decode no
+vertices and the observed bounds cluster at or beyond the clip edges. This is
+strong evidence of an incomplete world draw path, not evidence that the packet
+stream contains no triangles. An earlier run with the opt-in
 `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` showed distorted gray world geometry;
 that is experimental output, not the default client. This is a separate
 startup-flow/rendering gap, not evidence that the title scene is working. The
@@ -86,8 +101,15 @@ bytes. VIF MSCAL addresses are instruction PCs (byte address divided by 8),
 so the lit path runs entries `0x51`, `0x242`, `0x356`, and `0x2`.
 
 This fits the current evidence better than searching for missing EE functions:
-the matched lit path reaches XGKICK, but the observed packets produce point
-and line primitives and no triangles. A new opt-in runtime dump captured the
+the matched lit path reaches XGKICK. An earlier `gs_stream.cpp` census claimed
+that the VU path emitted only points and lines, but that diagnostic reads
+PRIM without applying PRMODECONT/PRMODE; do not use its primitive counts as
+authoritative. The normal DirectRenderer later decoded occasional 36- and
+48-vertex triangle batches, alongside many empty packets. Their measured
+bounds were mostly offscreen or confined to a small top-left clip region, and
+the client remained black. The immediate problem is therefore still to locate
+the world draw/render boundary, not to prove that any triangle exists. A new
+opt-in runtime dump captured the
 loaded instruction ranges at those four PCs (13, 40, 125, and 27 instructions).
 The native interpreter audit has found and fixed a real omission: accumulator
 operations updated ACC but did not update MAC/status flags, and the Q/I forms
@@ -97,10 +119,10 @@ is isolated to `port/runtime/vu1_native.cpp`, matching the semantics in
 OpenRAC's standalone VU interpreter. A clean, low-overhead offscreen capture
 after the fix still produced 64 all-black gameplay frames, so this correction
 is necessary runtime coverage but not the complete graphics fix. Continue
-auditing instruction effects and VU memory writes against the dumped programs,
-then follow the first complete triangle packet. Keep interpreter fixes in the
-port runtime and any graphics conversion in the port-only backfill; do not
-alter matched game functions or the GS parser without evidence. Logs:
+auditing instruction effects and VU memory writes only where they explain the
+missing or misplaced world draws. Keep interpreter fixes in the port runtime
+and any graphics conversion in the port-only backfill; do not alter matched
+game functions or the GS parser without evidence. Logs:
 `/tmp/sly-lit-vu-program-pc51-20261121.log`,
 `/tmp/sly-lit-vu-program-pc242-20261121.log`,
 `/tmp/sly-lit-vu-program-pc356-20261121.log`, and
@@ -169,11 +191,13 @@ PC 913 in the loaded entry-`0x356` program). Comparing `update_float_flags`
 with OpenRAC showed that it also replaced status bits the arithmetic
 instruction should preserve. The port VU now preserves bits 4-11 and merges
 the current and sticky arithmetic flags as OpenRAC does. The rebuilt host32
-target again compiled 194 Sly units and 85 port backfills. A follow-up census
-observed 618 packets (137 VU kicks, 481 direct); all VU kicks still selected
-point mode, with no triangles. A separate clean offscreen capture again
-verified 64 post-transition frames were pure black. These flag fixes improve
-VU fidelity but do not remove the visible blocker. Logs:
+target again compiled 194 Sly units and 85 port backfills. A follow-up
+`gs_stream.cpp` census observed 618 packets (137 VU kicks, 481 direct) and
+reported point mode, with no triangles. That census did not apply
+PRMODECONT/PRMODE and its primitive conclusion is superseded by the normal
+DirectRenderer decode above. A separate clean offscreen capture verified 64
+post-transition frames were pure black. These flag fixes improve VU fidelity
+but do not remove the visible blocker. Logs:
 `/tmp/sly-acc-status-census-20261121.log`,
 `/tmp/sly-acc-status-frame-capture-20261121.log`, and
 `/tmp/sly-acc-status-frames-20261121/`.

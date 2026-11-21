@@ -24,6 +24,39 @@ step is to identify the legal/logo/rooftop/title transition and the data path
 for its first missing scene, then build a Sly-owned host render path in `port/`
 for anything not represented by the existing 2D packets.
 
+The supplied recording was rechecked at 1-fps intervals. It begins with the
+Sony legal card, then shows the owl/moon, Sucker Punch Productions sign, a
+roughly 30-second Paris rooftop sequence with Sly, and the “Sly Raccoon” title
+with Start/Select prompts from about the 50-second mark. The contact sheet is
+`/tmp/sly-reference-inspect-20261121/reference-1fps.png`. This makes the
+startup scene itself the next comparison target; the gameplay-world test
+route intentionally steps past the title and cannot validate this milestone.
+
+The current decomp gives a useful boundary for the investigation. Its startup
+initializer list runs `RunResetGameSession`; `RunMainLoop` processes
+`g_moviePlayer.queued` only when a movie has been queued. The 16 named movie
+entries are bonus/level clips and credits, not the opening rooftop sequence.
+That sequence is therefore likely supplied by the startup/world scene path,
+not the generic MPEG movie player (inference from the decomp and recording).
+Confirm the world/state that owns it before changing movie playback. In the
+ordinary startup trace, the no-save prompt is world `0x6abdd0`, UI state 5,
+page 7, and no movie is queued. The approved menu test reaches world
+`0x870cf0`, UI state 3, after 2,426 sectors; default output there is black.
+Logs and captures are `/tmp/sly-menu-drive-default-20261121.log`,
+`/tmp/sly-menu-gameplay-default-20261121.log`, and
+`/tmp/sly-menu-gameplay-default-20261121/contact.png` (57 consecutive frames).
+
+The normal DirectRenderer diagnostic further narrows the black gameplay
+frame: it decodes many large GIF packets without error, but most contain no
+vertices; periodic batches contain 6, 12, 36 or 48 vertices. The 36/48-vertex
+batches are triangles, with the captured bounds clustered at/off the clip
+edges rather than covering the screen. Do not repeat the earlier
+`gs_stream.cpp` census conclusion that all VU packets are points/lines: it did
+not apply PRMODECONT/PRMODE and is not authoritative for effective primitive
+state. Evidence is in `/tmp/sly-direct-render-decode-20261121.log`; this
+diagnostic does not yet identify whether the data transform or its GS state is
+wrong.
+
 A fresh default hidden run confirms Splash world `0x6abdd0` remains at UI state
 5, page 7 (create-save prompt), with `movie=0`. One process-local Cross at host
 frame 120 dismisses the prompt and loads world `0x870cf0`; the guest reports
