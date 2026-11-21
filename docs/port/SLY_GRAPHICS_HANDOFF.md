@@ -15,6 +15,30 @@ player-controlled gameplay. This clip provides visual checkpoints for boot,
 intro, and title only; a gameplay capture is still needed for a level
 comparison.
 
+The matched decomp contains the full `PlayMovie` implementation, but the
+native build overrides it with
+`port/game/sly1-us/native/func_0018F198.cpp`, which returns immediately until a
+host movie decoder exists. That explains why the reference's splash cards and
+rooftop cinematic are absent from native output. The decomp checkout was
+fetched on 2026-11-21 and remains at `8f7a85a3`; there is no newer startup or
+movie source to import.
+
+A rebuilt host32 capture on 2026-11-21 rendered the save-file prompt, then the
+test driver's Cross/Up/Cross sequence moved from page 7 to `ui_state=3` with
+world `0x870cf0`; subsequent frame dumps are black. This confirms a live-world
+rendering blocker separate from the intentionally skipped movie. A trace with
+all per-draw diagnostics enabled saturated the queue at 16 MiB and produced
+invalid decoded GS state, so those values are tracing artifacts and must not
+be used to infer retail state. The lower-overhead capture and prompt frames are
+in `/tmp/sly-reference-compare-20261121/`; the saturated trace is
+`/tmp/sly-target-trace-20261121/run.log`.
+
+The opt-in Direct draw-state trace now includes render target, texture source,
+frame-source/snapshot flags, depth-write, framebuffer mask, and its
+display-write decision. It is useful for bounded diagnosis, but avoid enabling
+all per-draw output during long startup runs because it slows presentation
+enough to overflow the packet queue.
+
 The decomp source also clarifies a renderer assumption: `StripMesh::strips`
 contains `FrameSource` records. `BuildStripMeshPacket` and
 `BuildLitStripMeshPacket` loop over those records and pass each to

@@ -5,38 +5,39 @@
 
 The supplied 62.8-second PCSX2 video is the PAL Sly Raccoon release; the native
 build uses the US disc, so compare scene order and composition rather than
-branding. The video shows the Sony card at about 6 seconds, the Sucker Punch
-card at 12 seconds, Sly moving across Paris rooftops from about 18 to 42
-seconds, then the Sly Raccoon title/menu from about 48 seconds. It is an
-intro/title reference, not a playable-level reference.
+branding. It shows the Sony and Sucker Punch cards, the Paris rooftop intro,
+then the title/menu. Those cards and rooftop shots are pre-rendered movie
+playback. The native build deliberately replaces the matched `PlayMovie`
+function with a port-only no-op until a host movie decoder exists, so that
+sequence is a known unsupported feature, not a live-renderer target.
 
-An unforced hidden native run still reaches the readable US save-file prompt.
-In the latest traced run, the opt-in test driver pressed Cross on that prompt;
-the state changed from page 7 to `ui_state=3`, with a loaded world at
-`0x870cf0`. The game frame count advanced to 228, but the framebuffer captures
-remain black and `movie=0`; none of the video checkpoints is visible. The
-present loop is active and consumes queued packets each frame. A 15-second
-trace made 914 presents without a queue-full warning; the earlier 16 MiB
-overflow happened under heavier tracing and is not a persistent blocker. The
-current lead is the renderer: post-prompt packets decode as UI draws, then
-frames report `world_draws=0` and restore the previous framebuffer after a
-no-op draw. Confirm why the intro movie is not requested and why world packets
-do not produce display writes. The thread's semaphore waits were ordinary
-frame cadence, not the startup blocker. No playable level is confirmed.
+A fresh low-overhead native capture rendered the US save-file prompt. The
+opt-in test driver sent Cross, Up, then Cross; the game left page 7 for
+`ui_state=3` with world `0x870cf0`, but the later frame dumps are black. The
+title and a recognizable world are still not confirmed. `movie=0` is expected
+with the `PlayMovie` backfill and does not explain the missing live world.
+The present loop consumes queued packets during ordinary traces. A separate
+per-draw trace was too expensive: it let the queue hit its 16 MiB cap, after
+which the renderer decoded garbage GS state. Treat those bad target/scissor
+values as a tracing artifact, not evidence of retail game state. A lighter
+15-second present trace made 914 presents without queue saturation. The next
+graphics task is to recover a recognizable live world draw in the default
+renderer, while movie playback remains a separate port feature. No playable
+level is confirmed.
 
 The hot VU1 interpreter was also doing diagnostic work with tracing disabled:
 repeated environment lookups and per-instruction NaN checks. Those checks are
 now cached or skipped unless their trace is enabled. This is port runtime code;
 no matched decompilation source changed. Keep the optional source-mesh overlay
-opt-in; it is distorted and is not a renderer fix. The sibling decomp is
-current at `8f7a85a3` (2026-11-14); upstream master had no newer commit when
-checked.
+opt-in; it is distorted and is not a renderer fix. A fetch on 2026-11-21
+confirmed the sibling decomp remains at `8f7a85a3` (2026-11-14), with no newer
+upstream commit to use.
 
-Evidence: `/tmp/sly-vu1-cache-final-20261121/run.log`,
-`/tmp/sly-direct-postcontinue-20261121.log` (post-prompt renderer trace and
-black framebuffer), `/tmp/sly-present-queue-20261121.log` (active present
-loop draining packets), `/tmp/sly1-native-frame-00.ppm` through `frame-07.ppm`
-(test-driven prompt transition), and `/tmp/sly-reference-20261106-contact.png`
+Evidence: `/tmp/sly-reference-compare-20261121/run.log` and its eight PPM
+frame dumps (prompt, test-driven transition, then black),
+`/tmp/sly-target-trace-20261121/run.log` (detailed draw-state trace; queue
+saturation under tracing), `/tmp/sly-present-queue-20261121.log` (active
+present loop draining packets), and `/tmp/sly-reference-20261106-contact.png`
 (sampled video frames). The latest run used
 `/home/reaper/Documents/PS2Games/Sly1/Sly Cooper and the Thievius Raccoonus (USA).iso`
 and the cached US ELF `build/port/extracted/boot/SCUS_971.98`. The test driver
