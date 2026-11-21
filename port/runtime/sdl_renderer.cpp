@@ -743,7 +743,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         auto texture = openrac::renderer::TextureHandle{};
         if (!debug_solid_colors && !debug_normal_colors &&
             g_textures != nullptr && mesh.tex0 != 0) {
-            texture = g_textures->resolve(tex0, openrac::renderer::gs::Texa{0, false, 0x80});
+            const auto texa = openrac::renderer::gs::Texa{0, false, 0x80};
+            texture = g_textures->resolve_native_sly_asset(tex0, texa);
+            if (texture == 0) texture = g_textures->resolve(tex0, texa);
             if (texture == g_textures->placeholder()) {
                 present_missing_textures.insert(mesh.tex0);
                 // Keep native geometry visible while texture residency is

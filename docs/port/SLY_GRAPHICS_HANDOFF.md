@@ -7408,23 +7408,34 @@ is not a valid fix. Local captures are under
 `/tmp/sly-native-target-corrected-20261121/`. The runs used the configured
 NTSC-U disc and native host32 launcher; no emulator or game input was used.
 
-## Prefer the latest GS upload when native textures overlap (2026-11-22)
+## Keep native world assets separate from mutable GS uploads (2026-11-22)
 
-Keep this investigation on the host OpenGL renderer; do not expand the PS2 VU
-renderer. A native texture trace found that texture lookup always preferred an
-exact base-pointer upload, even when a newer GS transfer covered that address.
-The live US level first resolves image-record texture `0x1480` (1024x256,
-PSMT8, sequence 348), then writes a 512x512 PSMT4 transfer at `0x1400` whose
-GS-memory range includes `0x1480`. `TexturePool::upload_at` now chooses the
-newest upload covering the requested block, including exact-base candidates;
-it no longer lets the old `0x1480` record hide that later transfer.
+Keep graphics work on the host OpenGL renderer; do not expand the PS2 VU
+renderer. A texture trace found exact world image-record texture `0x1480`
+(1024x256 PSMT8) and a later 512x512 PSMT4 upload at `0x1400`, whose page
+range covers `0x1480`. The first attempt to make every overlapping upload
+override an exact base pointer was wrong: OpenRAC's shared texture pool treats
+TBP as an asset identity, while the Sly world pass was mixing stable retail
+asset records with mutable GIF uploads from the 2D path.
 
-Built `port_native_sdl_host32` and confirmed in a 12-second hidden native run
-that `0x1480` resolves from upload `0x1400` at offset `0x80` after the later
-transfer. This repairs memory ordering in the OpenGL texture source path; the
-level is still distorted, so it does not establish a visible gameplay fix.
-Next investigate the host mesh draw topology, material/CLUT snapshots, and
-per-object transforms independently. Trace controls are
-`OPENRAC_TRACE_TEXTURE_UPLOAD_TBP` and
-`OPENRAC_TRACE_TEXTURE_RESOLVE_TBP`. Evidence:
+The generic exact-base pool behavior is restored. The native OpenGL world pass
+now asks for the exact live Sly image and palette records first and converts
+those directly, independent of the 2D upload pool. If no matching record is
+available, it falls back to the regular texture pool. This keeps the fix in the
+port-owned renderer and leaves the VU renderer and decompilation source alone.
+The host32 runtime and launcher built successfully. A bounded hidden run
+confirmed that the world selected the exact `0x1480` Sly image record
+(1024x256 PSMT8, 262144 bytes) before a later `0x1400` upload. A post-render
+frame capture shows detailed texture pixels, but the level is still badly
+distorted and not playable; this verifies source selection only, not correct
+palette, UV, or geometry behavior. Capture:
+`/tmp/sly-native-world-frame-check-20261122/` and run log:
+`/tmp/sly-native-world-asset-final-20261122/run.log`.
+
+Next isolate the stretched geometry by native draw request and compare its
+submitted vertices and per-request transforms. Keep investigating the palette
+only when a draw-level comparison can distinguish palette errors from UV or
+geometry errors. Trace controls are `OPENRAC_TRACE_SLY_IMAGE_RECORDS`,
+`OPENRAC_TRACE_TEXTURE_UPLOAD_TBP`, and
+`OPENRAC_TRACE_TEXTURE_RESOLVE_TBP`; earlier overlap evidence is in
 `/tmp/sly-native-trace-final-20261122/run.log`.

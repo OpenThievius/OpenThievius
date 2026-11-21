@@ -236,13 +236,15 @@ bool TexturePool::upload_cached(const ImageUpload& upload) {
 
 const TexturePool::Stored* TexturePool::upload_at(std::uint32_t block, std::uint32_t& offset) const {
     offset = 0;
+    // The pool treats a texture's base pointer as its identity. A transfer at
+    // another base may overlap the same physical GS pages while representing a
+    // different streamed asset, so retain the exact-base owner when present.
+    if (auto it = m_uploads.find(block); it != m_uploads.end()) return &it->second;
     const Stored* best = nullptr;
     for (const auto& [base, stored] : m_uploads) {
-        const bool exact_base = base == block;
-        if (base > block || base >= 0x10000u || (!exact_base && block >= stored.end)) continue;
-        // GS uploads share local memory. A later transfer can cover the base of an
-        // earlier texture, so an exact-base match must not hide a newer overlapping write.
-        if (best == nullptr || stored.sequence > best->sequence) best = &stored;
+        if (base < block && block < stored.end && base < 0x10000u &&
+            (best == nullptr || stored.sequence > best->sequence))
+            best = &stored;
     }
     if (best != nullptr) {
         offset = block - best->upload.dbp;
@@ -421,7 +423,13 @@ const TexturePool::Clut* TexturePool::palette_clut(const gs::Tex0& tex0, Clut& n
     return nullptr;
 }
 
-TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& texa) {
+TextureHandle TexturePool::resolve_native_sly_asset(const gs::Tex0& tex0,
+                                                     const gs::Texa& texa) {
+    return convert_upload(tex0, texa, true);
+}
+
+TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& texa,
+                                          bool prefer_native_sly_asset) {
     // The chip samples textures up to 1024 x 1024 (TW and TH up to 10); a
     // larger claim only arrives in a garbage register write, and converting
     // one would allocate up to gigabytes (a 32768 x 32768 RGBA8 image).
@@ -431,8 +439,35 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         return 0;
     }
     std::uint32_t offset = 0;
-    const Stored* stored = upload_at(tex0.tbp0, offset);
-    if (stored == nullptr && sly1_native_get_texture_records != nullptr) {
+    Stored native_stored;
+    NativeSlyTextureRecords native_records;
+    bool has_native_asset = prefer_native_sly_asset &&
+        sly1_native_get_texture_records != nullptr &&
+        sly1_native_get_texture_records(tex0.tbp0, tex0.cbp, tex0.psm,
+                                        &native_records) != 0 &&
+        native_records.image_data != nullptr && native_records.image_bytes != 0 &&
+        native_records.image_width != 0 && native_records.image_height != 0;
+    if (prefer_native_sly_asset && !has_native_asset) return 0;
+    const Stored* stored = nullptr;
+    if (has_native_asset) {
+        ImageUpload& image = native_stored.upload;
+        image.dbp = tex0.tbp0;
+        image.dbw = std::max<std::uint32_t>(native_records.image_tbw, 1u);
+        image.dpsm = static_cast<std::uint8_t>(native_records.image_psm);
+        image.width = native_records.image_width;
+        image.height = native_records.image_height;
+        image.data.assign(native_records.image_data,
+                          native_records.image_data + native_records.image_bytes);
+        const std::uint64_t shape[] = {
+            image.width, image.height, image.dpsm, image.dbw, image.x, image.y};
+        native_stored.hash = hash_bytes(image.data.data(), image.data.size()) ^
+            (hash_bytes(reinterpret_cast<const std::uint8_t*>(shape), sizeof(shape)) << 1);
+        native_stored.sequence = ++m_sequence;
+        stored = &native_stored;
+    } else {
+        stored = upload_at(tex0.tbp0, offset);
+    }
+    if (!has_native_asset && stored == nullptr && sly1_native_get_texture_records != nullptr) {
         NativeSlyTextureRecords records;
         if (sly1_native_get_texture_records(tex0.tbp0, tex0.cbp, tex0.psm, &records) != 0 &&
             records.image_data != nullptr && records.image_bytes != 0 &&
@@ -550,7 +585,22 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const int entries = palette_entries(tex0.psm);
     const bool indexed = entries != 0;
     Clut now;
-    const Clut* clut = indexed ? palette_clut(tex0, now) : nullptr;
+    Clut native_clut;
+    const Clut* clut = nullptr;
+    if (indexed && has_native_asset && native_records.palette_data != nullptr &&
+        native_records.palette_entries == static_cast<std::uint32_t>(entries) &&
+        native_records.palette_bytes >= static_cast<std::uint32_t>(entries * 4)) {
+        native_clut.data.assign(native_records.palette_data,
+                                native_records.palette_data + native_records.palette_bytes);
+        native_clut.cpsm = gs::kPsmct32;
+        native_clut.width = entries == 256 ? 16 : 8;
+        native_clut.entries = entries;
+        native_clut.hash = hash_bytes(native_clut.data.data(), native_clut.data.size()) ^
+            (static_cast<std::uint64_t>(native_clut.width) << 48);
+        clut = &native_clut;
+    } else if (indexed) {
+        clut = palette_clut(tex0, now);
+    }
     const std::uint64_t clut_hash = clut != nullptr ? clut->hash : 0;
     const Key key{
         tex0.tbp0,
@@ -566,6 +616,22 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
         return found->second;
+    }
+    if (has_native_asset && std::getenv("OPENRAC_TRACE_SLY_IMAGE_RECORDS") != nullptr) {
+        const char* filter = std::getenv("OPENRAC_TRACE_SLY_IMAGE_TBP");
+        char* end = nullptr;
+        const unsigned long parsed = filter != nullptr ? std::strtoul(filter, &end, 0) : 0;
+        const bool has_filter = filter != nullptr && end != filter && *end == '\0' &&
+            parsed <= 0x3FFFul;
+        static bool filtered_notice = false;
+        static unsigned unfiltered_notices = 0;
+        if ((has_filter && tex0.tbp0 == static_cast<std::uint32_t>(parsed) &&
+             !filtered_notice) || (!has_filter && unfiltered_notices++ < 64u)) {
+            filtered_notice = true;
+            log::info("native Sly world asset selected at {:#x} ({}x{}, psm {:#x}, {} bytes)",
+                      tex0.tbp0, native_records.image_width, native_records.image_height,
+                      native_records.image_psm, native_records.image_bytes);
+        }
     }
     std::vector<std::uint32_t> colours;
     if (indexed) {

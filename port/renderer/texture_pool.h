@@ -109,6 +109,10 @@ public:
     // which the caller decides).
     void load_clut(const gs::Tex0& tex0);
 
+    // Resolve a native Sly world texture from its exact retail image and palette records,
+    // independently of mutable GIF uploads used by the 2D renderer. Returns 0 when unavailable.
+    TextureHandle resolve_native_sly_asset(const gs::Tex0& tex0, const gs::Texa& texa);
+
     // ---- What a draw samples ----
 
     // The texture TEX0 describes, converted with TEXA. Never 0: when nothing
@@ -237,7 +241,8 @@ private:
     // for gl_texture() at a first use and for prepare() at a level's load.
     void create_gl(Entry& e);
     void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
-    TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
+    TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa,
+                                 bool prefer_native_sly_asset = false);
     std::vector<std::uint8_t> texture_raster(const Stored& stored, const gs::Tex0& tex0) const;
     // The CLUT an indexed texture reads: the one loaded from its block, else memory's (into `now`).
     // Null when there is none (drawn transparent).
