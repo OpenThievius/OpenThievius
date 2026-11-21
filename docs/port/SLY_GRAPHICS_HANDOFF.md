@@ -24,6 +24,16 @@ step is to identify the legal/logo/rooftop/title transition and the data path
 for its first missing scene, then build a Sly-owned host render path in `port/`
 for anything not represented by the existing 2D packets.
 
+A fresh default hidden run confirms Splash world `0x6abdd0` remains at UI state
+5, page 7 (create-save prompt), with `movie=0`. One process-local Cross at host
+frame 120 dismisses the prompt and loads world `0x870cf0`; the guest reports
+2,426 sectors read and UI state 3. Sparse captures then show the same
+distorted gray geometry seen in the player/world experiments, not the
+reference title. This run had no boot-level override and did not reach a title
+frame. It narrows the immediate behavior but does not establish why the
+retail startup sequence is skipped. Logs and image sheet are recorded in the
+current TODO above.
+
 ### Gameplay player experiment (not the current visual milestone)
 
 A prior trace reached world `0x870cf0`; child `0x5b` queues 38 meshes and 47

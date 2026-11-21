@@ -18,14 +18,23 @@ animation while allowing regional text and branding to differ. The first
 visual gate should be the recognizable startup/title sequence, not a gameplay
 player mesh that does not appear in the reference.
 
-The current native path reaches the memory-card flow and can advance into a
-loaded gameplay world with an offscreen menu driver. That proves the guest
-starts and processes the menu sequence; it does not yet match the reference
-sequence. The next concrete work is to trace the retail startup transition
-through legal/logo/rooftop/title and identify the data and render path for the
-first missing reference scene. Keep the existing GIF DirectRenderer for 2D
-startup/menu packets where it already works, and add Sly-owned host rendering
-in `port/` for scene categories the GIF path cannot present.
+The latest ordinary hidden startup stays on Splash world `0x6abdd0`, UI state
+5, page 7 (the no-save-file/create-save prompt), with no queued movie. A single
+offscreen Cross at native frame 120 dismisses that flow and reaches world
+`0x870cf0`, UI state 3, after 2,426 sectors have been read. It bypasses the
+reference title in this run and displays distorted gray world geometry. This
+is a separate startup-flow/rendering gap, not evidence that the title scene is
+working. The next concrete work is to trace the retail startup transition
+through legal/logo/rooftop/title and identify the first missing scene's data
+and render path. Keep the existing GIF DirectRenderer for 2D startup/menu
+packets where it already works, and add Sly-owned host rendering in `port/`
+for anything not represented by those packets.
+
+Evidence: `/tmp/sly-reference-startup-trace-20261121.log`,
+`/tmp/sly-startup-after-card-20261121.log`, and
+`/tmp/sly-startup-after-card-20261121/contact.png`. The launcher used the
+configured Documents US ISO and cached US ELF in a hidden window; no
+boot-level override was set. The bounded 12-second runs ended by timeout.
 
 ### Player draw investigation (supporting evidence, not the current visual gate)
 
