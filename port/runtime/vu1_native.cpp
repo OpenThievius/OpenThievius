@@ -39,6 +39,7 @@ thread_local uint32_t g_vu_trace_submission_id = 0xFFFFFFFFu;
 thread_local uint32_t g_vu_trace_vif_command_offset = 0xFFFFFFFFu;
 
 bool trace_vu1_xgkick_context_matches();
+uint8_t* guest_address(uint32_t address);
 
 bool trace_vu1_xgkick_data_enabled() {
     static const bool enabled = [] {
@@ -78,6 +79,51 @@ bool trace_vu1_kick_address_enabled() {
         return setting != nullptr && setting[0] != '\0' && setting[0] != '0';
     }();
     return enabled;
+}
+
+void trace_vu1_selected_pc_words(uint32_t pc, uint32_t entry) {
+    static const std::array<uint32_t, 8> selected_pcs = [] {
+        std::array<uint32_t, 8> result{};
+        result.fill(0xFFFFFFFFu);
+        const char* setting = std::getenv("OPENRAC_TRACE_VU1_PC_WORDS");
+        if (setting == nullptr) return result;
+        const char* cursor = setting;
+        size_t count = 0;
+        while (*cursor != '\0' && count < result.size()) {
+            while (*cursor == ',' || *cursor == ' ' || *cursor == '\t') ++cursor;
+            if (*cursor == '\0') break;
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(cursor, &end, 0);
+            if (end == cursor) {
+                while (*cursor != '\0' && *cursor != ',') ++cursor;
+                continue;
+            }
+            if (parsed < kVu1Doublewords)
+                result[count++] = static_cast<uint32_t>(parsed);
+            cursor = end;
+            while (*cursor != '\0' && *cursor != ',') ++cursor;
+        }
+        return result;
+    }();
+    static std::array<std::atomic<bool>, 8> dumped{};
+
+    for (size_t selected = 0; selected < selected_pcs.size(); ++selected) {
+        if (selected_pcs[selected] != pc ||
+            dumped[selected].exchange(true, std::memory_order_relaxed))
+            continue;
+        for (uint32_t offset = 0; offset < 64u && pc + offset < kVu1Doublewords;
+             ++offset) {
+            const uint32_t address = pc + offset;
+            const uint8_t* instruction = guest_address(kVu1Micro + address * 8u);
+            uint32_t lower = 0, upper = 0;
+            std::memcpy(&lower, instruction, sizeof(lower));
+            std::memcpy(&upper, instruction + 4u, sizeof(upper));
+            openrac::log::info(
+                "native VU1 selected PC word entry={:#x} base={:#x} pc={:#x} lower={:#010x} upper={:#010x}",
+                entry, pc, address, lower, upper);
+            if ((upper & (1u << 30u)) != 0) break;
+        }
+    }
 }
 
 uint8_t* guest_address(uint32_t address) {
@@ -2075,6 +2121,7 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
         std::memcpy(&upper, instruction + 4u, sizeof(upper));
         recent[cycle % recent.size()] = {pc, lower, upper};
         const uint32_t current_pc = pc;
+        trace_vu1_selected_pc_words(current_pc, entry);
         uint32_t next_pc = current_pc + 1u;
         State before = g_state;
         before.pc = current_pc;

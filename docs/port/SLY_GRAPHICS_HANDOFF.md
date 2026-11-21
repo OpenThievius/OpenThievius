@@ -409,6 +409,24 @@ matrices), and `/tmp/sly-vu-stop-context-20261120e.log` (VU stop at `0x516`).
 The hidden native run used the configured Documents US ISO and cached ELF,
 sent no input, and ended at its deliberate eight-second timeout (137).
 
+### Runtime VU helper coverage (2026-11-21)
+
+The earlier microcode dump ended at each program's E-bit and missed
+subroutines reached through `JALR`. I added the opt-in
+`OPENRAC_TRACE_VU1_PC_WORDS=0x4a9,0x5ef` trace, which dumps up to 64 loaded
+instruction pairs the first time each selected PC executes. A bounded hidden
+host32 run with the Documents US ISO confirmed both are live: PC `0x4a9` ran
+under entry `0x5f`, and PC `0x5ef` ran under entry `0x2`. This proves the
+helpers are part of actual scene processing; it does not yet prove either
+contains the black-frame cause. Decode their captured words and compare every
+executed opcode and side effect against the native translator before changing
+the renderer. Keep this diagnostic opt-in and any behavior fix in the port
+runtime, separate from matched decomp functions.
+
+Evidence: `/tmp/sly-vu-helper-pcs-20261121.log`. The captured PCSX2 video is
+62.76 seconds and ends at the title/menu; it remains a startup reference and
+does not supply an in-level frame for geometry comparison.
+
 ### Lit-strip normal diagnostic (2026-11-20, 23:14 CET)
 
 The matched builder hook now passes `nrms` into the port capture helper. With
