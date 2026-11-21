@@ -727,6 +727,29 @@ confirmed title or playable scene.
 Do not use `visible_ui=0` or `text_ui=0` as a substitute for checking the
 pause-menu layer or framebuffer.
 
+## Hidden native menu-sequence check (2026-11-21)
+
+A clean host32 run against the US ELF and ISO, with the native window hidden,
+captured the save-file menu in the framebuffer. This confirms the current
+launcher is not black throughout startup. The captured menu is visibly drawn,
+though the diagnostic readback is positioned in the upper-left of the 960x720
+capture and should not be treated as a window-layout check.
+
+The already-approved hidden menu driver then injected Cross, Up, and Cross on
+page 7. The guest state changed from page 7 / UI state 5 to page 255 / UI state
+3. Subsequent sampled native frames were all black. This verifies that the
+menu transition runs, but does not verify title art, a level scene, or
+playability. Do not interpret UI state 3 alone as a successful world load.
+Logs and captures: `/tmp/sly-clean-prompt-20261121/` and
+`/tmp/sly-menu-sequence-20261121/`. Both runs used the hidden native launcher;
+the second ended at its 60-second timeout. No emulator was used and no
+desktop-visible window was opened.
+
+Next useful check: compare the retail state immediately after page 7 dismissal
+with the native game's world-request and renderer submission path. Keep the
+diagnostic menu injection opt-in; do not change renderer defaults based only
+on these black post-transition frames.
+
 ## Experimental guest-runtime trace history (not the playable path)
 
 An opt-in boot-transition trace confirms experimental startup queues and
