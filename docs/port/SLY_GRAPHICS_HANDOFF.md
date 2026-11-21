@@ -7,20 +7,23 @@ I checked current OpenRAC source (`911f007`). Its separate `port/media` module
 contains a PSS demuxer, SPU ADPCM decoder, MPEG-2 video decoder, and RGBA frame
 conversion. Its native movie host reads a sector range from the configured
 disc image, paces decoded frames by audio, and presents them through the host
-frontend; it does not require GS or VU emulation. This is a closer match for
-the intro in the supplied video than extending the guest VU interpreter.
+frontend; it does not require GS or VU emulation. This is a potential reuse
+path once Sly's startup movie request and matching PSS sector range are known.
 
-The matched Sly `KeyIdOfMovie` calculation gives movie 0 as sector `0x4fff`
-and `0x05530004` bytes. A read-only 64-byte peek at that exact range in the
+The matched Sly `KeyIdOfMovie` calculation gives movie key 0 as sector
+`0x4fff`, length `0x05530004` bytes. The decomp's title table calls key 0
+`The Secret Police File`; it is not identified as the publisher/rooftop intro
+in the supplied video. A read-only 64-byte peek at that address in the
 configured US ISO starts with MPEG-2 PSS pack/system headers and includes the
-video (`0xE0`) and private audio (`0xBD`) stream codes. That confirms the
-candidate input format. Compatibility is still unproven: OpenRAC documents
-its PSS decoder as verified for RAC1, not Sly. Next run the OpenRAC media
-decoder against this one Sly stream; only after it succeeds, connect Sly's
-port-only `PlayMovie` backfill to a host movie API using the matched key's
-sector/length pair. Verify language-channel selection separately. This movie
-work can restore the recorded intro, but cannot replace the missing live
-title/world renderer.
+video (`0xE0`) and private audio (`0xBD`) stream codes. This confirms that key
+0 is PSS, not that it is the requested intro or that OpenRAC's decoder accepts
+Sly. More importantly, the existing startup trace says Splash queues no movie
+and never calls `PlayMovie`; adding a decoder bridge alone will not repair the
+current startup path. First identify the retail startup request and sector
+range corresponding to the reference video. Then check that exact Sly stream
+against OpenRAC's media module, which is documented as verified for RAC1, not
+Sly. Any host movie connection remains a separate port-only backfill. The
+missing live title/world graphics remain a distinct issue.
 
 ### Interpreting the decomp's 100% code figure (2026-11-21)
 

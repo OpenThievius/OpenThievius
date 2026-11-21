@@ -36,18 +36,20 @@ playback. The native build deliberately replaces the matched `PlayMovie`
 function with a port-only no-op until a host movie decoder exists, so that
 sequence is a known unsupported feature, not a live-renderer target.
 
-OpenRAC's current source offers a concrete reuse path for that movie sequence:
+OpenRAC's current source offers a possible reuse path for Sly PSS playback:
 its `port/media` contains a PSS demuxer, SPU ADPCM audio decoder, MPEG-2 video
 decoder, and frame conversion; `port/game/common/program/movie.cpp` reads a
-sector range from the disc and presents frames paced by audio. The first US
-Sly movie key resolves through the matched `KeyIdOfMovie` calculation to LSN
-`0x4fff`, length `0x05530004` bytes. Reading only the first 64 bytes from the
-configured ISO shows PSS pack/system headers followed by video and private
-audio stream codes. This confirms a real candidate input, not decoder
-compatibility: OpenRAC's PSS notes say its decoder was verified on RAC1 movies,
-not Sly. Next decode one Sly movie with that media code before wiring a
-port-only `PlayMovie` bridge. Keep this separate from matched decomp source,
-and keep movie playback distinct from the missing live title/world rendering.
+sector range from the disc and presents frames paced by audio. However, Sly's
+movie key 0 is titled `The Secret Police File`, so it is not identified as the
+opening sequence in the supplied video. Its key resolves to LSN `0x4fff`,
+length `0x05530004` bytes, and the ISO bytes there have PSS pack/system, video,
+and private-audio stream codes. This proves that movie 0 is PSS, not that the
+intro is at that address or that OpenRAC's RAC1-verified decoder accepts Sly.
+The current Splash trace reports no queued movie and no `PlayMovie` call, so a
+decoder bridge alone cannot fix startup. First identify the retail request and
+sector range for the intro/title sequence; then check that exact Sly stream
+against OpenRAC's decoder before adding a separate port-only bridge. Keep this
+separate from matched decomp source and the live title/world renderer.
 
 A fresh low-overhead native capture rendered the US save-file prompt. A single
 process-local Cross press at native frame 120 moved from page 7 to
