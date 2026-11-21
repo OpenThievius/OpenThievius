@@ -3,7 +3,48 @@
 
 ## Current checkpoint (2026-11-21)
 
-### The remaining graphics blocker is inside the VU path
+### Renderer direction: draw Sly data on the host GPU
+
+Do not make VU1 instruction coverage the route to a playable port. The
+previous experiments improved the VU interpreter but produced no triangle
+batches or visible gameplay. That path models PS2 hardware and has not moved
+the user-visible result. OpenRAC's useful precedent is its game-specific
+native renderers: use the decompiled game's own scene, model, camera and
+material data to issue host GPU draws, without executing the game's VU
+programs. Derive Sly's data and behavior from `sly1-decomp` and the retail disc;
+do not transplant Ratchet renderers or game research.
+
+The best first slice is the player/model draw path. A prior trace reached
+world `0x870cf0`; the player has model-bearing descendants, and child `0x5b`
+queues parts with 38 meshes and 47 strips. `DrawModelPart` and
+`BuildLitStripMeshPacket` expose positions, vertex references, tints, UVs,
+skin weights, frame sources and camera/model transforms. Port-only host hooks
+already capture much of this input, but the optional gray mesh overlay is not
+the target renderer: it uses approximated strip presentation and gets its
+texture from the GIF-fed GS texture pool. It is disabled by default and does
+not establish correct Sly geometry or materials.
+
+Next, make a Sly-owned render input from those game structures and feed it to
+OpenGL directly. Establish strip boundaries and winding, the model and bone
+matrix convention, UV/material lookup from Sly's resource data, and the
+camera/depth rules. Keep all adapters in `port/`; do not alter matched
+functions in `sly1-decomp`. The GIF DirectRenderer can continue to cover
+2D/menu packets while the Sly world renderer replaces the VU-dependent 3D
+path. The first visual gate is a correctly oriented, textured player model in
+the active world; after that, implement terrain/placed-object categories,
+lighting and effects, then verify the title/menu and a controllable level.
+
+The supplied 62.8-second PCSX2 reference is the PAL release. It shows the
+European publisher cards, Paris rooftop intro, and an animated title screen
+with Start/Select prompts; it does not show player-controlled gameplay. The
+native build uses the US ELF and ISO, so compare scene composition and
+animation while allowing regional branding and text to differ.
+
+### Historical VU/GS packet investigation (not the renderer plan)
+
+The notes below document why the previous VU-focused approach was stopped.
+Retain them as diagnostic history; do not continue adding VU interpreter or
+GS emulation coverage as the graphics milestone.
 
 The decomp's 100% code figure means all 4,807 EE functions match, including
 4,498 C translations and 311 original assembly functions. It does not mean the

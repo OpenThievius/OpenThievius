@@ -1,6 +1,47 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Current renderer direction (2026-11-21)
+
+Stop treating VU packet correctness as the route to graphics. The interpreter
+and GS parser have several real fixes, but the gameplay captures remained
+black or showed stretched gray surfaces, and the observed VU kicks still did
+not form triangle batches. Those findings identify a poor port architecture,
+not an instruction left to emulate. OpenRAC's transferable idea is a
+game-specific renderer that reads the decompilation's render data and issues
+host GPU draws. Ratchet-specific world formats, renderer code derived from
+third-party projects, and Ratchet game research are not Sly evidence.
+
+The existing Sly overlay is a useful probe, not a renderer to ship. The
+hostgen adapter captures `VertexRefs`, positions, tints, UVs and optional skin
+weights around `BuildLitStripMeshPacket`; `sly1_native_submit_model_part`
+associates that data with a model draw and the SDL/OpenGL layer submits it.
+However, it flattens the inputs into an approximate strip draw, gets material
+state from frame-source GIF packets, and resolves textures through the
+GIF-populated `TexturePool`. It therefore still depends on the command-stream
+path for materials and does not yet represent Sly's source asset/render data
+end to end. Its gray stretched output is not a successful visual result.
+
+The player route is the first bounded native-renderer target because model
+parts are confirmed: child `0x5b` queues parts containing 38 meshes and 47
+strips, and the player hierarchy has 12 model-bearing descendants. Next derive
+strip topology, frame selection, material/texture references, bone transforms,
+and camera convention from the matched US sources and retail structures. Feed
+those into a Sly-owned render record and an OpenGL draw path without executing
+VU1 programs or depending on GS memory. Keep the adapter in `port/`, separate
+from matched C so it can be replaced as the source coverage evolves. Then add
+the level terrain and other scene categories; preserve GIF `DirectRenderer`
+for 2D startup/menu draws while those categories are ported.
+
+The reference clip is PAL Sly Raccoon: publisher cards, Paris rooftop intro,
+then an animated title/menu with Start and Select prompts. It does not show
+player-controlled gameplay. The current native build uses the US disc, so
+compare scene order and composition, not localized branding. No fresh game
+run was made for this architecture review.
+
+The dated trace notes below preserve evidence from the former VU/GS approach;
+their packet-debugging next steps are superseded by this native-renderer plan.
+
 ### Player hierarchy and draw-route trace (2026-11-21)
 
 The opt-in `OPENRAC_TRACE_PLAYER` now records the player on the first active

@@ -83,14 +83,16 @@ decodes two menu draws per frame. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for measured texture,
 geometry, and visual results.
 OpenRAC's world renderers remain R&C-specific and cannot draw Sly levels as-is.
-The no-emulation host32 renderer still uses OpenRAC's HUD `DirectRenderer` for
-GIF packets. It now also has an opt-in native adapter for unskinned kind-6 Sly
-model data and camera state. That adapter submits three loaded meshes to an
-OpenGL triangle-strip pass, but the captured image is a uniform dark gray and
-does not pass the visible-world gate. It is disabled by default while the
-kind-6 VU clipping and GS primitive behavior are mapped. Keep the VIF/VU/GS
-translation path for bounded diagnostics; OpenRAC supplies the window, GL and
-HUD foundation, while the Sly-specific mesh conversion remains port work.
+The host32 renderer uses OpenRAC's HUD `DirectRenderer` for 2D GIF packets.
+There is also an opt-in Sly model overlay, but it is only a diagnostic: it
+copies positions and UVs from Sly's model inputs, reads material state from
+frame-source packets, and resolves textures through the GIF-fed texture pool.
+Its output is stretched gray geometry, so it is neither a complete native
+renderer nor an acceptable playable path. Keep it disabled. The VIF/VU/GS
+interpreter is historical diagnostic code; do not expand it as the graphics
+plan. The port needs Sly-specific render inputs and host GPU draws derived from
+the decompilation and retail data, following OpenRAC's architecture without
+copying Ratchet-specific code or renderer research sourced from elsewhere.
 
 The no-assembly hostgen launcher builds 1,489 translated functions and links
 against OpenRAC's host runtime. That runtime dispatches compiled host functions
