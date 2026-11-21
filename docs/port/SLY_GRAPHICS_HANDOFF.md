@@ -6960,3 +6960,28 @@ foreground windows and are not Sly evidence. Pacing improves guest startup
 stability but does not yet provide correct, stable graphics. Captures and
 sampled state are in `/tmp/sly-untraced-state-capture-20261121/` and
 `/tmp/sly-paced-visible-20261121/`.
+
+## Keep texture-target models out of the presentation pass (2026-11-21)
+
+The optional host OpenGL world pass was submitting every `DrawModelPart`
+request to the desktop framebuffer. Retail's class `0x61`
+`TextureRenderObject` requests instead render between target setup and an
+edge-quad pass into a texture. The host pass has no matching offscreen target
+binding, so those submissions were going to the wrong output.
+
+The port hook now reads the owner class through the relocated class descriptor
+and skips class `0x61` in the presentation pass. A hidden capture confirms the
+class-specific skip; the steady queue count was 354 in that run, compared with
+393 in the earlier baseline run. The captured scene remains distorted and not
+playable; this fixes one framebuffer routing error but does not implement
+native texture-target rendering. The remaining work is to establish per-draw
+transform and geometry semantics and add host render-target handling for
+objects that need it. The native OpenGL world pass remains opt-in. No VU
+renderer change was made.
+
+The four global MVP conventions were also compared in bounded captures. None
+produces a recognizable level; applying one convention across all draw types
+is not a valid fix. Local captures are under
+`/tmp/sly-mvp-modes-20261121/`, `/tmp/sly-auto-matrix-20261121/`, and
+`/tmp/sly-native-target-corrected-20261121/`. The runs used the configured
+NTSC-U disc and native host32 launcher; no emulator or game input was used.

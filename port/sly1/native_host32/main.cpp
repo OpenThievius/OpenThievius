@@ -1466,6 +1466,39 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     const volatile u32* request = reinterpret_cast<const volatile u32*>(request_address);
     const u32 part_address = request[0x78 / 4];
     if (part_address == 0) return;
+    const u32 owner_address = request[0x70 / 4];
+    u32 owner_class = 0xFFFFFFFFu;
+    u32 class_address = 0;
+    if (owner_address >= 0x00010000u && owner_address <= 0x01FFFFFCu) {
+        class_address = *reinterpret_cast<const volatile u32*>(owner_address);
+        const bool class_in_guest_ram = class_address >= 0x00010000u &&
+            class_address <= 0x01FFFFF8u;
+        const bool class_in_relocated_data = class_address >= 0x08000000u &&
+            class_address < 0x10000000u;
+        if (class_in_guest_ram || class_in_relocated_data)
+            owner_class = *reinterpret_cast<const volatile u32*>(class_address + 4u);
+    }
+    if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+        static u32 owner_notices = 0;
+        if (owner_notices++ < 16u)
+            std::fprintf(stderr,
+                         "[native sly world owner] request=%#010x owner=%#010x descriptor=%#010x class=%u\n",
+                         request_address, owner_address, class_address, owner_class);
+    }
+    // The host world overlay draws only to the presentation framebuffer. Sly's
+    // TextureRenderObject parts are submitted between render-target setup and
+    // the edge-quad pass; drawing them here would composite the offscreen model
+    // directly over the desktop image. A native target pass must handle these.
+    if (owner_class == 0x61u) {
+        if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+            static u32 skipped_texture_targets = 0;
+            if (skipped_texture_targets++ < 8u)
+                std::fprintf(stderr,
+                             "[native sly target skip] request=%#010x owner=%#010x class=%u reason=presentation-framebuffer\n",
+                             request_address, owner_address, owner_class);
+        }
+        return;
+    }
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
     u32 mesh_count = part[0x58 / 4];
     if (mesh_count > 128u) mesh_count = 128u;
@@ -1473,7 +1506,6 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
     if (mesh_count == 0 || mesh_address == 0) return;
     const float* model = reinterpret_cast<const float*>(request_address + 0x10u);
     const float* view_projection = reinterpret_cast<const float*>(camera_address + 0x100u);
-    const u32 owner_address = request[0x70 / 4];
     const u32 skin_address = request[0x74 / 4];
     if (std::getenv("OPENRAC_TRACE_SLY_CAMERA") != nullptr &&
         native_trace_player_tree_owner(owner_address)) {
