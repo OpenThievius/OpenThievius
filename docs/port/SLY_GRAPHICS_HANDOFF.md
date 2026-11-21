@@ -26,21 +26,23 @@ for anything not represented by the existing 2D packets.
 
 ### Fresh-start state trace (2026-11-21)
 
-The Splash CountdownNotifier's mode-2 transition is not caused by a saved
-completion flag. On the configured US ELF/ISO it starts with object id `0x54c`,
-flag index 1, save indices level 0 / entry 2, and `TestFlagTableBit` false. The
-retail path sets it from -1 to mode 0, then a script/property dispatch in
-`func_001C1F20` calls `SetCountdownNotifierState(..., 2)`; the completion helper
-is not involved. Its graph is id `0x25f` (four states, seven edges, unarmed).
-The graph sends a notifier callback before the host link is set, then further
-state notifications after linking it. This points to the Splash state graph's
-serialized script/property event and native event timing as the immediate
-startup-flow question. Trace that event and target next; do not force the
-notifier or arm the graph. The focused diagnostic is available with
+The Splash CountdownNotifier reaches mode 2 through its authored start script,
+not a saved completion flag or `CompleteCountdownNotifier`. On the configured
+US ELF/ISO it starts with object id `0x54c`, flag index 1, save indices level 0
+/ entry 2, and `TestFlagTableBit` false. Event 0 runs on that notifier and
+writes integer 2 through property descriptor type `0x1049`, flags `0x42`,
+setter slot `+0xcc` (`SetCountdownNotifierState`). Its graph is id `0x25f`
+(four states, seven edges, unarmed, no script scope). The notifier receives a
+`0x14` callback before its host link is set, then further state notifications
+after linking it. This is not yet proven to control the missing legal/logo/
+rooftop/title visuals; do not force its state or arm the graph. The next visual
+step is to trace the active Splash scene/animation and its render submissions.
+The focused diagnostic is available with
 `OPENRAC_NATIVE_NOTIFIER_TRACE=ON` and launcher `--trace`. Logs:
 `/tmp/sly-splash-notifier-transition-traced-20261121.log`,
-`/tmp/sly-splash-flag-origin-20261121.log`, and
-`/tmp/sly-splash-completion-callback-20261121.log`.
+`/tmp/sly-splash-flag-origin-20261121.log`,
+`/tmp/sly-splash-completion-callback-20261121.log`, and
+`/tmp/sly-splash-start-property-20261121.log`.
 
 The supplied recording was rechecked at 1-fps intervals. It begins with the
 Sony legal card, then shows the owl/moon, Sucker Punch Productions sign, a

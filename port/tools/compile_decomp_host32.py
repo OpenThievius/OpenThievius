@@ -3548,6 +3548,20 @@ def main(argv=None):
             if adapted.count(handle_signature) == 1:
                 handle_trace = handle_signature + "\n    sly1_port_trace_value(0x148ff121u, (u32)self);\n    sly1_port_trace_value(0x148ff122u, (u32)kind);\n    sly1_port_trace_value(0x148ff123u, (u32)msg);\n    sly1_port_trace_value(0x148ff124u, self != 0 ? (u32)self->host : 0);"
                 adapted = adapted.replace(handle_signature, handle_trace, 1)
+        if rel.as_posix() == "main/base_object.cpp" and args.trace_notifier:
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            event_signature = (
+                "void RunScriptEventHandler(BaseObject* self, s32 key, R11B008Node* list)\n{")
+            if adapted.count(event_signature) == 1:
+                event_trace = event_signature + "\n    if (self != 0 && (self->id == 0x54C || self->id == 0x25F)) {\n        sly1_port_trace_value(0x148ff130u, (u32)self);\n        sly1_port_trace_value(0x148ff131u, (u32)self->id);\n        sly1_port_trace_value(0x148ff132u, (u32)key);\n        sly1_port_trace_value(0x148ff133u, (u32)list);\n    }"
+                adapted = adapted.replace(event_signature, event_trace, 1)
+        if rel.as_posix() == "main/object_properties.cpp" and args.trace_notifier:
+            adapted = 'extern "C" void sly1_port_trace_value(u32, u32);\n' + adapted
+            write_signature = (
+                "ScriptValue* WritePropertyValue(ScriptValue* out, void* base, PropertyDescriptor* d, ScriptValue* val)\n{")
+            if adapted.count(write_signature) == 1:
+                write_trace = write_signature + "\n    if (base != 0 && ((BaseObject*)base)->id == 0x54C) {\n        sly1_port_trace_value(0x148ff140u, (u32)base);\n        sly1_port_trace_value(0x148ff141u, (u32)d->type);\n        sly1_port_trace_value(0x148ff142u, d->flags);\n        sly1_port_trace_value(0x148ff143u, (u32)d->putter);\n        sly1_port_trace_value(0x148ff144u, (u32)d->offset);\n        sly1_port_trace_value(0x148ff145u, (u32)val->tag);\n        sly1_port_trace_value(0x148ff146u, (u32)val->i);\n    }"
+                adapted = adapted.replace(write_signature, write_trace, 1)
         if rel.as_posix() == "main/state_notifier.cpp" and args.trace_functions:
             # Log the retail notifier objects that select camera/state-graph
             # keys. This is diagnostic staging only; notifier decisions stay

@@ -64,35 +64,36 @@ launcher used the configured Documents US ISO and cached US ELF in a hidden
 window; no boot-level override was set. The bounded 12-second runs ended by
 timeout.
 
-### New startup blocker: Splash script completes the notifier immediately
+### Splash notifier trace correction: mode 2 comes from its start script
 
 A targeted trace on the configured Documents US ISO and cached US ELF now
-shows why the Splash CountdownNotifier is in mode 2. The first notifier is
+shows how the Splash CountdownNotifier reaches mode 2. The first notifier is
 object `0x00847ef0` (object id `0x054c`, flag index 1). At startup the save
 indices are level 0 / entry 2 and `TestFlagTableBit(flagIndex 1)` returns 0;
 the saved completion flag is not causing the transition. Retail startup sets
-the notifier from state -1 to mode 0, then shortly afterwards calls
-`SetCountdownNotifierState(..., 2)` from a script/property-dispatch call in
-`func_001C1F20`. `CompleteCountdownNotifier` is not called. The graph linked at
-`+0x2e4` is id `0x25f`, with four states and seven edges; it is unarmed. The
-notifier's first `0x14` callback arrives before its host link is established,
-then its host is linked and further state notifications follow. The normal
-retail script path therefore marks Splash complete before any timer can run.
+the notifier from state -1 to mode 0, then runs its own start script (event 0).
+That handler writes integer value 2 through property descriptor type `0x1049`,
+flags `0x42`, setter slot `+0xcc`, which dispatches to
+`SetCountdownNotifierState(..., 2)`. `CompleteCountdownNotifier` is not called.
+The graph linked at `+0x2e4` is id `0x25f`, with four states and seven edges;
+it is unarmed and has no script scope. The notifier receives a `0x14` callback
+before its host link is established, then its host is linked and further state
+notifications follow.
 
-This shifts the next investigation from the save flag to the serialized
-state-graph/script property that dispatches the mode-2 setter, and to how the
-native script/event timing reaches it immediately. Trace the `0x25f` graph's
-state-change event and its property target before changing any state or
-arming the graph. Do not use `OPENRAC_DRIVE_SPLASH_NOTIFIER` as a visual fix;
-that remains an opt-in diagnostic which creates a walker and does not
-reproduce the expected startup sequence. The opt-in `OPENRAC_NATIVE_NOTIFIER_TRACE`
-build option adds the focused state and callback trace without changing
-matched decomp source.
+This is the authored object start-script path, not evidence of a native
+property-dispatch bug. It is not yet proven to control the missing logos,
+rooftop scene, or title screen, so do not force its state or arm the graph.
+The next visual task remains tracing the actual Splash scene/animation and
+render submissions to find the first missing screen. `OPENRAC_DRIVE_SPLASH_NOTIFIER`
+is only a diagnostic that creates a walker; it is not a visual fix. The opt-in
+`OPENRAC_NATIVE_NOTIFIER_TRACE` build option records the notifier, start event,
+and property write without changing matched decomp source.
 
 Evidence: `/tmp/sly-splash-notifier-transition-traced-20261121.log`,
-`/tmp/sly-splash-flag-origin-20261121.log`, and
-`/tmp/sly-splash-completion-callback-20261121.log`. The last run had no input;
-the two earlier runs used the approved hidden Cross/Up/Cross/Start route and
+`/tmp/sly-splash-flag-origin-20261121.log`,
+`/tmp/sly-splash-completion-callback-20261121.log`, and
+`/tmp/sly-splash-start-property-20261121.log`. The final run had no input;
+the earlier menu runs used the approved hidden Cross/Up/Cross/Start route and
 reached Paris world `0x870cf0`. All were bounded hidden launcher runs using
 the configured US ISO and ELF.
 
