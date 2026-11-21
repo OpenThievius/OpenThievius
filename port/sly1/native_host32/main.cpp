@@ -9,6 +9,7 @@ extern u32 D_00262E10; // g_player
 
 #if defined(OPENRAC_SLY1_WITH_SDL)
 #include "openrac/native_window.h"
+#include "platform/clock.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <cerrno>
@@ -2397,15 +2398,20 @@ extern "C" int sly1_native_host32_main(int argc, char** argv) {
         if (semaphore_trace_after_frame == 0)
             g_native_semaphore_trace_active = 1;
     }
+    openrac::platform::FramePacer presenter(
+        openrac::platform::field_rate(openrac::platform::VideoStandard::Ntsc));
     for (;;) {
         openrac_native_window_present();
         if (trace_graphics) ++trace_frames;
-        // GS CSR.FIELD is the only status bit read by the Sly display path.
-        // Advance it with the native window's presentation cadence.
-        __atomic_fetch_xor((u32*)0x12001000u, 1u << 13, __ATOMIC_RELAXED);
-        // The desktop window supplies the vertical-blank event that would
-        // wake the retail display semaphore on the console.
-        handle_vblank(2);
+        // Keep the simulated display interrupt at the game's NTSC field rate;
+        // the window is deliberately not tied to the monitor's refresh rate.
+        const int elapsed_fields = presenter.wait();
+        for (int field = 0; field < elapsed_fields; ++field) {
+            // GS CSR.FIELD is the only status bit read by the Sly display path.
+            __atomic_fetch_xor((u32*)0x12001000u, 1u << 13, __ATOMIC_RELAXED);
+            // Wake the retail VBlank path once for each elapsed display field.
+            handle_vblank(2);
+        }
         const int quit = openrac_native_window_poll_input();
         if (trace_graphics &&
             trace_frames >= semaphore_trace_after_frame)

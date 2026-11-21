@@ -1419,6 +1419,8 @@ extern "C" int openrac_native_window_create(void) {
     config.title = "OpenThievius - Sly 1";
     config.width = 960;
     config.height = 720;
+    // The host32 launcher paces the guest and simulated VBlank at exact NTSC
+    // rate; tying swaps to monitor refresh would add a second, mismatched clock.
     config.vsync = false;
     config.software = openrac::platform::SoftwareRenderer::Allow;
     config.hidden = std::getenv("OPENRAC_TEST_HIDDEN_WINDOW") != nullptr;
