@@ -43,6 +43,14 @@ the GS PRIM state emitted by the selected batch program with each mesh, or
 derive it from the mesh kind. Do not keep searching the frame-source packet
 for PRIM and do not change default blending until that state is known.
 
+A bounded PRIM trace from the VU-kick stream is not authoritative for this
+native path: the same kick was rejected by the packet checker for reserved
+GIFtag bits, while the shared diagnostic parser continued and reported values.
+That trace was removed. Keep the ABE comparison opt-in and derive the native
+mesh state from validated inputs instead. Logs:
+`/home/reaper/sly/native-prim-state-trace-20261122/` and
+`/home/reaper/sly/native-prim-material-trace-20261122/`.
+
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
 starry ground; the flipped version puts the sky above the facades and roof

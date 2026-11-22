@@ -8171,3 +8171,13 @@ carefully derived per-kind native mapping. Keep geometry rendering on the
 native OpenGL path; this finding does not call for a PlayStation VU renderer.
 The next trace should associate GS PRIM writes with native model submissions,
 or derive that state by mesh kind before changing default blending.
+
+I tested a bounded trace of PRIM writes in packets labeled `vu1-xgkick`, but
+did not retain its instrumentation. In the same captured submission (`105`,
+entry `0x5f`), the native packet checker rejected the kick at PC `0x68` with
+`GIFtag has reserved bits set`. The PRIM values logged while the shared stream
+parser continued through those bytes are therefore not a trustworthy source
+for native mesh ABE. Do not use those values to infer per-mesh blend state.
+The trace and rejection are in
+`/home/reaper/sly/native-prim-state-trace-20261122/run.log` and
+`/home/reaper/sly/native-prim-material-trace-20261122/run.log`.
