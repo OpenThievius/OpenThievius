@@ -933,11 +933,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             !mesh.model_is_identity;
         const bool raw_screen_matrix =
             std::getenv("OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX") != nullptr;
+        const char* screen_to_clip_y_setting =
+            std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_FLIP");
+        // The PS2 display origin is at the top-left; OpenGL clip Y grows up.
+        // Preserve screen placement by flipping the converted Y axis. Set this
+        // diagnostic to 0 to compare the former positive-Y mapping.
+        const bool screen_to_clip_y_flip = screen_to_clip_y_setting == nullptr ||
+            std::strcmp(screen_to_clip_y_setting, "0") != 0;
         // The retail projection is scaled for the PS2's 640x224 GS field.
         // Normalize those output axes for OpenGL by default; keep the raw
         // matrix as an explicit diagnostic comparison only.
         bool screen_to_clip = !raw_screen_matrix || screen_to_clip_all ||
-                              screen_to_clip_transformed;
+                              screen_to_clip_transformed ||
+                              screen_to_clip_y_setting != nullptr;
         std::uint32_t screen_to_clip_request = 0;
         bool screen_to_clip_request_valid = false;
         bool screen_to_clip_request_match = false;
@@ -959,7 +967,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             // major, and this array is interpreted by GLSL as its transpose;
             // clip x/y therefore use interleaved entries (0,4,8,12) and
             // (1,5,9,13). Scale those output components, not contiguous rows
-            // of the guest matrix, while leaving depth and W untouched.
+            // of the guest matrix, while leaving depth and W untouched. Flip
+            // converted Y by default: GS screen coordinates start at the top,
+            // whereas OpenGL's clip-space Y increases toward the top.
             constexpr float kPs2ScreenToClipX = 4096.0f / 640.0f;
             constexpr float kPs2ScreenToClipY = 4096.0f / 224.0f;
             for (std::size_t column = 0; column < 4; ++column) {
@@ -979,9 +989,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     parsed > 0.0f && parsed <= 4.0f)
                     clip_y_scale = parsed;
             }
-            if (clip_y_scale != 1.0f)
+            const float clip_y_sign = screen_to_clip_y_flip ? -1.0f : 1.0f;
+            if (clip_y_scale != 1.0f || clip_y_sign < 0.0f)
                 for (std::size_t column = 0; column < 4; ++column)
-                    m[column * 4u + 1u] *= clip_y_scale;
+                    m[column * 4u + 1u] *= clip_y_scale * clip_y_sign;
             static bool screen_to_clip_notice = false;
             if (!screen_to_clip_notice) {
                 screen_to_clip_notice = true;
@@ -992,11 +1003,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     screen_to_clip_transformed ? "transformed" :
                     screen_to_clip_request_valid ? "request" : "default";
                 std::fprintf(stderr,
-                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224 clip_y_scale=%g\n",
+                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224 clip_y_scale=%g clip_y_sign=%g\n",
                              scope,
                              screen_to_clip_request,
                              kPs2ScreenToClipX,
-                             kPs2ScreenToClipY * clip_y_scale, clip_y_scale);
+                             kPs2ScreenToClipY * clip_y_scale, clip_y_scale,
+                             clip_y_sign);
             }
         }
         if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {

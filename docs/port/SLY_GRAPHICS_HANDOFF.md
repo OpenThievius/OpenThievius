@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Correct the native OpenGL screen Y origin (2026-11-22)
+
+The host renderer converts the retail 640x224 GS screen field into OpenGL
+clip space. The direct 2D renderer already maps top-origin GS Y to OpenGL with
+a negative Y scale. I added `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_FLIP` as a
+native OpenGL comparison, then captured the same gameplay state with and
+without it. Positive Y leaves the facades above the starry ground; negative Y
+puts the sky above the facades and roof foreground, matching the orientation
+in the supplied PCSX2 capture at
+`/tmp/sly-reference-yflip/reference30.png` and
+`/tmp/sly-reference-yflip/reference38.png`. This provides both a coordinate
+convention basis and a visual reference. The native OpenGL renderer now flips
+Y by default; setting the option to `0` restores the former positive-Y path.
+The host32 target rebuilt successfully (194/194 decomp units, 85/85 port
+backfills, 98 missing-function traps). A fresh run with no Y override logs
+`clip_y_sign=-1` and reproduces the corrected orientation. It still has
+disconnected facades and no confirmed playable character, so this is a
+vertical-orientation correction, not a playable milestone. Default capture:
+`/home/reaper/sly/native-yflip-ab-20261122/default-fixed/sly1-native-frame-63.ppm`;
+positive-Y capture:
+`/home/reaper/sly/native-transform-followup-gameplay-20261122/sly1-native-frame-63.ppm`;
+explicit flip A/B:
+`/home/reaper/sly/native-yflip-ab-20261122/compare.png`.
+Both launcher runs used SDL offscreen and ended at their planned 12-second
+timeout (137); no launcher remained running. No VU renderer or matched game
+code changed.
+
 ### Native OpenGL coverage and transform follow-up (2026-11-22)
 
 Two fresh bounded offscreen runs used the current host32 build with the native

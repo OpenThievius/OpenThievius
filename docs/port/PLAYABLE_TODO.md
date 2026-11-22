@@ -3,30 +3,40 @@
 
 ## Current checkpoint (2026-11-22)
 
-Fresh native OpenGL traces show the static facade draws are reaching the
-framebuffer. For request `0x005e4f00`, the three mesh centroids transform to
-within the queued part's radius; the alternate matrix orientation misses by
-about 14,500 units. The composed camera matrix puts that facade and the player
-target near the view center. Its three strips contribute 70, 29, and 23
-visible triangles; request `0x005e5000` contributes 14 of 14. The extreme
-clip-space candidates near the left edge cover only narrow strips in the
-sampled frame. Do not change global projection, the camera matrix convention,
-or ordinary strip submission based on the current evidence. The screenshot
-still has detached facades, so next compare mesh composition and neighboring
-native scene draws around these visible objects. The bounded runs used SDL
-offscreen with the native OpenGL renderer and ended at their planned 12-second
-timeout (137); no launcher remains. See
-[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for captures, matrix
-values, and per-request triangle counts.
+The native OpenGL renderer now flips converted screen Y by default. A paired
+offscreen A/B showed the positive-Y version placing the facades above the
+starry ground; the flipped version puts the sky above the facades and roof
+foreground, matching the orientation in the supplied PCSX2 video. This also
+matches the top-origin screen conversion used by the existing DirectRenderer.
+The opt-out `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_FLIP=0` restores the former
+orientation for comparison. The corrected default was rebuilt and captured
+with `clip_y_sign=-1`. It still shows disconnected facades and no confirmed
+playable character, so this fixes the vertical orientation only. Next
+investigate the missing scene continuity and player composition. Default
+capture:
+`/home/reaper/sly/native-yflip-ab-20261122/default-fixed/sly1-native-frame-63.ppm`;
+reference frames are `/tmp/sly-reference-yflip/reference30.png` and
+`/tmp/sly-reference-yflip/reference38.png`.
+
+The transforms and coverage are still useful constraints: for request
+`0x005e4f00`, the three mesh centroids transform to within the queued part's
+radius; the alternate matrix orientation misses by about 14,500 units. Its
+three strips contribute 70, 29, and 23 visible triangles; request
+`0x005e5000` contributes 14 of 14. The extreme clip-space candidates near the
+left edge cover only narrow strips. Keep the row-vector model convention,
+ordinary strip submission, and X/depth mapping unchanged. Detailed capture,
+matrix values, and per-request triangle counts are in
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md).
 
 A current-build native OpenGL isolation run skipped the three background
 requests (`0x005e5380`, `0x005e5300`, `0x005e5280`). The starfield disappears,
 but the detached textured facades remain, at the same screen positions. This
 separates the backdrop from the main visual blocker: ordinary scene object
-placement or draw inputs. Keep the global projection and background settings
-unchanged; next compare stable building draw transforms with the shared camera
-and their source geometry. The run reached Paris world `0x870cf0`, UI state 3,
-and skipped three requests. Capture and log:
+placement or draw inputs. Keep the backdrop settings unchanged; the separate
+Y-origin correction is recorded in the current checkpoint above. Next compare
+stable building draw transforms with the shared camera and their source
+geometry. The run reached Paris world `0x870cf0`, UI state 3, and skipped three
+requests. Capture and log:
 `/home/reaper/sly/native-quad4-check/backdrop-skip-current/`. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for detail.
 
