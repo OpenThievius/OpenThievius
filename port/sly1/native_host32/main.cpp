@@ -2116,19 +2116,27 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             const u32 parent_address = owner_address >= 0x00010000u &&
                     static_cast<u64>(owner_address) + 0x1Cu <= 0x02000000ull
                 ? *reinterpret_cast<const volatile u32*>(owner_address + 0x18u) : 0u;
+            const u32 part_matrix_address = *reinterpret_cast<const volatile u32*>(
+                part_address + 0x68u);
+            const u32 camera_facing_address = *reinterpret_cast<const volatile u32*>(
+                part_address + 0x34u);
             const volatile float* parent_world = parent_address >= 0x00010000u &&
                     static_cast<u64>(parent_address) + 0x150u <= 0x02000000ull
                 ? reinterpret_cast<const volatile float*>(parent_address + 0x140u)
                 : nullptr;
             std::fprintf(stderr,
-                         "[native sly GL transform audit] request=%#010x owner=%#010x id=%u class=%u parent=%#010x part=%#010x part_center=%g,%g,%g radius=%g lit=%u skinned=%u model_pos=%g,%g,%g owner_local_pos=%g,%g,%g owner_world_pos=%g,%g,%g parent_world_pos=%g,%g,%g\n",
+                         "[native sly GL transform audit] request=%#010x owner=%#010x id=%u class=%u parent=%#010x part=%#010x part_matrix=%#010x camera_facing=%#010x part_local_pos=%g,%g,%g request_pos=%g,%g,%g radius=%g lit=%u skinned=%u model_pos=%g,%g,%g owner_pos=%g,%g,%g owner_world_pos=%g,%g,%g parent_world_pos=%g,%g,%g\n",
                          request_address, owner_address,
                          owner_address >= 0x00010000u && owner_address <= 0x01FFFFFCu
                              ? *reinterpret_cast<const volatile u32*>(owner_address + 8u) : 0u,
                          owner_class, parent_address, part_address,
+                         part_matrix_address, camera_facing_address,
                          static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x00u)),
                          static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x04u)),
                          static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x08u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(request_address + 0x60u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(request_address + 0x64u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(request_address + 0x68u)),
                          static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x10u)),
                          *reinterpret_cast<const volatile u32*>(part_address + 0x18u),
                          *reinterpret_cast<const volatile u32*>(part_address + 0x28u),
@@ -2151,6 +2159,15 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 for (u32 column = 0; column < 4u; ++column)
                     std::fprintf(stderr, "%s%g", column == 0u ? "" : ",",
                                  static_cast<double>(view_projection[row * 4u + column]));
+                std::fputc('\n', stderr);
+            }
+            if (native_guest_range_readable(part_matrix_address, 16u * sizeof(float))) {
+                const volatile float* part_matrix =
+                    reinterpret_cast<const volatile float*>(part_matrix_address);
+                std::fprintf(stderr, "[native sly GL transform audit] part_matrix_rows=");
+                for (u32 element = 0; element < 16u; ++element)
+                    std::fprintf(stderr, "%s%g", element == 0u ? "" : ",",
+                                 static_cast<double>(part_matrix[element]));
                 std::fputc('\n', stderr);
             }
         }
@@ -2311,6 +2328,59 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 }
             }
             mesh = found->second;
+        }
+        if (const char* setting =
+                std::getenv("OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            static u32 coordinate_trace_samples = 0;
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+                request_address == static_cast<u32>(parsed) &&
+                coordinate_trace_samples++ < 8u && !mesh.vertices.empty()) {
+                double local_sum[3]{};
+                double row_sum[3]{};
+                double column_sum[3]{};
+                const std::size_t vertices = mesh.vertices.size() / 9u;
+                for (std::size_t vertex = 0; vertex < vertices; ++vertex) {
+                    const float* position = mesh.vertices.data() + vertex * 9u;
+                    const double x = position[0];
+                    const double y = position[1];
+                    const double z = position[2];
+                    local_sum[0] += x;
+                    local_sum[1] += y;
+                    local_sum[2] += z;
+                    row_sum[0] += x * model[0] + y * model[4] + z * model[8] + model[12];
+                    row_sum[1] += x * model[1] + y * model[5] + z * model[9] + model[13];
+                    row_sum[2] += x * model[2] + y * model[6] + z * model[10] + model[14];
+                    column_sum[0] += x * model[0] + y * model[1] + z * model[2] + model[3];
+                    column_sum[1] += x * model[4] + y * model[5] + z * model[6] + model[7];
+                    column_sum[2] += x * model[8] + y * model[9] + z * model[10] + model[11];
+                }
+                const double inverse_count = 1.0 / static_cast<double>(vertices);
+                const volatile float* request_position =
+                    reinterpret_cast<const volatile float*>(request_address + 0x60u);
+                for (u32 axis = 0; axis < 3u; ++axis) {
+                    local_sum[axis] *= inverse_count;
+                    row_sum[axis] *= inverse_count;
+                    column_sum[axis] *= inverse_count;
+                }
+                const double row_delta = std::sqrt(
+                    std::pow(row_sum[0] - request_position[0], 2.0) +
+                    std::pow(row_sum[1] - request_position[1], 2.0) +
+                    std::pow(row_sum[2] - request_position[2], 2.0));
+                const double column_delta = std::sqrt(
+                    std::pow(column_sum[0] - request_position[0], 2.0) +
+                    std::pow(column_sum[1] - request_position[1], 2.0) +
+                    std::pow(column_sum[2] - request_position[2], 2.0));
+                std::fprintf(stderr,
+                             "[native sly GL coordinate audit] request=%#010x source=%#010x mesh=%u vertices=%zu local_centroid=%g,%g,%g row_transformed_centroid=%g,%g,%g row_delta_to_request_pos=%g column_transformed_centroid=%g,%g,%g column_delta_to_request_pos=%g part_radius=%g\n",
+                             request_address, source_mesh, i, vertices,
+                             local_sum[0], local_sum[1], local_sum[2],
+                             row_sum[0], row_sum[1], row_sum[2], row_delta,
+                             column_sum[0], column_sum[1], column_sum[2], column_delta,
+                             static_cast<double>(*reinterpret_cast<const volatile float*>(
+                                 part_address + 0x10u)));
+            }
         }
         if (std::getenv("OPENRAC_TRACE_SLY_MESH_DEFORM") != nullptr &&
             (mesh.kind == 0u || mesh.kind == 6u)) {

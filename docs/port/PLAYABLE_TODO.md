@@ -169,17 +169,19 @@ and the camera projection against the same placed object in the reference
 view; keep changes in the native OpenGL adapter. Log:
 `/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
 
-A follow-up request-filtered capture of `0x005e5000` records part center
-`(-10509, 10293, -4217)`, model translation `(-3865, -18970, -1132)`, and a
-zero-position owner root. This confirms the request transform is not copied
-directly from the part center. The 16 uploaded positions project inside the
-clip volume before screen-to-clip scaling, so this draw is reaching native
-OpenGL and is not simply clipped away. This alone does not validate the
-transform against retail placement. Continue with the actual visible geometry
-and its source coordinate space; do not change the global matrix convention
-from this sample. Opt-in probe:
-`OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST=0x005e5000`. Log:
-`/tmp/sly-native-gl-projection-audit-20261122/run.log`.
+A request-filtered native OpenGL capture of `0x005e5000` records its
+object-local part position `(-10509, 10293, -4217)`, queued position (the same
+point because its owner is at the origin), and part matrix translation
+`(-3865, -18970, -1132)`. The part matrix is also the request's model matrix.
+For its 16 source vertices, the current row-vector transform places their
+centroid 15 units from the queued position, within the 2,292-unit part radius.
+The alternate matrix orientation misses by 15,184 units. This supports the
+current model-matrix convention for this draw; it does not validate the camera
+projection or other draws. The fresh presented frame still shows detached
+geometry. Next compare camera projection and per-draw geometry/material inputs
+in the native renderer. Logs and frame:
+`/tmp/sly-native-gl-centroid-frame-20261122/` and
+`/tmp/sly-native-gl-centroid-frame-20261122/run.log`.
 
 ## Current checkpoint (2026-11-21)
 
