@@ -1395,8 +1395,11 @@ def lower_gcc_minmax(text):
 
 
 def return_appended_call_record(text, label):
-    """Complete the matched append helper's return in the staged host copy."""
+    """Complete the old append signature's return in the staged host copy."""
     if label != "main/world.cpp":
+        return text
+    corrected_signature = "void AppendQueuedCall(World* self, void* code, void* arg, s32 c, s32 d)"
+    if text.count(corrected_signature) >= 2:
         return text
     signature = "QueuedCall* AppendQueuedCall(World* self, void* code, void* arg, s32 c, s32 d)"
     start = -1
@@ -1621,6 +1624,12 @@ def forward_ground_contact_arguments(text, label):
 def forward_player_slide_contact_index(text, label):
     """Carry the contact side index across the player's nested vtable call."""
     if label != "main/player.cpp":
+        return text
+    source_typedef = "typedef s32 (*VFn_170410)(Player* self, void* out, s32 end);"
+    source_signature = "void ComputePlayerSlideRates(Player* self, BodyContact* out, s32 end)"
+    source_call = "((VFn_170410*)self->desc)[90](self, out, end)"
+    if (text.count(source_typedef) == 1 and text.count(source_signature) == 1 and
+            text.count(source_call) == 1):
         return text
     old_typedef = "typedef s32 (*VFn_170410)(Player* self, void* out);"
     new_typedef = "typedef s32 (*VFn_170410)(Player* self, void* out, s32 idx);"
@@ -3000,19 +3009,20 @@ def main(argv=None):
                 )
                 adapted = adapted.replace(declaration, declarations[-1], 1)
         if rel.as_posix() == "main/warp_menu.cpp":
-            # The decomp now describes ElementStack as a 0x34-byte structure
-            # in screen_element.h, but its global backing array still has a
+            # Older decomp snapshots declare the 0x34-byte ElementStack as a
             # four-byte placeholder. Runtime initialization and frame updates
-            # use the complete structure, so the placeholder overlaps adjacent
-            # host BSS objects. Size only the staged host definition from the
-            # recovered layout; keep matching source and score untouched.
+            # use the complete structure, so size that staged definition from
+            # its recovered layout. Newer matched source defines the structure
+            # directly and needs no host-only adjustment.
             declaration = "u8 g_elementStack[4] = {0};"
-            if adapted.count(declaration) != 1:
+            native_declaration = "ElementStack g_elementStack = {0};"
+            if adapted.count(declaration) == 1:
+                adapted = adapted.replace(
+                    declaration,
+                    "u8 g_elementStack[sizeof(ElementStack)] = {0};")
+            elif adapted.count(native_declaration) != 1:
                 raise RuntimeError("expected one ElementStack backing array in " +
                                    rel.as_posix())
-            adapted = adapted.replace(
-                declaration,
-                "u8 g_elementStack[sizeof(ElementStack)] = {0};")
         adapted = forward_copy_callback_source(adapted, rel.as_posix())
         # The retail ABI uses 64-bit s64/u64 even where the decomp unit spells
         # those aliases with `long`; on host i386, long is only 32 bits.
@@ -3268,16 +3278,22 @@ def main(argv=None):
         elif rel.as_posix() == "main/iop_commands.cpp":
             # The matching body queues a command but is declared s32 and has
             # no return statement. At -O2 GCC may omit its epilogue entirely,
-            # falling into the next function. Callers use it for side effects;
-            # return zero in this host staging copy to preserve control flow.
+            # falling into the next function. Older local decomp checkouts still
+            # need a host-only return. Newer matched source correctly declares
+            # this side-effect-only helper void, so leave that body alone.
             old = ("s32 SetIopSoundOptionFlag(s32 arg)\n{\n"
                    "    s32 local = arg;\n"
                    "    QueueIopCommand(11, 4, &local, 0, 0);\n"
                    "}")
             new = old[:-2] + "\n    return 0;\n}"
-            if adapted.count(old) != 1:
+            current = ("void SetIopSoundOptionFlag(s32 arg)\n{\n"
+                       "    s32 local = arg;\n"
+                       "    QueueIopCommand(11, 4, &local, 0, 0);\n"
+                       "}")
+            if adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+            elif adapted.count(current) != 1:
                 raise RuntimeError("expected one side-effect-only IOP option helper")
-            adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/pose_source.cpp":
             # Port-only trace of object creation during resource loading. Log
             # every CreateTypedRecord class index so the loader's handling of
@@ -3512,6 +3528,20 @@ def main(argv=None):
                 "ListLink* GetListLinks(ObjectList* a, void* b);")
             adapted = adapted.replace(
                 "u32 GetListLinks(ObjectList* node, u32 value);\n", "")
+            # Newer matched snapshots retain only the names.h macro alias,
+            # which expands calls to the address-backed symbol after the
+            # definition itself is renamed below. Declare the port replacement
+            # with the corrected source-level types in this staged host copy.
+            if ("ListLink* GetListLinks(ObjectList* a, void* b);" not in adapted and
+                    "extern \"C\" ListLink* func_00152460(ObjectList*, void*);" not in adapted):
+                definition = "ListLink* GetListLinks(ObjectList* p, void* item)\n{"
+                if adapted.count(definition) != 1:
+                    raise RuntimeError("expected corrected GetListLinks definition")
+                adapted = adapted.replace(
+                    definition,
+                    "extern \"C\" ListLink* func_00152460(ObjectList*, void*);\n\n" + definition,
+                    1,
+                )
             # InitStepSequence calls the PS2 method InitPlacedObject with an
             # implicit this pointer in a0. The host C ABI needs that pointer
             # as an explicit argument, or the base initializer reads stale
@@ -3541,10 +3571,18 @@ def main(argv=None):
             new = """    for (s32 cleanupIndex = 32; cleanupIndex != 0; --cleanupIndex) {
         DestroyScriptValue(&arr[cleanupIndex - 1], 0);
     }"""
-            if adapted.count(old) != 1:
+            same_array = """    p = arr + 32;
+    while (arr != p) {
+        p--;
+        DestroyScriptValue(p, 0);
+    }"""
+            if adapted.count(new) == 1 or adapted.count(same_array) == 1:
+                pass
+            elif adapted.count(old) == 1:
+                adapted = adapted.replace(old, new, 1)
+            else:
                 raise RuntimeError("expected EvalScriptCall cleanup loop in " +
                                    rel.as_posix())
-            adapted = adapted.replace(old, new, 1)
         elif rel.as_posix() == "main/game_progress.cpp":
             # SetCurrentLevelEntry carries the WorldKeyBlock in an EE argument
             # register through GetEntryIdByKey and FindKeyEntry. Give that
@@ -5416,11 +5454,18 @@ void LoadEffectSpawner"""
                 mesh_builder_switch,
                 1,
             )
-            bind_needle = (
-                "                // address arithmetic over a variable index\n"
-                "                strip->unpack = (StripUnpack*)((u8*)strip->unpack + (strip->addr[0] - starts[0]));\n"
+            bind_lines = (
+                "                strip->unpack = (StripUnpack*)((u8*)strip->unpack + (strip->addr[0] - starts[0]));\n",
+                "                strip->unpack = (StripUnpack*)((u8*)strip->unpack + (s32)(strip->addr[0] - starts[0]));\n",
             )
-            if adapted.count(bind_needle) != 1:
+            bind_needles = tuple(
+                "                // address arithmetic over a variable index\n" + line
+                for line in bind_lines
+            )
+            bind_needle = next(
+                (needle for needle in bind_needles if adapted.count(needle) == 1), None
+            )
+            if bind_needle is None:
                 raise RuntimeError("expected strip packet address bind point")
             adapted = adapted.replace(
                 bind_needle,

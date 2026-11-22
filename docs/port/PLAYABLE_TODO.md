@@ -3,6 +3,21 @@
 
 ## Current checkpoint (2026-11-22)
 
+The configured decomp source has advanced to upstream `6d12fbc8` (21 Nov).
+The canonical source worktree remains untouched; I built from a temporary
+read-only archive. Port staging now accepts the updated `void` IOP helper,
+`ElementStack` definition, slide callback, script cleanup loop, strip pointer
+cast, appended-call return type, and `GetListLinks` declaration. The native
+32-bit compile/link succeeds with 99 missing-function trap entries. The
+renderer configuration is native OpenGL ON and VU NDC OFF. A short hidden run
+initialized OpenGL on Mesa/Radeon and kept running, but its menu driver stayed
+at page 0, so it did not reach gameplay and provides no new scene comparison.
+Its `func_001686e8` diagnostic is a name-alias false alarm: the executable
+exports both the retail address symbol and the newly named
+`SendGsPacketAndWait` signature. Re-run the longer menu-driven capture with
+this latest snapshot before treating it as a graphics regression or
+improvement.
+
 Keep graphics work in the port-owned native OpenGL renderer. The default
 projection now maps the retail 224-line field scale across the full 448-line
 frame (`4096/448` effective Y scale); set
