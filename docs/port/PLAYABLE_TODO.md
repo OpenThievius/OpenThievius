@@ -2058,6 +2058,15 @@ the matching coverage log is `.../run3.log`. Continue validating native
 OpenGL per-draw vertices, camera/projection inputs, and the placement of ground
 and structures. Do not add a VU renderer or change matched game functions.
 
+A new live camera trace projects the tracked player to approximately NDC
+`(0.694, -0.066)` under the current native conversion; the camera is at
+`(-3914.69, 9097.20, 104.249)` and the player at
+`(-4355.79, 9420.44, 212.11)`. The capture still shows the malformed scene.
+This makes camera framing a concrete comparison target, but does not prove the
+off-center placement is wrong. Inspect the current rotation and camera target
+behavior before changing camera or scene transforms. Trace and frame:
+`/home/reaper/sly/native-quad4-check/camera-target-audit/`.
+
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
 A fresh opt-in renderer run shows the texture-placeholder count from the prior

@@ -8006,3 +8006,21 @@ wrong. Matching coverage output is in `.../run3.log`. Next compare native
 OpenGL per-draw vertices, camera/projection inputs, and ground/structure
 placement. Keep the PlayStation VU path out of rendering work and leave matched
 game functions unchanged.
+
+### Measure the native player framing (2026-11-22)
+
+A fresh bounded host32 run traced the native OpenGL camera and the US gameplay
+player in one run. The camera is at `(-3914.69, 9097.20, 104.249)` and its
+tracked player at `(-4355.79, 9420.44, 212.11)`. Applying the captured row
+view-projection matrix and the renderer's current 640x224-to-clip conversion
+projects that point to approximately NDC `(0.694, -0.066)`. The native camera
+matrix is stable while the 64 gameplay frames are captured; the image still
+shows detached façades and the dark lower scene at
+`/home/reaper/sly/native-quad4-check/camera-target-audit/sly1-native-frame-63.png`.
+
+This measurement narrows the next check to the live camera rotation and its
+intended framing relative to the target. It does not establish that the
+off-center target is wrong, so do not shift the whole scene or alter camera
+placement from this value alone. The run log is
+`/home/reaper/sly/native-quad4-check/camera-target-audit/run.log`; it ended at
+the planned 12-second timeout (137). Continue on the native OpenGL path.
