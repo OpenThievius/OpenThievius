@@ -1719,6 +1719,43 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const bool trace_this_draw = trace_pixel_frame_active &&
             (!trace_pixel_source_filter_valid ||
              mesh.source_mesh == trace_pixel_source_filter);
+        float trace_min_x = 1.0e30f, trace_min_y = 1.0e30f, trace_min_z = 1.0e30f;
+        float trace_max_x = -1.0e30f, trace_max_y = -1.0e30f, trace_max_z = -1.0e30f;
+        float local_min_x = 1.0e30f, local_min_y = 1.0e30f, local_min_z = 1.0e30f;
+        float local_max_x = -1.0e30f, local_max_y = -1.0e30f, local_max_z = -1.0e30f;
+        unsigned trace_projected = 0, trace_inside = 0;
+        if (trace_this_draw) {
+            const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            for (std::size_t vertex = 0; vertex < vertex_count; ++vertex) {
+                const float* position = mesh.vertices.data() + vertex * 9u;
+                local_min_x = std::min(local_min_x, position[0]);
+                local_min_y = std::min(local_min_y, position[1]);
+                local_min_z = std::min(local_min_z, position[2]);
+                local_max_x = std::max(local_max_x, position[0]);
+                local_max_y = std::max(local_max_y, position[1]);
+                local_max_z = std::max(local_max_z, position[2]);
+                float clip[4]{};
+                for (std::size_t row = 0; row < 4u; ++row)
+                    clip[row] = m[row] * position[0] + m[4u + row] * position[1] +
+                                m[8u + row] * position[2] + m[12u + row];
+                if (!std::isfinite(clip[3]) || clip[3] <= 1.0e-6f) continue;
+                const float x = clip[0] / clip[3];
+                const float y = clip[1] / clip[3];
+                const float z = clip[2] / clip[3];
+                if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+                    continue;
+                ++trace_projected;
+                trace_min_x = std::min(trace_min_x, x);
+                trace_min_y = std::min(trace_min_y, y);
+                trace_min_z = std::min(trace_min_z, z);
+                trace_max_x = std::max(trace_max_x, x);
+                trace_max_y = std::max(trace_max_y, y);
+                trace_max_z = std::max(trace_max_z, z);
+                if (x >= -1.0f && x <= 1.0f && y >= -1.0f && y <= 1.0f &&
+                    z >= -1.0f && z <= 1.0f)
+                    ++trace_inside;
+            }
+        }
         const int pixel_x = trace_pixel_viewport[0] + trace_pixel_roi[0];
         const int pixel_y = trace_pixel_viewport[1] + trace_pixel_viewport[3] -
                             trace_pixel_roi[1] - trace_pixel_roi[3];
@@ -1907,12 +1944,18 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                                   changed_max_x + trace_pixel_roi[0], changed_max_y);
                 }
                 std::fprintf(stderr,
-                             "[native sly GL pixel contribution] draw=%u request=%#010x instance=%#llx source=%#010x owner=%#010x part=%#010x changed=%zu bbox_top_left=%s rgb_delta=%llu\n",
+                             "[native sly GL pixel contribution] draw=%u request=%#010x instance=%#llx source=%#010x owner=%#010x part=%#010x changed=%zu bbox_top_left=%s rgb_delta=%llu projected=%u inside=%u ndc=%g,%g,%g..%g,%g,%g local=%g,%g,%g..%g,%g,%g model_pos=%g,%g,%g\n",
                              pixel_change_notices - 1u, mesh.request,
                              static_cast<unsigned long long>(mesh.instance),
                              mesh.source_mesh, mesh.owner, mesh.part,
                              changed_pixels, changed_bbox,
-                             static_cast<unsigned long long>(rgb_delta));
+                             static_cast<unsigned long long>(rgb_delta),
+                             trace_projected, trace_inside,
+                             trace_min_x, trace_min_y, trace_min_z,
+                             trace_max_x, trace_max_y, trace_max_z,
+                             local_min_x, local_min_y, local_min_z,
+                             local_max_x, local_max_y, local_max_z,
+                             mesh.model[12], mesh.model[13], mesh.model[14]);
             }
         }
         };

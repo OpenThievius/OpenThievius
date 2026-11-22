@@ -78,22 +78,32 @@ maps are under `/home/reaper/sly/native-gl-gap-audit-20261122/`.
 
 **Current priority: native OpenGL roof distortion.** Keep the PlayStation VU
 renderer out of this work; the goal is to make existing native OpenGL
-submissions produce a coherent scene. Follow-up captures localize the large
-central roof-shaped artifact to placed-part draws including source
-`0x00a13328` and neighboring meshes. Its normal uploaded transform sends many
-vertices outside clip space (one observed instance spans NDC x
-`-2.58..-0.76`), while other instances of the same source span far beyond the
-right edge. The isolated source capture helps diagnose its shape but does not
-establish which neighboring draw dominates the normal scene. The
-`0x00a14070` contribution trace remains valid, but it is not the best current
-lead for the central roof artifact. Next, run the normal-state pixel
-contribution trace over the roof region, source-triggered separately for
-`0x00a13328` and neighboring source IDs, then compare each draw's uploaded
-bounds and transform within the same normal scene. Do not “fix” this by
-switching renderers or changing decomp-matched functions; native renderer
-adaptation belongs in the port-only layer. Existing captures are under
-`/home/reaper/sly/native-gl-roof-mesh-20261122/` and
-`/home/reaper/sly/native-gl-pixel-bounds-20261122/`.
+submissions produce a coherent scene. Same-frame normal-state pixel traces
+identify source `0x00a13300` as the dominant contributor in the central roof
+region. At native present 60 it changed 35,594 pixels in ROI
+`300,360,300,200`, with a bbox touching all four ROI edges. The matched trace
+also reports that this 17-vertex draw has 11 vertices inside clip space and
+NDC bounds `-0.437,-0.663,-0.942..4.455,-0.004,-0.779`; the local vertex bounds
+are `8583,-4135,-396..11425,-724,184` and the model translation is
+`-9789,1282,-28`. Thus the main roof artifact comes from a native OpenGL draw
+whose submitted geometry extends well beyond the right clip plane. Neighbor
+source `0x00a13328` contributed 14,116 pixels in the same-sized ROI, while
+`0x00a13350` contributed 2,649 in a separate first-match capture. The
+`0x00a14070` trace remains valid, but it is not the strongest lead for this
+artifact.
+
+The horizontal-scale stress run reduced this source's observed contribution
+to 7,080 pixels and pulled its measured NDC x range closer to the viewport,
+but it was a separate run with a moving camera/request pool, and y remained
+out of bounds. It does not justify changing the default mapping, which is
+supported by `UpdateCameraProjection`'s 640/4096 screen scale. Next compare
+same-draw local geometry and model/view inputs to the reference camera, then
+determine whether native scene placement/projection or mesh topology is at
+fault. Do not route graphics through the PlayStation VU renderer or alter
+decomp-matched functions; any correction belongs in the port-only native
+renderer. The diagnostic now records per-draw pixel bounds, NDC bounds, local
+vertex bounds and model translation together. Captures are under
+`/home/reaper/sly/native-gl-roof-attribution-20261122/`.
 
 The earlier visible host32 baseline shows disconnected white facades over
 dark ground. Mesh traces now filter by owner, part and source before applying

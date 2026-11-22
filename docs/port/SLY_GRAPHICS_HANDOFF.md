@@ -8635,3 +8635,42 @@ all renderer corrections in the port layer and compare against the normal
 OpenGL frame. Do not route output through the PS2 VU renderer or modify
 decomp-matched functions based on these diagnostics. Updated action list:
 [`PLAYABLE_TODO.md`](PLAYABLE_TODO.md#current-priority-native-opengl-roof-distortion).
+
+### Same-frame native OpenGL roof attribution (2026-11-22)
+
+The previous action is complete. Source-triggered per-draw pixel traces in the
+normal native OpenGL pass identify `0x00a13300` as the strongest contributor
+to the central roof artifact. At present 60, its draw changed 35,594 RGB
+pixels in ROI `300,360,300,200`, bbox `300,369..599,559`. The new trace reports
+clip and local geometry data from that exact draw: 17 vertices projected, 11
+inside clip space, NDC bounds `-0.437245,-0.663448,-0.942202..4.45455,-0.00355228,-0.779115`,
+local bounds `8583.43,-4134.88,-396.176..11424.7,-723.504,184.368`, model
+translation `-9789.2,1281.62,-28.4099`. The ROI bbox touches both horizontal
+edges, so this is a clipped sample of the artifact, not the draw's full
+screen bounds.
+
+Two other sources were measured in first-match normal passes: `0x00a13328`
+changed 14,116 pixels (`389,446..599,559`) plus a 3,229-pixel overlay patch;
+`0x00a13350` changed 2,649 pixels (`486,444..599,488`). These are separate
+captures and their counts can overlap. Wider samples for `0x00a13300` found
+one placement at x `0..100` and another at x `600..849`, confirming the source
+appears in multiple model placements. Guest request addresses are recycled;
+do not correlate a transform audit from one time with a pixel trace at another
+time using the request address alone.
+
+An opt-in x-scale comparison at present 60 (`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_X_SCALE=0.15625`)
+measured 7,080 changed pixels for a related placement, with NDC x
+`-0.11347..1.18337`. It brought more vertices within x clip space but did not
+fix y clipping, and the camera/request state differs between runs. This is
+diagnostic only; leave the default scale unchanged because the decomp's
+`UpdateCameraProjection` supports the 640/4096 conversion.
+
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES` now logs per-draw projected NDC bounds,
+local vertex bounds and model translation beside its pixel bbox/count. This
+keeps the values tied to the exact normal-state draw and avoids ambiguity from
+recycled guest pointers. The host32 target rebuilt successfully. Logs:
+`/home/reaper/sly/native-gl-roof-attribution-20261122/` (normal traces,
+frame-60 matched trace, x-scale comparison and owner/camera audit). No graphics
+default or decompilation function was changed. Next compare the matched
+local geometry and model/view inputs with the reference camera before deciding
+between a native placement/projection correction and a mesh-topology fix.
