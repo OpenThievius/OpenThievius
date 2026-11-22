@@ -3,16 +3,18 @@
 
 ## Current checkpoint (2026-11-22)
 
-**Latest native OpenGL recheck:** a visible host32 run reached Paris world
-`0x870cf0` and about 800 game frames, with 2,443 accepted graphics DMA
-submissions and no rejection. The displayed scene remains disconnected white
-facades over a dark ground. A UV trace showed normalized coordinates, but the
-request pointer is reused for different parts, so that trace did not isolate
-one draw. The native GL trace now filters by owner and part. Isolating one
-source produced a textured stone roof fragment, not the white wall faces. The
-texture path is working for that mesh; the next target is a white facade
-source and its part transform. Details and capture:
-[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#isolate-a-native-opengl-roof-draw-2026-11-22).
+**Latest native OpenGL investigation:** the visible host32 baseline still
+shows disconnected white facades over dark ground. Mesh traces now filter by
+owner, part and source before applying their output cap. Source `0x00a13940`
+isolates to a textured roof fragment, not a white facade. A second source
+candidate, `0x00a14070`, draws detached angular architecture even in solid
+color; its current transform projects all vertices, and the centroid is
+within the part's recorded radius. An opt-in repeated-reference strip split
+does not resolve the shape, so it remains diagnostic. This candidate is not
+yet confirmed as one of the visible white facades. Next map a clearly visible
+facade in the normal full scene to its current owner/part/source and compare
+its geometry, materials and transform. Details and captures:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-one-architectural-mesh-on-the-native-opengl-path-2026-11-22).
 
 Keep the graphics investigation on the **native OpenGL renderer**. Do not
 switch world rendering to the PlayStation VU path. The earlier alpha/blend

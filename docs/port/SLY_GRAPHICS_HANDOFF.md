@@ -25,6 +25,40 @@ draw and compare its native inputs. Logs and local captures:
 `/home/reaper/sly/native-gl-facade-texture-audit-20261122/textures.png`, and
 `/home/reaper/sly/native-gl-isolated-facade-20261122/frame-02.png`.
 
+### Trace one architectural mesh on the native OpenGL path (2026-11-22)
+
+The scene-mesh trace now applies owner, part and source filters before its
+four-record cap; this avoids losing the requested draw when unrelated meshes
+arrive first. A startup-filtered run identified source `0x00a14070`, kind 0,
+with 29 vertices, under owner `0x00a80820` / part `0x00bd7fd0` in that run.
+Its three material passes use the same geometry and different texture palette
+addresses. Source and part addresses are run-local; do not treat them as stable
+asset identifiers.
+
+Isolating that source through native OpenGL shows several detached angular
+shapes. They remain when solid-color mode bypasses texture sampling, so texture
+conversion is not the cause of those shapes. A transform audit puts the
+transformed mesh centroid about 872 game units from the request origin, within
+the part's 2,592-unit radius; this does not prove that the transform matches
+retail, but it gives no evidence of a gross translation error. All 29 vertices
+project inside clip space, close to the far depth range. Repeated source
+vertex references occur at indices 8, 14 and 22; the opt-in strip-splitting
+hypothesis changes the draw but does not make the isolated geometry coherent.
+Keep that experiment disabled by default.
+
+This is an architectural-mesh candidate, not yet a confirmed source for the
+white facades. Next map a clearly visible facade in the normal full scene to
+its current owner/part/source, then compare its source references, UV/material
+passes and matrix against the matching draw. All experiments kept native
+OpenGL as the display renderer; source filtering, solid-color and strip
+splitting were process-local diagnostics, and none changes the default
+configuration. Evidence:
+`/home/reaper/sly/native-gl-facade-owner-trace-20261122/startup/run.log`,
+`/home/reaper/sly/native-gl-facade-transform-20261122/run.log`,
+`/home/reaper/sly/native-gl-isolated-facade-candidate-20261122/frame-10.png`,
+`/home/reaper/sly/native-gl-solid-facade-candidate-20261122/frame-10.png`, and
+`/home/reaper/sly/native-gl-firstpass-facade-20261122/frame-10.png`.
+
 ### Recheck the current native OpenGL scene and UV trace (2026-11-22)
 
 The current host32 build has `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
