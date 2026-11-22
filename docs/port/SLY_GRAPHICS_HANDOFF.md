@@ -327,6 +327,9 @@ reports each selected mesh's clipped triangle count, accumulated NDC area,
 and bounds; `OPENRAC_TRACE_SLY_GL_OUTLIER_VERTICES=1` adds exact uploaded
 vertex attributes for outlier draws. They run only in the native OpenGL world
 pass and do not change the PlayStation VU renderer or matched game functions.
+`OPENRAC_TRACE_SLY_GL_COVERAGE_START=N` skips the first N submitted scene meshes
+before collecting its bounded coverage report, allowing the same probe to
+sample gameplay after boot-time/title draws.
 
 A bounded hidden host32 capture with the US ELF and ISO, followed by the
 existing process-local save-prompt selection, ranked 47 draw requests. The
@@ -7991,3 +7994,15 @@ so the target is not blank:
 The generic scene NDC bounds are not a valid visibility check for this target
 pass. Continue by comparing native scene vertices and per-draw transforms in a
 stable frame; do not implement or switch to a PlayStation VU renderer.
+
+Follow-up native OpenGL coverage sampling adds
+`OPENRAC_TRACE_SLY_GL_COVERAGE_START=N`, preventing boot-time meshes from
+consuming the 512-source trace budget. The gameplay frame at
+`/home/reaper/sly/native-quad4-check/gl-coverage-post-transition/sly1-native-frame-63.png`
+shows textured dark ground/background polygons across the lower screen, with
+bright building facades suspended above them. Thus scene geometry and textures
+are present in the OpenGL pass; their visible spatial arrangement remains
+wrong. Matching coverage output is in `.../run3.log`. Next compare native
+OpenGL per-draw vertices, camera/projection inputs, and ground/structure
+placement. Keep the PlayStation VU path out of rendering work and leave matched
+game functions unchanged.

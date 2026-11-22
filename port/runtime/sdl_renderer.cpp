@@ -642,6 +642,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         if (end != setting && *end == '\0' && parsed <= 100000u)
             present_bounds_start = static_cast<unsigned>(parsed);
     }
+    static unsigned gl_coverage_sample = 0;
+    unsigned gl_coverage_start = 0;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE_START")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            gl_coverage_start = static_cast<unsigned>(parsed);
+    }
     unsigned projected_meshes = 0;
     unsigned intersecting_meshes = 0;
     unsigned long long projected_vertices = 0;
@@ -1110,8 +1118,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         const bool trace_target_coverage = mesh.render_target &&
             std::getenv("OPENRAC_TRACE_SLY_TARGET_COVERAGE") != nullptr;
-        if ((std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE") != nullptr &&
-             !mesh.render_target) || trace_target_coverage) {
+        const bool trace_scene_coverage =
+            std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE") != nullptr &&
+            !mesh.render_target &&
+            gl_coverage_sample++ >= gl_coverage_start;
+        if (trace_scene_coverage || trace_target_coverage) {
             static std::unordered_map<std::uint64_t, std::uint32_t>
                 traced_coverage_sources;
             const std::uint64_t draw_key = mesh.instance & ~0xFFull;

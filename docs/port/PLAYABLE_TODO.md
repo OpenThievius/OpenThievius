@@ -2047,6 +2047,17 @@ the next check on native OpenGL scene-mesh inputs and per-draw geometry,
 comparing stable scene snapshots with the screenshot. No VU renderer or
 matched decomp code was changed.
 
+The follow-up native OpenGL coverage trace now supports a delayed start via
+`OPENRAC_TRACE_SLY_GL_COVERAGE_START=N`, so boot/title draws no longer consume
+its 512-source report. A gameplay capture confirms that the lower screen is
+filled by textured dark ground/background geometry, while the bright building
+facades remain suspended above it; this is a spatial alignment/scene assembly
+problem, not an absence of submitted geometry or textures. The frame is
+`/home/reaper/sly/native-quad4-check/gl-coverage-post-transition/sly1-native-frame-63.png`;
+the matching coverage log is `.../run3.log`. Continue validating native
+OpenGL per-draw vertices, camera/projection inputs, and the placement of ground
+and structures. Do not add a VU renderer or change matched game functions.
+
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
 A fresh opt-in renderer run shows the texture-placeholder count from the prior
