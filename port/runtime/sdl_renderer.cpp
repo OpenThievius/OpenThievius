@@ -680,6 +680,35 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     static unsigned present_bounds_sample = 0;
     static unsigned scene_present_mesh_sample = 0;
     static unsigned scene_present_mesh_logged = 0;
+    // Compare framebuffer pixels immediately before and after each native
+    // world draw. Unlike the flat draw-ID diagnostic, this keeps the regular
+    // shader, alpha test, blend state, and depth state active. This is an
+    // intentionally slow, region-limited diagnostic for scene-gap analysis.
+    bool trace_pixel_changes = false;
+    int trace_pixel_roi[4]{};
+    unsigned trace_pixel_frame = 0;
+    if (!target_pass) {
+        if (const char* setting = std::getenv(
+                "OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES")) {
+            char trailing = '\0';
+            if (std::sscanf(setting, "%d,%d,%d,%d%c", &trace_pixel_roi[0],
+                            &trace_pixel_roi[1], &trace_pixel_roi[2],
+                            &trace_pixel_roi[3], &trailing) == 4 &&
+                trace_pixel_roi[0] >= 0 && trace_pixel_roi[1] >= 0 &&
+                trace_pixel_roi[2] > 0 && trace_pixel_roi[3] > 0 &&
+                static_cast<std::uint64_t>(trace_pixel_roi[2]) *
+                    static_cast<std::uint64_t>(trace_pixel_roi[3]) <= 65536u) {
+                trace_pixel_changes = true;
+            }
+        }
+        if (const char* setting = std::getenv(
+                "OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_FRAME")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 10);
+            if (end != setting && *end == '\0' && parsed <= 100000u)
+                trace_pixel_frame = static_cast<unsigned>(parsed);
+        }
+    }
     unsigned scene_present_mesh_start = 0;
     if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_PRESENT_MESHES_START")) {
         char* end = nullptr;
@@ -702,6 +731,31 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const unsigned long parsed = std::strtoul(setting, &end, 10);
         if (end != setting && *end == '\0' && parsed <= 100000u)
             gl_coverage_start = static_cast<unsigned>(parsed);
+    }
+    int trace_pixel_viewport[4]{};
+    bool trace_pixel_frame_active = trace_pixel_changes &&
+        scene_present_mesh_sample == trace_pixel_frame;
+    if (trace_pixel_frame_active) {
+        glGetIntegerv(GL_VIEWPORT, trace_pixel_viewport);
+        const bool inside_viewport = trace_pixel_roi[0] + trace_pixel_roi[2] <=
+                                         trace_pixel_viewport[2] &&
+            trace_pixel_roi[1] + trace_pixel_roi[3] <= trace_pixel_viewport[3];
+        if (!inside_viewport) {
+            std::fprintf(stderr,
+                         "[native sly GL pixel changes] invalid ROI=%d,%d,%d,%d viewport=%d,%d,%d,%d\n",
+                         trace_pixel_roi[0], trace_pixel_roi[1], trace_pixel_roi[2],
+                         trace_pixel_roi[3], trace_pixel_viewport[0],
+                         trace_pixel_viewport[1], trace_pixel_viewport[2],
+                         trace_pixel_viewport[3]);
+            trace_pixel_frame_active = false;
+        } else {
+            std::fprintf(stderr,
+                         "[native sly GL pixel changes] frame=%u roi_top_left=%d,%d,%d,%d viewport=%d,%d,%d,%d normal_blend_alpha_depth=1\n",
+                         trace_pixel_frame, trace_pixel_roi[0], trace_pixel_roi[1],
+                         trace_pixel_roi[2], trace_pixel_roi[3],
+                         trace_pixel_viewport[0], trace_pixel_viewport[1],
+                         trace_pixel_viewport[2], trace_pixel_viewport[3]);
+        }
     }
     unsigned projected_meshes = 0;
     unsigned intersecting_meshes = 0;
@@ -1627,6 +1681,16 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             ++depth_request_notices;
         }
         auto draw_geometry = [&]() {
+        std::vector<std::uint8_t> pixels_before;
+        const int pixel_x = trace_pixel_viewport[0] + trace_pixel_roi[0];
+        const int pixel_y = trace_pixel_viewport[1] + trace_pixel_viewport[3] -
+                            trace_pixel_roi[1] - trace_pixel_roi[3];
+        if (trace_pixel_frame_active) {
+            pixels_before.resize(static_cast<std::size_t>(trace_pixel_roi[2]) *
+                                 trace_pixel_roi[3] * 4u);
+            glReadPixels(pixel_x, pixel_y, trace_pixel_roi[2], trace_pixel_roi[3],
+                         GL_RGBA, GL_UNSIGNED_BYTE, pixels_before.data());
+        }
         if (debug_primitive == GL_POINTS) {
             // Isolate vertex placement from the still-unverified kind-5
             // triangle grouping. This remains opt-in and is useful for
@@ -1761,6 +1825,34 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
                                  static_cast<GLsizei>(vertex_count - run_begin));
             }
+        }
+        if (!pixels_before.empty()) {
+            std::vector<std::uint8_t> pixels_after(pixels_before.size());
+            glReadPixels(pixel_x, pixel_y, trace_pixel_roi[2], trace_pixel_roi[3],
+                         GL_RGBA, GL_UNSIGNED_BYTE, pixels_after.data());
+            std::size_t changed_pixels = 0;
+            std::uint64_t rgb_delta = 0;
+            for (std::size_t i = 0; i < pixels_before.size(); i += 4u) {
+                unsigned pixel_delta = 0;
+                for (std::size_t channel = 0; channel < 3u; ++channel) {
+                    pixel_delta += static_cast<unsigned>(std::abs(
+                        static_cast<int>(pixels_after[i + channel]) -
+                        static_cast<int>(pixels_before[i + channel])));
+                }
+                if (pixel_delta != 0u) {
+                    ++changed_pixels;
+                    rgb_delta += pixel_delta;
+                }
+            }
+            static unsigned pixel_change_notices = 0;
+            if (pixel_change_notices++ < 2048u)
+                std::fprintf(stderr,
+                             "[native sly GL pixel contribution] draw=%u request=%#010x instance=%#llx source=%#010x owner=%#010x part=%#010x changed=%zu rgb_delta=%llu\n",
+                             pixel_change_notices - 1u, mesh.request,
+                             static_cast<unsigned long long>(mesh.instance),
+                             mesh.source_mesh, mesh.owner, mesh.part,
+                             changed_pixels,
+                             static_cast<unsigned long long>(rgb_delta));
         }
         };
         const auto alpha_fail = test.afail;

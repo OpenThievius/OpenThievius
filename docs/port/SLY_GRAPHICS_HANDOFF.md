@@ -8573,3 +8573,30 @@ the source vertex stream and part transform for this exact placed object
 against a matching reference view. Captures and traces are under
 `/home/reaper/sly/native-gl-roof-mesh-20261122/` and
 `/home/reaper/sly/native-gl-xscale-20261122/`.
+
+### Normal-pass pixel contribution trace (2026-11-22)
+
+The flat draw-ID pass disables blending, so it cannot say which submissions
+change the ordinary scene color. Added the port-only controls
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h` and
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_FRAME=n`. The ROI uses top-left screen
+coordinates; the selected frame is a native world-present sample, with zero
+as the default. Immediately before and after each geometry draw, the
+diagnostic reads that region and counts RGB pixels whose values changed. It
+does not change the shader, alpha test, blend state, or depth state, and it
+does not run for render-target passes. It is deliberately slow and limited to
+65,536 pixels and 2,048 draw records.
+
+A hidden run selected sample 600 and ROI `300,430,300,180` at 960x720. It
+reached gameplay (`ui_state=3`). Sources `0x00a14070`, `0x00a14098`, and
+`0x00a14110` changed up to 16,745 pixels per draw in this region; other
+submissions from those same broad sources changed none. The opening
+background draw changed all 54,000 pixels. Since each result is measured
+against the prior draw, counts overlap and are not a per-pixel final-owner
+map. This proves the building submissions reach and affect the normal native
+OpenGL framebuffer, but not that their triangles cover the correct areas.
+Next add per-draw changed-pixel bounds or masks and isolate the actual gap.
+The renderer build succeeded with `cmake --build
+build/port/wave55-sdl32-world32-20261121 --target port_native_sdl_host32
+-j2`; run log is
+`/home/reaper/sly/native-gl-pixel-contribution-20261122/run.log`.
