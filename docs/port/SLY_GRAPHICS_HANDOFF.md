@@ -1,6 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native OpenGL depth trace for a visible building (2026-11-22)
+
+Kept this check in the host OpenGL renderer. A fresh bounded hidden run of the
+configured US ELF and Documents ISO traced visible Paris building request
+`0x005e5000` (source mesh `0x00a14110`). Its GS TEST state has ZTE enabled and
+`ztst=3` (GREATER). At the OpenGL submission boundary, the depth function is
+`GL_GREATER`, clear depth is 0, and the depth range is 0..1. The uploaded
+projection places this draw at window depth 0.00746..0.01396. This is
+consistent with the reversed-depth comparison and confirms that the draw is
+not rejected by a clear-depth mismatch. Do not change this native depth
+mapping based on the current evidence. The geometry remains fragmented; this
+trace does not explain the full-scene distortion. Inspect the selected retail
+output packet's PRIM and emitted vertex order only as diagnostic evidence,
+then implement any proven primitive assembly in the native OpenGL path. Do not
+use that packet to render through a PlayStation VU path. No matched game code
+changed. The host32 build succeeded; the hidden run ended at its planned
+12-second timeout (137) with no launcher left running. Trace:
+`/tmp/sly-native-depth-audit-20261122/run.log`.
+
 ### Keep graphics work on native OpenGL (2026-11-22)
 
 The target is the port-owned OpenGL renderer. The host32 build runs the

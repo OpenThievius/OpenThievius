@@ -3,6 +3,18 @@
 
 ## Current checkpoint (2026-11-22)
 
+The native OpenGL depth path is not the blocker for the upper-center building
+draw. A fresh trace of request `0x005e5000` reports GS ZTE enabled with
+`GREATER`, OpenGL `GL_GREATER`, depth clear 0, and projected window depth
+0.0075–0.0140. This matches the renderer's intended reversed-depth ordering
+for the sampled draw. Keep its depth mapping unchanged. The remaining scene
+distortion still needs a cause; inspect the selected retail output packet's
+PRIM and emitted vertex order as diagnostic evidence, then implement any
+proven primitive assembly in the native OpenGL path.
+The host32 native OpenGL build succeeded. Its bounded hidden trace reached the
+planned 12-second timeout (137), with no launcher left running. Trace:
+`/tmp/sly-native-depth-audit-20261122/run.log`.
+
 The native OpenGL world adapter preserves `PRIM` when it is present in the
 captured state packet. A visible Paris building draw (`0x005e5000`, source
 mesh `0x00a14110`) has a `FrameSource` packet with no `PRIM`; the adapter's
