@@ -76,6 +76,15 @@ struct NativeWorldMesh {
     std::uint64_t test = 0;
 };
 
+struct NativeWorldDrawId {
+    std::uint32_t id = 0;
+    std::uint32_t request = 0;
+    std::uint64_t instance = 0;
+    std::uint32_t source_mesh = 0;
+    std::uint32_t owner = 0;
+    std::uint32_t part = 0;
+};
+
 bool env_matches_u32(const char* name, std::uint32_t value) {
     const char* setting = std::getenv(name);
     if (setting == nullptr) return true;
@@ -106,6 +115,7 @@ openrac::gl::GLuint g_movie_texture = 0;
 openrac::gl::GLint g_movie_sampler_location = -1;
 std::mutex g_world_mesh_mutex;
 std::vector<NativeWorldMesh> g_world_meshes;
+std::vector<NativeWorldDrawId> g_native_world_draw_id_map;
 std::mutex g_render_frame_mutex;
 std::shared_ptr<const std::vector<std::uint8_t>> g_ready_packets =
     std::make_shared<const std::vector<std::uint8_t>>();
@@ -145,6 +155,8 @@ openrac::gl::GLint g_world_alpha_keep_failing_location = -1;
 openrac::gl::GLint g_world_opaque_alpha_location = -1;
 openrac::gl::GLint g_world_debug_geometry_location = -1;
 openrac::gl::GLint g_world_debug_color_location = -1;
+openrac::gl::GLint g_world_draw_id_location = -1;
+openrac::gl::GLint g_world_draw_id_color_location = -1;
 ClearColor g_clear_color = nullptr;
 Clear g_clear = nullptr;
 Viewport g_viewport = nullptr;
@@ -332,6 +344,8 @@ uniform int u_alpha_keep_failing;
 uniform int u_force_opaque_alpha;
 uniform int u_debug_geometry;
 uniform vec4 u_debug_color;
+uniform int u_draw_id_enabled;
+uniform vec3 u_draw_id_color;
 out vec4 frag_color;
 bool alpha_passes(float a) {
     float value = floor(a + 0.5);
@@ -347,7 +361,8 @@ bool alpha_passes(float a) {
 }
 void main() {
     if (u_debug_geometry != 0) {
-        frag_color = u_debug_color;
+        frag_color = u_draw_id_enabled != 0
+            ? vec4(u_draw_id_color, 1.0) : u_debug_color;
         return;
     }
     vec4 color = v_color * 255.0;
@@ -373,6 +388,10 @@ void main() {
     bool alpha_failed = u_alpha_test != 0 && u_force_opaque_alpha == 0 &&
         alpha_passes(color.a) == (u_alpha_keep_failing != 0);
     if (alpha_failed) discard;
+    if (u_draw_id_enabled != 0) {
+        frag_color = vec4(u_draw_id_color, 1.0);
+        return;
+    }
     if (u_source_scale == 1)
         color.rgb = min(color.rgb * color.a / 128.0, 255.0);
     else if (u_source_scale == 2)
@@ -402,6 +421,8 @@ void main() {
     g_world_opaque_alpha_location = g_world_shader->uniform("u_force_opaque_alpha");
     g_world_debug_geometry_location = g_world_shader->uniform("u_debug_geometry");
     g_world_debug_color_location = g_world_shader->uniform("u_debug_color");
+    g_world_draw_id_location = g_world_shader->uniform("u_draw_id_enabled");
+    g_world_draw_id_color_location = g_world_shader->uniform("u_draw_id_color");
     glGenVertexArrays(1, &g_world_vao);
     glGenBuffers(1, &g_world_vbo);
     if (g_world_vao == 0 || g_world_vbo == 0) {
@@ -586,6 +607,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
     }
     const bool debug_skip_request_filter = !debug_skip_requests.empty();
+    const bool debug_draw_ids = !target_pass &&
+        std::getenv("OPENRAC_DEBUG_SLY_GL_DRAW_IDS") != nullptr;
     const bool debug_first_material_pass =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_FIRST_PASS") != nullptr;
     GLenum debug_primitive = GL_TRIANGLE_STRIP;
@@ -692,6 +715,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     std::uint64_t present_signature = 1469598103934665603ull;
     float frame_min_x = 1.0e30f, frame_min_y = 1.0e30f, frame_min_z = 1.0e30f;
     float frame_max_x = -1.0e30f, frame_max_y = -1.0e30f, frame_max_z = -1.0e30f;
+    std::uint32_t native_draw_id = 0;
+    if (debug_draw_ids) g_native_world_draw_id_map.clear();
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
         static unsigned notices = 0;
         if (notices++ < 16u)
@@ -931,6 +956,18 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 empty_target_texture_fallback = true;
                 texture = 0;
             }
+        }
+        const std::uint32_t draw_id = debug_draw_ids ? ++native_draw_id : 0u;
+        if (debug_draw_ids) {
+            const float red = static_cast<float>((draw_id >> 16u) & 0xFFu) / 255.0f;
+            const float green = static_cast<float>((draw_id >> 8u) & 0xFFu) / 255.0f;
+            const float blue = static_cast<float>(draw_id & 0xFFu) / 255.0f;
+            glUniform1i(g_world_draw_id_location, 1);
+            glUniform3f(g_world_draw_id_color_location, red, green, blue);
+            g_native_world_draw_id_map.push_back({draw_id, mesh.request,
+                mesh.instance, mesh.source_mesh, mesh.owner, mesh.part});
+        } else {
+            glUniform1i(g_world_draw_id_location, 0);
         }
         // The game's row-vector path uses model*viewProjection. The host's
         // column-major GLSL uniform interprets that row-major product as its
@@ -1457,7 +1494,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const bool prim_abe_allows_blend = debug_prim_abe_blend
             ? (mesh.prim_valid && prim.abe)
             : (!mesh.prim_valid || prim.abe);
-        const bool use_alpha_blend = mesh.alpha_valid && !debug_geometry &&
+        const bool use_alpha_blend = !debug_draw_ids && mesh.alpha_valid && !debug_geometry &&
             !debug_normal_colors && !debug_opaque_alpha &&
             prim_abe_allows_blend;
         if (use_alpha_blend) {
@@ -3163,7 +3200,10 @@ extern "C" void openrac_native_window_present(void) {
                             char color_path[512];
                             const int color_path_length = std::snprintf(
                                 color_path, sizeof(color_path),
-                                "%s/sly1-native-depth-color.ppm", directory);
+                                "%s/%s.ppm", directory,
+                                std::getenv("OPENRAC_DEBUG_SLY_GL_DRAW_IDS") != nullptr
+                                    ? "sly1-native-draw-ids"
+                                    : "sly1-native-depth-color");
                             if (color_path_length > 0 &&
                                 static_cast<std::size_t>(color_path_length) <
                                     sizeof(color_path)) {
@@ -3178,8 +3218,35 @@ extern "C" void openrac_native_window_present(void) {
                                     }
                                     std::fclose(color_file);
                                     std::fprintf(stderr,
-                                        "[native depth color dump] path=%s\n",
+                                        "[native %s dump] path=%s\n",
+                                        std::getenv("OPENRAC_DEBUG_SLY_GL_DRAW_IDS") != nullptr
+                                            ? "draw ID" : "depth color",
                                         color_path);
+                                }
+                            }
+                            if (std::getenv("OPENRAC_DEBUG_SLY_GL_DRAW_IDS") != nullptr) {
+                                char map_path[512];
+                                const int map_path_length = std::snprintf(
+                                    map_path, sizeof(map_path),
+                                    "%s/sly1-native-draw-id-map.csv", directory);
+                                if (map_path_length > 0 &&
+                                    static_cast<std::size_t>(map_path_length) <
+                                        sizeof(map_path)) {
+                                    if (FILE* map_file = std::fopen(map_path, "wb")) {
+                                        std::fprintf(map_file,
+                                            "id,request,instance,source_mesh,owner,part\n");
+                                        for (const auto& entry : g_native_world_draw_id_map) {
+                                            std::fprintf(map_file,
+                                                "%u,%#010x,%#llx,%#010x,%#010x,%#010x\n",
+                                                entry.id, entry.request,
+                                                static_cast<unsigned long long>(entry.instance),
+                                                entry.source_mesh, entry.owner, entry.part);
+                                        }
+                                        std::fclose(map_file);
+                                        std::fprintf(stderr,
+                                            "[native draw ID map dump] path=%s entries=%zu\n",
+                                            map_path, g_native_world_draw_id_map.size());
+                                    }
                                 }
                             }
                         }

@@ -16,15 +16,25 @@ rejected/occluded after submission. Capture and traces:
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-native-facade-neighbor-submissions-2026-11-22).
 
 An opt-in native OpenGL diagnostic now captures color and depth at the same
-world pass. In the latest pair, 309,860/691,200 pixels (44.8%) wrote depth;
-the large central opening shows the starry backdrop with no depth-writing
-world surface in front of it. Whether that opening is intentional is not yet
-known, and broad mesh bounds crossing it do not prove a triangle fills it.
-ZTE-disabled color draws also do not appear in the mask. Attribute actual
-OpenGL draw coverage and depth-test results in that region before changing
-topology, scene submission or transforms. Keep this work on the native OpenGL
+world pass. The 309,860/691,200 depth-writing pixels (44.8%) do not measure all
+visible geometry: isolated request `0x005e5880` draws a building with just 115
+depth-writing pixels because its alpha-fail and overlay passes write color
+without depth. Forcing opaque alpha increases its depth mask to 11,670 pixels
+while leaving the silhouette nearly unchanged. Broad mesh bounds crossing the
+central starry opening do not prove exact triangle coverage there. Add
+pixel-level native OpenGL draw attribution that retains the normal alpha and
+depth rules, then determine which draws color that region before changing
+geometry, scene submission or transforms. Keep this work on the native OpenGL
 renderer; the PlayStation VU renderer is not the target. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-depth-occupancy-check-2026-11-22).
+
+A native OpenGL draw-ID image maps visible fragments back to submitted meshes.
+In its 100x80 center sample, the opening remains the backdrop mesh even when
+depth testing is forced to pass and the area-mask cull is bypassed. The bypass
+does add nearby meshes along the edges. This localizes the next investigation
+to the scene's submitted object/part geometry and its alpha results; it does
+not establish whether the opening should contain a building. Draw-ID captures
+and maps are under `/home/reaper/sly/native-gl-gap-audit-20261122/`.
 
 The earlier visible host32 baseline shows disconnected white facades over
 dark ground. Mesh traces now filter by owner, part and source before applying

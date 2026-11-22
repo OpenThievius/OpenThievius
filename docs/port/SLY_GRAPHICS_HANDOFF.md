@@ -8478,18 +8478,53 @@ framebuffer's depth attachment, using the renderer's reversed-Z clear value
 of zero; white means a depth value greater than `1e-7` was written.
 
 A bounded offscreen host32 run captured both from the same pass. The mask
-reports 309,860 occupied pixels out of 691,200 (about 44.8%). In the paired
-image, the central dark opening is the starry backdrop, and the mask confirms
-there is no depth-writing world surface in front of it in this view. This
-does not establish whether the opening is intentional or whether architecture
-should cover it. It also does not show color-only draws that have GS ZTE
-disabled. A native OpenGL coverage trace reports broad mesh bounds intersecting
-parts of this screen region, but bounds are not exact triangle coverage and
-cannot identify which draw should fill the opening.
+reports 309,860 occupied pixels out of 691,200 (about 44.8%), but this is not a
+measure of all visible geometry. Isolating native request `0x005e5880` draws a
+visible building while only 115 pixels write depth. Its state uses an alpha
+test with framebuffer-only behavior for failing fragments, plus RGB-only
+overlay passes. Those color writes do not update depth. The existing opaque-
+alpha diagnostic raises the isolated request's depth coverage to 11,670 pixels
+while leaving the building silhouette nearly unchanged. This confirms that
+the depth mask alone cannot distinguish an empty region from color-only
+surfaces or establish whether the central backdrop opening should contain
+architecture.
+
+A native OpenGL coverage trace reports broad mesh bounds intersecting parts of
+the opening, but bounds are not exact triangle coverage and cannot identify
+which draw contributes color there. Next add or use pixel-level draw
+attribution in the native OpenGL pass, preserving alpha and depth behavior,
+then compare the opening to its contributors before changing geometry,
+submission, or transforms.
 
 Keep this diagnosis on the native OpenGL renderer; the PlayStation VU renderer
-is not the target. Next attribute actual native OpenGL draw coverage in the
-opening, including depth-test results, before changing topology, scene
-submission, or transforms. Artifacts and trace:
+is not the target. Artifacts and traces:
 `/home/reaper/sly/native-gl-gap-audit-20261122/paired-final/` and
-`/home/reaper/sly/native-gl-gap-audit-20261122/coverage/`.
+`/home/reaper/sly/native-gl-gap-audit-20261122/coverage/`, plus the isolated
+request runs in `request-5e5880/` and `request-5e5880-opaque-alpha/`.
+
+### Native OpenGL draw-ID attribution (2026-11-22)
+
+Added `OPENRAC_DEBUG_SLY_GL_DRAW_IDS=1`. It assigns each submitted native
+OpenGL world mesh a flat 24-bit ID color and writes the matching request,
+instance, source mesh, owner, and part to a CSV beside the captured image.
+The shader still evaluates the mesh's alpha test. The diagnostic disables
+blending so the last color-writing draw can be identified. Pair it with
+`OPENRAC_SLY_WORLD_DEPTH_ALWAYS=1` to bypass depth rejection as a separate
+diagnostic. These switches change only the native host renderer.
+
+With depth forced to always pass, the central 100x80-pixel sample
+`(x=200..299, y=420..499)` remains entirely assigned to the backdrop source
+mesh. The result is the same with the normal area mask and with
+`OPENRAC_NATIVE_IGNORE_AREA_MASK=1`. The area-mask bypass adds nearby draw IDs
+around the opening's edges, but does not add a world-mesh fragment in this
+center sample. This rules out ordinary depth rejection and that area-mask test
+as explanations for the center remaining backdrop in this capture. It does
+not prove that a building belongs there: the current scene may omit the object,
+its source mesh may not cover the region, or its fragments may fail alpha.
+
+Next trace placed-object and part submission/culling for this view and compare
+the candidate world meshes' projected triangles, retaining normal alpha
+behavior. Do not fill the region or alter topology from the draw-ID image
+alone. Captures and exact per-present ID maps are in
+`/home/reaper/sly/native-gl-gap-audit-20261122/draw-ids-depth-always/` and
+`/home/reaper/sly/native-gl-gap-audit-20261122/draw-ids-ignore-area/`.
