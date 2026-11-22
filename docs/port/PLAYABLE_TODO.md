@@ -6,12 +6,12 @@
 **Latest native OpenGL investigation:** a fresh hidden host32 run reached
 Paris gameplay with the native world renderer enabled and VU NDC renderer
 disabled. It traced source `0x00a14110` under one owner at four distinct
-requests/parts; the four projected bounds form two small, separated pairs.
-One request's model matrix matches its stored part matrix and projects to a
-plausible screen-space location. This does not yet explain the gaps between
-building pieces. Compare the matched decomp `VertexRefs` and model placement
-for the captured draws to determine whether the gaps come from mesh content or
-native scene assembly. Capture and traces:
+requests/parts. A combined vertex/matrix audit found overlapping x/y bounds
+and nearly abutting z intervals within both facade pairs, so their source
+coordinates and native placements are plausible. This does not explain the
+open gaps in the full frame. Next identify the draws at visible roof/facade
+gaps and determine whether they are absent from the native mesh snapshot or
+rejected/occluded after submission. Capture and traces:
 `/home/reaper/sly/native-gl-facade-neighbors-20261122/`. Details are in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-native-facade-neighbor-submissions-2026-11-22).
 

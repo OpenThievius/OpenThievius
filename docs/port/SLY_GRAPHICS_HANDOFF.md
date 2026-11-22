@@ -17,15 +17,30 @@ A transform audit for request `0x005e5980` records model translation
 `(-34333.1, 4856.23, -236.803)`, the part matrix at the same address and values,
 and request/part-local position `(-26023.2, 33707.1, -3479.46)`. This does not
 show a malformed native matrix, but one request cannot validate the placement
-of the other facade pieces. The captured frame still has overlapping roof
-geometry and separated distant facades. Next compare the matching decomp's
-ordered `VertexRefs` for these draws against their model placements, and map
-the relevant vertices into world space before changing OpenGL assembly.
+of the other facade pieces. A combined vertex/matrix trace maps four draws to
+these world-space bounds (x, y, z):
+
+* `0x005e5980`, 16 vertices: `[-27956,-24090]`, `[31769,35645]`, `[-4489,-2470]`
+* `0x005e5e00`, 30 vertices: `[-28061,-24093]`, `[31801,35493]`, `[-2405,-362]`
+* `0x005e5c00`, 16 vertices: `[-27986,-24806]`, `[21766,24451]`, `[-4461,-1579]`
+* `0x005e5f80`, 30 vertices: `[-27959,-24808]`, `[21811,24317]`, `[-1486,1429]`
+
+Within each pair, the x/y bounds overlap and the z intervals nearly abut
+(gaps of 65 and 93 units). For these four draws, the source coordinates and
+model transforms therefore compose into two plausible facade sections; this
+does not explain the full frame's overlapping roof and open gaps. The captured
+16-vertex sequence repeats position indices between faces, consistent with
+the existing strip-with-connectors interpretation. Keep the global native
+OpenGL topology and transform conventions unchanged. Next identify the draws
+at the visible roof/facade gaps and determine whether they are absent from the
+native mesh snapshot or rejected/occluded after submission.
 
 The bounded run used the configured US ISO and process-local menu controls; it
 did not send desktop input. The timeout exit was expected. Logs and capture:
 `/home/reaper/sly/native-gl-facade-neighbors-20261122/owner-source.log`,
-`/home/reaper/sly/native-gl-facade-neighbors-20261122/transform.log`, and
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/transform.log`,
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/vertex-stream.log`,
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/combined.log`, and
 `/home/reaper/sly/native-gl-facade-neighbors-20261122/frame.png`.
 
 ### Honor GS texture minification in native OpenGL (2026-11-22)
