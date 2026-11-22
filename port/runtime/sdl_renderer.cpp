@@ -784,6 +784,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const auto clamp = openrac::renderer::gs::Clamp::decode(mesh.clamp);
         const auto test = openrac::renderer::gs::Test::decode(mesh.test);
         bool missing_texture_fallback = false;
+        bool empty_target_texture_fallback = false;
         if (debug_skip_full_cover && projected_cover && test.zte &&
             test.ztst == openrac::renderer::gs::DepthTest::Always) {
             static unsigned skipped_cover_notices = 0;
@@ -834,6 +835,28 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                                  static_cast<unsigned long long>(mesh.tex1),
                                  static_cast<unsigned long long>(mesh.clamp));
                 }
+            }
+        }
+        // The player render target currently resolves an uploaded 8x8 texture
+        // whose texels are all transparent. Sampling it multiplies every body
+        // part to zero, even though the native mesh carries valid vertex tints
+        // and the target geometry rasterizes. Keep the fallback local to
+        // render-target draws so ordinary scene materials retain GS behavior.
+        if (mesh.render_target && tex0.tcc && texture != 0 &&
+            g_textures != nullptr && texture != g_textures->placeholder()) {
+            const auto& image = g_textures->image(texture);
+            const bool fully_transparent = std::none_of(
+                image.pixels.begin(), image.pixels.end(),
+                [](std::uint32_t pixel) { return (pixel >> 24u) != 0u; });
+            if (fully_transparent) {
+                static std::unordered_set<openrac::renderer::TextureHandle>
+                    logged_empty_target_textures;
+                if (logged_empty_target_textures.insert(texture).second)
+                    std::fprintf(stderr,
+                                 "[native sly target texture fallback] tbp=%#x handle=%u size=%dx%d all_texel_alpha_zero=1 using_neutral_flat_color=1\n",
+                                 tex0.tbp0, texture, image.width, image.height);
+                empty_target_texture_fallback = true;
+                texture = 0;
             }
         }
         // The game's row-vector path uses model*viewProjection. The host's
@@ -1067,8 +1090,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 }
             }
         }
-        if (std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE") != nullptr &&
-            !mesh.render_target) {
+        const bool trace_target_coverage = mesh.render_target &&
+            std::getenv("OPENRAC_TRACE_SLY_TARGET_COVERAGE") != nullptr;
+        if ((std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE") != nullptr &&
+             !mesh.render_target) || trace_target_coverage) {
             static std::unordered_map<std::uint64_t, std::uint32_t>
                 traced_coverage_sources;
             const std::uint64_t draw_key = mesh.instance & ~0xFFull;
@@ -1154,7 +1179,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     }
                 }
                 std::fprintf(stderr,
-                             "[native sly GL coverage] request=%#010x instance=%#llx source=%#010x vertices=%zu strip_triangles=%zu visible_triangles=%zu ndc_area=%g bbox=",
+                             "[native sly GL coverage] target=%u request=%#010x instance=%#llx source=%#010x vertices=%zu strip_triangles=%zu visible_triangles=%zu ndc_area=%g bbox=",
+                             mesh.render_target ? 1u : 0u,
                              mesh.request,
                              static_cast<unsigned long long>(mesh.instance),
                              mesh.source_mesh, vertex_count,
@@ -1223,19 +1249,23 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 g_textures->alpha_scale(texture) == openrac::renderer::AlphaScale::Full
             ? 0.5f : 1.0f;
         glUniform1f(g_world_tex_alpha_scale_location, texture_alpha_scale);
-        const bool debug_geometry = debug_solid_colors || missing_texture_fallback;
+        const bool debug_geometry = debug_solid_colors || missing_texture_fallback ||
+                                    empty_target_texture_fallback;
         glUniform1i(g_world_debug_geometry_location, debug_geometry ? 1 : 0);
         if (debug_geometry) {
-            const std::uint32_t color_hash = static_cast<std::uint32_t>(
-                mesh.instance ^ (mesh.instance >> 32u));
-            const float color_floor = missing_texture_fallback ? 0.35f : 0.25f;
-            const float color_range = 1.0f - color_floor;
-            const float red = color_floor +
-                static_cast<float>(color_hash & 0xFFu) * (color_range / 255.0f);
-            const float green = color_floor +
-                static_cast<float>((color_hash >> 8u) & 0xFFu) * (color_range / 255.0f);
-            const float blue = color_floor +
-                static_cast<float>((color_hash >> 16u) & 0xFFu) * (color_range / 255.0f);
+            float red = 0.72f, green = 0.72f, blue = 0.72f;
+            if (!empty_target_texture_fallback) {
+                const std::uint32_t color_hash = static_cast<std::uint32_t>(
+                    mesh.instance ^ (mesh.instance >> 32u));
+                const float color_floor = missing_texture_fallback ? 0.35f : 0.25f;
+                const float color_range = 1.0f - color_floor;
+                red = color_floor +
+                    static_cast<float>(color_hash & 0xFFu) * (color_range / 255.0f);
+                green = color_floor +
+                    static_cast<float>((color_hash >> 8u) & 0xFFu) * (color_range / 255.0f);
+                blue = color_floor +
+                    static_cast<float>((color_hash >> 16u) & 0xFFu) * (color_range / 255.0f);
+            }
             glUniform4f(g_world_debug_color_location, red, green, blue, 1.0f);
         }
         if (texture != 0 && mesh.tex0 != 0) {

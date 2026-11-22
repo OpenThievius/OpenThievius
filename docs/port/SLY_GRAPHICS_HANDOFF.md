@@ -20,6 +20,29 @@ the distorted geometry. Keep this probe diagnostic-only; it is not a renderer
 fix. Its log is `/tmp/sly-native-gameplay-latched-20261122/lights-corrected.log`.
 No matched game function or PlayStation VU renderer code changed.
 
+### Recover the player silhouette in the native target (2026-11-22)
+
+The player target's framebuffer is complete and the native OpenGL coverage
+trace reports 30 meshes with visible strip triangles. The default 64x64 target
+was black because its material resolves at TBP `0x2e24` to an 8x8 upload with
+zero alpha in every texel. The host renderer now uses one neutral flat color
+for render-target meshes that sample a fully transparent texture. This is a
+port-only fallback; it does not change texture data, matched game code, or the
+PlayStation VU renderer.
+
+The target dump now contains a gray player silhouette at
+`/tmp/sly-native-player-target-fallback-20261122/sly1-native-target-24c0-00.ppm`.
+The full gameplay frame at
+`/tmp/sly-native-player-fallback-frame-20261122/sly1-native-frame-63.ppm`
+shows only a small change around the player; the player shape and surrounding
+level geometry are still fragmented. The original 8x8 upload was dumped at
+`/tmp/sly-native-player-texture-dump-20261122/texture_2e24_0.ppm` and
+`texture_2e24_0.pgm`. `OPENRAC_TRACE_SLY_TARGET_COVERAGE=1` is an opt-in
+extension of the native OpenGL triangle-coverage trace for this target pass.
+The host32 target rebuilt successfully and the hidden US gameplay capture
+reached `ui_state=3`; it ended at its planned 14-second timeout (137), with no
+launcher left running.
+
 ### Compare transforms for the suspended building draws (2026-11-22)
 
 Kept the investigation in the host OpenGL renderer. Two fresh hidden runs of

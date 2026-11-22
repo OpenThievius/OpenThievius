@@ -11,11 +11,15 @@ mapping. The host32 build succeeded, and a bounded hidden run confirmed the
 default scale in the native renderer log.
 
 The player reaches the OpenGL renderer as 30 meshes for a 64x64 render target.
-That target framebuffer is complete and the pass accepts every mesh without
-GL errors, but the captured target is black even in solid-color mode. An MVP
-transpose diagnostic produces pixels but also fills the target, so it is not
-a fix. Trace and correct the native target transform/rasterization path before
-revisiting global scene matrices.
+The target framebuffer is complete, and projected-coverage tracing finds
+visible triangles in all 30 strips. The default target was black because its
+8x8 texture at TBP `0x2e24` resolves to texels with zero alpha. The native
+renderer now substitutes a neutral flat color for this one empty render-target
+texture, so its mesh silhouette reaches the target. This is a port-side visual
+fallback, not recovered player art; the full scene remains fragmented. Keep
+the MVP transpose diagnostic off. Capture:
+`/tmp/sly-native-player-fallback-frame-20261122/sly1-native-frame-63.ppm` and
+`/tmp/sly-native-player-target-fallback-20261122/sly1-native-target-24c0-00.ppm`.
 
 An opt-in triangle-coverage trace ranks native draws after OpenGL clipping.
 The broad full-screen request is part of the starry backdrop: skipping it
@@ -42,8 +46,9 @@ evidence and captures are in `SLY_GRAPHICS_HANDOFF.md`.
 The renderer priority is explicit: keep implementing the native OpenGL path.
 The corrected lighting probe found no selected lights in its first 48
 opening-gameplay requests, so it does not support a lighting change as the next
-fix. Continue with native draw inputs/transforms and the player render-target
-rasterization path; do not implement a PlayStation VU renderer.
+fix. Next compare per-object transforms for the static building draws, then
+isolate the player's material and skin inputs; keep all graphics work in native
+OpenGL and do not implement a PlayStation VU renderer.
 
 ## Current checkpoint (2026-11-21)
 
