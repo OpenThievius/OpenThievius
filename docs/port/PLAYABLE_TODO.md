@@ -169,6 +169,18 @@ and the camera projection against the same placed object in the reference
 view; keep changes in the native OpenGL adapter. Log:
 `/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
 
+A follow-up request-filtered capture of `0x005e5000` records part center
+`(-10509, 10293, -4217)`, model translation `(-3865, -18970, -1132)`, and a
+zero-position owner root. This confirms the request transform is not copied
+directly from the part center. The 16 uploaded positions project inside the
+clip volume before screen-to-clip scaling, so this draw is reaching native
+OpenGL and is not simply clipped away. This alone does not validate the
+transform against retail placement. Continue with the actual visible geometry
+and its source coordinate space; do not change the global matrix convention
+from this sample. Opt-in probe:
+`OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST=0x005e5000`. Log:
+`/tmp/sly-native-gl-projection-audit-20261122/run.log`.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)

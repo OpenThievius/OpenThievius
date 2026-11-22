@@ -7801,3 +7801,16 @@ geometry errors. Trace controls are `OPENRAC_TRACE_SLY_IMAGE_RECORDS`,
 `OPENRAC_TRACE_TEXTURE_UPLOAD_TBP`, and
 `OPENRAC_TRACE_TEXTURE_RESOLVE_TBP`; earlier overlap evidence is in
 `/tmp/sly-native-trace-final-20261122/run.log`.
+
+## Request-filtered OpenGL transform capture (2026-11-22)
+
+The opt-in `OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST=<address>` probe records
+the model and camera matrices, owner root, part center, and model translation
+for one request. For `0x005e5000`, the owner root is at zero, the part center
+is `(-10509, 10293, -4217)`, and the model translation is `(-3865, -18970,
+-1132)`. The request transform is therefore not just the stored part center.
+Its 16 submitted positions project inside the clip volume before the OpenGL
+screen conversion, so they are not simply being clipped away. This does not
+prove the placement matches retail. Continue comparing source coordinates
+and the actual visible surface before changing matrix behavior. Log:
+`/tmp/sly-native-gl-projection-audit-20261122/run.log`.

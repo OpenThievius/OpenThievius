@@ -2097,6 +2097,64 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
         }
     }
     const u32 skin_address = request[0x74 / 4];
+    if (const char* setting =
+            std::getenv("OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        static u32 transform_trace_samples = 0;
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+            request_address == static_cast<u32>(parsed) &&
+            transform_trace_samples++ < 4u) {
+            const volatile float* owner_local = owner_address >= 0x00010000u &&
+                    static_cast<u64>(owner_address) + 0x110u <= 0x02000000ull
+                ? reinterpret_cast<const volatile float*>(owner_address + 0x100u)
+                : nullptr;
+            const volatile float* owner_world = owner_address >= 0x00010000u &&
+                    static_cast<u64>(owner_address) + 0x150u <= 0x02000000ull
+                ? reinterpret_cast<const volatile float*>(owner_address + 0x140u)
+                : nullptr;
+            const u32 parent_address = owner_address >= 0x00010000u &&
+                    static_cast<u64>(owner_address) + 0x1Cu <= 0x02000000ull
+                ? *reinterpret_cast<const volatile u32*>(owner_address + 0x18u) : 0u;
+            const volatile float* parent_world = parent_address >= 0x00010000u &&
+                    static_cast<u64>(parent_address) + 0x150u <= 0x02000000ull
+                ? reinterpret_cast<const volatile float*>(parent_address + 0x140u)
+                : nullptr;
+            std::fprintf(stderr,
+                         "[native sly GL transform audit] request=%#010x owner=%#010x id=%u class=%u parent=%#010x part=%#010x part_center=%g,%g,%g radius=%g lit=%u skinned=%u model_pos=%g,%g,%g owner_local_pos=%g,%g,%g owner_world_pos=%g,%g,%g parent_world_pos=%g,%g,%g\n",
+                         request_address, owner_address,
+                         owner_address >= 0x00010000u && owner_address <= 0x01FFFFFCu
+                             ? *reinterpret_cast<const volatile u32*>(owner_address + 8u) : 0u,
+                         owner_class, parent_address, part_address,
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x00u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x04u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x08u)),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(part_address + 0x10u)),
+                         *reinterpret_cast<const volatile u32*>(part_address + 0x18u),
+                         *reinterpret_cast<const volatile u32*>(part_address + 0x28u),
+                         model[12], model[13], model[14],
+                         owner_local != nullptr ? static_cast<double>(owner_local[0]) : 0.0,
+                         owner_local != nullptr ? static_cast<double>(owner_local[1]) : 0.0,
+                         owner_local != nullptr ? static_cast<double>(owner_local[2]) : 0.0,
+                         owner_world != nullptr ? static_cast<double>(owner_world[0]) : 0.0,
+                         owner_world != nullptr ? static_cast<double>(owner_world[1]) : 0.0,
+                         owner_world != nullptr ? static_cast<double>(owner_world[2]) : 0.0,
+                         parent_world != nullptr ? static_cast<double>(parent_world[0]) : 0.0,
+                         parent_world != nullptr ? static_cast<double>(parent_world[1]) : 0.0,
+                         parent_world != nullptr ? static_cast<double>(parent_world[2]) : 0.0);
+            for (u32 row = 0; row < 4u; ++row) {
+                std::fprintf(stderr, "[native sly GL transform audit] model%u=", row);
+                for (u32 column = 0; column < 4u; ++column)
+                    std::fprintf(stderr, "%s%g", column == 0u ? "" : ",",
+                                 static_cast<double>(model[row * 4u + column]));
+                std::fprintf(stderr, " camera%u=", row);
+                for (u32 column = 0; column < 4u; ++column)
+                    std::fprintf(stderr, "%s%g", column == 0u ? "" : ",",
+                                 static_cast<double>(view_projection[row * 4u + column]));
+                std::fputc('\n', stderr);
+            }
+        }
+    }
     if (std::getenv("OPENRAC_TRACE_SLY_CAMERA") != nullptr &&
         native_trace_player_tree_owner(owner_address)) {
         static u32 camera_trace_notices = 0;
