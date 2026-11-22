@@ -1,7 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
-## Current checkpoint (2026-11-17, 19:55 CET; corrected visual audit)
+## Current checkpoint (2026-11-22, native level rendering)
+
+Keep rendering on the native OpenGL path. The latest decomp checkout is
+`../sly1-decomp` at `6d12fbc8` (2026-11-21), clean and current with upstream
+`master`. Its 100% function/code match still includes 311 original assembly
+functions. One of them, `func_00158630` (`ComputeChainedWorldFrame`), was
+unresolved by the native host build and stopped the game thread after the
+save prompt. A clearly port-only C replacement now lives at
+`port/game/sly1-us/native/func_00158630.cpp`; it has not been added to the
+decomp repository and should be removed once that function has a decompiled C
+implementation.
+
+The updated SDL host32 target builds. In an 8-second hidden run with the
+existing process-local save-prompt selection, the game reached world
+`0x870cf0` / UI state 3 and advanced beyond 490 frames. No missing-function
+trap appeared. The native renderer capture now contains visible sky, water,
+building and rooftop geometry. The scene remains distorted and disconnected,
+with incomplete surface textures; this is not a playable state and the title
+screen has not been reached. Continue diagnosing camera, transforms and scene
+assembly within the native OpenGL renderer. Do not use the PlayStation VU
+renderer for world rendering.
+
+Run log: `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`.
+Captures: `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/`.
+No proprietary capture files were added to the repository.
+
+## Previous checkpoint (2026-11-17, 19:55 CET; corrected visual audit)
 
 I finished the paused three-part capture. The stale orchestrator used `timeout`
 without `--kill-after` and hung when the launcher ignored `SIGTERM`; I killed

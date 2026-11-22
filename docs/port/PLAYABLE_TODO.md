@@ -31,22 +31,36 @@ created partial files when the run was stopped; those files were removed to
 recover temporary storage.
 
 The decomp checkout was 17 commits behind upstream `master` at `8f7a85a3`.
-It is now fast-forwarded to `6d12fbc8`. The update fixes pointer declarations
-for DMA channels and packet addresses, among other typing corrections. The
-port-only host build trace injector now matches the updated
-`MovePlacedObject(PlacedObject*, f32, s32)` source signature; no decomp source
-was changed. `port_native_sdl_host32` builds successfully with the updated
-checkout. A bounded offscreen run submits Paris world meshes and valid
-GIFtag-PRE primitive state, but the state-driven menu test remained on page 7
-and produced no new gameplay frame. Treat that run as build/state evidence,
-not a visual comparison. Log:
-`/home/reaper/sly/native-updated-decomp-20261122/run.log`.
+It is now fast-forwarded to `6d12fbc8` (2026-11-21). This upstream update
+includes pointer typing corrections for DMA channels and packet addresses.
+The port-only trace injector now matches the updated
+`MovePlacedObject(PlacedObject*, f32, s32)` signature; no decomp source was
+changed.
 
-This corrects one native material-state handling bug, but the scene is still
-not playable: frame 63 showed detached, bright building facades and no
-confirmed complete world. Next investigate the native draw list, scene
-assembly, and remaining GL state. The malformed VU-kick
-trace stays rejected as untrusted; it does not justify using a VU renderer.
+The 100% match includes 311 functions that remain original hand-written
+assembly. In this native host build, `func_00158630` (`ComputeChainedWorldFrame`)
+was therefore unresolved even though the decomp was complete. The native game
+thread reached that trap while leaving the save prompt, then stopped polling
+input and stopped advancing frames. A port-only C backfill now composes the
+transform chain needed by its effect-spawner callers. It is isolated at
+`port/game/sly1-us/native/func_00158630.cpp` and must be replaced when this
+function is decompiled to C; the sister decomp checkout remains untouched.
+
+The SDL host32 target builds against the updated decomp. An 8-second hidden
+run selected through the save prompt, reached world `0x870cf0` / UI state 3,
+and advanced past 490 game frames without the missing-function trap. Native
+OpenGL captures now show sky, water, building and rooftop geometry. This is a
+real visual advance, but the objects are detached and badly composed, some
+surfaces are untextured, and the game is not playable. Continue with camera,
+transform and scene assembly in the native OpenGL path; do not route world
+rendering through the PlayStation VU renderer. Log and captures:
+`/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`
+and `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/`.
+
+The earlier native PRIM fix remains active: GIFtag PRE supplies PRIM, and the
+OpenGL path respects PRIM.ABE when the value is valid. Its captures and
+request-filtered evidence are recorded below. Malformed VU-kick traces remain
+untrusted and are not a reason to switch renderers.
 
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
