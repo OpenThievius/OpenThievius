@@ -3,6 +3,20 @@
 
 ## Current checkpoint (2026-11-22)
 
+An opt-in native OpenGL capture with
+`OPENRAC_DEBUG_SLY_WORLD_OPAQUE_ALPHA=1` keeps texture RGB but forces fragment
+alpha to the GS opaque value, bypassing alpha tests and blend state. At gameplay
+frame 63, this fills the detached building façades, but blows them out to white
+and changes the sky/background too. This confirms alpha handling materially
+affects the scene; it does not identify a correct retail blend state. The
+captured facade `FrameSource` packets omit both PRIM and ALPHA, so PRIM.ABE
+cannot be inferred there. Normal uploaded textures use the established GS
+alpha scale. Keep this as an opt-in diagnostic only; continue by tracing the
+source packet/state or texture alpha for an affected draw before changing the
+default material path. Capture and log:
+`/home/reaper/sly/native-opaque-alpha-check-20261122/` and
+`/home/reaper/sly/native-matstate-trace-20261122/`.
+
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
 starry ground; the flipped version puts the sky above the facades and roof

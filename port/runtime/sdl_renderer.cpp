@@ -131,6 +131,7 @@ openrac::gl::GLint g_world_source_fix_location = -1;
 openrac::gl::GLint g_world_alpha_test_location = -1;
 openrac::gl::GLint g_world_alpha_ref_location = -1;
 openrac::gl::GLint g_world_alpha_keep_failing_location = -1;
+openrac::gl::GLint g_world_opaque_alpha_location = -1;
 openrac::gl::GLint g_world_debug_geometry_location = -1;
 openrac::gl::GLint g_world_debug_color_location = -1;
 ClearColor g_clear_color = nullptr;
@@ -317,6 +318,7 @@ uniform float u_source_fix;
 uniform int u_alpha_test;
 uniform float u_alpha_ref;
 uniform int u_alpha_keep_failing;
+uniform int u_force_opaque_alpha;
 uniform int u_debug_geometry;
 uniform vec4 u_debug_color;
 out vec4 frag_color;
@@ -356,7 +358,8 @@ void main() {
             if (u_tcc != 0) color.a = texel.a;
         }
     }
-    bool alpha_failed = u_alpha_test != 0 &&
+    if (u_force_opaque_alpha != 0) color.a = 128.0;
+    bool alpha_failed = u_alpha_test != 0 && u_force_opaque_alpha == 0 &&
         alpha_passes(color.a) == (u_alpha_keep_failing != 0);
     if (alpha_failed) discard;
     if (u_source_scale == 1)
@@ -385,6 +388,7 @@ void main() {
     g_world_alpha_test_location = g_world_shader->uniform("u_alpha_test");
     g_world_alpha_ref_location = g_world_shader->uniform("u_alpha_ref");
     g_world_alpha_keep_failing_location = g_world_shader->uniform("u_alpha_keep_failing");
+    g_world_opaque_alpha_location = g_world_shader->uniform("u_force_opaque_alpha");
     g_world_debug_geometry_location = g_world_shader->uniform("u_debug_geometry");
     g_world_debug_color_location = g_world_shader->uniform("u_debug_color");
     glGenVertexArrays(1, &g_world_vao);
@@ -615,6 +619,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS") != nullptr;
     const bool debug_normal_colors =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
+    const bool debug_opaque_alpha =
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_OPAQUE_ALPHA") != nullptr;
     const bool debug_skip_full_cover =
         std::getenv("OPENRAC_DEBUG_SLY_SKIP_FULL_COVER") != nullptr;
     const bool trace_target_pass = target_pass &&
@@ -1377,7 +1383,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
-        if (mesh.alpha_valid && !debug_geometry && !debug_normal_colors) {
+        if (mesh.alpha_valid && !debug_geometry && !debug_normal_colors &&
+            !debug_opaque_alpha) {
             const auto alpha = openrac::renderer::gs::Alpha::decode(mesh.alpha);
             const openrac::renderer::GlBlend blend =
                 openrac::renderer::translate_blend(alpha);
@@ -1403,11 +1410,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         const bool alpha_test_enabled = !debug_geometry && test.ate &&
             test.atst != openrac::renderer::gs::AlphaTest::Always &&
-            test.atst != openrac::renderer::gs::AlphaTest::Never;
+            test.atst != openrac::renderer::gs::AlphaTest::Never &&
+            !debug_opaque_alpha;
         glUniform1i(g_world_alpha_test_location,
                     alpha_test_enabled ? static_cast<GLint>(test.atst) : 0);
         glUniform1f(g_world_alpha_ref_location, static_cast<float>(test.aref));
         glUniform1i(g_world_alpha_keep_failing_location, 0);
+        glUniform1i(g_world_opaque_alpha_location, debug_opaque_alpha ? 1 : 0);
         if (std::getenv("OPENRAC_SLY_WORLD_DEPTH_ALWAYS") != nullptr) {
             // Diagnostic counterpart to NO_DEPTH: keep depth writes enabled
             // while bypassing comparison, so isolated draws can distinguish

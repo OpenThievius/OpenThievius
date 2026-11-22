@@ -8117,3 +8117,24 @@ geometry. Images and logs are under
 `world=0x870cf0`, `ui_state=3` and ended at their planned 12-second timeout
 (137). Continue tracing individual native OpenGL scene draws and their
 placement instead of changing the global camera scale.
+
+### Native OpenGL opaque-alpha isolation (2026-11-22)
+
+Added the opt-in `OPENRAC_DEBUG_SLY_WORLD_OPAQUE_ALPHA=1` diagnostic. It keeps
+sampled texture RGB, forces the fragment alpha to the GS opaque value, and
+bypasses alpha testing and GS blend state. Compared with the default Y-flipped
+gameplay frame, the building façades fill in while their details become
+overbright white; sky/background draws also change. Thus alpha handling has a
+large visual effect, but the capture does not prove that opaque output is the
+correct retail behavior.
+
+The existing source trace was extended to print each captured PRIM value.
+Affected building source packets omit PRIM as well as ALPHA, so the adapter
+cannot infer `PRIM.ABE` or the intended blend state from those packets. Regular
+uploaded textures are marked `AlphaScale::Gs` and retain the renderer's
+established `0x80`-to-opaque shader convention. Do not change global blending
+or texture alpha based on this diagnostic alone. Next trace the state source
+for one identified building request or inspect its uploaded texture alpha
+before making a default-path correction. Captures and trace:
+`/home/reaper/sly/native-opaque-alpha-check-20261122/` and
+`/home/reaper/sly/native-matstate-trace-20261122/`.

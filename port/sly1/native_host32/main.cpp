@@ -2686,12 +2686,15 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                    (static_cast<u64>(i) << 8u) | pass);
             if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
                 std::fprintf(stderr,
-                             "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu tex0=%#llx alpha=%s%#llx\n",
+                             "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu prim=%s%#llx tex0=%#llx alpha=%s%#llx test=%#llx\n",
                              source_mesh, mesh.kind, packet_address, request_address, i, pass,
                              mesh.materials.size(), mesh.vertices.size() / 9u,
+                             material.prim_valid ? "" : "absent/default:",
+                             static_cast<unsigned long long>(material.prim),
                              static_cast<unsigned long long>(material.tex0),
                              material.alpha_valid ? "" : "missing/",
-                             static_cast<unsigned long long>(material.alpha));
+                             static_cast<unsigned long long>(material.alpha),
+                             static_cast<unsigned long long>(material.test));
             if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;
             openrac_native_sly_world_mesh_submit(
                 world, instance, submitted_vertices,
