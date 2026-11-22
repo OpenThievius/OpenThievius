@@ -16,9 +16,12 @@ the previous blend behavior only for packets without valid PRIM. The opt-in
 `OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1` remains a stricter diagnostic that
 disables blending for missing PRIM too. A request-filtered trace for building
 request `0x005e4f00` now reports valid `PRIM=0` across its three meshes and
-three passes, so those submissions have ABE clear. A renderer/host rebuild is
-needed before relying on any follow-up capture; the prior second-request
-attempt used an older launcher and is not verification.
+three passes, so those submissions have ABE clear. A fresh rebuilt SDL
+launcher trace also reports valid `PRIM=0` and `ALPHA=0x44` for building
+request `0x005e5000` (source mesh `0x00a14110`). Both draws therefore have
+ABE clear. The offscreen run reached the gameplay UI state, but the configured
+frame dump produced no image, so a fresh visual A/B remains outstanding. Trace:
+`/tmp/sly-native-pre-fix-20261122/clean.log`.
 
 This corrects one native material-state handling bug, but the scene is still
 not playable: frame 63 showed detached, bright building facades and no

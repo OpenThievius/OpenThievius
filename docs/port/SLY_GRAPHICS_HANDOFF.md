@@ -8201,9 +8201,10 @@ clear.
 
 A request-filtered trace of building request `0x005e4f00` reported valid
 `PRIM=0` for three meshes over three passes each. Its `ALPHA=0x44` and
-`ALPHA=0x48` equations therefore must not blend when this PRIM applies. The
-capture still showed detached, bright facades and does not represent a playable
-scene. One attempted trace for `0x005e5000` was made with an older launcher and
-is not evidence for or against the correction. Rebuild the native SDL launcher
-before further capture, then compare that building request and the resulting
-frame. Keep all graphics work on the native OpenGL implementation.
+`ALPHA=0x48` equations therefore must not blend when this PRIM applies. A
+freshly rebuilt SDL launcher also reported valid `PRIM=0`, `ALPHA=0x44` for
+request `0x005e5000` (source mesh `0x00a14110`). The offscreen run reached the
+gameplay UI state but produced no configured framebuffer dump. The scene is
+still incomplete; a fresh visual A/B remains outstanding. Trace:
+`/tmp/sly-native-pre-fix-20261122/clean.log`. Keep all graphics work on the
+native OpenGL implementation.
