@@ -19,15 +19,21 @@ request `0x005e4f00` now reports valid `PRIM=0` across its three meshes and
 three passes, so those submissions have ABE clear. A fresh rebuilt SDL
 launcher trace also reports valid `PRIM=0` and `ALPHA=0x44` for building
 request `0x005e5000` (source mesh `0x00a14110`). Both draws therefore have
-ABE clear. The offscreen run reached the gameplay UI state, but the configured
-frame dump produced no image, so a fresh visual A/B remains outstanding. Trace:
-`/tmp/sly-native-pre-fix-20261122/clean.log`.
+ABE clear. A gameplay capture from the corrected default renderer is nearly
+identical to the ABE-gated diagnostic: 298 differing pixels out of 960x720
+(0.00043 normalized), while the prior default differs by 85,155 pixels. The
+blend-state correction is active in the default path. It still shows bright,
+detached building facades rather than a complete scene. Captures:
+`/tmp/sly-native-pre-prim-default-20261122.png` and
+`/tmp/sly-native-abe-gated-20261122.png`; request trace:
+`/tmp/sly-native-pre-fix-20261122/clean.log`. A later full gameplay dump
+created partial files when the run was stopped; those files were removed to
+recover temporary storage.
 
 This corrects one native material-state handling bug, but the scene is still
 not playable: frame 63 showed detached, bright building facades and no
-confirmed complete world. Next rebuild the native SDL launcher, trace another
-known building request such as `0x005e5000`, and compare the resulting capture
-to the pre-fix and ABE diagnostic captures. Then continue investigating the
+confirmed complete world. Next investigate the native draw list, scene
+assembly, and remaining GL state. Then continue investigating the
 native draw list, scene assembly, and remaining GL state. The malformed VU-kick
 trace stays rejected as untrusted; it does not justify using a VU renderer.
 

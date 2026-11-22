@@ -8204,7 +8204,14 @@ A request-filtered trace of building request `0x005e4f00` reported valid
 `ALPHA=0x48` equations therefore must not blend when this PRIM applies. A
 freshly rebuilt SDL launcher also reported valid `PRIM=0`, `ALPHA=0x44` for
 request `0x005e5000` (source mesh `0x00a14110`). The offscreen run reached the
-gameplay UI state but produced no configured framebuffer dump. The scene is
-still incomplete; a fresh visual A/B remains outstanding. Trace:
-`/tmp/sly-native-pre-fix-20261122/clean.log`. Keep all graphics work on the
-native OpenGL implementation.
+gameplay UI state. A gameplay capture from the corrected default renderer is
+nearly identical to the ABE-gated diagnostic: 298 differing pixels out of
+960x720 (0.00043 normalized), compared with 85,155 differing pixels against
+the prior default. This confirms the default renderer now applies the captured
+ABE bit. The buildings remain bright and detached, so this material-state fix
+does not solve scene assembly or positioning. Captures:
+`/tmp/sly-native-pre-prim-default-20261122.png` and
+`/tmp/sly-native-abe-gated-20261122.png`; request trace:
+`/tmp/sly-native-pre-fix-20261122/clean.log`. A later full dump was stopped
+mid-write and its partial PPMs were removed to recover temporary storage. Keep
+all graphics work on the native OpenGL implementation.
