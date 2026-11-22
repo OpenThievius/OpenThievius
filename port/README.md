@@ -54,15 +54,15 @@ services.
 
 With process-local menu input, the host32 build reaches Paris gameplay state
 and advances game frames. Native OpenGL receives level meshes and textures
-and displays sky, water, buildings and roofs, but the scene is distorted and
-incomplete. Sly is not confirmed visible or controllable; this is not playable.
-The current graphics blocker is scene composition: latest same-frame traces
-find native draws extending outside clip space and visible gaps whose missing
-or rejected submissions are not yet identified. Existing captures do not
-justify a default projection or culling change. Keep graphics work on native
-OpenGL, not the PlayStation VU renderer. Keep host-only function replacements
-separate from matched decompilation and retire them when equivalent functions
-are decompiled.
+and displays sky, water, buildings and roofs. A fresh post-draw capture also
+shows a small, fragmented Sly silhouette near the edge of the frame. The scene
+is badly distorted and incomplete, and Sly is not confirmed controllable; this
+is not playable. The graphics blocker is scene composition: some native draws
+extend outside clip space and visible gaps remain unattributed. Existing
+captures do not justify a default projection or culling change. Keep graphics
+work on native OpenGL, not the PlayStation VU renderer. Keep host-only function
+replacements separate from matched decompilation and retire them when
+equivalent functions are decompiled.
 
 Current evidence and next steps are in the [playable TODO](../docs/port/PLAYABLE_TODO.md),
 [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and

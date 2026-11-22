@@ -6,9 +6,10 @@
 With process-local menu input, the host32 build reaches Paris gameplay state
 and advances game frames. The native OpenGL path receives level meshes and
 textures and displays sky, water, buildings and roofs. The scene is distorted
-and incomplete; Sly is not confirmed visible or controllable, so the port is
-not playable. This milestone is level-state access and partial native scene
-output, not a playable game.
+and incomplete. A fresh post-draw capture shows a small, fragmented Sly
+silhouette near the edge of the frame, but Sly is not confirmed controllable.
+The port is not playable. This milestone is level-state access and partial
+native scene output, not a playable game.
 
 The immediate blocker is native scene composition. Same-frame traces show
 some draws extending outside clip space, while visible gaps remain unattributed

@@ -5,6 +5,25 @@
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.
 
+### Capture the native world after drawing (2026-11-22)
+
+`OPENRAC_DUMP_NATIVE_WORLD_FRAME` used to read the framebuffer before the
+native world pass, so its files could be black even when the presented frame
+contained the level. The capture now happens after the native OpenGL world and
+packet passes, honors `OPENRAC_DUMP_NATIVE_WORLD_FRAME_DIR`, and reports
+`stage=after-world`. A hidden host32 run using the configured US image reached
+UI state 3 and saved eight nonblack frames. The last frame shows sky,
+buildings, a large malformed roof, and a small, fragmented Sly silhouette near
+the edge. This fixes capture timing, not the rendered scene. Keep work on the
+native OpenGL path; do not switch to the PlayStation VU renderer. The run log
+and captures are under `/tmp/sly-native-postdraw-20261122/`.
+
+The same run traced roof source `0x00a13300`; its captured material state
+reports `prim=0`. That state alone does not prove the effective geometry
+primitive because the matched mesh builder passes the strip through a later
+VU program. Do not switch the OpenGL primitive mode from this value. The roof
+geometry and camera-space mismatch remain unresolved.
+
 ### Trace native facade neighbor submissions (2026-11-22)
 
 A hidden host32 run reached Paris gameplay with

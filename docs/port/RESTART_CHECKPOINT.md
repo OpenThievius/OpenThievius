@@ -20,16 +20,19 @@ implementation.
 The updated SDL host32 target builds. In an 8-second hidden run with the
 existing process-local save-prompt selection, the game reached world
 `0x870cf0` / UI state 3 and advanced beyond 490 frames. No missing-function
-trap appeared. The native renderer capture now contains visible sky, water,
-building and rooftop geometry. The scene remains distorted and disconnected,
-with incomplete surface textures; this is not a playable state and the title
-screen has not been reached. Continue diagnosing camera, transforms and scene
-assembly within the native OpenGL renderer. Do not use the PlayStation VU
-renderer for world rendering.
+trap appeared. A new 12-second hidden run reaches gameplay and captures the
+post-draw native OpenGL frame: sky, water, buildings and rooftop geometry are
+visible, with a small, fragmented Sly silhouette near the frame edge. The scene
+remains badly distorted and incomplete, so this is not a playable state and
+the title screen has not been reached. Continue diagnosing camera, transforms
+and scene assembly within the native OpenGL renderer. Do not use the
+PlayStation VU renderer for world rendering.
 
-Run log: `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`.
-Captures: `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/`.
-No proprietary capture files were added to the repository.
+The `OPENRAC_DUMP_NATIVE_WORLD_FRAME` capture now reads pixels after the world
+draw. The previous version read before that draw and could save a black frame.
+The 2026-11-22 capture and run log are under
+`/tmp/sly-native-postdraw-20261122/`. No proprietary capture files were added
+to the repository.
 
 ## Previous checkpoint (2026-11-17, 19:55 CET; corrected visual audit)
 

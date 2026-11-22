@@ -3283,31 +3283,6 @@ extern "C" void openrac_native_window_present(void) {
     const bool dump_world_frame = !world_meshes.empty() &&
         std::getenv("OPENRAC_DUMP_NATIVE_WORLD_FRAME") != nullptr;
     static unsigned world_frame_dump = 0;
-    int paired_world_frame = -1;
-    if (dump_world_frame) {
-        const auto pixels = openrac::renderer::read_rgba(0, width, height);
-        if (world_frame_dump < 8) {
-            char path[512];
-            paired_world_frame = static_cast<int>(world_frame_dump++);
-            const char* dump_directory = std::getenv(
-                "OPENRAC_DUMP_NATIVE_WORLD_FRAME_DIR");
-            if (dump_directory == nullptr || dump_directory[0] == '\0')
-                dump_directory = "/tmp";
-            const int path_length = std::snprintf(
-                path, sizeof(path), "%s/sly1-native-world-%02u.ppm",
-                dump_directory, paired_world_frame);
-            if (path_length >= 0 &&
-                static_cast<std::size_t>(path_length) < sizeof(path)) {
-                if (FILE* file = std::fopen(path, "wb")) {
-                    std::fprintf(file, "P6 %d %d 255\n", width, height);
-                    for (std::size_t i = 0; i + 3 < pixels.size(); i += 4)
-                        std::fwrite(pixels.data() + i, 1, 3, file);
-                    std::fclose(file);
-                    std::fprintf(stderr, "[native world frame dump] path=%s\n", path);
-                }
-            }
-        }
-    }
     std::vector<std::uint8_t> world_packet;
     if (std::getenv("OPENRAC_SLY_GIF_PRODUCER") != nullptr && !world_meshes.empty())
         world_packet = build_world_gif_packet(world_meshes);
@@ -3483,6 +3458,33 @@ extern "C" void openrac_native_window_present(void) {
         }
         g_textures->end_frame();
     }
+    // Capture after the native world and packet passes. Reading before these
+    // draws only saved the previous framebuffer (often black), which made the
+    // named world-frame dump disagree with the image actually presented.
+    if (dump_world_frame && world_frame_dump < 8u) {
+        const auto pixels = openrac::renderer::read_rgba(0, width, height);
+        const unsigned dump_index = world_frame_dump++;
+        char path[512];
+        const char* dump_directory = std::getenv(
+            "OPENRAC_DUMP_NATIVE_WORLD_FRAME_DIR");
+        if (dump_directory == nullptr || dump_directory[0] == '\0')
+            dump_directory = "/tmp";
+        const int path_length = std::snprintf(
+            path, sizeof(path), "%s/sly1-native-world-%02u.ppm",
+            dump_directory, dump_index);
+        if (path_length >= 0 &&
+            static_cast<std::size_t>(path_length) < sizeof(path)) {
+            if (FILE* file = std::fopen(path, "wb")) {
+                std::fprintf(file, "P6 %d %d 255\n", width, height);
+                for (std::size_t i = 0; i + 3 < pixels.size(); i += 4)
+                    std::fwrite(pixels.data() + i, 1, 3, file);
+                std::fclose(file);
+                std::fprintf(stderr,
+                             "[native world frame dump] path=%s stage=after-world\n",
+                             path);
+            }
+        }
+    }
     const bool preserve_previous_frame = world_meshes.empty() &&
         (packets.empty() || !g_direct || !g_direct->last_frame_writes_display());
     const bool restored_previous_frame = preserve_previous_frame &&
@@ -3580,22 +3582,6 @@ extern "C" void openrac_native_window_present(void) {
                      static_cast<unsigned long long>(this_present), samples[0][0], samples[0][1],
                      samples[0][2], samples[1][0], samples[1][1], samples[1][2], samples[2][0],
                      samples[2][1], samples[2][2]);
-    }
-    if (paired_world_frame >= 0) {
-        const auto pixels = openrac::renderer::read_rgba(0, width, height);
-        char path[112];
-        std::snprintf(path, sizeof(path), "/tmp/sly1-native-world-after-hud-%02u.ppm",
-                      static_cast<unsigned>(paired_world_frame));
-        if (FILE* file = std::fopen(path, "wb")) {
-            std::fprintf(file, "P6 %d %d 255\n", width, height);
-            for (std::size_t i = 0; i + 3 < pixels.size(); i += 4)
-                std::fwrite(pixels.data() + i, 1, 3, file);
-            std::fclose(file);
-            std::fprintf(stderr,
-                         "[native paired world frame] index=%u world_draws=%zu hud_packet_bytes=%zu before=/tmp/sly1-native-world-%02u.ppm after=%s\n",
-                         static_cast<unsigned>(paired_world_frame), world_meshes.size(),
-                         packets.size(), static_cast<unsigned>(paired_world_frame), path);
-        }
     }
     if (!restored_previous_frame) save_present_frame(width, height);
     g_window->swap();

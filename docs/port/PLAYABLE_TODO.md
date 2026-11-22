@@ -6,6 +6,13 @@
 > Dated entries below preserve investigation history and may contain
 > superseded conclusions. Use the current checkpoint at the top for status.
 
+**Fresh native frame:** `OPENRAC_DUMP_NATIVE_WORLD_FRAME` now captures after
+the native OpenGL world pass. The previous capture point was before that draw
+and saved the prior framebuffer, often black. A hidden host32 run reached
+Paris gameplay state and captured sky, buildings, roofs, and a small,
+fragmented Sly silhouette near the edge. The scene is still badly distorted;
+Sly is not confirmed controllable. Capture: `/tmp/sly-native-postdraw-20261122/`.
+
 **Native OpenGL gap trace:** the opt-in
 `OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h` probe compares the real
 framebuffer immediately before and after each world draw. It keeps the normal
