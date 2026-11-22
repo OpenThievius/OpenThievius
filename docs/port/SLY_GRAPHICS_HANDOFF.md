@@ -1,6 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Recheck of the former class-4 slab candidate (2026-11-22)
+
+Kept the investigation on the host OpenGL renderer. A fresh hidden run of the
+configured US ELF and ISO forced world `0x88d5b0`, queued 393 native meshes,
+and isolated current class-4 request `0x005e4980` to its first material pass
+with flat color. In this run the selected draw is source `0x00a2b978`, has 51
+vertices, and reaches uploaded OpenGL NDC bounds `x=0.020..0.964`,
+`y=-0.315..-0.218`. Its image is a narrow strip along the lower screen, not the
+large right-side slab described in the older 2026-11-21 section below. Thus
+that earlier draw attribution is not reproduced by the current capture; do
+not use request `0x005e4980` as the slab fix target without matching the same
+gameplay state and source mesh first.
+
+The trace also confirms why the native uploaded bounds matter: the pre-upload
+diagnostic reports raw bounds before the default PS2-screen-to-OpenGL scaling,
+while `[native sly uploaded bounds]` reports the matrix actually sent to the
+shader. Capture and log:
+`/tmp/sly-native-request-5e4980-normalized-20261122/`. The bounded run ended at
+its planned 10-second timeout (137). No source code changed. Next identify the
+draws dominating the full normalized native frame and compare their actual
+uploaded matrices and geometry. Keep the work in the native OpenGL path; the
+PlayStation VU renderer remains out of scope.
+
 ### Normalize the native OpenGL camera projection by default (2026-11-22)
 
 The retail camera projection is scaled for the PS2's 640x224 GS field: its
