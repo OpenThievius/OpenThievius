@@ -147,7 +147,7 @@ public:
 
     // Creates the GL textures of `textures` that have none yet, as gl_texture() would at their
     // first use (the same texels, mip chain and sampler parameters, by the same code), so that
-    // the frames after a level's load make none (docs/port/RENDER_PERF.md, R-13). The uploads go
+    // the frames after a level's load make none. The uploads go
     // in batches of at most kPrepareBatchBytes texels, with a glFinish between two batches. A
     // handle given twice is made once. Leaves no texture bound to unit 0's 2D target.
     PreparedTextures prepare(std::span<const TextureHandle> textures);

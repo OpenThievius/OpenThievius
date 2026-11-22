@@ -9,8 +9,7 @@
 // and the rest is spun (with the processor's pause hint) to the deadline.
 // The sleep is to an absolute time, so no wait adds to the next one's error.
 //
-// The hybrid wait is a template on its clock, sleep and spin step, so that
-// tests/precise_wait_test.cpp can run it on a simulated system clock; until() is the real one.
+// The hybrid wait is a template on its clock, sleep and spin step; until() is the real one.
 
 #pragma once
 

@@ -3,13 +3,12 @@
 //
 // The port's environment variables: one table of every OPENRAC_* variable the port reads, with
 // what kind of value it takes, what holds when it is unset and a line on what it does, and the
-// typed reads of them. docs/port/DEBUGGING.md documents each one, and tests/env_test.cpp checks
-// that the page and the table name the same variables.
+// typed reads of them. Each row's description and default live in env.cpp beside its parser.
 //
 // The variables are read once, all together, the first time any of them is asked for, and kept
-// for the life of the program: they are for development, debugging and tests, and are set before
-// the program starts (a player's choice is a setting, section 16 of docs/CODING_CONVENTIONS.md).
-// Each kind of value is read as the code that called getenv for it read it, which env_test pins.
+// for the life of the program: they are development and debugging controls, set before the
+// program starts. Each kind of value preserves the behavior of the call site that originally
+// read it with getenv.
 // Any thread may call these functions.
 //
 // A variable the port does not own (DISPLAY, VULKAN_SDK) is read through system_variable, at each

@@ -3,7 +3,7 @@
 //
 // The C-boundary wrapper: a C entry point implemented in C++ runs its body through
 // c_boundary::call, which stops every exception there, reports it and returns the entry point's
-// failure value (CODING_CONVENTIONS.md, section 13.4). An exception that reached the C caller
+// failure value. An exception that reached the C caller
 // would be undefined behaviour; in practice std::terminate, with no word of what was thrown.
 //
 // common is the lowest layer, so the wrapper knows no reporter above it: the caller names one. The

@@ -6,7 +6,7 @@
 // last pass (occlusion composited over the colour), when a frame asks for it (FrameInput::gtao).
 // The renderer owns the interface; the enhanced renderer's GTAO (enhanced/renderer/gtao.h)
 // implements it, and whoever makes a Renderer registers one (Renderer::set_ambient_occlusion), so
-// the renderer never includes enhanced/ (CODING_CONVENTIONS.md, section 18).
+// the renderer does not depend on a specific implementation.
 //
 // It has one implementation. The scene's lighting and shadow hooks (restructure package P2-39) are
 // passes of the level renderer rather than of the frame, so they do not take this shape.

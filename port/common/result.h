@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // openrac::Result<T>: what a public function that can fail returns, either its value or an Error
-// whose message says what went wrong (CODING_CONVENTIONS.md, section 13.3).
+// whose message says what went wrong.
 //
 // It is the port's own std::expected<T, Error>, which is C++23 while the port's floor is C++20
 // (section 4.1). Its members have std::expected's names and meanings, and a failure is returned as

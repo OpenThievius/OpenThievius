@@ -2,7 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The table of the port's environment variables and the reads of them (env.h). A new variable is
-// an enumerator of Var, a row here at the same place, and a row in docs/port/DEBUGGING.md.
+// an enumerator of Var and a row here at the same place. This is the source of truth for the
+// variables; descriptions are kept beside their parsing rules.
 
 #include "common/env.h"
 
@@ -21,8 +22,7 @@ constexpr std::size_t kVariableCount = static_cast<std::size_t>(Var::Write) + 1;
 constexpr int kDecimalBase = 10;
 constexpr int kHexBase = 16;
 
-// Every variable the port reads, in the order of Var. The descriptions are the short form of
-// DEBUGGING.md's rows, which say more.
+// Every variable the port reads, in the order of Var.
 // clang-format off: one variable per row: its names, then how it is read, then what it does.
 constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::AdpfOff, "OPENRAC_ADPF_OFF",

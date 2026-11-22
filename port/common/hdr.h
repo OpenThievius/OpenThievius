@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// HDR output: the game's SDR picture shown on an HDR screen at the player's paper white, so that it
-// looks as it does in SDR (docs/port/HDR.md). This file is the arithmetic and the choices only, with
-// no GPU or SDL in it, so that tests/hdr_test.cpp can pin them; the Vulkan backend's encode pass
-// (renderer/vulkan/shaders/hdr_encode.comp) does the same per pixel and is checked against it.
+// HDR output options shared by the window layer. This header describes mode and colour-space
+// choices; the active renderer and platform decide how to present them.
 //
 // With HDR off nothing here runs and the picture goes to the screen as it always did.
 #pragma once

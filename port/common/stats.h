@@ -250,7 +250,7 @@ void gpu_frame_result(std::uint64_t serial, double ms);
 std::string gpu_section_name(std::uint64_t serial, int section);
 #endif
 
-// ---- The dump: one JSON object per frame, one per line (docs/port/DEBUGGING.md) ----
+// ---- The dump: one JSON object per frame, one per line ----
 
 bool open_dump(const std::string& path, std::string& error);
 void close_dump();  // writes the frames still held; also done when the program ends

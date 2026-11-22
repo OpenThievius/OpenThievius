@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL state warm-up (gl-state-warmup, docs/port/RENDER_PERF.md). A GL driver silently
+// OpenGL state warm-up (gl-state-warmup). A GL driver silently
 // recompiles a program the first time it is drawn with new formats, blend, colour mask or vertex
 // formats. We save each such state per driver and draw it once at level load, into a private 4x4
 // target, so the recompile happens behind the loading screen. Not used on Vulkan.

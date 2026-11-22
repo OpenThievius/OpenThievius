@@ -1,152 +1,42 @@
-# runtime
+# Runtime
 
-What the games' C runs on: game memory (one 4 GB reservation whose offsets are the console's
-addresses), the calls translated C makes into it, the EE's registers and operations as that C uses
-them, the game's executable copied into memory at its addresses, the fatal faults, and the C entry
-point to the port's `OPENRAC_*` variables. It draws nothing, plays nothing and knows no game; what a
-game is lives in `game/` and in the code hostgen writes.
+`runtime` contains the launcher-facing code that connects translated Sly code
+to host memory, startup, input, presentation, and graphics services. Some
+existing paths still model PlayStation hardware behavior for the experimental
+launcher. That work is not the target gameplay architecture: the port's goal
+is host-native services and a native renderer, as described in
+[`docs/port/DESIGN.md`](../../docs/port/DESIGN.md).
 
-Library `openrac_runtime`; the console's float arithmetic for C is the separate library
-`openrac_ps2float` (`ps2float.cpp`), which links it. The C contracts are in `include/openrac/`
-beside two C++ headers of the runtime's own (section 14.1 of
-[CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)).
+## Main interfaces
 
-## Interface
-
-| Header | Kind | Declares |
-|---|---|---|
-| [`guest.h`](include/openrac/guest.h) | C contract | game memory as translated C sees it (`gaddr`, `G()`, the game stack, string literals), the table of functions by code address, the overlays |
-| [`ee.h`](include/openrac/ee.h), [`ee_ops.h`](include/openrac/ee_ops.h) | C contract | the R5900's instructions, the FPU's divide and roots, the vector unit's registers, and what happens where the console would have trapped |
-| [`native_gs.h`](include/openrac/native_gs.h) | Sly native device boundary | GIF channel 2 and VIF1 DMA submission, decoded GS state, and per-frame host geometry snapshots |
-| [`native_window.h`](include/openrac/native_window.h) | Native presentation boundary | SDL3 window lifecycle and presentation entry points |
-| [`ps2float.h`](include/openrac/ps2float.h) | C contract | the EE FPU's single-precision arithmetic in software (`openrac_ps2float`) |
-| [`host_env.h`](include/openrac/host_env.h) | C contract | `openrac_env_string`: the value of an `OPENRAC_*` variable of `common/env.h`'s table, for C |
-| [`memory.h`](include/openrac/memory.h) | C++ | `openrac::runtime::Memory`: the reservation, its map of backed regions, and the crash handler's install |
-| [`elf.h`](include/openrac/elf.h) | C++ | `openrac::runtime`: the game's executable read and its segments copied into memory |
-
-Each contract is implemented in the file named for it (section 14.3): `guest.cpp`, `ee.cpp`,
-`ps2float.cpp`, `host_env.cpp`. `memory.cpp`, `elf.cpp` and `crash.cpp` (the fault handler that
-`memory.h` installs) are the runtime's C++.
-
-`gs_dma.cpp` is a Sly-specific runtime service. It handles GIF channel 2 CHCR
-stores, validates source-chain spans, updates the DMAC completion registers,
-and queues raw GIF packets. `gs_stream.cpp` tracks GIF/GS register state and
-extracts the small color-only primitive subset used by the diagnostic geometry
-path. `sdl_renderer.cpp` also passes queued packets through OpenRAC's
-`DirectRenderer` and texture pool. The current default client checkpoint is in
-the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md): a fresh
-offscreen capture shows the no-card prompt, then black frames after one
-process-local Cross. This reproduces the known post-Continue failure; it does
-not test desktop flicker. The `AddGifRegisterWrite` ABI adapter fixes the
-prompt's collapsed scissor, and a screen-fill classification fix removed the
-late black fill that covered it. Older captures recorded occasional black
-frames around the prompt, so use the latest handoff before diagnosing those
-historical samples.
-
-Do not conflate the two rejected kicks in older traces. In the selected
-kind-0 lit-mesh path, submission 322's finish entry `0x2` kicks from qword 461,
-one qword after an A+D state packet at 460; its later accepted kick from 35 is
-also state-only. This establishes no drawable geometry and is not a reason to
-shift the guest address. A separate kind-5 path rejects qword 469 after an
-UNPACK at 468; it is not proven to cause the missing level image. Both records
-and the next actionable graphics step are documented in the [graphics
-handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md). The opt-in setup trace also
-records VIF source offsets and VU stores around qwords 32–38 and 464–476.
-The native port requires SDL3.
-
-`vif1_dma.cpp` handles VIF1 source-chain transfers, including native port-heap
-references, uploads MPG payloads to mapped VU1 micro memory, unpacks observed
-vector formats (including the current masked format) to VU1 data memory,
-executes MSCAL through `vu1_native.cpp`, and routes DIRECT and XGKICK output to
-the GIF stream reader. The direct host maps the EE MMIO and VU1 apertures so it
-can use this same runtime. A hidden world trace now passes masked UNPACK
-command `0x78` and reaches XGKICK, but packet validation rejects qword 469
-(`0x0000000000000048:0x0000000000039001`) for reserved GIF-tag bits. Lower
-instruction `0x800036fc` is the implemented XGKICK itself, not an unimplemented
-opcode. The captured writer is VIF UNPACK `0x6c`, immediate `0xc1d4`, vector 1,
-which writes `{0x00039001, 0, 0x48, 0}` directly to qword 469. A bounded
-XGKICK failure probe now records adjacent VU data qwords to establish the
-packet boundary and explain the VU start address. The masked UNPACK path is
-scoped to observed selectors 0 and 1; column-fill and write-protect selectors
-still fail explicitly. Earlier menu traces remain useful for channel 2, which walks
-DMA-tagged chains and submits them to the renderer.
-See [the graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md) for the
-active task and evidence. The VIF command and DMA tag formats follow the public
-[PS2SDK VIF definitions](https://ps2dev.github.io/ps2sdk/vif__codes_8h.html)
-and [PS2Tek documentation](https://israpps.github.io/ps2tek/).
-
-`vu1_native.cpp` keeps VU VF/ACC/P/Q state and translates the observed VU1
-instruction subset. Its arithmetic helpers preserve raw register transfers,
-flush exponent-zero arithmetic inputs/results to signed zero, and clamp
-unsupported exponent-255 arithmetic and divide-by-zero to a finite signed-max
-host value. This currently models a traced exceptional-float case, not the
-complete VU flags, rounding, or saturation rules. The active graphics blocker
-and trace are in the [graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md).
-
-`sly1_timer.cpp` replaces Sly's retail timer snapshot entry at `0x001430C8`.
-It takes two host Count samples and updates the matching extended-counter
-globals in guest RAM; `kernel.cpp` supplies the monotonic 294.912 MHz Count.
-
-### The C entry point to the environment variables
-
-`host_env.h` is how C reads an `OPENRAC_*` variable: C cannot include `common/env.h`, and the port
-reads every such variable through that one table (section 16), so C asks by name and gets back
-the raw value the table kept, or `NULL` when it is unset. It is the value and nothing more, so each
-C site keeps the test it made of its old read: `openrac_env_string("OPENRAC_TRACE_CD") != NULL`
-takes `0` as set, as before, even where the table's row would read the flag another way. A name the
-table does not have is a programming error: it is logged once as an error and reads as unset, so a
-misspelt switch stays off and says so, and the run goes on. A new variable read from C is a row of
-the table (and of [DEBUGGING.md](../../docs/port/DEBUGGING.md)) like any other.
-
-## Depends on
-
-`common` (the log, the crash report, the environment table, the float model), the layer below it
-(section 18). It uses the system's memory interfaces (`mmap` over `memfd_create` or `shm_open` on
-Unix, `VirtualAlloc2` and `MapViewOfFile3` on Windows) and its fault signals or structured exceptions.
-
-## State and threads
-
-- Game memory is one reservation per process (`Memory::get()`), made before the game's code runs
-  and kept until the program ends.
-- `guest.cpp` keeps the string literals, the table of functions, the list of functions without C
-  and the overlays' relocation, each behind its own lock; the address of the last unknown call is
-  per thread. The game stack is the game thread's.
-- `ee.cpp`'s reports of traps and lost jumps are guarded by a lock.
-- `host_env.cpp` holds the names it has reported, behind a lock; the values are `common/env.h`'s,
-  read once and kept. Any thread may call it.
-
-## Errors
-
-- `read_elf` and `load_elf` return `false` and say why in their `std::string* reason`; `read_file`
-  returns `false`.
-- A fault in game memory, an illegal instruction, a trap, an abort or an exception nobody caught
-  writes a crash report (`common/crash.h`) and ends the program with status 3 (`crash.cpp`).
-- With `OPENRAC_STRICT`, a call to a code address no function of the port has, or a trap, ends the
-  program; without it, the call goes to a function that reports it and the trap is reported once,
-  and the game goes on. A jump through a register to an address the tables do not list is reported
-  once and returns, strict or not.
-- `openrac_env_string` has no failure: an unset variable is `NULL`, and so is a name the table does
-  not have, which is logged once.
-
-## Configuration
-
-The runtime reads `OPENRAC_STRICT`, `OPENRAC_TRACE_MISSING` and `OPENRAC_TRACE_RELOCATION` through
-`common/env.h`, and hands C every variable of that table through `host_env.h`; each is documented
-in [docs/port/DEBUGGING.md](../../docs/port/DEBUGGING.md).
-
-## Tests
-
-| ctest | Proves |
+| Header | Purpose |
 |---|---|
-| `runtime` | game memory and its aliases, the game stack and string literals from C, the function table, the executable's loading |
-| `host_env` | from C: a table variable's raw value, `0` and the empty string as set, `NULL` when unset, one string kept from the first read, and `NULL` for a name the table does not have |
-| `env` | the table `host_env` reads through, its lookup by name included |
-| `ps2float` | the C entry points over the float model, as hostgen's translated C calls them |
+| `include/openrac/guest.h` | Guest addresses, game-memory access, and translated-code entry points |
+| `include/openrac/memory.h`, `include/openrac/elf.h` | Guest-memory reservation and executable loading |
+| `include/openrac/ee.h`, `include/openrac/ee_ops.h` | Experimental EE compatibility support used by the current launcher |
+| `include/openrac/native_window.h` | SDL window and frame-presentation boundary |
+| `include/openrac/native_gs.h`, `native_vu1.h`, `native_dma.h`, `native_sif.h` | Experimental device-path interfaces; not the target native renderer |
+| `include/openrac/host_env.h` | C access to the environment-variable table in `common/env.h` |
+| `include/openrac/disc_image.h` | Disc-image access used by startup/resource loading |
 
-## Further reading
+Implementation files sit beside the headers. `sdl_renderer.cpp` contains the
+current SDL/OpenGL presentation path. Native gameplay graphics should be
+implemented there or in the renderer layer, not by expanding the VU/GS
+compatibility path. The latest evidence and next graphics task are in the
+[graphics handoff](../../docs/port/SLY_GRAPHICS_HANDOFF.md).
 
-- [docs/port/DESIGN.md](../../docs/port/DESIGN.md): game memory as OpenGOAL's offsets, and why
-  every function the port runs is compiled from C.
-- [docs/port/HARDWARE_SEMANTICS.md](../../docs/port/HARDWARE_SEMANTICS.md): where the console's
-  arithmetic differs from the host's.
-- [docs/port/DEBUGGING.md](../../docs/port/DEBUGGING.md): the switches and the crash reports.
+## Current limits
+
+The current host32 launcher can reach Paris gameplay state and produce a
+partial native OpenGL scene, but scene composition is badly distorted and the
+game is not playable. The current status, evidence, and remaining milestones
+are in the [port README](../README.md), [playable TODO](../../docs/port/PLAYABLE_TODO.md),
+and [roadmap](../../docs/port/ROADMAP.md).
+
+Port-only function replacements belong under `game/sly1-us/native/` or
+`game/sly1-us/hand/native_c/`, outside the sibling `sly1-decomp` checkout.
+Replace them with matching decompilation code when that code can be hosted.
+
+The port does not currently define the unit-test targets described in older
+versions of this page. Build targets and dependencies are declared in
+[`../CMakeLists.txt`](../CMakeLists.txt).

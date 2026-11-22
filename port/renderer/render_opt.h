@@ -3,15 +3,12 @@
 //
 // The optimisation registry: one table of every optimisation of what drawing costs, each with a
 // name, what it does, whether it is on by default and how far its frames may differ from its
-// reference path's, and one place to switch any of them off. docs/port/RENDER_PERF.md is the
-// glossary of the counters each one lowers.
+// reference path's, and one place to switch any of them off.
 //
 // An optimisation keeps its reference path (the code as it was before it) for as long as it is
 // registered: the draw code asks enabled() and takes the reference path when it is off.
-// OPENRAC_RENDER_OPT_OFF=name,name (or all) switches entries off for a run, so that the
-// equivalence test (tests/render_equivalence_test.cpp) and the benchmark can render a scene with
-// an entry on and off and compare the frames. The twelve older *_OFF switches of
-// docs/port/RAC1_GPU_DRIVEN.md stay what they are; no optimisation adds a variable of its own.
+// OPENRAC_RENDER_OPT_OFF=name,name (or all) switches entries off for a run. No image-equivalence
+// test target is currently defined in this port.
 //
 // A new entry is an enumerator of Opt and a row of the table in render_opt.cpp at the same place.
 

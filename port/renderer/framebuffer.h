@@ -32,7 +32,7 @@ public:
 
     // `samples`: 1 for a plain target; more is held to what the driver offers (max_samples()).
     // texture_depth exposes a sampleable depth/stencil texture (single-sample only).
-    // float_colour: the colour in half floats (RGBA16F), for an HDR frame (docs/port/HDR.md).
+    // float_colour: the colour in half floats (RGBA16F), when the caller needs a float target.
     bool create(
         int width,
         int height,

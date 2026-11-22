@@ -21,8 +21,7 @@ namespace {
 // The word of OPENRAC_RENDER_OPT_OFF that switches every entry off.
 constexpr std::string_view kAll = "all";
 
-// Every optimisation, in the order of Opt. The descriptions are the short form of
-// docs/port/RENDER_PERF.md's sections, which say more.
+// Every optimisation, in the order of Opt.
 // clang-format off: one entry per row: its names, then its default and tolerance.
 constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::RegistrySelftest, "registry-selftest",

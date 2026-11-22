@@ -3,9 +3,8 @@
  *
  * The port's OPENRAC_* environment variables, for C: the library replacements of
  * port/game/common/lib and the games' host C, which cannot include the C++ table they are kept in
- * (port/common/env.h; docs/CODING_CONVENTIONS.md, section 14.3). Every OPENRAC_* variable is read
- * through that table, so a variable C reads is a row of it, documented in docs/port/DEBUGGING.md
- * like every other; the C++ side of this contract is runtime/host_env.cpp.
+ * (port/common/env.h). Every OPENRAC_* variable is read through that table; the C++ side of this
+ * contract is runtime/host_env.cpp.
  *
  * The variables are read once, all together, the first time any of them is asked for (from C or
  * from C++), and kept for the life of the program: they are set before the program starts, and

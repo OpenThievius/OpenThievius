@@ -256,7 +256,7 @@ typedef struct openrac_front_end {
 
 extern const openrac_front_end* openrac_game_front_end;
 
-/* What the developer tools need of a game (docs/port/DEBUGGING.md, Going anywhere, game/common/
+/* What the developer tools need of a game (game/common/
  * program/tools.cpp), when a game installs it (rac2: port/game/rac2-ntsc/host/tools.c). NULL: the
  * tools' switches do nothing. Every call on the game's thread, at a vertical blank; a member a game
  * has not got is NULL. */
