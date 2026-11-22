@@ -14,6 +14,22 @@ complete explanation of the fragmented level. Images and logs are in
 removed produced a full-scene capture with textured façades and the player
 target visible, but major detached geometry remains:
 `/home/reaper/sly/native-quad4-check/full-scene/sly1-native-frame-00.ppm`.
+The same scene remains at host presents 220–223 (`page=255`, `ui=3`,
+`world_draws=165`), so this is a stable native framebuffer result rather than
+a one-frame transition. Earlier Paris traces reported 312–315 world draws;
+verify the active world/route before treating those counts as comparable. The
+user-provided PCSX2 reference reaches the intro and title screen, not this
+same gameplay camera; use it for visual context, not a pixel-matched A/B.
+
+The completed decomp clarifies the native source data. `BuildStripMeshPacket`
+emits the `n` vertices by following `VertexRefs.pos` in order, and indexes UVs
+and tints from the other reference fields. It then iterates `mesh->strips[]`
+and queues each `FrameSource` transfer; `FrameSource.stride` is a count of
+quadwords per animation frame, not a vertex-range or four-vertex boundary.
+This supports retaining one ordered OpenGL input stream and rules out using
+the material/source records as geometry partitions. The decomp does not by
+itself establish the VU program's final primitive assembly, so do not claim
+that the global GL strip topology is proven for every mesh.
 
 The native OpenGL depth path is not the blocker for the upper-center building
 draw. A fresh trace of request `0x005e5000` reports GS ZTE enabled with

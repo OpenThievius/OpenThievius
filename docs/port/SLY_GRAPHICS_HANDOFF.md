@@ -18,6 +18,19 @@ still visible at
 `/home/reaper/sly/native-quad4-check/full-scene/sly1-native-frame-00.ppm`.
 Native OpenGL only; no VU renderer or matched game code changed.
 
+The completed decomp's `BuildStripMeshPacket` copies the `n` positions in
+`VertexRefs` order, then loops `mesh->strips[]` to queue `FrameSource` data.
+`FrameSource.stride` counts quadwords per frame; it is not a vertex span or a
+four-vertex boundary. This supports keeping the ordered stream intact and
+confirms that material/source records are not geometry partitions. It does not
+prove the VU program's final primitive assembly for every mesh. A later native
+capture at host presents 220–223 remains visually stable with 165 world draws,
+so the fragments are not a transition-frame artifact. The supplied PCSX2
+video reaches the title scene and is not an identical gameplay camera for
+pixel comparison. The earlier Paris traces reported 312–315 world draws;
+verify the active world/route before treating those counts as comparable.
+Settled frames and trace: `/home/reaper/sly/native-quad4-check/settled2/`.
+
 ### Native OpenGL depth trace for a visible building (2026-11-22)
 
 Kept this check in the host OpenGL renderer. A fresh bounded hidden run of the
