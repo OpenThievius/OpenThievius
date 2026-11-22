@@ -7833,3 +7833,19 @@ level, so continue with camera projection and the per-draw geometry/material
 inputs, rather than changing the model-matrix convention. Capture:
 `/tmp/sly-native-gl-centroid-frame-20261122/sly1-native-frame-63.ppm`; full log:
 `/tmp/sly-native-gl-centroid-frame-20261122/run.log`.
+
+## Native OpenGL strip-topology recheck (2026-11-22)
+
+A bounded hidden run reached Paris (`0x870cf0`) and queued 315 world draws in
+the native OpenGL pass; the separate player render-target pass queued 30 draws.
+For static building source `0x00a14110`, the 16 captured references repeat
+earlier indices between adjoining faces. This is consistent with a triangle
+strip joined by degenerate connectors, so the existing `GL_TRIANGLE_STRIP`
+submission remains a reasonable interpretation for this source. A previous
+triangle-list comparison also preserved the isolated player's silhouette.
+Neither result proves topology for every mesh, but they do not support a global
+primitive-mode change as the scene fix. Keep renderer work on the host OpenGL
+path and continue with per-draw source coordinates, camera inputs, and material
+state. No PlayStation VU renderer changes were made. Logs:
+`/tmp/sly-native-prim-evidence-20261122/run.log` and
+`/tmp/sly-native-gl-source-audit-20261122/run.log`.

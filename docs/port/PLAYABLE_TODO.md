@@ -106,6 +106,20 @@ fix. Next compare per-object transforms for the static building draws, then
 isolate the player's material and skin inputs; keep all graphics work in native
 OpenGL and do not implement a PlayStation VU renderer.
 
+### Native strip topology recheck (2026-11-22)
+
+A fresh hidden run reached Paris (`0x870cf0`) and queued 315 world draws in the
+native OpenGL pass. The selected static building source `0x00a14110` has a
+16-reference stream that repeats earlier vertex indices between adjacent
+faces. That is consistent with the existing single triangle-strip submission
+using degenerate connectors. A prior triangle-list comparison also preserved
+the selected player's silhouette, so a global primitive-mode switch is not a
+supported fix. Keep the native strip path and continue with per-draw source
+coordinates, camera inputs, and material state. The 30-draw player render
+target remains a separate pass. Trace:
+`/tmp/sly-native-prim-evidence-20261122/run.log`; ordered source references:
+`/tmp/sly-native-gl-source-audit-20261122/run.log`.
+
 ### Native OpenGL player draw isolation (2026-11-22)
 
 A fresh hidden capture reached gameplay and isolated player request
