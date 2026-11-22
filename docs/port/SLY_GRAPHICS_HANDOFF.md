@@ -1,6 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Recheck player skin inputs in the current world (2026-11-22)
+
+A hidden native host32 run reached gameplay world `0x870cf0` after the existing
+save-prompt selection. The player-tree owner has 31 attachment records; every
+record's final matrix was finite and near-orthonormal in this capture (largest
+reported basis-length, basis-dot, or determinant error was below `3e-6`). An
+opt-in `OPENRAC_SLY_WORLD_SKIN=1` run changed the player geometry, but the
+character remained fragmented and the scene stayed distorted. Keep host
+skinning diagnostic-only. The older report of corrupted final matrices came
+from world `0x88d5b0`; it does not describe this gameplay capture.
+
+Next isolate the player-tree meshes individually and compare their submitted
+native vertices and bounds with the corresponding skin-off draw in the same
+world. Heap-backed source addresses change between launches. Evidence and
+side-by-side frames are under
+`/tmp/sly-native-player-skin-current-20261122/` and
+`/tmp/sly-native-player-matrix-current-20261122/`. The bounded runs ended at
+their planned 12-second timeout (137). No decompilation or PlayStation VU
+renderer code changed.
+
 ### Map both PS2 fields to the host frame (2026-11-22)
 
 The native OpenGL window renders a full frame, but the retail camera's clip

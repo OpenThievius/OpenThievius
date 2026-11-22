@@ -15,10 +15,13 @@ The broad full-screen request is part of the starry backdrop: skipping it
 removes the stars but leaves the broken building layout. A matched gameplay
 capture still shows floating, fragmented buildings and Sly near the upper
 right. The Y correction avoids clipping one upper building draw, but does not
-make the scene playable. Next compare native model and camera inputs for the
-building draws and player in the same gameplay state. Do not change matched
-game functions or the PlayStation VU renderer for this work. Detailed evidence
-and local captures are in `SLY_GRAPHICS_HANDOFF.md`.
+make the scene playable. In the current gameplay world, all 31 traced player
+attachment matrices are finite and near-orthonormal; opt-in host skinning
+changes the silhouette but leaves it fragmented, so keep it diagnostic-only.
+Next compare individual native player meshes and the building transforms in a
+matched gameplay capture. Do not change matched game functions or the
+PlayStation VU renderer for this work. Detailed evidence and local captures
+are in `SLY_GRAPHICS_HANDOFF.md`.
 
 ## Current checkpoint (2026-11-21)
 
