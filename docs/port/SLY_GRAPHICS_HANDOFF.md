@@ -79,17 +79,33 @@ OpenGL path. Trace: `/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
 
 Added the opt-in `OPENRAC_TRACE_SLY_GL_UV_REQUEST` trace to the native OpenGL
 submission path. For request `0x005e5000`, source mesh `0x00a14110` has 16
-vertices, uses `FST=0`, and supplies UVs in the normalized range 0..1 (with a
-small wrap past the edge). Its material resolves to a 128x128 texture. The
-frame capture confirms that the building texture is visible; this draw's
-coordinates do not support another FST/UV conversion change as the fix for the
-fragmented building geometry.
+vertices, supplies UVs in the 0..1 range (with a small wrap past the edge),
+and resolves to a 128x128 texture. Its `FrameSource` state packet contains
+TEST, ALPHA, TEX0, TEX1, and CLAMP, but no PRIM register. The reported FST=0
+is the adapter's default when PRIM is absent, not confirmed retail state. The
+frame shows the building texture, which supports normalized ST coordinates
+but is not sufficient evidence to treat FST as recovered.
+
+Added `OPENRAC_SLY_WORLD_FST_OVERRIDE=0|1` as a native OpenGL-only comparison
+for draws whose PRIM state is absent. It leaves valid captured PRIM values
+alone and does not change the default. Paired hidden captures of this isolated
+draw retain its textured pixels with FST=0 and make it black with FST=1. This
+supports the existing host fallback for this draw; it still does not recover
+the missing retail PRIM value. The captures are
+`/tmp/sly-native-fst-compare-20261122/fst0/frame.png` and
+`/tmp/sly-native-fst-compare-20261122/fst1/frame.png`. A paired isolated
+strip-restart experiment also compared the current single strip with the
+existing restart-splitting heuristic. The split image has a notch and removes
+part of the polygon; without a confirmed boundary convention, do not enable it
+by default. The evidence is in
+`/tmp/sly-native-strip-topology-20261122/baseline/frame63.png` and
+`/tmp/sly-native-strip-topology-20261122/split-capture/frame63.png`.
 
 The captured positions still pass through the static mesh builder and native
 OpenGL transform path. Continue by matching this ordered vertex sequence and
 its draw transform to the same object in the reference gameplay view. Keep the
 investigation and any fix in the native OpenGL adapter/shader. Do not implement
-or tune the PlayStation VU renderer. The trace and frame are in
+or tune the PlayStation VU renderer. The UV trace and frame are in
 `/tmp/sly-native-uv-audit-20261122/run.log` and
 `/tmp/sly-native-uv-audit-20261122/sly1-native-frame-02.png`.
 

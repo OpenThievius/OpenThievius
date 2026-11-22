@@ -3,17 +3,23 @@
 
 ## Current checkpoint (2026-11-22)
 
-The native OpenGL world adapter preserves the captured GS `PRIM` and converts
-12.4 texel UVs only when `FST` is set. A new trace of a visible Paris building
-draw (`0x005e5000`, source mesh `0x00a14110`) shows `FST=0` and UVs from 0 to
-about 1, so texture-coordinate conversion is not the cause of this draw's
-shape. The captured image has textured building faces over the star backdrop,
-but the scene is still visibly fragmented. Continue on the native OpenGL path:
-compare the ordered static mesh vertices and its submitted model/camera
-transform against the same object in the reference capture. Do not add the
-PlayStation VU renderer or alter matched game code for this investigation.
-The opt-in trace is `OPENRAC_TRACE_SLY_GL_UV_REQUEST`; its log and frame are
-under `/tmp/sly-native-uv-audit-20261122/`.
+The native OpenGL world adapter preserves `PRIM` when it is present in the
+captured state packet. A visible Paris building draw (`0x005e5000`, source
+mesh `0x00a14110`) has a `FrameSource` packet with no `PRIM`; the adapter's
+current FST=0 is therefore a fallback, not confirmed retail state. Its source
+UVs are in the 0..1 range and the texture is visible. The new
+`OPENRAC_SLY_WORLD_FST_OVERRIDE=0|1` option compares both interpretations only
+when `PRIM` is absent. In paired hidden OpenGL captures, FST=0 retains the
+building's textured pixels while FST=1 makes the isolated draw black. Keep the
+existing FST=0 fallback for this draw, but do not call it a recovered retail
+register value. A paired native GL strip-restart experiment changes the
+isolated silhouette but does not prove the restart heuristic, so keep ordinary
+strip submission as the default. The visible geometry remains fragmented;
+continue comparing its ordered vertices and submitted transforms against the
+reference capture. Keep this work in native OpenGL; do not add the PlayStation
+VU renderer or alter matched game code. Logs and captures are under
+`/tmp/sly-native-fst-compare-20261122/` and
+`/tmp/sly-native-strip-topology-20261122/`.
 
 The configured decomp source has advanced to upstream `6d12fbc8` (21 Nov).
 The canonical source worktree remains untouched; I built from a temporary

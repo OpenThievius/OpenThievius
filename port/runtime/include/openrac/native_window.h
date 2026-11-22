@@ -23,7 +23,8 @@ void openrac_native_sly_world_mesh_submit(uint32_t world, uint64_t instance,
                                           int target_height, int render_target,
                                           const uint8_t* vertex_indices,
                                           const float* model, const float* view_projection,
-                                          uint64_t prim, uint64_t tex0, uint64_t tex1,
+                                          uint64_t prim, int prim_valid,
+                                          uint64_t tex0, uint64_t tex1,
                                           uint64_t clamp, uint64_t alpha,
                                           int alpha_valid, uint64_t test);
 void openrac_native_window_destroy(void);

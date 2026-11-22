@@ -65,6 +65,7 @@ struct NativeWorldMesh {
     std::array<float, 16> view_projection{};
     bool model_is_identity = false;
     std::uint64_t prim = 0;
+    bool prim_valid = false;
     std::uint64_t tex0 = 0;
     std::uint64_t tex1 = 0;
     std::uint64_t clamp = 0;
@@ -1254,6 +1255,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
         const auto prim = openrac::renderer::gs::Prim::decode(mesh.prim);
+        bool fst = prim.fst;
+        if (!mesh.prim_valid) {
+            if (const char* setting =
+                    std::getenv("OPENRAC_SLY_WORLD_FST_OVERRIDE")) {
+                if (std::strcmp(setting, "0") == 0) fst = false;
+                else if (std::strcmp(setting, "1") == 0) fst = true;
+            }
+        }
         if (const char* setting =
                 std::getenv("OPENRAC_TRACE_SLY_GL_UV_REQUEST")) {
             char* end = nullptr;
@@ -1279,12 +1288,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 const int image_height = texture != 0 && g_textures != nullptr
                     ? g_textures->image(texture).height : tex0.height();
                 std::fprintf(stderr,
-                             "[native sly GL UV] request=%#010x instance=%#llx source=%#010x vertices=%zu prim=%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
+                             "[native sly GL UV] request=%#010x instance=%#llx source=%#010x vertices=%zu prim=%s%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
                              mesh.request,
                              static_cast<unsigned long long>(mesh.instance),
                              mesh.source_mesh, vertex_count,
+                             mesh.prim_valid ? "" : "absent/default:",
                              static_cast<unsigned long long>(mesh.prim),
-                             prim.fst ? 1u : 0u,
+                             fst ? 1u : 0u,
                              static_cast<unsigned long long>(mesh.tex0),
                              image_width, image_height,
                              min_u, min_v, max_u, max_v);
@@ -1295,7 +1305,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 std::fputc('\n', stderr);
             }
         }
-        glUniform1i(g_world_fst_location, prim.fst ? 1 : 0);
+        glUniform1i(g_world_fst_location, fst ? 1 : 0);
         glUniform2f(g_world_texture_size_location,
                     static_cast<float>(std::max(tex0.width(), 1)),
                     static_cast<float>(std::max(tex0.height(), 1)));
@@ -2049,7 +2059,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t target_tbp, int target_width, int target_height, int render_target,
     const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
-    std::uint64_t prim, std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
+    std::uint64_t prim, int prim_valid, std::uint64_t tex0, std::uint64_t tex1,
+    std::uint64_t clamp,
     std::uint64_t alpha, int alpha_valid, std::uint64_t test) {
     // Diagnostic filter for isolating one guest mesh from scene occlusion and
     // the experimental overlay's other approximations. Unset by default.
@@ -2097,6 +2108,7 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::memcpy(draw.model.data(), model, sizeof(draw.model));
     std::memcpy(draw.view_projection.data(), view_projection, sizeof(draw.view_projection));
     draw.prim = prim;
+    draw.prim_valid = prim_valid != 0;
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
         static unsigned samples = 0;
         const unsigned sample = samples++;
