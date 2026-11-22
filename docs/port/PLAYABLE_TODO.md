@@ -29,8 +29,10 @@ with `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_X_SCALE` (default `1.0`, preserving the
 current mapping). Setting it to `0.15625` reduces the effective X factor from
 6.4 to 1.0. The selected building mesh previously reached uploaded NDC x=4.1;
 reducing that scale reveals more scene surfaces, but the roof/building geometry
-is still malformed. Captures are not frame-matched, so retain the current
-default pending comparison against a matching game view. Details:
+is still malformed. `UpdateCameraProjection` in the decomp uses the 640/4096
+screen scale, which supports the default conversion factor; treat the reduced
+factor only as a stress test. Retain the current default and investigate the
+submitted geometry and placement. Captures are not frame-matched. Details:
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-horizontal-screen-scale-check-2026-11-22).
 
 An opt-in native OpenGL diagnostic now captures color and depth at the same

@@ -8563,8 +8563,13 @@ capture with effective X factor 1.0 shows more nearby roof and building
 surfaces than the default capture, but the geometry remains malformed and the
 player is not confirmed. Depth occupancy rose from 312,855 to 347,211 pixels;
 these separate captures are not frame-matched, so that count is indicative
-only. Don't change the default scale from this result. Next compare the same
-native draw against a matching reference view and validate whether the guest
-matrix is already clip-normalized before applying GS field scaling. Captures
-and traces are under `/home/reaper/sly/native-gl-roof-mesh-20261122/` and
+only. `UpdateCameraProjection` in the decomp builds horizontal projection with
+`640/(tan(zoom/2)*aspect*4096)`. Multiplying its screen-scaled result by
+`4096/640` therefore maps a horizontal frustum edge to OpenGL NDC 1.0. This
+supports the existing default factor; the reduced factor is only a stress
+test. Don't change the default from this result. The out-of-range draw may
+reflect its geometry or placement relative to the current camera. Next inspect
+the source vertex stream and part transform for this exact placed object
+against a matching reference view. Captures and traces are under
+`/home/reaper/sly/native-gl-roof-mesh-20261122/` and
 `/home/reaper/sly/native-gl-xscale-20261122/`.
