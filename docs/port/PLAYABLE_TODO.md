@@ -39,6 +39,12 @@ matching gameplay frame. Keep the player's target pass separate. Do not change
 matched game functions or the PlayStation VU renderer for this work. Detailed
 evidence and captures are in `SLY_GRAPHICS_HANDOFF.md`.
 
+The renderer priority is explicit: keep implementing the native OpenGL path.
+The corrected lighting probe found no selected lights in its first 48
+opening-gameplay requests, so it does not support a lighting change as the next
+fix. Continue with native draw inputs/transforms and the player render-target
+rasterization path; do not implement a PlayStation VU renderer.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)

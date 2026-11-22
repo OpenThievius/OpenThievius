@@ -5344,7 +5344,7 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n',
                 'extern "C" void sly1_native_submit_model_part(u32, u32, u32);\n'
-                'extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32);\n',
+                'extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32, u32, u32);\n',
                 1,
             )
             signature = (
@@ -5443,7 +5443,7 @@ void LoadEffectSpawner"""
             adapted = adapted.replace(
                 lighting_point,
                 "    sly1_native_trace_model_lighting((u32)self, (u32)b.mode, "
-                "(u32)b.lightCount, (u32)lights, (u32)part);\n" + lighting_point,
+                "(u32)b.lightCount, (u32)n300, (u32)n304, (u32)lights, (u32)part);\n" + lighting_point,
                 1,
             )
             signature = (

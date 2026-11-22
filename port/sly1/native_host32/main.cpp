@@ -2576,24 +2576,25 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
 }
 
 extern "C" void sly1_native_trace_model_lighting(
-    u32 request_address, u32 mode, u32 light_count, u32 lights_address,
-    u32 part_address) {
+    u32 request_address, u32 mode, u32 strongest_mode, u32 flagged_count,
+    u32 selected_count, u32 lights_address, u32 part_address) {
     if (std::getenv("OPENRAC_TRACE_NATIVE_LIGHTS") == nullptr) return;
     static u32 notices = 0;
     if (notices++ >= 48u || request_address == 0 || part_address == 0) return;
     const volatile u32* part = reinterpret_cast<const volatile u32*>(part_address);
     std::fprintf(stderr,
-                 "[native model lights] request=%#010x part=%#010x mode=%u count=%u lit=%u skinned=%u list=%#010x\n",
-                 request_address, part_address, mode, light_count,
-                 part[0x18u / 4u], part[0x28u / 4u], lights_address);
-    if (mode == 0u || mode == 0xFFFFFFFFu || lights_address < 0x10000u ||
-        lights_address >= 0x02000000u)
+                 "[native model lights] request=%#010x part=%#010x mode=%u strongest=%u flagged=%u selected=%u lit=%u skinned=%u list=%#010x\n",
+                 request_address, part_address, mode, strongest_mode,
+                 flagged_count, selected_count, part[0x18u / 4u],
+                 part[0x28u / 4u], lights_address);
+    if (mode == 0u || mode == 0xFFFFFFFFu || selected_count == 0u ||
+        selected_count > 128u || lights_address == 0u)
         return;
     const volatile u32* lights = reinterpret_cast<const volatile u32*>(lights_address);
-    const u32 bounded_count = std::min(light_count, 8u);
+    const u32 bounded_count = std::min(selected_count, 8u);
     for (u32 i = 0; i < bounded_count; ++i) {
         const u32 address = lights[i];
-        if (address < 0x10000u || address > 0x01FFFF00u) continue;
+        if (!native_guest_range_readable(address, 0x388u)) continue;
         const volatile float* direction = reinterpret_cast<const volatile float*>(address + 0x140u);
         const volatile float* volume = reinterpret_cast<const volatile float*>(address + 0x370u);
         const u32 kind = *reinterpret_cast<const volatile u32*>(address + 0x2D0u);
@@ -2889,7 +2890,7 @@ extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32
 extern "C" void sly1_native_set_morph_vertex_count(u32) {}
 extern "C" void sly1_native_bind_model_mesh(u32, u32) {}
 extern "C" void sly1_native_submit_model_part(u32, u32, u32) {}
-extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32) {}
+extern "C" void sly1_native_trace_model_lighting(u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_part_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_model_part_item_packet_range(u32, u32, u32, u32, u32, u32, u32, u32, u32) {}
 extern "C" void sly1_native_trace_note_world(u32) {}

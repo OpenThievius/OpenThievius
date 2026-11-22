@@ -1,6 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Keep graphics work on native OpenGL (2026-11-22)
+
+The target is the port-owned OpenGL renderer. The host32 build runs the
+recompiled game logic to gather mesh and material inputs, then submits those
+inputs to OpenGL; it does not use the PlayStation VU renderer for the displayed
+world. Keep future graphics fixes in that native path and in port-owned
+adapters/shaders. Do not add a VU renderer as an alternate way to draw the
+scene.
+
+Corrected the optional `OPENRAC_TRACE_NATIVE_LIGHTS=1` probe to distinguish
+`PartHeaderBatch.lightCount` (the strongest-light mode) from the two
+`CollectLightsForSphere` counts, and to inspect the stack-based selected-light
+list. In the opening gameplay capture, the first 48 model requests report
+`selected=0`; several are marked `lit=1` and have strongest mode 0. This
+capture therefore does not identify selected dynamic lights as the cause of
+the distorted geometry. Keep this probe diagnostic-only; it is not a renderer
+fix. Its log is `/tmp/sly-native-gameplay-latched-20261122/lights-corrected.log`.
+No matched game function or PlayStation VU renderer code changed.
+
 ### Compare transforms for the suspended building draws (2026-11-22)
 
 Kept the investigation in the host OpenGL renderer. Two fresh hidden runs of
