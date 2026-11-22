@@ -3,6 +3,16 @@
 
 ## Current checkpoint (2026-11-22)
 
+**Latest native OpenGL recheck:** a visible host32 run reached Paris world
+`0x870cf0` and about 800 game frames, with 2,443 accepted graphics DMA
+submissions and no rejection. The displayed scene remains disconnected white
+facades over a dark ground. A UV trace showed normalized coordinates, but the
+request pointer is reused for different parts, so that trace did not isolate
+one draw. Do not tune UVs from it. Next add stable owner/part identity to the
+native GL draw trace and compare a single source mesh with the closest
+available reference. Details and capture:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#recheck-the-current-native-opengl-scene-and-uv-trace-2026-11-22).
+
 Keep the graphics investigation on the **native OpenGL renderer**. Do not
 switch world rendering to the PlayStation VU path. The earlier alpha/blend
 diagnostics showed that blending materially changes building facades, but

@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Recheck the current native OpenGL scene and UV trace (2026-11-22)
+
+The current host32 build has `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
+`OPENRAC_NATIVE_VU_NDC_RENDERER=OFF`. A fresh visible run used the existing
+process-local save selection and the configured US disc from
+`/home/reaper/Documents/PS2Games/Sly1/`. It reached Paris world `0x870cf0`,
+advanced to roughly 800 game frames, and accepted 2,443/2,443 graphics DMA
+submissions. The captured native OpenGL frame still shows disconnected white
+facades and a dark ground; it is not a playable milestone.
+
+The request-filtered UV trace for `0x005e5000` reports normalized 0..1 UVs on
+the selected facade draws, consistent with the current FST=0 OpenGL sampling.
+However, the request address is a reused stack address: the trace collects
+different source meshes and parts under that same value across draw calls.
+It cannot be treated as one isolated object trace. Do not change UV scaling or
+texture conversion from this capture. Next make the diagnostic select a draw
+by stable owner/part/source identity, then compare one mesh's captured input
+and transform with a corresponding reference frame. This check changes no
+renderer behavior and uses no VU display path.
+
+Run log and capture:
+`/home/reaper/sly/native-gl-frame-source-check-20261122/run.log` and
+`/home/reaper/sly/native-gl-frame-source-check-20261122/frame-07.png`.
+
 ### Correct the port-only camera value-tree backfill (2026-11-22)
 
 Keep rendering on native OpenGL. The active Paris world (`0x00870cf0`) has a
