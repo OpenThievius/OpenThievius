@@ -3,6 +3,18 @@
 
 ## Current checkpoint (2026-11-22)
 
+An isolated native OpenGL A/B check rejected the idea that request
+`0x005e5000`'s 16 `VertexRefs` should be submitted as four independent
+4-vertex strips. The default ordered strip shows the familiar clipped slab;
+four-reference splitting collapses it to a thin line. The diagnostic code was
+removed after the comparison, and ordinary GL triangle-strip submission is
+unchanged. This is evidence against that split heuristic for this draw, not a
+complete explanation of the fragmented level. Images and logs are in
+`/home/reaper/sly/native-quad4-check/`. A clean rebuild with the diagnostic
+removed produced a full-scene capture with textured façades and the player
+target visible, but major detached geometry remains:
+`/home/reaper/sly/native-quad4-check/full-scene/sly1-native-frame-00.ppm`.
+
 The native OpenGL depth path is not the blocker for the upper-center building
 draw. A fresh trace of request `0x005e5000` reports GS ZTE enabled with
 `GREATER`, OpenGL `GL_GREATER`, depth clear 0, and projected window depth

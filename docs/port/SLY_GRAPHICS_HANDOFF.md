@@ -1,6 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Reject four-reference splitting for the clipped building (2026-11-22)
+
+Kept this experiment on the host OpenGL draw inputs. A filtered capture of
+request `0x005e5000` with its default ordered triangle strip shows the existing
+clipped slab. A temporary opt-in diagnostic drew each four `VertexRefs` as a
+separate four-vertex strip; the same draw collapsed to a thin line. That
+disagrees with the four-independent-quads hypothesis, so I removed the
+diagnostic code and left default submission unchanged. Do not use this split
+rule for other meshes without evidence. The comparison does not explain the
+full-scene fragmentation. Images and logs:
+`/home/reaper/sly/native-quad4-check/`. After removing the experiment, I
+rebuilt the clean host32 target and captured the full native OpenGL scene; it
+shows textured façades and the player target, with large detached fragments
+still visible at
+`/home/reaper/sly/native-quad4-check/full-scene/sly1-native-frame-00.ppm`.
+Native OpenGL only; no VU renderer or matched game code changed.
+
 ### Native OpenGL depth trace for a visible building (2026-11-22)
 
 Kept this check in the host OpenGL renderer. A fresh bounded hidden run of the
