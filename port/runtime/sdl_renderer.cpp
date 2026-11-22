@@ -656,6 +656,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     }
     static unsigned present_bounds_sample = 0;
     static unsigned scene_present_mesh_sample = 0;
+    static unsigned scene_present_mesh_logged = 0;
     unsigned scene_present_mesh_start = 0;
     if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_PRESENT_MESHES_START")) {
         char* end = nullptr;
@@ -797,9 +798,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     ++intersecting_meshes;
                 if (trace_present_meshes && !target_pass &&
                     scene_present_mesh_sample >= scene_present_mesh_start &&
-                    scene_present_mesh_sample - scene_present_mesh_start < 4u &&
+                    scene_present_mesh_logged < 4u &&
                     env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_OWNER", mesh.owner) &&
-                    env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_PART", mesh.part)) {
+                    env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_PART", mesh.part) &&
+                    env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_SOURCE", mesh.source_mesh)) {
+                    ++scene_present_mesh_logged;
                     std::fprintf(stderr,
                                  "[native sly scene mesh] frame=%u request=%#010x owner=%#010x part=%#010x instance=%#llx source=%#010x vertices=%zu projected=%u inside=%u tex0=%#llx ndc=%g,%g,%g..%g,%g,%g\n",
                                  scene_present_mesh_sample, mesh.request,
