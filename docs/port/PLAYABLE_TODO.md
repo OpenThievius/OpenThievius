@@ -31,11 +31,13 @@ strip, expanded triangle-list, depth-disabled, and depth-ALWAYS captures all
 show the same solid polygon. Its depth state uses GREATER/GEQUAL against clear
 depth 0, with projected window depth around 0.0074–0.0148. Topology and this
 request's depth convention are not the present blocker. Keep the strip and
-matrix defaults; next compare the per-request model and view-projection
-matrices for the connected static draws that place the suspended buildings.
-Keep the player's target pass separate. Do not change matched game functions
-or the PlayStation VU renderer for this work. Detailed evidence and captures
-are in `SLY_GRAPHICS_HANDOFF.md`.
+matrix defaults. Fresh traces of requests `0x005e4c80` and `0x005e4f00` show
+the same source mesh reused under distinct model transforms and a shared camera
+view-projection matrix. That is not enough to validate either transform. Next
+compare the ordered source geometry and object placement for those draws in a
+matching gameplay frame. Keep the player's target pass separate. Do not change
+matched game functions or the PlayStation VU renderer for this work. Detailed
+evidence and captures are in `SLY_GRAPHICS_HANDOFF.md`.
 
 ## Current checkpoint (2026-11-21)
 

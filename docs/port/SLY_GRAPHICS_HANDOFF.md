@@ -1,6 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Compare transforms for the suspended building draws (2026-11-22)
+
+Kept the investigation in the host OpenGL renderer. Two fresh hidden runs of
+the configured US ELF and Documents ISO reached the save prompt, selected Yes,
+and captured native draw matrices for requests `0x005e4c80` and `0x005e4f00`.
+Both reuse source mesh `0x00a14070`, but submit different vertex counts (29 and
+75) and distinct model transforms. Their camera view-projection matrices are
+the same within small camera-update differences between runs. The logged
+matrices are finite and the renderer's uploaded matrices include the expected
+PS2 screen-to-OpenGL scaling.
+
+This does not prove either object transform or the source vertex order is
+correct. It gives no basis for changing the global camera, matrix convention,
+or strip topology: the next comparison should match each native draw's source
+vertex order and per-object transform to the same gameplay view. The traces
+are in `/tmp/sly-native-matrix-check-20261122/4c80.log` and
+`/tmp/sly-native-matrix-check-20261122/4f00.log`. Both bounded launcher runs
+ended at their planned 10-second timeout (137); no launcher remained running.
+No matched game function or PlayStation VU renderer code changed.
+
 ### Isolate the upper-center native GL draw and its depth state (2026-11-22)
 
 Kept the investigation on the host OpenGL renderer. A fresh gameplay capture
