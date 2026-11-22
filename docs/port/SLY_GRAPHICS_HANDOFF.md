@@ -8138,3 +8138,18 @@ for one identified building request or inspect its uploaded texture alpha
 before making a default-path correction. Captures and trace:
 `/home/reaper/sly/native-opaque-alpha-check-20261122/` and
 `/home/reaper/sly/native-matstate-trace-20261122/`.
+
+### Native OpenGL PRIM.ABE blend isolation (2026-11-22)
+
+Added `OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1`, which disables GS blending
+when the captured PRIM is absent or its ABE bit is clear. It leaves sampled
+texture alpha, alpha testing, and shader color math on the normal path. A
+renderer-only rebuild of `sly1_port_runtime` and a relink against the existing
+combined decomp object avoided recompiling the 194 decomp units. The offscreen
+US run reached Paris gameplay (`world=0x870cf0`, UI state 3) and frame 63.
+Compared with the default, the main façades turn flat white while their windows
+and texture detail remain; the sky changes less. This isolates blending as a
+major cause of façade darkening. It does not establish the retail ABE bit:
+facade packets omit PRIM, and the diagnostic treats absence as blend disabled.
+Keep it opt-in until the missing source PRIM state is recovered. Run output:
+`/home/reaper/sly/native-abe-blend-check-20261122/`.

@@ -24,6 +24,17 @@ ALPHA is present; it does not gate that state on `PRIM.ABE`. The facade
 packets omit PRIM, so ABE remains unknown. Compare an ABE-gated blend
 diagnostic against the opaque-alpha image before changing the default.
 
+The opt-in `OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1` comparison is now
+available. It disables GS blending when PRIM is missing or its captured ABE
+bit is clear, while retaining normal texture alpha, alpha testing, and shader
+color math. Its gameplay frame 63 turns the main façades flat white while
+retaining their window and texture detail, much like the opaque-alpha capture;
+the sky changes less. This isolates blending as a major cause of the façade
+darkening, but it does not prove ABE is clear in the retail VU output because
+the facade packets omit PRIM. Keep the diagnostic opt-in until the source PRIM
+state is recovered. Capture and trace:
+`/home/reaper/sly/native-abe-blend-check-20261122/`.
+
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
 starry ground; the flipped version puts the sky above the facades and roof

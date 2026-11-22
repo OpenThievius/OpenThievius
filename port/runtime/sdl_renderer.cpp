@@ -621,6 +621,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
     const bool debug_opaque_alpha =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_OPAQUE_ALPHA") != nullptr;
+    const bool debug_prim_abe_blend =
+        std::getenv("OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND") != nullptr;
     const bool debug_skip_full_cover =
         std::getenv("OPENRAC_DEBUG_SLY_SKIP_FULL_COVER") != nullptr;
     const bool trace_target_pass = target_pass &&
@@ -1383,8 +1385,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
-        if (mesh.alpha_valid && !debug_geometry && !debug_normal_colors &&
-            !debug_opaque_alpha) {
+        const bool prim_abe_allows_blend = !debug_prim_abe_blend ||
+            (mesh.prim_valid && prim.abe);
+        const bool use_alpha_blend = mesh.alpha_valid && !debug_geometry &&
+            !debug_normal_colors && !debug_opaque_alpha &&
+            prim_abe_allows_blend;
+        if (use_alpha_blend) {
             const auto alpha = openrac::renderer::gs::Alpha::decode(mesh.alpha);
             const openrac::renderer::GlBlend blend =
                 openrac::renderer::translate_blend(alpha);
@@ -1407,6 +1413,15 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             glDisable(GL_BLEND);
             glUniform1i(g_world_source_scale_location, 0);
             glUniform1f(g_world_source_fix_location, 0.0f);
+            if (debug_prim_abe_blend && mesh.alpha_valid && !prim_abe_allows_blend) {
+                static unsigned blend_gate_notices = 0;
+                if (blend_gate_notices++ < 32u)
+                    std::fprintf(stderr,
+                                 "[native sly ABE blend gate] request=%#010x source=%#010x prim_valid=%u abe=%u alpha=%#llx blend=disabled\n",
+                                 mesh.request, mesh.source_mesh,
+                                 mesh.prim_valid ? 1u : 0u, prim.abe ? 1u : 0u,
+                                 static_cast<unsigned long long>(mesh.alpha));
+            }
         }
         const bool alpha_test_enabled = !debug_geometry && test.ate &&
             test.atst != openrac::renderer::gs::AlphaTest::Always &&
