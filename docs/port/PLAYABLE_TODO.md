@@ -10,6 +10,13 @@ frame (`4096/448` effective Y scale); set
 mapping. The host32 build succeeded, and a bounded hidden run confirmed the
 default scale in the native renderer log.
 
+The player reaches the OpenGL renderer as 30 meshes for a 64x64 render target.
+That target framebuffer is complete and the pass accepts every mesh without
+GL errors, but the captured target is black even in solid-color mode. An MVP
+transpose diagnostic produces pixels but also fills the target, so it is not
+a fix. Trace and correct the native target transform/rasterization path before
+revisiting global scene matrices.
+
 An opt-in triangle-coverage trace ranks native draws after OpenGL clipping.
 The broad full-screen request is part of the starry backdrop: skipping it
 removes the stars but leaves the broken building layout. A matched gameplay

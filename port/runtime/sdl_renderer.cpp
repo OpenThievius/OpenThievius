@@ -597,6 +597,22 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS") != nullptr;
     const bool debug_skip_full_cover =
         std::getenv("OPENRAC_DEBUG_SLY_SKIP_FULL_COVER") != nullptr;
+    const bool trace_target_pass = target_pass &&
+        std::getenv("OPENRAC_TRACE_SLY_RENDER_TARGETS") != nullptr;
+    std::size_t target_draw_candidates = 0;
+    if (trace_target_pass) {
+        GLint framebuffer = 0;
+        GLint viewport[4]{};
+        glGetIntegerv(static_cast<GLenum>(0x8CA6u), &framebuffer);
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        const GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+        const GLenum error = glGetError();
+        std::fprintf(stderr,
+                     "[native sly target GL begin] framebuffer=%d status=%#x viewport=%d,%d,%d,%d meshes=%zu debug_solid=%u error=%#x\n",
+                     framebuffer, status, viewport[0], viewport[1], viewport[2],
+                     viewport[3], meshes.size(), debug_solid_colors ? 1u : 0u,
+                     error);
+    }
     static unsigned present_bounds_sample = 0;
     unsigned projected_meshes = 0;
     unsigned intersecting_meshes = 0;
@@ -657,6 +673,20 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         if (mesh.vertices.size() < 3u * 9u || mesh.vertices.size() > 4096u * 9u)
             continue;
+        ++target_draw_candidates;
+        if (trace_target_pass && target_draw_candidates <= 2u) {
+            GLint framebuffer = 0;
+            GLint viewport[4]{};
+            glGetIntegerv(static_cast<GLenum>(0x8CA6u), &framebuffer);
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            std::fprintf(stderr,
+                         "[native sly target GL mesh] request=%#010x source=%#010x vertices=%zu framebuffer=%d viewport=%d,%d,%d,%d v0=%g,%g,%g mvp=%g,%g,%g,%g test=%#llx\n",
+                         mesh.request, mesh.source_mesh, mesh.vertices.size() / 9u,
+                         framebuffer, viewport[0], viewport[1], viewport[2],
+                         viewport[3], mesh.vertices[0], mesh.vertices[1],
+                         mesh.vertices[2], mesh.mvp[0], mesh.mvp[1], mesh.mvp[2],
+                         mesh.mvp[3], static_cast<unsigned long long>(mesh.test));
+        }
         bool projected_cover = false;
         if (trace_projected_bounds || debug_skip_full_cover ||
             (trace_native_per_mesh_bounds && !target_pass &&
@@ -1453,6 +1483,18 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                      inside_vertices,
                      frame_min_x, frame_min_y, frame_min_z,
                      frame_max_x, frame_max_y, frame_max_z);
+    }
+    if (trace_target_pass) {
+        GLint framebuffer = 0;
+        GLint viewport[4]{};
+        glGetIntegerv(static_cast<GLenum>(0x8CA6u), &framebuffer);
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        const GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+        const GLenum error = glGetError();
+        std::fprintf(stderr,
+                     "[native sly target GL end] candidates=%zu framebuffer=%d status=%#x viewport=%d,%d,%d,%d error=%#x\n",
+                     target_draw_candidates, framebuffer, status,
+                     viewport[0], viewport[1], viewport[2], viewport[3], error);
     }
     glDepthMask(GL_TRUE);
     glBindVertexArray(0);

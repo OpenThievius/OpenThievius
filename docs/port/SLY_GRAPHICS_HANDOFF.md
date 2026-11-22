@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Inspect the player's native render-target pass (2026-11-22)
+
+The gameplay player is submitted as 30 kind-5 meshes by a class-0x61
+`TextureRenderObject`, targeting a 64x64 texture at TBP `0x24c0`. The native
+OpenGL target framebuffer is complete, has the expected 64x64 viewport, accepts
+all 30 meshes, and reports no GL errors. However, the captured target remains
+black even with solid-color geometry and depth testing disabled. This moves
+the next investigation to the target transform/rasterization path; the player
+data is not missing from OpenGL.
+
+I added an opt-in trace under `OPENRAC_TRACE_SLY_RENDER_TARGETS=1` that logs
+the framebuffer, viewport, completeness, accepted mesh count, and GL error
+state around the target pass. An MVP transpose diagnostic changes a point
+capture from zero colored pixels to 122, but its solid-color mesh capture fills
+the whole target. That is not a valid fix. Keep the default matrix and host
+skinning behavior unchanged until the target transform and strip boundaries
+are reconciled with the matched `DrawPlacedObjectParts` path.
+
+Evidence: `/tmp/sly-native-gl-target-state-20261122/`,
+`/tmp/sly-native-gl-target-mvp1-20261122/`, and
+`/tmp/sly-native-gl-target-mvp1-solid-20261122/`. The SDL host32 launcher
+rebuilt successfully; bounded runs ended at their 10-second timeout (137).
+No decompilation or PlayStation VU renderer code changed.
+
 ### Recheck player skin inputs in the current world (2026-11-22)
 
 A hidden native host32 run reached gameplay world `0x870cf0` after the existing
