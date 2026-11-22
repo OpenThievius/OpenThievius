@@ -2501,16 +2501,19 @@ extern "C" int openrac_native_pad_read(int port, unsigned char* report, unsigned
     std::span<unsigned char, 32> output(report, 32);
     g_input->pad(port).write_read_buffer(output);
     if (std::getenv("OPENRAC_TRACE_PAD") != nullptr) {
+        static std::array<unsigned, 2> read_counts{};
+        const unsigned read_count = ++read_counts[static_cast<std::size_t>(port)];
         static std::array<std::uint16_t, 2> previous_buttons{0xFFFFu, 0xFFFFu};
         static std::array<unsigned char, 2> previous_status{0xFFu, 0xFFu};
         const std::uint16_t buttons = static_cast<std::uint16_t>(
             (static_cast<std::uint16_t>(report[2]) << 8u) |
             static_cast<std::uint16_t>(report[3]));
         if (report[0] != previous_status[static_cast<std::size_t>(port)] ||
-            buttons != previous_buttons[static_cast<std::size_t>(port)]) {
+            buttons != previous_buttons[static_cast<std::size_t>(port)] ||
+            read_count <= 32u || (read_count % 120u) == 0u) {
             std::fprintf(stderr,
-                         "[pad] port=%d status=%02x held=%04x axes=%02x,%02x,%02x,%02x\n",
-                         port, report[0], static_cast<std::uint16_t>(~buttons), report[4],
+                         "[pad] read=%u port=%d status=%02x held=%04x axes=%02x,%02x,%02x,%02x\n",
+                         read_count, port, report[0], static_cast<std::uint16_t>(~buttons), report[4],
                          report[5], report[6], report[7]);
             previous_status[static_cast<std::size_t>(port)] = report[0];
             previous_buttons[static_cast<std::size_t>(port)] = buttons;
