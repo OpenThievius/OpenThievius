@@ -8024,3 +8024,18 @@ off-center target is wrong, so do not shift the whole scene or alter camera
 placement from this value alone. The run log is
 `/home/reaper/sly/native-quad4-check/camera-target-audit/run.log`; it ended at
 the planned 12-second timeout (137). Continue on the native OpenGL path.
+
+### Recheck the native full-frame Y mapping (2026-11-22)
+
+Paired offscreen gameplay captures compared the current default vertical scale
+(`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE=0.5`) with scale `1`, using the
+same host32 launcher, US ELF, ISO, menu driver, and gameplay frame dump. At
+scale 1 the visible building faces grow vertically and clip at the top; the
+camera-following starry backdrop and missing coherent foreground remain. The
+default 0.5 image retains more of the upper building without solving the
+scene. Keep 0.5; a global Y projection change does not explain the detached
+geometry. Images and logs are under
+`/home/reaper/sly/native-quad4-check/y-scale-ab/`. Both runs reached
+`world=0x870cf0`, `ui_state=3` and ended at their planned 12-second timeout
+(137). Continue tracing individual native OpenGL scene draws and their
+placement instead of changing the global camera scale.

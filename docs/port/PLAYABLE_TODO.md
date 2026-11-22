@@ -2067,6 +2067,13 @@ off-center placement is wrong. Inspect the current rotation and camera target
 behavior before changing camera or scene transforms. Trace and frame:
 `/home/reaper/sly/native-quad4-check/camera-target-audit/`.
 
+Paired native OpenGL gameplay captures compared the default full-frame Y scale
+with `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE=1`. Full Y scale enlarges and
+top-clips the building faces but leaves the starry backdrop and missing
+foreground. Keep the default 0.5 mapping; it is not the scene-layout fix.
+Continue with individual draw geometry and placement. Evidence:
+`/home/reaper/sly/native-quad4-check/y-scale-ab/`.
+
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
 A fresh opt-in renderer run shows the texture-placeholder count from the prior
