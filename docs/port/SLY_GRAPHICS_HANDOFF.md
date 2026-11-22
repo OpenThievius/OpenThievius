@@ -8181,3 +8181,29 @@ for native mesh ABE. Do not use those values to infer per-mesh blend state.
 The trace and rejection are in
 `/home/reaper/sly/native-prim-state-trace-20261122/run.log` and
 `/home/reaper/sly/native-prim-material-trace-20261122/run.log`.
+
+### Native OpenGL GIFtag PRE captures PRIM (2026-11-22)
+
+Correction to the earlier sections above that say the affected facade
+`FrameSource` packets have no PRIM: the native mesh reader only searched the
+A+D payload for GS register address `0x00`. GIFtag PRE (bit 46) applies the
+GIFtag's PRIM field (bits 47-57) before the payload, so this parser missed a
+valid source of PRIM state. The rejected `vu1-xgkick` trace remains untrusted;
+this correction comes from the validated native mesh packet parser and does
+not use the PlayStation VU renderer.
+
+The native host now copies GIFtag.PRIM into the mesh material when PRE is set.
+The default native OpenGL renderer honors the captured ABE bit when PRIM is
+valid, while packets with no valid PRIM retain the previous blend behavior.
+`OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1` remains an opt-in stricter
+diagnostic that disables blending when PRIM is absent as well as when ABE is
+clear.
+
+A request-filtered trace of building request `0x005e4f00` reported valid
+`PRIM=0` for three meshes over three passes each. Its `ALPHA=0x44` and
+`ALPHA=0x48` equations therefore must not blend when this PRIM applies. The
+capture still showed detached, bright facades and does not represent a playable
+scene. One attempted trace for `0x005e5000` was made with an older launcher and
+is not evidence for or against the correction. Rebuild the native SDL launcher
+before further capture, then compare that building request and the resulting
+frame. Keep all graphics work on the native OpenGL implementation.

@@ -1385,8 +1385,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                             clamp.wmt == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         }
-        const bool prim_abe_allows_blend = !debug_prim_abe_blend ||
-            (mesh.prim_valid && prim.abe);
+        const bool prim_abe_allows_blend = debug_prim_abe_blend
+            ? (mesh.prim_valid && prim.abe)
+            : (!mesh.prim_valid || prim.abe);
         const bool use_alpha_blend = mesh.alpha_valid && !debug_geometry &&
             !debug_normal_colors && !debug_opaque_alpha &&
             prim_abe_allows_blend;

@@ -3,53 +3,30 @@
 
 ## Current checkpoint (2026-11-22)
 
-An opt-in native OpenGL capture with
-`OPENRAC_DEBUG_SLY_WORLD_OPAQUE_ALPHA=1` keeps texture RGB but forces fragment
-alpha to the GS opaque value, bypassing alpha tests and blend state. At gameplay
-frame 63, this fills the detached building façades, but blows them out to white
-and changes the sky/background too. This confirms alpha handling materially
-affects the scene; it does not identify a correct retail blend state. The
-captured facade `FrameSource` packets omit both PRIM and ALPHA, so PRIM.ABE
-cannot be inferred there. Normal uploaded textures use the established GS
-alpha scale. Keep this as an opt-in diagnostic only; continue by tracing the
-source packet/state or texture alpha for an affected draw before changing the
-default material path. Capture and log:
-`/home/reaper/sly/native-opaque-alpha-check-20261122/` and
-`/home/reaper/sly/native-matstate-trace-20261122/`.
+Keep the graphics investigation on the **native OpenGL renderer**. Do not
+switch world rendering to the PlayStation VU path. The earlier alpha/blend
+diagnostics showed that blending materially changes building facades, but
+their conclusion that PRIM was absent was incorrect: the native packet reader
+looked only for PRIM in A+D payloads and missed GIFtag PRE, which supplies
+PRIM directly in the GIFtag.
 
-The material trace samples `ALPHA=0x44`, which decodes to
-`(Cs - Cd) * As + Cd`, the source-over equation when primitive blending is
-enabled. The OpenGL path currently applies a captured ALPHA equation whenever
-ALPHA is present; it does not gate that state on `PRIM.ABE`. The facade
-packets omit PRIM, so ABE remains unknown. Compare an ABE-gated blend
-diagnostic against the opaque-alpha image before changing the default.
+The native mesh reader now records `PRIM=(GIFtag >> 47) & 0x7ff` when PRE is
+set. The default OpenGL path now honors `PRIM.ABE` when PRIM is valid and keeps
+the previous blend behavior only for packets without valid PRIM. The opt-in
+`OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1` remains a stricter diagnostic that
+disables blending for missing PRIM too. A request-filtered trace for building
+request `0x005e4f00` now reports valid `PRIM=0` across its three meshes and
+three passes, so those submissions have ABE clear. A renderer/host rebuild is
+needed before relying on any follow-up capture; the prior second-request
+attempt used an older launcher and is not verification.
 
-The opt-in `OPENRAC_DEBUG_SLY_WORLD_PRIM_ABE_BLEND=1` comparison is now
-available. It disables GS blending when PRIM is missing or its captured ABE
-bit is clear, while retaining normal texture alpha, alpha testing, and shader
-color math. Its gameplay frame 63 turns the main façades flat white while
-retaining their window and texture detail, much like the opaque-alpha capture;
-the sky changes less. This isolates blending as a major cause of the façade
-darkening, but it does not prove ABE is clear in the retail VU output because
-the facade packets omit PRIM. Keep the diagnostic opt-in until the source PRIM
-state is recovered. Capture and trace:
-`/home/reaper/sly/native-abe-blend-check-20261122/`.
-
-The decomp CPU builder confirms that PRIM is not expected in each
-`FrameSource`: `BuildStripMeshPacket` and `BuildLitStripMeshPacket` start
-separate unlit/lit VU batch programs, while `QueueMeshStrip` submits only the
-frame-strided strip data. Therefore the next native GL step is to associate
-the GS PRIM state emitted by the selected batch program with each mesh, or
-derive it from the mesh kind. Do not keep searching the frame-source packet
-for PRIM and do not change default blending until that state is known.
-
-A bounded PRIM trace from the VU-kick stream is not authoritative for this
-native path: the same kick was rejected by the packet checker for reserved
-GIFtag bits, while the shared diagnostic parser continued and reported values.
-That trace was removed. Keep the ABE comparison opt-in and derive the native
-mesh state from validated inputs instead. Logs:
-`/home/reaper/sly/native-prim-state-trace-20261122/` and
-`/home/reaper/sly/native-prim-material-trace-20261122/`.
+This corrects one native material-state handling bug, but the scene is still
+not playable: frame 63 showed detached, bright building facades and no
+confirmed complete world. Next rebuild the native SDL launcher, trace another
+known building request such as `0x005e5000`, and compare the resulting capture
+to the pre-fix and ABE diagnostic captures. Then continue investigating the
+native draw list, scene assembly, and remaining GL state. The malformed VU-kick
+trace stays rejected as untrusted; it does not justify using a VU renderer.
 
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the

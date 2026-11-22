@@ -1549,6 +1549,13 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             loop_count + 1u > static_cast<u32>(source.stride_qwc))
             continue;
         NativeSlyMaterial material;
+        // GIFtag.PRE writes GIFtag.PRIM before the A+D payload. This is a
+        // common way for a strip packet to provide primitive state without
+        // an A+D register whose address is PRIM.
+        if (((gif_tag >> 46u) & 1u) != 0u) {
+            material.prim = (gif_tag >> 47u) & 0x7FFu;
+            material.prim_valid = true;
+        }
         for (u32 i = 0; i < loop_count; ++i) {
             const u64 value = packet[2u + i * 2u];
             const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
@@ -2684,7 +2691,21 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                      (static_cast<u64>(i) << 8u)) & ~0xFFull) | pass)
                 : ((static_cast<u64>(request_address) << 16u) |
                    (static_cast<u64>(i) << 8u) | pass);
-            if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr && notices++ < 32u)
+            bool trace_material = false;
+            if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+                const char* request_filter =
+                    std::getenv("OPENRAC_TRACE_SLY_WORLD_REQUEST");
+                if (request_filter != nullptr) {
+                    char* end = nullptr;
+                    const unsigned long parsed = std::strtoul(request_filter, &end, 0);
+                    static u32 filtered_notices = 0;
+                    trace_material = end != request_filter && *end == '\0' &&
+                        parsed == request_address && filtered_notices++ < 128u;
+                } else {
+                    trace_material = notices++ < 32u;
+                }
+            }
+            if (trace_material)
                 std::fprintf(stderr,
                              "[native sly mesh submit] source=%#010x kind=%u packet=%#010x request=%#010x mesh=%u pass=%zu/%zu vertices=%zu prim=%s%#llx tex0=%#llx alpha=%s%#llx test=%#llx\n",
                              source_mesh, mesh.kind, packet_address, request_address, i, pass,
