@@ -1342,10 +1342,21 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 else if (std::strcmp(setting, "1") == 0) fst = true;
             }
         }
-        if (const char* setting =
-                std::getenv("OPENRAC_TRACE_SLY_GL_UV_REQUEST")) {
-            char* end = nullptr;
-            const unsigned long parsed = std::strtoul(setting, &end, 0);
+        const char* uv_request_setting =
+            std::getenv("OPENRAC_TRACE_SLY_GL_UV_REQUEST");
+        const bool uv_identity_filter =
+            std::getenv("OPENRAC_TRACE_SLY_GL_UV_OWNER") != nullptr ||
+            std::getenv("OPENRAC_TRACE_SLY_GL_UV_PART") != nullptr ||
+            std::getenv("OPENRAC_TRACE_SLY_GL_UV_SOURCE") != nullptr;
+        if (uv_request_setting != nullptr || uv_identity_filter) {
+            bool request_matches = uv_request_setting == nullptr;
+            if (uv_request_setting != nullptr) {
+                char* end = nullptr;
+                const unsigned long parsed = std::strtoul(uv_request_setting, &end, 0);
+                request_matches = end != uv_request_setting && *end == '\0' &&
+                    parsed <= 0xFFFFFFFFul &&
+                    mesh.request == static_cast<std::uint32_t>(parsed);
+            }
             static std::unordered_set<std::uint64_t> traced_uv_draws;
             std::uint64_t trace_key = 1469598103934665603ull;
             const auto mix_trace_key = [&trace_key](std::uint64_t value) {
@@ -1357,8 +1368,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             mix_trace_key(mesh.owner);
             mix_trace_key(mesh.part);
             mix_trace_key(mesh.source_mesh);
-            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
-                mesh.request == static_cast<std::uint32_t>(parsed) &&
+            if (request_matches &&
                 env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_OWNER", mesh.owner) &&
                 env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_PART", mesh.part) &&
                 env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_SOURCE", mesh.source_mesh) &&
@@ -1378,7 +1388,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 const int image_height = texture != 0 && g_textures != nullptr
                     ? g_textures->image(texture).height : tex0.height();
                 std::fprintf(stderr,
-                             "[native sly GL UV] request=%#010x owner=%#010x part=%#010x instance=%#llx source=%#010x vertices=%zu prim=%s%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
+                             "[native sly GL UV] request=%#010x owner=%#010x part=%#010x instance=%#llx source=%#010x vertices=%zu prim=%s%#llx fst=%u tex0=%#llx tex1=%#llx clamp=%#llx alpha=%s%#llx test=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
                              mesh.request,
                              mesh.owner, mesh.part,
                              static_cast<unsigned long long>(mesh.instance),
@@ -1387,6 +1397,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                              static_cast<unsigned long long>(mesh.prim),
                              fst ? 1u : 0u,
                              static_cast<unsigned long long>(mesh.tex0),
+                             static_cast<unsigned long long>(mesh.tex1),
+                             static_cast<unsigned long long>(mesh.clamp),
+                             mesh.alpha_valid ? "" : "missing/",
+                             static_cast<unsigned long long>(mesh.alpha),
+                             static_cast<unsigned long long>(mesh.test),
                              image_width, image_height,
                              min_u, min_v, max_u, max_v);
                 for (std::size_t i = 0; i < std::min<std::size_t>(vertex_count, 4u); ++i)

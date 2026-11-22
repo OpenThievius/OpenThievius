@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Identify the native OpenGL facade source (2026-11-22)
+
+The white walls in the full native OpenGL scene are submitted from source mesh
+`0x00a14110`. Isolating this source produces the expected windowed facade
+surfaces; the output is still only a diagnostic source-only view, not a full
+building. Its native draw uses a 128x128 texture with TEX0
+`0x20040e45dd40aa40`, TEX1 `0x61`, CLAMP `0`, ALPHA `0x44`, and TEST
+`0x717eb`. The UV range extends beyond 0..1, so repeat addressing agrees with
+the observed inputs. Do not change UV scaling or wrap based on the isolated
+facades.
+
+The representative source mesh has 16- and 30-vertex submissions. The
+request's row-vector transformed centroid is about 48 units from its queued
+origin, supporting the current transform convention for that draw only. The
+retail `BuildStripMeshPacket` implementation emits positions and UVs in
+`VertexRefs` order, then queues each `FrameSource`; the latter's stride is a
+per-frame quadword count, not a primitive boundary. Repeated position
+references in the submitted sequence are therefore not evidence for splitting
+the draw. An opt-in split diagnostic changes panel edges but does not restore
+scene continuity; keep it disabled.
+
+This narrows the visual blocker: the native OpenGL path receives and samples a
+real facade draw, and this representative transform is plausible. The full
+scene still has detached, overbright facades, so continue at native draw-state
+and scene composition level. Do not route display through the PlayStation VU
+renderer. Run-local traces and captures:
+`/home/reaper/sly/native-gl-building-source-a14110-20261122/`.
+
 ### Isolate a native OpenGL roof draw (2026-11-22)
 
 The native GL submission record now carries the guest owner and model-part

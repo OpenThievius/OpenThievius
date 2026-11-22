@@ -11,10 +11,18 @@ candidate, `0x00a14070`, draws detached angular architecture even in solid
 color; its current transform projects all vertices, and the centroid is
 within the part's recorded radius. An opt-in repeated-reference strip split
 does not resolve the shape, so it remains diagnostic. This candidate is not
-yet confirmed as one of the visible white facades. Next map a clearly visible
-facade in the normal full scene to its current owner/part/source and compare
-its geometry, materials and transform. Details and captures:
-[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-one-architectural-mesh-on-the-native-opengl-path-2026-11-22).
+the facade source. A later native OpenGL source-only capture identifies
+`0x00a14110` as a windowed wall source. Its repeat texture mode matches UVs
+beyond 0..1, and one representative row-vector transform places the mesh
+centroid close to the queued origin. The decompiled builder confirms that
+`VertexRefs` order is the submitted vertex order and `FrameSource` records are
+animation/material data, not primitive boundaries. Splitting on repeated
+references did not fix the scene. Do not change global UV wrapping, matrix
+convention, or primitive assembly from these observations. Next trace the
+native OpenGL facade draw state and neighboring submissions to find why
+otherwise valid facade draws compose into disconnected, overbright buildings.
+Details and captures:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#identify-the-native-opengl-facade-source-2026-11-22).
 
 Keep the graphics investigation on the **native OpenGL renderer**. Do not
 switch world rendering to the PlayStation VU path. The earlier alpha/blend
