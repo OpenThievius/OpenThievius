@@ -8215,3 +8215,15 @@ does not solve scene assembly or positioning. Captures:
 `/tmp/sly-native-pre-fix-20261122/clean.log`. A later full dump was stopped
 mid-write and its partial PPMs were removed to recover temporary storage. Keep
 all graphics work on the native OpenGL implementation.
+
+### Current decomp build source (2026-11-22)
+
+The sibling decomp checkout used by the port build was fast-forwarded from
+`8f7a85a3` to upstream `6d12fbc8` (17 commits). This includes corrections to
+DMA channel and packet-address pointer declarations. No decomp source was
+edited. The port-only host build trace injector now matches the revised
+`MovePlacedObject(PlacedObject*, f32, s32)` signature. The rebuilt
+`port_native_sdl_host32` target succeeds. Its bounded offscreen run submitted
+Paris world meshes and valid GIFtag-PRE PRIM state, but the automated menu
+driver remained at page 7; this is not a new gameplay visual result. Log:
+`/home/reaper/sly/native-updated-decomp-20261122/run.log`.

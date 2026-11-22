@@ -5677,9 +5677,9 @@ void LoadEffectSpawner"""
                  "    sly1_native_trace_placed_object_load((u32)self, 0, 10);\n"
                  "    Rec2195_224* last = self->linkRecord;\n"
                  "    if (last != 0 && (last->flags & 0x8020) == 0x8020) {"),
-                ("void MovePlacedObject(PlacedObject* self, s32 flag, f32 dt)\n{\n"
+                ("void MovePlacedObject(PlacedObject* self, f32 dt, s32 flag)\n{\n"
                  "    Attachment* pa = self->positionAttachment;",
-                 "void MovePlacedObject(PlacedObject* self, s32 flag, f32 dt)\n{\n"
+                 "void MovePlacedObject(PlacedObject* self, f32 dt, s32 flag)\n{\n"
                  "    sly1_native_trace_placed_object_load((u32)self, 0, 7);\n"
                  "    Attachment* pa = self->positionAttachment;"),
                 ("    }\n    g_activeListFrames = (ListFrame*)it.prev;\n}\n\ntypedef void (*PositionAtFn)",
