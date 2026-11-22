@@ -963,6 +963,98 @@ extern "C" void sly1_native_trace_camera(u32 stage, u32 camera_address,
                  view_projection[12], view_projection[13], view_projection[14], view_projection[15]);
 }
 
+extern "C" __attribute__((no_instrument_function)) void
+sly1_native_trace_value_tree(u32 camera_address, u32 world_address,
+                             u32 value_list, u32 result) {
+    static const bool enabled =
+        std::getenv("OPENRAC_TRACE_VALUE_TREE") != nullptr;
+    if (!enabled || camera_address == 0u || world_address == 0u) return;
+    extern volatile u32 g_native_frame_count;
+    const u32 frame = __atomic_load_n(&g_native_frame_count, __ATOMIC_RELAXED);
+    static u32 last_logged_frame = 0;
+    if (frame < 60u || (frame % 60u) != 0u || frame == last_logged_frame)
+        return;
+    last_logged_frame = frame;
+    if (!native_guest_range_readable(camera_address + 0x21Cu, 4u) ||
+        !native_guest_range_readable(camera_address + 0x40u, 12u))
+        return;
+
+    const volatile float* position =
+        reinterpret_cast<const volatile float*>(camera_address + 0x40u);
+    const u32 camera_area = *(const volatile u32*)(camera_address + 0x21Cu);
+    u32 node_count = 0;
+    u32 root = 0;
+    u32 value_count = 0;
+    u32 values = 0;
+    if (value_list != 0u && native_guest_range_readable(value_list, 0x44u)) {
+        node_count = *(const volatile u32*)(value_list + 0x34u);
+        root = *(const volatile u32*)(value_list + 0x38u);
+        value_count = *(const volatile u32*)(value_list + 0x3Cu);
+        values = *(const volatile u32*)(value_list + 0x40u);
+    }
+    std::fprintf(stderr,
+                 "[native value tree] frame=%u world=%#010x camera=%#010x pos=%.1f,%.1f,%.1f area=%#x lookup=%#x list=%#010x nodes=%u root=%#010x values=%u@%#010x\n",
+                 frame, world_address, camera_address,
+                 (double)position[0], (double)position[1],
+                 (double)position[2], camera_area, result, value_list,
+                 node_count, root, value_count, values);
+    if (value_count != 0u && value_count <= 32u &&
+        native_guest_range_readable(values, value_count * 4u)) {
+        std::fprintf(stderr, "[native value tree masks] frame=%u", frame);
+        for (u32 i = 0; i < value_count; ++i)
+            std::fprintf(stderr, " %u:%#x", i,
+                         *(const volatile u32*)(values + i * 4u));
+        std::fputc('\n', stderr);
+    }
+}
+
+static u32 g_native_value_tree_path_call = 0;
+
+extern "C" int sly1_native_trace_value_tree_path_begin(
+    u32 state, u32 root, float x, float y, float z, float w) {
+    static const bool enabled =
+        std::getenv("OPENRAC_TRACE_VALUE_TREE_PATH") != nullptr;
+    static u32 call_count = 0;
+    if (!enabled) return 0;
+    ++call_count;
+    if (call_count > 600u) return 0;
+    if (call_count > 2u && (call_count % 60u) != 0u) return 0;
+    g_native_value_tree_path_call = call_count;
+    std::fprintf(stderr,
+                 "[native value tree path] call=%u state=%#010x root=%#010x point=%g,%g,%g,%g\n",
+                 call_count, state, root, (double)x, (double)y, (double)z,
+                 (double)w);
+    return static_cast<int>(call_count);
+}
+
+extern "C" void sly1_native_trace_value_tree_path_node(
+    u32 depth, u32 node, float nx, float ny, float nz, float nw,
+    float dot, float offset, u32 below, u32 above) {
+    if (std::getenv("OPENRAC_TRACE_VALUE_TREE_PATH") == nullptr) return;
+    std::fprintf(stderr,
+                 "[native value tree node] call=%u depth=%u at=%#010x normal=%g,%g,%g,%g dot=%g offset=%g below=%#010x above=%#010x\n",
+                 g_native_value_tree_path_call, depth, node, (double)nx, (double)ny, (double)nz, (double)nw,
+                 (double)dot, (double)offset, below, above);
+}
+
+extern "C" void sly1_native_trace_value_tree_path_leaf(
+    u32 below_branch, u32 raw_leaf, u32 result) {
+    if (std::getenv("OPENRAC_TRACE_VALUE_TREE_PATH") == nullptr) return;
+    std::fprintf(stderr,
+                 "[native value tree leaf] call=%u branch=%s raw=%#010x result=%#010x\n",
+                 g_native_value_tree_path_call, below_branch == 2u ? "root" :
+                 (below_branch ? "below" : "above"), raw_leaf, result);
+}
+
+extern "C" int sly1_native_ignore_area_cull(void) {
+    // Diagnostic-only native-renderer probe. Never alter matched decomp source
+    // or the default visibility behavior; this lets a bounded capture check
+    // whether area-mask rejection is the reason scene meshes vanish upstream.
+    static const bool enabled =
+        std::getenv("OPENRAC_NATIVE_IGNORE_AREA_MASK") != nullptr;
+    return enabled ? 1 : 0;
+}
+
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_trace_note_world(u32 world) {
     if (!g_startup_trace_enabled || world == 0) return;

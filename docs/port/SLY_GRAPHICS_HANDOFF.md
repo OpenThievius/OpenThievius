@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Correct the port-only camera value-tree backfill (2026-11-22)
+
+Keep rendering on native OpenGL. The active Paris world (`0x00870cf0`) has a
+468-node value tree and 26 area masks. A path trace exposed a bug in the
+port-only `func_001EEBB0` backfill: it treated the tree as a one-way chain and
+usually followed `above`, even when the point selected `below`. For the
+startup camera point, the correct tree walk reaches tagged leaf 1 and expands
+it through the value table to camera mask `0x01000021`; the old backfill
+returned zero. The normal scene queue now uses `views=0x01000021` rather than
+the all-areas reset value. On a fresh run, the 1,910-part queue records 767
+area-mask rejects, 1,091 plane rejects and 52 queued parts. As the camera
+moves outside the tree's populated leaves, lookups can return zero and the
+matched camera logic retains the last nonzero mask.
+
+The native C and host32 port backfills now follow the selected `below` or
+`above` child and expand a tagged leaf through the value table. They remain in
+the port and are separate from the unchanged `sly1-decomp` ASM declaration.
+An opt-in `OPENRAC_NATIVE_IGNORE_AREA_MASK=1` comparison still bypasses only
+the area test in the staged `point_graph.cpp`; plane and fade culling and the
+native OpenGL renderer remain active. It produces a fuller Paris street view
+than the normal area-cull capture, but is diagnostic and is not the default.
+The scene still has detached or incomplete buildings and is not playable.
+
+Trace and capture files:
+`/home/reaper/sly/native-present-mesh-trace-20261122/value-tree-fixed-default/`,
+`/home/reaper/sly/native-present-mesh-trace-20261122/value-tree-path/`, and
+`/home/reaper/sly/native-present-mesh-trace-20261122/area-mask-bypass/`.
+
 ### Scene submissions disappear before OpenGL (2026-11-22)
 
 A new opt-in trace in `port/runtime/sdl_renderer.cpp` logs per-mesh clip bounds

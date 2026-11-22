@@ -5377,6 +5377,21 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected QueueModelPartDraws part hook")
             adapted = adapted.replace(needle, replacement, 1)
+        if rel.as_posix() == "main/point_graph.cpp":
+            # Diagnostic-only native-port probe. Preserve the retail area-mask
+            # cull by default; the opt-in hook disables only this test so we
+            # can inspect scene submission to the native OpenGL renderer.
+            area_cull = "            if ((st->mask & views) != views) {"
+            if adapted.count(area_cull) != 1:
+                raise RuntimeError("expected one point-graph area-mask cull")
+            adapted = (
+                'extern "C" int sly1_native_ignore_area_cull(void);\n' + adapted
+            ).replace(
+                area_cull,
+                "            if ((st->mask & views) != views && "
+                "!sly1_native_ignore_area_cull()) {",
+                1,
+            )
         if args.native_sly_world_renderer and rel.as_posix() == "main/placed_object_model.cpp":
             adapted = (
                 'extern "C" void sly1_native_capture_model_mesh(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);\n'
@@ -5742,6 +5757,17 @@ void LoadEffectSpawner"""
         # Without this, a u64 register shifts the value by one stack word on
         # i386 and GS writes such as SCISSOR_1 become corrupt.
         adapted = normalize_gif_register_writer_abi(adapted)
+        if args.trace_main_loop and rel.as_posix() == "main/camera.cpp":
+            adapted = ('extern "C" void sly1_native_trace_value_tree(u32, u32, u32, u32);\n'
+                       + adapted)
+            lookup = (
+                "        LookupValueTreeLeaf((void*)g->valueListObject, &in, &out);")
+            traced_lookup = lookup + (
+                "\n        sly1_native_trace_value_tree((u32)self, (u32)g, "
+                "(u32)g->valueListObject, (u32)out);")
+            if adapted.count(lookup) != 1:
+                raise RuntimeError("expected camera value-tree lookup")
+            adapted = adapted.replace(lookup, traced_lookup, 1)
         if rel.as_posix() == "main/placed_object.cpp":
             # Opt-in trace of QueuePlacedObjectModelParts: count objects and
             # parts entering the main model draw path (and how many are culled).

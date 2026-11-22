@@ -57,15 +57,21 @@ rendering through the PlayStation VU renderer. Log and captures:
 `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`
 and `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/`.
 
-The latest native OpenGL input trace narrows the empty late view: a scene
-sample around 503 contains many level meshes with in-clip vertices, while a
-later sample around 700 contains only three backdrop meshes. The camera's
-area mask stays `0x0fffffff` as it crosses the level. The late city geometry
-is filtered before the OpenGL renderer receives it. Next trace the active
-world's value-tree result and camera area selection; do not change OpenGL
-transforms based on a frame where the game submitted no city meshes. A
-temporary mask write crashed on this startup path and was removed. Details
-and trace switches are in [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md).
+The native OpenGL path now receives the camera area mask from a corrected,
+port-only value-tree backfill. The previous backfill followed the tree's
+`above` links instead of selecting `below` or `above` from the point; its
+result was often zero, leaving the camera at its all-areas reset mask. The
+correct startup lookup resolves leaf 1 through the area's mask table to
+`0x01000021`. Normal scene culling now rejects parts by that area mask and by
+camera planes before submitting the rest to OpenGL. A separate opt-in
+`OPENRAC_NATIVE_IGNORE_AREA_MASK=1` comparison draws a fuller street view, but
+it is diagnostic and should not become default behavior. The scene still has
+detached or incomplete buildings and is not playable. Next compare the
+remaining native OpenGL scene assembly and camera path against a stable game
+state, keeping retail area and plane culling enabled. The port backfills stay
+separate from the matching decomp source. See
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for trace results and
+capture paths.
 
 The earlier native PRIM fix remains active: GIFtag PRE supplies PRIM, and the
 OpenGL path respects PRIM.ABE when the value is valid. Its captures and

@@ -24,7 +24,7 @@ retail assembly supplies the surrounding graph loader/start/walker routines
 in `hostgen.json`; retire these C helpers when their matching C is hostable.
 
 `func_00144008`, `func_001EEBB0`, and `func_001389D0` are port-only scalar
-translations of the retail camera basis update, tagged direction-list query,
+translations of the retail camera basis update, value-tree point lookup,
 and two-axis endpoint sorter. They are listed in `backfills.tsv` so the SDL
 launcher uses them; same-address C++ versions under `native/` only serve the
 freestanding host32 diagnostic and do not feed the SDL build. Remove both
