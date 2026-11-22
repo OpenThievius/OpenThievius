@@ -8,10 +8,11 @@
 submissions and no rejection. The displayed scene remains disconnected white
 facades over a dark ground. A UV trace showed normalized coordinates, but the
 request pointer is reused for different parts, so that trace did not isolate
-one draw. Do not tune UVs from it. Next add stable owner/part identity to the
-native GL draw trace and compare a single source mesh with the closest
-available reference. Details and capture:
-[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#recheck-the-current-native-opengl-scene-and-uv-trace-2026-11-22).
+one draw. The native GL trace now filters by owner and part. Isolating one
+source produced a textured stone roof fragment, not the white wall faces. The
+texture path is working for that mesh; the next target is a white facade
+source and its part transform. Details and capture:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#isolate-a-native-opengl-roof-draw-2026-11-22).
 
 Keep the graphics investigation on the **native OpenGL renderer**. Do not
 switch world rendering to the PlayStation VU path. The earlier alpha/blend

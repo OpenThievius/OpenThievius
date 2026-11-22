@@ -2811,7 +2811,8 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
             if (getenv("OPENRAC_NO_WORLD_MESH_QUEUE") != nullptr) continue;
             openrac_native_sly_world_mesh_submit(
                 world, instance, submitted_vertices,
-                static_cast<u32>(mesh.vertices.size() / 9u), request_address, source_mesh,
+                static_cast<u32>(mesh.vertices.size() / 9u), request_address,
+                owner_address, part_address, source_mesh,
                 target_tbp, static_cast<int>(target_width), static_cast<int>(target_height),
                 is_render_target ? 1 : 0,
                 mesh.vertex_indices.size() == mesh.vertices.size() / 9u

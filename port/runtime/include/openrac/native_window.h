@@ -18,7 +18,8 @@ void openrac_native_window_present(void);
 void openrac_native_window_frame_complete(void);
 void openrac_native_sly_world_mesh_submit(uint32_t world, uint64_t instance,
                                           const float* vertices, uint32_t vertex_count,
-                                          uint32_t request, uint32_t source_mesh,
+                                          uint32_t request, uint32_t owner,
+                                          uint32_t part, uint32_t source_mesh,
                                           uint32_t target_tbp, int target_width,
                                           int target_height, int render_target,
                                           const uint8_t* vertex_indices,

@@ -53,6 +53,8 @@ using Viewport = void (*)(int, int, int, int);
 struct NativeWorldMesh {
     std::uint64_t instance = 0;
     std::uint32_t request = 0;
+    std::uint32_t owner = 0;
+    std::uint32_t part = 0;
     std::uint32_t source_mesh = 0;
     std::uint32_t target_tbp = 0;
     int target_width = 0;
@@ -73,6 +75,15 @@ struct NativeWorldMesh {
     bool alpha_valid = false;
     std::uint64_t test = 0;
 };
+
+bool env_matches_u32(const char* name, std::uint32_t value) {
+    const char* setting = std::getenv(name);
+    if (setting == nullptr) return true;
+    char* end = nullptr;
+    const unsigned long parsed = std::strtoul(setting, &end, 0);
+    return end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+           static_cast<std::uint32_t>(parsed) == value;
+}
 
 std::unique_ptr<openrac::platform::Platform> g_platform;
 std::unique_ptr<sly1::platform::Input> g_input;
@@ -786,10 +797,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     ++intersecting_meshes;
                 if (trace_present_meshes && !target_pass &&
                     scene_present_mesh_sample >= scene_present_mesh_start &&
-                    scene_present_mesh_sample - scene_present_mesh_start < 4u) {
+                    scene_present_mesh_sample - scene_present_mesh_start < 4u &&
+                    env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_OWNER", mesh.owner) &&
+                    env_matches_u32("OPENRAC_TRACE_SLY_PRESENT_MESHES_PART", mesh.part)) {
                     std::fprintf(stderr,
-                                 "[native sly scene mesh] frame=%u request=%#010x instance=%#llx source=%#010x vertices=%zu projected=%u inside=%u tex0=%#llx ndc=%g,%g,%g..%g,%g,%g\n",
+                                 "[native sly scene mesh] frame=%u request=%#010x owner=%#010x part=%#010x instance=%#llx source=%#010x vertices=%zu projected=%u inside=%u tex0=%#llx ndc=%g,%g,%g..%g,%g,%g\n",
                                  scene_present_mesh_sample, mesh.request,
+                                 mesh.owner, mesh.part,
                                  static_cast<unsigned long long>(mesh.instance),
                                  mesh.source_mesh, vertex_count, mesh_projected,
                                  mesh_inside, static_cast<unsigned long long>(mesh.tex0),
@@ -1330,10 +1344,21 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             char* end = nullptr;
             const unsigned long parsed = std::strtoul(setting, &end, 0);
             static std::unordered_set<std::uint64_t> traced_uv_draws;
-            const std::uint64_t trace_key = mesh.instance ^
-                (static_cast<std::uint64_t>(mesh.request) << 32u);
+            std::uint64_t trace_key = 1469598103934665603ull;
+            const auto mix_trace_key = [&trace_key](std::uint64_t value) {
+                trace_key ^= value;
+                trace_key *= 1099511628211ull;
+            };
+            mix_trace_key(mesh.instance);
+            mix_trace_key(mesh.request);
+            mix_trace_key(mesh.owner);
+            mix_trace_key(mesh.part);
+            mix_trace_key(mesh.source_mesh);
             if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
                 mesh.request == static_cast<std::uint32_t>(parsed) &&
+                env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_OWNER", mesh.owner) &&
+                env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_PART", mesh.part) &&
+                env_matches_u32("OPENRAC_TRACE_SLY_GL_UV_SOURCE", mesh.source_mesh) &&
                 traced_uv_draws.size() < 64u &&
                 traced_uv_draws.insert(trace_key).second) {
                 float min_u = 1.0e30f, min_v = 1.0e30f;
@@ -1350,8 +1375,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 const int image_height = texture != 0 && g_textures != nullptr
                     ? g_textures->image(texture).height : tex0.height();
                 std::fprintf(stderr,
-                             "[native sly GL UV] request=%#010x instance=%#llx source=%#010x vertices=%zu prim=%s%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
+                             "[native sly GL UV] request=%#010x owner=%#010x part=%#010x instance=%#llx source=%#010x vertices=%zu prim=%s%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
                              mesh.request,
+                             mesh.owner, mesh.part,
                              static_cast<unsigned long long>(mesh.instance),
                              mesh.source_mesh, vertex_count,
                              mesh.prim_valid ? "" : "absent/default:",
@@ -2138,7 +2164,8 @@ extern "C" std::uint64_t openrac_native_renderer_dma_bytes(void) {
 
 extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t world, std::uint64_t instance, const float* vertices,
-    std::uint32_t vertex_count, std::uint32_t request, std::uint32_t source_mesh,
+    std::uint32_t vertex_count, std::uint32_t request, std::uint32_t owner,
+    std::uint32_t part, std::uint32_t source_mesh,
     std::uint32_t target_tbp, int target_width, int target_height, int render_target,
     const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
@@ -2160,6 +2187,8 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     NativeWorldMesh draw;
     draw.instance = instance;
     draw.request = request;
+    draw.owner = owner;
+    draw.part = part;
     draw.source_mesh = source_mesh;
     draw.target_tbp = target_tbp;
     draw.target_width = target_width;

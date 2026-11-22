@@ -1,6 +1,30 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Isolate a native OpenGL roof draw (2026-11-22)
+
+The native GL submission record now carries the guest owner and model-part
+addresses. `OPENRAC_TRACE_SLY_GL_UV_OWNER` and
+`OPENRAC_TRACE_SLY_GL_UV_PART` can be combined with the request filter, so a
+reused stack request no longer mixes unrelated parts. The host32 target
+rebuilt successfully.
+
+A visible run isolated request `0x005e5000`, owner `0x00a80820`, part
+`0x00bd5250`. It contains two source meshes, each submitted in three material
+passes. Source `0x00a13940` uses normalized UVs and resolves to PSMT4 texture
+TBP `0x29e0` (128x128). The dumped palette conversions show a stone roof
+texture. Rendering this source alone through native OpenGL produces a textured
+roof fragment at the lower left of the frame; it does not reproduce the white
+wall facades in the full scene. This confirms that texture lookup and GL
+sampling work for this source, while the isolated piece remains incomplete.
+
+Do not tune the texture conversion from this draw. Next identify the source,
+owner and part covering one of the white wall faces, then isolate that same
+draw and compare its native inputs. Logs and local captures:
+`/home/reaper/sly/native-gl-draw-identity-20261122/retry/run.log`,
+`/home/reaper/sly/native-gl-facade-texture-audit-20261122/textures.png`, and
+`/home/reaper/sly/native-gl-isolated-facade-20261122/frame-02.png`.
+
 ### Recheck the current native OpenGL scene and UV trace (2026-11-22)
 
 The current host32 build has `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
@@ -11,15 +35,11 @@ advanced to roughly 800 game frames, and accepted 2,443/2,443 graphics DMA
 submissions. The captured native OpenGL frame still shows disconnected white
 facades and a dark ground; it is not a playable milestone.
 
-The request-filtered UV trace for `0x005e5000` reports normalized 0..1 UVs on
-the selected facade draws, consistent with the current FST=0 OpenGL sampling.
-However, the request address is a reused stack address: the trace collects
-different source meshes and parts under that same value across draw calls.
-It cannot be treated as one isolated object trace. Do not change UV scaling or
-texture conversion from this capture. Next make the diagnostic select a draw
-by stable owner/part/source identity, then compare one mesh's captured input
-and transform with a corresponding reference frame. This check changes no
-renderer behavior and uses no VU display path.
+The original request-only trace for `0x005e5000` reported normalized UVs but
+mixed different source meshes and parts because that request address is
+reused. The follow-up above adds stable owner/part filters and isolates one
+actual source. Do not use the original mixed trace as evidence for a texture
+change. No renderer output behavior changed during this trace work.
 
 Run log and capture:
 `/home/reaper/sly/native-gl-frame-source-check-20261122/run.log` and
