@@ -2776,9 +2776,16 @@ extern "C" int openrac_native_window_poll_input(void) {
         sly1_native_menu_page_and_state != nullptr) {
         static unsigned int last_driven_page = 0xFFFFFFFFu;
         static unsigned int drive_step = 0;
+        static bool gameplay_reached = false;
         const unsigned int packed = sly1_native_menu_page_and_state();
         const unsigned int page = packed & 0xFFu;
         const unsigned int uistate = (packed >> 8u) & 0xFFu;
+        if (!gameplay_reached && uistate == 3u) {
+            gameplay_reached = true;
+            g_input->test_release_buttons();
+            std::fprintf(stderr,
+                         "[menu-driver] gameplay reached; released test buttons and stopped input\n");
+        }
         if (page != last_driven_page) {
             last_driven_page = page;
             drive_step = 0;
@@ -2793,7 +2800,7 @@ extern "C" int openrac_native_window_poll_input(void) {
             0x4000u, 0x40u, 0x4000u, 0x08u};
         constexpr unsigned kStepFrames = 40u;
         constexpr unsigned kHoldFrames = 30u;
-        if ((test_frame % kStepFrames) == 0u) {
+        if (!gameplay_reached && (test_frame % kStepFrames) == 0u) {
             unsigned int buttons = 0;
             if (page == 7u || (uistate == 5u && page != 0u)) {
                 buttons = kSequence[drive_step % (sizeof(kSequence) / sizeof(kSequence[0]))];

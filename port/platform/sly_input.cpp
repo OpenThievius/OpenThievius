@@ -48,6 +48,12 @@ void Input::test_press_buttons_once(unsigned int buttons, int frames) {
     m_test_button_frames = frames > 0 ? frames : 1;
 }
 
+void Input::test_release_buttons() {
+    m_test_cross_pending = false;
+    m_test_buttons_pending = 0;
+    m_test_button_frames = 0;
+}
+
 void Input::apply_test_buttons(openrac::platform::Pad& pad) {
     if (m_test_button_frames <= 0) return;
     for (unsigned b = 0; b < 16; ++b)

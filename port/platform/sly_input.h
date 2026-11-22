@@ -21,6 +21,7 @@ public:
     void update();
     void test_press_cross_once();
     void test_press_buttons_once(unsigned int buttons, int frames = 1);
+    void test_release_buttons();
     const openrac::platform::Pad& pad(int port) const;
 
 private:
