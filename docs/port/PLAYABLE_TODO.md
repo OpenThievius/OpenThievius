@@ -43,6 +43,30 @@ matching gameplay frame. Keep the player's target pass separate. Do not change
 matched game functions or the PlayStation VU renderer for this work. Detailed
 evidence and captures are in `SLY_GRAPHICS_HANDOFF.md`.
 
+### Fresh native transform audit (2026-11-22)
+
+A new hidden host32 capture of US gameplay reached world `0x870cf0`, UI state 3,
+after the process-local save-menu sequence. The visible native OpenGL frame
+still has detached buildings and a fragmented character. The mesh queue audit
+shows separate render calls for the 30-mesh texture target and the 312–315-mesh
+world snapshot; it does not show stale meshes accumulating between frames.
+There are no duplicate instance keys in the sampled draws.
+
+In stable main-world calls, 11,419 of 11,516 projected vertex positions are
+inside OpenGL clip bounds. All 71 observed material textures resolve, with no
+placeholder fallbacks. The separate texture-target calls are a different
+result: their sampled projected bounds can be far outside the 64x64 clip area
+and have no vertices inside it. Bounds do not prove whether triangles still
+cross the clip volume, so do not change target transforms from this statistic
+alone. The post-render frame and full trace are
+`/tmp/sly-native-transform-fresh-20261122/sly1-native-frame-07.ppm` and
+`/tmp/sly-native-transform-fresh-20261122/run.log`.
+
+Next isolate the texture-target matrix and rendered target pixels from the
+ordinary player/world draws, then compare a stable world draw's source vertices
+and uploaded transform with the same camera state. Keep this in the host
+OpenGL renderer; no VU renderer or matched game code is involved.
+
 The renderer priority is explicit: keep implementing the native OpenGL path.
 The corrected lighting probe found no selected lights in its first 48
 opening-gameplay requests, so it does not support a lighting change as the next
