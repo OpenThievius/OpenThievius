@@ -1,6 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Isolate the upper-center native GL draw and its depth state (2026-11-22)
+
+Kept the investigation on the host OpenGL renderer. A fresh gameplay capture
+again shows textured building faces suspended above the starry backdrop, with
+Sly fragmented near the right edge. Player request `0x005e5400` projects as
+many small center/right pieces; static request `0x005e4c80` occupies the
+upper-center area.
+
+The first visual reading of the isolated `0x005e4c80` captures as “black in
+strip mode” was wrong. Pixel inspection shows the normal strip, expanded
+triangle-list diagnostic, depth-disabled diagnostic, and depth-ALWAYS
+diagnostic all render the same solid polygon (about 58,663 pixels; at most a
+one-pixel placement difference between runs). Keep the default strip path.
+
+Added opt-in `OPENRAC_TRACE_SLY_GL_DEPTH_REQUEST=<request>` to log the active
+GL depth function, clear value, range, and projected mesh depth for one native
+request. On `0x005e4c80`, clear depth is 0 and the meshes use GS GREATER / GEQUAL
+with window depth around 0.0074–0.0148. The isolated polygon still appears
+when depth comparison is disabled or forced to GL_ALWAYS, so this draw's
+topology and depth convention are not the current explanation for the full
+scene's bad composition. `OPENRAC_SLY_WORLD_DEPTH_ALWAYS=1` is a port-only
+diagnostic; it keeps depth writes enabled while forcing GL_ALWAYS. Leave it off
+by default.
+
+The next graphics investigation should move up from this single mesh: compare
+the per-request model and view-projection matrices for the connected static
+draws that form the suspended buildings, then check their combined placement
+against the reference gameplay view. Keep the player render-target pass as a
+separate issue. Captures and trace:
+`/tmp/sly-native-gl-current-20261122/after07.png`,
+`/tmp/sly-native-gl-isolate-20261122/after07.png`,
+`/tmp/sly-native-gl-strip-20261122/after07.png`,
+`/tmp/sly-native-gl-nodepth-20261122/after07.png`,
+`/tmp/sly-native-gl-depth-always-20261122/after07.png`,
+`/tmp/sly-native-gl-depth-disabled-final-20261122/after07.png`, and
+`/tmp/sly-native-gl-depth-trace-final-20261122/run.log`. Hidden launches ended
+at their planned timeouts; no launcher remained running. The host32 target
+rebuilt successfully (194/194 decomp C++ units and 85/85 port backfills). No
+VU renderer or matched game function changed.
+
 ### Inspect the player's native render-target pass (2026-11-22)
 
 The gameplay player is submitted as 30 kind-5 meshes by a class-0x61

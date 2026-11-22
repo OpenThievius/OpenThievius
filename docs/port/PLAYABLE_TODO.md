@@ -25,9 +25,16 @@ right. The Y correction avoids clipping one upper building draw, but does not
 make the scene playable. In the current gameplay world, all 31 traced player
 attachment matrices are finite and near-orthonormal; opt-in host skinning
 changes the silhouette but leaves it fragmented, so keep it diagnostic-only.
-Next compare individual native player meshes and the building transforms in a
-matched gameplay capture. Do not change matched game functions or the
-PlayStation VU renderer for this work. Detailed evidence and local captures
+The latest native GL capture localizes an upper-center building to request
+`0x005e4c80`. Pixel inspection corrects the initial visual reading: its default
+strip, expanded triangle-list, depth-disabled, and depth-ALWAYS captures all
+show the same solid polygon. Its depth state uses GREATER/GEQUAL against clear
+depth 0, with projected window depth around 0.0074–0.0148. Topology and this
+request's depth convention are not the present blocker. Keep the strip and
+matrix defaults; next compare the per-request model and view-projection
+matrices for the connected static draws that place the suspended buildings.
+Keep the player's target pass separate. Do not change matched game functions
+or the PlayStation VU renderer for this work. Detailed evidence and captures
 are in `SLY_GRAPHICS_HANDOFF.md`.
 
 ## Current checkpoint (2026-11-21)

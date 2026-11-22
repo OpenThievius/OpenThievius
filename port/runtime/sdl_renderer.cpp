@@ -590,6 +590,17 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
     const bool trace_native_per_mesh_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PER_MESH_BOUNDS") != nullptr;
+    bool trace_depth_request_valid = false;
+    std::uint32_t trace_depth_request = 0;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_GL_DEPTH_REQUEST")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 0);
+        if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+            trace_depth_request = static_cast<std::uint32_t>(parsed);
+            trace_depth_request_valid = true;
+        }
+    }
+    static unsigned depth_request_notices = 0;
     static bool native_per_mesh_bounds_logged = false;
     const bool debug_solid_colors =
         std::getenv("OPENRAC_DEBUG_SLY_WORLD_SOLID_COLORS") != nullptr;
@@ -1271,7 +1282,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     alpha_test_enabled ? static_cast<GLint>(test.atst) : 0);
         glUniform1f(g_world_alpha_ref_location, static_cast<float>(test.aref));
         glUniform1i(g_world_alpha_keep_failing_location, 0);
-        if (std::getenv("OPENRAC_SLY_WORLD_NO_DEPTH") != nullptr) {
+        if (std::getenv("OPENRAC_SLY_WORLD_DEPTH_ALWAYS") != nullptr) {
+            // Diagnostic counterpart to NO_DEPTH: keep depth writes enabled
+            // while bypassing comparison, so isolated draws can distinguish
+            // a bad depth test from bad geometry or fragment output.
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_ALWAYS);
+            glDepthMask(GL_TRUE);
+        } else if (std::getenv("OPENRAC_SLY_WORLD_NO_DEPTH") != nullptr) {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
         } else if (test.zte) {
@@ -1296,6 +1314,49 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         } else {
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
+        }
+        if (trace_depth_request_valid &&
+            mesh.request == trace_depth_request && depth_request_notices < 64u) {
+            GLint depth_function = 0;
+            GLfloat clear_depth = 0.0f;
+            GLfloat depth_range[2]{};
+            glGetIntegerv(static_cast<GLenum>(0x0B74u), &depth_function);
+            glGetFloatv(static_cast<GLenum>(0x0B73u), &clear_depth);
+            glGetFloatv(static_cast<GLenum>(0x0B70u), depth_range);
+            float min_ndc_z = 1.0e30f, max_ndc_z = -1.0e30f;
+            float min_window_z = 1.0e30f, max_window_z = -1.0e30f;
+            unsigned projected_depths = 0;
+            const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            for (std::size_t i = 0; i < vertex_count; ++i) {
+                const float* vertex = mesh.vertices.data() + i * 9u;
+                float clip_z = m[2] * vertex[0] + m[6] * vertex[1] +
+                               m[10] * vertex[2] + m[14];
+                float clip_w = m[3] * vertex[0] + m[7] * vertex[1] +
+                               m[11] * vertex[2] + m[15];
+                if (!std::isfinite(clip_z) || !std::isfinite(clip_w) ||
+                    clip_w <= 1.0e-6f)
+                    continue;
+                const float ndc_z = clip_z / clip_w;
+                const float window_z = depth_range[0] +
+                    (depth_range[1] - depth_range[0]) * (ndc_z * 0.5f + 0.5f);
+                if (!std::isfinite(ndc_z) || !std::isfinite(window_z)) continue;
+                ++projected_depths;
+                min_ndc_z = std::min(min_ndc_z, ndc_z);
+                max_ndc_z = std::max(max_ndc_z, ndc_z);
+                min_window_z = std::min(min_window_z, window_z);
+                max_window_z = std::max(max_window_z, window_z);
+            }
+            std::fprintf(stderr,
+                         "[native sly GL depth] request=%#010x instance=%#llx source=%#010x vertices=%zu projected=%u zte=%u ztst=%u gl_func=%#x clear=%g range=%g,%g ndc=%g..%g window=%g..%g\n",
+                         mesh.request,
+                         static_cast<unsigned long long>(mesh.instance),
+                         mesh.source_mesh, vertex_count, projected_depths,
+                         test.zte ? 1u : 0u,
+                         static_cast<unsigned>(test.ztst),
+                         static_cast<unsigned>(depth_function), clear_depth,
+                         depth_range[0], depth_range[1], min_ndc_z, max_ndc_z,
+                         min_window_z, max_window_z);
+            ++depth_request_notices;
         }
         auto draw_geometry = [&]() {
         if (debug_primitive == GL_POINTS) {
