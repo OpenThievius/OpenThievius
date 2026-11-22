@@ -8471,21 +8471,25 @@ driver remained at page 7; this is not a new gameplay visual result. Log:
 ### Native OpenGL depth occupancy check (2026-11-22)
 
 Added the opt-in `OPENRAC_DUMP_NATIVE_DEPTH_MASK=1` diagnostic to capture a
-binary PGM mask immediately after the native OpenGL world-mesh pass. It reads
-the default framebuffer's depth attachment, using the renderer's reversed-Z
-clear value of zero; white means a depth value greater than `1e-7` was written.
-An offscreen run reported 311,099 occupied pixels out of 691,200 (about 45%).
-This is consistent with substantial regions where no depth-writing surface
-was rasterized. It does not prove that those pixels should contain geometry:
-background may be intentional, and GS ZTE-disabled draws can contribute color
-without appearing in this mask. The paired run reached the mask capture but
-ended before producing a paired color frame, so no pixel-by-pixel color/depth
-claim is made. Artifact and log:
-`/home/reaper/sly/native-gl-gap-audit-20261122/paired/`.
+binary PGM mask immediately after the native OpenGL world-mesh pass. It also
+saves the color buffer at that exact point as a PPM, so a later stall in the
+present routine cannot separate the two captures. The mask reads the default
+framebuffer's depth attachment, using the renderer's reversed-Z clear value
+of zero; white means a depth value greater than `1e-7` was written.
 
-Keep this diagnostic and all follow-up investigation on the native OpenGL
-renderer. Do not redirect the scene through the PlayStation VU renderer.
-Next capture color and depth from the same stable gameplay present, then map
-selected unoccupied screen regions back to the native OpenGL mesh submissions
-and the intentional background passes. Do not alter scene submission, depth,
-or geometry based on the occupancy ratio alone.
+A bounded offscreen host32 run captured both from the same pass. The mask
+reports 309,860 occupied pixels out of 691,200 (about 44.8%). In the paired
+image, the central dark opening is the starry backdrop, and the mask confirms
+there is no depth-writing world surface in front of it in this view. This
+does not establish whether the opening is intentional or whether architecture
+should cover it. It also does not show color-only draws that have GS ZTE
+disabled. A native OpenGL coverage trace reports broad mesh bounds intersecting
+parts of this screen region, but bounds are not exact triangle coverage and
+cannot identify which draw should fill the opening.
+
+Keep this diagnosis on the native OpenGL renderer; the PlayStation VU renderer
+is not the target. Next attribute actual native OpenGL draw coverage in the
+opening, including depth-test results, before changing topology, scene
+submission, or transforms. Artifacts and trace:
+`/home/reaper/sly/native-gl-gap-audit-20261122/paired-final/` and
+`/home/reaper/sly/native-gl-gap-audit-20261122/coverage/`.

@@ -3154,6 +3154,34 @@ extern "C" void openrac_native_window_present(void) {
                                          "[native depth mask dump] path=%s occupied=%zu total=%zu clear_depth=0 threshold=1e-7\n",
                                          path, occupied_pixels,
                                          depth_pixels.size());
+
+                            // Capture color at this exact point too. The later
+                            // present-level dumper may not run if guest startup
+                            // stalls immediately after the native world pass.
+                            const auto color_pixels =
+                                openrac::renderer::read_rgba(0, width, height);
+                            char color_path[512];
+                            const int color_path_length = std::snprintf(
+                                color_path, sizeof(color_path),
+                                "%s/sly1-native-depth-color.ppm", directory);
+                            if (color_path_length > 0 &&
+                                static_cast<std::size_t>(color_path_length) <
+                                    sizeof(color_path)) {
+                                if (FILE* color_file =
+                                        std::fopen(color_path, "wb")) {
+                                    std::fprintf(color_file, "P6 %d %d 255\n",
+                                                 width, height);
+                                    for (std::size_t i = 0;
+                                         i + 3 < color_pixels.size(); i += 4) {
+                                        std::fwrite(color_pixels.data() + i, 1,
+                                                    3, color_file);
+                                    }
+                                    std::fclose(color_file);
+                                    std::fprintf(stderr,
+                                        "[native depth color dump] path=%s\n",
+                                        color_path);
+                                }
+                            }
                         }
                     } else {
                         std::fprintf(stderr,

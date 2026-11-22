@@ -15,13 +15,15 @@ rejected/occluded after submission. Capture and traces:
 `/home/reaper/sly/native-gl-facade-neighbors-20261122/`. Details are in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-native-facade-neighbor-submissions-2026-11-22).
 
-An opt-in native OpenGL depth mask captured 311,099/691,200 pixels with depth
-writes (about 45%) after the world pass. That suggests broad screen regions
-have no depth-writing surface, but the mask cannot distinguish intended
-background from missing geometry and excludes draws with ZTE disabled. The
-paired run did not yield a color frame, so capture color and depth at the same
-stable gameplay present before drawing conclusions. Keep this work on the
-native OpenGL renderer; the PlayStation VU renderer is not the target. See
+An opt-in native OpenGL diagnostic now captures color and depth at the same
+world pass. In the latest pair, 309,860/691,200 pixels (44.8%) wrote depth;
+the large central opening shows the starry backdrop with no depth-writing
+world surface in front of it. Whether that opening is intentional is not yet
+known, and broad mesh bounds crossing it do not prove a triangle fills it.
+ZTE-disabled color draws also do not appear in the mask. Attribute actual
+OpenGL draw coverage and depth-test results in that region before changing
+topology, scene submission or transforms. Keep this work on the native OpenGL
+renderer; the PlayStation VU renderer is not the target. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-depth-occupancy-check-2026-11-22).
 
 The earlier visible host32 baseline shows disconnected white facades over
