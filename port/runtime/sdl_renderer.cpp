@@ -1443,7 +1443,10 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             glBindTexture(GL_TEXTURE_2D, g_textures->gl_texture(texture));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
                             tex1.mmag ? GL_LINEAR : GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            const bool linear_min = tex1.mmin == 1u || tex1.mmin == 4u ||
+                                    tex1.mmin == 5u;
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                            linear_min ? GL_LINEAR : GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
                             clamp.wms == openrac::renderer::gs::Wrap::Clamp
                                 ? GL_CLAMP_TO_EDGE : GL_REPEAT);

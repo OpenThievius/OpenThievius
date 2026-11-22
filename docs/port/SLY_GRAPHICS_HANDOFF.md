@@ -1,6 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Honor GS texture minification in native OpenGL (2026-11-22)
+
+The native world renderer previously forced `GL_NEAREST` for every texture's
+minification filter. The facade material uses TEX1 `0x61`, whose MMIN field is
+1 (linear) and whose MXL is zero; it also requests linear magnification. The
+native OpenGL path now maps the linear MMIN modes (1, 4 and 5) to `GL_LINEAR`,
+matching the existing DirectRenderer's single-level filter choice. The host32
+SDL target rebuilt, and a bounded native OpenGL run reached the Paris scene
+and captured frames. The scene remains distorted; this corrects texture
+sampling only and does not explain its geometry or composition.
+
+Build settings were `OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
+`OPENRAC_NATIVE_VU_NDC_RENDERER=OFF`. Build warnings remain in staged retail
+units; linking completed successfully. Capture and run log:
+`/home/reaper/sly/native-linear-min-filter-20261122/`.
+
 ### Identify the native OpenGL facade source (2026-11-22)
 
 The white walls in the full native OpenGL scene are submitted from source mesh

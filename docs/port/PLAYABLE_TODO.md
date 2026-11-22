@@ -19,9 +19,12 @@ centroid close to the queued origin. The decompiled builder confirms that
 animation/material data, not primitive boundaries. Splitting on repeated
 references did not fix the scene. Do not change global UV wrapping, matrix
 convention, or primitive assembly from these observations. Next trace the
-native OpenGL facade draw state and neighboring submissions to find why
-otherwise valid facade draws compose into disconnected, overbright buildings.
-Details and captures:
+native facade's geometry placement and neighbor submissions to find why
+otherwise plausible draws compose into disconnected buildings. The native
+OpenGL renderer also now honors TEX1.MMIN for single-level texture filtering;
+the facade's TEX1 `0x61` requests linear minification, which the old path
+ignored. A fresh native OpenGL capture still has distorted geometry, so this
+sampling correction is not a playable milestone. Details and captures:
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#identify-the-native-opengl-facade-source-2026-11-22).
 
 Keep the graphics investigation on the **native OpenGL renderer**. Do not
