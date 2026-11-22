@@ -35,6 +35,14 @@ the facade packets omit PRIM. Keep the diagnostic opt-in until the source PRIM
 state is recovered. Capture and trace:
 `/home/reaper/sly/native-abe-blend-check-20261122/`.
 
+The decomp CPU builder confirms that PRIM is not expected in each
+`FrameSource`: `BuildStripMeshPacket` and `BuildLitStripMeshPacket` start
+separate unlit/lit VU batch programs, while `QueueMeshStrip` submits only the
+frame-strided strip data. Therefore the next native GL step is to associate
+the GS PRIM state emitted by the selected batch program with each mesh, or
+derive it from the mesh kind. Do not keep searching the frame-source packet
+for PRIM and do not change default blending until that state is known.
+
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
 starry ground; the flipped version puts the sky above the facades and roof

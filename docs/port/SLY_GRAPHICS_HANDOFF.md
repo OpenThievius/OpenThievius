@@ -8153,3 +8153,21 @@ major cause of façade darkening. It does not establish the retail ABE bit:
 facade packets omit PRIM, and the diagnostic treats absence as blend disabled.
 Keep it opt-in until the missing source PRIM state is recovered. Run output:
 `/home/reaper/sly/native-abe-blend-check-20261122/`.
+
+### Where strip PRIM state comes from (2026-11-22)
+
+Reading the current decomp's CPU packet builder explains why the captured
+`FrameSource` A+D packets do not contain PRIM. `BuildStripMeshPacket` chooses
+the unlit batch program from `StripMesh.kind` and calls
+`WriteStripMeshMscal`; `BuildLitStripMeshPacket` starts the lit batch program.
+Both paths separately queue each frame source as strip data. The source is
+`../sly1-decomp/src/main/placed_object_model.cpp` (unlit builder around line
+870, lit builder around 1079, MSCAL selector around 757) and
+`../sly1-decomp/src/main/texture_upload.cpp` (`QueueMeshStrip` around 296).
+
+So adding more parsing to `FrameSource` cannot recover ABE. The native GL
+adapter needs the primitive state emitted by the selected batch program, or a
+carefully derived per-kind native mapping. Keep geometry rendering on the
+native OpenGL path; this finding does not call for a PlayStation VU renderer.
+The next trace should associate GS PRIM writes with native model submissions,
+or derive that state by mesh kind before changing default blending.
