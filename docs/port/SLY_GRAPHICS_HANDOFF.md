@@ -24,6 +24,32 @@ draws dominating the full normalized native frame and compare their actual
 uploaded matrices and geometry. Keep the work in the native OpenGL path; the
 PlayStation VU renderer remains out of scope.
 
+### Native OpenGL outlier trace and matrix-mode comparison (2026-11-22)
+
+Added opt-in `OPENRAC_TRACE_SLY_GL_OUTLIERS=1` to the host renderer. It logs
+each non-render-target draw once when its actual uploaded matrix projects any
+positive-W vertex beyond twice the OpenGL clip volume, including request,
+source mesh, bounds, and uploaded matrix. It avoids the old 256-entry list cap
+without dumping every ordinary mesh. A fresh whole-scene capture found
+candidate outliers in requests `0x005e4700`, `0x005e4800`, `0x005e4880`,
+`0x005e5680`, `0x005e5700`, and `0x005e5780`. The largest bounds include
+source `0x00a29c40` / `0x00a2a168` on `0x005e4800` (NDC x up to 193 and y down
+to -54), and source `0x00a2a488` on `0x005e4880` (x up to 612, y up to 101).
+The complete run log and post-render frames are under
+`/tmp/sly-native-gl-outliers-20261122/`.
+
+These are candidates, not proof of visible corruption: some projected points
+may belong to triangles that are degenerate or clipped away. The default
+matrix mode 0 remains the most coherent of the four tested modes. Modes 1 and
+2 make large wedge-shaped projections, and mode 3 makes radial fans; none
+fixes the steady-frame pre-upload aggregate, which remains approximately
+`x=-57..82`, `y=-19..5`; the outlier trace reports coordinates after the
+actual OpenGL scaling. Keep mode 0 and inspect the ordered native input
+vertices and triangle coverage for the current `0x005e4800` / `0x005e4880`
+candidates before changing matrix or topology behavior. The four hidden runs
+and frames are under `/tmp/sly-native-mvp-mode-{0,1,2,3}-20261122/`. The trace
+is port-only and does not touch the decompilation or PlayStation VU renderer.
+
 ### Normalize the native OpenGL camera projection by default (2026-11-22)
 
 The retail camera projection is scaled for the PS2's 640x224 GS field: its
