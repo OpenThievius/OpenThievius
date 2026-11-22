@@ -20,6 +20,33 @@ the distorted geometry. Keep this probe diagnostic-only; it is not a renderer
 fix. Its log is `/tmp/sly-native-gameplay-latched-20261122/lights-corrected.log`.
 No matched game function or PlayStation VU renderer code changed.
 
+### Recheck the native projection against the presented frame (2026-11-22)
+
+Two fresh hidden runs of the configured US ELF and Documents ISO reached
+gameplay and confirmed 312 native OpenGL world draws. The default presented
+frame still shows detached building faces, a stretched floor, and a fragmented
+Sly. A post-render framebuffer capture is
+`/tmp/sly-native-opengl-present-audit-20261122/sly1-native-frame-63.ppm`.
+
+The outlier trace for static request `0x005e4980` reports an identity model
+matrix and world-space vertices around x=-4.6k..-3.7k, y=9.6k..10.5k. Before
+screen-to-clip conversion, the projection trace counted 73 of 85 vertices
+inside clip space. The actual uploaded matrix with the default conversion has
+zero of 83 positive-W vertices inside; that mismatch explains why the earlier
+pre-upload bounds were misleading. See
+`/tmp/sly-native-opengl-outlier-audit-20261122/run.log`.
+
+Repeating the run with `OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX=1` changes the view
+scale, but the floor still stretches toward the camera and level pieces remain
+detached. Its presented frame is
+`/tmp/sly-native-opengl-rawscreen-audit-20261122/sly1-native-frame-63.ppm`.
+This rules out either global screen-scale setting as a complete fix. The next
+step is to trace the retail camera/projection fields and coordinate space for
+the identity-model static draws, then validate the exact uploaded matrix
+against the reference view. Keep renderer changes in native OpenGL and do not
+implement the PlayStation VU renderer. Both captures ended at their planned
+18-second timeout (137); no launcher remained running.
+
 ### Recover the player silhouette in the native target (2026-11-22)
 
 The player target's framebuffer is complete and the native OpenGL coverage

@@ -50,6 +50,27 @@ fix. Next compare per-object transforms for the static building draws, then
 isolate the player's material and skin inputs; keep all graphics work in native
 OpenGL and do not implement a PlayStation VU renderer.
 
+### Native projection comparison (2026-11-22)
+
+Fresh hidden gameplay captures of the US ELF and configured Documents ISO
+confirm 312 OpenGL world draws reach the presenter. With the default
+screen-to-clip scaling, the frame still has detached building faces, a stretched
+floor, and a fragmented Sly. A trace of static request `0x005e4980` shows an
+identity model matrix and a large world-space vertex range; after the default
+screen conversion, all 83 positive-W vertices are outside clip space. The
+pre-conversion bounds had 73 vertices inside, so the existing pre-upload bounds
+trace was not measuring the matrix OpenGL actually received.
+
+I repeated the capture with `OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX=1`. This
+changes the framing but still stretches the floor and leaves the level pieces
+detached. Therefore neither global screen-scale choice is a fix. Next trace the
+retail camera/projection fields and per-draw coordinate spaces, comparing the
+matrix actually uploaded by OpenGL with the native reference view. Keep the
+default unchanged until that mapping is established. Default and raw captures,
+plus the full trace, are in `/tmp/sly-native-opengl-present-audit-20261122/`,
+`/tmp/sly-native-opengl-rawscreen-audit-20261122/`, and
+`/tmp/sly-native-opengl-outlier-audit-20261122/`.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)
