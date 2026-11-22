@@ -3103,6 +3103,65 @@ extern "C" void openrac_native_window_present(void) {
             // the textured world meshes drawn on top are not all rejected.
             openrac::gl::glClear(openrac::gl::GL_DEPTH_BUFFER_BIT);
             render_world_meshes(world_meshes);
+            static bool native_depth_mask_dumped = false;
+            if (!native_depth_mask_dumped &&
+                std::getenv("OPENRAC_DUMP_NATIVE_DEPTH_MASK") != nullptr) {
+                bool gameplay_only_ok = true;
+                if (std::getenv("OPENRAC_DUMP_GAMEPLAY_ONLY") != nullptr &&
+                    sly1_native_menu_page_and_state != nullptr) {
+                    static bool gameplay_seen = false;
+                    const unsigned int packed = sly1_native_menu_page_and_state();
+                    if (((packed >> 8u) & 0xFFu) == 3u) gameplay_seen = true;
+                    gameplay_only_ok = gameplay_seen;
+                }
+                if (gameplay_only_ok) {
+                    native_depth_mask_dumped = true;
+                    std::vector<float> depth_pixels(
+                        static_cast<std::size_t>(width) *
+                        static_cast<std::size_t>(height));
+                    openrac::gl::glBindFramebuffer(
+                        openrac::gl::GL_READ_FRAMEBUFFER, 0);
+                    openrac::gl::glReadPixels(
+                        0, 0, width, height, openrac::gl::GL_DEPTH_COMPONENT,
+                        openrac::gl::GL_FLOAT, depth_pixels.data());
+                    const auto error = openrac::gl::glGetError();
+                    const char* directory = std::getenv(
+                        "OPENRAC_DUMP_NATIVE_DEPTH_MASK_DIR");
+                    if (directory == nullptr || directory[0] == '\0')
+                        directory = "/tmp";
+                    char path[512];
+                    const int path_length = std::snprintf(
+                        path, sizeof(path), "%s/sly1-native-depth-mask.pgm",
+                        directory);
+                    if (error == openrac::gl::GL_NO_ERROR && path_length > 0 &&
+                        static_cast<std::size_t>(path_length) < sizeof(path)) {
+                        if (FILE* file = std::fopen(path, "wb")) {
+                            std::fprintf(file, "P5 %d %d 255\n", width, height);
+                            std::size_t occupied_pixels = 0;
+                            for (int y = height - 1; y >= 0; --y) {
+                                for (int x = 0; x < width; ++x) {
+                                    const float depth = depth_pixels[
+                                        static_cast<std::size_t>(y) * width + x];
+                                    const std::uint8_t occupied =
+                                        std::isfinite(depth) && depth > 1.0e-7f
+                                            ? 255u : 0u;
+                                    occupied_pixels += occupied != 0u ? 1u : 0u;
+                                    std::fwrite(&occupied, 1, 1, file);
+                                }
+                            }
+                            std::fclose(file);
+                            std::fprintf(stderr,
+                                         "[native depth mask dump] path=%s occupied=%zu total=%zu clear_depth=0 threshold=1e-7\n",
+                                         path, occupied_pixels,
+                                         depth_pixels.size());
+                        }
+                    } else {
+                        std::fprintf(stderr,
+                                     "[native depth mask dump] readback failed error=%#x size=%dx%d\n",
+                                     error, width, height);
+                    }
+                }
+            }
         }
         if (!world_packet.empty() && g_direct) {
             // The HUD pass leaves full-screen quads in the interpreter's vertex list;
