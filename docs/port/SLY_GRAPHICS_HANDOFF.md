@@ -47,6 +47,19 @@ against the reference view. Keep renderer changes in native OpenGL and do not
 implement the PlayStation VU renderer. Both captures ended at their planned
 18-second timeout (137); no launcher remained running.
 
+**Coverage follow-up:** an isolated native GL run of `0x005e4980` reports zero
+visible triangles for all four submitted strips. It is not drawing the
+fragments in the frame, so stop using it as the primary projection target. A
+full coverage ranking reports 322 submissions with visible triangles. The
+largest non-backdrop building surfaces are requests `0x005e5000`, `0x005e4c80`,
+and `0x005e4f00`. Request `0x005e5000` uses source `0x00a14110` with 16 vertices;
+14 triangles survive clipping with NDC area 0.784. Its uploaded transform and
+vertex bounds are in
+`/tmp/sly-native-opengl-building-matrix-20261122/run.log`; the full ranking and
+zero-coverage audit are in `/tmp/sly-native-opengl-visible-ranking-20261122/run.log`
+and `/tmp/sly-native-opengl-static-coverage-20261122/run.log`. Continue by
+checking those visible source strips and their per-draw coordinates.
+
 ### Recover the player silhouette in the native target (2026-11-22)
 
 The player target's framebuffer is complete and the native OpenGL coverage

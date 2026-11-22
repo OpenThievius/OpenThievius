@@ -71,6 +71,20 @@ plus the full trace, are in `/tmp/sly-native-opengl-present-audit-20261122/`,
 `/tmp/sly-native-opengl-rawscreen-audit-20261122/`, and
 `/tmp/sly-native-opengl-outlier-audit-20261122/`.
 
+Follow-up coverage changes the priority: request `0x005e4980` contributes zero
+clipped triangles across all four submitted strips, so it is not drawing the
+visible artifacts. The full native GL coverage trace found 322 submissions with
+visible triangles. The largest non-backdrop surfaces include requests
+`0x005e5000`, `0x005e4c80`, and `0x005e4f00`; they occupy the upper-center/right
+building region in the capture. Request `0x005e5000` uses source mesh
+`0x00a14110` (16 vertices, 14 visible triangles, NDC area 0.784) with a
+non-identity model matrix. Its per-request matrix and vertex bounds are in
+`/tmp/sly-native-opengl-building-matrix-20261122/run.log`; the visible-surface
+ranking is in `/tmp/sly-native-opengl-visible-ranking-20261122/run.log`; the
+zero-coverage check is in `/tmp/sly-native-opengl-static-coverage-20261122/run.log`.
+Next inspect these actually visible building draws and their matched source
+strips. Do not keep tuning the global projection based on `0x005e4980`.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)
