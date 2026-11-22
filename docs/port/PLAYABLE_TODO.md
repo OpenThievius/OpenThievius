@@ -1747,10 +1747,10 @@ captured with existing opt-in flags — no code change is needed to take that
 capture, but the resulting silhouette is clipped and unrecognizable, so no
 usable silhouette is available for comparison yet.
 
-**Next:** trace one representative visible model through its VU1 execution and
-GIF output to find where its triangle packet disappears. Do not add renderer
-features until that boundary is understood and a target silhouette can be
-compared with the reference. Keep all diagnostics opt-in and port-only.
+**Superseded next step:** keep the current graphics work in native OpenGL.
+The active task is to compare per-frame model collection with the published
+mesh snapshot and its rasterized output, as recorded in the 2026-11-22
+checkpoint below.
 
 ## Current checkpoint (2026-11-17, 17:16 CET)
 
@@ -1939,10 +1939,8 @@ logs: `/tmp/sly-target-direct-xyz-20261117/run.log`,
 `/tmp/sly-model-part-target-map-20261117/run.log`, and
 `/tmp/sly-model-part-item-map-20261117/run.log`.
 
-**Next:** trace the selected mesh's own VU output from its MSCAL calls and
-correlate that output with the packet captured by the optional native adapter.
-Keep each trace tied to the selected submission and command offsets; wide
-frame-chain matches include unrelated draws.
+**Superseded next step:** use the native OpenGL collection and snapshot trace
+from the 2026-11-22 checkpoint below; do not use a VU renderer for this work.
 
 ## Rebuilt default-client visual recheck (2026-11-17, 13:14 CET)
 
@@ -1994,12 +1992,38 @@ packet. This is one accepted kick in one selected chain, not proof that no
 other chain submits geometry. The native adapter still draws from source
 positions and is not a faithful rendering of retail VU output.
 
-**Next:** enumerate accepted kicks in the same selected chain and adjacent
-world submissions, decode GS register destinations, and locate the actual
-XYZ output packet. Then compare that packet with the native renderer input.
-Do not change the VU translator or enable the adapter by default until that
-boundary is established. Full trace limits and local captures are in
-`SLY_GRAPHICS_HANDOFF.md`.
+That isolated packet trace does not guide the current graphics work. The
+active investigation uses the port-owned native OpenGL mesh stream and its
+frame snapshots; it does not require a PlayStation VU renderer. Preserve the
+old trace only as historical evidence in `SLY_GRAPHICS_HANDOFF.md`.
+
+### Native OpenGL draw-list trace (2026-11-22)
+
+I added an opt-in `OPENRAC_TRACE_NATIVE_DRAW_DELTA=1` trace at the native
+OpenGL frame handoff. It counts submitted meshes by stable source-mesh address;
+request addresses are recycled each frame and are not useful identities. A
+12-second offscreen run reached the planned timeout (137) with no launcher
+left running. The submitted-mesh world address stayed `0x870cf0` as its
+snapshot fell from 315 to 165 at frame 122. The game's startup trace at that
+point changes its active world from `0x6abdd0` (`ui_state=5`) to `0x870cf0`
+(`ui_state=3`), so the sharp draw-list change coincides with leaving the save
+prompt, even though the mesh submissions already name the Paris world. Within
+the same submitted world the sampled count later moves from 165 to 162 and
+159, with zero instance replacements. The native present trace reports the
+same 159-mesh snapshot. This puts the changing draw list at or before the
+native OpenGL mesh snapshot, but it does not distinguish game visibility or
+culling from omissions in the port-owned collection path or GL-side rejection
+after publication.
+
+The first delta trace compared request/source pairs and produced false churn
+because request addresses are reused. It was corrected to compare per-source
+mesh counts, include the submitted world address, and reset the comparison
+only when that address changes. The replacement counter stayed at zero. Logs are in
+`/home/reaper/sly/native-quad4-check/draw-delta/`. Continue with native
+OpenGL: trace model collection inputs around the 315-to-165 change at the
+save-prompt transition, then compare a stable published mesh snapshot with its
+rasterized result. Do not switch to the PlayStation VU renderer. No matched
+decomp source changed.
 
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
@@ -2017,11 +2041,10 @@ game queues and projects the world mesh, but its source-position / triangle-stri
 approximation does not match retail VU output. The current frame remains
 unrecognizable.
 
-**Next:** capture the final VU1 output for one representative mesh, compare its
-vertex positions and order with the adapter input, and update the port-only
-adapter to match. Keep it OFF by default until the result shows a recognizable
-scene. Detailed evidence and the texture diagnostic are in
-`SLY_GRAPHICS_HANDOFF.md`.
+This earlier VU1 comparison proposal is superseded by the current native
+OpenGL draw-list trace above. Keep work on the port-owned native mesh inputs,
+per-frame collection, and GL state; do not use the PlayStation VU renderer as
+the port's graphics backend.
 
 ## Post-Continue trace update (2026-11-17, 12:32 CET)
 
@@ -2047,10 +2070,9 @@ distorted. The adapter uses base mesh positions and one approximate triangle
 strip, so it does not reproduce the retail VU output yet. The per-present
 texture check above supersedes the earlier placeholder count.
 
-**Next:** compare one mesh's source vertices with its retail VU1 output. Keep
-the adapter off by default until it produces a recognizable scene. See
-`SLY_GRAPHICS_HANDOFF.md` for captures and trace limits. No matched decomp
-source changed.
+**Superseded next step:** continue with native OpenGL model inputs and frame
+snapshots as described in the 2026-11-22 checkpoint above. Do not route this
+work through a PlayStation VU renderer.
 
 ## Fresh default-client audit (2026-11-17, 12:03 CET)
 
@@ -2145,9 +2167,8 @@ Captures and logs: `/tmp/sly-actual-postcontinue-20261117/`,
 checked at `8f7a85a3`; it had no uncommitted changes or newer fetched commits.
 No matched decomp source changed.
 
-Next: correlate one mesh's `StripHeader` source offsets with the resulting VU
-output and GS draw state. Keep the default renderer configuration unchanged
-until the port adapter matches those semantics.
+Superseded by the current native OpenGL collection and snapshot investigation
+in the 2026-11-22 checkpoint above; do not implement a PlayStation VU renderer.
 
 ### Previous checkpoint (2026-11-17, 11:22 CET)
 

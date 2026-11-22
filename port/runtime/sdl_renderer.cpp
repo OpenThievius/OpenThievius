@@ -3103,9 +3103,13 @@ extern "C" void openrac_native_window_present(void) {
 // snapshot instead of draining a half-built frame.
 extern "C" void openrac_native_window_frame_complete(void) {
     static std::uint64_t completed_frame_serial = 0;
+    static bool have_previous_draw_set = false;
+    static std::uint32_t previous_draw_world = 0;
+    static std::unordered_map<std::uint32_t, std::size_t> previous_draw_set;
     auto completed_packets = std::make_shared<std::vector<std::uint8_t>>();
     auto completed_meshes = std::make_shared<std::vector<NativeWorldMesh>>();
     std::size_t completed_replacements = 0;
+    std::uint32_t completed_world = 0;
     {
         std::scoped_lock lock(g_packets_mutex);
         completed_packets->swap(g_packets);
@@ -3115,6 +3119,64 @@ extern "C" void openrac_native_window_frame_complete(void) {
         completed_meshes->swap(g_world_meshes);
         completed_replacements = g_world_mesh_replacements;
         g_world_mesh_replacements = 0;
+        completed_world = g_world_mesh_world;
+    }
+    if (std::getenv("OPENRAC_TRACE_NATIVE_DRAW_DELTA") != nullptr) {
+        // Compare per-frame source mesh counts at the native OpenGL handoff.
+        // This distinguishes game-side draw-list changes from a presenter that
+        // accidentally drops meshes after publication. Request addresses are
+        // recycled by the game every frame, so they are not stable identities.
+        std::unordered_map<std::uint32_t, std::size_t> current_draw_set;
+        current_draw_set.reserve(completed_meshes->size());
+        for (const NativeWorldMesh& mesh : *completed_meshes) {
+            ++current_draw_set[mesh.source_mesh];
+        }
+        static unsigned delta_notices = 0;
+        if (have_previous_draw_set && completed_world == previous_draw_world &&
+            current_draw_set != previous_draw_set &&
+            delta_notices < 64u) {
+            std::fprintf(stderr,
+                         "[native draw delta] frame=%llu world=%#010x draws=%zu replaced=%zu prior_sources=%zu current_sources=%zu removed=",
+                         static_cast<unsigned long long>(completed_frame_serial + 1u),
+                         completed_world, completed_meshes->size(), completed_replacements,
+                         previous_draw_set.size(),
+                         current_draw_set.size());
+            unsigned shown = 0;
+            for (const auto& [source, count] : previous_draw_set) {
+                if (current_draw_set.contains(source)) continue;
+                std::fprintf(stderr, "%s%#010x(%zu)", shown == 0 ? "" : ",",
+                             source, count);
+                if (++shown == 6u) break;
+            }
+            std::fprintf(stderr, " added=");
+            shown = 0;
+            for (const auto& [source, count] : current_draw_set) {
+                if (previous_draw_set.contains(source)) continue;
+                std::fprintf(stderr, "%s%#010x(%zu)", shown == 0 ? "" : ",",
+                             source, count);
+                if (++shown == 6u) break;
+            }
+            std::fprintf(stderr, " changed=");
+            shown = 0;
+            for (const auto& [source, count] : current_draw_set) {
+                const auto prior = previous_draw_set.find(source);
+                if (prior == previous_draw_set.end() || prior->second == count) continue;
+                std::fprintf(stderr, "%s%#010x:%zu->%zu", shown == 0 ? "" : ",",
+                             source, prior->second, count);
+                if (++shown == 6u) break;
+            }
+            std::fputc('\n', stderr);
+            ++delta_notices;
+        } else if (!have_previous_draw_set || completed_world != previous_draw_world) {
+            std::fprintf(stderr,
+                         "[native draw set] frame=%llu world=%#010x draws=%zu replaced=%zu sources=%zu\n",
+                         static_cast<unsigned long long>(completed_frame_serial + 1u),
+                         completed_world, completed_meshes->size(), completed_replacements,
+                         current_draw_set.size());
+        }
+        previous_draw_set.swap(current_draw_set);
+        previous_draw_world = completed_world;
+        have_previous_draw_set = true;
     }
     {
         std::scoped_lock lock(g_render_frame_mutex);

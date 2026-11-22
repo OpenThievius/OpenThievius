@@ -7947,3 +7947,27 @@ path and continue with per-draw source coordinates, camera inputs, and material
 state. No PlayStation VU renderer changes were made. Logs:
 `/tmp/sly-native-prim-evidence-20261122/run.log` and
 `/tmp/sly-native-gl-source-audit-20261122/run.log`.
+
+## Native OpenGL draw-list delta (2026-11-22)
+
+The port-only `OPENRAC_TRACE_NATIVE_DRAW_DELTA=1` probe compares completed
+native OpenGL mesh snapshots by stable source-mesh address and count. Request
+addresses recycle each frame, so an initial request/source-pair comparison
+was discarded as misleading churn. In a bounded 12-second offscreen run, the
+submitted-mesh world address stayed `0x870cf0` as its snapshot fell from 315
+to 165 at frame 122, then to 162 and 159. The startup trace at frame 122
+changes the active game world from `0x6abdd0` (`ui_state=5`) to `0x870cf0`
+(`ui_state=3`), so the large draw-list change coincides with leaving the save
+prompt although the mesh submissions already name Paris. Instance
+replacements remained zero. Later native-present records also report 159
+draws. This locates the changing draw list at or before the native OpenGL
+mesh snapshot, but does not distinguish game visibility/culling from
+port-side collection gaps or GL-side rejection. The current graphics work
+remains on the native OpenGL path; no VU renderer was added or enabled. Logs:
+`/home/reaper/sly/native-quad4-check/draw-delta/run-world-aware.log`.
+
+The trace now logs the submitted world address, resets its comparison when
+that address changes, and reports the per-frame instance replacement count.
+Next trace model collection around the 315-to-165 change at the save-prompt
+transition. Then compare a stable native OpenGL snapshot with its rasterized
+result before changing primitive, depth, or transform behavior.
