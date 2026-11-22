@@ -1,6 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native level rendering after the transform backfill (2026-11-22)
+
+Stay on the native OpenGL renderer. A bounded hidden run with the existing
+process-local save-prompt selection reached world `0x870cf0` / UI state 3 and
+advanced beyond 490 game frames. It no longer stops at missing function
+`func_00158630` (`ComputeChainedWorldFrame`): the native port now supplies a
+separate C transform-chain backfill at
+`port/game/sly1-us/native/func_00158630.cpp`. This is not a VU renderer change
+or a change to sly1-decomp. Replace the backfill if/when the decomp provides a
+C implementation.
+
+The native capture now contains visible sky, water, building and rooftop
+geometry. The buildings are still detached and badly composed, with missing
+surface detail; this is not yet a playable scene. Next trace the inputs to the
+native OpenGL draw path and correct object placement/scene assembly while
+preserving the renderer choice. Build log:
+`/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`.
+Captured frame:
+`/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/frame-01.png`.
+
 ### Correct the native OpenGL screen Y origin (2026-11-22)
 
 The host renderer converts the retail 640x224 GS screen field into OpenGL
