@@ -8578,25 +8578,35 @@ against a matching reference view. Captures and traces are under
 
 The flat draw-ID pass disables blending, so it cannot say which submissions
 change the ordinary scene color. Added the port-only controls
-`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h` and
-`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_FRAME=n`. The ROI uses top-left screen
-coordinates; the selected frame is a native world-present sample, with zero
-as the default. Immediately before and after each geometry draw, the
-diagnostic reads that region and counts RGB pixels whose values changed. It
-does not change the shader, alpha test, blend state, or depth state, and it
-does not run for render-target passes. It is deliberately slow and limited to
-65,536 pixels and 2,048 draw records.
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h`,
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_FRAME=n`, and
+`OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_SOURCE=<address>`. The ROI uses top-left
+screen coordinates. Immediately before and after each geometry draw, the
+diagnostic reads that region and counts RGB pixels whose values changed; it
+also reports the bounding box of those pixels. It does not change the shader,
+alpha test, blend state, or depth state, and it does not run for render-target
+passes. It is deliberately slow and limited to 65,536 pixels and 2,048 draw
+records. A source filter without a frame number waits for the first native
+present whose mesh snapshot contains that source, then traces its draws in
+that one present. This avoids relying on a fragile frame index.
 
-A hidden run selected sample 600 and ROI `300,430,300,180` at 960x720. It
-reached gameplay (`ui_state=3`). Sources `0x00a14070`, `0x00a14098`, and
-`0x00a14110` changed up to 16,745 pixels per draw in this region; other
-submissions from those same broad sources changed none. The opening
-background draw changed all 54,000 pixels. Since each result is measured
-against the prior draw, counts overlap and are not a per-pixel final-owner
-map. This proves the building submissions reach and affect the normal native
-OpenGL framebuffer, but not that their triangles cover the correct areas.
-Next add per-draw changed-pixel bounds or masks and isolate the actual gap.
-The renderer build succeeded with `cmake --build
+In the 960x720 ROI `300,430,300,180`, a source-filtered pass for
+`0x00a14070` found spatially separate contributions. The largest observed
+patch was 9,563 changed pixels with bounds `443,430..599,589`; other parts
+contributed at `442,566..599,609`, `423,486..558,503`, `484,430..564,451`,
+and smaller regions. A separate first-source-match capture for `0x00a14110`
+changed only one pixel, at `373,436`. `0x00a14070` is the better next target
+for checking placed geometry against a known gap. These runs were not
+frame-matched. Bounds are per draw, not a final visibility mask: counts may
+overlap and later draws may overwrite them. An earlier fixed-frame trace also
+showed that the same frame index can contain only initial background draws,
+so use the source trigger for follow-up. Captures are under
+`/home/reaper/sly/native-gl-pixel-bounds-20261122/` and
+`/home/reaper/sly/native-gl-pixel-contribution-20261122/`.
+
+The host32 target built successfully with `cmake --build
 build/port/wave55-sdl32-world32-20261121 --target port_native_sdl_host32
--j2`; run log is
-`/home/reaper/sly/native-gl-pixel-contribution-20261122/run.log`.
+-j2`. The follow-up source-filtered run reached gameplay (`ui_state=3`) and
+reported normal alpha/blend/depth tracing; logs are `source-a14070.log` and
+`run.log` in the pixel-bounds directory. No native renderer default or
+decompilation function changed.

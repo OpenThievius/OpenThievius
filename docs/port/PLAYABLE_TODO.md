@@ -5,18 +5,18 @@
 
 **Native OpenGL gap trace:** the opt-in
 `OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h` probe compares the real
-framebuffer immediately before and after each world draw in one selected
-native-present frame. It keeps the normal shader, alpha test, blend and depth
-state. A hidden gameplay run over top-left ROI `300,430,300,180` found
-pixel-changing draws from building sources `0x00a14070`, `0x00a14098`, and
-`0x00a14110`; many later/earlier submissions in that region changed no RGB
-pixels. The first background draw changed all 54,000 ROI pixels. These are
-per-draw changes, so counts overlap across draws and do not identify a final
-visible owner or prove expected coverage. This confirms the building meshes
-reach the native OpenGL framebuffer but does not explain the remaining gaps.
-Next add spatial bounds or masks for changed pixels and narrow the ROI to a
-specific visible gap. Probe source and run log:
-`/home/reaper/sly/native-gl-pixel-contribution-20261122/`.
+framebuffer immediately before and after each world draw. It keeps the normal
+shader, alpha test, blend and depth state and reports the top-left bounds of
+changed pixels. `OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_SOURCE=<address>` selects
+the first native-present frame containing that mesh source, avoiding a
+frame-number guess. In ROI `300,430,300,180`, source `0x00a14070` changed
+pixels in separate regions, including a 9,563-pixel patch at
+`443,430..599,589`. In a separate run, source `0x00a14110` changed one pixel
+at `373,436`. This makes `0x00a14070` the stronger candidate to inspect next.
+Draw counts overlap, later draws may overwrite them, and separate captures
+are not frame-matched; these bounds do not establish the final visible owner
+or expected retail coverage. Probe logs:
+`/home/reaper/sly/native-gl-pixel-bounds-20261122/`.
 
 **Latest native OpenGL investigation:** a fresh hidden host32 run reached
 Paris gameplay with the native world renderer enabled and VU NDC renderer

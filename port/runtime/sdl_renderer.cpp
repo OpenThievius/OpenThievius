@@ -687,6 +687,9 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     bool trace_pixel_changes = false;
     int trace_pixel_roi[4]{};
     unsigned trace_pixel_frame = 0;
+    bool trace_pixel_frame_valid = false;
+    bool trace_pixel_source_filter_valid = false;
+    std::uint32_t trace_pixel_source_filter = 0;
     if (!target_pass) {
         if (const char* setting = std::getenv(
                 "OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES")) {
@@ -705,8 +708,19 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 "OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_FRAME")) {
             char* end = nullptr;
             const unsigned long parsed = std::strtoul(setting, &end, 10);
-            if (end != setting && *end == '\0' && parsed <= 100000u)
+            if (end != setting && *end == '\0' && parsed <= 100000u) {
                 trace_pixel_frame = static_cast<unsigned>(parsed);
+                trace_pixel_frame_valid = true;
+            }
+        }
+        if (const char* setting = std::getenv(
+                "OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES_SOURCE")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul) {
+                trace_pixel_source_filter = static_cast<std::uint32_t>(parsed);
+                trace_pixel_source_filter_valid = true;
+            }
         }
     }
     unsigned scene_present_mesh_start = 0;
@@ -732,9 +746,20 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         if (end != setting && *end == '\0' && parsed <= 100000u)
             gl_coverage_start = static_cast<unsigned>(parsed);
     }
+    static bool trace_pixel_source_frame_consumed = false;
+    const bool trace_pixel_source_frame_hit = trace_pixel_changes &&
+        trace_pixel_source_filter_valid && !trace_pixel_frame_valid &&
+        !trace_pixel_source_frame_consumed &&
+        std::any_of(meshes.begin(), meshes.end(), [&](const NativeWorldMesh& mesh) {
+            return !mesh.render_target &&
+                   mesh.source_mesh == trace_pixel_source_filter;
+        });
+    if (trace_pixel_source_frame_hit) trace_pixel_source_frame_consumed = true;
     int trace_pixel_viewport[4]{};
     bool trace_pixel_frame_active = trace_pixel_changes &&
-        scene_present_mesh_sample == trace_pixel_frame;
+        (trace_pixel_source_frame_hit ||
+         ((trace_pixel_frame_valid || !trace_pixel_source_filter_valid) &&
+          scene_present_mesh_sample == trace_pixel_frame));
     if (trace_pixel_frame_active) {
         glGetIntegerv(GL_VIEWPORT, trace_pixel_viewport);
         const bool inside_viewport = trace_pixel_roi[0] + trace_pixel_roi[2] <=
@@ -749,12 +774,21 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                          trace_pixel_viewport[3]);
             trace_pixel_frame_active = false;
         } else {
-            std::fprintf(stderr,
-                         "[native sly GL pixel changes] frame=%u roi_top_left=%d,%d,%d,%d viewport=%d,%d,%d,%d normal_blend_alpha_depth=1\n",
-                         trace_pixel_frame, trace_pixel_roi[0], trace_pixel_roi[1],
-                         trace_pixel_roi[2], trace_pixel_roi[3],
-                         trace_pixel_viewport[0], trace_pixel_viewport[1],
-                         trace_pixel_viewport[2], trace_pixel_viewport[3]);
+            static bool pixel_trace_header_logged = false;
+            if (!pixel_trace_header_logged) {
+                pixel_trace_header_logged = true;
+                std::fprintf(stderr,
+                             "[native sly GL pixel changes] frame=%u trigger=%s source=%s%#010x roi_top_left=%d,%d,%d,%d viewport=%d,%d,%d,%d normal_blend_alpha_depth=1\n",
+                             scene_present_mesh_sample,
+                             trace_pixel_source_frame_hit ? "first-source-match" :
+                                 (trace_pixel_frame_valid ? "frame" : "first-frame"),
+                             trace_pixel_source_filter_valid ? "" : "all/",
+                             trace_pixel_source_filter,
+                             trace_pixel_roi[0], trace_pixel_roi[1],
+                             trace_pixel_roi[2], trace_pixel_roi[3],
+                             trace_pixel_viewport[0], trace_pixel_viewport[1],
+                             trace_pixel_viewport[2], trace_pixel_viewport[3]);
+            }
         }
     }
     unsigned projected_meshes = 0;
@@ -1682,10 +1716,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         }
         auto draw_geometry = [&]() {
         std::vector<std::uint8_t> pixels_before;
+        const bool trace_this_draw = trace_pixel_frame_active &&
+            (!trace_pixel_source_filter_valid ||
+             mesh.source_mesh == trace_pixel_source_filter);
         const int pixel_x = trace_pixel_viewport[0] + trace_pixel_roi[0];
         const int pixel_y = trace_pixel_viewport[1] + trace_pixel_viewport[3] -
                             trace_pixel_roi[1] - trace_pixel_roi[3];
-        if (trace_pixel_frame_active) {
+        if (trace_this_draw) {
             pixels_before.resize(static_cast<std::size_t>(trace_pixel_roi[2]) *
                                  trace_pixel_roi[3] * 4u);
             glReadPixels(pixel_x, pixel_y, trace_pixel_roi[2], trace_pixel_roi[3],
@@ -1832,27 +1869,51 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                          GL_RGBA, GL_UNSIGNED_BYTE, pixels_after.data());
             std::size_t changed_pixels = 0;
             std::uint64_t rgb_delta = 0;
-            for (std::size_t i = 0; i < pixels_before.size(); i += 4u) {
-                unsigned pixel_delta = 0;
-                for (std::size_t channel = 0; channel < 3u; ++channel) {
-                    pixel_delta += static_cast<unsigned>(std::abs(
-                        static_cast<int>(pixels_after[i + channel]) -
-                        static_cast<int>(pixels_before[i + channel])));
-                }
-                if (pixel_delta != 0u) {
-                    ++changed_pixels;
-                    rgb_delta += pixel_delta;
+            int changed_min_x = trace_pixel_roi[2];
+            int changed_min_y = trace_pixel_roi[1] + trace_pixel_roi[3];
+            int changed_max_x = -1;
+            int changed_max_y = -1;
+            for (int row = 0; row < trace_pixel_roi[3]; ++row) {
+                for (int column = 0; column < trace_pixel_roi[2]; ++column) {
+                    const std::size_t i =
+                        (static_cast<std::size_t>(row) * trace_pixel_roi[2] +
+                         column) * 4u;
+                    unsigned pixel_delta = 0;
+                    for (std::size_t channel = 0; channel < 3u; ++channel) {
+                        pixel_delta += static_cast<unsigned>(std::abs(
+                            static_cast<int>(pixels_after[i + channel]) -
+                            static_cast<int>(pixels_before[i + channel])));
+                    }
+                    if (pixel_delta != 0u) {
+                        ++changed_pixels;
+                        rgb_delta += pixel_delta;
+                        const int screen_y = trace_pixel_roi[1] +
+                            trace_pixel_roi[3] - 1 - row;
+                        changed_min_x = std::min(changed_min_x, column);
+                        changed_min_y = std::min(changed_min_y, screen_y);
+                        changed_max_x = std::max(changed_max_x, column);
+                        changed_max_y = std::max(changed_max_y, screen_y);
+                    }
                 }
             }
             static unsigned pixel_change_notices = 0;
-            if (pixel_change_notices++ < 2048u)
+            if (pixel_change_notices++ < 2048u) {
+                char changed_bbox[64];
+                if (changed_pixels == 0u) {
+                    std::snprintf(changed_bbox, sizeof(changed_bbox), "none");
+                } else {
+                    std::snprintf(changed_bbox, sizeof(changed_bbox), "%d,%d..%d,%d",
+                                  changed_min_x + trace_pixel_roi[0], changed_min_y,
+                                  changed_max_x + trace_pixel_roi[0], changed_max_y);
+                }
                 std::fprintf(stderr,
-                             "[native sly GL pixel contribution] draw=%u request=%#010x instance=%#llx source=%#010x owner=%#010x part=%#010x changed=%zu rgb_delta=%llu\n",
+                             "[native sly GL pixel contribution] draw=%u request=%#010x instance=%#llx source=%#010x owner=%#010x part=%#010x changed=%zu bbox_top_left=%s rgb_delta=%llu\n",
                              pixel_change_notices - 1u, mesh.request,
                              static_cast<unsigned long long>(mesh.instance),
                              mesh.source_mesh, mesh.owner, mesh.part,
-                             changed_pixels,
+                             changed_pixels, changed_bbox,
                              static_cast<unsigned long long>(rgb_delta));
+            }
         }
         };
         const auto alpha_fail = test.afail;
