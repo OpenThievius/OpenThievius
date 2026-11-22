@@ -8610,3 +8610,28 @@ build/port/wave55-sdl32-world32-20261121 --target port_native_sdl_host32
 reported normal alpha/blend/depth tracing; logs are `source-a14070.log` and
 `run.log` in the pixel-bounds directory. No native renderer default or
 decompilation function changed.
+
+### Renderer focus correction: central roof artifact (2026-11-22)
+
+Keep the next graphics work on the native OpenGL renderer. The PlayStation VU
+renderer is not the target for the port's graphics output. Older notes above
+prioritized source `0x00a14070` because it made large pixel contributions in a
+lower-screen ROI. That evidence remains valid for that ROI, but it does not
+make that source the best lead for the large central roof-shaped artifact.
+
+Later captures localize the roof artifact to a placed part whose submitted
+draws include source `0x00a13328` and neighboring meshes. In a normal native
+OpenGL transform trace, one 85-vertex instance of `0x00a13328` projected to
+NDC x `-2.58041..-0.757557`; other instances of the same source reached as far
+as x `8.62011`. Those are observations, not yet proof of a bad source mesh or
+transform: the instances differ, and the neighboring draws may account for
+most visible pixels. The isolated-source screenshot is likewise not a normal
+scene ownership test.
+
+Next capture normal-state per-draw pixel changes over the roof region, using
+source-triggered traces for `0x00a13328` and nearby source IDs, then correlate
+those results with uploaded bounds and transforms from the same scene. Keep
+all renderer corrections in the port layer and compare against the normal
+OpenGL frame. Do not route output through the PS2 VU renderer or modify
+decomp-matched functions based on these diagnostics. Updated action list:
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md#current-priority-native-opengl-roof-distortion).

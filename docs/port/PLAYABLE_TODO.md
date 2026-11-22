@@ -12,7 +12,9 @@ the first native-present frame containing that mesh source, avoiding a
 frame-number guess. In ROI `300,430,300,180`, source `0x00a14070` changed
 pixels in separate regions, including a 9,563-pixel patch at
 `443,430..599,589`. In a separate run, source `0x00a14110` changed one pixel
-at `373,436`. This makes `0x00a14070` the stronger candidate to inspect next.
+at `373,436`. This initially made `0x00a14070` look like the stronger
+candidate, but newer evidence redirects the investigation to the large
+roof-shaped artifact described below.
 Draw counts overlap, later draws may overwrite them, and separate captures
 are not frame-matched; these bounds do not establish the final visible owner
 or expected retail coverage. Probe logs:
@@ -73,6 +75,25 @@ some edges. These captures do not establish whether the backdrop-only region
 should contain a building, and draw-ID colors bypass blending, so they do not
 prove the normal color pass visibly contributes there. Draw-ID captures and
 maps are under `/home/reaper/sly/native-gl-gap-audit-20261122/`.
+
+**Current priority: native OpenGL roof distortion.** Keep the PlayStation VU
+renderer out of this work; the goal is to make existing native OpenGL
+submissions produce a coherent scene. Follow-up captures localize the large
+central roof-shaped artifact to placed-part draws including source
+`0x00a13328` and neighboring meshes. Its normal uploaded transform sends many
+vertices outside clip space (one observed instance spans NDC x
+`-2.58..-0.76`), while other instances of the same source span far beyond the
+right edge. The isolated source capture helps diagnose its shape but does not
+establish which neighboring draw dominates the normal scene. The
+`0x00a14070` contribution trace remains valid, but it is not the best current
+lead for the central roof artifact. Next, run the normal-state pixel
+contribution trace over the roof region, source-triggered separately for
+`0x00a13328` and neighboring source IDs, then compare each draw's uploaded
+bounds and transform within the same normal scene. Do not “fix” this by
+switching renderers or changing decomp-matched functions; native renderer
+adaptation belongs in the port-only layer. Existing captures are under
+`/home/reaper/sly/native-gl-roof-mesh-20261122/` and
+`/home/reaper/sly/native-gl-pixel-bounds-20261122/`.
 
 The earlier visible host32 baseline shows disconnected white facades over
 dark ground. Mesh traces now filter by owner, part and source before applying
