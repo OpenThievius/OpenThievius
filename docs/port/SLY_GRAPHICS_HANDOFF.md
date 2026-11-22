@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+> Dated entries below are a chronological evidence log. They may preserve
+> superseded hypotheses and next steps; use the latest checkpoint at the top
+> for current status.
+
 ### Trace native facade neighbor submissions (2026-11-22)
 
 A hidden host32 run reached Paris gameplay with

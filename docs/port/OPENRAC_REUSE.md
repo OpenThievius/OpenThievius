@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # What we can reuse from OpenRAC
 
+> **Status note (2026-11-22):** This page records architecture decisions and
+> dated implementation history, not a live progress log. The current build
+> reaches Paris gameplay state and displays incomplete, distorted level
+> geometry through native OpenGL. It is not playable. See the
+> [playable TODO](PLAYABLE_TODO.md) and [graphics handoff](SLY_GRAPHICS_HANDOFF.md)
+> for current evidence. The PlayStation VU renderer is not the target.
+
 OpenRAC is a useful precedent for the port architecture and workflow. It is
 not a Sly renderer or a source of Sly game research. This note records which
 parts transfer and what must be independently established for Sly 1.
@@ -172,10 +179,11 @@ still need independent research.
 The earlier `port/runtime/` path started as an imported OpenRAC guest-memory
 and host-call foundation, then accumulated an Sly execution engine that
 translates retail MIPS assembly and models parts of EE, IOP, SIF, DMA, VIF1,
-VU1 and GS behavior. It has reached a black window and partial color-only
-geometry. Keep it as a bounded research harness; do not extend its
-instruction/device models as gameplay features. The separate C-only host path
-now reaches a port-backfilled frame loop, but still has no visible scene.
+VU1 and GS behavior. Its older outputs included a black window and partial
+color-only geometry. Keep it as a bounded research harness; do not extend its
+instruction/device models as gameplay features. The newer host32 native
+OpenGL path reaches Paris gameplay state and displays distorted, incomplete
+level geometry, as summarized in the status note above.
 
 The target remains host-native game logic plus native services and
 Sly-specific renderers, following OpenRAC. A playable path must call compiled

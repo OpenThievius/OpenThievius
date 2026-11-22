@@ -1,54 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Native port roadmap
 
-## Current checkpoint (2026-11-21)
+## Current checkpoint (2026-11-22)
 
-The port now has its first verified game graphics: the opening pre-rendered
-intro plays through the native window after a process-local Cross dismisses
-the no-card prompt. The retail call identifies the clip as resource `0x344`
-at LSN `0xc8f03`, length `0xab4004`. An opt-in Linux diagnostic uses installed
-FFmpeg tools to decode and present it; this is not a shipping media backend
-and does not count as live 3D rendering. Normal startup still needs the
-correct save/title flow. See the [playable TODO](PLAYABLE_TODO.md#verified-first-native-graphics-retail-opening-pss)
-for the capture and limits.
+With process-local menu input, the host32 build reaches Paris gameplay state
+and advances game frames. The native OpenGL path receives level meshes and
+textures and displays sky, water, buildings and roofs. The scene is distorted
+and incomplete; Sly is not confirmed visible or controllable, so the port is
+not playable. This milestone is level-state access and partial native scene
+output, not a playable game.
 
-The live-scene blocker is the native host renderer. In the normal startup
-path, the ordinary game output is black. The optional host OpenGL mesh path
-can receive hundreds of Paris meshes and real textures, but its image is
-stretched and incomplete. A separate hidden check found the Splash root node
-(`0x00864380`, class 81, id 513) has no children or model parts and is marked
-hidden, so that node is not a source of startup geometry. The test-level
-shortcut can reach Paris, where the current OpenGL bridge intercepts
-`DrawModelPart` inputs. See the
-[playable TODO](PLAYABLE_TODO.md#native-world-mesh-renderer-checkpoint-2026-11-21)
-and [graphics handoff](SLY_GRAPHICS_HANDOFF.md) for the captured evidence.
+The immediate blocker is native scene composition. Same-frame traces show
+some draws extending outside clip space, while visible gaps remain unattributed
+to missing submissions, culling, occlusion or malformed geometry. Current
+captures do not justify changing default projection or culling. Investigate
+those gaps at the native OpenGL draw boundary and validate against a stable
+reference. Do not route world rendering through the PlayStation VU renderer.
+Keep any functional replacement in the port-only area, separate from matched
+decompilation.
 
-A fresh hidden host32 capture confirms the native OpenGL pass receives 282
-unique meshes and 71 uploaded textures at the steady test-level scene. It
-projects 11,504 vertices, with 11,419 within clip bounds, yet the saved image
-still contains only broad gray areas and disconnected purple surfaces. The
-menu-driven path also reaches the opening world, but remains at `ui_state=3`
-with movie playback disabled. Thus neither the OpenGL scene nor normal startup
-is verified as playable; the exact captures and limits are recorded in the
-[current graphics checkpoint](PLAYABLE_TODO.md#native-opengl-gameplay-capture-recheck-2026-11-21).
+The decomp is recorded at `6d12fbc8` (2026-11-21), with all 4,807 US functions
+matched and 100% code coverage; 311 functions remain original assembly and
+data coverage is 99.97%. This is not a measure of native port readiness. For
+current evidence and bounded next steps, see the [playable TODO](PLAYABLE_TODO.md),
+[restart checkpoint](RESTART_CHECKPOINT.md), and [graphics handoff](SLY_GRAPHICS_HANDOFF.md).
 
-A newer forced-level capture narrows the black-frame cause: the port was
-skipping native meshes whose texture lookup missed. That run had 39 material
-keys, 3 resolved uploads, and 36 misses. The host OpenGL renderer now keeps
-those meshes visible with an explicit flat-color fallback, and the hidden
-capture shows the horizon, ground, and distant surfaces; the small central
-object is too tiny to identify. The scene is still distorted and untextured,
-so this is not a playable graphics milestone.
-See the [latest visibility pass](PLAYABLE_TODO.md#native-opengl-visibility-pass-2026-11-21).
+The dated sections below are investigation history. Their descriptions of the
+current blocker and next task may have been superseded; use the checkpoint at
+the top of this page and the latest checkpoint in each linked document.
 
-**Next:** fix the Sly-specific native host-renderer path at the confirmed
-model-draw boundary: establish correct geometry, deformation, transforms and
-materials from game-side inputs, then validate a recognizable object in
-OpenGL. Keep this work and any functional backfills under `port/`, separate
-from matched decompilation source. Retail VU/GIF output may be consulted only
-as evidence about the data the host renderer needs; implementing or emulating
-the PlayStation VU renderer is out of scope. Keep the diagnostic movie path
-and later shipping media backend separate from live 3D rendering.
 ## Reset review (2026-11-16)
 
 The project has spent too long improving diagnostics around an unvalidated

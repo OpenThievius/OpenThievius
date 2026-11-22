@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 port restart checkpoint
 
+> Dated entries below are a chronological evidence log. They may preserve
+> superseded hypotheses and next steps; use the latest checkpoint at the top
+> for current status.
+
 ## Current checkpoint (2026-11-22, native level rendering)
 
 Keep rendering on the native OpenGL path. The latest decomp checkout is

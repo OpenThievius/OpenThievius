@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 disc assets
 
+> **Status note (2026-11-22):** This page includes dated discovery notes. They
+> describe asset research history, not the current renderer blocker. The
+> current host32 build reaches Paris gameplay state and native OpenGL receives
+> level meshes and textures, but the scene is distorted and incomplete. See
+> [the playable TODO](PLAYABLE_TODO.md) for current status. The VU renderer is
+> not the target.
+
 Sly's ISO filesystem contains boot files and IOP modules. Most game media is
 stored in raw sectors after the filesystem. The NTSC-U executable contains a
 46-entry catalog of named sector ranges, now extracted by the port tool below;

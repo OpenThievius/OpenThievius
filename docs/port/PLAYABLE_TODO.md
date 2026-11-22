@@ -3,6 +3,9 @@
 
 ## Current checkpoint (2026-11-22)
 
+> Dated entries below preserve investigation history and may contain
+> superseded conclusions. Use the current checkpoint at the top for status.
+
 **Native OpenGL gap trace:** the opt-in
 `OPENRAC_TRACE_SLY_GL_PIXEL_CHANGES=x,y,w,h` probe compares the real
 framebuffer immediately before and after each world draw. It keeps the normal

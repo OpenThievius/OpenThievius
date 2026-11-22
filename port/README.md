@@ -44,31 +44,30 @@ path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
 Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 `game/sly1-us/native/`, outside `sly1-decomp`.
 
-## Current native status (2026-11-17)
+## Current native status (2026-11-22)
 
-The clean sibling `sly1-decomp` checkout and `origin/master` are both at
-`8f7a85a3` (4,807/4,807 US functions matched; 99.97% of data matched). The
-native build uses a separate staged source tree and links with port-only
-backfills. The code-match percentage is not a measure of native host
-readiness: VU microcode remains assembly and some translated call paths still
-need port replacements.
+The sibling `sly1-decomp` checkout was recorded at `6d12fbc8` (2026-11-21):
+4,807/4,807 US functions and 100% of code matched; 99.97% of data matched.
+That coverage is not native-host readiness. The match includes 311 original
+assembly functions, and the host build needs port-only replacements and native
+services.
 
-The default native host32 build was rebuilt and rechecked at 13:14 CET on
-2026-11-17. Eight delayed offscreen samples show the complete no-card warning
-and animated Continue; a process-local Cross press at frame 300 is followed by
-a black frame. This reproduces the known post-Continue failure, not a startup
-prompt regression. The offscreen captures cannot confirm desktop-window
-flicker. No title or controllable level is confirmed.
-The opt-in kind-6 renderer remains disabled in the default build and its
-uniform-gray result is not progress. The next milestone is recognizable
-loaded-world geometry, based on evidence about object role, bounds, draw order
-and material. Avoid unrelated startup/backfill work unless a current run
-shows it blocks this milestone. See the
-[clean reset review](../docs/port/PLAYABLE_TODO.md#clean-reset-review-2026-11-15),
-the [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and
-the [roadmap](../docs/port/ROADMAP.md).
-[`SLY_GRAPHICS_HANDOFF.md`](../docs/port/SLY_GRAPHICS_HANDOFF.md) and
-[`RESTART_CHECKPOINT.md`](../docs/port/RESTART_CHECKPOINT.md).
+With process-local menu input, the host32 build reaches Paris gameplay state
+and advances game frames. Native OpenGL receives level meshes and textures
+and displays sky, water, buildings and roofs, but the scene is distorted and
+incomplete. Sly is not confirmed visible or controllable; this is not playable.
+The current graphics blocker is scene composition: latest same-frame traces
+find native draws extending outside clip space and visible gaps whose missing
+or rejected submissions are not yet identified. Existing captures do not
+justify a default projection or culling change. Keep graphics work on native
+OpenGL, not the PlayStation VU renderer. Keep host-only function replacements
+separate from matched decompilation and retire them when equivalent functions
+are decompiled.
+
+Current evidence and next steps are in the [playable TODO](../docs/port/PLAYABLE_TODO.md),
+[graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and
+[port roadmap](../docs/port/ROADMAP.md). Older dated findings in those files
+are investigation history; use their latest checkpoint sections for status.
 
 Keep functional behavior replacements in `game/sly1-us/native/` or
 `game/sly1-us/hand/native_c/`, separate from matching decompilation. Retire
@@ -95,9 +94,9 @@ precedence over that list. Some launcher paths still contain guest-addressed
 EE/DMA/VIF/VU/GS compatibility services from the earlier startup experiment;
 they are diagnostic scaffolding, not the target gameplay architecture.
 
-After the first world geometry is visible, the next milestones are a title
-and responsive input, a controllable level with collision, then audio and
-saves. See the [roadmap](../docs/port/ROADMAP.md) for the release gates.
+Remaining playable milestones include coherent native scene rendering,
+visible and responsive Sly, collision/gameplay, title flow, audio and saves.
+See the [roadmap](../docs/port/ROADMAP.md) for the release gates.
 
 OpenRAC's port design and its own authored code may be used with the credit
 required by [the sourcing policy](../docs/policy/SOURCING.md#openrac). Sly's
