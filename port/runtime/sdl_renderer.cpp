@@ -841,7 +841,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         const bool screen_to_clip_transformed =
             std::getenv("OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_TRANSFORMED") != nullptr &&
             !mesh.model_is_identity;
-        bool screen_to_clip = screen_to_clip_all || screen_to_clip_transformed;
+        const bool raw_screen_matrix =
+            std::getenv("OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX") != nullptr;
+        // The retail projection is scaled for the PS2's 640x224 GS field.
+        // Normalize those output axes for OpenGL by default; keep the raw
+        // matrix as an explicit diagnostic comparison only.
+        bool screen_to_clip = !raw_screen_matrix || screen_to_clip_all ||
+                              screen_to_clip_transformed;
         std::uint32_t screen_to_clip_request = 0;
         bool screen_to_clip_request_valid = false;
         bool screen_to_clip_request_match = false;
@@ -873,10 +879,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             static bool screen_to_clip_notice = false;
             if (!screen_to_clip_notice) {
                 screen_to_clip_notice = true;
-                const char* scope = screen_to_clip_all ? "all" :
+                const char* scope = raw_screen_matrix ?
+                    (screen_to_clip_all ? "forced-all" : "diagnostic-scope") :
+                    screen_to_clip_all ? "all" :
                     screen_to_clip_request_match ? "request" :
                     screen_to_clip_transformed ? "transformed" :
-                    screen_to_clip_request_valid ? "request" : "all";
+                    screen_to_clip_request_valid ? "request" : "default";
                 std::fprintf(stderr,
                              "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224\n",
                              scope,

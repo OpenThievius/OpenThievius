@@ -1,6 +1,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Normalize the native OpenGL camera projection by default (2026-11-22)
+
+The retail camera projection is scaled for the PS2's 640x224 GS field: its
+horizontal scale includes `640/4096` and its vertical scale includes
+`224/4096`. The host OpenGL path now multiplies the corresponding clip outputs
+by `4096/640` and `4096/224`, restoring the normal camera frustum for the
+host's `[-1,+1]` clip space. This is enabled by default for world meshes;
+`OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX=1` keeps the earlier unscaled path for
+comparison. The existing `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` option still
+forces normalization when needed for a diagnostic run.
+
+A fresh bounded hidden capture using the default path shows a central
+character-shaped mesh and textured level geometry. The level is still
+severely distorted, washed cyan, and not playable. This capture combines the
+decomp camera's field scaling with the current native texture records. Build
+and capture:
+`/tmp/sly-native-screen-default-build-20261122.log` and
+`/tmp/sly-native-screen-default-20261122/frame07.png`. The run used the
+configured US ELF and ISO and ended at its planned 10-second timeout (137).
+The correction is in the host OpenGL renderer only; no game C, functional
+backfill, or PlayStation VU renderer changed. Next isolate the remaining
+stretched world meshes under this normalized view.
+
 ### Native OpenGL draw-input audit (2026-11-22)
 
 Kept the graphics target on the host OpenGL renderer. A hidden forced-level
@@ -51,14 +74,16 @@ vertices are inside clip bounds; this is a narrow lower-screen batch, not the
 large right-side slab. Source `0x00a2a168` on request `0x005e4800` reaches NDC
 x `9.29` with only 18/85 vertices inside. Applying the existing
 screen-to-clip scale to request `0x005e4800` produces a fully black isolated
-capture, so that player-oriented conversion is not a fix for this static
-world draw. Matrix trace:
+capture. In hindsight, that request-only view hid the rest of the level and
+only showed that the selected draws were off-screen after normalization; it
+did not test the full-scene transform. The full-scene result is recorded
+above. Matrix trace:
 `/tmp/sly-native-source-bounds-9c18-20261122/matrix.log`; source vertex trace:
 `/tmp/sly-native-source-bounds-9c18-20261122/a168-verts.log`; rejected
-request-scale capture:
+request-only capture:
 `/tmp/sly-native-request-5e4800-clip-20261122/frame07.png`. Continue by
 comparing the offending `0x005e4800` mesh's ordered positions against a
-matching retail view, without changing global camera or VU behavior.
+matching gameplay view, now using the normalized native camera matrix.
 
 ### Native OpenGL visibility check (2026-11-21)
 
