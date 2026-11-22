@@ -3,6 +3,17 @@
 
 ## Current checkpoint (2026-11-22)
 
+A current-build native OpenGL isolation run skipped the three background
+requests (`0x005e5380`, `0x005e5300`, `0x005e5280`). The starfield disappears,
+but the detached textured facades remain, at the same screen positions. This
+separates the backdrop from the main visual blocker: ordinary scene object
+placement or draw inputs. Keep the global projection and background settings
+unchanged; next compare stable building draw transforms with the shared camera
+and their source geometry. The run reached Paris world `0x870cf0`, UI state 3,
+and skipped three requests. Capture and log:
+`/home/reaper/sly/native-quad4-check/backdrop-skip-current/`. See
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md) for detail.
+
 An isolated native OpenGL A/B check rejected the idea that request
 `0x005e5000`'s 16 `VertexRefs` should be submitted as four independent
 4-vertex strips. The default ordered strip shows the familiar clipped slab;

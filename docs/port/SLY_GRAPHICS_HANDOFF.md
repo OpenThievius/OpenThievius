@@ -1,6 +1,22 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Reconfirm backdrop versus scene geometry (2026-11-22)
+
+A fresh bounded host32 run used the native OpenGL renderer and skipped only
+backdrop draw requests `0x005e5380`, `0x005e5300`, and `0x005e5280`. The
+resulting frame loses the starfield while the detached textured facades remain
+in the same suspended layout. The run still reaches Paris world `0x870cf0`
+with `ui_state=3`; the renderer reports three skipped requests. This confirms
+the backdrop produces the background but is not the source of the broken
+building placement. Keep the established native projection scale and backdrop
+path unchanged. Next trace the ordinary scene draws' object transforms and
+their relationship to the shared camera in a stable gameplay state, beginning
+with the visible building requests already identified below. Keep all visual
+work in the host OpenGL renderer; no PlayStation VU renderer or matched game
+code changed. Capture and log:
+`/home/reaper/sly/native-quad4-check/backdrop-skip-current/`.
+
 ### Reject four-reference splitting for the clipped building (2026-11-22)
 
 Kept this experiment on the host OpenGL draw inputs. A filtered capture of
