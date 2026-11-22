@@ -3,6 +3,14 @@
 
 ## Current checkpoint (2026-11-22)
 
+The regular host32 build tree was found with stale settings (decomp `8f7a85a3`,
+native OpenGL renderer off, VU NDC diagnostic renderer on). It has been updated
+to decomp `6d12fbc8`, native OpenGL on, VU NDC off, and rebuilt successfully.
+Fresh hidden output shows the Paris level and Sly, though the roof dominates
+the view and Sly is malformed and displaced. This establishes visible native
+rendering, not playability. New clean configurations now default to the native
+OpenGL world renderer; existing CMake caches still need explicit reconfiguration.
+
 With process-local menu input, the host32 build reaches Paris gameplay state
 and advances game frames. The native OpenGL path receives level meshes and
 textures and displays sky, water, buildings and roofs. The scene is distorted

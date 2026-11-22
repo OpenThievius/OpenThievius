@@ -21,7 +21,7 @@ option(OPENRAC_NATIVE_FRAME_TRACE
 option(OPENRAC_NATIVE_MODEL_TRACE
     "Trace the active world draw lists and compiled model inputs in the direct host32 build" OFF)
 option(OPENRAC_NATIVE_SLY_WORLD_RENDERER
-    "Draw native Sly world meshes in the direct host32 OpenGL pass" OFF)
+    "Draw native Sly world meshes in the direct host32 OpenGL pass" ON)
 option(OPENRAC_NATIVE_VU_NDC_RENDERER
     "Draw captured VU1 clip-space output in the default native client" OFF)
 option(OPENRAC_NATIVE_OSCILLATOR_TRACE

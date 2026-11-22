@@ -7,6 +7,22 @@
 
 ## Current checkpoint (2026-11-22, native level rendering)
 
+The ordinary `build/port/wave55-sdl32` cache had been carrying stale settings:
+it used decomp snapshot `8f7a85a3`, disabled the native Sly OpenGL renderer,
+and enabled the VU NDC diagnostic renderer. That configuration could explain
+the black/diagnostic output from this build tree. It has now been reconfigured
+to decomp `6d12fbc8`, native Sly OpenGL ON, and VU NDC OFF, then rebuilt. The
+fresh hidden launcher capture reached UI state 3 and saved eight after-world
+frames. Frame 7 clearly shows the Paris environment and Sly, but the roof
+dominates the view and the character is malformed and displaced high/right;
+this is still not playable. Capture: `/tmp/sly-native-default-build-20261122/`;
+log: `/tmp/sly-native-default-build-20261122.log`.
+
+For clean configurations, `OPENRAC_NATIVE_SLY_WORLD_RENDERER` now defaults ON
+in `port/CMakeLists.txt`; `OPENRAC_NATIVE_VU_NDC_RENDERER` remains OFF. Existing
+CMake caches retain their explicitly stored values until reconfigured, so
+check these two cache options when a build does not match the intended path.
+
 Keep rendering on the native OpenGL path. The latest decomp checkout is
 `../sly1-decomp` at `6d12fbc8` (2026-11-21), clean and current with upstream
 `master`. Its 100% function/code match still includes 311 original assembly
@@ -20,13 +36,13 @@ implementation.
 The updated SDL host32 target builds. In an 8-second hidden run with the
 existing process-local save-prompt selection, the game reached world
 `0x870cf0` / UI state 3 and advanced beyond 490 frames. No missing-function
-trap appeared. A new 12-second hidden run reaches gameplay and captures the
-post-draw native OpenGL frame: sky, water, buildings and rooftop geometry are
-visible, with a small, fragmented Sly silhouette near the frame edge. The scene
-remains badly distorted and incomplete, so this is not a playable state and
-the title screen has not been reached. Continue diagnosing camera, transforms
-and scene assembly within the native OpenGL renderer. Do not use the
-PlayStation VU renderer for world rendering.
+trap appeared. Hidden post-draw runs reach gameplay and capture native OpenGL
+frames. The latest corrected-build frame shows sky, buildings, rooftops, and
+Sly high at the right edge, but with malformed geometry and severe composition
+problems. The scene remains incomplete, so this is not playable and the title
+screen has not been reached. Continue diagnosing camera, transforms and scene
+assembly within the native OpenGL renderer. Do not use the PlayStation VU
+renderer for world rendering.
 
 The `OPENRAC_DUMP_NATIVE_WORLD_FRAME` capture now reads pixels after the world
 draw. The previous version read before that draw and could save a black frame.

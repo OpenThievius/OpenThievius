@@ -64,6 +64,11 @@ work on native OpenGL, not the PlayStation VU renderer. Keep host-only function
 replacements separate from matched decompilation and retire them when
 equivalent functions are decompiled.
 
+The direct host32 build enables the native OpenGL world renderer by default;
+the VU NDC diagnostic renderer remains disabled. This makes the intended
+renderer the normal host32 configuration instead of requiring a special CMake
+toggle.
+
 Current evidence and next steps are in the [playable TODO](../docs/port/PLAYABLE_TODO.md),
 [graphics handoff](../docs/port/SLY_GRAPHICS_HANDOFF.md), and
 [port roadmap](../docs/port/ROADMAP.md). Older dated findings in those files

@@ -5,6 +5,22 @@
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.
 
+### Build-tree correction and latest visible frame (2026-11-22)
+
+The ordinary `build/port/wave55-sdl32` cache was stale: decomp snapshot
+`8f7a85a3`, native Sly OpenGL renderer OFF, and VU NDC diagnostic renderer ON.
+I reconfigured it against decomp `6d12fbc8` with native OpenGL ON and VU NDC
+OFF, then rebuilt `port_native_sdl_host32`. A hidden run against the US ELF and
+ISO reached UI state 3 and captured eight post-world frames. Frame 7 shows the
+Paris sky, buildings, rooftops, and Sly in a recognizable pose, but the camera
+composition/geometry is badly wrong: a roof fills most of the foreground and
+Sly floats high at the right edge with broken geometry. This is visible native
+game output, not a playable scene. Image and log:
+`/tmp/sly-native-default-build-20261122/frame-07.png` and
+`/tmp/sly-native-default-build-20261122.log`. The run ended at its deliberate
+15-second timeout (137). Check cached renderer options when switching build
+trees; changing the default does not rewrite existing cache entries.
+
 ### Capture the native world after drawing (2026-11-22)
 
 `OPENRAC_DUMP_NATIVE_WORLD_FRAME` used to read the framebuffer before the
@@ -13,10 +29,11 @@ contained the level. The capture now happens after the native OpenGL world and
 packet passes, honors `OPENRAC_DUMP_NATIVE_WORLD_FRAME_DIR`, and reports
 `stage=after-world`. A hidden host32 run using the configured US image reached
 UI state 3 and saved eight nonblack frames. The last frame shows sky,
-buildings, a large malformed roof, and a small, fragmented Sly silhouette near
-the edge. This fixes capture timing, not the rendered scene. Keep work on the
-native OpenGL path; do not switch to the PlayStation VU renderer. The run log
-and captures are under `/tmp/sly-native-postdraw-20261122/`.
+buildings, and a large malformed roof; the newer corrected-build frame also
+shows Sly high at the right edge with broken geometry. This fixes capture
+timing, not the rendered scene. Keep work on the native OpenGL path; do not
+switch to the PlayStation VU renderer. The run log and captures are under
+`/tmp/sly-native-postdraw-20261122/`.
 
 The same run traced roof source `0x00a13300`; its captured material state
 reports `prim=0`. That state alone does not prove the effective geometry

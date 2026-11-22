@@ -6,6 +6,20 @@
 > Dated entries below preserve investigation history and may contain
 > superseded conclusions. Use the current checkpoint at the top for status.
 
+The regular host32 build cache was stale and selected the VU NDC diagnostic
+renderer while disabling native OpenGL. It now uses decomp `6d12fbc8`, native
+OpenGL ON, VU NDC OFF, and the launcher rebuild succeeds. A hidden run reaches
+Paris gameplay and captures the native level plus Sly. The frame is still
+severely malformed (foreground roof fills most of the view; Sly is high/right
+and geometrically broken), so the port is not playable. Use the capture at
+`/tmp/sly-native-default-build-20261122/frame-07.png` as the latest baseline.
+
+Immediate task: determine why the selected camera/level draw composition puts
+the roof across the view and displaces Sly, using same-frame native OpenGL
+draw/transform evidence. Do not change projection, culling, or primitive
+defaults from visual inspection alone; retain the native OpenGL renderer and
+keep the VU NDC diagnostic path off by default.
+
 **Fresh native frame:** `OPENRAC_DUMP_NATIVE_WORLD_FRAME` now captures after
 the native OpenGL world pass. The previous capture point was before that draw
 and saved the prior framebuffer, often black. A hidden host32 run reached
