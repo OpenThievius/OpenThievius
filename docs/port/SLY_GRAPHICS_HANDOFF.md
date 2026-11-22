@@ -75,6 +75,24 @@ Next compare those matrices and the owner's/part's coordinate origin with the
 same placed object in the reference view. Keep the fix in the port-owned
 OpenGL path. Trace: `/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
 
+### Check native UV input for a visible building (2026-11-22)
+
+Added the opt-in `OPENRAC_TRACE_SLY_GL_UV_REQUEST` trace to the native OpenGL
+submission path. For request `0x005e5000`, source mesh `0x00a14110` has 16
+vertices, uses `FST=0`, and supplies UVs in the normalized range 0..1 (with a
+small wrap past the edge). Its material resolves to a 128x128 texture. The
+frame capture confirms that the building texture is visible; this draw's
+coordinates do not support another FST/UV conversion change as the fix for the
+fragmented building geometry.
+
+The captured positions still pass through the static mesh builder and native
+OpenGL transform path. Continue by matching this ordered vertex sequence and
+its draw transform to the same object in the reference gameplay view. Keep the
+investigation and any fix in the native OpenGL adapter/shader. Do not implement
+or tune the PlayStation VU renderer. The trace and frame are in
+`/tmp/sly-native-uv-audit-20261122/run.log` and
+`/tmp/sly-native-uv-audit-20261122/sly1-native-frame-02.png`.
+
 ### Recover the player silhouette in the native target (2026-11-22)
 
 The player target's framebuffer is complete and the native OpenGL coverage

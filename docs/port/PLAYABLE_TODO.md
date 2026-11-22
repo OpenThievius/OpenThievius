@@ -3,15 +3,17 @@
 
 ## Current checkpoint (2026-11-22)
 
-The native OpenGL world adapter now preserves the GS `PRIM` value captured with
-each material. For draws with `FST` set, its shader converts 12.4 texel UVs to
-normalized OpenGL coordinates using the decoded texture width and height;
-`STQ` draws keep their original coordinates. This follows the conversion in
-OpenRAC's DirectRenderer and changes only the port-owned native GL path. The
-host32 target builds with this change. The brief hidden gameplay window passed
-through startup without shader errors, but the frame dump missed its transient
-world image, so the visual effect is not yet verified. Next get a stable
-gameplay capture and compare the textured wall before and after this fix.
+The native OpenGL world adapter preserves the captured GS `PRIM` and converts
+12.4 texel UVs only when `FST` is set. A new trace of a visible Paris building
+draw (`0x005e5000`, source mesh `0x00a14110`) shows `FST=0` and UVs from 0 to
+about 1, so texture-coordinate conversion is not the cause of this draw's
+shape. The captured image has textured building faces over the star backdrop,
+but the scene is still visibly fragmented. Continue on the native OpenGL path:
+compare the ordered static mesh vertices and its submitted model/camera
+transform against the same object in the reference capture. Do not add the
+PlayStation VU renderer or alter matched game code for this investigation.
+The opt-in trace is `OPENRAC_TRACE_SLY_GL_UV_REQUEST`; its log and frame are
+under `/tmp/sly-native-uv-audit-20261122/`.
 
 The configured decomp source has advanced to upstream `6d12fbc8` (21 Nov).
 The canonical source worktree remains untouched; I built from a temporary

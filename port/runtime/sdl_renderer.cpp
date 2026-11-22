@@ -1254,6 +1254,47 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
         const auto prim = openrac::renderer::gs::Prim::decode(mesh.prim);
+        if (const char* setting =
+                std::getenv("OPENRAC_TRACE_SLY_GL_UV_REQUEST")) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(setting, &end, 0);
+            static std::unordered_set<std::uint64_t> traced_uv_draws;
+            const std::uint64_t trace_key = mesh.instance ^
+                (static_cast<std::uint64_t>(mesh.request) << 32u);
+            if (end != setting && *end == '\0' && parsed <= 0xFFFFFFFFul &&
+                mesh.request == static_cast<std::uint32_t>(parsed) &&
+                traced_uv_draws.size() < 64u &&
+                traced_uv_draws.insert(trace_key).second) {
+                float min_u = 1.0e30f, min_v = 1.0e30f;
+                float max_u = -1.0e30f, max_v = -1.0e30f;
+                const std::size_t vertex_count = mesh.vertices.size() / 9u;
+                for (std::size_t i = 0; i < vertex_count; ++i) {
+                    const float u = mesh.vertices[i * 9u + 7u];
+                    const float v = mesh.vertices[i * 9u + 8u];
+                    min_u = std::min(min_u, u); max_u = std::max(max_u, u);
+                    min_v = std::min(min_v, v); max_v = std::max(max_v, v);
+                }
+                const int image_width = texture != 0 && g_textures != nullptr
+                    ? g_textures->image(texture).width : tex0.width();
+                const int image_height = texture != 0 && g_textures != nullptr
+                    ? g_textures->image(texture).height : tex0.height();
+                std::fprintf(stderr,
+                             "[native sly GL UV] request=%#010x instance=%#llx source=%#010x vertices=%zu prim=%#llx fst=%u tex0=%#llx texture=%dx%d uv=%g,%g..%g,%g samples=",
+                             mesh.request,
+                             static_cast<unsigned long long>(mesh.instance),
+                             mesh.source_mesh, vertex_count,
+                             static_cast<unsigned long long>(mesh.prim),
+                             prim.fst ? 1u : 0u,
+                             static_cast<unsigned long long>(mesh.tex0),
+                             image_width, image_height,
+                             min_u, min_v, max_u, max_v);
+                for (std::size_t i = 0; i < std::min<std::size_t>(vertex_count, 4u); ++i)
+                    std::fprintf(stderr, "%s%g,%g", i == 0u ? "" : ";",
+                                 mesh.vertices[i * 9u + 7u],
+                                 mesh.vertices[i * 9u + 8u]);
+                std::fputc('\n', stderr);
+            }
+        }
         glUniform1i(g_world_fst_location, prim.fst ? 1 : 0);
         glUniform2f(g_world_texture_size_location,
                     static_cast<float>(std::max(tex0.width(), 1)),
