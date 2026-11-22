@@ -4311,10 +4311,6 @@ sly1_native_trace_notifier_timer(u32 self, u32 state, u32 enabled, u32 time_left
 extern "C" __attribute__((no_instrument_function)) void
 sly1_native_trace_frame_stage(u32 stage) {
     __atomic_store_n(&g_native_frame_stage, stage, __ATOMIC_RELAXED);
-#if defined(OPENRAC_SLY1_WITH_SDL)
-    if (stage == 7u)
-        openrac_native_window_frame_complete();
-#endif
     // Only an explicit level key queues a direct world load.
     if (stage == 2)
         sly1_native_force_level_boot();

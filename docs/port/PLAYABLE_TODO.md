@@ -7,16 +7,23 @@ The configured decomp source has advanced to upstream `6d12fbc8` (21 Nov).
 The canonical source worktree remains untouched; I built from a temporary
 read-only archive. Port staging now accepts the updated `void` IOP helper,
 `ElementStack` definition, slide callback, script cleanup loop, strip pointer
-cast, appended-call return type, and `GetListLinks` declaration. The native
-32-bit compile/link succeeds with 99 missing-function trap entries. The
-renderer configuration is native OpenGL ON and VU NDC OFF. A short hidden run
-initialized OpenGL on Mesa/Radeon and kept running, but its menu driver stayed
-at page 0, so it did not reach gameplay and provides no new scene comparison.
-Its `func_001686e8` diagnostic is a name-alias false alarm: the executable
-exports both the retail address symbol and the newly named
-`SendGsPacketAndWait` signature. Re-run the longer menu-driven capture with
-this latest snapshot before treating it as a graphics regression or
-improvement.
+cast, appended-call return type, and `GetListLinks` declaration. The latest
+native 32-bit build links with native OpenGL ON and VU NDC OFF. I added a
+port-only wrapper for the new `_Z13func_001686E8P10DmaChannelPv` signature so
+`SendGsPacketAndWait(DmaChannel*, void*)` reaches the existing synchronous DMA
+bridge. The completed-frame publication call is now always staged after
+`SubmitRenderFrame`; it was incorrectly hidden behind the optional model trace
+flag, which let DMA data accumulate without a renderer snapshot in a normal
+build. A trace-disabled hidden run now visibly renders the retail memory-card
+prompt. With the optional trace-assisted menu driver, another bounded run
+reached Paris world `0x870cf0` (`ui_state=3`) and processed 2,178 DMA submissions
+with zero rejections. Its native OpenGL capture still shows detached,
+fragmented geometry, so this is startup/render-loop recovery, not a playable
+scene yet. Capture and log:
+`/tmp/sly-native-upstream-gameplay-6d12fbc8/` and
+`/tmp/sly-native-upstream-gameplay-6d12fbc8/run.log`. The trace-enabled staging
+path also accepts the updated `ElementStack` calls and strip packet pointer
+types. The decomp source checkout remains untouched.
 
 Keep graphics work in the port-owned native OpenGL renderer. The default
 projection now maps the retail 224-line field scale across the full 448-line

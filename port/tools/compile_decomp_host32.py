@@ -4683,15 +4683,19 @@ void StartStateGraph"""
                 raise RuntimeError("expected RunMainLoop definition")
             adapted = adapted.replace(loop, loop + "\n    sly1_native_trace_frame_stage(0);", 1)
             frame_stages = (
-                ("        UpdatePadConnection(&g_padRecord);", 1),
-                ("            UpdateCameraLocation(g_camera);", 2),
-                ("            RunWorldFrameLists(g_currentWorld, g_camera);", 3),
-                ("            QueueScreenElementDraws((ElementStack*)g_elementStack);", 4),
-                ("            DrawAllScreenElements((ElementStack*)g_elementStack);", 5),
-                ("            SubmitRenderFrame();", 6),
+                (("        UpdatePadConnection(&g_padRecord);",), 1),
+                (("            UpdateCameraLocation(g_camera);",), 2),
+                (("            RunWorldFrameLists(g_currentWorld, g_camera);",), 3),
+                (("            QueueScreenElementDraws((ElementStack*)g_elementStack);",
+                  "            QueueScreenElementDraws(&g_elementStack);"), 4),
+                (("            DrawAllScreenElements((ElementStack*)g_elementStack);",
+                  "            DrawAllScreenElements(&g_elementStack);"), 5),
+                (("            SubmitRenderFrame();",), 6),
             )
-            for statement, stage in frame_stages:
-                if adapted.count(statement) != 1:
+            for statements, stage in frame_stages:
+                statement = next((candidate for candidate in statements
+                                  if adapted.count(candidate) == 1), None)
+                if statement is None:
                     raise RuntimeError("expected RunMainLoop stage " + str(stage))
                 adapted = adapted.replace(
                     statement,
@@ -4720,7 +4724,7 @@ void StartStateGraph"""
                 "                if (*(volatile s32*)(element + 0x250u) != 0) ++visible_ui;\n"
                 "                if (*(volatile u8*)(element + 0x08u) != 0) ++text_ui;\n"
                 "            }\n"
-                "            volatile u32* stack = (volatile u32*)g_elementStack;\n"
+                "            volatile u32* stack = (volatile u32*)&g_elementStack;\n"
                 "            u32 stack_top = stack[11] > 0 && stack[11] <= 8 ? stack[3 + stack[11] - 1] : 0;\n"
                 "            u32 stack_top_vt = 0, stack_top_mode = 0, stack_top_text = 0;\n"
                 "            if (stack_top >= 0x00200000u && stack_top < 0x09000000u) {\n"
@@ -5221,10 +5225,13 @@ void LoadEffectSpawner"""
             if adapted.count(needle) != 1:
                 raise RuntimeError("expected DrawModelPart request initialization")
             adapted = adapted.replace(needle, replacement, 1)
-            detach = (
-                "                        DetachPacketBufferCopy((PacketWriter*)&pw[n], &strip->qwc[n], &starts[n], (s32*)&strip->addr[n], 0x13);\n"
+            detach_lines = (
+                "                        DetachPacketBufferCopy((PacketWriter*)&pw[n], &strip->qwc[n], &starts[n], (s32*)&strip->addr[n], 0x13);\n",
+                "                        DetachPacketBufferCopy((PacketWriter*)&pw[n], &strip->qwc[n], &starts[n], (void**)&strip->addr[n], 0x13);\n",
             )
-            if adapted.count(detach) != 1:
+            detach = next((line for line in detach_lines
+                           if adapted.count(line) == 1), None)
+            if detach is None:
                 raise RuntimeError("expected strip mesh packet detach")
             adapted = adapted.replace(
                 detach,
@@ -5243,13 +5250,12 @@ void LoadEffectSpawner"""
             builder_end = adapted.index("// Builds the VIF packets of a lit strip mesh", builder_start)
             builder = adapted[builder_start:builder_end]
             strip_reserve = "        ReserveVifUnpack(pkt, 0xC, s->stride, off, &c, (u8**)&d);\n"
-            if builder.count(strip_reserve) != 1:
-                raise RuntimeError("expected one trailing strip ReserveVifUnpack")
-            builder = builder.replace(
-                strip_reserve,
-                "        sly1_native_trace_strip_reserve((u32)mesh, (u32)s->stride, (u32)off, (u32)pkt);\n" +
-                strip_reserve,
-                1)
+            if builder.count(strip_reserve) == 1:
+                builder = builder.replace(
+                    strip_reserve,
+                    "        sly1_native_trace_strip_reserve((u32)mesh, (u32)s->stride, (u32)off, (u32)pkt);\n" +
+                    strip_reserve,
+                    1)
             adapted = adapted[:builder_start] + builder + adapted[builder_end:]
             adapted = ('extern "C" void sly1_native_trace_model_build(u32, u32, u32, u32, u32, u32);\n' + adapted)
             signature = (
@@ -5894,6 +5900,20 @@ void LoadEffectSpawner"""
                            "    SetupScreenElementText(self);")
             if adapted.count(needle) == 1:
                 adapted = adapted.replace(needle, replacement, 1)
+        if rel.as_posix() == "main/main_loop.cpp":
+            # Publishing a completed guest frame is required by the native
+            # OpenGL renderer even when every optional trace is disabled.
+            # Keep this port integration separate from the trace-stage hooks.
+            submit = "            SubmitRenderFrame();"
+            if adapted.count(submit) != 1:
+                raise RuntimeError("expected one native frame publish site")
+            adapted = adapted.replace(
+                submit,
+                submit + "\n            openrac_native_window_frame_complete();",
+                1,
+            )
+            adapted = ('extern "C" void openrac_native_window_frame_complete();\n' +
+                       adapted)
         staged.write_text(adapted, encoding="utf-8")
         unit_flags = flags.copy()
         if rel.as_posix() == "main/0016C000.cpp":

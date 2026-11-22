@@ -6,6 +6,19 @@ extern "C" {
 extern s32 D_002BE468;
 void func_001F6C20(s32 unused);
 void func_00202A80(s32 dma, void* source);
+void func_001686E8(s32 dma, void* source);
+}
+
+struct DmaChannel;
+
+/* The current decomp declares SendGsPacketAndWait with the DMA channel
+ * structure pointer, while older snapshots exposed integer/void pointers.
+ * Preserve that exact Itanium symbol and forward its 32-bit host address to
+ * the existing synchronous channel bridge below. */
+extern "C" void func_001686E8_dma_channel(DmaChannel* dma, void* source)
+    __asm__("_Z13func_001686E8P10DmaChannelPv");
+extern "C" void func_001686E8_dma_channel(DmaChannel* dma, void* source) {
+    func_001686E8(static_cast<s32>(reinterpret_cast<u32>(dma)), source);
 }
 
 extern "C" void func_001686E8(s32 dma, void* source) {
