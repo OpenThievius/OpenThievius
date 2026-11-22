@@ -74,6 +74,29 @@ fix. Next compare per-object transforms for the static building draws, then
 isolate the player's material and skin inputs; keep all graphics work in native
 OpenGL and do not implement a PlayStation VU renderer.
 
+### Native OpenGL player draw isolation (2026-11-22)
+
+A fresh hidden capture reached gameplay and isolated player request
+`0x005e5400` in the native OpenGL renderer. With the port-only solid-color
+diagnostic enabled, 114 selected mesh/material instances rasterize as a broken
+but recognizable silhouette at screen bounds `(710,207)..(945,310)` in a
+960x720 frame. This confirms that this request reaches the framebuffer; the
+solid fill is diagnostic and does not represent the game's materials. The
+earlier all-black isolated capture dumped immediately after the save-menu state
+changed, before the world pass had started, so it was a capture-timing mistake,
+not evidence of a renderer regression.
+
+I compared the default triangle-strip draw with the triangle-list diagnostic
+for the same request. Their silhouette masks have 99.3% intersection-over-union
+and identical bounds, so changing primitive mode does not repair the player.
+The remaining native-renderer work is to verify the player's source mesh,
+skin/morph inputs, and 64x64 target materials, while separately comparing the
+visible building transforms. Continue using the host OpenGL path; do not route
+this work through a PlayStation VU renderer. Captures and logs:
+`/tmp/sly-native-player-isolated-20261122/`,
+`/tmp/sly-native-player-triangles-20261122/`, and
+`/tmp/sly-native-renderer-recheck-20261122/`.
+
 ### Native projection comparison (2026-11-22)
 
 Fresh hidden gameplay captures of the US ELF and configured Documents ISO
