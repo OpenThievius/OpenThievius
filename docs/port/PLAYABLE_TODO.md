@@ -14,11 +14,22 @@ severely malformed (foreground roof fills most of the view; Sly is high/right
 and geometrically broken), so the port is not playable. Use the capture at
 `/tmp/sly-native-default-build-20261122/frame-07.png` as the latest baseline.
 
-Immediate task: determine why the selected camera/level draw composition puts
-the roof across the view and displaces Sly, using same-frame native OpenGL
-draw/transform evidence. Do not change projection, culling, or primitive
-defaults from visual inspection alone; retain the native OpenGL renderer and
-keep the VU NDC diagnostic path off by default.
+Immediate task: establish whether world `0x870cf0` in these captures is the
+scripted Paris opening or stable player-controlled gameplay, then compare the
+same scene and camera point against the supplied PCSX2 reference. Do not change
+camera, projection, culling, or primitive defaults until the captured state is
+identified. Keep rendering on native OpenGL and the VU NDC diagnostic path off.
+
+**Automatic camera sweep:** a hidden run with `OPENRAC_TRACE_CAMERA=1` reached
+UI state 3 and advanced from camera position `(-4129.6, 9129.7, 104.2)` at game
+frame 140 to `(9034.7, 6867.6, 104.2)` at frame 500. No scheduled directional
+input was sent until host present 500. After frame 180 the one logged
+view-projection row stayed effectively constant while camera position moved
+steadily; the other matrix rows were not captured. This looks like an
+automatically moving scene/camera path, but does not prove which startup
+sequence is active. The earlier D-pad capture therefore does not
+isolate input-driven camera movement. Do not diagnose the roof placement from
+those unmatched frames. Trace: `/tmp/sly-native-camera-input-20261122.log`.
 
 **Fresh native frame:** `OPENRAC_DUMP_NATIVE_WORLD_FRAME` now captures after
 the native OpenGL world pass. The previous capture point was before that draw

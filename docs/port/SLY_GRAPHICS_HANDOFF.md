@@ -5,6 +5,21 @@
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.
 
+### Identify the moving Paris camera state (2026-11-22)
+
+With the hidden menu driver, `OPENRAC_TRACE_CAMERA=1` logged camera position
+`(-4129.6, 9129.7, 104.2)` at game frame 140 and `(9034.7, 6867.6, 104.2)` at
+frame 500. No scheduled direction input was sent until host present 500. From
+frame 180 onward, the one logged view-projection row stayed effectively
+constant while camera position advanced steadily; the trace did not log the
+other matrix rows. The world view is moving automatically during this run; it
+may be the Paris opening sequence, but the trace alone does not identify the
+active sequence. The prior D-pad screenshot run cannot attribute its visual
+changes to input because it did not control for this camera path. First match
+the current game state and camera point to the supplied PCSX2 reference, then
+investigate mesh placement at a comparable point. Do not patch camera values
+based on unmatched frames. Trace: `/tmp/sly-native-camera-input-20261122.log`.
+
 ### Build-tree correction and latest visible frame (2026-11-22)
 
 The ordinary `build/port/wave55-sdl32` cache was stale: decomp snapshot
