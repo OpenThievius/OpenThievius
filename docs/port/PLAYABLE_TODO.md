@@ -1,6 +1,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Concrete plan for a playable native Sly 1
 
+## Current checkpoint (2026-11-22)
+
+Keep graphics work in the port-owned native OpenGL renderer. The default
+projection now maps the retail 224-line field scale across the full 448-line
+frame (`4096/448` effective Y scale); set
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE=1` to compare the former field-only
+mapping. The host32 build succeeded, and a bounded hidden run confirmed the
+default scale in the native renderer log.
+
+An opt-in triangle-coverage trace ranks native draws after OpenGL clipping.
+The broad full-screen request is part of the starry backdrop: skipping it
+removes the stars but leaves the broken building layout. A matched gameplay
+capture still shows floating, fragmented buildings and Sly near the upper
+right. The Y correction avoids clipping one upper building draw, but does not
+make the scene playable. Next compare native model and camera inputs for the
+building draws and player in the same gameplay state. Do not change matched
+game functions or the PlayStation VU renderer for this work. Detailed evidence
+and local captures are in `SLY_GRAPHICS_HANDOFF.md`.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)

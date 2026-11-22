@@ -1,6 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Map both PS2 fields to the host frame (2026-11-22)
+
+The native OpenGL window renders a full frame, but the retail camera's clip
+scale is based on the 224-line height of one PS2 field. Normalize X by
+`4096/640` as before, and normalize Y by `4096/448` so both interlaced fields
+fit the host frame. The prior `4096/224` mapping expanded clip Y twice as far
+and clipped upper portions of ordinary scene draws. The new default applies a
+0.5 Y multiplier after the field normalization; set
+`OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE=1` to compare the previous mapping.
+
+A bounded hidden capture with the existing save-prompt selection confirms
+that an upper building draw (`0x005e4f00`) no longer reaches the top clip plane
+under the 0.5 setting. The full scene still has fragmented buildings and a
+displaced character, so this fixes the host's field-to-frame scale but does
+not finish the renderer. Capture:
+`/tmp/sly-native-y-scale-20261122/` and
+`/tmp/sly-native-gl-isolate-20261122/4f00-yhalf.png`. The change affects only
+the native OpenGL projection; matched game code and the PlayStation VU
+renderer are untouched.
+
 ### Rank native draws by clipped triangle coverage (2026-11-22)
 
 Added two opt-in host OpenGL diagnostics: `OPENRAC_TRACE_SLY_GL_COVERAGE=1`
@@ -79,13 +99,13 @@ candidates before changing matrix or topology behavior. The four hidden runs
 and frames are under `/tmp/sly-native-mvp-mode-{0,1,2,3}-20261122/`. The trace
 is port-only and does not touch the decompilation or PlayStation VU renderer.
 
-### Normalize the native OpenGL camera projection by default (2026-11-22)
+### Normalize the native OpenGL camera projection (2026-11-22)
 
 The retail camera projection is scaled for the PS2's 640x224 GS field: its
 horizontal scale includes `640/4096` and its vertical scale includes
-`224/4096`. The host OpenGL path now multiplies the corresponding clip outputs
-by `4096/640` and `4096/224`, restoring the normal camera frustum for the
-host's `[-1,+1]` clip space. This is enabled by default for world meshes;
+`224/4096`. The host OpenGL path multiplies the corresponding clip outputs by
+`4096/640` and `4096/224`; the later full-frame adjustment above halves the Y
+component for the host's two-field output. This is enabled by default for world meshes;
 `OPENRAC_SLY_WORLD_RAW_SCREEN_MATRIX=1` keeps the earlier unscaled path for
 comparison. The existing `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP` option still
 forces normalization when needed for a diagnostic run.

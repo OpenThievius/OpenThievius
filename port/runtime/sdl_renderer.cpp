@@ -876,6 +876,22 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 m[column * 4u] *= kPs2ScreenToClipX;
                 m[column * 4u + 1u] *= kPs2ScreenToClipY;
             }
+            // The host draws a full frame, while the retail projection is
+            // scaled for one 224-line field. Map it across both fields by
+            // default; set the diagnostic scale to 1 to compare the former
+            // single-field mapping without changing game-space inputs.
+            float clip_y_scale = 0.5f;
+            if (const char* setting = std::getenv(
+                    "OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE")) {
+                char* end = nullptr;
+                const float parsed = std::strtof(setting, &end);
+                if (end != setting && *end == '\0' && std::isfinite(parsed) &&
+                    parsed > 0.0f && parsed <= 4.0f)
+                    clip_y_scale = parsed;
+            }
+            if (clip_y_scale != 1.0f)
+                for (std::size_t column = 0; column < 4; ++column)
+                    m[column * 4u + 1u] *= clip_y_scale;
             static bool screen_to_clip_notice = false;
             if (!screen_to_clip_notice) {
                 screen_to_clip_notice = true;
@@ -886,10 +902,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     screen_to_clip_transformed ? "transformed" :
                     screen_to_clip_request_valid ? "request" : "default";
                 std::fprintf(stderr,
-                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224\n",
+                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224 clip_y_scale=%g\n",
                              scope,
                              screen_to_clip_request,
-                             kPs2ScreenToClipX, kPs2ScreenToClipY);
+                             kPs2ScreenToClipX,
+                             kPs2ScreenToClipY * clip_y_scale, clip_y_scale);
             }
         }
         if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
