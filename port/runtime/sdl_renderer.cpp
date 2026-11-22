@@ -601,6 +601,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     }
     const bool trace_projected_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS") != nullptr;
+    const bool trace_present_meshes =
+        std::getenv("OPENRAC_TRACE_SLY_PRESENT_MESHES") != nullptr;
     const bool trace_native_per_mesh_bounds =
         std::getenv("OPENRAC_TRACE_SLY_PER_MESH_BOUNDS") != nullptr;
     bool trace_depth_request_valid = false;
@@ -642,6 +644,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                      error);
     }
     static unsigned present_bounds_sample = 0;
+    static unsigned scene_present_mesh_sample = 0;
+    unsigned scene_present_mesh_start = 0;
+    if (const char* setting = std::getenv("OPENRAC_TRACE_SLY_PRESENT_MESHES_START")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            scene_present_mesh_start = static_cast<unsigned>(parsed);
+    }
     unsigned present_bounds_start = 0;
     if (const char* setting =
             std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS_START")) {
@@ -732,7 +742,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                          mesh.mvp[3], static_cast<unsigned long long>(mesh.test));
         }
         bool projected_cover = false;
-        if (trace_projected_bounds || debug_skip_full_cover ||
+        if (trace_projected_bounds || trace_present_meshes ||
+            debug_skip_full_cover ||
             (trace_native_per_mesh_bounds && !target_pass &&
              !native_per_mesh_bounds_logged)) {
             float min_x = 1.0e30f, min_y = 1.0e30f, min_z = 1.0e30f;
@@ -773,6 +784,17 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     max_y >= -1.0f && min_y <= 1.0f &&
                     max_z >= -1.0f && min_z <= 1.0f)
                     ++intersecting_meshes;
+                if (trace_present_meshes && !target_pass &&
+                    scene_present_mesh_sample >= scene_present_mesh_start &&
+                    scene_present_mesh_sample - scene_present_mesh_start < 4u) {
+                    std::fprintf(stderr,
+                                 "[native sly scene mesh] frame=%u request=%#010x instance=%#llx source=%#010x vertices=%zu projected=%u inside=%u tex0=%#llx ndc=%g,%g,%g..%g,%g,%g\n",
+                                 scene_present_mesh_sample, mesh.request,
+                                 static_cast<unsigned long long>(mesh.instance),
+                                 mesh.source_mesh, vertex_count, mesh_projected,
+                                 mesh_inside, static_cast<unsigned long long>(mesh.tex0),
+                                 min_x, min_y, min_z, max_x, max_y, max_z);
+                }
                 if (debug_solid_colors && min_x <= -1.0f && max_x >= 1.0f &&
                     min_y <= -1.0f && max_y >= 1.0f &&
                     present_bounds_sample >= present_bounds_start &&
@@ -1699,6 +1721,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                      frame_max_x, frame_max_y, frame_max_z);
     }
     if (trace_projected_bounds) ++present_bounds_sample;
+    if (!target_pass) ++scene_present_mesh_sample;
     if (trace_target_pass) {
         GLint framebuffer = 0;
         GLint viewport[4]{};

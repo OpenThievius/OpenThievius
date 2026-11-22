@@ -4481,8 +4481,9 @@ sly1_native_trace_frame_stage(u32 stage) {
             if (cam >= 0x00010000u && cam < 0x02000000u) {
                 const volatile float* pos = reinterpret_cast<const volatile float*>(cam + 0x40u);
                 const volatile float* vp = reinterpret_cast<const volatile float*>(cam + 0x100u);
-                std::fprintf(stderr, "[cam-trace] f=%u pos=%.1f,%.1f,%.1f vp0=%.4f,%.4f,%.4f,%.4f\n",
+                std::fprintf(stderr, "[cam-trace] f=%u pos=%.1f,%.1f,%.1f area=%#x vp0=%.4f,%.4f,%.4f,%.4f\n",
                              frame, (double)pos[0], (double)pos[1], (double)pos[2],
+                             *(const volatile u32*)(cam + 0x21Cu),
                              (double)vp[0], (double)vp[1], (double)vp[2], (double)vp[3]);
             }
         }

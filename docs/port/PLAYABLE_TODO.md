@@ -57,6 +57,16 @@ rendering through the PlayStation VU renderer. Log and captures:
 `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-backfill.log`
 and `/home/reaper/sly/native-updated-decomp-20261122/chained-frame-capture/`.
 
+The latest native OpenGL input trace narrows the empty late view: a scene
+sample around 503 contains many level meshes with in-clip vertices, while a
+later sample around 700 contains only three backdrop meshes. The camera's
+area mask stays `0x0fffffff` as it crosses the level. The late city geometry
+is filtered before the OpenGL renderer receives it. Next trace the active
+world's value-tree result and camera area selection; do not change OpenGL
+transforms based on a frame where the game submitted no city meshes. A
+temporary mask write crashed on this startup path and was removed. Details
+and trace switches are in [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md).
+
 The earlier native PRIM fix remains active: GIFtag PRE supplies PRIM, and the
 OpenGL path respects PRIM.ABE when the value is valid. Its captures and
 request-filtered evidence are recorded below. Malformed VU-kick traces remain

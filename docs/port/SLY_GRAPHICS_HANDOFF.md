@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Scene submissions disappear before OpenGL (2026-11-22)
+
+A new opt-in trace in `port/runtime/sdl_renderer.cpp` logs per-mesh clip bounds
+for four selected native OpenGL scene presents:
+`OPENRAC_TRACE_SLY_PRESENT_MESHES=1` and
+`OPENRAC_TRACE_SLY_PRESENT_MESHES_START=N`. It reports the guest draw request,
+source mesh, instance, projected and in-clip vertex counts, texture key, and
+NDC bounds. One normal startup run with the existing process-local save choice
+showed many Paris level meshes with valid clip bounds at scene sample 503.
+Another run showed only three backdrop meshes at scene sample 700; the city
+meshes had already been culled before the OpenGL renderer received them. See
+`/home/reaper/sly/native-present-mesh-trace-20261122/final-baseline-500/run.log`,
+`/home/reaper/sly/native-present-mesh-trace-20261122/run.log`, and the frame
+captures in the same directory.
+
+The camera trace in
+`/home/reaper/sly/native-present-mesh-trace-20261122/baseline/run.log` shows
+`areaMask=0x0fffffff` from the Paris world transition through at least game
+frame 780 while the camera moves across the level. This points upstream to
+the game's area visibility selection, not OpenGL clipping or draw submission.
+Earlier value-tree tracing on a separate level showed lookups returning zero;
+that result does not establish the current world's tree contents. Inspect the
+active world's value-tree lookup and area mask before changing GL projection,
+mesh topology, or draw state. Keep display rendering on native OpenGL. A
+temporary attempt to force the mask during this startup path crashed when the
+write first took effect; that override was removed and is not part of the
+port.
+
 ### Native level rendering after the transform backfill (2026-11-22)
 
 Stay on the native OpenGL renderer. A bounded hidden run with the existing
