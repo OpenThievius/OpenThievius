@@ -17,6 +17,13 @@ default material path. Capture and log:
 `/home/reaper/sly/native-opaque-alpha-check-20261122/` and
 `/home/reaper/sly/native-matstate-trace-20261122/`.
 
+The material trace samples `ALPHA=0x44`, which decodes to
+`(Cs - Cd) * As + Cd`, the source-over equation when primitive blending is
+enabled. The OpenGL path currently applies a captured ALPHA equation whenever
+ALPHA is present; it does not gate that state on `PRIM.ABE`. The facade
+packets omit PRIM, so ABE remains unknown. Compare an ABE-gated blend
+diagnostic against the opaque-alpha image before changing the default.
+
 The native OpenGL renderer now flips converted screen Y by default. A paired
 offscreen A/B showed the positive-Y version placing the facades above the
 starry ground; the flipped version puts the sky above the facades and roof
