@@ -8512,19 +8512,38 @@ blending so the last color-writing draw can be identified. Pair it with
 `OPENRAC_SLY_WORLD_DEPTH_ALWAYS=1` to bypass depth rejection as a separate
 diagnostic. These switches change only the native host renderer.
 
-With depth forced to always pass, the central 100x80-pixel sample
-`(x=200..299, y=420..499)` remains entirely assigned to the backdrop source
-mesh. The result is the same with the normal area mask and with
-`OPENRAC_NATIVE_IGNORE_AREA_MASK=1`. The area-mask bypass adds nearby draw IDs
-around the opening's edges, but does not add a world-mesh fragment in this
-center sample. This rules out ordinary depth rejection and that area-mask test
-as explanations for the center remaining backdrop in this capture. It does
-not prove that a building belongs there: the current scene may omit the object,
-its source mesh may not cover the region, or its fragments may fail alpha.
+With depth forced to always pass, the 100x80 sample `(x=200..299,
+y=420..499)` remains entirely assigned to the backdrop source mesh with both
+the normal area mask and `OPENRAC_NATIVE_IGNORE_AREA_MASK=1`. The coordinates
+were previously mislabeled as the center; the actual framebuffer midpoint is
+near `(480,360)`. That midpoint is attributed to building source `0x00a14110`
+in the same draw-ID image. The area-mask bypass adds nearby draw IDs around
+some edges. Since draw-ID colors disable blending while retaining alpha test,
+they identify surviving fragments, not their final visible contribution in
+the ordinary color pass. These captures do not establish whether the
+backdrop-only region should contain architecture.
 
-Next trace placed-object and part submission/culling for this view and compare
-the candidate world meshes' projected triangles, retaining normal alpha
-behavior. Do not fill the region or alter topology from the draw-ID image
-alone. Captures and exact per-present ID maps are in
+Do not fill the region or alter topology from the draw-ID image alone. Captures
+and exact per-present ID maps are in
 `/home/reaper/sly/native-gl-gap-audit-20261122/draw-ids-depth-always/` and
 `/home/reaper/sly/native-gl-gap-audit-20261122/draw-ids-ignore-area/`.
+
+### Native OpenGL model-plane cull comparison (2026-11-22)
+
+Added the opt-in port-only diagnostic
+`OPENRAC_NATIVE_IGNORE_MODEL_PLANE_CULL=1` around the model-part sphere versus
+camera-plane test in the staged `QueueModelPartDraws` host build. Retail
+visibility remains the default. The implementation of `Vu0::PlaneSigns` in
+the host adapter matches the decompiled four signed plane-distance calculation
+for this test; no arithmetic change was indicated by inspection.
+
+A full-scene hidden capture with the model-plane test bypassed contains more
+nearby roof/building surfaces than the default capture. The giant roof wedge
+and major scene discontinuities remain. The captures were produced in
+separate runs and are not frame-locked, so their depth occupancy values
+(312,855 default and 321,782 with the diagnostic) are indicative, not a clean
+pixel-exact delta. This shows the cull affects coverage but does not explain
+the main native OpenGL scene problem. Keep the diagnostic off in ordinary
+play and continue tracing the native mesh geometry/placement for the malformed
+roof and missing street continuity. Captures:
+`/home/reaper/sly/native-gl-plane-cull-20261122/`.

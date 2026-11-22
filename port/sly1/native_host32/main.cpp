@@ -1055,6 +1055,15 @@ extern "C" int sly1_native_ignore_area_cull(void) {
     return enabled ? 1 : 0;
 }
 
+extern "C" int sly1_native_ignore_model_plane_cull(void) {
+    // Diagnostic-only native-renderer probe. Keep the game's sphere-versus-
+    // camera-plane culling enabled by default; disabling it briefly shows
+    // whether that visibility test omits meshes from the OpenGL scene.
+    static const bool enabled =
+        std::getenv("OPENRAC_NATIVE_IGNORE_MODEL_PLANE_CULL") != nullptr;
+    return enabled ? 1 : 0;
+}
+
 #if defined(OPENRAC_SLY1_WITH_SDL)
 extern "C" void sly1_native_trace_note_world(u32 world) {
     if (!g_startup_trace_enabled || world == 0) return;

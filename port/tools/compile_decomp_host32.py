@@ -5369,6 +5369,16 @@ void LoadEffectSpawner"""
                 ),
                 1,
             )
+            plane_cull = "            if (signs != 0) {"
+            if adapted.count(plane_cull) != 1:
+                raise RuntimeError("expected one QueueModelPartDraws plane cull")
+            adapted = (
+                'extern "C" int sly1_native_ignore_model_plane_cull(void);\n' + adapted
+            ).replace(
+                plane_cull,
+                "            if (signs != 0 && !sly1_native_ignore_model_plane_cull()) {",
+                1,
+            )
             needle = "            if (part->hook != 0) {\n"
             replacement = (
                 "                sly1_native_trace_model_hook((u32)self, (u32)(i + j), "

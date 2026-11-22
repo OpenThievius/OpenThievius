@@ -15,6 +15,15 @@ rejected/occluded after submission. Capture and traces:
 `/home/reaper/sly/native-gl-facade-neighbors-20261122/`. Details are in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-native-facade-neighbor-submissions-2026-11-22).
 
+The per-model camera-plane cull is now independently bypassable for native
+OpenGL diagnosis with `OPENRAC_NATIVE_IGNORE_MODEL_PLANE_CULL=1`; default
+culling remains on. A full-scene comparison adds some nearby roof and building
+surfaces when bypassed, so culling contributes to incomplete coverage. The
+roof distortion and larger scene gaps remain. Captures were not frame-locked,
+so their pixel-count difference is only indicative; don't change default
+culling from this alone. Captures:
+`/home/reaper/sly/native-gl-plane-cull-20261122/`.
+
 An opt-in native OpenGL diagnostic now captures color and depth at the same
 world pass. The 309,860/691,200 depth-writing pixels (44.8%) do not measure all
 visible geometry: isolated request `0x005e5880` draws a building with just 115
@@ -29,12 +38,15 @@ renderer; the PlayStation VU renderer is not the target. See
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-depth-occupancy-check-2026-11-22).
 
 A native OpenGL draw-ID image maps visible fragments back to submitted meshes.
-In its 100x80 center sample, the opening remains the backdrop mesh even when
-depth testing is forced to pass and the area-mask cull is bypassed. The bypass
-does add nearby meshes along the edges. This localizes the next investigation
-to the scene's submitted object/part geometry and its alpha results; it does
-not establish whether the opening should contain a building. Draw-ID captures
-and maps are under `/home/reaper/sly/native-gl-gap-audit-20261122/`.
+The previously reported 100x80 sample `(x=200..299, y=420..499)` was mislabeled
+as the center; it is offset left of the framebuffer midpoint. That region is
+backdrop-only with the normal area mask and when the area-mask cull is bypassed.
+At the actual framebuffer midpoint, the draw-ID image attributes pixels to
+building source `0x00a14110`. The area-mask bypass adds nearby mesh IDs around
+some edges. These captures do not establish whether the backdrop-only region
+should contain a building, and draw-ID colors bypass blending, so they do not
+prove the normal color pass visibly contributes there. Draw-ID captures and
+maps are under `/home/reaper/sly/native-gl-gap-audit-20261122/`.
 
 The earlier visible host32 baseline shows disconnected white facades over
 dark ground. Mesh traces now filter by owner, part and source before applying
