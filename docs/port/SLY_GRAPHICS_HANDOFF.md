@@ -8547,3 +8547,24 @@ the main native OpenGL scene problem. Keep the diagnostic off in ordinary
 play and continue tracing the native mesh geometry/placement for the malformed
 roof and missing street continuity. Captures:
 `/home/reaper/sly/native-gl-plane-cull-20261122/`.
+
+### Native OpenGL horizontal screen scale check (2026-11-22)
+
+Added the opt-in host control `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_X_SCALE`.
+Its default `1.0` preserves the existing `4096/640` factor. Setting it to
+`0.15625` reduces the effective horizontal factor to `1.0`, allowing an
+isolated test without changing vertical conversion, matrix mode, visibility,
+or default rendering.
+
+The draw-ID capture associates the broad roof wedge with building source
+`0x00a13328` (and neighboring meshes from the same placed part). Its uploaded
+default transform reaches NDC x=4.095, outside the clip range. A full-scene
+capture with effective X factor 1.0 shows more nearby roof and building
+surfaces than the default capture, but the geometry remains malformed and the
+player is not confirmed. Depth occupancy rose from 312,855 to 347,211 pixels;
+these separate captures are not frame-matched, so that count is indicative
+only. Don't change the default scale from this result. Next compare the same
+native draw against a matching reference view and validate whether the guest
+matrix is already clip-normalized before applying GS field scaling. Captures
+and traces are under `/home/reaper/sly/native-gl-roof-mesh-20261122/` and
+`/home/reaper/sly/native-gl-xscale-20261122/`.

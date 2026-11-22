@@ -1056,8 +1056,17 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             // whereas OpenGL's clip-space Y increases toward the top.
             constexpr float kPs2ScreenToClipX = 4096.0f / 640.0f;
             constexpr float kPs2ScreenToClipY = 4096.0f / 224.0f;
+            float clip_x_scale = 1.0f;
+            if (const char* setting = std::getenv(
+                    "OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_X_SCALE")) {
+                char* end = nullptr;
+                const float parsed = std::strtof(setting, &end);
+                if (end != setting && *end == '\0' && std::isfinite(parsed) &&
+                    parsed > 0.0f && parsed <= 4.0f)
+                    clip_x_scale = parsed;
+            }
             for (std::size_t column = 0; column < 4; ++column) {
-                m[column * 4u] *= kPs2ScreenToClipX;
+                m[column * 4u] *= kPs2ScreenToClipX * clip_x_scale;
                 m[column * 4u + 1u] *= kPs2ScreenToClipY;
             }
             // The host draws a full frame, while the retail projection is
@@ -1087,11 +1096,13 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     screen_to_clip_transformed ? "transformed" :
                     screen_to_clip_request_valid ? "request" : "default";
                 std::fprintf(stderr,
-                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224 clip_y_scale=%g clip_y_sign=%g\n",
+                             "[native sly screen-to-clip] enabled scope=%s request=%#010x scale_x=%g scale_y=%g logical_field=640x224 clip_x_scale=%g clip_y_scale=%g clip_y_sign=%g\n",
                              scope,
                              screen_to_clip_request,
-                             kPs2ScreenToClipX,
-                             kPs2ScreenToClipY * clip_y_scale, clip_y_scale,
+                             kPs2ScreenToClipX * clip_x_scale,
+                             kPs2ScreenToClipY * clip_y_scale,
+                             clip_x_scale,
+                             clip_y_scale,
                              clip_y_sign);
             }
         }

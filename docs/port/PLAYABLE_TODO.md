@@ -24,6 +24,15 @@ so their pixel-count difference is only indicative; don't change default
 culling from this alone. Captures:
 `/home/reaper/sly/native-gl-plane-cull-20261122/`.
 
+The native OpenGL screen-to-clip horizontal factor is now separately adjustable
+with `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_X_SCALE` (default `1.0`, preserving the
+current mapping). Setting it to `0.15625` reduces the effective X factor from
+6.4 to 1.0. The selected building mesh previously reached uploaded NDC x=4.1;
+reducing that scale reveals more scene surfaces, but the roof/building geometry
+is still malformed. Captures are not frame-matched, so retain the current
+default pending comparison against a matching game view. Details:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-horizontal-screen-scale-check-2026-11-22).
+
 An opt-in native OpenGL diagnostic now captures color and depth at the same
 world pass. The 309,860/691,200 depth-writing pixels (44.8%) do not measure all
 visible geometry: isolated request `0x005e5880` draws a building with just 115
