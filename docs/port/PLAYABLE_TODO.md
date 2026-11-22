@@ -2025,6 +2025,28 @@ save-prompt transition, then compare a stable published mesh snapshot with its
 rasterized result. Do not switch to the PlayStation VU renderer. No matched
 decomp source changed.
 
+### Post-transition OpenGL frame (2026-11-22)
+
+The bounds trace now accepts `OPENRAC_TRACE_SLY_PRESENT_BOUNDS_START=N`, so
+its 64-entry report can start after the save prompt instead of filling during
+startup. At sample 251, the published snapshot contains 165 entries: 30
+player render-target draws and 135 scene draws. All 55 scene material
+textures resolve; the 135 scene draws have 5,190 vertices, with 5,109 inside
+the clip volume and all 135 draw bounds intersecting it. Later, the draw count
+stays at 165 while intersecting meshes fall to 114. This confirms the native
+OpenGL pass is rasterizing a substantial textured scene, but the saved frame
+still shows detached building sections and a dark empty foreground:
+`/home/reaper/sly/native-quad4-check/post-transition/frame.png`.
+
+The separate 64x64 player render target is not blank. Its captured texture
+contains a character silhouette:
+`/home/reaper/sly/native-quad4-check/post-transition/target-24c0-upscaled.png`.
+The generic NDC bounds probe reports that target outside the normal screen
+clip volume, so those numbers cannot be used to infer target visibility. Keep
+the next check on native OpenGL scene-mesh inputs and per-draw geometry,
+comparing stable scene snapshots with the screenshot. No VU renderer or
+matched decomp code was changed.
+
 ## Per-present texture correction (2026-11-17, 12:45 CET)
 
 A fresh opt-in renderer run shows the texture-placeholder count from the prior

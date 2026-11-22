@@ -7971,3 +7971,23 @@ that address changes, and reports the per-frame instance replacement count.
 Next trace model collection around the 315-to-165 change at the save-prompt
 transition. Then compare a stable native OpenGL snapshot with its rasterized
 result before changing primitive, depth, or transform behavior.
+
+## Gameplay OpenGL sample window (2026-11-22)
+
+`OPENRAC_TRACE_SLY_PRESENT_BOUNDS_START=N` delays the existing 64-sample
+native OpenGL bounds report until sample N. This avoids spending the entire
+trace budget on startup. With the start set to 250, a gameplay sample reports
+165 queued meshes, of which 30 belong to the player render target and 135 are
+scene draws. The scene report has 5,190 vertices; 5,109 are inside clip and
+all 135 scene draw bounds intersect the view. All 55 scene material textures
+resolve. Later samples still queue 165 meshes but report only 114 scene draws
+intersecting the view. The captured frame shows several textured but detached
+facades over a dark foreground:
+`/home/reaper/sly/native-quad4-check/post-transition/frame.png`.
+
+The `0x24c0` player target capture contains a visible character silhouette,
+so the target is not blank:
+`/home/reaper/sly/native-quad4-check/post-transition/target-24c0-upscaled.png`.
+The generic scene NDC bounds are not a valid visibility check for this target
+pass. Continue by comparing native scene vertices and per-draw transforms in a
+stable frame; do not implement or switch to a PlayStation VU renderer.

@@ -634,6 +634,14 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                      error);
     }
     static unsigned present_bounds_sample = 0;
+    unsigned present_bounds_start = 0;
+    if (const char* setting =
+            std::getenv("OPENRAC_TRACE_SLY_PRESENT_BOUNDS_START")) {
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(setting, &end, 10);
+        if (end != setting && *end == '\0' && parsed <= 100000u)
+            present_bounds_start = static_cast<unsigned>(parsed);
+    }
     unsigned projected_meshes = 0;
     unsigned intersecting_meshes = 0;
     unsigned long long projected_vertices = 0;
@@ -751,7 +759,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     ++intersecting_meshes;
                 if (debug_solid_colors && min_x <= -1.0f && max_x >= 1.0f &&
                     min_y <= -1.0f && max_y >= 1.0f &&
-                    present_bounds_sample < 64u) {
+                    present_bounds_sample >= present_bounds_start &&
+                    present_bounds_sample - present_bounds_start < 64u) {
                     std::fprintf(stderr,
                                  "[native sly solid cover] frame=%u instance=%#llx source=%#010x vertices=%zu tex0=%#llx test=%#llx ndc=%g,%g..%g,%g z=%g..%g\n",
                                  present_bounds_sample,
@@ -1626,10 +1635,12 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     }
     if (trace_native_per_mesh_bounds && !target_pass && projected_meshes != 0u)
         native_per_mesh_bounds_logged = true;
-    if (trace_projected_bounds && present_bounds_sample < 64u) {
+    if (trace_projected_bounds &&
+        present_bounds_sample >= present_bounds_start &&
+        present_bounds_sample - present_bounds_start < 64u) {
         std::fprintf(stderr,
                      "[native sly present bounds] frame=%u meshes=%zu unique=%zu duplicate=%u materials=%zu uploaded_textures=%zu missing_textures=%zu signature=%016llx projected=%u intersects=%u vertices=%llu inside=%llu ndc=%g,%g,%g..%g,%g,%g\n",
-                     present_bounds_sample++, meshes.size(),
+                     present_bounds_sample, meshes.size(),
                      present_instances.size(), duplicate_instances,
                      present_materials.size(), present_uploaded_textures.size(),
                      present_missing_textures.size(),
@@ -1639,6 +1650,7 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                      frame_min_x, frame_min_y, frame_min_z,
                      frame_max_x, frame_max_y, frame_max_z);
     }
+    if (trace_projected_bounds) ++present_bounds_sample;
     if (trace_target_pass) {
         GLint framebuffer = 0;
         GLint viewport[4]{};
