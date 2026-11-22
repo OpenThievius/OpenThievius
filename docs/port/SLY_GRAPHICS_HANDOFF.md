@@ -20,6 +20,21 @@ changed. The host32 build succeeded; the hidden run ended at its planned
 12-second timeout (137) with no launcher left running. Trace:
 `/tmp/sly-native-depth-audit-20261122/run.log`.
 
+### Keep topology work on the native OpenGL inputs (2026-11-22)
+
+A fresh bounded run of the current host32 build traced accepted GIF appends
+after index 3000, reaching the state-driven menu's world-load page. The trace
+contains 3,875 VU XGKICK appends, 147 VIF DIRECT appends, and 74 GIF DMA-chain
+appends. Only 18 of the sampled VU XGKICK summaries contain XYZ writes, with
+one or two coordinates per append; the summaries do not expose a complete
+world triangle batch to use as a direct topology oracle. The native OpenGL
+renderer instead submits from the game-built `VertexRefs` position stream and
+the captured model/camera transforms. Continue validating that host input and
+its primitive assembly there; do not use the VU path to draw the scene. No
+renderer or matched game code changed. The run ended at its planned 12-second
+timeout (137), with no launcher left running. Trace:
+`/tmp/sly-native-primitives-20261122/run.log`.
+
 ### Keep graphics work on native OpenGL (2026-11-22)
 
 The target is the port-owned OpenGL renderer. The host32 build runs the

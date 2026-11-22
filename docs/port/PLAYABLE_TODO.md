@@ -7,10 +7,11 @@ The native OpenGL depth path is not the blocker for the upper-center building
 draw. A fresh trace of request `0x005e5000` reports GS ZTE enabled with
 `GREATER`, OpenGL `GL_GREATER`, depth clear 0, and projected window depth
 0.0075–0.0140. This matches the renderer's intended reversed-depth ordering
-for the sampled draw. Keep its depth mapping unchanged. The remaining scene
-distortion still needs a cause; inspect the selected retail output packet's
-PRIM and emitted vertex order as diagnostic evidence, then implement any
-proven primitive assembly in the native OpenGL path.
+for the sampled draw. Keep its depth mapping unchanged. A fresh accepted-packet
+trace in the current build did not expose complete world triangle batches in
+individual VU appends. Keep graphics investigation on the host OpenGL mesh
+inputs: validate the submitted vertex sequence and primitive assembly against
+the retail source structures, without using the VU path as the renderer.
 The host32 native OpenGL build succeeded. Its bounded hidden trace reached the
 planned 12-second timeout (137), with no launcher left running. Trace:
 `/tmp/sly-native-depth-audit-20261122/run.log`.
