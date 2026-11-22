@@ -46,6 +46,7 @@ struct NativeSlyFrameSource {
 // Port-only material state for one FrameSource pass; the VU remains the source
 // of truth for how the retail program combines these passes.
 struct NativeSlyMaterial {
+    u64 prim = 0;
     u64 tex0 = 0;
     u64 tex1 = 0;
     u64 clamp = 0;
@@ -1551,6 +1552,7 @@ extern "C" void sly1_native_capture_model_mesh(u32 mesh_address, u32 vecs_addres
             const u32 address = static_cast<u32>(packet[3u + i * 2u] & 0x7Fu);
             switch (address) {
             // Kind-5 strips use context-2 GS registers; kind-0 uses context-1.
+            case 0x00: material.prim = value; break;              // PRIM
             case 0x47: case 0x48: material.test = value; break;   // TEST_1 / TEST_2
             case 0x06: case 0x07: material.tex0 = value; break;  // TEX0_1 / TEX0_2
             case 0x14: case 0x15: material.tex1 = value; break;  // TEX1_1 / TEX1_2
@@ -2696,7 +2698,7 @@ extern "C" void sly1_native_submit_model_part(u32 request_address, u32 world,
                 is_render_target ? 1 : 0,
                 mesh.vertex_indices.size() == mesh.vertices.size() / 9u
                     ? mesh.vertex_indices.data() : nullptr,
-                model, view_projection, material.tex0, material.tex1,
+                model, view_projection, material.prim, material.tex0, material.tex1,
                 material.clamp, material.alpha, material.alpha_valid ? 1 : 0,
                 material.test);
         }

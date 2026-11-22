@@ -64,6 +64,7 @@ struct NativeWorldMesh {
     std::array<float, 16> model{};
     std::array<float, 16> view_projection{};
     bool model_is_identity = false;
+    std::uint64_t prim = 0;
     std::uint64_t tex0 = 0;
     std::uint64_t tex1 = 0;
     std::uint64_t clamp = 0;
@@ -119,6 +120,8 @@ bool g_present_frame_valid = false;
 openrac::gl::GLint g_world_mvp_location = -1;
 openrac::gl::GLint g_world_texture_location = -1;
 openrac::gl::GLint g_world_textured_location = -1;
+openrac::gl::GLint g_world_fst_location = -1;
+openrac::gl::GLint g_world_texture_size_location = -1;
 openrac::gl::GLint g_world_tcc_location = -1;
 openrac::gl::GLint g_world_tfx_location = -1;
 openrac::gl::GLint g_world_tex_alpha_scale_location = -1;
@@ -303,6 +306,8 @@ in vec4 v_color;
 in vec2 v_uv;
 uniform sampler2D u_texture;
 uniform int u_textured;
+uniform int u_fst;
+uniform vec2 u_texture_size;
 uniform int u_tcc;
 uniform int u_tfx;
 uniform float u_tex_alpha_scale;
@@ -333,7 +338,8 @@ void main() {
     }
     vec4 color = v_color * 255.0;
     if (u_textured != 0) {
-        vec4 texel = texture(u_texture, v_uv) * 255.0;
+        vec2 uv = u_fst != 0 ? (v_uv / 16.0) / u_texture_size : v_uv;
+        vec4 texel = texture(u_texture, uv) * 255.0;
         texel.a *= u_tex_alpha_scale;
         if (u_tfx == 0) {
             color.rgb = color.rgb * texel.rgb / 128.0;
@@ -368,6 +374,8 @@ void main() {
     g_world_mvp_location = g_world_shader->uniform("u_mvp");
     g_world_texture_location = g_world_shader->uniform("u_texture");
     g_world_textured_location = g_world_shader->uniform("u_textured");
+    g_world_fst_location = g_world_shader->uniform("u_fst");
+    g_world_texture_size_location = g_world_shader->uniform("u_texture_size");
     g_world_tcc_location = g_world_shader->uniform("u_tcc");
     g_world_tfx_location = g_world_shader->uniform("u_tfx");
     g_world_tex_alpha_scale_location = g_world_shader->uniform("u_tex_alpha_scale");
@@ -1245,6 +1253,11 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     texture != 0 && mesh.tex0 != 0 ? 1 : 0);
         glUniform1i(g_world_tcc_location, tex0.tcc ? 1 : 0);
         glUniform1i(g_world_tfx_location, static_cast<GLint>(tex0.tfx));
+        const auto prim = openrac::renderer::gs::Prim::decode(mesh.prim);
+        glUniform1i(g_world_fst_location, prim.fst ? 1 : 0);
+        glUniform2f(g_world_texture_size_location,
+                    static_cast<float>(std::max(tex0.width(), 1)),
+                    static_cast<float>(std::max(tex0.height(), 1)));
         const float texture_alpha_scale = texture != 0 && g_textures != nullptr &&
                 g_textures->alpha_scale(texture) == openrac::renderer::AlphaScale::Full
             ? 0.5f : 1.0f;
@@ -1995,7 +2008,7 @@ extern "C" void openrac_native_sly_world_mesh_submit(
     std::uint32_t target_tbp, int target_width, int target_height, int render_target,
     const std::uint8_t* vertex_indices,
     const float* model, const float* view_projection,
-    std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
+    std::uint64_t prim, std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp,
     std::uint64_t alpha, int alpha_valid, std::uint64_t test) {
     // Diagnostic filter for isolating one guest mesh from scene occlusion and
     // the experimental overlay's other approximations. Unset by default.
@@ -2042,6 +2055,7 @@ extern "C" void openrac_native_sly_world_mesh_submit(
                 draw.model_is_identity = false;
     std::memcpy(draw.model.data(), model, sizeof(draw.model));
     std::memcpy(draw.view_projection.data(), view_projection, sizeof(draw.view_projection));
+    draw.prim = prim;
     if (std::getenv("OPENRAC_TRACE_SLY_WORLD_BOUNDS") != nullptr) {
         static unsigned samples = 0;
         const unsigned sample = samples++;

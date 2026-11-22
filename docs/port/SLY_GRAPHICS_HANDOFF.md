@@ -7804,6 +7804,18 @@ geometry errors. Trace controls are `OPENRAC_TRACE_SLY_IMAGE_RECORDS`,
 
 ## Request-filtered OpenGL transform capture (2026-11-22)
 
+The native world mesh handoff also carries its captured GS `PRIM` bits into the
+OpenGL draw. The shader reads `FST`; when set, it divides the incoming 12.4
+texel coordinates by 16 and by the decoded texture dimensions. When clear, the
+existing `STQ` coordinates pass through unchanged. This mirrors the GS UV
+conversion already used by OpenRAC's DirectRenderer and is limited to the
+port-owned OpenGL renderer. The host32 target builds successfully. A hidden
+run crossed into Paris without shader errors, but the gameplay window was too
+brief for the requested post-render frame sample, so the visual result remains
+unverified. Next obtain a stable gameplay capture before deciding whether this
+fix improves the stretched/repeated wall textures. No VU renderer changes were
+made.
+
 The opt-in `OPENRAC_TRACE_SLY_GL_TRANSFORM_REQUEST=<address>` probe records
 the model and camera matrices, owner root, object-local part position, queued
 per-part position, and part matrix. For `0x005e5000`, the part's object-local

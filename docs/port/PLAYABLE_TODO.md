@@ -3,6 +3,16 @@
 
 ## Current checkpoint (2026-11-22)
 
+The native OpenGL world adapter now preserves the GS `PRIM` value captured with
+each material. For draws with `FST` set, its shader converts 12.4 texel UVs to
+normalized OpenGL coordinates using the decoded texture width and height;
+`STQ` draws keep their original coordinates. This follows the conversion in
+OpenRAC's DirectRenderer and changes only the port-owned native GL path. The
+host32 target builds with this change. The brief hidden gameplay window passed
+through startup without shader errors, but the frame dump missed its transient
+world image, so the visual effect is not yet verified. Next get a stable
+gameplay capture and compare the textured wall before and after this fix.
+
 The configured decomp source has advanced to upstream `6d12fbc8` (21 Nov).
 The canonical source worktree remains untouched; I built from a temporary
 read-only archive. Port staging now accepts the updated `void` IOP helper,
