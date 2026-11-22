@@ -3,9 +3,21 @@
 
 ## Current checkpoint (2026-11-22)
 
-**Latest native OpenGL investigation:** the visible host32 baseline still
-shows disconnected white facades over dark ground. Mesh traces now filter by
-owner, part and source before applying their output cap. Source `0x00a13940`
+**Latest native OpenGL investigation:** a fresh hidden host32 run reached
+Paris gameplay with the native world renderer enabled and VU NDC renderer
+disabled. It traced source `0x00a14110` under one owner at four distinct
+requests/parts; the four projected bounds form two small, separated pairs.
+One request's model matrix matches its stored part matrix and projects to a
+plausible screen-space location. This does not yet explain the gaps between
+building pieces. Compare the matched decomp `VertexRefs` and model placement
+for the captured draws to determine whether the gaps come from mesh content or
+native scene assembly. Capture and traces:
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/`. Details are in
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#trace-native-facade-neighbor-submissions-2026-11-22).
+
+The earlier visible host32 baseline shows disconnected white facades over
+dark ground. Mesh traces now filter by owner, part and source before applying
+their output cap. Source `0x00a13940`
 isolates to a textured roof fragment, not a white facade. A second source
 candidate, `0x00a14070`, draws detached angular architecture even in solid
 color; its current transform projects all vertices, and the centroid is
@@ -18,13 +30,13 @@ centroid close to the queued origin. The decompiled builder confirms that
 `VertexRefs` order is the submitted vertex order and `FrameSource` records are
 animation/material data, not primitive boundaries. Splitting on repeated
 references did not fix the scene. Do not change global UV wrapping, matrix
-convention, or primitive assembly from these observations. Next trace the
-native facade's geometry placement and neighbor submissions to find why
-otherwise plausible draws compose into disconnected buildings. The native
-OpenGL renderer also now honors TEX1.MMIN for single-level texture filtering;
-the facade's TEX1 `0x61` requests linear minification, which the old path
-ignored. A fresh native OpenGL capture still has distorted geometry, so this
-sampling correction is not a playable milestone. Details and captures:
+convention, or primitive assembly from these observations. Use the latest
+neighbor trace to compare source vertex references and object placement
+across facade parts; run-local pointers are not stable asset identifiers.
+The native OpenGL renderer also now honors TEX1.MMIN for single-level texture
+filtering; the facade's TEX1 `0x61` requests linear minification, which the old
+path ignored. A fresh native OpenGL capture still has distorted geometry, so
+this sampling correction is not a playable milestone. Details and captures:
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#identify-the-native-opengl-facade-source-2026-11-22).
 
 Keep the graphics investigation on the **native OpenGL renderer**. Do not

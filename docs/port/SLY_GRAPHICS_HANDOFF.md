@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Trace native facade neighbor submissions (2026-11-22)
+
+A hidden host32 run reached Paris gameplay with
+`OPENRAC_NATIVE_SLY_WORLD_RENDERER=ON` and
+`OPENRAC_NATIVE_VU_NDC_RENDERER=OFF`. Filtering the native OpenGL present by
+owner `0x00a80820` and source `0x00a14110` found four facade submissions at
+requests `0x005e5980`, `0x005e5e00`, `0x005e5c00`, and `0x005e5f80`. Each has a
+different run-local part pointer, 16 or 30 vertices, and the same TEX0. Their
+projected bounds cluster into two separated pairs; this confirms the wall
+source appears in multiple placements, but does not explain the gaps or prove
+that the draws are neighbors in world space.
+
+A transform audit for request `0x005e5980` records model translation
+`(-34333.1, 4856.23, -236.803)`, the part matrix at the same address and values,
+and request/part-local position `(-26023.2, 33707.1, -3479.46)`. This does not
+show a malformed native matrix, but one request cannot validate the placement
+of the other facade pieces. The captured frame still has overlapping roof
+geometry and separated distant facades. Next compare the matching decomp's
+ordered `VertexRefs` for these draws against their model placements, and map
+the relevant vertices into world space before changing OpenGL assembly.
+
+The bounded run used the configured US ISO and process-local menu controls; it
+did not send desktop input. The timeout exit was expected. Logs and capture:
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/owner-source.log`,
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/transform.log`, and
+`/home/reaper/sly/native-gl-facade-neighbors-20261122/frame.png`.
+
 ### Honor GS texture minification in native OpenGL (2026-11-22)
 
 The native world renderer previously forced `GL_NEAREST` for every texture's
