@@ -60,6 +60,21 @@ zero-coverage audit are in `/tmp/sly-native-opengl-visible-ranking-20261122/run.
 and `/tmp/sly-native-opengl-static-coverage-20261122/run.log`. Continue by
 checking those visible source strips and their per-draw coordinates.
 
+### Audit the visible buildings' native OpenGL inputs (2026-11-22)
+
+A fresh hidden run traced source mesh `0x00a14110` through the matched C mesh
+builder and native GL submission. Its source positions are selected through
+`VertexRefs.pos` from the per-part `vecs` array. The sampled strip has one
+frame source and uses frame 0. Visible Paris building requests `0x005e4c80`,
+`0x005e4f00`, and `0x005e5000` are kind 0, with zero morph targets and zero
+skin weights. Missing host-side skinning or morphing therefore does not
+explain these static fragments. The native bridge applies each draw's model
+matrix and the camera view-projection matrix to the captured positions.
+
+Next compare those matrices and the owner's/part's coordinate origin with the
+same placed object in the reference view. Keep the fix in the port-owned
+OpenGL path. Trace: `/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
+
 ### Recover the player silhouette in the native target (2026-11-22)
 
 The player target's framebuffer is complete and the native OpenGL coverage

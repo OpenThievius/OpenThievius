@@ -154,6 +154,21 @@ zero-coverage check is in `/tmp/sly-native-opengl-static-coverage-20261122/run.l
 Next inspect these actually visible building draws and their matched source
 strips. Do not keep tuning the global projection based on `0x005e4980`.
 
+### Native building source and deformation audit (2026-11-22)
+
+A fresh hidden native OpenGL trace reached Paris gameplay using the configured
+US ELF and Documents ISO. It followed source mesh `0x00a14110`, used by
+requests `0x005e4c80`, `0x005e4f00`, and `0x005e5000`. The matched C builder
+confirms that the uploaded positions originate from `vecs[VertexRefs.pos]`;
+the sampled source strip has one frame source at frame 0. The two building
+owners are kind 0 with no morph targets or skin weights, so their broken shape
+is not explained by missing host skinning or morphing. The captured OpenGL
+inputs still combine those positions with each request's model matrix and the
+camera view-projection matrix. Next validate the owner/part coordinate origin
+and the camera projection against the same placed object in the reference
+view; keep changes in the native OpenGL adapter. Log:
+`/tmp/sly-native-gl-deformation-audit-20261122/run.log`.
+
 ## Current checkpoint (2026-11-21)
 
 ### Native OpenGL visibility pass (2026-11-21)
