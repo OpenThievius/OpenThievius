@@ -1,6 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Native OpenGL coverage and transform follow-up (2026-11-22)
+
+Two fresh bounded offscreen runs used the current host32 build with the native
+OpenGL world renderer enabled and the VU NDC renderer disabled. The first
+targeted request `0x005e4f00`: its three mesh centroids, after the existing
+row-vector model transform, are 149, 267, and 1,325 units from the game's
+queued part position; all are within the part radius of 2,402. The alternate
+column-vector interpretation misses that position by about 14,500 units. The
+submitted model matrix is the same as the part matrix. This supports the
+current per-object matrix convention for this draw, without proving every
+object transform.
+
+The same run captured the native camera matrix. Using its rounded trace values,
+the player target point and the `0x005e4f00` facade centroid both project near
+the center of the view (NDC approximately `(0.07,-0.01)` and `(0.01,0.04)`).
+This is consistent with the camera aiming into the scene; it is not a precise
+reference-image match. A gameplay-latched capture still shows detached
+façades, so do not change the global projection or camera matrix on this
+evidence. Frame and transform log:
+`/home/reaper/sly/native-transform-followup-gameplay-20261122/`.
+
+A separate native OpenGL coverage trace sampled the stable gameplay scene.
+Request `0x005e4f00` has 70, 29, and 23 visible triangles across its three
+submitted strips, with substantial central coverage. Request `0x005e5000` has
+14 of 14 strip triangles visible. The earlier extreme clip-space candidates
+`0x005e4800` and `0x005e4880` contribute only narrow left-edge coverage in
+the sampled frame. The renderer is rasterizing these central scene meshes;
+their current appearance cannot be explained by the draws being wholly
+clipped or rejected. The capture still visibly contains disconnected
+façades. Next compare the native OpenGL mesh composition and neighboring scene
+draws around these requests, keeping the sampled vertex order and per-draw
+transforms intact until a mismatch is demonstrated. Do not add or tune a
+PlayStation VU renderer or change matched game code. Coverage log and frames:
+`/home/reaper/sly/native-coverage-followup-20261122/`.
+
 ### Reconfirm backdrop versus scene geometry (2026-11-22)
 
 A fresh bounded host32 run used the native OpenGL renderer and skipped only
