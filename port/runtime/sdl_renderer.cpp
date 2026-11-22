@@ -978,7 +978,135 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     for (std::size_t i = 0; i < 16u; ++i)
                         std::fprintf(stderr, "%s%g", i == 0u ? "" : ",", m[i]);
                     std::fputc('\n', stderr);
+                    if (std::getenv("OPENRAC_TRACE_SLY_GL_OUTLIER_VERTICES") !=
+                        nullptr) {
+                        static bool outlier_vertices_logged = false;
+                        if (!outlier_vertices_logged) {
+                            outlier_vertices_logged = true;
+                            for (std::size_t i = 0; i < vertex_count; ++i) {
+                                const float* vertex = mesh.vertices.data() + i * 9u;
+                                float clip[4]{};
+                                for (std::size_t row = 0; row < 4u; ++row)
+                                    clip[row] = m[row] * vertex[0] +
+                                        m[4u + row] * vertex[1] +
+                                        m[8u + row] * vertex[2] + m[12u + row];
+                                std::fprintf(stderr,
+                                             "[native sly GL outlier vertex] request=%#010x instance=%#llx source=%#010x i=%zu ref=%u xyz=%g,%g,%g clip=%g,%g,%g,%g rgba=%g,%g,%g,%g uv=%g,%g\n",
+                                             mesh.request,
+                                             static_cast<unsigned long long>(mesh.instance),
+                                             mesh.source_mesh, i,
+                                             i < mesh.vertex_indices.size()
+                                                 ? static_cast<unsigned>(
+                                                       mesh.vertex_indices[i])
+                                                 : 0xFFu,
+                                             vertex[0], vertex[1], vertex[2],
+                                             clip[0], clip[1], clip[2], clip[3],
+                                             vertex[3], vertex[4], vertex[5], vertex[6],
+                                             vertex[7], vertex[8]);
+                            }
+                        }
+                    }
                 }
+            }
+        }
+        if (std::getenv("OPENRAC_TRACE_SLY_GL_COVERAGE") != nullptr &&
+            !mesh.render_target) {
+            static std::unordered_map<std::uint64_t, std::uint32_t>
+                traced_coverage_sources;
+            const std::uint64_t draw_key = mesh.instance & ~0xFFull;
+            const auto traced = traced_coverage_sources.find(draw_key);
+            if (traced_coverage_sources.size() < 512u &&
+                (traced == traced_coverage_sources.end() ||
+                 traced->second != mesh.source_mesh)) {
+                traced_coverage_sources[draw_key] = mesh.source_mesh;
+                const std::size_t vertex_count = mesh.vertices.size() / 9u;
+                std::vector<std::array<float, 4>> clips(vertex_count);
+                for (std::size_t i = 0; i < vertex_count; ++i) {
+                    const float* vertex = mesh.vertices.data() + i * 9u;
+                    for (std::size_t row = 0; row < 4u; ++row)
+                        clips[i][row] = m[row] * vertex[0] +
+                            m[4u + row] * vertex[1] + m[8u + row] * vertex[2] +
+                            m[12u + row];
+                }
+                std::size_t visible_triangles = 0;
+                double total_area = 0.0;
+                float min_x = 1.0e30f, min_y = 1.0e30f;
+                float max_x = -1.0e30f, max_y = -1.0e30f;
+                std::vector<std::array<float, 4>> polygon;
+                std::vector<std::array<float, 4>> clipped;
+                polygon.reserve(12u);
+                clipped.reserve(12u);
+                for (std::size_t triangle = 0; triangle + 2u < vertex_count; ++triangle) {
+                    polygon.clear();
+                    polygon.push_back(clips[triangle]);
+                    polygon.push_back(clips[triangle + 1u]);
+                    polygon.push_back(clips[triangle + 2u]);
+                    for (unsigned plane = 0; plane < 6u && !polygon.empty(); ++plane) {
+                        clipped.clear();
+                        const auto distance = [plane](const auto& v) {
+                            switch (plane) {
+                            case 0: return v[3] + v[0];
+                            case 1: return v[3] - v[0];
+                            case 2: return v[3] + v[1];
+                            case 3: return v[3] - v[1];
+                            case 4: return v[3] + v[2];
+                            default: return v[3] - v[2];
+                            }
+                        };
+                        auto previous = polygon.back();
+                        float previous_distance = distance(previous);
+                        for (const auto& current : polygon) {
+                            const float current_distance = distance(current);
+                            if ((previous_distance >= 0.0f) !=
+                                (current_distance >= 0.0f)) {
+                                const float t = previous_distance /
+                                    (previous_distance - current_distance);
+                                std::array<float, 4> intersection{};
+                                for (std::size_t axis = 0; axis < 4u; ++axis)
+                                    intersection[axis] = previous[axis] +
+                                        (current[axis] - previous[axis]) * t;
+                                clipped.push_back(intersection);
+                            }
+                            if (current_distance >= 0.0f) clipped.push_back(current);
+                            previous = current;
+                            previous_distance = current_distance;
+                        }
+                        polygon.swap(clipped);
+                    }
+                    if (polygon.size() < 3u) continue;
+                    double twice_area = 0.0;
+                    for (std::size_t i = 0; i < polygon.size(); ++i) {
+                        const auto& a = polygon[i];
+                        const auto& b = polygon[(i + 1u) % polygon.size()];
+                        if (a[3] <= 0.0f || b[3] <= 0.0f) {
+                            twice_area = 0.0;
+                            break;
+                        }
+                        const float ax = a[0] / a[3], ay = a[1] / a[3];
+                        const float bx = b[0] / b[3], by = b[1] / b[3];
+                        twice_area += static_cast<double>(ax) * by -
+                                      static_cast<double>(bx) * ay;
+                        min_x = std::min(min_x, ax); max_x = std::max(max_x, ax);
+                        min_y = std::min(min_y, ay); max_y = std::max(max_y, ay);
+                    }
+                    const double triangle_area = std::abs(twice_area) * 0.5;
+                    if (triangle_area > 1.0e-10) {
+                        ++visible_triangles;
+                        total_area += triangle_area;
+                    }
+                }
+                std::fprintf(stderr,
+                             "[native sly GL coverage] request=%#010x instance=%#llx source=%#010x vertices=%zu strip_triangles=%zu visible_triangles=%zu ndc_area=%g bbox=",
+                             mesh.request,
+                             static_cast<unsigned long long>(mesh.instance),
+                             mesh.source_mesh, vertex_count,
+                             vertex_count > 2u ? vertex_count - 2u : 0u,
+                             visible_triangles, total_area);
+                if (visible_triangles != 0u)
+                    std::fprintf(stderr, "%g,%g..%g,%g\n", min_x, min_y,
+                                 max_x, max_y);
+                else
+                    std::fprintf(stderr, "none\n");
             }
         }
         if (std::getenv("OPENRAC_DUMP_WORLD_MATRIX") != nullptr) {

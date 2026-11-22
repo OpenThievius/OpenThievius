@@ -1,6 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+### Rank native draws by clipped triangle coverage (2026-11-22)
+
+Added two opt-in host OpenGL diagnostics: `OPENRAC_TRACE_SLY_GL_COVERAGE=1`
+reports each selected mesh's clipped triangle count, accumulated NDC area,
+and bounds; `OPENRAC_TRACE_SLY_GL_OUTLIER_VERTICES=1` adds exact uploaded
+vertex attributes for outlier draws. They run only in the native OpenGL world
+pass and do not change the PlayStation VU renderer or matched game functions.
+
+A bounded hidden host32 capture with the US ELF and ISO, followed by the
+existing process-local save-prompt selection, ranked 47 draw requests. The
+largest raw accumulated areas came from requests `0x005e5380`, `0x005e5300`,
+and `0x005e5280`. The area sum counts overlapping triangles repeatedly, so it
+is a ranking aid rather than an estimate of unique screen pixels. Isolating
+`0x005e5380` with flat color fills the window; skipping it removes the starry
+backdrop but leaves the fragmented building geometry. It is therefore not a
+confirmed corruption source. Isolating `0x005e4f00` shows a broad upper-screen
+shape, consistent with the building cluster in the full frame, but does not
+establish whether its transform or source geometry is wrong.
+
+The matched full-scene capture still shows textured buildings broken into
+floating pieces and Sly displaced near the upper-right. Continue by comparing
+the exact native model/view-projection inputs for the building requests and
+player against one fixed gameplay camera state; do not tune the backdrop or
+global MVP convention from the coverage score alone. Logs and images are
+local at `/tmp/sly-native-gl-coverage-gameplay-20261122/` and
+`/tmp/sly-native-gl-isolate-20261122/`. The launcher build succeeded, and both
+captures ended at their planned timeout (137). No game data or captures are
+tracked.
+
 ### Recheck of the former class-4 slab candidate (2026-11-22)
 
 Kept the investigation on the host OpenGL renderer. A fresh hidden run of the
