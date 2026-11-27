@@ -5,6 +5,62 @@
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.
 
+### Restore collider mesh world transforms in the native port (2026-11-22)
+
+The previous port-only `func_001B8820` copied source mesh bytes into the
+destination without transforming them. This function is still an `ASM_FUNC`
+in the decomp, and `ComputeColliderWorldFrame` calls it to populate the
+world-space collision mesh. Sly's probe vertex therefore remained local at
+`(0, 0, -40)` while the player center was `(-4314, 9489, 119)`. In
+`ApplyPlayerDefaultSteering`, that pivot arm combined with angular acceleration
+to produce horizontal forces near `(1,897,876, 862,863)`.
+
+The separate port backfill now applies rotation and translation to mesh
+vertices and face points, rotates face normals, and recalculates each plane
+offset from its indexed transformed vertex. The decomp checkout is unchanged.
+A bounded hidden run against the configured US ELF and ISO confirms the probe
+stays about 40 units below the center and those forces fall to single digits.
+The timeout exit was expected. This fixes the diagnosed drift cause, but the
+native OpenGL image still has the large roof artifact and Sly is in a T-pose;
+the port is not yet playable.
+
+Latest capture:
+`/home/reaper/sly/native-player-motion-fixed-20261122/frame-07.png`.
+Trace:
+`/home/reaper/sly/native-player-motion-fixed-20261122/run.log`.
+Next verify movement and input against PCSX2 over a longer interval, then
+investigate the remaining roof geometry and animation pose separately.
+
+### Correct the player-motion trace target (2026-11-22)
+
+The previous TODO's proposed “class 0x14 update” was based on a mistaken class
+assignment. Decomp `class_descriptors.cpp` identifies class 0x14 as
+`TintBlendCollider`; the player is class 0x07. The matching player path is slot
+73 `ControlPlayer` in `player.cpp`: it calls `DrivePlayerFromEntryQueue` when
+an entry queue is active. Queue kind 6 computes a heading toward its target and
+sets stick level. In state 1, `ControlPlayer` calls `SetPlayerBlendWeights`,
+which sums animation motion into `headingVelocity` (`player_request.cpp`).
+
+The new trace shows normal game-clock dt (about 0.02 s), transient horizontal
+acceleration as large as `-793367, 987609`, and zero pending move at the sampled
+frame boundaries. At frame 300, Sly is near `(411,-732,-4602)` with velocity
+`(240,-195,-5)` while target 2435 remains at `(-3603,9087,86)`; at frame 500
+Sly is still drifting away. This rules out a bad frame delta and a still-queued
+`+0x490` move, but does not locate the velocity write. Trace the player update
+and collision/impulse path where `v150` or `v170` changes before changing matched
+game code or native OpenGL transforms. Run log and native OpenGL frames:
+`/home/reaper/sly/native-player-motion-trace-20261122/`.
+
+### Recheck full-frame vertical scale (2026-11-22)
+
+A fresh hidden native OpenGL capture set `OPENRAC_SLY_WORLD_SCREEN_TO_CLIP_Y_SCALE=1`
+to compare against the default `0.5` mapping. The test doubled vertical clip
+scale as expected: Sly and nearby surfaces occupy more vertical space, but the
+large roof still dominates and Sly's shape remains broken. It does not resolve
+the renderer blocker. Keep the default `0.5` conversion for the two-field host
+frame and leave the full-scale value diagnostic-only. Capture and run log:
+`/home/reaper/sly/native-gl-y-scale-check-20261122/y-full/`.
+
 ### Identify the moving Paris camera state (2026-11-22)
 
 With the hidden menu driver, `OPENRAC_TRACE_CAMERA=1` logged camera position
@@ -8729,3 +8785,77 @@ frame-60 matched trace, x-scale comparison and owner/camera audit). No graphics
 default or decompilation function was changed. Next compare the matched
 local geometry and model/view inputs with the reference camera before deciding
 between a native placement/projection correction and a mesh-topology fix.
+### Native OpenGL and sly1-nx follow-up (2026-11-28)
+
+Rebuilt the host32 launcher against decomp `91de6fc6`, with native OpenGL on
+and the VU NDC path off. A bounded, hidden native run reached Paris world
+`0x870cf0` at UI state 3 and recorded 556 game frames at its last status
+sample. It produces real
+native OpenGL scene geometry, but it is not playable: the foreground roof
+dominates the view and Sly's pose is malformed. Baseline capture:
+`/home/reaper/sly/native-date-refresh-20261128/frame-07.png`.
+
+The same run's opt-in pixel trace attributes the roof-shaped contribution to
+mesh `0x00a13300` (request `0x005e4a80`, owner `0x00a80820`, part
+`0x00bcb4d0`). It changed 33,813 pixels in ROI `(300,360,300,200)`, with
+17 projected vertices (11 inside clip space), local bounds
+`(8583.43,-4134.88,-396.176)..(11424.7,-723.504,184.368)` and model
+translation `(-9789.2,1281.62,-28.4099)`. This localizes the next investigation
+to the exact placed draw but does not determine whether its source geometry,
+placement, or upstream camera/transform inputs are wrong. Keep comparisons
+frame-matched and don't change renderer scale/culling from this sample alone.
+
+The trace confirmed the Paris player draw (`request 0xda9a2d20`, source mesh
+`0x00a113c0`, kind 5) has four bone indices and four per-vertex weights; the
+sample weights sum to one. The palette matrices are read from the same
+`PartSkin::bones[]` entries that the matched `DrawModelPart` unpacks for the
+VU input. `Vu0::Transform` confirms the row-vector expression used by the
+host transform. This is enough evidence to apply that weighted position
+transform in the native OpenGL bridge when bone and weight counts agree; the
+port skips mismatched counts instead of truncating them.
+
+The default-path capture at
+`/home/reaper/sly/native-default-skin-20261128/frame-07.png` confirms the
+transform runs without an opt-in environment flag. Sly's limbs are bent, but
+the pose remains malformed and close to a T-pose; the foreground roof still
+dominates the view. Treat this as an enabled, partial native-renderer
+improvement, not a validated animation fix or a playable milestone. The next
+skin task is to compare a frame-matched player part's palette, weights,
+source positions, host-skinned positions and uploaded vertices, then establish
+whether normals and animation pose are also being handled correctly.
+
+### Test the dominant roof strip topology (2026-11-28)
+
+To isolate the large foreground artifact, a hidden native run filtered scene
+submission to source mesh `0x00a13300` while retaining the US ELF and ISO. The
+captured `VertexRefs.pos` sequence includes repeated references; the existing
+optional restart heuristic splits this stream at indices 4 and 12. A paired
+source-only capture with `OPENRAC_SLY_WORLD_SPLIT_RESTARTS=1` still shows the
+same large roof wedge. It changes other parts of the isolated image, but does
+not remove or materially shrink the dominant wedge. Therefore, repeated-index
+strip breaks alone do not explain the roof artifact; keep the split diagnostic
+opt-in.
+
+Evidence: `/home/reaper/sly/native-roof-source-only-20261128/` and
+`/home/reaper/sly/native-roof-split-20261128/`. The roof draw remains tied to
+owner `0x00a80820`, part `0x00bcb4d0`, request `0x005e4a80`; the mesh has 27
+submitted vertices and captured UVs extending beyond `[0,1]`. Next compare
+that draw's guest model transform and camera projection with a frame-matched
+reference. Do not alter default topology, projection scale, or culling based
+on this isolated comparison.
+
+The port also now has a native OpenGL DATE/DATM path based on sly1-nx's
+destination-alpha findings (including preserving the `0x80` high-bit
+threshold). The rebuilt launcher compiled the shader and ran normally, but
+the Paris capture logged no DATE snapshot, so this scene did not exercise the
+path. The roof remains present; DATE is not a demonstrated fix. Detailed
+reuse notes: [`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md). Upstream primary
+references: [renderer notes](https://github.com/SlyC00per/sly1-nx/blob/main/docs/RENDERER.md),
+[VU1 handlers](https://github.com/SlyC00per/sly1-nx/blob/main/port/render/vu1_handlers.cpp),
+and [GS implementation](https://github.com/SlyC00per/sly1-nx/blob/main/port/render/gs.cpp).
+
+No decomp-matched source was changed for this graphics work. The launcher
+process was stopped after the bounded capture; no lingering Sly launcher was
+found. The next useful milestone is one verified normal native frame with a
+correct player pose and coherent Paris geometry, not additional low-signal
+renderer toggles.
