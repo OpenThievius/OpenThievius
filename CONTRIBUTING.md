@@ -22,8 +22,10 @@ this repository holds the tools, the policies and, later, the native port.
   (`python3 tools/openthievius.py tables`).
 - **A shared file changes everywhere at once** (`shared/files.json`;
   `python3 tools/openthievius.py check`).
-- **No third-party code.** Write it yourself. The one exception is OpenRAC's own work, used
-  openly and credited ([docs/policy/SOURCING.md](docs/policy/SOURCING.md#openrac)).
+- **Approved project reuse.** OpenRAC's own work and maintainer-approved `SlyC00per/sly1-nx`
+  work may be adapted under their stated licenses, with attribution in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The sly1-nx reuse scope is documented in
+  [SLY1_NX_REFERENCE.md](docs/port/SLY1_NX_REFERENCE.md).
 - **AGPL-3.0-or-later.** By contributing you license your work under it.
 - **Keep docs short and plain.** Plain English, short sentences, tables where they help.
 

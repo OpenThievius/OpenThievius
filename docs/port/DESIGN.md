@@ -2,9 +2,11 @@
 # Sly 1 native port: design
 
 This note sets the initial direction for the OpenThievius port. It uses
-OpenRAC as a process and architecture reference, while all Sly-specific
-research comes from retail Sly 1 and public PlayStation 2 documentation.
-Nothing from OpenRAC's Ratchet & Clank research or game data is used.
+OpenRAC as a process and architecture reference. Sly-specific work is based
+on retail Sly 1 and public PlayStation 2 documentation, with the explicit
+maintainer-approved `sly1-nx` code and research reuse recorded in
+[`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md). No Ratchet & Clank research
+or game data is used.
 
 The matching decompilation is the sibling repository
 [`sly1-decomp`](https://github.com/OpenThievius/sly1-decomp). It remains the

@@ -31,9 +31,10 @@ own AGENTS.md.
   symbol maps, splits, names or notes from other decompilations, ports or research on the Sly
   games, and no third-party code. Never Sony SDK source, samples or headers, never leaked or NDA
   material.
-- **OpenRAC is the exception.** Its own work may be used, openly credited: name it in the commit
-  body and list it in THIRD_PARTY_NOTICES.md (docs/policy/SOURCING.md, "OpenRAC"). Not what
-  OpenRAC took from others, and no Ratchet & Clank game code.
+- **Approved project reuse.** OpenRAC's own work and the maintainer-approved `SlyC00per/sly1-nx`
+  work may be used within their stated licenses, openly credited in `THIRD_PARTY_NOTICES.md`.
+  The sly1-nx scope, revision and port-specific fit are recorded in
+  `docs/port/SLY1_NX_REFERENCE.md`. Do not include game data or proprietary material.
 - **Nothing from the prototype**: no code, data, names, signatures, types or file lists, and no
   tool that extracts them. What you write after looking at it must be entirely your own.
 - **No proprietary material ever touches the repository**: disc images, executables, extracted

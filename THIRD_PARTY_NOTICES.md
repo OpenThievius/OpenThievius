@@ -1,9 +1,10 @@
 # Third-party notices
 
-OpenThievius holds **no third-party code** apart from what comes from OpenRAC, the sister
-project of the same maintainers ([docs/policy/SOURCING.md](docs/policy/SOURCING.md#openrac)).
-The free tools it runs are installed by each contributor and are not distributed with it, and
-the compiler is proprietary and never part of it ([toolchains/README.md](toolchains/README.md)).
+OpenThievius includes credited work from OpenRAC and the maintainer-approved
+SlyC00per/sly1-nx project, as scoped in
+[docs/policy/SOURCING.md](docs/policy/SOURCING.md). The free tools it runs are
+installed by each contributor and are not distributed with it, and the
+compiler is proprietary and never part of it ([toolchains/README.md](toolchains/README.md)).
 
 ## From OpenRAC
 
@@ -33,3 +34,14 @@ Later imports list their specific OpenRAC revision in the corresponding row.
 | `port/runtime/vu1_native.cpp` | `tools/interpreter/src/ps2/vu.cpp` at `6786a882d6b385458e05dc732af3c1bcd51e7437` | adapts VU instruction semantics including lower-special opcode indexing, ILW/ISW and LQI/SQI/LQD/SQD operands and lane behavior, OPMULA, ERSQRT, WAITP and the documented XGKICK delay; native GIF validation remains strict |
 | `baserom/README.md`, `toolchains/README.md`, `.gitignore` | the same files | this project's discs, compiler and paths |
 | `.github/workflows/checks.yml` | rac3-decomp's `checks.yml` | this repository's checks |
+
+## From sly1-nx
+
+The project is licensed AGPL-3.0-or-later. Its maintainer has approved use in
+OpenThievius. The review snapshot is sly1-nx
+`2a7524a47c6fdbf1584469c7d33aaa7731bed17c`, which pins sly1-decomp
+`91de6fc6364ea13b3cbe5d530e8857272d23aada`. The detailed reference and
+adaptation plan are in
+[`docs/port/SLY1_NX_REFERENCE.md`](docs/port/SLY1_NX_REFERENCE.md). Add each
+adapted code module here with its source path, revision and changes when code
+is imported; retain its original SPDX notice.

@@ -9,8 +9,10 @@
 > for current evidence. The PlayStation VU renderer is not the target.
 
 OpenRAC is a useful precedent for the port architecture and workflow. It is
-not a Sly renderer or a source of Sly game research. This note records which
-parts transfer and what must be independently established for Sly 1.
+not a Sly renderer or a source of Sly game research. The approved `sly1-nx`
+port now provides a Sly-specific reference; see
+[`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md) for what applies to our native
+OpenGL path and what remains platform-specific.
 
 ## OpenRAC's approach
 

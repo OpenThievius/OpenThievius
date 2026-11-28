@@ -20,14 +20,13 @@ the retail executable of a disc they own:
   emulator). They are installed by each contributor and are not part of the
   repositories, and what they produce from game data stays local.
 
-## OpenRAC
+## Approved project reuse
 
 [OpenRAC](https://github.com/OpenRAC/OpenRAC), the Ratchet & Clank
-decompilation and port, is the sister project of the same maintainers, and the
-one exception to "nothing from anyone else". Its own work (tools, build code,
-checks, documentation, policies, research on the PS2 toolchain, the port's
-design and code) may be used here, openly credited: in the commit that brings
-it, and in the repository's `THIRD_PARTY_NOTICES.md`.
+decompilation and port, is the sister project of the same maintainers. Its
+own work (tools, build code, checks, documentation, policies, research on the
+PS2 toolchain, the port's design and code) may be used here, openly credited
+in `THIRD_PARTY_NOTICES.md`.
 
 - OpenRAC files keep their own SPDX license. The imported hostgen, shared
   Python helpers, common utilities and generic runtime are marked
@@ -37,6 +36,15 @@ it, and in the repository's `THIRD_PARTY_NOTICES.md`.
 - Other OpenRAC files retain the license stated in their own notices.
 - It does not cover what OpenRAC itself took from other projects (its
   `THIRD_PARTY_NOTICES.md` lists that), nor any Ratchet & Clank game code.
+
+The maintainers have also approved reuse from
+[`SlyC00per/sly1-nx`](https://github.com/SlyC00per/sly1-nx), a Sly 1 port
+whose author is an OpenThievius maintainer. Its port code, documentation and
+Sly-specific research may be adapted under its AGPL-3.0-or-later license.
+Credit the source and reviewed revision in `THIRD_PARTY_NOTICES.md`; keep
+port-only replacements separate from matching `sly1-decomp` sources. This
+exception does not cover game data, proprietary material, or material
+`sly1-nx` itself took from other sources.
 
 ## No proprietary material touches the repositories
 
