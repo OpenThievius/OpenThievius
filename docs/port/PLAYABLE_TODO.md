@@ -23,6 +23,17 @@ projects 17 vertices, 11 inside clip space. The local vertex bounds are
 `(-9789,1282,-28)`. This confirms a specific native OpenGL geometry/placement
 problem; it does not yet distinguish bad source geometry from a bad transform.
 
+**Color checkpoint (2026-11-28):** Paris is not meant to look monochrome. The
+PCSX2 reference has blue/purple night lighting and warm window lights, while
+the native OpenGL capture is mostly grayscale. A headless trace of the actual
+Paris scene found all 48 sampled lit model parts had `selected=0` lights. The
+host build currently stubs VU0 light-group selection and microprogram calls,
+and the OpenGL shader does not evaluate model normals/lights. This is a strong
+lighting-path blocker, though a native light/shading adapter still needs to be
+implemented and visually checked. Keep that adapter port-only; do not fake a
+global color tint. Details and capture: [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-world-color-and-light-selection-2026-11-28),
+`/home/reaper/sly/native-color-audit-20261128/`.
+
 **Latest callback-ABI check (2026-11-28):** the host generator now routes
 attachment callbacks with EE-style signatures through typed i386 shims in the
 staged descriptor table; the matched decompilation definitions are left

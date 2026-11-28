@@ -8989,3 +8989,39 @@ IK issue with instrumentation that preserves typed pointer aliasing or a
 separate deterministic capture, following the staged-capture discipline in
 [`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md), while keeping rendering on the
 native OpenGL path.
+
+### Native OpenGL world color and light selection (2026-11-28)
+
+The user's latest capture is mostly grayscale. The PCSX2 reference frames
+`/home/reaper/sly/pcsx2-reference-audit-20261128/frame-25.png` and
+`frame-30.png` show Paris at night with blue/purple scene lighting and warm
+windows; they are a visual reference, not frame-matched comparisons. The
+headless native capture is saved at
+`/home/reaper/sly/native-color-audit-20261128/sly1-native-world-07.ppm`.
+
+A headless run against the configured US ELF and ISO injected one Cross at
+native frame 300, reached Paris world `0x00870cf0`, and captured the actual
+world draw path. With `OPENRAC_TRACE_NATIVE_LIGHTS=1`, all 48 sampled model
+parts reported `selected=0`, including lit parts (`lit=1`) in modes 3 and 4.
+The current host generator maps `Vu0::NextLightGroup` to return zero and maps
+`CallMs`, `MoveToVi`, and `ReadViWait` to no-op/zero. The matched
+`CollectLightsForSphere` source therefore receives empty VU0 visibility masks
+in this host build. The native OpenGL fragment shader also has no normal or
+light input; it combines the sampled texture with the captured vertex tint.
+This is a confirmed native lighting-path gap and a plausible contributor to
+the flat/grayscale world, though it does not by itself prove which color each
+visible surface should have.
+
+The renderer successfully resolves native Sly image and palette records. A
+captured conversion of texture `0x2a80` (64x128 PSMT4) is purple in
+`texture_2a80_0.ppm`; the run also produced two alternate CLUT conversions.
+That proves this texture conversion retains chroma, but it does not prove the
+current distorted roof samples this texture correctly. Avoid applying an
+arbitrary global tint. Next, implement a port-only CPU light-group selection
+and native OpenGL shading adapter from captured normals and light data, then
+compare a known surface's final color with a frame-matched reference. Keep
+`sly1-decomp` source unchanged; no VU/GS renderer change is intended.
+
+Evidence log: `/home/reaper/sly/native-color-audit-20261128/headless-one-cross.log`.
+The run used the native launcher with a hidden window and ended at its bounded
+timeout; no emulator was used.
