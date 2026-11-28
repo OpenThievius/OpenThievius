@@ -6,6 +6,27 @@
 > Dated entries below preserve investigation history and may contain
 > superseded conclusions. Use the current checkpoint at the top for status.
 
+**Current native VU progress (2026-11-29):** A trace of VU1 entry `0x110`
+matched the US retail microcode upload hash `1AE4A8D6` and Sly1-NX's `Particles`
+entry. The interpreter stopped first at `0x157` (`ESIN P, vf21w`), then at
+`0x191` (`ESQRT P, vf22y`). The native runtime now implements the scalar EFU
+instruction family in port code; both stops are gone, and the bounded hidden
+run proceeds into the rest of the VIF stream. It then reaches the separate
+entry `0x26d` outline routine and exhausts its existing 16,384-instruction
+limit at PC `0x28c` (VI8=145, VI9=1). Keep that limit finite until the loop
+counters and work size are understood. The host32 build succeeds with 194/194
+Sly units and 86/86 port backfills; the link frontier remains 790/791. This is
+runtime progress, not a playable or visual milestone. Traces are under
+`/home/reaper/sly/native-vu110-efu-20261129/` and
+`/home/reaper/sly/native-vu26d-budget-20261129/`.
+
+The earlier exact-signature handler at entry `0x318` also completes the
+`MatrixAt14` program rather than exhausting its interpreter budget. It remains
+isolated in port runtime code and applies only to the six matching uploaded
+instruction words. The prior capture still shows the malformed Paris roof and
+distorted Sly; see
+`/home/reaper/sly/native-vu318-handler-20261128/frame-07.png`.
+
 The active host32 cache uses the refreshed decomp `91de6fc6`, native OpenGL
 ON, and VU NDC OFF. The rebuilt launcher reaches Paris world `0x870cf0` after
 one process-local Cross press and renders a native OpenGL frame. It remains

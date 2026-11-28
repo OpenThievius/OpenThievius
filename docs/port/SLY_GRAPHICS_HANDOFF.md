@@ -1,6 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+## Native VU1 particle instruction support (2026-11-29)
+
+The bounded hidden native run stopped in VU1 entry `0x110` at PC `0x157`,
+where the US retail microcode disassembly identifies `ESIN P, vf21w`. After
+adding the generic scalar EFU operations to the port runtime, it advanced to
+PC `0x191`, `ESQRT P, vf22y`; that operation is now covered by the same
+instruction family. The uploaded program matches Sly1-NX's chunk hash
+`1AE4A8D6` and its `Particles` entry. This adapts instruction semantics into
+our native runtime; it does not route graphics through Sly1-NX's VU1/GS
+renderer. The matching decompilation sources remain untouched.
+
+The next bounded run passed entry `0x110` and reached a separate budget stop at
+entry `0x26d`, PC `0x28c`, after its scoped 16,384-instruction allowance.
+Sly1-NX maps this address in chunk `7B92AF0F` to `Outlines`, which projects
+vertices and writes GS packets. Since native OpenGL is the target, do not add
+that VU/GS renderer handler to the native display path. At the stop VI8=145
+and VI9=1; keep the limit finite and trace the live loop only if it affects
+native game progress. The build and trace are in
+`/home/reaper/sly/native-vu26d-budget-20261129/`. No current capture from this
+run demonstrates a graphics improvement or playability.
+
+An earlier exact-signature handler for Sly1-NX's `MatrixAt14` microprogram at
+entry `0x318` also removes the prior VU budget stop at that entry. It matches
+the six uploaded instruction pairs and executes the matrix in port runtime
+code only. Its capture still shows the known malformed Paris roof and
+distorted Sly:
+`/home/reaper/sly/native-vu318-handler-20261128/frame-07.png`.
+
 ## Native OpenGL scene upload (2026-11-28)
 
 The regular native scene pass formerly called `glBufferData` once per mesh
