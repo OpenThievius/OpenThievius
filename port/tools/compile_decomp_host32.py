@@ -5750,6 +5750,7 @@ void LoadEffectSpawner"""
             # attachment vtables through typed shims and leave each matched
             # function body/signature unchanged in the staged decomp copy.
             wrappers = """
+void CombineChildPoseRotations(ChildPoseSource* self, f32 t, Mat3* outRot, Vec4* outVec);
 static void sly1_host_GetOwnerPosition(Attachment* self, f32 t, Vec4* out1, Vec4* out2) { GetOwnerPosition(self, out1, out2); }
 static void sly1_host_GetOwnerRotation(Attachment* self, f32 t, Mat3* out1, Vec4* out2) { GetOwnerRotation(self, out1, out2); }
 static void sly1_host_GetSnapshotPosition(OwnerSnapshotAttachment* self, f32 t, Vec4* out1, Vec4* out2) { GetSnapshotPosition(self, out1, out2); }
@@ -5759,7 +5760,7 @@ static void sly1_host_GetLinkedRotation(OwnerPointerAttachment* self, f32 t, Mat
 static void sly1_host_GetAimPoseRotation(TiltValueAttachment* self, f32 t, Mat3* out, Vec4* vec) { GetAimPoseRotation(self, out, vec); }
 static void sly1_host_GetTrackPosition(TrackFollowAttachment* self, f32 t, Vec4* out1, Vec4* out2) { GetTrackPosition(self, out1, out2, t); }
 static void sly1_host_GetTrackRotation(TrackFollowAttachment* self, f32 t, Mat3* out1, Vec4* out2) { GetTrackRotation(self, out1, out2, t); }
-static void sly1_host_CombineChildPoseRotations(ChildPoseSource* self, f32 t, Mat3* outRot, Vec4* outVec) { CombineChildPoseRotations(self, outRot, outVec, t); }
+static void sly1_host_CombineChildPoseRotations(ChildPoseSource* self, f32 t, Mat3* outRot, Vec4* outVec) { CombineChildPoseRotations(self, t, outRot, outVec); }
 """
             needle = "extern const T2195_Vt g_ownerPoseSourceMethods = {"
             if adapted.count(needle) != 1:

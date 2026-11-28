@@ -8959,3 +8959,30 @@ the latest exact-source/request capture still implicates mesh `0x00a13300`,
 but strip restart splitting did not remove it. Reconstruct the game's ordered
 strip triangles and compare them with the native OpenGL stream before changing
 placement or projection.
+
+### Native child-pose output ABI correction (2026-11-28)
+
+The attachment trace identified `CombineChildPoseRotations` as the active
+rotation callback for Sly's root pose. The staged host generator rewrites this
+matched function's definition to the native callback order
+`(self, time, outRot, outVec)`, while its upstream declaration remains in the
+EE-oriented order `(self, outRot, outVec, time)`. The port vtable shim had been
+calling that rewritten definition using the old order. Consequently its output
+matrix pointer was null and the callback wrote to fallback local storage; the
+caller retained an uninitialized rotation matrix. The port-only shim now calls
+the generated function in its rewritten order. The decompilation source and
+matched function body remain unchanged.
+
+After rebuilding, the native OpenGL capture at
+`/home/reaper/sly/native-attachment-update-20261128/frames/preview.png` shows
+the Paris scene and Sly, with a finite root transform. This confirms a real
+rendering improvement, but the game is not yet playable: some linked limbs
+still produce invalid poses and the foreground roof remains distorted. The
+bounded `link-math.log` trace shows two link constraints entering with invalid
+frame positions and two more with finite chain positions but a NaN target
+vector. In matched `ApplyLinkConstraint`, that target starts in the link
+record's `q60[0]` and is transformed from the state frame to its ancestor frame.
+Trace that record and frame conversion next; do not clamp solver inputs or
+replace the matched solver. This follows the `sly1-nx` staged-data approach in
+[`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md), while keeping rendering on the
+native OpenGL path.
