@@ -15,6 +15,16 @@ broken. The latest baseline is
 comparison is
 `/home/reaper/sly/native-skin-refresh-20261128/frame-07.png`.
 
+**Native OpenGL upload improvement (2026-11-28):** the regular scene pass now
+packs the completed mesh snapshot and uploads its vertex data once instead
+of replacing the stream buffer for each source mesh/material draw. The hidden
+Paris run recorded 463 meshes and 17,430 vertices in one 627,480-byte upload
+per scene pass. Its image differs from the previous capture at about 0.21% of
+pixels, consistent with slight scene motion between runs. The roof, broken Sly
+mesh, and gray architecture remain. This removes repeated buffer uploads but
+does not establish an FPS improvement. Build and capture:
+`/home/reaper/sly/native-batched-upload-20261128/`.
+
 The exact source of the roof was remeasured on this build: unskinned mesh
 `0x00a13300`, request `0x005e4a80`, owner `0x00a80820`, part `0x00bcb4d0`.
 Its central draw changes 33,813 RGB pixels in ROI `(300,360,300,200)` and

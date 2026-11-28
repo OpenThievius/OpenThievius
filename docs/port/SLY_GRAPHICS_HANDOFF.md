@@ -1,6 +1,24 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Sly 1 native graphics handoff
 
+## Native OpenGL scene upload (2026-11-28)
+
+The regular native scene pass formerly called `glBufferData` once per mesh
+draw, including repeated material passes over the same vertex data. It now
+packs the completed scene snapshot and uploads the unchanged vertex stream
+once per pass, then draws each mesh at its offset. Diagnostic modes that
+expand or scale vertices retain their existing per-draw path. The bounded
+headless Paris capture recorded one 627,480-byte upload for 463 meshes and
+17,430 vertices. Compared with the prior frame, about 0.21% of pixels differ;
+the image remains visually the same, with the known oversized roof, distorted
+Sly, and mostly gray buildings. This is a reduction in buffer upload calls,
+not a measured frame-rate result. The build and run are in
+`/home/reaper/sly/native-batched-upload-20261128/`.
+
+The next graphics work remains geometry/topology and player pose correctness,
+followed by the native OpenGL model-lighting/material path. Do not infer that
+this performance change fixes any of those visual blockers.
+
 > Dated entries below are a chronological evidence log. They may preserve
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.

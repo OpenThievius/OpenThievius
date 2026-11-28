@@ -818,7 +818,65 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
     g_world_shader->use();
     glBindVertexArray(g_world_vao);
     glBindBuffer(GL_ARRAY_BUFFER, g_world_vbo);
-    for (const auto& mesh : meshes) {
+    // The normal scene path used to replace the streaming VBO for every
+    // source mesh and every material pass. Pack one completed scene snapshot
+    // into a single upload instead; draw order and vertex bytes stay intact.
+    // Keep diagnostic geometry modes on their per-draw upload path because
+    // they may expand or alter the source vertices.
+    constexpr std::size_t kMaxBatchedVertexBytes = 64u * 1024u * 1024u;
+    const bool has_scale_override =
+        std::getenv("OPENRAC_SLY_WORLD_SCALE") != nullptr;
+    const bool has_strip_split =
+        std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
+        std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr;
+    bool batch_scene_vertices = debug_primitive == GL_TRIANGLE_STRIP &&
+        std::getenv("OPENRAC_SLY_WORLD_RAW_TRIANGLES") == nullptr &&
+        !has_scale_override && !has_strip_split;
+    std::vector<std::size_t> mesh_vertex_offsets(meshes.size(), 0u);
+    std::size_t scene_vertex_float_count = 0u;
+    if (batch_scene_vertices) {
+        for (const NativeWorldMesh& mesh : meshes) {
+            if (mesh.render_target != target_pass || mesh.vertices.size() < 27u ||
+                mesh.vertices.size() > 4096u * 9u)
+                continue;
+            if (mesh.vertices.size() >
+                    (kMaxBatchedVertexBytes / sizeof(float)) -
+                        scene_vertex_float_count) {
+                batch_scene_vertices = false;
+                break;
+            }
+            scene_vertex_float_count += mesh.vertices.size();
+        }
+        if (batch_scene_vertices && scene_vertex_float_count != 0u) {
+            std::vector<float> scene_vertex_stream;
+            scene_vertex_stream.reserve(scene_vertex_float_count);
+            for (std::size_t i = 0; i < meshes.size(); ++i) {
+                const NativeWorldMesh& mesh = meshes[i];
+                if (mesh.render_target != target_pass || mesh.vertices.size() < 27u ||
+                    mesh.vertices.size() > 4096u * 9u)
+                    continue;
+                mesh_vertex_offsets[i] = scene_vertex_stream.size() / 9u;
+                scene_vertex_stream.insert(scene_vertex_stream.end(),
+                                           mesh.vertices.begin(),
+                                           mesh.vertices.end());
+            }
+            glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(scene_vertex_stream.size() * sizeof(float)),
+                         scene_vertex_stream.data(), GL_STREAM_DRAW);
+            if (std::getenv("OPENRAC_TRACE_SLY_WORLD") != nullptr) {
+                static unsigned batch_upload_notices = 0;
+                if (batch_upload_notices++ < 8u)
+                    std::fprintf(stderr,
+                                 "[native sly scene vertex upload] meshes=%zu vertices=%zu bytes=%zu uploads=1\n",
+                                 meshes.size(), scene_vertex_stream.size() / 9u,
+                                 scene_vertex_stream.size() * sizeof(float));
+            }
+        } else if (scene_vertex_float_count == 0u) {
+            batch_scene_vertices = false;
+        }
+    }
+    for (std::size_t mesh_index = 0; mesh_index < meshes.size(); ++mesh_index) {
+        const auto& mesh = meshes[mesh_index];
         if (mesh.render_target != target_pass) continue;
         if (std::getenv("OPENRAC_TRACE_SLY_GL_MESH_BOUNDS") != nullptr) {
             static unsigned queued_mesh_notices = 0;
@@ -1825,21 +1883,26 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
             glDrawArrays(GL_TRIANGLES, 0,
                          static_cast<GLsizei>(triangles.size() / 9u));
         } else {
-            std::vector<float> scaled_vertices;
-            const float* vertex_data = mesh.vertices.data();
-            if (position_scale != 1.0f) {
-                scaled_vertices = mesh.vertices;
-                for (std::size_t i = 0; i < scaled_vertices.size(); i += 9u) {
-                    scaled_vertices[i] *= position_scale;
-                    scaled_vertices[i + 1u] *= position_scale;
-                    scaled_vertices[i + 2u] *= position_scale;
-                }
-                vertex_data = scaled_vertices.data();
-            }
-            glBufferData(GL_ARRAY_BUFFER,
-                         static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
-                         vertex_data, GL_STREAM_DRAW);
             const std::size_t vertex_count = mesh.vertices.size() / 9u;
+            GLint first_vertex = 0;
+            if (batch_scene_vertices) {
+                first_vertex = static_cast<GLint>(mesh_vertex_offsets[mesh_index]);
+            } else {
+                std::vector<float> scaled_vertices;
+                const float* vertex_data = mesh.vertices.data();
+                if (position_scale != 1.0f) {
+                    scaled_vertices = mesh.vertices;
+                    for (std::size_t i = 0; i < scaled_vertices.size(); i += 9u) {
+                        scaled_vertices[i] *= position_scale;
+                        scaled_vertices[i + 1u] *= position_scale;
+                        scaled_vertices[i + 2u] *= position_scale;
+                    }
+                    vertex_data = scaled_vertices.data();
+                }
+                glBufferData(GL_ARRAY_BUFFER,
+                             static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(float)),
+                             vertex_data, GL_STREAM_DRAW);
+            }
             const bool restart_split =
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_RESTARTS") != nullptr ||
                 std::getenv("OPENRAC_SLY_WORLD_SPLIT_STRIPS") != nullptr;
@@ -1848,7 +1911,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                 // builder; FrameSource records select VU data transfers, not
                 // primitive boundaries. Preserve the ordered vertex stream
                 // as one strip unless an explicit topology diagnostic is set.
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertex_count));
+                glDrawArrays(GL_TRIANGLE_STRIP, first_vertex,
+                             static_cast<GLsizei>(vertex_count));
             } else {
                 // Diagnostic hypothesis only: a strip restart may repeat one
                 // of the current run's first two vertices. Compare source
@@ -1875,7 +1939,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                         }
                     }
                     if ((same_a || same_b) && vertex - run_begin >= 3u) {
-                        glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                        glDrawArrays(GL_TRIANGLE_STRIP,
+                                     first_vertex + static_cast<GLint>(run_begin),
                                      static_cast<GLsizei>(vertex - run_begin));
                         if (std::getenv("OPENRAC_TRACE_SLY_STRIP_SPLITS") != nullptr &&
                             split_notices++ < 16u) {
@@ -1896,7 +1961,8 @@ void render_world_meshes(const std::vector<NativeWorldMesh>& meshes,
                     }
                 }
                 if (vertex_count - run_begin >= 3u)
-                    glDrawArrays(GL_TRIANGLE_STRIP, static_cast<GLint>(run_begin),
+                    glDrawArrays(GL_TRIANGLE_STRIP,
+                                 first_vertex + static_cast<GLint>(run_begin),
                                  static_cast<GLsizei>(vertex_count - run_begin));
             }
         }
