@@ -5743,24 +5743,44 @@ void LoadEffectSpawner"""
                 if adapted.count(needle) != 1:
                     raise RuntimeError("expected pose-source rotation trace site: " + needle[:80])
                 adapted = adapted.replace(needle, replacement, 1)
-        if rel.as_posix() == "main/pose_source.cpp":
-            # The attachment vtable ABI passes time before the output pointers.
-            # These two track callbacks were decompiled with time last and are
-            # cast into those slots. That cast works in the retail EE calling
-            # convention, but shifts the stack arguments in the native i386
-            # host build. Reorder only the staged definitions so the host
-            # callback signatures match AttachGetPos/AttachGetRot; keep the
-            # matched decompilation source untouched.
-            callback_abis = (
-                ("void GetTrackPosition(TrackFollowAttachment* self, Vec4* a1, Vec4* a2, f32 f)",
-                 "void GetTrackPosition(TrackFollowAttachment* self, f32 f, Vec4* a1, Vec4* a2)"),
-                ("void GetTrackRotation(TrackFollowAttachment* self, Mat3* a1, Vec4* a2, f32 f)",
-                 "void GetTrackRotation(TrackFollowAttachment* self, f32 f, Mat3* a1, Vec4* a2)"),
+        if rel.as_posix() == "main/class_descriptors.cpp":
+            # The EE places callback arguments in registers, so these cast
+            # function pointers can hide mismatched source signatures. Native
+            # i386 calls use the declared stack order. Route only the host
+            # attachment vtables through typed shims and leave each matched
+            # function body/signature unchanged in the staged decomp copy.
+            wrappers = """
+static void sly1_host_GetOwnerPosition(Attachment* self, f32 t, Vec4* out1, Vec4* out2) { GetOwnerPosition(self, out1, out2); }
+static void sly1_host_GetOwnerRotation(Attachment* self, f32 t, Mat3* out1, Vec4* out2) { GetOwnerRotation(self, out1, out2); }
+static void sly1_host_GetSnapshotPosition(OwnerSnapshotAttachment* self, f32 t, Vec4* out1, Vec4* out2) { GetSnapshotPosition(self, out1, out2); }
+static void sly1_host_GetSnapshotRotation(OwnerSnapshotAttachment* self, f32 t, Mat3* out1, Vec4* out2) { GetSnapshotRotation(self, out1, out2); }
+static void sly1_host_GetLinkedPosition(OwnerPointerAttachment* self, f32 t, Vec4* out1, Vec4* out2) { GetLinkedPosition(self, out1, out2); }
+static void sly1_host_GetLinkedRotation(OwnerPointerAttachment* self, f32 t, Mat3* out1, Vec4* out2) { GetLinkedRotation(self, out1, out2); }
+static void sly1_host_GetAimPoseRotation(TiltValueAttachment* self, f32 t, Mat3* out, Vec4* vec) { GetAimPoseRotation(self, out, vec); }
+static void sly1_host_GetTrackPosition(TrackFollowAttachment* self, f32 t, Vec4* out1, Vec4* out2) { GetTrackPosition(self, out1, out2, t); }
+static void sly1_host_GetTrackRotation(TrackFollowAttachment* self, f32 t, Mat3* out1, Vec4* out2) { GetTrackRotation(self, out1, out2, t); }
+static void sly1_host_CombineChildPoseRotations(ChildPoseSource* self, f32 t, Mat3* outRot, Vec4* outVec) { CombineChildPoseRotations(self, outRot, outVec, t); }
+"""
+            needle = "extern const T2195_Vt g_ownerPoseSourceMethods = {"
+            if adapted.count(needle) != 1:
+                raise RuntimeError("expected attachment vtable host ABI insertion site")
+            adapted = adapted.replace(needle, wrappers + needle, 1)
+            callbacks = (
+                ("(AttachGetPos)GetOwnerPosition", "(AttachGetPos)sly1_host_GetOwnerPosition", 3),
+                ("(AttachGetRot)GetOwnerRotation", "(AttachGetRot)sly1_host_GetOwnerRotation", 1),
+                ("(AttachGetPos)GetSnapshotPosition", "(AttachGetPos)sly1_host_GetSnapshotPosition", 1),
+                ("(AttachGetRot)GetSnapshotRotation", "(AttachGetRot)sly1_host_GetSnapshotRotation", 1),
+                ("(AttachGetPos)GetLinkedPosition", "(AttachGetPos)sly1_host_GetLinkedPosition", 1),
+                ("(AttachGetRot)GetLinkedRotation", "(AttachGetRot)sly1_host_GetLinkedRotation", 1),
+                ("(AttachGetRot)GetAimPoseRotation", "(AttachGetRot)sly1_host_GetAimPoseRotation", 1),
+                ("(AttachGetPos)GetTrackPosition", "(AttachGetPos)sly1_host_GetTrackPosition", 1),
+                ("(AttachGetRot)GetTrackRotation", "(AttachGetRot)sly1_host_GetTrackRotation", 1),
+                ("(AttachGetRot)CombineChildPoseRotations", "(AttachGetRot)sly1_host_CombineChildPoseRotations", 1),
             )
-            for old, new in callback_abis:
-                if adapted.count(old) != 1:
-                    raise RuntimeError("expected track callback host ABI site: " + old)
-                adapted = adapted.replace(old, new, 1)
+            for old, new, expected in callbacks:
+                if adapted.count(old) != expected:
+                    raise RuntimeError("expected attachment host ABI table slot: " + old)
+                adapted = adapted.replace(old, new)
         # Matching units declare AddGifRegisterWrite with inconsistent host
         # types. The retail ABI is (writer, 32-bit register, 64-bit value);
         # normalize every staged declaration and definition to that layout.

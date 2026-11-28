@@ -8927,3 +8927,35 @@ then compare it to the OpenGL vertex stream; do not change camera scale or
 model placement without evidence from that comparison. Input follow-up should
 sample player motion after the scheduled pad interval so we can distinguish
 working pad delivery from working movement.
+
+### Native attachment callback ABI check (2026-11-28)
+
+The decomp callback type `AttachGetPos`/`AttachGetRot` includes a time argument
+before its output pointers. Several matched callbacks such as
+`GetSnapshotPosition`, `GetLinkedRotation`, and `GetTrackPosition` have
+different source signatures because the EE calling convention passes values
+in registers. A prior core showed `GetSnapshotPosition` receiving `t = 0` in
+the first output-pointer slot and faulting when it wrote through that address.
+The host32 generator now adds typed, port-only wrappers in the staged
+`class_descriptors.cpp` table for the affected position/rotation entries. It
+leaves `sly1-decomp` sources and their definitions unchanged. This follows the
+same boundary as the `sly1-nx` reuse plan: preserve game behavior and correct
+host ABI adaptation in the port layer.
+
+The rebuilt native OpenGL launcher compiled 194/194 matched units and 86/86
+port backfills, then ran hidden for 35 seconds against the user's US ELF and
+ISO. It reached repeated after-world captures without the prior pointer crash
+(timeout exit 137, not a game crash). The frame at
+`/home/reaper/sly/native-attachment-shim-20261128/frame-07.png` still has the
+large foreground roof wedge and Sly in a T-pose. The opt-in attachment trace
+still records many non-finite final matrices; this shim has not fixed the
+player pose. The next investigation should log the exact callback function
+and owner at the first non-finite output, then follow its time and output
+arguments through the call chain. Do not expand the shim list from signatures
+alone.
+
+The source/matrix capture discipline also remains applicable to the roof:
+the latest exact-source/request capture still implicates mesh `0x00a13300`,
+but strip restart splitting did not remove it. Reconstruct the game's ordered
+strip triangles and compare them with the native OpenGL stream before changing
+placement or projection.

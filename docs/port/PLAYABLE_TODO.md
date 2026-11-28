@@ -23,6 +23,18 @@ projects 17 vertices, 11 inside clip space. The local vertex bounds are
 `(-9789,1282,-28)`. This confirms a specific native OpenGL geometry/placement
 problem; it does not yet distinguish bad source geometry from a bad transform.
 
+**Latest callback-ABI check (2026-11-28):** the host generator now routes
+attachment callbacks with EE-style signatures through typed i386 shims in the
+staged descriptor table; the matched decompilation definitions are left
+unchanged. The rebuilt launcher reached the after-world capture without the
+previous `GetSnapshotPosition` output-pointer crash. However, the bounded
+capture still shows the foreground roof wedge and Sly in a T-pose, and the
+attachment trace contains many non-finite final matrices. This is a crash
+containment result, not a pose fix or playable milestone. Continue by tracing
+the first callback that produces a non-finite matrix and confirm which owner
+and callback table it uses before adding any more adapters. Evidence:
+`/home/reaper/sly/native-attachment-shim-20261128/`.
+
 The Nov 28 exact-source plus request-filter capture still isolates the same
 wedge, showing other source meshes are not required to produce it. The
 filtered draw still has multiple material instances. The projected row-vector
