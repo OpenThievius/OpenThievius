@@ -19,10 +19,50 @@ confirmed for this port. The project is AGPL-3.0-or-later.
 
 The two ports have different rendering backends. sly1-nx models Sly's VIF1,
 VU1 and GS flow and sends the resulting draws to Switch deko3d or Apple Metal.
-OpenThievius targets host-native services and a native OpenGL renderer. We
-can reuse Sly-specific findings and algorithms where they help, but the
-OpenThievius display path stays native OpenGL; do not add the VU1/GS pipeline
-as the gameplay renderer.
+OpenThievius targets host-native services and a native OpenGL renderer. Reuse
+the working port's validated graphics behavior and data contracts in that
+renderer; do not transplant its VU1 instruction path as the gameplay renderer.
+
+## Renderer reuse boundary (reviewed 2026-11-28)
+
+The current upstream tree is at [`2a7524a`](https://github.com/SlyC00per/sly1-nx/tree/2a7524a47c6fdbf1584469c7d33aaa7731bed17c). Its README documents the
+Switch release and an iOS port; the current tree does not contain an Android
+backend. The README and iOS notes describe the game, disc reader, audio, saves
+and most platform services as shared between Switch and iOS. Their GPU-facing
+renderers are separate: `port/switch/gpu.cpp` uses deko3d, while
+`port/apple/gpu_metal.mm` implements the same `port/gs_backend.h` draw contract
+with Metal.
+
+That is useful evidence that the game-facing render data can be shared across
+platforms. The portable work for this port is the Sly-specific draw behavior
+and inputs, expressed through our SDL/OpenGL path; neither GPU backend is a
+drop-in OpenGL module. Keep the boundary explicit:
+
+| sly1-nx source | Reuse here |
+|---|---|
+| `port/include/port/gs_backend.h` | Draw-state and vertex contract; compare fields with the native OpenGL submissions before expanding them. |
+| `port/include/port/gs_backend.h` `LitColoursOf` and `SkinQuads` | Validated lighting and skinning formulas to implement over host-native mesh data. These are rendering algorithms, not a requirement to run the VU interpreter. |
+| `port/apple/gpu_metal.mm`, `port/switch/gpu.cpp` | Reference how each backend applies the shared state, framebuffer alpha, blend, depth and texture behavior. Platform API calls and resource management need an OpenGL implementation. |
+| `port/render/gs.cpp`, `port/render/vu1_handlers.cpp` | Behavior and diagnostic reference for packet-derived cases. Do not make the VIF/VU1/GS interpreter the native gameplay renderer. |
+
+### First native OpenGL data gap
+
+In the current OpenThievius mesh capture, `sly1_native_capture_model_mesh`
+receives the source normal array and each vertex's normal index. It currently
+uses those normals only when `OPENRAC_DEBUG_SLY_WORLD_NORMAL_COLORS` is set;
+otherwise it stores position, base color and UV in the 9-float vertex record.
+`NativeWorldMesh` and the OpenGL shader therefore have no normal input for
+model lighting. The host submission also does not carry the per-part lighting
+parameters that sly1-nx's `LitColoursOf` consumes (`LitParams`: light
+directions, base, scale and color, plus the two starting sums and color scale).
+
+The next renderer integration should preserve source normals in the native
+mesh snapshot, carry the game-selected lighting inputs through the port-only
+submission boundary, and implement the validated lighting math in the OpenGL
+path. Keep skinning and lighting in host-native code/shaders and keep their
+inputs separate from the matching decompilation. Verify each against captured
+native mesh data and a matched scene frame before changing roof topology,
+global tint or default transforms.
 
 ## Best matches for our current blockers
 
