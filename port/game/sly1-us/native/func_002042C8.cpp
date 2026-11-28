@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Native replacement for the Sly libpad port-open and query boundary.
+// Native replacements for the Sly libpad port and mode-query boundary.
 // Retail forwards these requests to padman through SIF RPC. The native port
 // reads a DualShock-compatible report from its SDL input layer instead.
 
@@ -81,8 +81,20 @@ extern "C" int func_002047F8(int port, int slot, int info, int index) {
         !g_pads[port][slot].open || !refresh(port, slot))
         return 0;
 
-    // libpad's first info query returns the controller type from the report;
-    // type 7 is the pressure-capable DualShock mode used by Sly 1.
-    if (info == 1) return 7;
+    // sly1-nx models both current and extended controller IDs as type 7 for a
+    // connected DualShock. The game uses both values to decide whether to
+    // enter its mode-negotiation steps; returning zero for kind 2 leaves its
+    // PadRecord permanently at connection step 1, where PollPadInput ignores
+    // both sticks.
+    if (info == 1 || info == 2) return 7;
     return 0;
+}
+
+extern "C" int func_00204930(int port, int slot, int mode, int lock) {
+    (void)mode;
+    (void)lock;
+    // sly1-nx accepts the DualShock analog-mode request immediately when its
+    // native pad is connected. Do not send this host-only operation through
+    // the PS2 padman SIF RPC path, which has no native peer in this port.
+    return refresh(port, slot) ? 1 : 0;
 }

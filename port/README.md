@@ -44,13 +44,21 @@ path only; see the dated history in the [roadmap](../docs/port/ROADMAP.md).
 Port-only C backfills stay under `game/sly1-us/hand/native_c/` or
 `game/sly1-us/native/`, outside `sly1-decomp`.
 
-## Current native status (2026-11-22)
+## Current native status (2026-11-28)
 
-The sibling `sly1-decomp` checkout was recorded at `6d12fbc8` (2026-11-21):
+The sibling `sly1-decomp` checkout is current with upstream `91de6fc6`
+(2026-11-26):
 4,807/4,807 US functions and 100% of code matched; 99.97% of data matched.
 That coverage is not native-host readiness. The match includes 311 original
 assembly functions, and the host build needs port-only replacements and native
 services.
+
+The latest decomp update removed incompatible callback casts and reordered
+float parameters to match their callers across 15 shared functions. This is
+valuable source cleanup, but it also invalidated several host-generation
+rewrites that expected the old cast signatures. The adapter is being refreshed
+to leave the new, type-correct calls intact; keep these compatibility edits in
+`port/tools/compile_decomp_host32.py`, never in the matched sibling source.
 
 With process-local menu input, the host32 build reaches Paris gameplay state
 and advances game frames. Native OpenGL receives level meshes and textures

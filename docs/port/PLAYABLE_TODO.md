@@ -49,6 +49,36 @@ so this does not yet prove responsive gameplay. Extend that trace or sample
 player position after the input interval. Capture:
 `/home/reaper/sly/native-input-audit2-20261128/`.
 
+**Input follow-up (2026-11-28):** Comparing the native libpad adapter with
+[sly1-nx's pad implementation](https://github.com/SlyC00per/sly1-nx/blob/2a7524a47c6fdbf1584469c7d33aaa7731bed17c/port/platform/pad.cpp)
+found two missing host behaviors. The adapter returned DualShock type 7 for
+the current ID but zero for the extended ID, leaving Sly's record at
+connection step 1, where the matched `PollPadInput` skips analog decoding.
+After matching both IDs and completing the mode request locally, the record
+reaches step 2 and a hidden native run decodes injected `0xff` left-stick X as
+`1.0` in the global pad record. These are port-only replacements in
+`port/game/sly1-us/native/func_002042C8.cpp`; matched decomp sources remain
+unchanged. The same trace shows `g_padRouting=0`, `g_padSelectFlags=0x6`, and
+`ControlPlayer` receiving `g_blankPadRecord`, so player movement is still not
+verified. The flag combination is consistent with a bound entry queue; inspect
+its live index and pending entry before changing or clearing that lock. Logs:
+`/home/reaper/sly/native-pad-handshake2-20261128/run.log` and
+`/home/reaper/sly/native-pad-routing-20261128/run.log`.
+
+A longer hidden run now identifies that queue as index 5, kind 6, target object
+2435. Sly walks toward the target (position changed from about
+`(-4353, 9221, 171)` to `(-3789, 9121, 120)`), but the queue and route 0 remain
+active, so decoded left-stick input still goes only to the global pad record
+while `ControlPlayer` sees the blank record. The run also stops at VU1 PC
+`0x28b` after entry `MSCAL`, stream offset `0x11e470`, then exits with SIGSEGV
+after the VU1 instruction-budget warning. This is guest-side VU packet
+processing inside the native launcher; the displayed scene still uses native
+OpenGL, and no PS2 emulator was used. Do not raise the VU budget as a blind
+workaround. Trace the submitted packet to distinguish valid heavy work from bad
+input, then continue the queue/input trace separately. Log and captured native
+frame: `/home/reaper/sly/native-pad-playability-20261128/run.log` and
+`/home/reaper/sly/native-pad-playability-20261128/frame-07.png`.
+
 The native OpenGL path now applies weighted bone transforms for meshes whose
 bone and weight counts match. A focused trace of the Paris player confirmed
 four influences, valid palette indices and normalized sample weights; the

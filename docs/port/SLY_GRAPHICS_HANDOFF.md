@@ -5,6 +5,37 @@
 > superseded hypotheses and next steps; use the latest checkpoint at the top
 > for current status.
 
+### Native pad setup and queue trace (2026-11-28)
+
+The native SDL pad report was already reaching Sly, but the port adapter
+returned 7 for the current DualShock ID and 0 for the extended ID. That kept
+the matched pad state machine at step 1, where `PollPadInput` does not decode
+the sticks. Comparing against the pinned
+[sly1-nx pad implementation](https://github.com/SlyC00per/sly1-nx/blob/2a7524a47c6fdbf1584469c7d33aaa7731bed17c/port/platform/pad.cpp)
+showed that both IDs should be 7 and the analog-mode request should complete
+locally. The port-only replacements in `func_002042C8.cpp` now do that without
+changing `sly1-decomp`. The game reaches pad step 2 and decodes injected left
+stick X `0xff` as `1.0` in the global pad record.
+
+The player still receives `g_blankPadRecord`: `g_padRouting` is 0 while
+`g_padSelectFlags` is `0x6`. The control trace identifies the active item as
+queue index 5, kind 6, target object 2435. Across the longer run Sly's position
+moved from roughly `(-4353, 9221, 171)` to `(-3789, 9121, 120)` toward the
+target. Keep this separated from controller response because the queue
+currently owns movement and masks the record passed to `ControlPlayer`.
+
+Before the 80-second run could verify queue completion, native VU1 packet
+processing stopped at PC `0x28b` during an `MSCAL` submission, stream offset
+`0x11e470`. The client then exited with SIGSEGV. The window had already shown
+the native OpenGL Paris frame with a dominant malformed roof and broken Sly;
+this run used the native launcher, not a PS2 emulator. Keep the native OpenGL
+renderer as the display path. Diagnose the guest-side packet submitted at the
+fault before changing its instruction budget or treating the VU1/GS diagnostic
+renderer as a fix. Details and artifacts:
+[`PLAYABLE_TODO.md`](PLAYABLE_TODO.md#current-checkpoint-2026-11-28),
+`/home/reaper/sly/native-pad-playability-20261128/run.log`, and
+`/home/reaper/sly/native-pad-playability-20261128/frame-07.png`.
+
 ### Restore collider mesh world transforms in the native port (2026-11-22)
 
 The previous port-only `func_001B8820` copied source mesh bytes into the
