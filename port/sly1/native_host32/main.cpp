@@ -2868,6 +2868,51 @@ extern "C" void sly1_native_trace_model_lighting(
     }
 }
 
+extern "C" void sly1_native_trace_light_collector(
+    u32 world, u32 centre, float radius, u32 skip_mask, u32 max_lights,
+    u32 groups_address, u32 group_count, u32 selected_count, u32 strongest) {
+    static const bool enabled =
+        std::getenv("OPENRAC_TRACE_NATIVE_LIGHT_COLLECTOR") != nullptr;
+    if (!enabled) return;
+    static u32 notices = 0;
+    if (notices++ >= 32u) return;
+    const volatile float* point = reinterpret_cast<const volatile float*>(centre);
+    std::fprintf(stderr,
+                 "[native light collector] world=%#010x groups=%u skip=%#x max=%u centre=%g,%g,%g radius=%g ambient=%g selected=%u strongest=%u\n",
+                 world, group_count, skip_mask, max_lights,
+                 static_cast<double>(point[0]), static_cast<double>(point[1]),
+                 static_cast<double>(point[2]), static_cast<double>(radius),
+                 static_cast<double>(*reinterpret_cast<const volatile float*>(world + 0x1D6Cu)),
+                 selected_count, strongest);
+    const volatile u8* groups = reinterpret_cast<const volatile u8*>(groups_address);
+    for (u32 i = 0; i < group_count && i < 16u; ++i) {
+        const volatile u8* group = groups + i * 0x10u;
+        const u32 light_list = *reinterpret_cast<const volatile u32*>(group);
+        const int light_count = *reinterpret_cast<const volatile int*>(group + 4u);
+        std::fprintf(stderr,
+                     "[native light group] index=%u ptr=%#010x count=%d flags=%#x kind=%u slot=%d\n",
+                     i, light_list, light_count,
+                     *reinterpret_cast<const volatile u32*>(group + 8u),
+                     *reinterpret_cast<const volatile u16*>(group + 12u),
+                     *reinterpret_cast<const volatile short*>(group + 14u));
+        for (int j = 0; j < light_count && j < 2; ++j) {
+            const u32 light = *reinterpret_cast<const volatile u32*>(
+                light_list + static_cast<u32>(j) * 4u);
+            if (!native_guest_range_readable(light, 0x388u)) continue;
+            const volatile float* position =
+                reinterpret_cast<const volatile float*>(light + 0x140u);
+            std::fprintf(stderr,
+                         "[native light data] index=%u/%d ptr=%#010x kind=%u position=%g,%g,%g range=%g\n",
+                         i, j, light,
+                         *reinterpret_cast<const volatile u32*>(light + 0x2D0u),
+                         static_cast<double>(position[0]),
+                         static_cast<double>(position[1]),
+                         static_cast<double>(position[2]),
+                         static_cast<double>(*reinterpret_cast<const volatile float*>(light + 0x334u)));
+        }
+    }
+}
+
 extern "C" void sly1_native_trace_model_part_packet_range(
     u32 request, u32 part, u32 begin, u32 end, u32 meshes, u32 strips,
     u32 flags, u32 lit, u32 skinned) {

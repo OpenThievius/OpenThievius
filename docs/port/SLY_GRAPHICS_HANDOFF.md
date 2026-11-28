@@ -9025,3 +9025,30 @@ compare a known surface's final color with a frame-matched reference. Keep
 Evidence log: `/home/reaper/sly/native-color-audit-20261128/headless-one-cross.log`.
 The run used the native launcher with a hidden window and ended at its bounded
 timeout; no emulator was used.
+
+#### Collector follow-up: empty selections are expected for sampled buildings
+
+The preceding note incorrectly inferred that every zero-light result came
+from VU0 stubs. The direct host32 linker contains the port-only
+`func_00185150` backfill at the retail address, while the matched function is
+kept under a `decomp_` name. An opt-in collector trace in
+`port/game/sly1-us/native/func_00185150.cpp` and the host logger confirms that
+the Paris scene has one light group: kind 1, one point light, group flags 5.
+The light record is valid and reports position `(3018.05, 2366.95, -3029.88)`
+and range 700. The sampled building spheres are thousands of units away, so
+their zero selected lights and strongest mode 0 are consistent with the CPU
+range test. This does not explain all scene color loss.
+
+The remaining confirmed renderer gap is more direct: native OpenGL captures
+the source tint and UVs, but does not retain the normal in its regular vertex
+stream or evaluate any per-vertex light. The diagnostic normal-color mode is
+not enabled in normal rendering. Use sly1-nx's `LitParams` / `LitColoursOf`
+work as the reference for the software lighting formula, then capture the
+actual VU1 lighting parameters for one identified mesh and compare computed
+colors before enabling the native shader path. Do not substitute an arbitrary
+ambient tint or treat these collector traces as validation of final lighting.
+
+The diagnostic run used the native OpenGL launcher with a hidden window, the
+configured US ELF and ISO, and one process-local Cross to enter Paris. It was
+bounded at 22 seconds and ended by timeout (exit 137); no emulator was used.
+Logs: `/home/reaper/sly/native-light-collector-20261128/headless-details.log`.

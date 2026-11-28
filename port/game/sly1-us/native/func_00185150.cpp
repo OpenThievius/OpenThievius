@@ -5,6 +5,9 @@
 #include "cone_volume.h"
 #include "world.h"
 
+extern "C" void sly1_native_trace_light_collector(
+    u32, u32, f32, u32, u32, u32, u32, u32, u32);
+
 struct LightGroup {
     void** lights;
     s32 count;
@@ -136,5 +139,8 @@ s32 func_00185150(World* world, const Vec4* centre, f32 radius,
     *outCount = count;
     if (flagged != 0)
         *flagged = flaggedCount;
+    sly1_native_trace_light_collector((u32)world, (u32)centre, radius,
+        skipMask, (u32)maxLights, (u32)g_lightGroups,
+        (u32)g_lightGroupCount, (u32)count, (u32)strongest);
     return strongest;
 }

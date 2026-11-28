@@ -26,13 +26,18 @@ problem; it does not yet distinguish bad source geometry from a bad transform.
 **Color checkpoint (2026-11-28):** Paris is not meant to look monochrome. The
 PCSX2 reference has blue/purple night lighting and warm window lights, while
 the native OpenGL capture is mostly grayscale. A headless trace of the actual
-Paris scene found all 48 sampled lit model parts had `selected=0` lights. The
-host build currently stubs VU0 light-group selection and microprogram calls,
-and the OpenGL shader does not evaluate model normals/lights. This is a strong
-lighting-path blocker, though a native light/shading adapter still needs to be
-implemented and visually checked. Keep that adapter port-only; do not fake a
-global color tint. Details and capture: [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-world-color-and-light-selection-2026-11-28),
-`/home/reaper/sly/native-color-audit-20261128/`.
+The OpenGL shader does not evaluate model normals/lights, which remains a
+confirmed lighting-path gap. The first light-selection conclusion has since
+been refined: `CollectLightsForSphere` is already routed to the port-only CPU
+backfill, and the traced Paris group has one valid point light at
+`(3018,2367,-3030)`, range 700. The sampled building spheres are thousands of
+units away, so returning zero for those parts is expected. Do not treat the
+empty selection as proof that VU0 stubs explain the scene colors. Next, capture
+the VU1 lighting parameters for a known lit mesh and reproduce sly1-nx's
+validated lighting formula in the native OpenGL path, keeping all changes
+port-only. Do not add a global tint. Details and captures:
+[`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-world-color-and-light-selection-2026-11-28),
+`/home/reaper/sly/native-light-collector-20261128/`.
 
 **Latest callback-ABI check (2026-11-28):** the host generator now routes
 attachment callbacks with EE-style signatures through typed i386 shims in the
