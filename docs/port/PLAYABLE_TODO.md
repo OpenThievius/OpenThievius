@@ -70,35 +70,72 @@ port-only. Do not add a global tint. Details and captures:
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#native-opengl-world-color-and-light-selection-2026-11-28),
 `/home/reaper/sly/native-light-collector-20261128/`.
 
-**Latest callback-ABI check (2026-11-28):** the host generator now routes
+**Earlier callback-ABI check (2026-11-28; superseded below):** the host generator now routes
 attachment callbacks with EE-style signatures through typed i386 shims in the
 staged descriptor table; the matched decompilation definitions are left
 unchanged. The rebuilt launcher reached the after-world capture without the
 previous `GetSnapshotPosition` output-pointer crash. However, the bounded
-capture still shows the foreground roof wedge and Sly in a T-pose, and the
-attachment trace contains many non-finite final matrices. This is a crash
-containment result, not a pose fix or playable milestone. Continue by tracing
-the first callback that produces a non-finite matrix and confirm which owner
-and callback table it uses before adding any more adapters. Evidence:
+capture still shows the foreground roof wedge and distorted Sly. That run's
+attachment trace reported non-finite final matrices, but the recheck below did
+not reproduce them. Treat the old NaN report as unresolved historical output,
+not as the current pose diagnosis. Evidence:
 `/home/reaper/sly/native-attachment-shim-20261128/`.
 
-The Nov 28 exact-source plus request-filter capture still isolates the same
-wedge, showing other source meshes are not required to produce it. The
-filtered draw still has multiple material instances. The projected row-vector
+**Pose trace recheck (2026-11-28):** a fresh 15-second hidden launch with
+`OPENRAC_TRACE_ATTACH_COMPOSE=1` sampled Sly's attachment owner
+`0x018cedf0`. Its owner inverse (`e`), local pose (`q10`), and composed bone
+matrix (`m50`) were finite for all sampled entries; the corresponding final
+attachment matrices also remained finite. The earlier non-finite result was
+not reproduced, so do not continue adding callback shims or treat NaNs as the
+current pose cause. The trace itself was also reading 16 floats from 4-float
+position vectors and 12-float rotation matrices; its port-only dump lengths are
+now corrected. The fresh trace is
+`/home/reaper/sly/native-attachment-compose-fixed-20261129/run.log`. A new
+native OpenGL frame still has the foreground roof wedge and a visibly distorted
+Sly model: `/home/reaper/sly/native-current-frame-20261129/frame-07.png`.
+Next, compare a matched skinned draw's source vertices, bone indices/weights,
+palette matrices, and final host-skinned positions against the game's ordered
+native draw input. Keep the visual path on OpenGL and keep changes in the port.
+
+**Morph-path check (2026-11-28):** explicitly enabling the existing opt-in
+`OPENRAC_SLY_WORLD_MORPH=1` did not produce a morph draw for Sly's source mesh
+`0x00a113c0`; the trace showed its 12 meshes using four bone weights instead.
+The morph adapter ran for a separate source `0x00a11500`, so it is not the
+missing Sly animation path. The normalized frame difference was 0.000368
+(about 0.037%), consistent with slight scene motion; it did not visibly
+improve Sly. Keep morphing opt-in. Evidence:
+`/home/reaper/sly/native-player-morph-20261129/`.
+
+The Nov 28 exact-source capture still isolates the same wedge, showing other
+source meshes are not required to produce it. The projected row-vector
 transform agrees with the decomp's `Vu0::Transform` convention, but the
 uploaded 27-vertex strip still extends to NDC x `3.8841`. Preserve both
 possibilities: malformed strip input or an incorrect source placement/camera
 input. Do not change default scale, culling, or placement from the isolated
 image. Capture: `/home/reaper/sly/native-roof-source-request-20261128/`.
 
-A new isolated native comparison tested the repeated-reference strip-split
-hypothesis on that exact mesh. Splitting at source-reference repeats 4 and 12
-does not remove the large wedge, so leave restart splitting diagnostic-only.
-The next roof check is to establish the exact ordered vertex/triangle sequence
-produced for this source by the game's strip builder, then compare it with the
-native OpenGL vertex stream. The row-vector convention is supported; a
-frame-matched reference is still needed before changing placement. Captures
-are recorded in
+The source-layout trace for mesh `0x00a13300` is still missing. The port-only
+`OPENRAC_TRACE_SLY_STRIP_LAYOUT=1` hook can record its mesh-header offsets and
+frame-source GIF state, but an 18-second hidden run on 2026-11-28 produced
+only OpenGL startup lines and did not reach the Paris world; it used no input.
+The current decomp confirms `VertexRefs.nrm == 0xFF` and `.uv == 0xFF` mean
+missing normal/UV data, while `flags` bit 7 selects fog bias. None of these is
+a strip-restart marker. The repeated-position-reference split was already
+tested and did not remove the wedge. Next capture the filtered layout after
+reaching Paris, then compare its offsets and emitted packet spans with the
+native ordered vertex list. Do not infer restart boundaries from `0xFF`,
+`FrameSource` count/stride, or duplicated references alone. Keep default GL
+topology unchanged until that mapping is established.
+
+A prior isolated native comparison tested the repeated-reference strip-split
+hypothesis, splitting at source-reference repeats 4 and 12. It did not remove
+the large wedge, so leave restart splitting diagnostic-only. Its filter used
+request `0x005e4a80`, which is a neighboring draw and is not the exact roof
+request identified above. The roof-specific layout comparison remains open:
+establish the ordered vertex/triangle sequence produced for source
+`0x00a13300`, then compare it with the native OpenGL stream. The row-vector
+convention is supported; a frame-matched reference is still needed before
+changing placement. Captures are recorded in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#test-the-dominant-roof-strip-topology-2026-11-28).
 
 A bounded hidden input audit reached the Paris world and verified that

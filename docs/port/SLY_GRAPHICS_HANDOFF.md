@@ -9006,6 +9006,40 @@ but strip restart splitting did not remove it. Reconstruct the game's ordered
 strip triangles and compare them with the native OpenGL stream before changing
 placement or projection.
 
+### Attachment composition recheck (2026-11-28)
+
+A fresh bounded hidden launch with `OPENRAC_TRACE_ATTACH_COMPOSE=1` sampled
+Sly's 31-entry attachment owner `0x018cedf0`. The owner inverse (`e`), local
+pose (`q10`), and composed bone matrix (`m50`) were finite for the sampled
+entries; the corresponding attachment-list matrices at `entry + 0x50` were
+also finite. This run did not reproduce the non-finite final matrices reported
+in the earlier attachment-shim capture. Do not add more ABI wrappers based on
+that stale trace. The latest trace is
+`/home/reaper/sly/native-attachment-compose-fixed-20261129/run.log`.
+
+The trace had a second issue: it read 16 floats from the 4-float position
+fields and 12-float rotation fields, so its trailing values came from adjacent
+memory. The port-only diagnostic now prints each field's actual length. The
+fresh native frame still shows the roof wedge and a visibly distorted player
+model at `/home/reaper/sly/native-current-frame-20261129/frame-07.png`; finite
+attachment matrices therefore rule out only the prior NaN hypothesis, not the
+remaining pose defect. Next compare one frame-matched skinned draw's source
+vertices, bone indices and weights, palette matrices, and final host-skinned
+positions against the game's ordered native draw input. Keep the visible game
+path on native OpenGL and leave matched decompilation sources unchanged.
+
+### Player morph-path check (2026-11-28)
+
+The existing port-only morph adapter was enabled for a bounded hidden run with
+`OPENRAC_SLY_WORLD_MORPH=1`. It processed source `0x00a11500`, but not Sly's
+player mesh `0x00a113c0`; the player trace instead showed 12 meshes with four
+bone weights each. Comparing the normal and morph-enabled captures changed
+with a normalized difference of 0.000368 (about 0.037%), consistent with scene
+motion, and showed no visible player improvement. This rules out the current
+morph adapter as the missing player animation path. Keep it opt-in and continue
+with the matched player skin inputs and palette ordering. Evidence and frames
+are under `/home/reaper/sly/native-player-morph-20261129/`.
+
 ### Native child-pose output ABI correction (2026-11-28)
 
 The attachment trace identified `CombineChildPoseRotations` as the active
