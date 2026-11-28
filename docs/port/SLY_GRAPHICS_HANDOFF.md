@@ -8974,15 +8974,18 @@ the generated function in its rewritten order. The decompilation source and
 matched function body remain unchanged.
 
 After rebuilding, the native OpenGL capture at
-`/home/reaper/sly/native-attachment-update-20261128/frames/preview.png` shows
+`/home/reaper/sly/native-attachment-update-20261128/clean-frames/preview.png` shows
 the Paris scene and Sly, with a finite root transform. This confirms a real
 rendering improvement, but the game is not yet playable: some linked limbs
-still produce invalid poses and the foreground roof remains distorted. The
-bounded `link-math.log` trace shows two link constraints entering with invalid
-frame positions and two more with finite chain positions but a NaN target
-vector. In matched `ApplyLinkConstraint`, that target starts in the link
-record's `q60[0]` and is transformed from the state frame to its ancestor frame.
-Trace that record and frame conversion next; do not clamp solver inputs or
-replace the matched solver. This follows the `sly1-nx` staged-data approach in
+still produce invalid poses and the foreground roof remains distorted. A
+deeper `ApplyLinkConstraint` trace initially appeared to show NaN chain math,
+but it passed addresses of stack locals through integer arguments; this changes
+what the host compiler can assume about those locals and makes later values
+unreliable. A safer probe did confirm that the link record target and its
+frame-converted value are finite, and that their difference from the sampled
+chain point is finite at assignment. The later NaNs are therefore not a sound
+basis for a solver or data fix. The intrusive probes were removed. Revisit the
+IK issue with instrumentation that preserves typed pointer aliasing or a
+separate deterministic capture, following the staged-capture discipline in
 [`SLY1_NX_REFERENCE.md`](SLY1_NX_REFERENCE.md), while keeping rendering on the
 native OpenGL path.
