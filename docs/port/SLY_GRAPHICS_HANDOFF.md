@@ -8859,3 +8859,40 @@ process was stopped after the bounded capture; no lingering Sly launcher was
 found. The next useful milestone is one verified normal native frame with a
 correct player pose and coherent Paris geometry, not additional low-signal
 renderer toggles.
+
+### Apply sly1-nx capture discipline to the Paris roof (2026-11-28)
+
+Rebuilt `port_native_sdl_host32` against decomp `91de6fc6`; the build completed
+with warnings and linked the normal native OpenGL path. A 30-second hidden run
+reached Paris world `0x870cf0` / UI state 3, displayed sky, rooftops, and a
+bent but still malformed Sly, and captured frames in
+`/home/reaper/sly/native-input-audit2-20261128/`. This remains visibly
+non-playable. A process-local Up+Right sequence (`0x30`) appeared in native
+pad reads as held `0x0030` and later released. The player-motion trace had
+already reached its diagnostic cap before that sequence, so the run confirms
+input delivery only; movement response is still unverified. No desktop input
+was sent, and the launcher was stopped after the bounded capture.
+
+Following sly1-nx's renderer investigation method, I isolated a native OpenGL
+draw using both source and request filters. Source `0x00a13300` with request
+`0x005e4a80` still produces the same large wedge; the exact capture records 27
+submitted vertices and bounds extending to NDC x `3.8841` (11 vertices inside
+clip space). This shows other source meshes in the scene are not required to
+produce the wedge; the filtered draw still contains multiple material
+instances. The request filter alone is not a sufficient mesh identity: one
+request can have several source meshes, and a pooled request address must be
+checked against source, instance, and frame in the same run. Exact-source capture:
+`/home/reaper/sly/native-roof-source-request-20261128/`.
+
+The relevant sly1-nx lesson is to validate each stage's data and output
+separately: its renderer notes identify VIF transfers, VU1 output, and XGKICK
+draws as distinct stages. We are using that staged-capture approach to inspect
+the source mesh and native transform, while keeping gameplay rendering in
+OpenGL. The roof's host-side row-vector transform is consistent with the
+decomp's `Vu0::Transform` convention, and splitting at repeated refs did not
+remove the wedge. The next useful capture must establish the exact ordered
+vertex/triangle sequence produced by the game's strip builder for this mesh,
+then compare it to the OpenGL vertex stream; do not change camera scale or
+model placement without evidence from that comparison. Input follow-up should
+sample player motion after the scheduled pad interval so we can distinguish
+working pad delivery from working movement.

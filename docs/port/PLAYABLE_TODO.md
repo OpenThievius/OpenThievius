@@ -23,13 +23,31 @@ projects 17 vertices, 11 inside clip space. The local vertex bounds are
 `(-9789,1282,-28)`. This confirms a specific native OpenGL geometry/placement
 problem; it does not yet distinguish bad source geometry from a bad transform.
 
+The Nov 28 exact-source plus request-filter capture still isolates the same
+wedge, showing other source meshes are not required to produce it. The
+filtered draw still has multiple material instances. The projected row-vector
+transform agrees with the decomp's `Vu0::Transform` convention, but the
+uploaded 27-vertex strip still extends to NDC x `3.8841`. Preserve both
+possibilities: malformed strip input or an incorrect source placement/camera
+input. Do not change default scale, culling, or placement from the isolated
+image. Capture: `/home/reaper/sly/native-roof-source-request-20261128/`.
+
 A new isolated native comparison tested the repeated-reference strip-split
 hypothesis on that exact mesh. Splitting at source-reference repeats 4 and 12
 does not remove the large wedge, so leave restart splitting diagnostic-only.
-Next compare this same roof draw's guest model transform and camera projection
-to a frame-matched reference before changing projection or placement defaults.
-Captures are recorded in
+The next roof check is to establish the exact ordered vertex/triangle sequence
+produced for this source by the game's strip builder, then compare it with the
+native OpenGL vertex stream. The row-vector convention is supported; a
+frame-matched reference is still needed before changing placement. Captures
+are recorded in
 [`SLY_GRAPHICS_HANDOFF.md`](SLY_GRAPHICS_HANDOFF.md#test-the-dominant-roof-strip-topology-2026-11-28).
+
+A bounded hidden input audit reached the Paris world and verified that
+process-local Up+Right arrived at the game pad (`held=0x0030`) and was later
+released. The player-motion trace filled its cap before the injected movement,
+so this does not yet prove responsive gameplay. Extend that trace or sample
+player position after the input interval. Capture:
+`/home/reaper/sly/native-input-audit2-20261128/`.
 
 The native OpenGL path now applies weighted bone transforms for meshes whose
 bone and weight counts match. A focused trace of the Paris player confirmed
