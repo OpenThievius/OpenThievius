@@ -1484,6 +1484,38 @@ bool translate_lower(State* state, uint32_t word, uint32_t* next_pc,
         const uint32_t function = word & 0x3Fu;
         const uint32_t field = (word >> 6u) & 31u;
         const uint32_t special = (field << 2u) | (word & 3u);
+        if (special >= 0x70u && special <= 0x7Eu) {
+            const Vector vector = vf_read(*state, source);
+            const float scalar = vu_operand(vector[(word >> 21u) & 3u]);
+            const float x = vu_operand(vector[0]);
+            const float y = vu_operand(vector[1]);
+            const float z = vu_operand(vector[2]);
+            const float w = vu_operand(vector[3]);
+            const float sum2 = vu_add(vu_add(vu_mul(x, x), vu_mul(y, y)),
+                                      vu_mul(z, z));
+            const float max_finite = std::bit_cast<float>(0x7F7FFFFFu);
+            switch (special) {
+            case 0x70u: state->p = sum2; return true; // ESADD
+            case 0x71u: state->p = sum2 == 0.0f ? max_finite : vu_div(1.0f, sum2); return true;
+            case 0x72u: state->p = vu_sqrt(sum2); return true; // ELENG
+            case 0x73u:
+                state->p = sum2 == 0.0f ? max_finite : vu_div(1.0f, vu_sqrt(sum2));
+                return true;
+            case 0x74u: state->p = vu_result(std::atan2(y, x)); return true; // EATANxy
+            case 0x75u: state->p = vu_result(std::atan2(z, x)); return true; // EATANxz
+            case 0x76u: state->p = vu_add(vu_add(vu_add(x, y), z), w); return true; // ESUM
+            case 0x78u: state->p = vu_sqrt(scalar); return true; // ESQRT
+            case 0x79u:
+                state->p = vu_sqrt(scalar) == 0.0f
+                    ? max_finite : vu_div(1.0f, vu_sqrt(scalar));
+                return true; // ERSQRT
+            case 0x7Au: state->p = scalar == 0.0f ? max_finite : vu_div(1.0f, scalar); return true;
+            case 0x7Cu: state->p = vu_result(std::sin(scalar)); return true; // ESIN
+            case 0x7Du: state->p = vu_result(std::atan(scalar)); return true; // EATAN
+            case 0x7Eu: state->p = vu_result(std::exp(-scalar)); return true; // EEXP
+            default: break;
+            }
+        }
         if ((word & 0x7FFu) == 0x67Cu) { // MFP.dest VF[ft], P
             const float value = state->p;
             vf_write(state, target, {value, value, value, value},
@@ -2019,6 +2051,60 @@ extern "C" int openrac_guest_vu1_trace_target_context_matches(void) {
     return trace_vu1_xgkick_context_matches() ? 1 : 0;
 }
 
+namespace {
+
+// Port-only native translation of sly1-nx's MatrixAt14 handler. The handler is
+// selected by the exact six instruction words uploaded at entry 0x318 in this
+// microcode variant; other programs that reuse address 0x318 stay interpreted.
+bool is_sly1_matrix_at14_program() {
+    constexpr std::array<uint32_t, 12> signature{
+        0x800406BCu, 0x000002FFu,
+        0x10010004u, 0x000002FFu,
+        0x10022000u, 0x000002FFu,
+        0x420F070Fu, 0x000002FFu,
+        0x1003200Eu, 0x000002FFu,
+        0x8000033Cu, 0x400002FFu,
+    };
+    std::array<uint32_t, signature.size()> uploaded{};
+    std::memcpy(uploaded.data(), guest_address(kVu1Micro + 0x318u * 8u),
+                sizeof(uploaded));
+    return uploaded == signature;
+}
+
+void execute_sly1_matrix_at14() {
+    uint32_t top = 0;
+    std::memcpy(&top, guest_address(kVif1Top), sizeof(top));
+    top &= 0x3FFu;
+
+    std::array<Vector, 4> input{};
+    std::array<Vector, 4> global{};
+    std::array<Vector, 4> result{};
+    for (uint32_t row = 0; row < 4u; ++row) {
+        input[row] = data_read(top + 4u + row);
+        global[row] = data_read(top + row);
+    }
+    for (uint32_t row = 0; row < 4u; ++row) {
+        for (uint32_t lane = 0; lane < 4u; ++lane) {
+            float value = vu_mul(input[0][lane], global[row][0]);
+            value = vu_add(value, vu_mul(input[1][lane], global[row][1]));
+            value = vu_add(value, vu_mul(input[2][lane], global[row][2]));
+            result[row][lane] = vu_add(value,
+                vu_mul(input[3][lane], global[row][3]));
+        }
+    }
+
+    for (uint32_t row = 0; row < 4u; ++row) {
+        data_write(top + 14u + row, result[row], 0x318u);
+        vf_write(&g_state, 20u + row, input[row], 0xFu);
+        vf_write(&g_state, 24u + row, global[row], 0xFu);
+        vf_write(&g_state, 28u + row, result[row], 0xFu);
+    }
+    // The microcode's E-bit and its delay slot leave the PC at 0x31F.
+    g_state.pc = 0x31Fu;
+}
+
+}  // namespace
+
 extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_word,
                                            uint32_t* stopped_pc,
                                            uint32_t* stopped_pipeline,
@@ -2123,6 +2209,24 @@ extern "C" int openrac_guest_vu1_execute(uint32_t entry, uint32_t* unsupported_w
             if (end != setting && *end == '\0' && parsed > 0 && parsed <= 4'000'000ul)
                 instruction_limit = static_cast<uint32_t>(parsed);
         }
+    }
+    if (entry == 0x318u && is_sly1_matrix_at14_program()) {
+        execute_sly1_matrix_at14();
+        *unsupported_word = 0xFFFFFFFFu;
+        *paired_word = 0xFFFFFFFFu;
+        *stopped_pc = g_state.pc;
+        *stopped_pipeline = 0u;
+        static std::atomic<uint32_t> translated_count{0};
+        const char* handler_trace =
+            std::getenv("OPENRAC_TRACE_VU1_NATIVE_HANDLERS");
+        if (handler_trace != nullptr && handler_trace[0] != '\0' &&
+            handler_trace[0] != '0' &&
+            translated_count.fetch_add(1, std::memory_order_relaxed) < 16u) {
+            openrac::log::info(
+                "native VU1 Sly handler=matrix-at-14 entry=0x318 next_pc={:#x} submission={}",
+                g_state.pc, g_vu_trace_submission_id);
+        }
+        return 1;
     }
     struct RecentInstruction { uint32_t pc; uint32_t lower; uint32_t upper; };
     std::array<RecentInstruction, 16> recent{};
