@@ -9132,3 +9132,29 @@ The diagnostic run used the native OpenGL launcher with a hidden window, the
 configured US ELF and ISO, and one process-local Cross to enter Paris. It was
 bounded at 22 seconds and ended by timeout (exit 137); no emulator was used.
 Logs: `/home/reaper/sly/native-light-collector-20261128/headless-details.log`.
+
+### Player skinning default guard recheck (2026-11-28)
+
+The current working tree had removed the environment guard around the
+port-only CPU skinning adapter, so player vertices were being skinned on every
+native OpenGL run. This contradicted the earlier paired captures, which found
+that skinning changed Sly's fragmented silhouette but did not validate the
+palette mapping or produce a sound default. Restored the explicit
+`OPENRAC_SLY_WORLD_SKIN=1` opt-in while retaining the equality check between
+the part's bone count and the mesh weight count.
+
+The host32 target rebuilt successfully with 194/194 Sly units and 86/86 port
+backfills (790/791 direct-call frontier). A 22-second hidden run used the
+configured US ELF and ISO plus the process-local menu driver. It reached
+Paris, captured the after-world frame, and emitted no host-skin application
+records with the switch unset. The roof distortion remains; differences in
+Sly's pose between captures are not frame-matched. Frame and log:
+`/home/reaper/sly/native-skin-default-recheck-20261128/frame-07.png` and
+`/home/reaper/sly/native-skin-default-recheck-20261128/run.log`.
+
+The skin-packet trace found player mesh entries with four weights each,
+normalized sampled weights, and bone indices within the 31-entry attachment
+list. This is not enough to validate correspondence between each weight
+channel, its uploaded VU matrix slot, and the final host position. Keep the
+adapter opt-in until that mapping is compared against the ordered native draw
+inputs. Trace: `/home/reaper/sly/native-skin-packet-audit-20261128/run.log`.

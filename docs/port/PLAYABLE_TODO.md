@@ -36,6 +36,17 @@ broken. The latest baseline is
 comparison is
 `/home/reaper/sly/native-skin-refresh-20261128/frame-07.png`.
 
+**Player skinning default recheck (2026-11-28):** a fresh source audit found
+the port-only host skin adapter had become unconditional in the working tree,
+although earlier captures and this plan keep it diagnostic-only pending a
+validated pose. Restored the `OPENRAC_SLY_WORLD_SKIN=1` gate. The rebuilt
+host32 target succeeds (194/194 Sly units, 86/86 port backfills; frontier
+790/791). A hidden run with the switch unset reached Paris and captured
+`/home/reaper/sly/native-skin-default-recheck-20261128/frame-07.png`; no host
+skin applications were logged. The distorted roof remains, and this capture
+alone does not validate the player's pose. Keep skinning opt-in until the
+captured palette mapping is checked against the ordered native draw inputs.
+
 **Native OpenGL upload improvement (2026-11-28):** the regular scene pass now
 packs the completed mesh snapshot and uploads its vertex data once instead
 of replacing the stream buffer for each source mesh/material draw. The hidden
